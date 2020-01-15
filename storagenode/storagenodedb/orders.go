@@ -13,7 +13,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/storagenode/orders"
 )
 
@@ -179,7 +178,7 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests ...orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	txn, err := db.BeginTx(ctx, nil)
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return ErrOrders.Wrap(err)
 	}
@@ -187,7 +186,7 @@ func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests 
 	var notFoundErrs errs.Group
 	defer func() {
 		if err == nil {
-			err = txn.Commit()
+			err = tx.Commit()
 			if err == nil {
 				if len(notFoundErrs) > 0 {
 					// Return a class error to allow to the caler to identify this case
@@ -195,12 +194,12 @@ func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests 
 				}
 			}
 		} else {
-			err = errs.Combine(err, txn.Rollback())
+			err = errs.Combine(err, tx.Rollback())
 		}
 	}()
 
 	for _, req := range requests {
-		err := db.archiveOne(ctx, txn, archivedAt, req)
+		err := db.archiveOne(ctx, tx, archivedAt, req)
 		if err != nil {
 			if orders.OrderNotFoundError.Has(err) {
 				notFoundErrs.Add(err)
@@ -215,10 +214,10 @@ func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests 
 }
 
 // archiveOne marks order as being handled.
-func (db *ordersDB) archiveOne(ctx context.Context, txn dbwrap.Tx, archivedAt time.Time, req orders.ArchiveRequest) (err error) {
+func (db *ordersDB) archiveOne(ctx context.Context, tx *sql.Tx, archivedAt time.Time, req orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	result, err := txn.ExecContext(ctx, `
+	result, err := tx.ExecContext(ctx, `
 		INSERT INTO order_archive_ (
 			satellite_id, serial_number,
 			order_limit_serialized, order_serialized,

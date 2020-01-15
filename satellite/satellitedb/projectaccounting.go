@@ -110,7 +110,7 @@ func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, pro
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
 	query := `SELECT SUM(allocated) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start > ?;`
-	err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID[:], pb.PieceAction_GET, from).Scan(&sum)
+	err = db.db.QueryRow(db.db.Rebind(query), projectID[:], pb.PieceAction_GET, from).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}
@@ -133,7 +133,7 @@ func (db *ProjectAccounting) GetStorageTotals(ctx context.Context, projectID uui
 		GROUP BY interval_start
 		ORDER BY interval_start DESC LIMIT 1;`
 
-	err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID[:]).Scan(&intervalStart, &inlineSum, &remoteSum)
+	err = db.db.QueryRow(db.db.Rebind(query), projectID[:]).Scan(&intervalStart, &inlineSum, &remoteSum)
 	if err != nil || !inlineSum.Valid || !remoteSum.Valid {
 		return 0, 0, nil
 	}
@@ -192,17 +192,17 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 	storageQuery := db.db.Rebind(`
 		SELECT
-			bucket_storage_tallies.interval_start,
+			bucket_storage_tallies.interval_start, 
 			bucket_storage_tallies.inline,
 			bucket_storage_tallies.remote,
 			bucket_storage_tallies.object_count
-		FROM
-			bucket_storage_tallies
-		WHERE
-			bucket_storage_tallies.project_id = ? AND
-			bucket_storage_tallies.bucket_name = ? AND
-			bucket_storage_tallies.interval_start >= ? AND
-			bucket_storage_tallies.interval_start <= ?
+		FROM 
+			bucket_storage_tallies 
+		WHERE 
+			bucket_storage_tallies.project_id = ? AND 
+			bucket_storage_tallies.bucket_name = ? AND 
+			bucket_storage_tallies.interval_start >= ? AND 
+			bucket_storage_tallies.interval_start <= ? 
 		ORDER BY bucket_storage_tallies.interval_start DESC
 	`)
 
@@ -266,14 +266,14 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 // only process PieceAction_GET, PieceAction_GET_AUDIT, PieceAction_GET_REPAIR actions.
 func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.UUID, since, before time.Time) (totalEgress int64, err error) {
 	totalEgressQuery := db.db.Rebind(fmt.Sprintf(`
-		SELECT
-			COALESCE(SUM(settled) + SUM(inline), 0)
-		FROM
-			bucket_bandwidth_rollups
-		WHERE
-			project_id = ? AND
-			interval_start >= ? AND
-			interval_start <= ? AND
+		SELECT 
+			COALESCE(SUM(settled) + SUM(inline), 0)  
+		FROM 
+			bucket_bandwidth_rollups 
+		WHERE 
+			project_id = ? AND 
+			interval_start >= ? AND 
+			interval_start <= ? AND 
 			action IN (%d, %d, %d);
 	`, pb.PieceAction_GET, pb.PieceAction_GET_AUDIT, pb.PieceAction_GET_REPAIR))
 

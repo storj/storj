@@ -14,7 +14,6 @@ import (
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/dbschema"
-	"storj.io/storj/private/dbutil/dbwrap"
 )
 
 var (
@@ -52,7 +51,7 @@ func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbut
 		return DropSchema(ctx, cleanupDB, schemaName)
 	}
 
-	dbutil.Configure(dbwrap.SQLDB(db), mon)
+	dbutil.Configure(db, mon)
 	return &dbutil.TempDatabase{
 		DB:             db,
 		ConnStr:        connStrWithSchema,

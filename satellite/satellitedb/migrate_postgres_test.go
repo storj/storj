@@ -184,7 +184,7 @@ func pgMigrateTest(t *testing.T, connStr string) {
 
 		// insert data for new tables
 		if newdata := newData(expected); newdata != "" {
-			_, err = rawdb.ExecContext(ctx, newdata)
+			_, err = rawdb.Exec(newdata)
 			require.NoError(t, err, tag)
 		}
 

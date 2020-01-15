@@ -12,7 +12,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/postgreskv/schema"
 )
@@ -29,7 +28,7 @@ var (
 // Client is the entrypoint into a postgreskv data store
 type Client struct {
 	URL    string
-	pgConn dbwrap.DB
+	pgConn *sql.DB
 }
 
 // New instantiates a new postgreskv client given db URL
@@ -39,7 +38,7 @@ func New(dbURL string) (*Client, error) {
 		return nil, err
 	}
 
-	dbutil.Configure(dbwrap.SQLDB(pgConn), mon)
+	dbutil.Configure(pgConn, mon)
 
 	// TODO: this probably should not happen in constructor
 	err = schema.PrepareDB(context.TODO(), pgConn, dbURL)
@@ -49,7 +48,7 @@ func New(dbURL string) (*Client, error) {
 
 	return &Client{
 		URL:    dbURL,
-		pgConn: dbwrap.SQLDB(pgConn),
+		pgConn: pgConn,
 	}, nil
 }
 
@@ -70,7 +69,7 @@ func (client *Client) PutPath(ctx context.Context, bucket, key storage.Key, valu
 			VALUES ($1::BYTEA, $2::BYTEA, $3::BYTEA)
 			ON CONFLICT (bucket, fullpath) DO UPDATE SET metadata = EXCLUDED.metadata
 	`
-	_, err = client.pgConn.ExecContext(ctx, q, []byte(bucket), []byte(key), []byte(value))
+	_, err = client.pgConn.Exec(q, []byte(bucket), []byte(key), []byte(value))
 	return err
 }
 
@@ -88,7 +87,7 @@ func (client *Client) GetPath(ctx context.Context, bucket, key storage.Key) (_ s
 	}
 
 	q := "SELECT metadata FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA"
-	row := client.pgConn.QueryRowContext(ctx, q, []byte(bucket), []byte(key))
+	row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key))
 
 	var val []byte
 	err = row.Scan(&val)
@@ -113,7 +112,7 @@ func (client *Client) DeletePath(ctx context.Context, bucket, key storage.Key) (
 	}
 
 	q := "DELETE FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA"
-	result, err := client.pgConn.ExecContext(ctx, q, []byte(bucket), []byte(key))
+	result, err := client.pgConn.Exec(q, []byte(bucket), []byte(key))
 	if err != nil {
 		return err
 	}
@@ -162,7 +161,7 @@ func (client *Client) GetAllPath(ctx context.Context, bucket storage.Key, keys s
 			ON (pd.fullpath = pk.request AND pd.bucket = $1::BYTEA)
 		ORDER BY pk.ord
 	`
-	rows, err := client.pgConn.QueryContext(ctx, q, []byte(bucket), pq.ByteaArray(keys.ByteSlices()))
+	rows, err := client.pgConn.Query(q, []byte(bucket), pq.ByteaArray(keys.ByteSlices()))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -263,7 +262,7 @@ func (opi *orderedPostgresIterator) doNextQuery(ctx context.Context) (_ *sql.Row
 			 LIMIT $4
 		`
 	}
-	return opi.client.pgConn.QueryContext(ctx, query, []byte(opi.bucket), []byte(opi.opts.Prefix), []byte(start), opi.batchSize+1)
+	return opi.client.pgConn.Query(query, []byte(opi.bucket), []byte(opi.opts.Prefix), []byte(start), opi.batchSize+1)
 }
 
 func (opi *orderedPostgresIterator) Close() error {
@@ -324,7 +323,7 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 
 	if oldValue == nil && newValue == nil {
 		q := "SELECT metadata FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA"
-		row := client.pgConn.QueryRowContext(ctx, q, []byte(bucket), []byte(key))
+		row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key))
 		var val []byte
 		err = row.Scan(&val)
 		if err == sql.ErrNoRows {
@@ -342,7 +341,7 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 			ON CONFLICT DO NOTHING
 			RETURNING 1
 		`
-		row := client.pgConn.QueryRowContext(ctx, q, []byte(bucket), []byte(key), []byte(newValue))
+		row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(newValue))
 		var val []byte
 		err = row.Scan(&val)
 		if err == sql.ErrNoRows {
@@ -366,7 +365,7 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 		)
 		SELECT EXISTS(SELECT 1 FROM matching_key) AS key_present, EXISTS(SELECT 1 FROM updated) AS value_updated
 		`
-		row = client.pgConn.QueryRowContext(ctx, q, []byte(bucket), []byte(key), []byte(oldValue))
+		row = client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue))
 	} else {
 		q := `
 		WITH matching_key AS (
@@ -382,7 +381,7 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 		)
 		SELECT EXISTS(SELECT 1 FROM matching_key) AS key_present, EXISTS(SELECT 1 FROM updated) AS value_updated;
 		`
-		row = client.pgConn.QueryRowContext(ctx, q, []byte(bucket), []byte(key), []byte(oldValue), []byte(newValue))
+		row = client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue), []byte(newValue))
 	}
 
 	var keyPresent, valueUpdated bool

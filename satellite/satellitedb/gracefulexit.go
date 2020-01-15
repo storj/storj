@@ -29,7 +29,7 @@ func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.No
 	statement := db.db.Rebind(
 		`INSERT INTO graceful_exit_progress (node_id, bytes_transferred, pieces_transferred, pieces_failed, updated_at) VALUES (?, ?, ?, ?, ?)
 		 ON CONFLICT(node_id)
-		 DO UPDATE SET bytes_transferred = graceful_exit_progress.bytes_transferred + excluded.bytes_transferred,
+		 DO UPDATE SET bytes_transferred = graceful_exit_progress.bytes_transferred + excluded.bytes_transferred, 
 		 	pieces_transferred = graceful_exit_progress.pieces_transferred + excluded.pieces_transferred,
 		 	pieces_failed = graceful_exit_progress.pieces_failed + excluded.pieces_failed,
 		 	updated_at = excluded.updated_at;`,
@@ -174,11 +174,11 @@ func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj
 func (db *gracefulexitDB) GetIncomplete(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at, order_limit_send_count
-			FROM graceful_exit_transfer_queue
-			WHERE node_id = ?
-			AND finished_at is NULL
+			FROM graceful_exit_transfer_queue 
+			WHERE node_id = ? 
+			AND finished_at is NULL 
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
-	rows, err := db.db.QueryContext(ctx, db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
+	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -199,12 +199,12 @@ func (db *gracefulexitDB) GetIncomplete(ctx context.Context, nodeID storj.NodeID
 func (db *gracefulexitDB) GetIncompleteNotFailed(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at, order_limit_send_count
-			FROM graceful_exit_transfer_queue
-			WHERE node_id = ?
+			FROM graceful_exit_transfer_queue 
+			WHERE node_id = ? 
 			AND finished_at is NULL
 			AND last_failed_at is NULL
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
-	rows, err := db.db.QueryContext(ctx, db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
+	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -225,13 +225,13 @@ func (db *gracefulexitDB) GetIncompleteNotFailed(ctx context.Context, nodeID sto
 func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at, order_limit_send_count
-			FROM graceful_exit_transfer_queue
-			WHERE node_id = ?
+			FROM graceful_exit_transfer_queue 
+			WHERE node_id = ? 
 			AND finished_at is NULL
 			AND last_failed_at is not NULL
 			AND failed_count < ?
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
-	rows, err := db.db.QueryContext(ctx, db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)
+	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

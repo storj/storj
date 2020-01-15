@@ -4,7 +4,6 @@
 package dbschema
 
 import (
-	"context"
 	"sort"
 	"strings"
 
@@ -87,7 +86,7 @@ func QueryData(db Queryer, schema *Schema, quoteColumn func(string) string) (*Da
 		query := `SELECT ` + strings.Join(quotedColumns, ", ") + ` FROM ` + table.Name
 
 		err := func() (err error) {
-			rows, err := db.QueryContext(context.TODO(), query)
+			rows, err := db.Query(query)
 			if err != nil {
 				return err
 			}

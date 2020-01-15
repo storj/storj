@@ -16,7 +16,10 @@ import (
 	_ "storj.io/storj/private/dbutil/cockroachutil"
 )
 
-//go:generate bash gen.sh
+//go:generate dbx schema -d postgres -d cockroach satellitedb.dbx .
+//go:generate dbx golang -d postgres -d cockroach -t templates satellitedb.dbx .
+//go:generate bash -c "( echo '//lint:file-ignore * generated file'; cat satellitedb.dbx.go ) > satellitedb.dbx.go.tmp && mv satellitedb.dbx.go{.tmp,}"
+//go:generate perl -p0i -e "s,^(\\s*\"github.com/lib/pq\")\\n\\n\\1,\\1,gm" satellitedb.dbx.go
 
 var mon = monkit.Package()
 
@@ -62,7 +65,7 @@ func (db *DB) WithTx(ctx context.Context, fn func(context.Context, *Tx) error) (
 	if err != nil {
 		return err
 	}
-	return txutil.ExecuteInTx(ctx, db.DriverContext(ctx), tx.Tx, func() error {
+	return txutil.ExecuteInTx(ctx, db.Driver(), tx.Tx, func() error {
 		return fn(ctx, tx)
 	})
 }

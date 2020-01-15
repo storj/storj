@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-
-	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/private/dbutil/sqliteutil"
 )
 
@@ -87,13 +85,13 @@ func TestKeepTables(t *testing.T) {
 	require.Equal(t, snapshot.Data, data)
 }
 
-func execSQL(ctx context.Context, t *testing.T, db dbwrap.DB, query string, args ...interface{}) {
+func execSQL(ctx context.Context, t *testing.T, db *sql.DB, query string, args ...interface{}) {
 	_, err := db.ExecContext(ctx, query, args...)
 	require.NoError(t, err)
 }
 
-func newMemDB(t *testing.T) dbwrap.DB {
+func newMemDB(t *testing.T) *sql.DB {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
-	return dbwrap.SQLDB(db)
+	return db
 }

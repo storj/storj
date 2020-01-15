@@ -18,7 +18,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -162,7 +161,7 @@ func (db *ordersDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID,
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
 	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE bucket_name = ? AND project_id = ? AND interval_start > ? AND interval_start <= ?`
-	err = db.db.QueryRowContext(ctx, db.db.Rebind(query), bucketName, projectID[:], from, to).Scan(&sum)
+	err = db.db.QueryRow(db.db.Rebind(query), bucketName, projectID[:], from, to).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}
@@ -174,7 +173,7 @@ func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.No
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
 	query := `SELECT SUM(settled) FROM storagenode_bandwidth_rollups WHERE storagenode_id = ? AND interval_start > ? AND interval_start <= ?`
-	err = db.db.QueryRowContext(ctx, db.db.Rebind(query), nodeID.Bytes(), from, to).Scan(&sum)
+	err = db.db.QueryRow(db.db.Rebind(query), nodeID.Bytes(), from, to).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}
@@ -220,9 +219,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	return responses, errs.Wrap(err)
 }
 
-func (db *ordersDB) processOrdersInTx(ctx context.Context, requests []*orders.ProcessOrderRequest, storageNodeID storj.NodeID, now time.Time, tx dbwrap.Tx) (responses []*orders.ProcessOrderResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
+func (db *ordersDB) processOrdersInTx(ctx context.Context, requests []*orders.ProcessOrderRequest, storageNodeID storj.NodeID, now time.Time, tx *sql.Tx) (responses []*orders.ProcessOrderResponse, err error) {
 	now = now.UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
@@ -231,7 +228,7 @@ func (db *ordersDB) processOrdersInTx(ctx context.Context, requests []*orders.Pr
 
 	// load the bucket id and insert into used serials table
 	for _, request := range requests {
-		row := tx.QueryRowContext(ctx, db.db.Rebind(`
+		row := tx.QueryRow(db.db.Rebind(`
 			SELECT id, bucket_id
 			FROM serial_numbers
 			WHERE serial_number = ?
@@ -250,7 +247,7 @@ func (db *ordersDB) processOrdersInTx(ctx context.Context, requests []*orders.Pr
 		var count int64
 
 		// try to insert the serial number
-		result, err = tx.ExecContext(ctx, db.db.Rebind(`
+		result, err = tx.Exec(db.db.Rebind(`
 			INSERT INTO used_serials(serial_number_id, storage_node_id)
 			VALUES (?, ?)
 			ON CONFLICT DO NOTHING
@@ -293,7 +290,7 @@ func (db *ordersDB) processOrdersInTx(ctx context.Context, requests []*orders.Pr
 			continue
 		}
 
-		_, err := tx.ExecContext(ctx, db.db.Rebind(`
+		_, err := tx.Exec(db.db.Rebind(`
 			INSERT INTO storagenode_bandwidth_rollups
 				(storagenode_id, interval_start, interval_seconds, action, settled)
 			VALUES (?, ?, ?, ?, ?)
@@ -340,7 +337,7 @@ func (db *ordersDB) processOrdersInTx(ctx context.Context, requests []*orders.Pr
 			return nil, errs.Wrap(err)
 		}
 
-		_, err = tx.ExecContext(ctx, db.db.Rebind(`
+		_, err = tx.Exec(db.db.Rebind(`
 			INSERT INTO bucket_bandwidth_rollups
 				(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)

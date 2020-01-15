@@ -14,7 +14,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/dbutil/cockroachutil"
-	"storj.io/storj/private/dbutil/dbwrap"
 )
 
 // txLike is the minimal interface for transaction-like objects to work with the necessary retry
@@ -52,12 +51,12 @@ func ExecuteInTx(ctx context.Context, dbDriver driver.Driver, tx txLike, fn func
 //
 // If fn has any side effects outside of changes to the database, they must be idempotent! fn may
 // be called more than one time.
-func WithTx(ctx context.Context, db dbwrap.DB, txOpts *sql.TxOptions, fn func(context.Context, dbwrap.Tx) error) error {
+func WithTx(ctx context.Context, db *sql.DB, txOpts *sql.TxOptions, fn func(context.Context, *sql.Tx) error) error {
 	tx, err := db.BeginTx(ctx, txOpts)
 	if err != nil {
 		return err
 	}
-	return ExecuteInTx(ctx, db.DriverContext(ctx), tx, func() error {
+	return ExecuteInTx(ctx, db.Driver(), tx, func() error {
 		return fn(ctx, tx)
 	})
 }

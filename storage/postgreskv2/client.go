@@ -13,7 +13,6 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/dbwrap"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/storage"
@@ -31,8 +30,7 @@ var (
 
 // Client is the entrypoint into a postgreskv2 data store
 type Client struct {
-	db     *sql.DB
-	pgConn dbwrap.DB
+	db *sql.DB
 }
 
 // New instantiates a new postgreskv2 client given db URL
@@ -44,7 +42,7 @@ func New(dbURL string) (*Client, error) {
 		return nil, err
 	}
 
-	dbutil.Configure(dbwrap.SQLDB(db), mon)
+	dbutil.Configure(db, mon)
 
 	err = schema.PrepareDB(db)
 	if err != nil {
@@ -56,10 +54,7 @@ func New(dbURL string) (*Client, error) {
 
 // NewWith instantiates a new postgreskv client given db.
 func NewWith(db *sql.DB) *Client {
-	return &Client{
-		db:     db,
-		pgConn: dbwrap.SQLDB(db),
-	}
+	return &Client{db: db}
 }
 
 // Close closes the client
@@ -230,7 +225,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 		return Error.Wrap(err)
 	}
 
-	return txutil.WithTx(ctx, client.pgConn, nil, func(_ context.Context, txn dbwrap.Tx) error {
+	return txutil.WithTx(ctx, client.db, nil, func(_ context.Context, txn *sql.Tx) error {
 		q := "SELECT metadata FROM pathdata WHERE fullpath = $1::BYTEA;"
 		row := txn.QueryRowContext(ctx, q, []byte(key))
 

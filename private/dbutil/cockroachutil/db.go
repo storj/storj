@@ -16,7 +16,6 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/dbwrap"
 )
 
 var mon = monkit.Package()
@@ -72,7 +71,7 @@ func OpenUnique(ctx context.Context, connStr string, schemaPrefix string) (db *d
 		return nil, errs.Combine(errs.Wrap(err), cleanup(masterDB))
 	}
 
-	dbutil.Configure(dbwrap.SQLDB(sqlDB), mon)
+	dbutil.Configure(sqlDB, mon)
 	return &dbutil.TempDatabase{
 		DB:             sqlDB,
 		ConnStr:        modifiedConnStr,
