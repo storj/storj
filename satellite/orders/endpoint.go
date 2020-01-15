@@ -8,7 +8,6 @@ import (
 	"context"
 	"io"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -160,7 +159,6 @@ type Endpoint struct {
 	satelliteSignee     signing.Signee
 	DB                  DB
 	settlementBatchSize int
-	bigHonkinMutex      sync.Mutex
 }
 
 // drpcEndpoint wraps streaming methods so that they can be used with drpc
@@ -316,13 +314,10 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 func (endpoint *Endpoint) processOrders(ctx context.Context, stream settlementStream, requests []*ProcessOrderRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.bigHonkinMutex.Lock()
 	responses, err := endpoint.DB.ProcessOrders(ctx, requests)
 	if err != nil {
-		endpoint.bigHonkinMutex.Unlock()
 		return err
 	}
-	endpoint.bigHonkinMutex.Unlock()
 
 	for _, response := range responses {
 		r := &pb.SettlementResponse{
