@@ -138,6 +138,8 @@ func TestUpdateBucketBandwidthAllocation(t *testing.T) {
 		SatelliteCount: 1,
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			// don't let the loop flush our cache while we're checking it
+			planet.Satellites[0].Orders.Chore.Loop.Pause()
 			ordersDB := planet.Satellites[0].Orders.DB
 
 			// setup: check there is nothing in the cache to start
@@ -195,7 +197,7 @@ func TestUpdateBucketBandwidthAllocation(t *testing.T) {
 }
 
 func TestSortRollups(t *testing.T) {
-	rollups := []orders.BandwidthRollup{
+	rollups := []orders.BucketBandwidthRollup{
 		{
 			ProjectID:  uuid.UUID{1},
 			BucketName: "a",
@@ -233,7 +235,7 @@ func TestSortRollups(t *testing.T) {
 		},
 	}
 
-	expRollups := []orders.BandwidthRollup{
+	expRollups := []orders.BucketBandwidthRollup{
 		{
 			ProjectID:  uuid.UUID{1},
 			BucketName: "a",
@@ -272,6 +274,6 @@ func TestSortRollups(t *testing.T) {
 	}
 
 	assert.NotEqual(t, expRollups, rollups)
-	orders.SortRollups(rollups)
+	orders.SortBucketBandwidthRollups(rollups)
 	assert.Equal(t, expRollups, rollups)
 }

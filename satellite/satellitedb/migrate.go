@@ -595,6 +595,23 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Create reported_serials table for faster order processing",
+				Version:     77,
+				Action: migrate.SQL{
+					`CREATE TABLE reported_serials (
+						expires_at timestamp NOT NULL,
+						storage_node_id bytea NOT NULL,
+						bucket_id bytea NOT NULL,
+						action integer NOT NULL,
+						serial_number bytea NOT NULL,
+						settled bigint NOT NULL,
+						observed_at timestamp NOT NULL,
+						PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
+					);`,
+				},
+			},
 		},
 	}
 }

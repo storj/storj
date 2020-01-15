@@ -4,8 +4,10 @@
 package orders
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"sort"
 	"sync"
 	"time"
 
@@ -52,17 +54,21 @@ type DB interface {
 	// ProcessOrders takes a list of order requests and processes them in a batch
 	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest) (responses []*ProcessOrderResponse, err error)
 
-	// UpdateBucketBandwidthBatch updates all the bandwidth rollups in the database
-	UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []BandwidthRollup) error
+	// GetBillableBandwidth gets total billable (expired reported serial) bandwidth for nodes and buckets for all actions.
+	GetBillableBandwidth(ctx context.Context, now time.Time) (bucketRollups []BucketBandwidthRollup, storagenodeRollups []StoragenodeBandwidthRollup, err error)
+
+	// ExecuteInTx runs the callback and provides it with a Transaction.
+	ExecuteInTx(ctx context.Context, cb func(ctx context.Context, tx Transaction) error) error
 }
 
-// BandwidthRollup contains all the info needed for a bucket bandwidth rollup
-type BandwidthRollup struct {
-	ProjectID  uuid.UUID
-	BucketName string
-	Action     pb.PieceAction
-	Inline     int64
-	Allocated  int64
+// Transaction represents a database transaction but with higher level actions.
+type Transaction interface {
+	// UpdateBucketBandwidthBatch updates all the bandwidth rollups in the database
+	UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []BucketBandwidthRollup) error
+	// UpdateStoragenodeBandwidthBatch updates all the bandwidth rollups in the database
+	UpdateStoragenodeBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []StoragenodeBandwidthRollup) error
+	// DeleteExpiredReportedSerials deletes any expired reported serials as of now.
+	DeleteExpiredReportedSerials(ctx context.Context, now time.Time) (err error)
 }
 
 var (
@@ -73,6 +79,66 @@ var (
 
 	mon = monkit.Package()
 )
+
+// BucketBandwidthRollup contains all the info needed for a bucket bandwidth rollup
+type BucketBandwidthRollup struct {
+	ProjectID  uuid.UUID
+	BucketName string
+	Action     pb.PieceAction
+	Inline     int64
+	Allocated  int64
+	Settled    int64
+}
+
+// SortBucketBandwidthRollups sorts the rollups
+func SortBucketBandwidthRollups(rollups []BucketBandwidthRollup) {
+	sort.SliceStable(rollups, func(i, j int) bool {
+		uuidCompare := bytes.Compare(rollups[i].ProjectID[:], rollups[j].ProjectID[:])
+		switch {
+		case uuidCompare == -1:
+			return true
+		case uuidCompare == 1:
+			return false
+		case rollups[i].BucketName < rollups[j].BucketName:
+			return true
+		case rollups[i].BucketName > rollups[j].BucketName:
+			return false
+		case rollups[i].Action < rollups[j].Action:
+			return true
+		case rollups[i].Action > rollups[j].Action:
+			return false
+		default:
+			return false
+		}
+	})
+}
+
+// StoragenodeBandwidthRollup contains all the info needed for a storagenode bandwidth rollup
+type StoragenodeBandwidthRollup struct {
+	NodeID    storj.NodeID
+	Action    pb.PieceAction
+	Allocated int64
+	Settled   int64
+}
+
+// SortStoragenodeBandwidthRollups sorts the rollups
+func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
+	sort.SliceStable(rollups, func(i, j int) bool {
+		nodeCompare := bytes.Compare(rollups[i].NodeID.Bytes(), rollups[j].NodeID.Bytes())
+		switch {
+		case nodeCompare == -1:
+			return true
+		case nodeCompare == 1:
+			return false
+		case rollups[i].Action < rollups[j].Action:
+			return true
+		case rollups[i].Action > rollups[j].Action:
+			return false
+		default:
+			return false
+		}
+	})
+}
 
 // ProcessOrderRequest for batch order processing
 type ProcessOrderRequest struct {

@@ -13,6 +13,7 @@ import (
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/attribution"
@@ -107,6 +108,7 @@ type Config struct {
 	Tally          tally.Config
 	Rollup         rollup.Config
 	LiveAccounting live.Config
+	ReportedRollup reportedrollup.Config
 
 	Mail mailservice.Config
 

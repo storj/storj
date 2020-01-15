@@ -304,6 +304,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
 
+# how many records to read in a single transaction when calculating billable bandwidth
+# orders.reported-rollups-read-batch-size: 1000
+
 # how many orders to batch per transaction
 # orders.settlement-batch-size: 250
 
@@ -401,6 +404,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # time limit for uploading repaired pieces to new storage nodes
 # repairer.timeout: 5m0s
+
+# how often to flush the reported serial rollups to the database
+# reported-rollup.interval: 24h0m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true

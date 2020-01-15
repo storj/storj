@@ -188,7 +188,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Fatal(err)
 	}
 
-	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
+		ReportedRollupsReadBatchSize: runCfg.Orders.SettlementBatchSize,
+	})
 	if err != nil {
 		return errs.New("Error starting master database on satellite: %+v", err)
 	}
