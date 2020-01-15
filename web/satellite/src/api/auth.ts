@@ -15,7 +15,7 @@ export class AuthHttpApi {
     private readonly REFERRAL_PATH: string = '/api/v0/referrals';
 
     /**
-     * Used to resend an registration confirmation email
+     * Used to resend an registration confirmation email.
      *
      * @param userId - id of newly created user
      * @throws Error
@@ -31,7 +31,7 @@ export class AuthHttpApi {
     }
 
     /**
-     * Used to get authentication token
+     * Used to get authentication token.
      *
      * @param email - email of the user
      * @param password - password of the user
@@ -56,23 +56,18 @@ export class AuthHttpApi {
     }
 
     /**
-     * Used to restore password
+     * Used to restore password.
      *
      * @param email - email of the user
      * @throws Error
      */
     public async forgotPassword(email: string): Promise<void> {
         const path = `${this.ROOT_PATH}/forgot-password/${email}`;
-        const response = await this.http.post(path, email, false);
-        if (response.ok) {
-            return;
-        }
-
-        throw new Error('can not resend password');
+        await this.http.post(path, email, false);
     }
 
     /**
-     * Used to update user full and short name
+     * Used to update user full and short name.
      *
      * @param userInfo - full name and short name of the user
      * @throws Error
@@ -92,7 +87,7 @@ export class AuthHttpApi {
     }
 
     /**
-     * Used to get user data
+     * Used to get user data.
      *
      * @throws Error
      */
@@ -107,7 +102,7 @@ export class AuthHttpApi {
     }
 
     /**
-     * Used to change password
+     * Used to change password.
      *
      * @param password - old password of the user
      * @param newPassword - new password of the user
@@ -135,7 +130,7 @@ export class AuthHttpApi {
     }
 
     /**
-     * Used to delete account
+     * Used to delete account.
      *
      * @param password - password of the user
      * @throws Error
@@ -192,7 +187,7 @@ export class AuthHttpApi {
     }
 
     /**
-     * Used to register account by referral link
+     * Used to register account by referral link.
      *
      * @param user - stores user information
      * @param referralToken - referral registration token
