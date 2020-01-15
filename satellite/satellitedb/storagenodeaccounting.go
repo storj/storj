@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
@@ -27,15 +28,25 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 	if len(nodeData) == 0 {
 		return Error.New("In SaveTallies with empty nodeData")
 	}
+	var nodeIDs []storj.NodeID
+	var totals []float64
+	for id, total := range nodeData {
+		nodeIDs = append(nodeIDs, id)
+		totals = append(totals, total)
+	}
+
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		for k, v := range nodeData {
-			nID := dbx.StoragenodeStorageTally_NodeId(k.Bytes())
-			end := dbx.StoragenodeStorageTally_IntervalEndTime(latestTally)
-			total := dbx.StoragenodeStorageTally_DataTotal(v)
-			err := tx.CreateNoReturn_StoragenodeStorageTally(ctx, nID, end, total)
-			if err != nil {
-				return err
-			}
+		_, err = tx.Tx.ExecContext(ctx, db.db.Rebind(`
+			INSERT INTO storagenode_storage_tallies (
+				interval_end_time,
+				node_id, data_total)
+			SELECT
+				$1,
+				unnest($2::bytea[]), unnest($3::float8[])`),
+			latestTally,
+			postgresNodeIDList(nodeIDs), pq.Array(totals))
+		if err != nil {
+			return err
 		}
 		return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
 			dbx.AccountingTimestamps_Name(accounting.LastAtRestTally),

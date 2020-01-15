@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
@@ -30,31 +31,42 @@ type ProjectAccounting struct {
 // SaveTallies saves the latest bucket info
 func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	if len(bucketTallies) == 0 {
 		return nil
 	}
+	var bucketNames, projectIDs [][]byte
+	var inlineBytes, remoteBytes, metadataSizes []uint64
+	var remoteSegments, inlineSegments, objectCounts []uint
+	for _, info := range bucketTallies {
+		bucketNames = append(bucketNames, info.BucketName)
+		projectIDs = append(projectIDs, info.ProjectID[:])
+		inlineBytes = append(inlineBytes, uint64(info.InlineBytes))
+		remoteBytes = append(remoteBytes, uint64(info.RemoteBytes))
+		remoteSegments = append(remoteSegments, uint(info.RemoteSegments))
+		inlineSegments = append(inlineSegments, uint(info.InlineSegments))
+		objectCounts = append(objectCounts, uint(info.ObjectCount))
+		metadataSizes = append(metadataSizes, uint64(info.MetadataSize))
+	}
+	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(`
+		INSERT INTO bucket_storage_tallies (
+			interval_start,
+			bucket_name, project_id,
+			inline, remote,
+			remote_segments_count, inline_segments_count,
+			object_count, metadata_size)
+		SELECT
+			$1,
+			unnest($2::bytea[]), unnest($3::bytea[]),
+			unnest($4::int8[]), unnest($5::int8[]),
+			unnest($6::int[]), unnest($7::int[]),
+			unnest($8::int[]), unnest($9::int8[])`),
+		intervalStart,
+		pq.ByteaArray(bucketNames), pq.ByteaArray(projectIDs),
+		pq.Array(inlineBytes), pq.Array(remoteBytes),
+		pq.Array(remoteSegments), pq.Array(inlineSegments),
+		pq.Array(objectCounts), pq.Array(metadataSizes))
 
-	// TODO: see if we can send all bucket storage tallies to the db in one operation
-	return Error.Wrap(db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		for _, info := range bucketTallies {
-			err := tx.CreateNoReturn_BucketStorageTally(ctx,
-				dbx.BucketStorageTally_BucketName(info.BucketName),
-				dbx.BucketStorageTally_ProjectId(info.ProjectID[:]),
-				dbx.BucketStorageTally_IntervalStart(intervalStart),
-				dbx.BucketStorageTally_Inline(uint64(info.InlineBytes)),
-				dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes)),
-				dbx.BucketStorageTally_RemoteSegmentsCount(uint(info.RemoteSegments)),
-				dbx.BucketStorageTally_InlineSegmentsCount(uint(info.InlineSegments)),
-				dbx.BucketStorageTally_ObjectCount(uint(info.ObjectCount)),
-				dbx.BucketStorageTally_MetadataSize(uint64(info.MetadataSize)),
-			)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-		}
-		return nil
-	}))
+	return Error.Wrap(err)
 }
 
 // GetTallies saves the latest bucket info
