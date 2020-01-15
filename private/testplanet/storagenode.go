@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/trust"
@@ -82,6 +83,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 						WhitelistSignedLeaf: false,
 					},
 				},
+			},
+			Preflight: preflight.Config{
+				EnabledLocalTime: false,
 			},
 			Operator: storagenode.OperatorConfig{
 				Email:  prefix + "@mail.test",

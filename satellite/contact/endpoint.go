@@ -101,5 +101,16 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 // GetTime returns current timestamp
 func (endpoint *Endpoint) GetTime(ctx context.Context, req *pb.GetTimeRequest) (_ *pb.GetTimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
+
+	peerID, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		endpoint.log.Info("failed to get node ID from context", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
+	}
+
+	currentTimestamp := time.Now().UTC()
+	endpoint.log.Debug("get system current time", zap.Stringer("timestamp", currentTimestamp), zap.Stringer("node id", peerID.ID))
+	return &pb.GetTimeResponse{
+		Timestamp: currentTimestamp,
+	}, nil
 }

@@ -21,11 +21,9 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
-	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/private/context2"
 	"storj.io/storj/private/dbutil"
@@ -36,7 +34,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/uplink/eestream"
-	"storj.io/uplink/piecestore"
 	"storj.io/uplink/storage/meta"
 )
 
@@ -46,8 +43,6 @@ const (
 	lastSegment         = -1
 	listLimit           = 1000
 
-	// TODO: orange/v3-3406 this value may change once it's used in production
-	deleteObjectPiecesConcurrencyLimit = 100
 	deleteObjectPiecesSuccessThreshold = 0.75
 )
 
@@ -79,13 +74,13 @@ type Revocations interface {
 type Endpoint struct {
 	log               *zap.Logger
 	metainfo          *Service
+	deletePieces      *DeletePiecesService
 	orders            *orders.Service
 	overlay           *overlay.Service
 	attributions      attribution.DB
 	partners          *rewards.PartnersService
 	peerIdentities    overlay.PeerIdentities
 	projectUsage      *accounting.Service
-	dialer            rpc.Dialer
 	apiKeys           APIKeys
 	createRequests    *createRequests
 	requiredRSConfig  RSConfig
@@ -94,19 +89,21 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Service,
-	attributions attribution.DB, partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
-	dialer rpc.Dialer, apiKeys APIKeys, projectUsage *accounting.Service, rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *DeletePiecesService,
+	orders *orders.Service, cache *overlay.Service, attributions attribution.DB,
+	partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
+	apiKeys APIKeys, projectUsage *accounting.Service, rsConfig RSConfig,
+	satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:               log,
 		metainfo:          metainfo,
+		deletePieces:      deletePieces,
 		orders:            orders,
 		overlay:           cache,
 		attributions:      attributions,
 		partners:          partners,
 		peerIdentities:    peerIdentities,
-		dialer:            dialer,
 		apiKeys:           apiKeys,
 		projectUsage:      projectUsage,
 		createRequests:    newCreateRequests(),
@@ -2386,95 +2383,15 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		return nil
 	}
 
-	var successThreshold *sync2.SuccessThreshold
-	{
-		var numPieces int
-		for _, node := range nodes {
-			numPieces += len(nodesPieces[node.Id])
-		}
-
-		var err error
-		successThreshold, err = sync2.NewSuccessThreshold(numPieces, deleteObjectPiecesSuccessThreshold)
-		if err != nil {
-			endpoint.log.Error("error creating success threshold",
-				zap.Int("num_tasks", numPieces),
-				zap.Float32("success_threshold", deleteObjectPiecesSuccessThreshold),
-				zap.Error(err),
-			)
-
-			return rpcstatus.Errorf(rpcstatus.Internal,
-				"error creating success threshold: %+v", err.Error(),
-			)
-		}
-	}
-
-	// TODO: v3-3476 This timeout will go away when the service is implemented
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// TODO: v3-3406 Should we use a global limiter?
-	limiter := sync2.NewLimiter(deleteObjectPiecesConcurrencyLimit)
+	var nodesPiecesList NodesPieces
 	for _, node := range nodes {
-		node := node
-		nodePieces := nodesPieces[node.Id]
-
-		limiter.Go(ctx, func() {
-			client, err := piecestore.Dial(
-				ctx, endpoint.dialer, node, endpoint.log, piecestore.Config{},
-			)
-			if err != nil {
-				endpoint.log.Warn("unable to dial storage node",
-					zap.Stringer("node_id", node.Id),
-					zap.Stringer("node_info", node),
-					zap.Error(err),
-				)
-
-				// Mark all the pieces of this node as failure in the success threshold
-				for range nodePieces {
-					successThreshold.Failure()
-				}
-
-				// Pieces will be collected by garbage collector
-				return
-			}
-			defer func() {
-				err := client.Close()
-				if err != nil {
-					endpoint.log.Warn("error closing the storage node client connection",
-						zap.Stringer("node_id", node.Id),
-						zap.Stringer("node_info", node),
-						zap.Error(err),
-					)
-				}
-			}()
-
-			for _, pieceID := range nodePieces {
-				err := client.DeletePiece(ctx, pieceID)
-				if err != nil {
-					// piece will be collected by garbage collector
-					endpoint.log.Warn("unable to delete piece of a storage node",
-						zap.Stringer("node_id", node.Id),
-						zap.Stringer("piece_id", pieceID),
-						zap.Error(err),
-					)
-
-					successThreshold.Failure()
-					continue
-				}
-
-				successThreshold.Success()
-			}
+		nodesPiecesList = append(nodesPiecesList, NodePieces{
+			Node:   node,
+			Pieces: nodesPieces[node.Id],
 		})
 	}
 
-	successThreshold.Wait(ctx)
-	// return to the client after the success threshold but wait some time before
-	// canceling the remaining deletes
-	timer := time.AfterFunc(200*time.Millisecond, cancel)
-	defer timer.Stop()
-
-	limiter.Wait()
-	return nil
+	return endpoint.deletePieces.DeletePieces(ctx, nodesPiecesList, deleteObjectPiecesSuccessThreshold)
 }
 
 // deletePointer deletes a pointer returning the deleted pointer.

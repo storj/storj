@@ -133,13 +133,14 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 		}
 
 		var percentCompleted float32
-		var hasCompleted bool
+		var exitSucceeded bool
 
 		if progress.StartingDiskUsage != 0 {
 			percentCompleted = (float32(progress.BytesDeleted) / float32(progress.StartingDiskUsage)) * 100
 		}
-		if progress.CompletionReceipt != nil {
-			hasCompleted = true
+		if progress.Status == satellites.ExitSucceeded {
+			exitSucceeded = true
+			percentCompleted = float32(100)
 		}
 
 		resp.Progress = append(resp.Progress,
@@ -147,7 +148,7 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 				DomainName:        domain,
 				NodeId:            progress.SatelliteID,
 				PercentComplete:   percentCompleted,
-				Successful:        hasCompleted,
+				Successful:        exitSucceeded,
 				CompletionReceipt: progress.CompletionReceipt,
 			},
 		)

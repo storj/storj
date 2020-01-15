@@ -50,6 +50,9 @@ import (
 	"storj.io/storj/satellite/vouchers"
 )
 
+// TODO: orange/v3-3406 this value may change once it's used in production
+const metainfoDeletePiecesConcurrencyLimit = 100
+
 // API is the satellite API process
 //
 // architecture: Peer
@@ -85,9 +88,10 @@ type API struct {
 	}
 
 	Metainfo struct {
-		Database  metainfo.PointerDB
-		Service   *metainfo.Service
-		Endpoint2 *metainfo.Endpoint
+		Database            metainfo.PointerDB
+		Service             *metainfo.Service
+		DeletePiecesService *metainfo.DeletePiecesService
+		Endpoint2           *metainfo.Endpoint
 	}
 
 	Inspector struct {
@@ -293,15 +297,25 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 		)
+
+		peer.Metainfo.DeletePiecesService, err = metainfo.NewDeletePiecesService(
+			peer.Log.Named("metainfo:DeletePiecesService"),
+			peer.Dialer,
+			metainfoDeletePiecesConcurrencyLimit,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
+			peer.Metainfo.DeletePiecesService,
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
 			peer.Marketing.PartnersService,
 			peer.DB.PeerIdentities(),
-			peer.Dialer,
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
@@ -571,6 +585,9 @@ func (peer *API) Close() error {
 	}
 	if peer.Orders.Chore.Loop != nil {
 		errlist.Add(peer.Orders.Chore.Close())
+	}
+	if peer.Metainfo.DeletePiecesService != nil {
+		errlist.Add(peer.Metainfo.DeletePiecesService.Close())
 	}
 	return errlist.Err()
 }
