@@ -25,6 +25,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/private/context2"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -707,9 +708,8 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 
 // saveOrder saves the order with all necessary information. It assumes it has been already verified.
 func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order) {
-	// intentionally using background context to ensure that we always save the order,
-	// even when the client cancels the request.
-	alwaysctx := context.Background()
+	// We always want to save order to the database to be able to settle.
+	ctx = context2.WithoutCancellation(ctx)
 
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -718,14 +718,14 @@ func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, o
 	if order == nil || order.Amount <= 0 {
 		return
 	}
-	err = endpoint.orders.Enqueue(alwaysctx, &orders.Info{
+	err = endpoint.orders.Enqueue(ctx, &orders.Info{
 		Limit: limit,
 		Order: order,
 	})
 	if err != nil {
 		endpoint.log.Error("failed to add order", zap.Error(err))
 	} else {
-		err = endpoint.usage.Add(alwaysctx, limit.SatelliteId, limit.Action, order.Amount, time.Now())
+		err = endpoint.usage.Add(ctx, limit.SatelliteId, limit.Action, order.Amount, time.Now())
 		if err != nil {
 			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 		}
