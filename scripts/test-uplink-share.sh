@@ -50,19 +50,19 @@ check_exit_code(){
 	fi
 }
 
-uplink --access "$GATEWAY_0_ACCESS" cp "$SRC_DIR/another-testfile" "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/" --access $access
+uplink cp "$SRC_DIR/another-testfile" "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/" --access $access
 retVal=$?
 check_exit_code $retVal
 
-uplink --access "$GATEWAY_0_ACCESS" cp "$SRC_DIR/testfile" "sj://$BUCKET_WITHOUT_ACCESS/" --access $access
+uplink cp "$SRC_DIR/testfile" "sj://$BUCKET_WITHOUT_ACCESS/" --access $access
 retVal=$?
 check_exit_code $retVal
 
-uplink --access "$GATEWAY_0_ACCESS" cp "sj://$BUCKET_WITHOUT_ACCESS/another-testfile" "$SRC_DIR/" --access $access
+uplink cp "sj://$BUCKET_WITHOUT_ACCESS/another-testfile" "$SRC_DIR/" --access $access
 retVal=$?
 check_exit_code $retVal
 
-number_of_buckets=$(uplink --access "$GATEWAY_0_ACCESS" ls --access $access | wc -l)
+number_of_buckets=$(uplink ls --access $access | wc -l)
 
 # We share one bucket, so we expect to see only one bucket in the output of ls command
 if [ $number_of_buckets -eq 1 ]; then
@@ -72,7 +72,7 @@ else
 	exit 1
 fi
 
-uplink --access "$GATEWAY_0_ACCESS" cp "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/testfile" "$DST_DIR" --access $access
+uplink cp "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/testfile" "$DST_DIR" --access $access
 
 if cmp "$SRC_DIR/testfile" "$DST_DIR/testfile"; then
     echo "Testfile matches uploaded file: PASSED"
