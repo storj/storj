@@ -28,7 +28,7 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 
 	// find tables and indexes
 	err := func() error {
-		rows, err := db.Query(`
+		rows, err := db.QueryContext(ctx, `
 			SELECT name, type, sql FROM sqlite_master WHERE sql NOT NULL AND name NOT LIKE 'sqlite_%'
 		`)
 		if err != nil {
@@ -73,7 +73,7 @@ func discoverTables(ctx context.Context, db dbschema.Queryer, schema *dbschema.S
 	for _, definition := range tableDefinitions {
 		table := schema.EnsureTable(definition.name)
 
-		tableRows, err := db.Query(`PRAGMA table_info(` + definition.name + `)`)
+		tableRows, err := db.QueryContext(ctx, `PRAGMA table_info(`+definition.name+`)`)
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -115,7 +115,7 @@ func discoverTables(ctx context.Context, db dbschema.Queryer, schema *dbschema.S
 			table.Unique = append(table.Unique, columns)
 		}
 
-		keysRows, err := db.Query(`PRAGMA foreign_key_list(` + definition.name + `)`)
+		keysRows, err := db.QueryContext(ctx, `PRAGMA foreign_key_list(`+definition.name+`)`)
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -157,7 +157,7 @@ func discoverIndexes(ctx context.Context, db dbschema.Queryer, schema *dbschema.
 		}
 		schema.Indexes = append(schema.Indexes, index)
 
-		indexRows, err := db.Query(`PRAGMA index_info(` + definition.name + `)`)
+		indexRows, err := db.QueryContext(ctx, `PRAGMA index_info(`+definition.name+`)`)
 		if err != nil {
 			return errs.Wrap(err)
 		}

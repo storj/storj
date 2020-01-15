@@ -4,6 +4,7 @@
 package sqliteutil_test
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
@@ -28,9 +29,9 @@ func TestMigrateTablesToDatabase(t *testing.T) {
 		INSERT INTO bobby_jones VALUES (1);
 	`
 
-	execSQL(t, srcDB, query)
+	execSQL(ctx, t, srcDB, query)
 	// This table should be removed after migration
-	execSQL(t, srcDB, "CREATE TABLE what(I Int);")
+	execSQL(ctx, t, srcDB, "CREATE TABLE what(I Int);")
 
 	err := sqliteutil.MigrateTablesToDatabase(ctx, srcDB, destDB, "bobby_jones")
 	require.NoError(t, err)
@@ -65,8 +66,8 @@ func TestKeepTables(t *testing.T) {
 		INSERT INTO table_two VALUES(2);
 	`
 
-	execSQL(t, db, table1SQL)
-	execSQL(t, db, table2SQL)
+	execSQL(ctx, t, db, table1SQL)
+	execSQL(ctx, t, db, table2SQL)
 
 	err := sqliteutil.KeepTables(ctx, db, "table_one")
 	require.NoError(t, err)
@@ -84,8 +85,8 @@ func TestKeepTables(t *testing.T) {
 	require.Equal(t, snapshot.Data, data)
 }
 
-func execSQL(t *testing.T, db *sql.DB, query string, args ...interface{}) {
-	_, err := db.Exec(query, args...)
+func execSQL(ctx context.Context, t *testing.T, db *sql.DB, query string, args ...interface{}) {
+	_, err := db.ExecContext(ctx, query, args...)
 	require.NoError(t, err)
 }
 

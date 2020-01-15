@@ -273,18 +273,18 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 
 	address, err := service.trust.GetAddress(ctx, satelliteID)
 	if err != nil {
-		return OrderError.New("unable to get satellite address: %v", err)
+		return OrderError.New("unable to get satellite address: %w", err)
 	}
 
 	conn, err := service.dialer.DialAddressID(ctx, address, satelliteID)
 	if err != nil {
-		return OrderError.New("unable to connect to the satellite: %v", err)
+		return OrderError.New("unable to connect to the satellite: %w", err)
 	}
 	defer func() { err = errs.Combine(err, conn.Close()) }()
 
 	stream, err := pb.NewDRPCOrdersClient(conn.Raw()).Settlement(ctx)
 	if err != nil {
-		return OrderError.New("failed to start settlement: %v", err)
+		return OrderError.New("failed to start settlement: %w", err)
 	}
 
 	var group errgroup.Group
@@ -298,7 +298,7 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 			}
 			err := stream.Send(&req)
 			if err != nil {
-				err = OrderError.New("sending settlement agreements returned an error: %v", err)
+				err = OrderError.New("sending settlement agreements returned an error: %w", err)
 				log.Error("rpc client when sending new orders settlements",
 					zap.Error(err),
 					zap.Any("request", req),
@@ -310,7 +310,7 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 
 		err := stream.CloseSend()
 		if err != nil {
-			err = OrderError.New("CloseSend settlement agreements returned an error: %v", err)
+			err = OrderError.New("CloseSend settlement agreements returned an error: %w", err)
 			log.Error("rpc client error when closing sender ", zap.Error(err))
 			sendErrors.Add(err)
 		}
@@ -326,7 +326,7 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 				break
 			}
 
-			err = OrderError.New("failed to receive settlement response: %v", err)
+			err = OrderError.New("failed to receive settlement response: %w", err)
 			log.Error("rpc client error when receiveing new order settlements", zap.Error(err))
 			errList.Add(err)
 			break

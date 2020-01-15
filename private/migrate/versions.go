@@ -144,7 +144,7 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 
 		err = migration.ensureVersionTable(ctx, log, step.DB)
 		if err != nil {
-			return Error.New("creating version table failed: %v", err)
+			return Error.New("creating version table failed: %w", err)
 		}
 
 		version, err := migration.getLatestVersion(ctx, log, step.DB)

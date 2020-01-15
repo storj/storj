@@ -41,7 +41,7 @@ func (sources *Sources) Set(value string) error {
 	for _, entry := range entries {
 		source, err := NewSource(entry)
 		if err != nil {
-			return Error.New("invalid source %q: %v", entry, errs.Unwrap(err))
+			return Error.New("invalid source %q: %w", entry, errs.Unwrap(err))
 		}
 		toSet = append(toSet, source)
 	}
@@ -80,7 +80,7 @@ func (exclusions *Exclusions) Set(value string) error {
 	for _, entry := range entries {
 		rule, err := NewExcluder(entry)
 		if err != nil {
-			return Error.New("invalid exclusion %q: %v", entry, errs.Unwrap(err))
+			return Error.New("invalid exclusion %q: %w", entry, errs.Unwrap(err))
 		}
 		rules = append(rules, rule)
 	}

@@ -164,12 +164,12 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	var framingBytes [v1PieceHeaderFramingSize]byte
 	binary.BigEndian.PutUint16(framingBytes[:], uint16(len(headerBytes)))
 	if _, err = w.blob.Write(framingBytes[:]); err != nil {
-		return Error.New("failed writing piece framing field at file start: %v", err)
+		return Error.New("failed writing piece framing field at file start: %w", err)
 	}
 
 	// Now write the serialized header bytes.
 	if _, err = w.blob.Write(headerBytes); err != nil {
-		return Error.New("failed writing piece header at file start: %v", err)
+		return Error.New("failed writing piece header at file start: %w", err)
 	}
 
 	// seek back to the end, as blob.Commit will truncate from the current file position.
@@ -267,7 +267,7 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 	// Deserialize and return.
 	header := &pb.PieceHeader{}
 	if err := proto.Unmarshal(pieceHeaderBytes, header); err != nil {
-		return nil, Error.New("piece header: %v", err)
+		return nil, Error.New("piece header: %w", err)
 	}
 	return header, nil
 }

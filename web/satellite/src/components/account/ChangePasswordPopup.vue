@@ -19,18 +19,26 @@
                     :error="oldPasswordError"
                     @setData="setOldPassword"
                 />
+                <div class="password-input">
+                    <HeaderlessInput
+                        class="full-input"
+                        label="New Password"
+                        placeholder ="Enter New Password"
+                        width="100%"
+                        ref="newPasswordInput"
+                        is-password="true"
+                        :error="newPasswordError"
+                        @setData="setNewPassword"
+                        @showPasswordStrength="showPasswordStrength"
+                        @hidePasswordStrength="hidePasswordStrength"
+                    />
+                    <PasswordStrength
+                        :password-string="newPassword"
+                        :is-shown="isPasswordStrengthShown"
+                    />
+                </div>
                 <HeaderlessInput
-                    class="full-input mt"
-                    label="New Password"
-                    placeholder ="Enter New Password"
-                    width="100%"
-                    ref="newPasswordInput"
-                    is-password="true"
-                    :error="newPasswordError"
-                    @setData="setNewPassword"
-                />
-                <HeaderlessInput
-                    class="full-input mt"
+                    class="full-input"
                     label="Confirm Password"
                     placeholder="Confirm Password"
                     width="100%"
@@ -66,13 +74,14 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import ChangePasswordIcon from '@/../static/images/account/changePasswordPopup/changePassword.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 import { AuthHttpApi } from '@/api/auth';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { validatePassword } from '@/utils/validation';
 
 @Component({
@@ -81,6 +90,7 @@ import { validatePassword } from '@/utils/validation';
         CloseCrossIcon,
         HeaderlessInput,
         VButton,
+        PasswordStrength,
     },
 })
 export default class ChangePasswordPopup extends Vue {
@@ -92,6 +102,16 @@ export default class ChangePasswordPopup extends Vue {
     private confirmationPasswordError: string = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    public isPasswordStrengthShown: boolean = false;
+
+    public showPasswordStrength(): void {
+        this.isPasswordStrengthShown = true;
+    }
+
+    public hidePasswordStrength(): void {
+        this.isPasswordStrengthShown = false;
+    }
 
     public setOldPassword(value: string): void {
         this.oldPassword = value;
@@ -241,6 +261,11 @@ export default class ChangePasswordPopup extends Vue {
                 fill: #2683ff;
             }
         }
+    }
+
+    .password-input {
+        position: relative;
+        width: 100%;
     }
 
     @media screen and (max-width: 720px) {

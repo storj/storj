@@ -53,6 +53,7 @@ require (
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
 	github.com/jtolds/monkit-hw v0.0.0-20190108155550-0f753668cf20
+	github.com/jtolds/tracetagger v0.0.0-20200112222712-32e72f1f7180
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
 	github.com/lib/pq v1.3.0
@@ -109,7 +110,7 @@ require (
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/ini.v1 v1.38.2 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
-	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
+	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190623001553-09813957f0a8
 	gopkg.in/yaml.v2 v2.2.2
 	storj.io/common v0.0.0-20200114152414-8dcdd4c9d250
 	storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2

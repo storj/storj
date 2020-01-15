@@ -157,7 +157,7 @@ func TestCachePersistence(t *testing.T) {
 			if tt.entriesAfter == nil {
 				require.Error(t, err)
 				if !assert.True(t, os.IsNotExist(errs.Unwrap(err)), "cache file should not exist") {
-					require.FailNow(t, "Expected cache file to not exist", "err=%v", err)
+					require.FailNow(t, "Expected cache file to not exist", "err=%w", err)
 				}
 			} else {
 				require.NoError(t, err)

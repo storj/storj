@@ -133,11 +133,11 @@ func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *
 		if errs2.IsCanceled(err) {
 			return err
 		}
-		return ErrVerifyUntrusted.New("unable to get signee: %v", err) // TODO: report rpc status bad message
+		return ErrVerifyUntrusted.New("unable to get signee: %w", err) // TODO: report rpc status bad message
 	}
 
 	if err := signing.VerifyOrderLimitSignature(ctx, signee, limit); err != nil {
-		return ErrVerifyUntrusted.New("invalid order limit signature: %v", err) // TODO: report rpc status bad message
+		return ErrVerifyUntrusted.New("invalid order limit signature: %w", err) // TODO: report rpc status bad message
 	}
 
 	return nil

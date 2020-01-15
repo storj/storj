@@ -39,7 +39,7 @@ func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbut
 		err = db.Ping()
 	}
 	if err != nil {
-		return nil, errs.New("failed to connect to %q with driver postgres: %v", connStrWithSchema, err)
+		return nil, errs.New("failed to connect to %q with driver postgres: %w", connStrWithSchema, err)
 	}
 
 	err = CreateSchema(ctx, db, schemaName)

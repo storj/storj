@@ -33,7 +33,7 @@ type pieceSpaceUsedDB struct {
 
 // Init creates the total pieces and total trash records if they don't already exist
 func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
-	totalPiecesRow := db.QueryRow(`
+	totalPiecesRow := db.QueryRowContext(ctx, `
 		SELECT total
 		FROM piece_space_used
 		WHERE satellite_id IS NULL
@@ -51,7 +51,7 @@ func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
 		}
 	}
 
-	totalTrashRow := db.QueryRow(`
+	totalTrashRow := db.QueryRowContext(ctx, `
 		SELECT total
 		FROM piece_space_used
 		WHERE satellite_id = ?;
@@ -72,14 +72,14 @@ func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
 }
 
 func (db *pieceSpaceUsedDB) createInitTotalPieces(ctx context.Context) (err error) {
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		INSERT INTO piece_space_used (total) VALUES (0)
 	`)
 	return ErrPieceSpaceUsed.Wrap(err)
 }
 
 func (db *pieceSpaceUsedDB) createInitTotalTrash(ctx context.Context) (err error) {
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		INSERT INTO piece_space_used (total, satellite_id) VALUES (0, ?)
 	`, trashTotalRowName)
 	return ErrPieceSpaceUsed.Wrap(err)
@@ -89,7 +89,7 @@ func (db *pieceSpaceUsedDB) createInitTotalTrash(ctx context.Context) (err error
 func (db *pieceSpaceUsedDB) GetPieceTotal(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	row := db.QueryRow(`
+	row := db.QueryRowContext(ctx, `
 		SELECT total
 		FROM piece_space_used
 		WHERE satellite_id IS NULL;
@@ -110,7 +110,7 @@ func (db *pieceSpaceUsedDB) GetPieceTotal(ctx context.Context) (_ int64, err err
 func (db *pieceSpaceUsedDB) GetTrashTotal(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	row := db.QueryRow(`
+	row := db.QueryRowContext(ctx, `
 		SELECT total
 		FROM piece_space_used
 		WHERE satellite_id = ?

@@ -21,6 +21,7 @@ type DB interface {
 	migrate.DB
 	Conn(ctx context.Context) (*sql.Conn, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
 var (
@@ -173,7 +174,7 @@ func KeepTables(ctx context.Context, db DB, tablesToKeep ...string) (err error) 
 	// data will not actually be reclaimed until the db has been closed.
 	// We don't include this in the above transaction because
 	// you can't VACUUM within a transaction with SQLite3.
-	_, err = db.Exec("VACUUM;")
+	_, err = db.ExecContext(ctx, "VACUUM;")
 	if err != nil {
 		return ErrKeepTables.Wrap(err)
 	}

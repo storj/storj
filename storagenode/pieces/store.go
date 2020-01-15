@@ -602,7 +602,7 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (total int
 
 	satelliteIDs, err := store.getAllStoringSatellites(ctx)
 	if err != nil {
-		return total, totalBySatellite, Error.New("failed to enumerate satellites: %v", err)
+		return total, totalBySatellite, Error.New("failed to enumerate satellites: %w", err)
 	}
 
 	totalBySatellite = map[storj.NodeID]int64{}
