@@ -31,7 +31,6 @@ const projects = [
         '23',
         'testOwnerId',
         false,
-        new ProjectLimits(1, 2, 3, 4),
     ),
     new Project(
         '1',
@@ -40,7 +39,6 @@ const projects = [
         '24',
         'testOwnerId1',
         false,
-        new ProjectLimits(5, 6, 7, 8),
     ),
 ];
 
@@ -76,7 +74,7 @@ describe('mutations', () => {
 
         store.commit(SELECT_PROJECT, '11');
         expect(state.selectedProject.id).toBe('11');
-        expect(state.selectedProject.limits.bandwidthLimit).toBe(1);
+        expect(state.currentLimits.bandwidthLimit).toBe(0);
     });
 
     it('update project', () => {
@@ -103,10 +101,10 @@ describe('mutations', () => {
 
         store.commit(SET_LIMITS, limits);
 
-        expect(state.selectedProject.limits.bandwidthUsed).toBe(12);
-        expect(state.selectedProject.limits.bandwidthLimit).toBe(15);
-        expect(state.selectedProject.limits.storageUsed).toBe(13);
-        expect(state.selectedProject.limits.storageLimit).toBe(14);
+        expect(state.currentLimits.bandwidthUsed).toBe(12);
+        expect(state.currentLimits.bandwidthLimit).toBe(15);
+        expect(state.currentLimits.storageUsed).toBe(13);
+        expect(state.currentLimits.storageLimit).toBe(14);
     });
 
     it('clear projects', () => {
@@ -142,7 +140,7 @@ describe('actions', () => {
             await store.dispatch(FETCH);
         } catch (error) {
             expect(state.projects.length).toBe(0);
-            expect(state.selectedProject.limits.bandwidthLimit).toBe(0);
+            expect(state.currentLimits.bandwidthLimit).toBe(0);
         }
     });
 
@@ -154,7 +152,7 @@ describe('actions', () => {
 
         await store.dispatch(CREATE, {name: '', description: ''});
         expect(state.projects.length).toBe(1);
-        expect(state.selectedProject.limits.bandwidthLimit).toBe(0);
+        expect(state.currentLimits.bandwidthLimit).toBe(0);
     });
 
     it('create throws an error when create api call fails', async () => {
@@ -166,7 +164,7 @@ describe('actions', () => {
             expect(true).toBe(false);
         } catch (error) {
             expect(state.projects.length).toBe(0);
-            expect(state.selectedProject.limits.bandwidthLimit).toBe(0);
+            expect(state.currentLimits.bandwidthLimit).toBe(0);
         }
     });
 
@@ -202,7 +200,6 @@ describe('actions', () => {
         store.dispatch(SELECT, '1');
 
         expect(state.selectedProject.id).toEqual('1');
-        expect(state.selectedProject.limits.bandwidthLimit).toBe(5);
     });
 
     it('success update project', async () => {
@@ -241,10 +238,10 @@ describe('actions', () => {
 
         await store.dispatch(GET_LIMITS, state.selectedProject.id);
 
-        expect(state.selectedProject.limits.bandwidthUsed).toBe(12);
-        expect(state.selectedProject.limits.bandwidthLimit).toBe(15);
-        expect(state.selectedProject.limits.storageUsed).toBe(13);
-        expect(state.selectedProject.limits.storageLimit).toBe(14);
+        expect(state.currentLimits.bandwidthUsed).toBe(12);
+        expect(state.currentLimits.bandwidthLimit).toBe(15);
+        expect(state.currentLimits.storageUsed).toBe(13);
+        expect(state.currentLimits.storageLimit).toBe(14);
     });
 
     it('success clearProjects', () => {

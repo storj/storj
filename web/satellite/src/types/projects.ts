@@ -54,12 +54,7 @@ export class Project {
         public createdAt: string = '',
         public ownerId: string = '',
         public isSelected: boolean = false,
-        public limits: ProjectLimits = new ProjectLimits(),
     ) {}
-
-    public setLimits(limits: ProjectLimits): void {
-        this.limits = limits;
-    }
 }
 
 // UpdateProjectModel is a type, used for updating project description
