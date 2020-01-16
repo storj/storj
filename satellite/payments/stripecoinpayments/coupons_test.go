@@ -75,9 +75,8 @@ func TestCouponRepository(t *testing.T) {
 			assert.NoError(t, err)
 			date, err := couponsRepo.GetLatest(ctx, coupon.ID)
 			assert.NoError(t, err)
-			isoMillis := "2006-01-02T15:04:05.000-0700Z"
-			// go and postgres has different precision. go - nanoseconds, postgres milli
-			assert.Equal(t, date.Format(isoMillis), now.Format(isoMillis))
+			// go and postgres has different precision. go - nanoseconds, postgres micro
+			assert.Equal(t, date.UTC(), now.Round(time.Microsecond))
 		})
 
 		t.Run("total usage", func(t *testing.T) {
