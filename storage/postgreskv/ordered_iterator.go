@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package postgreskv2
+package postgreskv
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-type orderedPostgresV2Iterator struct {
+type orderedPostgresIterator struct {
 	client         *Client
 	opts           *storage.IterateOptions
 	delimiter      byte
@@ -27,7 +27,7 @@ type orderedPostgresV2Iterator struct {
 	errEncountered error
 }
 
-func newOrderedPostgresV2Iterator(ctx context.Context, cli *Client, opts storage.IterateOptions, batchSize int) (_ *orderedPostgresV2Iterator, err error) {
+func newOrderedPostgresIterator(ctx context.Context, cli *Client, opts storage.IterateOptions, batchSize int) (_ *orderedPostgresIterator, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if opts.Prefix == nil {
 		opts.Prefix = storage.Key("")
@@ -39,7 +39,7 @@ func newOrderedPostgresV2Iterator(ctx context.Context, cli *Client, opts storage
 		opts.First = opts.Prefix
 	}
 
-	opi := &orderedPostgresV2Iterator{
+	opi := &orderedPostgresIterator{
 		client:    cli,
 		opts:      &opts,
 		delimiter: byte('/'),
@@ -60,12 +60,12 @@ func newOrderedPostgresV2Iterator(ctx context.Context, cli *Client, opts storage
 	return opi, nil
 }
 
-func (opi *orderedPostgresV2Iterator) Close() error {
+func (opi *orderedPostgresIterator) Close() error {
 	return errs.Combine(opi.errEncountered, opi.curRows.Close())
 }
 
 // Next fills in info for the next item in an ongoing listing.
-func (opi *orderedPostgresV2Iterator) Next(ctx context.Context, item *storage.ListItem) bool {
+func (opi *orderedPostgresIterator) Next(ctx context.Context, item *storage.ListItem) bool {
 	defer mon.Task()(&ctx)(nil)
 
 	for {
@@ -123,7 +123,7 @@ func (opi *orderedPostgresV2Iterator) Next(ctx context.Context, item *storage.Li
 	}
 }
 
-func (opi *orderedPostgresV2Iterator) doNextQuery(ctx context.Context) (_ *sql.Rows, err error) {
+func (opi *orderedPostgresIterator) doNextQuery(ctx context.Context) (_ *sql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	gt := ">"
