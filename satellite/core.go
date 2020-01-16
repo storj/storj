@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/private/version"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
@@ -96,9 +97,10 @@ type Core struct {
 	}
 
 	Accounting struct {
-		Tally        *tally.Service
-		Rollup       *rollup.Service
-		ProjectUsage *accounting.Service
+		Tally               *tally.Service
+		Rollup              *rollup.Service
+		ProjectUsage        *accounting.Service
+		ReportedRollupChore *reportedrollup.Chore
 	}
 
 	LiveAccounting struct {
@@ -308,6 +310,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 	{ // setup accounting
 		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Loop, config.Tally.Interval)
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
+		peer.Accounting.ReportedRollupChore = reportedrollup.NewChore(peer.Log.Named("reportedrollup"), peer.DB.Orders(), config.ReportedRollup)
 	}
 
 	// TODO: remove in future, should be in API
@@ -406,6 +409,9 @@ func (peer *Core) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Accounting.ReportedRollupChore.Run(ctx))
+	})
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Audit.Worker.Run(ctx))
 	})
 	group.Go(func() error {
@@ -473,6 +479,9 @@ func (peer *Core) Close() error {
 		errlist.Add(peer.Audit.Worker.Close())
 	}
 
+	if peer.Accounting.Rollup != nil {
+		errlist.Add(peer.Accounting.ReportedRollupChore.Close())
+	}
 	if peer.Accounting.Rollup != nil {
 		errlist.Add(peer.Accounting.Rollup.Close())
 	}

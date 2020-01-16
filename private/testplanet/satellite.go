@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
@@ -125,9 +126,10 @@ type SatelliteSystem struct {
 	}
 
 	Accounting struct {
-		Tally        *tally.Service
-		Rollup       *rollup.Service
-		ProjectUsage *accounting.Service
+		Tally          *tally.Service
+		Rollup         *rollup.Service
+		ProjectUsage   *accounting.Service
+		ReportedRollup *reportedrollup.Chore
 	}
 
 	LiveAccounting struct {
@@ -368,6 +370,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				MaxAlphaUsage: 25 * memory.GB,
 				DeleteTallies: false,
 			},
+			ReportedRollup: reportedrollup.Config{
+				Interval: defaultInterval,
+			},
 			Mail: mailservice.Config{
 				SMTPServerAddress: "smtp.mail.test:587",
 				From:              "Labs <storj@mail.test>",
@@ -517,6 +522,7 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.Accounting.Tally = peer.Accounting.Tally
 	system.Accounting.Rollup = peer.Accounting.Rollup
 	system.Accounting.ProjectUsage = peer.Accounting.ProjectUsage
+	system.Accounting.ReportedRollup = peer.Accounting.ReportedRollupChore
 
 	system.Marketing.Listener = api.Marketing.Listener
 	system.Marketing.Endpoint = api.Marketing.Endpoint

@@ -13,7 +13,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/storj"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type peerIdentities struct {

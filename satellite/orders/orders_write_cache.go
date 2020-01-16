@@ -4,9 +4,7 @@
 package orders
 
 import (
-	"bytes"
 	"context"
-	"sort"
 	"sync"
 	"time"
 
@@ -90,9 +88,9 @@ func (cache *RollupsWriteCache) FlushToDB(ctx context.Context) {
 func (cache *RollupsWriteCache) flushToDB(ctx context.Context, pendingRollups RollupData, latestTime time.Time, oldSize int) {
 	defer mon.Task()(&ctx)(nil)
 
-	rollups := make([]BandwidthRollup, 0, oldSize)
+	rollups := make([]BucketBandwidthRollup, 0, oldSize)
 	for cacheKey, cacheData := range pendingRollups {
-		rollups = append(rollups, BandwidthRollup{
+		rollups = append(rollups, BucketBandwidthRollup{
 			ProjectID:  cacheKey.ProjectID,
 			BucketName: cacheKey.BucketName,
 			Action:     cacheKey.Action,
@@ -101,9 +99,9 @@ func (cache *RollupsWriteCache) flushToDB(ctx context.Context, pendingRollups Ro
 		})
 	}
 
-	SortRollups(rollups)
-
-	err := cache.DB.UpdateBucketBandwidthBatch(ctx, latestTime.UTC(), rollups)
+	err := cache.DB.ExecuteInTx(ctx, func(ctx context.Context, tx Transaction) error {
+		return tx.UpdateBucketBandwidthBatch(ctx, latestTime, rollups)
+	})
 	if err != nil {
 		cache.log.Error("MONEY LOST! Bucket bandwidth rollup batch flush failed.", zap.Error(err))
 	}
@@ -113,29 +111,6 @@ func (cache *RollupsWriteCache) flushToDB(ctx context.Context, pendingRollups Ro
 	cache.nextFlushCompletion, completion = new(sync2.Fence), cache.nextFlushCompletion
 	cache.mu.Unlock()
 	completion.Release()
-}
-
-// SortRollups sorts the rollups
-func SortRollups(rollups []BandwidthRollup) {
-	sort.SliceStable(rollups, func(i, j int) bool {
-		uuidCompare := bytes.Compare(rollups[i].ProjectID[:], rollups[j].ProjectID[:])
-		switch {
-		case uuidCompare == -1:
-			return true
-		case uuidCompare == 1:
-			return false
-		case rollups[i].BucketName < rollups[j].BucketName:
-			return true
-		case rollups[i].BucketName > rollups[j].BucketName:
-			return false
-		case rollups[i].Action < rollups[j].Action:
-			return true
-		case rollups[i].Action > rollups[j].Action:
-			return false
-		default:
-			return false
-		}
-	})
 }
 
 func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, allocated, inline int64, intervalStart time.Time) {

@@ -25,7 +25,7 @@ import (
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/rewards"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 var (
@@ -51,6 +51,10 @@ type satelliteDB struct {
 // Options includes options for how a satelliteDB runs
 type Options struct {
 	APIKeysLRUOptions cache.Options
+
+	// How many records to read in a single transaction when asked for all of the
+	// billable bandwidth from the reported serials table.
+	ReportedRollupsReadBatchSize int
 }
 
 var _ dbx.DBMethods = &satelliteDB{}
@@ -150,7 +154,7 @@ func (db *satelliteDB) Rewards() rewards.DB {
 
 // Orders returns database for storing orders
 func (db *satelliteDB) Orders() orders.DB {
-	return &ordersDB{db: db}
+	return &ordersDB{db: db, reportedRollupsReadBatchSize: db.opts.ReportedRollupsReadBatchSize}
 }
 
 // Containment returns database for storing pending audit info

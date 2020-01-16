@@ -13,7 +13,7 @@ import (
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/attribution"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 const (

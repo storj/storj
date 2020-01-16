@@ -15,7 +15,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/gracefulexit"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type gracefulexitDB struct {

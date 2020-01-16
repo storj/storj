@@ -458,6 +458,30 @@ delete serial_number (
 // for preventing duplicate serial numbers
 create used_serial ( noreturn )
 
+model reported_serial (
+	// all of our access patterns care about if the serial is expired or not so we
+	// should put expires_at first in the primary key to get efficient scans. but,
+	// we also want to have rocksdb prefix compression to apply as much as possible
+	// to reduce data size for numerous benefits. so, we ceil the expires_at field
+	// to the next day so that we only have to store each storage node id only once
+	// per day. the other fields follow the same logic.
+
+	key expires_at storage_node_id bucket_id action serial_number
+
+	field expires_at      utimestamp // ceil'd to the next day
+	field storage_node_id blob       // involved node id
+	field bucket_id       blob       // involved project id and bucket name
+	field action          uint       // action (get, put, audit, etc. see protobuf)
+	field serial_number   blob       // identifies order (required for uniqueness)
+
+	field settled     uint64
+	field observed_at utimestamp
+)
+
+create reported_serial ( noreturn, replace )
+read paged ( select reported_serial, where reported_serial.expires_at <= ? )
+delete reported_serial ( where reported_serial.expires_at <= ? )
+
 // --- bucket accounting tables --- //
 
 model bucket_bandwidth_rollup (

@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/private/currency"
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/satellite/rewards"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 var (

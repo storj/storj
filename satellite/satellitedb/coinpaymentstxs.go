@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensure that coinpaymentsTransactions implements stripecoinpayments.TransactionsDB.

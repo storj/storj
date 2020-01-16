@@ -14,7 +14,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/metainfo"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type bucketsDB struct {

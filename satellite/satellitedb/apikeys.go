@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/pkg/cache"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensures that apikeys implements console.APIKeys.

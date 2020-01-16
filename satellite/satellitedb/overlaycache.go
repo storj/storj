@@ -20,7 +20,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite/overlay"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
 
