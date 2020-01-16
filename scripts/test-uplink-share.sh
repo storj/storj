@@ -39,7 +39,7 @@ uplink --access "$GATEWAY_0_ACCESS" cp "$SRC_DIR/another-testfile" "sj://$BUCKET
 uplink --access "$GATEWAY_0_ACCESS" cp "$SRC_DIR/another-testfile" "sj://$BUCKET_WITHOUT_ACCESS/"
 
 # Make access with readonly rights
-access=$(uplink --access "$GATEWAY_0_ACCESS" share --allowed-path-prefix sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/ --readonly | grep Access | cut -d: -f2)
+SHARED_ACCESS=$(uplink --access "$GATEWAY_0_ACCESS" share --allowed-path-prefix sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/ --readonly | grep Access | cut -d: -f2)
 
 check_exit_code(){
 	if [ $1 -eq 0 ]; then
@@ -50,29 +50,26 @@ check_exit_code(){
 	fi
 }
 
-uplink cp "$SRC_DIR/another-testfile" "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/" --access $access
-retVal=$?
-check_exit_code $retVal
+uplink cp "$SRC_DIR/another-testfile" "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/" --access $SHARED_ACCESS
+check_exit_code $?
 
-uplink cp "$SRC_DIR/testfile" "sj://$BUCKET_WITHOUT_ACCESS/" --access $access
-retVal=$?
-check_exit_code $retVal
+uplink cp "$SRC_DIR/testfile" "sj://$BUCKET_WITHOUT_ACCESS/" --access $SHARED_ACCESS
+check_exit_code $?
 
-uplink cp "sj://$BUCKET_WITHOUT_ACCESS/another-testfile" "$SRC_DIR/" --access $access
-retVal=$?
-check_exit_code $retVal
+uplink cp "sj://$BUCKET_WITHOUT_ACCESS/another-testfile" "$SRC_DIR/" --access $SHARED_ACCESS
+check_exit_code $?
 
-number_of_buckets=$(uplink ls --access $access | wc -l)
+NUMBER_OF_BUCKETS=$(uplink ls --access $SHARED_ACCESS | wc -l)
 
 # We share one bucket, so we expect to see only one bucket in the output of ls command
-if [ $number_of_buckets -eq 1 ]; then
+if [ $NUMBER_OF_BUCKETS -eq 1 ]; then
 	echo "Number of shared buckets matches the expected result. PASSED"
 else
 	echo "List of buckets more than 1. FAILED"
 	exit 1
 fi
 
-uplink cp "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/testfile" "$DST_DIR" --access $access
+uplink cp "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/testfile" "$DST_DIR" --access $SHARED_ACCESS
 
 if cmp "$SRC_DIR/testfile" "$DST_DIR/testfile"; then
     echo "Testfile matches uploaded file: PASSED"
