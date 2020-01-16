@@ -14,12 +14,12 @@ cleanup(){
 trap cleanup EXIT
 
 require_error_exit_code(){
-	if [ $1 -eq 0 ]; then
+    if [ $1 -eq 0 ]; then
         echo "Result of copying does not match expectations. Test FAILED"
         exit 1
-	else
-		echo "Copy file without permission: PASSED"    # Expect unsuccessful exit code
-	fi
+    else
+        echo "Copy file without permission: PASSED"    # Expect unsuccessful exit code
+    fi
 }
 
 random_bytes_file () {
@@ -64,10 +64,10 @@ NUMBER_OF_BUCKETS=$(uplink ls --access $SHARED_ACCESS | wc -l)
 
 # We share one bucket, so we expect to see only one bucket in the output of ls command
 if [ $NUMBER_OF_BUCKETS -eq 1 ]; then
-	echo "Number of shared buckets matches the expected result. PASSED"
+    echo "Number of shared buckets matches the expected result. PASSED"
 else
-	echo "List of buckets more than 1. FAILED"
-	exit 1
+    echo "List of buckets more than 1. FAILED"
+    exit 1
 fi
 
 uplink cp "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/testfile" "$DST_DIR" --access $SHARED_ACCESS
