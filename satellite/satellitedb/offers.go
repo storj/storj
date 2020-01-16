@@ -55,6 +55,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 	if err != nil {
 		return nil, rewards.ErrOfferNotExist.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var (
 		awardCreditInCents        int
@@ -64,7 +65,6 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 		redeemableCap             sql.NullInt64
 	)
 
-	defer func() { err = errs.Combine(err, rows.Close()) }()
 	results := rewards.Offers{}
 	for rows.Next() {
 		o := rewards.Offer{}
@@ -92,7 +92,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 	if len(results) < 1 {
 		return results, rewards.ErrOfferNotExist.New("offerType: %d", offerType)
 	}
-	return results, nil
+	return results, rows.Err()
 }
 
 // Create inserts a new offer into the db

@@ -155,8 +155,8 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	results := []*attribution.CSVRow{}
 	for rows.Next() {
 		r := &attribution.CSVRow{}

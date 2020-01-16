@@ -140,6 +140,9 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 
 		projectMembers = append(projectMembers, pm)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	page.ProjectMembers = projectMembers
 	page.Order = cursor.Order

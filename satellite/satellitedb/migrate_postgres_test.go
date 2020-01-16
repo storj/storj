@@ -11,12 +11,14 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
+
 	"storj.io/common/testcontext"
 
 	"storj.io/storj/private/dbutil/dbschema"
@@ -146,7 +148,7 @@ type satelliteDB interface {
 }
 
 func pgMigrateTest(t *testing.T, connStr string) {
-	ctx := testcontext.New(t)
+	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
 	log := zaptest.NewLogger(t)
