@@ -612,6 +612,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Drop unused indexes",
+				Version:     78,
+				Action: migrate.SQL{
+					`DROP INDEX bucket_name_project_id_interval_start_interval_seconds;`,
+					`DROP INDEX storagenode_id_interval_start_interval_seconds_index;`,
+				},
+			},
 		},
 	}
 }

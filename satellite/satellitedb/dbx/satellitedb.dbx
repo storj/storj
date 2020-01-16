@@ -486,10 +486,6 @@ delete reported_serial ( where reported_serial.expires_at <= ? )
 
 model bucket_bandwidth_rollup (
 	key    bucket_name project_id interval_start action
-	index (
-	    name bucket_name_project_id_interval_start_interval_seconds
-	    fields bucket_name project_id interval_start interval_seconds
-	)
 
 	field bucket_name       blob
 	field project_id        blob
@@ -554,10 +550,6 @@ read all (
 
 model storagenode_bandwidth_rollup (
 	key    storagenode_id interval_start action
-	index (
-	    name storagenode_id_interval_start_interval_seconds
-	    fields storagenode_id interval_start interval_seconds
-	)
 
 	field storagenode_id   blob
 	field interval_start   utimestamp
