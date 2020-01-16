@@ -25,10 +25,9 @@ shasum $(which storj-sim)
 
 if [ ! -d ${main_cfg_dir}/uplink-old-api ]; then
     mkdir -p ${main_cfg_dir}/uplink-old-api
-    api_key=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_API_KEY)
-    sat_addr=$(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_ADDR)
+    access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
     old_sat_api_addr="127.0.0.1:30000"
-    uplink setup --non-interactive --api-key="$api_key" --satellite-addr="$old_sat_api_addr" --config-dir="${main_cfg_dir}/uplink-old-api" --enc.encryption-key="TestEncKey"
+    uplink import --access="$access" --satellite-addr="$old_sat_api_addr" --config-dir="${main_cfg_dir}/uplink-old-api" --enc.encryption-key="TestEncKey"
 fi
 
 echo -e "\nConfig directory for uplink:"
