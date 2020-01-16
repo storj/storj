@@ -281,3 +281,96 @@ func buildBenchmarkData(ctx context.Context, b *testing.B, db satellite.DB, stor
 	}
 	return requests
 }
+
+func TestProcessOrders(t *testing.T) {
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+		ordersDB := db.Orders()
+		serialNum := storj.SerialNumber{1}
+		serialNum2 := storj.SerialNumber{2}
+		projectID, _ := uuid.New()
+
+		// setup: create serial number records
+		err := ordersDB.CreateSerialInfo(ctx, serialNum, []byte(projectID.String()+"/b"), time.Now().AddDate(0, 0, 1))
+		require.NoError(t, err)
+		err = ordersDB.CreateSerialInfo(ctx, serialNum2, []byte(projectID.String()+"/c"), time.Now().AddDate(0, 0, 1))
+		require.NoError(t, err)
+
+		requests := []*orders.ProcessOrderRequest{
+			{
+				Order: &pb.Order{
+					SerialNumber: serialNum,
+					Amount:       100,
+				},
+				OrderLimit: &pb.OrderLimit{
+					SerialNumber:    serialNum,
+					StorageNodeId:   storj.NodeID{1},
+					Action:          pb.PieceAction_DELETE,
+					OrderExpiration: time.Now().AddDate(0, 0, 3),
+				},
+			},
+		}
+		// test: process one order and confirm we get the correct response
+		actualResponses, err := ordersDB.ProcessOrders(ctx, requests)
+		require.NoError(t, err)
+		expectedResponses := []*orders.ProcessOrderResponse{
+			{
+				SerialNumber: serialNum,
+				Status:       pb.SettlementResponse_ACCEPTED,
+			},
+		}
+		assert.Equal(t, expectedResponses, actualResponses)
+
+		requests = append(requests, &orders.ProcessOrderRequest{
+			Order: &pb.Order{
+				SerialNumber: serialNum2,
+				Amount:       200,
+			},
+			OrderLimit: &pb.OrderLimit{
+				SerialNumber:    serialNum2,
+				StorageNodeId:   storj.NodeID{2},
+				Action:          pb.PieceAction_PUT,
+				OrderExpiration: time.Now().AddDate(0, 0, 1)},
+		})
+		// test: process two orders from different storagenodes and confirm there is an error
+		_, err = ordersDB.ProcessOrders(ctx, requests)
+		require.Error(t, err, "different storage nodes")
+
+		requests[0].OrderLimit.StorageNodeId = storj.NodeID{2}
+		// test: process two orders from same storagenodes and confirm we get two responses
+		actualResponses, err = ordersDB.ProcessOrders(ctx, requests)
+		require.NoError(t, err)
+		assert.Equal(t, 2, len(actualResponses))
+
+		// test: confirm the correct data from processing orders was written to reported_serials table
+		bbr, snr, err := ordersDB.GetBillableBandwidth(ctx, time.Now().AddDate(0, 0, 3))
+		require.NoError(t, err)
+		assert.Equal(t, 1, len(bbr))
+		expected := []orders.BucketBandwidthRollup{
+			{
+				ProjectID:  *projectID,
+				BucketName: "c",
+				Action:     pb.PieceAction_PUT,
+				Inline:     0,
+				Allocated:  0,
+				Settled:    200,
+			},
+		}
+		assert.Equal(t, expected, bbr)
+		assert.Equal(t, 1, len(snr))
+		expectedRollup := []orders.StoragenodeBandwidthRollup{
+			{
+				NodeID:    storj.NodeID{2},
+				Action:    pb.PieceAction_PUT,
+				Allocated: 0,
+				Settled:   200,
+			},
+		}
+		assert.Equal(t, expectedRollup, snr)
+		bbr, snr, err = ordersDB.GetBillableBandwidth(ctx, time.Now().AddDate(0, 0, 5))
+		require.NoError(t, err)
+		assert.Equal(t, 2, len(bbr))
+		assert.Equal(t, 3, len(snr))
+	})
+}
