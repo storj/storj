@@ -28,12 +28,12 @@ var (
 	mon = monkit.Package()
 )
 
-// Client is the entrypoint into a postgreskv2 data store
+// Client is the entrypoint into a postgreskv data store
 type Client struct {
 	db *sql.DB
 }
 
-// New instantiates a new postgreskv2 client given db URL
+// New instantiates a new postgreskv client given db URL
 func New(dbURL string) (*Client, error) {
 	dbURL = pgutil.CheckApplicationName(dbURL)
 
