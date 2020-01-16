@@ -5,6 +5,7 @@ package metainfo_test
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -46,12 +47,13 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}
 
-		for _, tc := range testCases {
+		for i, tc := range testCases {
+			i := i
 			tc := tc
 			t.Run(tc.caseDescription, func(t *testing.T) {
-				const (
+				var (
 					bucketName = "a-bucket"
-					objectName = "object-filename"
+					objectName = "object-filename" + strconv.Itoa(i)
 				)
 
 				// Use RSConfig for ensuring that we don't have long-tail cancellations and the
@@ -115,7 +117,8 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}
 
-		for _, tc := range testCases {
+		for i, tc := range testCases {
+			i := i
 			tc := tc
 			t.Run(tc.caseDescription, func(t *testing.T) {
 				ctx := testcontext.New(t)
@@ -131,9 +134,9 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					satelliteSys = planet.Satellites[0]
 				)
 
-				const (
+				var (
 					bucketName = "a-bucket"
-					objectName = "object-filename"
+					objectName = "object-filename" + strconv.Itoa(i)
 				)
 
 				// Use RSConfig for ensuring that we don't have long-tail cancellations and the
@@ -198,12 +201,13 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}
 
-		for _, tc := range testCases {
+		for i, tc := range testCases {
+			i := i
 			tc := tc
 			t.Run(tc.caseDescription, func(t *testing.T) {
-				const (
+				var (
 					bucketName = "a-bucket"
-					objectName = "object-filename"
+					objectName = "object-filename" + strconv.Itoa(i)
 				)
 
 				ctx := testcontext.New(t)
