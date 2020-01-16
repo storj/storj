@@ -5,8 +5,8 @@ package cockroachutil
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
-	"math/rand"
 	"net/url"
 	"strings"
 
@@ -23,8 +23,6 @@ var mon = monkit.Package()
 // CreateRandomTestingSchemaName creates a random schema name string.
 func CreateRandomTestingSchemaName(n int) string {
 	data := make([]byte, n)
-
-	// math/rand.Read() always returns a nil error so there's no need to handle the error.
 	_, _ = rand.Read(data)
 	return hex.EncodeToString(data)
 }

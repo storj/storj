@@ -14,6 +14,9 @@ import (
 type Queryer interface {
 	// QueryContext executes a query that returns rows, typically a SELECT.
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+
+	// QueryRowContext executes a query that returns a single row.
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
 // Schema is the database structure.
