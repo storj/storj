@@ -88,10 +88,6 @@ func (a AccessConfig) GetAccess() (_ *libuplink.Scope, err error) {
 		a.Access = a.Scope
 	}
 
-	if a.Access == "" {
-		return nil, errs.New("must specify access")
-	}
-
 	access, err := a.GetNamedAccess(a.Access)
 	if err != nil {
 		return nil, err
