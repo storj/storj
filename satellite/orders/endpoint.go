@@ -56,8 +56,8 @@ type DB interface {
 	// GetBillableBandwidth gets total billable (expired reported serial) bandwidth for nodes and buckets for all actions.
 	GetBillableBandwidth(ctx context.Context, now time.Time) (bucketRollups []BucketBandwidthRollup, storagenodeRollups []StoragenodeBandwidthRollup, err error)
 
-	// ExecuteInTx runs the callback and provides it with a Transaction.
-	ExecuteInTx(ctx context.Context, cb func(ctx context.Context, tx Transaction) error) error
+	// WithTransaction runs the callback and provides it with a Transaction.
+	WithTransaction(ctx context.Context, cb func(ctx context.Context, tx Transaction) error) error
 }
 
 // Transaction represents a database transaction but with higher level actions.

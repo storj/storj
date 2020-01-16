@@ -468,14 +468,14 @@ model reported_serial (
 
 	key expires_at storage_node_id bucket_id action serial_number
 
-	field expires_at      utimestamp // ceil'd to the next day
-	field storage_node_id blob       // involved node id
-	field bucket_id       blob       // involved project id and bucket name
-	field action          uint       // action (get, put, audit, etc. see protobuf)
-	field serial_number   blob       // identifies order (required for uniqueness)
+	field expires_at      timestamp // ceil'd to the next day
+	field storage_node_id blob      // involved node id
+	field bucket_id       blob      // involved project id and bucket name
+	field action          uint      // action (get, put, audit, etc. see protobuf)
+	field serial_number   blob      // identifies order (required for uniqueness)
 
 	field settled     uint64
-	field observed_at utimestamp
+	field observed_at timestamp
 )
 
 create reported_serial ( noreturn, replace )

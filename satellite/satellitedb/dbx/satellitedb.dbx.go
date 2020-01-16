@@ -473,13 +473,13 @@ CREATE TABLE registration_tokens (
 	UNIQUE ( owner_id )
 );
 CREATE TABLE reported_serials (
-	expires_at timestamp NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
 	storage_node_id bytea NOT NULL,
 	bucket_id bytea NOT NULL,
 	action integer NOT NULL,
 	serial_number bytea NOT NULL,
 	settled bigint NOT NULL,
-	observed_at timestamp NOT NULL,
+	observed_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
 );
 CREATE TABLE reset_password_tokens (
@@ -901,13 +901,13 @@ CREATE TABLE registration_tokens (
 	UNIQUE ( owner_id )
 );
 CREATE TABLE reported_serials (
-	expires_at timestamp NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
 	storage_node_id bytea NOT NULL,
 	bucket_id bytea NOT NULL,
 	action integer NOT NULL,
 	serial_number bytea NOT NULL,
 	settled bigint NOT NULL,
-	observed_at timestamp NOT NULL,
+	observed_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
 );
 CREATE TABLE reset_password_tokens (
@@ -4573,7 +4573,6 @@ type ReportedSerial_ExpiresAt_Field struct {
 }
 
 func ReportedSerial_ExpiresAt(v time.Time) ReportedSerial_ExpiresAt_Field {
-	v = toUTC(v)
 	return ReportedSerial_ExpiresAt_Field{_set: true, _value: v}
 }
 
@@ -4688,7 +4687,6 @@ type ReportedSerial_ObservedAt_Field struct {
 }
 
 func ReportedSerial_ObservedAt(v time.Time) ReportedSerial_ObservedAt_Field {
-	v = toUTC(v)
 	return ReportedSerial_ObservedAt_Field{_set: true, _value: v}
 }
 
