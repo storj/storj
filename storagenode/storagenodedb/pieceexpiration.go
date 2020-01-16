@@ -53,7 +53,7 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, expiresBefore time.
 			InPieceInfo: false,
 		})
 	}
-	return expiredPieceIDs, nil
+	return expiredPieceIDs, rows.Err()
 }
 
 // SetExpiration sets an expiration time for the given piece ID on the given satellite

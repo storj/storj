@@ -64,10 +64,7 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	if err != nil {
 		return nil, err
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var stamps []storageusage.Stamp
 	for rows.Next() {
@@ -87,7 +84,7 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 		})
 	}
 
-	return stamps, nil
+	return stamps, rows.Err()
 }
 
 // GetDailyTotal returns daily storage usage stamps summed across all known satellites
@@ -105,7 +102,6 @@ func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 	if err != nil {
 		return nil, err
 	}
-
 	defer func() {
 		err = errs.Combine(err, rows.Close())
 	}()
@@ -126,7 +122,7 @@ func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 		})
 	}
 
-	return stamps, nil
+	return stamps, rows.Err()
 }
 
 // Summary returns aggregated storage usage across all satellites.
