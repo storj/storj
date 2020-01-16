@@ -168,5 +168,5 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 		statsList = append(statsList, stats)
 	}
 
-	return statsList, nil
+	return statsList, rows.Err()
 }

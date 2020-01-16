@@ -151,7 +151,7 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Cursor)
 
 	page.CurrentPage = cursor.Page
 
-	return page, nil
+	return page, ErrNotificationsDB.Wrap(rows.Err())
 }
 
 // Read updates specific notification in database as read.

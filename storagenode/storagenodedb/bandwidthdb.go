@@ -214,7 +214,6 @@ func (db *bandwidthDB) getSatelliteSummary(ctx context.Context, satelliteID stor
 	if err != nil {
 		return nil, ErrBandwidth.Wrap(err)
 	}
-
 	defer func() {
 		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
 	}()
@@ -232,7 +231,7 @@ func (db *bandwidthDB) getSatelliteSummary(ctx context.Context, satelliteID stor
 		filter(action, amount, usage)
 	}
 
-	return usage, nil
+	return usage, ErrBandwidth.Wrap(rows.Err())
 }
 
 // SummaryBySatellite returns summary of bandwidth usage grouping by satellite.
@@ -382,7 +381,6 @@ func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, ar
 	if err != nil {
 		return nil, ErrBandwidth.Wrap(err)
 	}
-
 	defer func() {
 		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
 	}()
@@ -433,7 +431,7 @@ func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, ar
 		usageRollups = append(usageRollups, *usageRollupsByDate[d])
 	}
 
-	return usageRollups, nil
+	return usageRollups, ErrBandwidth.Wrap(rows.Err())
 }
 
 func getBeginningOfMonth(now time.Time) time.Time {

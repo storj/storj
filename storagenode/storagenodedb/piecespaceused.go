@@ -156,7 +156,7 @@ func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) 
 		}
 		totalBySatellite[satelliteID] = total
 	}
-	return totalBySatellite, nil
+	return totalBySatellite, rows.Err()
 }
 
 // UpdatePieceTotal updates the record for total spaced used with a new value

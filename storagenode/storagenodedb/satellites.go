@@ -41,7 +41,7 @@ func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.Node
 			return satellite, err
 		}
 	}
-	return satellite, nil
+	return satellite, rows.Err()
 }
 
 // InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
@@ -112,5 +112,5 @@ func (db *satellitesDB) ListGracefulExits(ctx context.Context) (exitList []satel
 		exitList = append(exitList, exit)
 	}
 
-	return exitList, nil
+	return exitList, rows.Err()
 }
