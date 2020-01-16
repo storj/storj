@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -71,7 +72,9 @@ func NewDeletePiecesService(log *zap.Logger, dialer rpc.Dialer, maxConcurrentCon
 // It only returns an error if sync2.NewSuccessThreshold returns an error.
 func (service *DeletePiecesService) DeletePieces(
 	ctx context.Context, nodes NodesPieces, successThreshold float64,
-) error {
+) (err error) {
+	defer mon.Task()(&ctx, len(nodes), nodes.NumPieces(), successThreshold)(&err)
+
 	threshold, err := sync2.NewSuccessThreshold(len(nodes), successThreshold)
 	if err != nil {
 		return err
@@ -99,6 +102,12 @@ func (service *DeletePiecesService) DeletePieces(
 		}
 
 		limiter.Go(ctx, func() {
+			// Track the rate that each single node is dialed
+			mon.Event(fmt.Sprintf("DeletePieces_node_%s", node.Id.String()))
+
+			// Track the low/high/recent/average/quantiles of successful nodes dialing.
+			// Not stopping the timer doesn't leak resources.
+			timerDialSuccess := mon.Timer("DeletePieces_nodes_dial_success").Start()
 			client, err := piecestore.Dial(
 				ctx, service.dialer, node, service.log, piecestore.Config{},
 			)
@@ -114,6 +123,8 @@ func (service *DeletePiecesService) DeletePieces(
 				// Pieces will be collected by garbage collector
 				return
 			}
+			timerDialSuccess.Stop()
+
 			defer func() {
 				err := client.Close()
 				if err != nil {
@@ -173,3 +184,14 @@ type NodePieces struct {
 
 // NodesPieces is a slice of NodePieces
 type NodesPieces []NodePieces
+
+// NumPieces sums the number of pieces of all the storage nodes of the slice and
+// returns it.
+func (nodes NodesPieces) NumPieces() int {
+	total := 0
+	for _, node := range nodes {
+		total += len(node.Pieces)
+	}
+
+	return total
+}
