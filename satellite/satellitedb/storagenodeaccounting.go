@@ -175,11 +175,13 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		) r
 		LEFT JOIN nodes n ON n.id = r.node_id
 	    ORDER BY n.id`
+
 	rows, err := db.db.DB.QueryContext(ctx, db.db.Rebind(sqlStmt), start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	csv := []*accounting.CSVRow{}
 	for rows.Next() {
 		var nodeID []byte
@@ -202,7 +204,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		r.Disqualified = disqualified
 		csv = append(csv, r)
 	}
-	return csv, nil
+	return csv, rows.Err()
 }
 
 // QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
@@ -242,14 +244,10 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
 		nodeID, start, end, accounting.LastRollup,
 	)
-
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var nodeStorageUsages []accounting.StorageNodeUsage
 	for rows.Next() {
@@ -268,7 +266,7 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 		})
 	}
 
-	return nodeStorageUsages, nil
+	return nodeStorageUsages, rows.Err()
 }
 
 // DeleteTalliesBefore deletes all raw tallies prior to some time

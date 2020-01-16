@@ -167,7 +167,7 @@ func (cache *overlaycache) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeI
 		}
 		nodeIPs = append(nodeIPs, ip)
 	}
-	return nodeIPs, nil
+	return nodeIPs, Error.Wrap(rows.Err())
 }
 
 func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
@@ -189,18 +189,19 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 
 	var rows *sql.Rows
 	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net,
-	free_bandwidth, free_disk, total_audit_count, audit_success_count,
-	total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
-	audit_reputation_beta
-	FROM nodes
-	`+safeQuery+safeExcludeNodes+`
-	ORDER BY RANDOM()
-	LIMIT ?`), args...)
+		free_bandwidth, free_disk, total_audit_count, audit_success_count,
+		total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
+		audit_reputation_beta
+		FROM nodes
+		`+safeQuery+safeExcludeNodes+`
+		ORDER BY RANDOM()
+		LIMIT ?`), args...)
 
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	var nodes []*pb.Node
 	for rows.Next() {
 		dbNode := &dbx.Node{}
@@ -221,7 +222,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 		nodes = append(nodes, &dossier.Node)
 	}
 
-	return nodes, rows.Err()
+	return nodes, Error.Wrap(rows.Err())
 }
 
 func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
@@ -249,24 +250,24 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 	args = append(args, count)
 
 	rows, err := cache.db.Query(cache.db.Rebind(`
-	SELECT *
-	FROM (
-		SELECT DISTINCT ON (last_net) last_net,    -- choose at max 1 node from this IP or network
-		id, type, address, free_bandwidth, free_disk, total_audit_count,
-		audit_success_count, total_uptime_count, uptime_success_count,
-		audit_reputation_alpha, audit_reputation_beta
-		FROM nodes
-		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
-		AND last_net <> ''                         -- don't try to IP-filter nodes with no known IP yet
-		ORDER BY last_net, RANDOM()                -- equal chance of choosing any qualified node at this IP or network
-	) filteredcandidates
-	ORDER BY RANDOM()                                  -- do the actual node selection from filtered pool
-	LIMIT ?`), args...)
-
+		SELECT *
+		FROM (
+			SELECT DISTINCT ON (last_net) last_net,    -- choose at max 1 node from this IP or network
+			id, type, address, free_bandwidth, free_disk, total_audit_count,
+			audit_success_count, total_uptime_count, uptime_success_count,
+			audit_reputation_alpha, audit_reputation_beta
+			FROM nodes
+			`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
+			AND last_net <> ''                         -- don't try to IP-filter nodes with no known IP yet
+			ORDER BY last_net, RANDOM()                -- equal chance of choosing any qualified node at this IP or network
+		) filteredcandidates
+		ORDER BY RANDOM()                                  -- do the actual node selection from filtered pool
+		LIMIT ?`), args...)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	var nodes []*pb.Node
 	for rows.Next() {
 		dbNode := &dbx.Node{}
@@ -286,7 +287,7 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 		nodes = append(nodes, &dossier.Node)
 	}
 
-	return nodes, rows.Err()
+	return nodes, Error.Wrap(rows.Err())
 }
 
 // Get looks up the node by nodeID
@@ -321,9 +322,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 	rows, err = cache.db.Query(cache.db.Rebind(`
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
-			AND (
-				last_contact_success < $2
-			)
+			AND last_contact_success < $2
 		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
@@ -339,7 +338,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 		}
 		offlineNodes = append(offlineNodes, id)
 	}
-	return offlineNodes, nil
+	return offlineNodes, Error.Wrap(rows.Err())
 }
 
 // KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
@@ -378,7 +377,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 			badNodes = append(badNodes, id)
 		}
 	}
-	return badNodes, nil
+	return badNodes, Error.Wrap(rows.Err())
 }
 
 // KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
@@ -414,7 +413,7 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 		}
 		nodes = append(nodes, node)
 	}
-	return nodes, nil
+	return nodes, Error.Wrap(rows.Err())
 }
 
 // Reliable returns all reliable nodes.
@@ -423,8 +422,8 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 	rows, err := cache.db.Query(cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE disqualified IS NULL
-		  AND last_contact_success > ?`),
-		time.Now().Add(-criteria.OnlineWindow))
+		AND last_contact_success > ?
+	`), time.Now().Add(-criteria.OnlineWindow))
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +439,7 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 		}
 		nodes = append(nodes, id)
 	}
-	return nodes, nil
+	return nodes, Error.Wrap(rows.Err())
 }
 
 // Paginate will run through
@@ -898,14 +897,11 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []
 		WHERE exit_initiated_at IS NOT NULL
 		AND exit_finished_at IS NULL
 		AND disqualified is NULL
-		`),
-	)
+	`))
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var exitingNodeStatus overlay.ExitStatus
@@ -915,26 +911,32 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []
 		}
 		exitingNodes = append(exitingNodes, &exitingNodeStatus)
 	}
-	return exitingNodes, nil
+	return exitingNodes, Error.Wrap(rows.Err())
 }
 
 // GetExitStatus returns a node's graceful exit status.
 func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := cache.db.Query(cache.db.Rebind("select id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success from nodes where id = ?"), nodeID)
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
+		FROM nodes
+		WHERE id = ?
+	`), nodeID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	exitStatus := &overlay.ExitStatus{}
 	if rows.Next() {
 		err = rows.Scan(&exitStatus.NodeID, &exitStatus.ExitInitiatedAt, &exitStatus.ExitLoopCompletedAt, &exitStatus.ExitFinishedAt, &exitStatus.ExitSuccess)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return exitStatus, Error.Wrap(err)
+	return exitStatus, Error.Wrap(rows.Err())
 }
 
 // GetGracefulExitCompletedByTimeFrame returns nodes who have completed graceful exit within a time window (time window is around graceful exit completion).
@@ -947,8 +949,7 @@ func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Conte
 		AND exit_finished_at IS NOT NULL
 		AND exit_finished_at >= ?
 		AND exit_finished_at < ?
-		`), begin, end,
-	)
+	`), begin, end)
 	if err != nil {
 		return nil, err
 	}
@@ -964,7 +965,7 @@ func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Conte
 		}
 		exitedNodes = append(exitedNodes, id)
 	}
-	return exitedNodes, rows.Err()
+	return exitedNodes, Error.Wrap(rows.Err())
 }
 
 // GetGracefulExitIncompleteByTimeFrame returns nodes who have initiated, but not completed graceful exit within a time window (time window is around graceful exit initiation).
@@ -977,8 +978,7 @@ func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Cont
 		AND exit_finished_at IS NULL
 		AND exit_initiated_at >= ?
 		AND exit_initiated_at < ?
-		`), begin, end,
-	)
+	`), begin, end)
 	if err != nil {
 		return nil, err
 	}
@@ -995,7 +995,7 @@ func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Cont
 		}
 		exitingNodes = append(exitingNodes, id)
 	}
-	return exitingNodes, rows.Err()
+	return exitingNodes, Error.Wrap(rows.Err())
 }
 
 // UpdateExitStatus is used to update a node's graceful exit status.

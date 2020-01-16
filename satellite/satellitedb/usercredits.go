@@ -40,7 +40,6 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 	usage := console.UserCreditUsage{}
 
 	for usageRows.Next() {
-
 		var (
 			usedCreditInCents      sql.NullInt64
 			availableCreditInCents sql.NullInt64
@@ -56,7 +55,7 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 		usage.AvailableCredits = usage.AvailableCredits.Add(currency.Cents(int(availableCreditInCents.Int64)))
 	}
 
-	return &usage, nil
+	return &usage, usageRows.Err()
 }
 
 // Create insert a new record of user credit

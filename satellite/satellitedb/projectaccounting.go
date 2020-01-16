@@ -210,6 +210,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 	for _, bucket := range bucketNames {
 		storageTallies := make([]*accounting.BucketStorageTally, 0)
+
 		storageTalliesRows, err := db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
 		if err != nil {
 			return nil, err
@@ -221,13 +222,13 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 			err = storageTalliesRows.Scan(&tally.IntervalStart, &tally.InlineBytes, &tally.RemoteBytes, &tally.ObjectCount)
 			if err != nil {
-				return nil, err
+				return nil, errs.Combine(err, storageTalliesRows.Close())
 			}
 			tally.BucketName = bucket
 			storageTallies = append(storageTallies, &tally)
 		}
 
-		err = storageTalliesRows.Close()
+		err = errs.Combine(storageTalliesRows.Err(), storageTalliesRows.Close())
 		if err != nil {
 			return nil, err
 		}
@@ -339,6 +340,9 @@ func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectI
 			default:
 				continue
 			}
+		}
+		if err := rollupsRows.Err(); err != nil {
+			return nil, err
 		}
 
 		bucketStorageTallies, err := storageQuery(ctx,
@@ -504,8 +508,8 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	if err != nil {
 		return nil, err
 	}
-
 	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
+
 	for bucketRows.Next() {
 		var bucket string
 		err = bucketRows.Scan(&bucket)
@@ -514,6 +518,9 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		}
 
 		buckets = append(buckets, bucket)
+	}
+	if err := bucketRows.Err(); err != nil {
+		return nil, err
 	}
 
 	rollupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
@@ -557,6 +564,9 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			if action == pb.PieceAction_GET || action == pb.PieceAction_GET_AUDIT || action == pb.PieceAction_GET_REPAIR {
 				totalEgress += settled + inline
 			}
+		}
+		if err := rollupsRows.Err(); err != nil {
+			return nil, err
 		}
 
 		bucketUsage.Egress = memory.Size(totalEgress).GB()
@@ -615,7 +625,7 @@ func (db *ProjectAccounting) getBuckets(ctx context.Context, projectID uuid.UUID
 		buckets = append(buckets, bucket)
 	}
 
-	return buckets, nil
+	return buckets, bucketRows.Err()
 }
 
 // timeTruncateDown truncates down to the hour before to be in sync with orders endpoint

@@ -73,6 +73,8 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.Injured
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	for rows.Next() {
 		var seg pb.InjuredSegment
 		err = rows.Scan(&seg)
@@ -81,6 +83,7 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.Injured
 		}
 		segs = append(segs, seg)
 	}
+
 	return segs, Error.Wrap(rows.Err())
 }
 
