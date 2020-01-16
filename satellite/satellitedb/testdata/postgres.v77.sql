@@ -203,13 +203,13 @@ CREATE TABLE registration_tokens (
 	UNIQUE ( owner_id )
 );
 CREATE TABLE reported_serials (
-	expires_at timestamp NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
 	storage_node_id bytea NOT NULL,
 	bucket_id bytea NOT NULL,
 	action integer NOT NULL,
 	serial_number bytea NOT NULL,
 	settled bigint NOT NULL,
-	observed_at timestamp NOT NULL,
+	observed_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
 );
 CREATE TABLE reset_password_tokens (
@@ -452,3 +452,5 @@ INSERT INTO "coupons" ("id", "project_id", "user_id", "amount", "description", "
 INSERT INTO "coupon_usages" ("coupon_id", "amount", "status", "period") VALUES (E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 22, 0, '2019-06-01 09:28:24.267934+00');
 
 -- NEW DATA --
+
+INSERT INTO "reported_serials" ("expires_at", "storage_node_id", "bucket_id", "action", "serial_number", "settled", "observed_at") VALUES ('2020-01-11 08:00:00.000000+00', E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, 1, E'0123456701234567'::bytea, 100, '2020-01-11 08:00:00.000000+00');

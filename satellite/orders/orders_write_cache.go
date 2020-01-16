@@ -99,7 +99,7 @@ func (cache *RollupsWriteCache) flushToDB(ctx context.Context, pendingRollups Ro
 		})
 	}
 
-	err := cache.DB.ExecuteInTx(ctx, func(ctx context.Context, tx Transaction) error {
+	err := cache.DB.WithTransaction(ctx, func(ctx context.Context, tx Transaction) error {
 		return tx.UpdateBucketBandwidthBatch(ctx, latestTime, rollups)
 	})
 	if err != nil {
