@@ -1,8 +1,8 @@
-DROP TABLE buckets;
+DROP FUNCTION list_directory_reverse(BYTEA, BYTEA, BYTEA, INTEGER);
+DROP FUNCTION list_directory(BYTEA, BYTEA, BYTEA, INTEGER);
 DROP TYPE path_and_meta;
+DROP FUNCTION component_increment(BYTEA, INTEGER);
+DROP FUNCTION bytea_increment(BYTEA);
+DROP FUNCTION truncate_after(BYTEA, INTEGER, INTEGER);
 DROP VIEW pathdata_pretty;
-DROP FUNCTION IF EXISTS bytea_increment;
-DROP FUNCTION IF EXISTS component_increment;
-DROP FUNCTION IF EXISTS list_directory;
-DROP FUNCTION IF EXISTS list_directory_reverse;
-DROP FUNCTION IF EXISTS truncate_after;
+DROP TABLE buckets;
