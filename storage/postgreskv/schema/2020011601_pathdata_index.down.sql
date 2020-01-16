@@ -1,1 +1,0 @@
-DROP INDEX IF EXISTS pathdata_fullpath_idx;

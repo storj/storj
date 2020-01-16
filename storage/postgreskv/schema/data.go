@@ -8,8 +8,8 @@
 // 2019111301_fix_seq_scans_in_list.up.sql
 // 2020011301_drop_not_null.down.sql
 // 2020011301_drop_not_null.up.sql
-// 2020011601_pathdata_index.down.sql
-// 2020011601_pathdata_index.up.sql
+// 2020011601_kvimplementation_switchover.down.sql
+// 2020011601_kvimplementation_switchover.up.sql
 package schema
 
 import (
@@ -206,42 +206,42 @@ func _2020011301_drop_not_nullUpSql() (*asset, error) {
 	return a, nil
 }
 
-var __2020011601_pathdata_indexDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x72\x09\xf2\x0f\x50\xf0\xf4\x73\x71\x8d\x50\xf0\x74\x53\x70\x8d\xf0\x0c\x0e\x09\x56\x28\x48\x2c\xc9\x48\x49\x2c\x49\x8c\x4f\x2b\xcd\xc9\x01\x71\xe2\x33\x53\x2a\xac\x01\x01\x00\x00\xff\xff\x96\x9a\x0d\x90\x2b\x00\x00\x00")
+var __2020011601_kvimplementation_switchoverDownSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x8c\xcb\x4d\x0a\xc2\x30\x10\x47\xf1\xbd\xe0\x1d\xe6\x1e\x5d\xf9\xd1\x42\x40\x5a\xb1\x11\xdc\x85\x74\xfc\x0b\x41\x3b\x91\xc9\x54\xe8\xed\x85\x1e\xa0\x74\xfb\xf8\xbd\xf3\xad\xbb\x92\x3f\x1c\x2f\x35\x0d\x13\xbf\x61\xa5\xda\xef\x96\xd8\xdc\xdb\x93\x77\x5d\x4b\xae\xa1\xfa\xe1\x7a\xdf\xd3\x30\x1b\x62\x48\xc2\x8a\x11\x62\x2b\x92\xf3\xf8\xcd\x02\xb1\x4d\xfa\x93\x8a\x85\x67\x52\xb0\x65\x9d\x37\xc3\xa0\xf8\x41\x0b\x56\x06\xd3\x49\x38\x1a\x42\x7c\x19\xb4\xfa\x07\x00\x00\xff\xff\x6d\xbb\xfb\x54\xee\x00\x00\x00")
 
-func _2020011601_pathdata_indexDownSqlBytes() ([]byte, error) {
+func _2020011601_kvimplementation_switchoverDownSqlBytes() ([]byte, error) {
 	return bindataRead(
-		__2020011601_pathdata_indexDownSql,
-		"2020011601_pathdata_index.down.sql",
+		__2020011601_kvimplementation_switchoverDownSql,
+		"2020011601_kvimplementation_switchover.down.sql",
 	)
 }
 
-func _2020011601_pathdata_indexDownSql() (*asset, error) {
-	bytes, err := _2020011601_pathdata_indexDownSqlBytes()
+func _2020011601_kvimplementation_switchoverDownSql() (*asset, error) {
+	bytes, err := _2020011601_kvimplementation_switchoverDownSqlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "2020011601_pathdata_index.down.sql", size: 43, mode: os.FileMode(438), modTime: time.Unix(1579196645, 0)}
+	info := bindataFileInfo{name: "2020011601_kvimplementation_switchover.down.sql", size: 238, mode: os.FileMode(438), modTime: time.Unix(1579206077, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var __2020011601_pathdata_indexUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x72\x0e\x72\x75\x0c\x71\x55\xf0\xf4\x73\x71\x8d\x50\x70\xf6\xf7\x73\x0e\x0d\x0a\x72\xf5\x0b\xf1\x89\x54\x28\x48\x2c\xc9\x48\x49\x2c\x49\x8c\x4f\x2b\xcd\xc9\x01\x71\xe2\x33\x53\x2a\x14\xfc\xfd\xe0\x12\x0a\x1a\x30\x19\x4d\x6b\x5e\x2e\x40\x00\x00\x00\xff\xff\x0d\xf8\x34\xc6\x49\x00\x00\x00")
+var __2020011601_kvimplementation_switchoverUpSql = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x8c\xd0\xbd\x4a\xc0\x30\x14\x05\xe0\x3d\x90\x77\x38\xa3\x85\x4e\xae\x9d\x6e\xeb\xad\x04\xf3\x53\x6e\x6e\xc1\x4e\x12\x50\x71\xa8\xe0\x50\x7d\x7e\x29\xd6\x5a\x7f\x90\x66\x4c\x38\xe7\x7c\xa4\x13\x26\x65\x28\xb5\x9e\xe1\x7a\xc4\xa4\xe0\x5b\x97\x35\xe3\xa5\x2c\x4f\xf7\x65\x29\x77\x6f\x97\xb8\xb0\x06\x27\xcf\xe3\xeb\x3c\xaf\x51\xb4\x93\x32\x61\x10\x17\x48\x26\xdc\xf0\x54\x9f\x2f\x79\x7e\x58\xca\xba\xbd\x95\xac\xaa\x38\x7a\x6f\x4d\xd5\x58\x43\x5e\x59\x36\xf2\x11\xf9\x71\xdf\x25\x3f\x86\xf8\xc5\xc8\xac\xc8\x9a\x84\xae\x19\x83\x27\x17\xcf\x36\xec\x86\xbf\x1a\x5c\xcc\x2c\x0a\x17\x35\x7d\xff\xa8\xcf\xdd\x7a\xcf\x57\xc8\xec\xb9\x53\xfc\x7e\x42\x2f\x29\xec\xf9\xc6\x9a\x2b\x49\xc3\x0f\xd7\x3f\x5c\xe1\x48\x81\x71\x20\x34\xef\x01\x00\x00\xff\xff\x13\x81\x46\x5e\xd0\x01\x00\x00")
 
-func _2020011601_pathdata_indexUpSqlBytes() ([]byte, error) {
+func _2020011601_kvimplementation_switchoverUpSqlBytes() ([]byte, error) {
 	return bindataRead(
-		__2020011601_pathdata_indexUpSql,
-		"2020011601_pathdata_index.up.sql",
+		__2020011601_kvimplementation_switchoverUpSql,
+		"2020011601_kvimplementation_switchover.up.sql",
 	)
 }
 
-func _2020011601_pathdata_indexUpSql() (*asset, error) {
-	bytes, err := _2020011601_pathdata_indexUpSqlBytes()
+func _2020011601_kvimplementation_switchoverUpSql() (*asset, error) {
+	bytes, err := _2020011601_kvimplementation_switchoverUpSqlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "2020011601_pathdata_index.up.sql", size: 73, mode: os.FileMode(438), modTime: time.Unix(1579196702, 0)}
+	info := bindataFileInfo{name: "2020011601_kvimplementation_switchover.up.sql", size: 464, mode: os.FileMode(438), modTime: time.Unix(1579206638, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -298,14 +298,14 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"2018092201_initial-tables.down.sql":        _2018092201_initialTablesDownSql,
-	"2018092201_initial-tables.up.sql":          _2018092201_initialTablesUpSql,
-	"2019111301_fix_seq_scans_in_list.down.sql": _2019111301_fix_seq_scans_in_listDownSql,
-	"2019111301_fix_seq_scans_in_list.up.sql":   _2019111301_fix_seq_scans_in_listUpSql,
-	"2020011301_drop_not_null.down.sql":         _2020011301_drop_not_nullDownSql,
-	"2020011301_drop_not_null.up.sql":           _2020011301_drop_not_nullUpSql,
-	"2020011601_pathdata_index.down.sql":        _2020011601_pathdata_indexDownSql,
-	"2020011601_pathdata_index.up.sql":          _2020011601_pathdata_indexUpSql,
+	"2018092201_initial-tables.down.sql":              _2018092201_initialTablesDownSql,
+	"2018092201_initial-tables.up.sql":                _2018092201_initialTablesUpSql,
+	"2019111301_fix_seq_scans_in_list.down.sql":       _2019111301_fix_seq_scans_in_listDownSql,
+	"2019111301_fix_seq_scans_in_list.up.sql":         _2019111301_fix_seq_scans_in_listUpSql,
+	"2020011301_drop_not_null.down.sql":               _2020011301_drop_not_nullDownSql,
+	"2020011301_drop_not_null.up.sql":                 _2020011301_drop_not_nullUpSql,
+	"2020011601_kvimplementation_switchover.down.sql": _2020011601_kvimplementation_switchoverDownSql,
+	"2020011601_kvimplementation_switchover.up.sql":   _2020011601_kvimplementation_switchoverUpSql,
 }
 
 // AssetDir returns the file names below a certain
@@ -349,14 +349,14 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"2018092201_initial-tables.down.sql":        &bintree{_2018092201_initialTablesDownSql, map[string]*bintree{}},
-	"2018092201_initial-tables.up.sql":          &bintree{_2018092201_initialTablesUpSql, map[string]*bintree{}},
-	"2019111301_fix_seq_scans_in_list.down.sql": &bintree{_2019111301_fix_seq_scans_in_listDownSql, map[string]*bintree{}},
-	"2019111301_fix_seq_scans_in_list.up.sql":   &bintree{_2019111301_fix_seq_scans_in_listUpSql, map[string]*bintree{}},
-	"2020011301_drop_not_null.down.sql":         &bintree{_2020011301_drop_not_nullDownSql, map[string]*bintree{}},
-	"2020011301_drop_not_null.up.sql":           &bintree{_2020011301_drop_not_nullUpSql, map[string]*bintree{}},
-	"2020011601_pathdata_index.down.sql":        &bintree{_2020011601_pathdata_indexDownSql, map[string]*bintree{}},
-	"2020011601_pathdata_index.up.sql":          &bintree{_2020011601_pathdata_indexUpSql, map[string]*bintree{}},
+	"2018092201_initial-tables.down.sql":              &bintree{_2018092201_initialTablesDownSql, map[string]*bintree{}},
+	"2018092201_initial-tables.up.sql":                &bintree{_2018092201_initialTablesUpSql, map[string]*bintree{}},
+	"2019111301_fix_seq_scans_in_list.down.sql":       &bintree{_2019111301_fix_seq_scans_in_listDownSql, map[string]*bintree{}},
+	"2019111301_fix_seq_scans_in_list.up.sql":         &bintree{_2019111301_fix_seq_scans_in_listUpSql, map[string]*bintree{}},
+	"2020011301_drop_not_null.down.sql":               &bintree{_2020011301_drop_not_nullDownSql, map[string]*bintree{}},
+	"2020011301_drop_not_null.up.sql":                 &bintree{_2020011301_drop_not_nullUpSql, map[string]*bintree{}},
+	"2020011601_kvimplementation_switchover.down.sql": &bintree{_2020011601_kvimplementation_switchoverDownSql, map[string]*bintree{}},
+	"2020011601_kvimplementation_switchover.up.sql":   &bintree{_2020011601_kvimplementation_switchoverUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory
