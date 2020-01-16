@@ -35,7 +35,7 @@ export default class SortingHeader extends Vue {}
 
         &__item {
             text-align: left;
-            width: 20%;
+            width: 25%;
 
             &__name {
                 font-family: 'font_medium', sans-serif;
@@ -56,7 +56,7 @@ export default class SortingHeader extends Vue {}
     }
 
     .amount {
-        width: 27%;
+        width: 22%;
         margin: 0;
     }
 

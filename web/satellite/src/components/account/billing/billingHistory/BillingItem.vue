@@ -65,7 +65,7 @@ export default class BillingItem extends Vue {
         border-top: 1px solid rgba(169, 181, 193, 0.3);
 
         &__item {
-            width: 20%;
+            width: 25%;
             font-family: 'font_medium', sans-serif;
             font-size: 16px;
             text-align: left;
@@ -82,7 +82,7 @@ export default class BillingItem extends Vue {
     }
 
     .amount {
-        width: 27%;
+        width: 22%;
         margin: 0;
     }
 
