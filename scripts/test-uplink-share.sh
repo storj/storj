@@ -43,8 +43,8 @@ SHARED_ACCESS=$(uplink --access "$GATEWAY_0_ACCESS" share --allowed-path-prefix 
 
 check_exit_code(){
 	if [ $1 -eq 0 ]; then
-    	echo "Result of copying does not match expectations. Test FAILED"
-    	exit 1
+        echo "Result of copying does not match expectations. Test FAILED"
+        exit 1
 	else
 		echo "Copy file without permission: PASSED"    # Expect unsuccessful exit code
 	fi
