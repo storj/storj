@@ -13,6 +13,21 @@ cleanup(){
 }
 trap cleanup EXIT
 
+require_error_exit_code(){
+	if [ $1 -eq 0 ]; then
+        echo "Result of copying does not match expectations. Test FAILED"
+        exit 1
+	else
+		echo "Copy file without permission: PASSED"    # Expect unsuccessful exit code
+	fi
+}
+
+random_bytes_file () {
+    size=$1
+    output=$2
+    head -c $size </dev/urandom > $output
+}
+
 BUCKET_WITHOUT_ACCESS=bucket1
 BUCKET_WITH_ACCESS=bucket2
 
@@ -23,14 +38,9 @@ DST_DIR=$TMPDIR/dst
 
 mkdir -p "$SRC_DIR" "$DST_DIR"
 
-random_bytes_file () {
-    size=$1
-    output=$2
-    head -c $size </dev/urandom > $output
-}
-
 random_bytes_file "2048"       "$SRC_DIR/another-testfile"  # create 2kb file of random bytes (inline)
 random_bytes_file "5120"       "$SRC_DIR/testfile"          # create 5kb file of random bytes (inline)
+
 uplink --access "$GATEWAY_0_ACCESS" mb "sj://$BUCKET_WITHOUT_ACCESS/"
 uplink --access "$GATEWAY_0_ACCESS" mb "sj://$BUCKET_WITH_ACCESS/"
 
@@ -41,23 +51,14 @@ uplink --access "$GATEWAY_0_ACCESS" cp "$SRC_DIR/another-testfile" "sj://$BUCKET
 # Make access with readonly rights
 SHARED_ACCESS=$(uplink --access "$GATEWAY_0_ACCESS" share --allowed-path-prefix sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/ --readonly | grep Access | cut -d: -f2)
 
-check_exit_code(){
-	if [ $1 -eq 0 ]; then
-        echo "Result of copying does not match expectations. Test FAILED"
-        exit 1
-	else
-		echo "Copy file without permission: PASSED"    # Expect unsuccessful exit code
-	fi
-}
-
 uplink cp "$SRC_DIR/another-testfile" "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/" --access $SHARED_ACCESS
-check_exit_code $?
+require_error_exit_code $?
 
 uplink cp "$SRC_DIR/testfile" "sj://$BUCKET_WITHOUT_ACCESS/" --access $SHARED_ACCESS
-check_exit_code $?
+require_error_exit_code $?
 
 uplink cp "sj://$BUCKET_WITHOUT_ACCESS/another-testfile" "$SRC_DIR/" --access $SHARED_ACCESS
-check_exit_code $?
+require_error_exit_code $?
 
 NUMBER_OF_BUCKETS=$(uplink ls --access $SHARED_ACCESS | wc -l)
 
