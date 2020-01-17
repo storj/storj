@@ -185,12 +185,11 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 				}
 			}()
 
-			err = db.CreateTables(ctx)
+			err = db.TestingCreateTables(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			// TODO: pass the ctx down
 			test(ctx, t, db)
 		})
 	}

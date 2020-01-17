@@ -54,6 +54,9 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
+	// TestingCreateTables initializes the database for testplanet.
+	TestingCreateTables(ctx context.Context) error
+
 	// PeerIdentities returns a storage for peer identities
 	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information

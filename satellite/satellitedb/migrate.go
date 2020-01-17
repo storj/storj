@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
@@ -78,6 +79,57 @@ func (db *satelliteDB) CreateTables(ctx context.Context) error {
 	}
 }
 
+// TestingCreateTables is a method for creating all tables for database for testing.
+func (db *satelliteDB) TestingCreateTables(ctx context.Context) error {
+	switch db.implementation {
+	case dbutil.Postgres:
+		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
+		if err != nil {
+			return ErrMigrateMinVersion.New("error parsing schema: %+v", err)
+		}
+
+		if schema != "" {
+			err = pgutil.CreateSchema(ctx, db, schema)
+			if err != nil {
+				return ErrMigrateMinVersion.New("error creating schema: %+v", err)
+			}
+		}
+
+	case dbutil.Cockroach:
+		var dbName string
+		if err := db.QueryRow(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+			return ErrMigrateMinVersion.New("error querying current database: %+v", err)
+		}
+
+		_, err := db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`, pq.QuoteIdentifier(dbName)))
+		if err != nil {
+			return ErrMigrateMinVersion.Wrap(err)
+		}
+	}
+
+	switch db.implementation {
+	case dbutil.Postgres, dbutil.Cockroach:
+		migration := db.PostgresMigration()
+
+		dbVersion, err := migration.CurrentVersion(ctx, db.log, db.DB)
+		if err != nil {
+			return ErrMigrateMinVersion.Wrap(err)
+		}
+		if dbVersion > -1 {
+			return ErrMigrateMinVersion.New("the database must be empty, got version %d", dbVersion)
+		}
+
+		flattened, err := flattenMigration(migration)
+		if err != nil {
+			return ErrMigrateMinVersion.Wrap(err)
+		}
+
+		return flattened.Run(ctx, db.log.Named("migrate"))
+	default:
+		return migrate.Create(ctx, "database", db.DB)
+	}
+}
+
 // CheckVersion confirms the database is at the desired version
 func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	switch db.implementation {
@@ -88,6 +140,40 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	default:
 		return nil
 	}
+}
+
+func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
+	var db migrate.DB
+	var version int
+	var statements migrate.SQL
+
+	for _, step := range m.Steps {
+		if db == nil {
+			db = step.DB
+		} else if db != step.DB {
+			return nil, errs.New("multiple databases not supported")
+		}
+
+		version = step.Version
+		sql, ok := step.Action.(migrate.SQL)
+		if !ok {
+			return nil, errs.New("unexpected action type %T", step.Action)
+		}
+
+		statements = append(statements, sql...)
+	}
+
+	return &migrate.Migration{
+		Table: "versions",
+		Steps: []*migrate.Step{
+			{
+				DB:          db,
+				Description: "Setup",
+				Version:     version,
+				Action:      migrate.SQL{strings.Join(statements, ";\n")},
+			},
+		},
+	}, nil
 }
 
 // PostgresMigration returns steps needed for migrating postgres database.
