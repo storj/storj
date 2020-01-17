@@ -178,7 +178,7 @@ func (db *gracefulexitDB) GetIncomplete(ctx context.Context, nodeID storj.NodeID
 			WHERE node_id = ? 
 			AND finished_at is NULL 
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
-	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
+	rows, err := db.db.Query(ctx, db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -201,7 +201,7 @@ func (db *gracefulexitDB) GetIncompleteNotFailed(ctx context.Context, nodeID sto
 			AND finished_at is NULL
 			AND last_failed_at is NULL
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
-	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
+	rows, err := db.db.Query(ctx, db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -225,7 +225,7 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 			AND last_failed_at is not NULL
 			AND failed_count < ?
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
-	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)
+	rows, err := db.db.Query(ctx, db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

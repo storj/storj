@@ -12,6 +12,7 @@ import (
 
 	"storj.io/storj/private/currency"
 	"storj.io/storj/private/dbutil/txutil"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -108,7 +109,7 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 
 	var id int64
 
-	err := txutil.WithTx(ctx, db.db.DB.DB, nil, func(ctx context.Context, tx *sql.Tx) error {
+	err := txutil.WithTx(ctx, db.db.DB.DB, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		// If there's an existing current offer, update its status to Done and set its expires_at to be NOW()
 		switch o.Type {
 		case rewards.Partner:

@@ -137,7 +137,7 @@ func (opi *orderedPostgresIterator) doNextQuery(ctx context.Context) (_ *sql.Row
 		gt = ">="
 	}
 
-	return opi.client.db.Query(fmt.Sprintf(`
+	return opi.client.db.Query(ctx, fmt.Sprintf(`
 		SELECT pd.fullpath, pd.metadata
 		FROM pathdata pd
 		WHERE pd.fullpath %s $1::BYTEA

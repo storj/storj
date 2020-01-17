@@ -65,13 +65,13 @@ func QuoteSchema(schema string) string {
 
 // Execer is for executing sql
 type Execer interface {
-	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
 // CreateSchema creates a schema if it doesn't exist.
 func CreateSchema(ctx context.Context, db Execer, schema string) (err error) {
 	for try := 0; try < 5; try++ {
-		_, err = db.Exec(`create schema if not exists ` + QuoteSchema(schema) + `;`)
+		_, err = db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS `+QuoteSchema(schema)+`;`)
 
 		// Postgres `CREATE SCHEMA IF NOT EXISTS` may return "duplicate key value violates unique constraint".
 		// In that case, we will retry rather than doing anything more complicated.
@@ -88,6 +88,6 @@ func CreateSchema(ctx context.Context, db Execer, schema string) (err error) {
 
 // DropSchema drops the named schema
 func DropSchema(ctx context.Context, db Execer, schema string) error {
-	_, err := db.Exec(`drop schema ` + QuoteSchema(schema) + ` cascade;`)
+	_, err := db.ExecContext(ctx, `DROP SCHEMA `+QuoteSchema(schema)+` CASCADE;`)
 	return err
 }

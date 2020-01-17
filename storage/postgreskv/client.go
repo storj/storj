@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/txutil"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/postgreskv/schema"
 )
@@ -30,7 +31,7 @@ var (
 
 // Client is the entrypoint into a postgreskv data store
 type Client struct {
-	db *sql.DB
+	db tagsql.DB
 }
 
 // New instantiates a new postgreskv client given db URL
@@ -49,11 +50,11 @@ func New(dbURL string) (*Client, error) {
 		return nil, err
 	}
 
-	return NewWith(db), nil
+	return NewWith(tagsql.Wrap(db)), nil
 }
 
 // NewWith instantiates a new postgreskv client given db.
-func NewWith(db *sql.DB) *Client {
+func NewWith(db tagsql.DB) *Client {
 	return &Client{db: db}
 }
 
@@ -76,7 +77,7 @@ func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Va
 			ON CONFLICT (fullpath) DO UPDATE SET metadata = EXCLUDED.metadata
 	`
 
-	_, err = client.db.Exec(q, []byte(key), []byte(value))
+	_, err = client.db.Exec(ctx, q, []byte(key), []byte(value))
 	return Error.Wrap(err)
 }
 
@@ -89,7 +90,7 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 	}
 
 	q := "SELECT metadata FROM pathdata WHERE fullpath = $1::BYTEA"
-	row := client.db.QueryRow(q, []byte(key))
+	row := client.db.QueryRow(ctx, q, []byte(key))
 
 	var val []byte
 	err = row.Scan(&val)
@@ -117,7 +118,7 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 			ON (pd.fullpath = pk.request)
 		ORDER BY pk.ord
 	`
-	rows, err := client.db.Query(q, pq.ByteaArray(keys.ByteSlices()))
+	rows, err := client.db.Query(ctx, q, pq.ByteaArray(keys.ByteSlices()))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -144,7 +145,7 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	}
 
 	q := "DELETE FROM pathdata WHERE fullpath = $1::BYTEA"
-	result, err := client.db.Exec(q, []byte(key))
+	result, err := client.db.Exec(ctx, q, []byte(key))
 	if err != nil {
 		return err
 	}
@@ -195,7 +196,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 
 	if oldValue == nil && newValue == nil {
 		q := "SELECT metadata FROM pathdata WHERE fullpath = $1::BYTEA"
-		row := client.db.QueryRow(q, []byte(key))
+		row := client.db.QueryRow(ctx, q, []byte(key))
 
 		var val []byte
 		err = row.Scan(&val)
@@ -215,7 +216,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 			ON CONFLICT DO NOTHING
 			RETURNING 1
 		`
-		row := client.db.QueryRow(q, []byte(key), []byte(newValue))
+		row := client.db.QueryRow(ctx, q, []byte(key), []byte(newValue))
 
 		var val []byte
 		err = row.Scan(&val)
@@ -225,7 +226,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 		return Error.Wrap(err)
 	}
 
-	return txutil.WithTx(ctx, client.db, nil, func(_ context.Context, txn *sql.Tx) error {
+	return txutil.WithTx(ctx, client.db, nil, func(_ context.Context, txn tagsql.Tx) error {
 		q := "SELECT metadata FROM pathdata WHERE fullpath = $1::BYTEA;"
 		row := txn.QueryRowContext(ctx, q, []byte(key))
 

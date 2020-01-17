@@ -149,7 +149,7 @@ func (cache *overlaycache) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeI
 	defer mon.Task()(&ctx)(&err)
 
 	var rows *sql.Rows
-	rows, err = cache.db.Query(cache.db.Rebind(`
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT last_net FROM nodes
 			WHERE id = any($1::bytea[])
 		`), postgresNodeIDList(nodeIDs),
@@ -188,7 +188,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	args = append(args, count)
 
 	var rows *sql.Rows
-	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net,
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`SELECT id, type, address, last_net,
 		free_bandwidth, free_disk, total_audit_count, audit_success_count,
 		total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
 		audit_reputation_beta
@@ -249,7 +249,7 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 	}
 	args = append(args, count)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT *
 		FROM (
 			SELECT DISTINCT ON (last_net) last_net,    -- choose at max 1 node from this IP or network
@@ -319,7 +319,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 
 	// get offline nodes
 	var rows *sql.Rows
-	rows, err = cache.db.Query(cache.db.Rebind(`
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
 			AND last_contact_success < $2
@@ -351,7 +351,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 
 	// get reliable and online nodes
 	var rows *sql.Rows
-	rows, err = cache.db.Query(cache.db.Rebind(`
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
@@ -389,7 +389,7 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 	}
 
 	// get online nodes
-	rows, err := cache.db.Query(cache.db.Rebind(`
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id, last_net, address, protocol FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
@@ -419,7 +419,7 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 // Reliable returns all reliable nodes.
 func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
 	// get reliable and online nodes
-	rows, err := cache.db.Query(cache.db.Rebind(`
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE disqualified IS NULL
 		AND last_contact_success > ?
@@ -617,7 +617,7 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 			}
 
 			if allSQL != "" {
-				results, err := tx.Tx.Exec(allSQL)
+				results, err := tx.Tx.Exec(ctx, allSQL)
 				if err != nil {
 					return err
 				}
@@ -892,7 +892,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []*overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success FROM nodes
 		WHERE exit_initiated_at IS NOT NULL
 		AND exit_finished_at IS NULL
@@ -918,7 +918,7 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []
 func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
 		FROM nodes
 		WHERE id = ?
@@ -943,7 +943,7 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE exit_initiated_at IS NOT NULL
 		AND exit_finished_at IS NOT NULL
@@ -972,7 +972,7 @@ func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Conte
 func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE exit_initiated_at IS NOT NULL
 		AND exit_finished_at IS NULL
