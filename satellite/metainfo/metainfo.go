@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 
@@ -2287,16 +2286,46 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 	// We should ignore client cancelling and always try to delete segments.
 	ctx = context2.WithoutCancellation(ctx)
 
-	numOfSegments, err := endpoint.getObjectNumberOfSegments(ctx, projectID, bucket, encryptedPath)
-	if err != nil {
-		return err
-	}
+	var (
+		lastSegmentNotFound  = false
+		prevLastSegmentIndex int64
+	)
+	{
+		numOfSegments, err := endpoint.getObjectNumberOfSegments(ctx, projectID, bucket, encryptedPath)
+		if err != nil {
+			if !errs2.IsRPC(err, rpcstatus.NotFound) {
+				return err
+			}
 
-	knownNumOfSegments := false
-	if numOfSegments == 0 {
-		numOfSegments = math.MaxInt64
-	} else {
-		knownNumOfSegments = true
+			// Not found is that the last segment doesn't exist, so we proceed deleting
+			// in a reverse order the continuous segments starting from index 0
+			lastSegmentNotFound = true
+			{
+				var err error
+				prevLastSegmentIndex, err = endpoint.findIndexPreviousLastSegmentWhenNotKnowingNumSegments(
+					ctx, projectID, bucket, encryptedPath,
+				)
+				if err != nil {
+					endpoint.log.Error("unexpected error while finding last segment index previous to the last segment",
+						zap.Stringer("project_id", projectID),
+						zap.ByteString("bucket_name", bucket),
+						zap.Binary("encrypted_path", encryptedPath),
+						zap.Error(err),
+					)
+
+					return err
+				}
+			}
+
+			// There no last segment and any continuous segment so we return the
+			// NotFound error handled in this conditional block
+			if prevLastSegmentIndex == -1 {
+				return err
+			}
+
+		} else {
+			prevLastSegmentIndex = numOfSegments - 2 // because of the last segment and because it's an index
+		}
 	}
 
 	var (
@@ -2304,16 +2333,19 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		nodeIDs     storj.NodeIDList
 	)
 
-	for segmentIdx := int64(lastSegment); segmentIdx < (numOfSegments - 1); segmentIdx++ {
-		pointer, err := endpoint.deletePointer(ctx, projectID, segmentIdx, bucket, encryptedPath)
+	if !lastSegmentNotFound {
+		// first delete the last segment
+		pointer, err := endpoint.deletePointer(ctx, projectID, lastSegment, bucket, encryptedPath)
 		if err != nil {
-			// Only return the error for aborting the operation if it happens on the
-			// first iteration
-			if segmentIdx == int64(lastSegment) {
-				if storj.ErrObjectNotFound.Has(err) {
-					return rpcstatus.Error(rpcstatus.NotFound, "object doesn't exist")
-				}
-
+			if storj.ErrObjectNotFound.Has(err) {
+				endpoint.log.Warn(
+					"unexpected not found error while deleting a pointer, it may have been deleted concurrently",
+					zap.String("pointer_path",
+						fmt.Sprintf("%s/l/%s/%q", projectID, bucket, encryptedPath),
+					),
+					zap.String("segment", "l"),
+				)
+			} else {
 				endpoint.log.Error("unexpected error while deleting object pieces",
 					zap.Stringer("project_id", projectID),
 					zap.ByteString("bucket_name", bucket),
@@ -2322,16 +2354,29 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 				)
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
+		}
 
-			if storj.ErrObjectNotFound.Has(err) {
-				if !knownNumOfSegments {
-					// Because we don't know the number of segments, we assume that if the
-					// pointer isn't found then we reached in the previous iteration the
-					// segment before the last one.
-					break
+		if err == nil && pointer.Type == pb.Pointer_REMOTE {
+			rootPieceID := pointer.GetRemote().RootPieceId
+			for _, piece := range pointer.GetRemote().GetRemotePieces() {
+				pieceID := rootPieceID.Derive(piece.NodeId, piece.PieceNum)
+				pieces, ok := nodesPieces[piece.NodeId]
+				if !ok {
+					nodesPieces[piece.NodeId] = []storj.PieceID{pieceID}
+					nodeIDs = append(nodeIDs, piece.NodeId)
+					continue
 				}
 
-				segment := "s" + strconv.FormatInt(segmentIdx, 10)
+				nodesPieces[piece.NodeId] = append(pieces, pieceID)
+			}
+		}
+	}
+
+	for segmentIdx := prevLastSegmentIndex; segmentIdx >= 0; segmentIdx-- {
+		pointer, err := endpoint.deletePointer(ctx, projectID, segmentIdx, bucket, encryptedPath)
+		if err != nil {
+			segment := "s" + strconv.FormatInt(segmentIdx, 10)
+			if storj.ErrObjectNotFound.Has(err) {
 				endpoint.log.Warn(
 					"unexpected not found error while deleting a pointer, it may have been deleted concurrently",
 					zap.String("pointer_path",
@@ -2340,7 +2385,6 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 					zap.String("segment", segment),
 				)
 			} else {
-				segment := "s" + strconv.FormatInt(segmentIdx, 10)
 				endpoint.log.Warn(
 					"unexpected error while deleting a pointer",
 					zap.String("pointer_path",
@@ -2351,11 +2395,8 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 				)
 			}
 
-			// We continue with the next segment for not deleting the pieces of this
-			// pointer and avoiding that some storage nodes fail audits due to a
-			// missing piece.
-			// If it was not found them we assume that the pieces were deleted by
-			// another request running concurrently.
+			// We continue with the next segment and we leave the pieces of this
+			// segment to be deleted by the garbage collector
 			continue
 		}
 
@@ -2378,7 +2419,6 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 	}
 
 	if len(nodeIDs) == 0 {
-		// Pieces will be collected by garbage collector
 		return
 	}
 
@@ -2428,4 +2468,31 @@ func (endpoint *Endpoint) deletePointer(
 	}
 
 	return pointer, nil
+}
+
+// findIndexPreviousLastSegmentWhenNotKnowingNumSegments returns the index of
+// the segment previous to the last segment when there is an unknown number of
+// segments.
+//
+// It returns -1 index if none is found and error if there is some error getting
+// the segments' pointers.
+func (endpoint *Endpoint) findIndexPreviousLastSegmentWhenNotKnowingNumSegments(
+	ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte,
+) (index int64, err error) {
+	defer mon.Task()(&ctx, projectID, bucket, encryptedPath)(&err)
+
+	lastIdxFound := int64(-1)
+	for {
+		_, _, err := endpoint.getPointer(ctx, projectID, lastIdxFound+1, bucket, encryptedPath)
+		if err != nil {
+			if errs2.IsRPC(err, rpcstatus.NotFound) {
+				break
+			}
+			return -1, err
+		}
+
+		lastIdxFound++
+	}
+
+	return lastIdxFound, nil
 }
