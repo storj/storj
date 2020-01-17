@@ -69,18 +69,25 @@ func (cache *RollupsWriteCache) UpdateBucketBandwidthInline(ctx context.Context,
 	return nil
 }
 
-// FlushToDB resets cache then flushes the everything in the rollups write cache to the database
-func (cache *RollupsWriteCache) FlushToDB(ctx context.Context) {
-	defer mon.Task()(&ctx)(nil)
-
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
+// resetCache should only be called after you have acquired the cache lock. It
+// will reset the various cache values and return the pendingRollups,
+// latestTime, and currentSize
+func (cache *RollupsWriteCache) resetCache() (RollupData, time.Time, int) {
 	pendingRollups := cache.pendingRollups
 	cache.pendingRollups = make(RollupData)
 	oldSize := cache.currentSize
 	cache.currentSize = 0
 	latestTime := cache.latestTime
 	cache.latestTime = time.Time{}
+	return pendingRollups, latestTime, oldSize
+}
+
+// FlushToDB resets cache then flushes the everything in the rollups write cache to the database
+func (cache *RollupsWriteCache) FlushToDB(ctx context.Context) {
+	defer mon.Task()(&ctx)(nil)
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	pendingRollups, latestTime, oldSize := cache.resetCache()
 	go cache.flushToDB(ctx, pendingRollups, latestTime, oldSize)
 }
 
@@ -140,12 +147,7 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 	if cache.currentSize < cache.batchSize {
 		return
 	}
-	pendingRollups := cache.pendingRollups
-	cache.pendingRollups = make(RollupData)
-	oldSize := cache.currentSize
-	cache.currentSize = 0
-	latestTime := cache.latestTime
-	cache.latestTime = time.Time{}
+	pendingRollups, latestTime, oldSize := cache.resetCache()
 	go cache.flushToDB(ctx, pendingRollups, latestTime, oldSize)
 }
 
