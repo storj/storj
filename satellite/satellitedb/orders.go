@@ -329,7 +329,8 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 }
 
 func roundToNextDay(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).AddDate(0, 0, 1).UTC()
+	t = t.UTC()
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).AddDate(0, 0, 1)
 }
 
 // GetBillableBandwidth gets total billable (expired consumed serial) bandwidth for nodes and buckets for all actions.
