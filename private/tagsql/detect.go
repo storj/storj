@@ -56,7 +56,9 @@ func DetectContextSupport(db *sql.DB) (ContextSupport, error) {
 	}
 
 	switch {
-	case typ.PkgPath() == "github.com/mattn/go-sqlite3" && typ.Name() == "SQLiteDriver":
+	case typ.PkgPath() == "github.com/mattn/go-sqlite3" && typ.Name() == "SQLiteDriver" ||
+		// wrapper for sqlite
+		typ.PkgPath() == "storj.io/storj/private/dbutil/utccheck" && typ.Name() == "Driver":
 		return SupportBasic, nil
 	case typ.PkgPath() == "github.com/lib/pq" && typ.Name() == "Driver" ||
 		// internally uses lib/pq

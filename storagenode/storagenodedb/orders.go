@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storagenode/orders"
 )
 
@@ -214,7 +215,7 @@ func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests 
 }
 
 // archiveOne marks order as being handled.
-func (db *ordersDB) archiveOne(ctx context.Context, tx *sql.Tx, archivedAt time.Time, req orders.ArchiveRequest) (err error) {
+func (db *ordersDB) archiveOne(ctx context.Context, tx tagsql.Tx, archivedAt time.Time, req orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	result, err := tx.ExecContext(ctx, `

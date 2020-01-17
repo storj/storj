@@ -56,18 +56,12 @@ var _ storagenode.DB = (*DB)(nil)
 type SQLDB interface {
 	Close() error
 
-	Begin() (*sql.Tx, error)
-	BeginTx(ctx context.Context, txOptions *sql.TxOptions) (*sql.Tx, error)
-
-	Conn(ctx context.Context) (*sql.Conn, error)
+	Conn(ctx context.Context) (tagsql.Conn, error)
 	Driver() driver.Driver
 
-	Exec(query string, args ...interface{}) (sql.Result, error)
+	BeginTx(ctx context.Context, txOptions *sql.TxOptions) (tagsql.Tx, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-
-	Query(query string, args ...interface{}) (*sql.Rows, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
@@ -78,7 +72,7 @@ type DBContainer interface {
 }
 
 // withTx is a helper method which executes callback in transaction scope
-func withTx(ctx context.Context, db SQLDB, cb func(tx *sql.Tx) error) error {
+func withTx(ctx context.Context, db SQLDB, cb func(tx tagsql.Tx) error) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -275,7 +269,7 @@ func (db *DB) openDatabase(dbName string) error {
 	}
 
 	mDB := db.SQLDBs[dbName]
-	mDB.Configure(sqlDB)
+	mDB.Configure(tagsql.Wrap(sqlDB))
 
 	dbutil.Configure(sqlDB, mon)
 
@@ -327,11 +321,11 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 		// for each database, create a new table, insert a row into that table, retrieve and validate that row, and drop the table.
 
 		// drop test table in case the last preflight check failed before table could be dropped
-		_, err = nextDB.Exec("DROP TABLE IF EXISTS test_table")
+		_, err = nextDB.ExecContext(ctx, "DROP TABLE IF EXISTS test_table")
 		if err != nil {
 			return ErrPreflight.Wrap(err)
 		}
-		_, err = nextDB.Exec("CREATE TABLE test_table(id int NOT NULL, name varchar(30), PRIMARY KEY (id))")
+		_, err = nextDB.ExecContext(ctx, "CREATE TABLE test_table(id int NOT NULL, name varchar(30), PRIMARY KEY (id))")
 		if err != nil {
 			return ErrPreflight.Wrap(err)
 		}
@@ -340,12 +334,12 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 		var expectedName, actualName string
 		expectedID = 1
 		expectedName = "TEST"
-		_, err = nextDB.Exec("INSERT INTO test_table VALUES ( ?, ? )", expectedID, expectedName)
+		_, err = nextDB.ExecContext(ctx, "INSERT INTO test_table VALUES ( ?, ? )", expectedID, expectedName)
 		if err != nil {
 			return ErrPreflight.Wrap(err)
 		}
 
-		rows, err := nextDB.Query("SELECT id, name FROM test_table")
+		rows, err := nextDB.QueryContext(ctx, "SELECT id, name FROM test_table")
 		if err != nil {
 			return ErrPreflight.Wrap(err)
 		}
@@ -364,7 +358,7 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 			return ErrPreflight.New("%s: more than one row in test_table", dbName)
 		}
 
-		_, err = nextDB.Exec("DROP TABLE test_table")
+		_, err = nextDB.ExecContext(ctx, "DROP TABLE test_table")
 		if err != nil {
 			return ErrPreflight.Wrap(err)
 		}
@@ -481,8 +475,8 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 	}
 
 	err = sqliteutil.MigrateTablesToDatabase(ctx,
-		withTagTx{db.rawDatabaseFromName(DeprecatedInfoDBName)},
-		withTagTx{db.rawDatabaseFromName(dbName)},
+		db.rawDatabaseFromName(DeprecatedInfoDBName),
+		db.rawDatabaseFromName(dbName),
 		tablesToKeep...)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
@@ -503,34 +497,13 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 	return nil
 }
 
-// withTagTx makes SQLDB work with tagsql.DB.
-type withTagTx struct {
-	SQLDB
-}
-
-func (db withTagTx) Conn(ctx context.Context) (tagsql.Conn, error) {
-	conn, err := db.SQLDB.Conn(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return tagsql.ConnWithoutTxContext(conn), nil
-}
-
-func (db withTagTx) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (tagsql.Tx, error) {
-	tx, err := db.SQLDB.BeginTx(ctx, txOptions)
-	if err != nil {
-		return nil, err
-	}
-	return tagsql.TxWithoutContext(tx), nil
-}
-
 // Migration returns table migrations.
 func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 	return &migrate.Migration{
 		Table: VersionTable,
 		Steps: []*migrate.Step{
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
@@ -612,7 +585,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Network Wipe #2",
 				Version:     1,
 				Action: migrate.SQL{
@@ -620,7 +593,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Add tracking of deletion failures.",
 				Version:     2,
 				Action: migrate.SQL{
@@ -628,7 +601,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Add vouchersDB for storing and retrieving vouchers.",
 				Version:     3,
 				Action: migrate.SQL{
@@ -640,7 +613,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Add index on pieceinfo expireation",
 				Version:     4,
 				Action: migrate.SQL{
@@ -649,7 +622,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Partial Network Wipe - Tardigrade Satellites",
 				Version:     5,
 				Action: migrate.SQL{
@@ -661,7 +634,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Add creation date.",
 				Version:     6,
 				Action: migrate.SQL{
@@ -669,7 +642,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Drop certificate table.",
 				Version:     7,
 				Action: migrate.SQL{
@@ -678,7 +651,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Drop old used serials and remove pieceinfo_deletion_failed index.",
 				Version:     8,
 				Action: migrate.SQL{
@@ -687,7 +660,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Add order limit table.",
 				Version:     9,
 				Action: migrate.SQL{
@@ -695,7 +668,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Optimize index usage.",
 				Version:     10,
 				Action: migrate.SQL{
@@ -706,7 +679,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Create bandwidth_usage_rollup table.",
 				Version:     11,
 				Action: migrate.SQL{
@@ -720,7 +693,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Clear Tables from Alpha data",
 				Version:     12,
 				Action: migrate.SQL{
@@ -768,7 +741,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx tagsql.Tx) error {
@@ -793,7 +766,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx tagsql.Tx) error {
@@ -806,7 +779,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Start piece_expirations table, deprecate pieceinfo table",
 				Version:     15,
 				Action: migrate.SQL{
@@ -823,7 +796,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Add reputation and storage usage cache tables",
 				Version:     16,
 				Action: migrate.SQL{
@@ -851,7 +824,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Create piece_space_used table",
 				Version:     17,
 				Action: migrate.SQL{
@@ -865,7 +838,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Drop vouchers table",
 				Version:     18,
 				Action: migrate.SQL{
@@ -873,7 +846,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Add disqualified field to reputation",
 				Version:     19,
 				Action: migrate.SQL{
@@ -897,7 +870,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Empty storage_usage table, rename storage_usage.timestamp to interval_start",
 				Version:     20,
 				Action: migrate.SQL{
@@ -911,7 +884,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Create satellites table and satellites_exit_progress table",
 				Version:     21,
 				Action: migrate.SQL{
@@ -934,7 +907,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Vacuum info db",
 				Version:     22,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
@@ -943,7 +916,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Split into multiple sqlite databases",
 				Version:     23,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
@@ -980,7 +953,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          withTagTx{db.deprecatedInfoDB},
+				DB:          db.deprecatedInfoDB,
 				Description: "Drop unneeded tables in deprecatedInfoDB",
 				Version:     24,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
@@ -990,7 +963,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					// may have successfully dropped and we would experience unrecoverable data loss.
 					// This way if step 22 completes it never gets replayed even if a drop table or
 					// VACUUM call fails.
-					if err := sqliteutil.KeepTables(ctx, withTagTx{db.rawDatabaseFromName(DeprecatedInfoDBName)}, VersionTable); err != nil {
+					if err := sqliteutil.KeepTables(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), VersionTable); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1008,7 +981,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          withTagTx{db.satellitesDB},
+				DB:          db.satellitesDB,
 				Description: "Remove address from satellites table",
 				Version:     25,
 				Action: migrate.SQL{
@@ -1026,7 +999,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.pieceExpirationDB},
+				DB:          db.pieceExpirationDB,
 				Description: "Add Trash column to pieceExpirationDB",
 				Version:     26,
 				Action: migrate.SQL{
@@ -1037,7 +1010,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.ordersDB},
+				DB:          db.ordersDB,
 				Description: "Add index archived_at to ordersDB",
 				Version:     27,
 				Action: migrate.SQL{
@@ -1045,7 +1018,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          withTagTx{db.notificationsDB},
+				DB:          db.notificationsDB,
 				Description: "Create notifications table",
 				Version:     28,
 				Action: migrate.SQL{
