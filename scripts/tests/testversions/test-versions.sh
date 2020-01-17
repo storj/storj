@@ -4,6 +4,7 @@ set -ueo pipefail
 
 main_cfg_dir=$1
 command=$2
+uplink_version=$3
 
 bucket="bucket-123"
 test_files_dir="${main_cfg_dir}/testfiles"
@@ -18,8 +19,8 @@ setup(){
 	    head -c $size </dev/urandom > $output
     }
     random_bytes_file "2048"   "$test_files_dir/small-upload-testfile"          # create 2kb file of random bytes (inline)
-    random_bytes_file "5242880" "$test_files_dir/big-upload-testfile"            # create 5mb file of random bytes (remote)
-    random_bytes_file "134217728" "$test_files_dir/multisegment-upload-testfile"   # create 128mb file of random bytes (remote)
+    random_bytes_file "5120" "$test_files_dir/big-upload-testfile"              # create 5kb file of random bytes (remote)
+    random_bytes_file "143360" "$test_files_dir/multisegment-upload-testfile"   # create 140kb file of random bytes (remote)
 
     echo "setup test successfully"
 }
@@ -31,7 +32,7 @@ wait_for_all_background_jobs_to_finish(){
         RESULT=0
         wait $job || RESULT=1
         if [ "$RESULT" == "1" ]; then
-           exit $?
+            echo "job $job failed"
         fi
     done
 }
@@ -48,10 +49,35 @@ echo "which uplink: $(which uplink)"
 echo "Shasum for uplink:"
 shasum $(which uplink)
 
+# for oldest uplink versions, access is not supported, and we need to configure separate values for api key, sat addr, and encryption key
 if [ ! -d ${main_cfg_dir}/uplink ]; then
     mkdir -p ${main_cfg_dir}/uplink
-    access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
-    uplink import --config-dir="${main_cfg_dir}/uplink" "$access"
+    api_key=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_API_KEY)
+    sat_addr=$(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_ADDR)
+    should_use_access=$(echo $uplink_version | awk 'BEGIN{FS="[v.]"} $3 >= 30 {print $0}')
+    if [[ ${#should_use_access} -gt 0 ]]; then
+        access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
+        uplink import --config-dir="${main_cfg_dir}/uplink" "${access}"
+    else
+        uplink setup --config-dir="${main_cfg_dir}/uplink" --non-interactive --api-key="$api_key" --satellite-addr="$sat_addr" --enc.encryption-key="test" --client.segment-size="64.0 KiB"
+    fi
+fi
+
+if [[ $uplink_version = "v0.29.10" ]]; then
+    uplink share --config-dir="${main_cfg_dir}/uplink" | grep "Scope" | awk -F ": " '{print $2}' | tee ${main_cfg_dir}/uplink/access.txt
+fi
+
+# after this version we need to use access instead of separate values for api key, sat addr, and encryption key
+if [[ $uplink_version = "v0.30.4" ]] && [ -e ${main_cfg_dir}/uplink/access.txt ]
+then
+    # the access provided by storj-sim uses an empty encryption key; we cannot do uplink setup above with an empty encryption key
+    # therefore, we use a hack -> get an access key from the existing uplink config, then import that same access key
+
+    # super hack:
+    access=$(head -n 1 ${main_cfg_dir}/uplink/access.txt)
+    echo "import for uplink $access"
+    uplink import --config-dir="${main_cfg_dir}/uplink" "${access}"
+    rm -rf ${main_cfg_dir}/uplink/access.txt
 fi
 
 echo -e "\nConfig directory for satellite:"
@@ -69,7 +95,6 @@ do
 done
 
 if [[ "$command" == "upload" ]]; then
-    uplink_version=$3
     setup
     bucket_name=${bucket}-${uplink_version}
     download_dst_dir=${stage1_dst_dir}/${uplink_version}
@@ -117,7 +142,7 @@ if [[ "$command" == "upload" ]]; then
 fi
 
 if [[ "$command" == "download" ]]; then
-    existing_bucket_name_suffixes=$3
+    existing_bucket_name_suffixes=$4
 
     # download all uploaded files from stage 1 with currently selected uplink
     for suffix in ${existing_bucket_name_suffixes}; do
