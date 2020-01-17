@@ -85,7 +85,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				},
 			},
 			Preflight: preflight.Config{
-				EnabledLocalTime: false,
+				LocalTimeCheck: false,
 			},
 			Operator: storagenode.OperatorConfig{
 				Email:  prefix + "@mail.test",

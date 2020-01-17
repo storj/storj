@@ -113,7 +113,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 
 		// should not return any error when node's clock is off no more than 24
 		localtime := preflight.NewLocalTime(log, preflight.Config{
-			EnabledLocalTime: true,
+			LocalTimeCheck: true,
 		}, pool, dialer)
 		err = localtime.Check(ctx)
 		require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 
 		// should return an error when node's clock is off by more than 24h with all trusted satellites
 		localtime := preflight.NewLocalTime(log, preflight.Config{
-			EnabledLocalTime: true,
+			LocalTimeCheck: true,
 		}, pool, dialer)
 		err = localtime.Check(ctx)
 		require.Error(t, err)

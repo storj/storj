@@ -46,7 +46,7 @@ func NewLocalTime(log *zap.Logger, config Config, trust *trust.Pool, dialer rpc.
 // it returns an error when local system clock is out of sync by more than 24h with all trusted satellites' clock.
 func (localTime *LocalTime) Check(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if !localTime.config.EnabledLocalTime {
+	if !localTime.config.LocalTimeCheck {
 		localTime.log.Debug("local system clock check is not enabled")
 		return nil
 	}
