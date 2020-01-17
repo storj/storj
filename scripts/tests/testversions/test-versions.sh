@@ -51,8 +51,7 @@ shasum $(which uplink)
 if [ ! -d ${main_cfg_dir}/uplink ]; then
     mkdir -p ${main_cfg_dir}/uplink
     access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
-    sat_addr=$(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_ADDR)
-    uplink import --access="$access" --satellite-addr="$sat_addr" --config-dir="${main_cfg_dir}/uplink" --enc.encryption-key="TestEncKey"
+    uplink import --config-dir="${main_cfg_dir}/uplink" "$access"
 fi
 
 echo -e "\nConfig directory for satellite:"

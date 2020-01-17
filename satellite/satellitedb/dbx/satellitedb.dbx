@@ -468,14 +468,14 @@ model reported_serial (
 
 	key expires_at storage_node_id bucket_id action serial_number
 
-	field expires_at      utimestamp // ceil'd to the next day
-	field storage_node_id blob       // involved node id
-	field bucket_id       blob       // involved project id and bucket name
-	field action          uint       // action (get, put, audit, etc. see protobuf)
-	field serial_number   blob       // identifies order (required for uniqueness)
+	field expires_at      timestamp // ceil'd to the next day
+	field storage_node_id blob      // involved node id
+	field bucket_id       blob      // involved project id and bucket name
+	field action          uint      // action (get, put, audit, etc. see protobuf)
+	field serial_number   blob      // identifies order (required for uniqueness)
 
 	field settled     uint64
-	field observed_at utimestamp
+	field observed_at timestamp
 )
 
 create reported_serial ( noreturn, replace )
@@ -486,10 +486,6 @@ delete reported_serial ( where reported_serial.expires_at <= ? )
 
 model bucket_bandwidth_rollup (
 	key    bucket_name project_id interval_start action
-	index (
-	    name bucket_name_project_id_interval_start_interval_seconds
-	    fields bucket_name project_id interval_start interval_seconds
-	)
 
 	field bucket_name       blob
 	field project_id        blob
@@ -554,17 +550,13 @@ read all (
 
 model storagenode_bandwidth_rollup (
 	key    storagenode_id interval_start action
-	index (
-	    name storagenode_id_interval_start_interval_seconds
-	    fields storagenode_id interval_start interval_seconds
-	)
 
 	field storagenode_id   blob
 	field interval_start   utimestamp
 	field interval_seconds uint
 	field action           uint
 
-	field allocated uint64 ( updatable )
+	field allocated uint64 ( updatable, nullable, default 0 )
 	field settled   uint64 ( updatable )
 )
 

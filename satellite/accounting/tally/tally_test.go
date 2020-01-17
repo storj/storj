@@ -202,6 +202,52 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 	})
 }
 
+func TestTallyLiveAccounting(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		tally := planet.Satellites[0].Accounting.Tally
+		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
+		tally.Loop.Pause()
+
+		expectedData := testrand.Bytes(5 * memory.MB)
+
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		require.NoError(t, err)
+
+		key, err := planet.Satellites[0].Metainfo.Database.List(ctx, nil, 10)
+		require.NoError(t, err)
+		require.Len(t, key, 1)
+
+		ptr, err := planet.Satellites[0].Metainfo.Service.Get(ctx, key[0].String())
+		require.NoError(t, err)
+		require.NotNil(t, ptr)
+
+		segmentSize := ptr.GetSegmentSize()
+
+		tally.Loop.TriggerWait()
+
+		expectedSize := segmentSize
+
+		total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
+		require.NoError(t, err)
+		require.Equal(t, expectedSize, total)
+
+		for i := 0; i < 5; i++ {
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", fmt.Sprintf("test/path/%d", i), expectedData)
+			require.NoError(t, err)
+
+			tally.Loop.TriggerWait()
+
+			expectedSize += segmentSize
+
+			total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
+			require.NoError(t, err)
+			require.Equal(t, expectedSize, total)
+		}
+	})
+}
+
 // addBucketTally creates a new expected bucket tally based on the
 // pointer that was just created for the test case
 func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *accounting.BucketTally {

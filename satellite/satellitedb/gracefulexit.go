@@ -182,10 +182,7 @@ func (db *gracefulexitDB) GetIncomplete(ctx context.Context, nodeID storj.NodeID
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	transferQueueItemRows, err := scanRows(rows)
 	if err != nil {
@@ -208,10 +205,7 @@ func (db *gracefulexitDB) GetIncompleteNotFailed(ctx context.Context, nodeID sto
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	transferQueueItemRows, err := scanRows(rows)
 	if err != nil {
@@ -235,10 +229,7 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	transferQueueItemRows, err := scanRows(rows)
 	if err != nil {

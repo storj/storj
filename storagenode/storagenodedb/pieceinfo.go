@@ -81,7 +81,7 @@ func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore stor
 			return nil, ErrPieceInfo.Wrap(err)
 		}
 	}
-	return pieceInfos, nil
+	return pieceInfos, rows.Err()
 }
 
 // WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored with storage
@@ -203,7 +203,7 @@ func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, li
 		}
 		infos = append(infos, info)
 	}
-	return infos, nil
+	return infos, rows.Err()
 }
 
 type v0StoredPieceAccess struct {

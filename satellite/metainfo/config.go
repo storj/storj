@@ -4,7 +4,6 @@
 package metainfo
 
 import (
-	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -15,7 +14,6 @@ import (
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/cockroachkv"
 	"storj.io/storj/storage/postgreskv"
-	"storj.io/storj/storage/postgreskv2"
 )
 
 const (
@@ -66,11 +64,7 @@ func NewStore(logger *zap.Logger, dbURLString string) (db PointerDB, err error) 
 	case dbutil.Bolt:
 		db, err = boltdb.New(source, BoltPointerBucket)
 	case dbutil.Postgres:
-		if os.Getenv("STORJ_METAINFO_POSTGRESQL_USE_ALT") == "yes" {
-			db, err = postgreskv2.New(source)
-		} else {
-			db, err = postgreskv.New(source)
-		}
+		db, err = postgreskv.New(source)
 	case dbutil.Cockroach:
 		db, err = cockroachkv.New(source)
 	default:

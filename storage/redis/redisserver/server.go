@@ -30,6 +30,11 @@ const (
 	fallbackPort = 6379
 )
 
+// Mini is a wrapper for *miniredis.MiniRedis which implements the io.Closer interface.
+type Mini struct {
+	server *miniredis.Miniredis
+}
+
 func freeport() (addr string, port int) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -49,7 +54,8 @@ func Start() (addr string, cleanup func(), err error) {
 	addr, cleanup, err = Process()
 	if err != nil {
 		log.Println("failed to start redis-server: ", err)
-		return Mini()
+		mini := NewMini()
+		return mini.Run()
 	}
 	return addr, cleanup, err
 }
@@ -145,14 +151,26 @@ func pingServer(addr string) error {
 	return client.Ping().Err()
 }
 
-// Mini starts miniredis server
-func Mini() (addr string, cleanup func(), err error) {
-	server, err := miniredis.Run()
+// NewMini creates a new Mini.
+func NewMini() *Mini {
+	return &Mini{
+		server: miniredis.NewMiniRedis(),
+	}
+}
+
+// Run starts the miniredis server.
+func (mini *Mini) Run() (addr string, cleanup func(), err error) {
+	err = mini.server.Start()
 	if err != nil {
 		return "", nil, err
 	}
-
-	return server.Addr(), func() {
-		server.Close()
+	return mini.server.Addr(), func() {
+		mini.server.Close()
 	}, nil
+}
+
+// Close closes the miniredis server.
+func (mini *Mini) Close() error {
+	mini.server.Close()
+	return nil
 }

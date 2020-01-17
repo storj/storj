@@ -57,6 +57,7 @@ import (
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/satellite/vouchers"
+	"storj.io/storj/storage/redis/redisserver"
 )
 
 // SatelliteSystem contains all the processes needed to run a full Satellite setup
@@ -268,6 +269,13 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			return nil, err
 		}
 
+		liveAccountingServer := redisserver.NewMini()
+		addr, _, err := liveAccountingServer.Run()
+		if err != nil {
+			return xs, errs.Wrap(err)
+		}
+		planet.databases = append(planet.databases, liveAccountingServer)
+
 		config := satellite.Config{
 			Server: server.Config{
 				Address:        "127.0.0.1:0",
@@ -372,6 +380,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			},
 			ReportedRollup: reportedrollup.Config{
 				Interval: defaultInterval,
+			},
+			LiveAccounting: live.Config{
+				StorageBackend: "redis://" + addr + "?db=0",
 			},
 			Mail: mailservice.Config{
 				SMTPServerAddress: "smtp.mail.test:587",

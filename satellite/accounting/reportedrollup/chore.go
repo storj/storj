@@ -22,7 +22,7 @@ var (
 	Error = errs.Class("reportedrollup")
 )
 
-// Config is a configuration struct for the Core.
+// Config is a configuration struct for the Chore.
 type Config struct {
 	Interval time.Duration `help:"how often to flush the reported serial rollups to the database" devDefault:"5m" releaseDefault:"24h"`
 }
@@ -72,7 +72,7 @@ func (chore *Chore) RunOnce(ctx context.Context, now time.Time) (err error) {
 		return err
 	}
 
-	return Error.Wrap(chore.db.ExecuteInTx(ctx, func(ctx context.Context, tx orders.Transaction) error {
+	return Error.Wrap(chore.db.WithTransaction(ctx, func(ctx context.Context, tx orders.Transaction) error {
 		if err := tx.UpdateBucketBandwidthBatch(ctx, now, bucketRollups); err != nil {
 			return Error.Wrap(err)
 		}

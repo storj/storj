@@ -247,10 +247,7 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 	if err != nil {
 		return stripecoinpayments.TransactionsPage{}, err
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var page stripecoinpayments.TransactionsPage
 

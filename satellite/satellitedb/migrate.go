@@ -601,15 +601,24 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     77,
 				Action: migrate.SQL{
 					`CREATE TABLE reported_serials (
-						expires_at timestamp NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
 						storage_node_id bytea NOT NULL,
 						bucket_id bytea NOT NULL,
 						action integer NOT NULL,
 						serial_number bytea NOT NULL,
 						settled bigint NOT NULL,
-						observed_at timestamp NOT NULL,
+						observed_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
 					);`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Drop unused indexes",
+				Version:     78,
+				Action: migrate.SQL{
+					`DROP INDEX bucket_name_project_id_interval_start_interval_seconds;`,
+					`DROP INDEX storagenode_id_interval_start_interval_seconds_index;`,
 				},
 			},
 		},

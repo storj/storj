@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/storage/redis/redisserver"
 )
 
 func TestGraphqlQuery(t *testing.T) {
@@ -53,7 +54,12 @@ func TestGraphqlQuery(t *testing.T) {
 			0, 0, 0,
 		)
 
-		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "memory"})
+		miniredis := redisserver.NewMini()
+		addr, cleanup, err := miniredis.Run()
+		require.NoError(t, err)
+		defer cleanup()
+
+		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "redis://" + addr + "?db=0"})
 		require.NoError(t, err)
 
 		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, 0)

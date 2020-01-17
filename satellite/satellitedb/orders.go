@@ -17,6 +17,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -234,9 +235,36 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		return nil, Error.Wrap(err)
 	}
 
-	// perform all of the upserts into accounted serials table
+	// perform all of the upserts into reported serials table
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		now := time.Now()
+		var stmt strings.Builder
+		var stmtBegin, stmtEnd string
+		switch db.db.implementation {
+		case dbutil.Postgres:
+			stmtBegin = `INSERT INTO reported_serials ( expires_at, storage_node_id, bucket_id, action, serial_number, settled, observed_at ) VALUES `
+			stmtEnd = ` ON CONFLICT ( expires_at, storage_node_id, bucket_id, action, serial_number )
+				DO UPDATE SET
+					expires_at = EXCLUDED.expires_at,
+					storage_node_id = EXCLUDED.storage_node_id,
+					bucket_id = EXCLUDED.bucket_id,
+					action = EXCLUDED.action,
+					serial_number = EXCLUDED.serial_number,
+					settled = EXCLUDED.settled,
+					observed_at = EXCLUDED.observed_at`
+		case dbutil.Cockroach:
+			stmtBegin = `UPSERT INTO reported_serials ( expires_at, storage_node_id, bucket_id, action, serial_number, settled, observed_at ) VALUES `
+		default:
+			return errs.New("invalid dbType: %v", db.db.driver)
+		}
+
+		stmt.WriteString(stmtBegin)
+		var expiresAt time.Time
+		var bucketID []byte
+		var serialNum storj.SerialNumber
+		var action pb.PieceAction
+		var expiresArgNum, bucketArgNum, serialArgNum, actionArgNum int
+		var args []interface{}
+		args = append(args, storageNodeID.Bytes(), time.Now().UTC())
 
 		for i, request := range requests {
 			if bucketIDs[i] == nil {
@@ -247,23 +275,49 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 				continue
 			}
 
-			// TODO: put them all in a single query?
-			err = tx.ReplaceNoReturn_ReportedSerial(ctx,
-				dbx.ReportedSerial_ExpiresAt(roundToNextDay(request.OrderLimit.OrderExpiration)),
-				dbx.ReportedSerial_StorageNodeId(storageNodeID.Bytes()),
-				dbx.ReportedSerial_BucketId(bucketIDs[i]),
-				dbx.ReportedSerial_Action(uint(request.OrderLimit.Action)),
-				dbx.ReportedSerial_SerialNumber(request.Order.SerialNumber.Bytes()),
-				dbx.ReportedSerial_Settled(uint64(request.Order.Amount)),
-				dbx.ReportedSerial_ObservedAt(now))
-			if err != nil {
-				return Error.Wrap(err)
+			if i > 0 {
+				stmt.WriteString(",")
 			}
+			if expiresAt != roundToNextDay(request.OrderLimit.OrderExpiration) {
+				expiresAt = roundToNextDay(request.OrderLimit.OrderExpiration)
+				args = append(args, expiresAt)
+				expiresArgNum = len(args)
+			}
+			if string(bucketID) != string(bucketIDs[i]) {
+				bucketID = bucketIDs[i]
+				args = append(args, bucketID)
+				bucketArgNum = len(args)
+			}
+			if action != request.OrderLimit.Action {
+				action = request.OrderLimit.Action
+				args = append(args, action)
+				actionArgNum = len(args)
+			}
+			if serialNum != request.Order.SerialNumber {
+				serialNum = request.Order.SerialNumber
+				args = append(args, serialNum.Bytes())
+				serialArgNum = len(args)
+			}
+
+			args = append(args, request.Order.Amount)
+			stmt.WriteString(fmt.Sprintf(
+				"($%d,$1,$%d,$%d,$%d,$%d,$2)",
+				expiresArgNum,
+				bucketArgNum,
+				actionArgNum,
+				serialArgNum,
+				len(args),
+			))
 
 			responses = append(responses, &orders.ProcessOrderResponse{
 				SerialNumber: request.Order.SerialNumber,
 				Status:       pb.SettlementResponse_ACCEPTED,
 			})
+		}
+		stmt.WriteString(stmtEnd)
+		_, err = tx.Tx.ExecContext(ctx, stmt.String(), args...)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
 		return nil
@@ -275,7 +329,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 }
 
 func roundToNextDay(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).AddDate(0, 0, 1)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).AddDate(0, 0, 1).UTC()
 }
 
 // GetBillableBandwidth gets total billable (expired consumed serial) bandwidth for nodes and buckets for all actions.
@@ -375,7 +429,7 @@ type ordersDBTx struct {
 	log *zap.Logger
 }
 
-func (db *ordersDB) ExecuteInTx(ctx context.Context, cb func(ctx context.Context, tx orders.Transaction) error) (err error) {
+func (db *ordersDB) WithTransaction(ctx context.Context, cb func(ctx context.Context, tx orders.Transaction) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
