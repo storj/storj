@@ -12,11 +12,13 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"storj.io/common/testcontext"
 
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/private/tagsql"
 )
 
 func TestCreate_Sqlite(t *testing.T) {
@@ -28,21 +30,22 @@ func TestCreate_Sqlite(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { assert.NoError(t, db.Close()) }()
+	tagdb := tagsql.Wrap(db)
 
 	// should create table
-	err = migrate.Create(ctx, "example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create(ctx, "example", &sqliteDB{tagdb, "CREATE TABLE example_table (id text)"})
 	require.NoError(t, err)
 
 	// shouldn't create a new table
-	err = migrate.Create(ctx, "example", &sqliteDB{db, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create(ctx, "example", &sqliteDB{tagdb, "CREATE TABLE example_table (id text)"})
 	require.NoError(t, err)
 
 	// should fail, because schema changed
-	err = migrate.Create(ctx, "example", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
+	err = migrate.Create(ctx, "example", &sqliteDB{tagdb, "CREATE TABLE example_table (id text, version int)"})
 	require.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = migrate.Create(ctx, "conflict", &sqliteDB{db, "CREATE TABLE example_table (id text, version int)"})
+	err = migrate.Create(ctx, "conflict", &sqliteDB{tagdb, "CREATE TABLE example_table (id text, version int)"})
 	require.Error(t, err)
 }
 
@@ -72,26 +75,27 @@ func testCreateGeneric(ctx *testcontext.Context, t *testing.T, connStr string) {
 		t.Fatal(err)
 	}
 	defer func() { assert.NoError(t, db.Close()) }()
+	tagdb := tagsql.Wrap(db.DB)
 
 	// should create table
-	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create(ctx, "example", &postgresDB{tagdb, "CREATE TABLE example_table (id text)"})
 	require.NoError(t, err)
 
 	// shouldn't create a new table
-	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
+	err = migrate.Create(ctx, "example", &postgresDB{tagdb, "CREATE TABLE example_table (id text)"})
 	require.NoError(t, err)
 
 	// should fail, because schema changed
-	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
+	err = migrate.Create(ctx, "example", &postgresDB{tagdb, "CREATE TABLE example_table (id text, version integer)"})
 	require.Error(t, err)
 
 	// should fail, because of trying to CREATE TABLE with same name
-	err = migrate.Create(ctx, "conflict", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
+	err = migrate.Create(ctx, "conflict", &postgresDB{tagdb, "CREATE TABLE example_table (id text, version integer)"})
 	require.Error(t, err)
 }
 
 type sqliteDB struct {
-	*sql.DB
+	tagsql.DB
 	schema string
 }
 
@@ -99,7 +103,7 @@ func (db *sqliteDB) Rebind(s string) string { return s }
 func (db *sqliteDB) Schema() string         { return db.schema }
 
 type postgresDB struct {
-	*sql.DB
+	tagsql.DB
 	schema string
 }
 

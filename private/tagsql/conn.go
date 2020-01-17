@@ -6,6 +6,7 @@ package tagsql
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"storj.io/storj/pkg/traces"
 	"storj.io/storj/private/context2"
@@ -13,7 +14,7 @@ import (
 
 // Conn is an interface for *sql.Conn-like connections.
 type Conn interface {
-	BeginTx(ctx context.Context) (Tx, error)
+	BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error)
 	Close() error
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	PingContext(ctx context.Context) error
@@ -21,6 +22,11 @@ type Conn interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 	Raw(ctx context.Context, f func(driverConn interface{}) error) (err error)
+}
+
+// ConnWithoutTxContext wraps *sql.Conn.
+func ConnWithoutTxContext(conn *sql.Conn) Conn {
+	return &sqlConn{conn: conn, useContext: true, useTxContext: false}
 }
 
 // TODO:
@@ -35,7 +41,10 @@ type sqlConn struct {
 	useTxContext bool
 }
 
-func (s *sqlConn) BeginTx(ctx context.Context) (Tx, error) {
+func (s *sqlConn) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error) {
+	if txOptions != nil {
+		return nil, errors.New("txOptions not supported")
+	}
 	traces.Tag(ctx, traces.TagDB)
 	if !s.useContext {
 		ctx = context2.WithoutCancellation(ctx)

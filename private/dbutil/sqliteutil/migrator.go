@@ -14,13 +14,13 @@ import (
 
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/private/tagsql"
 )
 
 // DB is the minimal interface required to perform migrations.
 type DB interface {
 	migrate.DB
-	Conn(ctx context.Context) (*sql.Conn, error)
-	Exec(query string, args ...interface{}) (sql.Result, error)
+	Conn(ctx context.Context) (tagsql.Conn, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
@@ -82,13 +82,13 @@ func backupDBs(ctx context.Context, srcDB, destDB DB) error {
 
 	// The references to the driver connections are only guaranteed to be valid
 	// for the life of the callback so we must do the work within both callbacks.
-	err = srcConn.Raw(func(srcDriverConn interface{}) error {
+	err = srcConn.Raw(ctx, func(srcDriverConn interface{}) error {
 		srcSqliteConn, err := getSqlite3Conn(srcDriverConn)
 		if err != nil {
 			return err
 		}
 
-		err = destConn.Raw(func(destDriverConn interface{}) error {
+		err = destConn.Raw(ctx, func(destDriverConn interface{}) error {
 			destSqliteConn, err := getSqlite3Conn(destDriverConn)
 			if err != nil {
 				return err

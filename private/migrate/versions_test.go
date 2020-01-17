@@ -18,10 +18,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/private/tagsql"
 )
 
 func TestBasicMigrationSqliteNoRebind(t *testing.T) {
@@ -31,7 +31,9 @@ func TestBasicMigrationSqliteNoRebind(t *testing.T) {
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-	basicMigration(ctx, t, db, db)
+	tagdb := tagsql.Wrap(db)
+
+	basicMigration(ctx, t, tagdb, tagdb)
 }
 
 func TestBasicMigrationSqlite(t *testing.T) {
@@ -41,7 +43,9 @@ func TestBasicMigrationSqlite(t *testing.T) {
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-	basicMigration(ctx, t, db, &sqliteDB{DB: db})
+	tagdb := tagsql.Wrap(db)
+
+	basicMigration(ctx, t, tagdb, &sqliteDB{DB: tagdb})
 }
 
 func TestBasicMigrationPostgres(t *testing.T) {
@@ -50,6 +54,7 @@ func TestBasicMigrationPostgres(t *testing.T) {
 	}
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
 	testBasicMigrationGeneric(ctx, t, *pgtest.ConnStr)
 }
 
@@ -59,6 +64,7 @@ func TestBasicMigrationCockroach(t *testing.T) {
 	}
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
 	testBasicMigrationGeneric(ctx, t, *pgtest.CrdbConnStr)
 }
 
@@ -68,13 +74,14 @@ func testBasicMigrationGeneric(ctx *testcontext.Context, t *testing.T, connStr s
 		t.Fatal(err)
 	}
 	defer func() { assert.NoError(t, db.Close()) }()
+	tagdb := tagsql.Wrap(db.DB)
 
-	basicMigration(ctx, t, db.DB, &postgresDB{DB: db.DB})
+	basicMigration(ctx, t, tagdb, &postgresDB{DB: tagdb})
 }
 
-func basicMigration(ctx *testcontext.Context, t *testing.T, db *sql.DB, testDB migrate.DB) {
+func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB migrate.DB) {
 	dbName := strings.ToLower(`versions_` + t.Name())
-	defer func() { assert.NoError(t, dropTables(db, dbName, "users")) }()
+	defer func() { assert.NoError(t, dropTables(ctx, db, dbName, "users")) }()
 
 	err := ioutil.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0644)
 	require.NoError(t, err)
@@ -94,7 +101,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db *sql.DB, testDB m
 				DB:          testDB,
 				Description: "Move files",
 				Version:     2,
-				Action: migrate.Func(func(_ context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(_ context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
 					return os.Rename(ctx.File("alpha.txt"), ctx.File("beta.txt"))
 				}),
 			},
@@ -126,12 +133,12 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db *sql.DB, testDB m
 	assert.Equal(t, dbVersion, 2)
 
 	var version int
-	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
+	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, version)
 
 	var id int
-	err = db.QueryRow(`SELECT MAX(id) FROM users`).Scan(&id)
+	err = db.QueryRow(ctx, `SELECT MAX(id) FROM users`).Scan(&id)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, id)
 
@@ -151,8 +158,8 @@ func TestMultipleMigrationSqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
-
-	multipleMigration(t, db, &sqliteDB{DB: db})
+	tagdb := tagsql.Wrap(db)
+	multipleMigration(t, tagdb, &sqliteDB{DB: tagdb})
 }
 
 func TestMultipleMigrationPostgres(t *testing.T) {
@@ -163,16 +170,17 @@ func TestMultipleMigrationPostgres(t *testing.T) {
 	db, err := sql.Open("postgres", *pgtest.ConnStr)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
+	tagdb := tagsql.Wrap(db)
 
-	multipleMigration(t, db, &postgresDB{DB: db})
+	multipleMigration(t, tagdb, &postgresDB{DB: tagdb})
 }
 
-func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
+func multipleMigration(t *testing.T, db tagsql.DB, testDB migrate.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	dbName := strings.ToLower(`versions_` + t.Name())
-	defer func() { assert.NoError(t, dropTables(db, dbName)) }()
+	defer func() { assert.NoError(t, dropTables(ctx, db, dbName)) }()
 
 	steps := 0
 	m := migrate.Migration{
@@ -182,7 +190,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 1",
 				Version:     1,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
 					steps++
 					return nil
 				}),
@@ -191,7 +199,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 2",
 				Version:     2,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
 					steps++
 					return nil
 				}),
@@ -207,7 +215,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 		DB:          testDB,
 		Description: "Step 3",
 		Version:     3,
-		Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+		Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
 			steps++
 			return nil
 		}),
@@ -216,7 +224,7 @@ func multipleMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	assert.NoError(t, err)
 
 	var version int
-	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
+	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, version)
 
@@ -227,8 +235,9 @@ func TestFailedMigrationSqlite(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
+	tagdb := tagsql.Wrap(db)
 
-	failedMigration(t, db, &sqliteDB{DB: db})
+	failedMigration(t, tagdb, &sqliteDB{DB: tagdb})
 }
 
 func TestFailedMigrationPostgres(t *testing.T) {
@@ -239,16 +248,17 @@ func TestFailedMigrationPostgres(t *testing.T) {
 	db, err := sql.Open("postgres", *pgtest.ConnStr)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
+	tagdb := tagsql.Wrap(db)
 
-	failedMigration(t, db, &postgresDB{DB: db})
+	failedMigration(t, tagdb, &postgresDB{DB: tagdb})
 }
 
-func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
+func failedMigration(t *testing.T, db tagsql.DB, testDB migrate.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	dbName := strings.ToLower(`versions_` + t.Name())
-	defer func() { assert.NoError(t, dropTables(db, dbName)) }()
+	defer func() { assert.NoError(t, dropTables(ctx, db, dbName)) }()
 
 	m := migrate.Migration{
 		Table: dbName,
@@ -257,7 +267,7 @@ func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 1",
 				Version:     1,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
 					return fmt.Errorf("migration failed")
 				}),
 			},
@@ -268,7 +278,7 @@ func failedMigration(t *testing.T, db *sql.DB, testDB migrate.DB) {
 	require.Error(t, err, "migration failed")
 
 	var version sql.NullInt64
-	err = db.QueryRow(`SELECT MAX(version) FROM ` + dbName).Scan(&version)
+	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, false, version.Valid)
 }
@@ -326,10 +336,10 @@ func TestInvalidStepsOrder(t *testing.T) {
 	require.Error(t, err, "migrate: steps have incorrect order")
 }
 
-func dropTables(db *sql.DB, names ...string) error {
+func dropTables(ctx context.Context, db tagsql.DB, names ...string) error {
 	var errlist errs.Group
 	for _, name := range names {
-		_, err := db.Exec(`DROP TABLE ` + name)
+		_, err := db.Exec(ctx, `DROP TABLE `+name)
 		errlist.Add(err)
 	}
 

@@ -13,6 +13,8 @@ import (
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/private/tagsql"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 var (
@@ -56,13 +58,15 @@ func (db *satelliteDB) CreateTables(ctx context.Context) error {
 		}
 	}
 
+	tagdb := tagsql.Wrap(db.DB.DB)
+
 	switch db.implementation {
 	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
 		// since we merged migration steps 0-69, the current db version should never be
 		// less than 69 unless the migration hasn't run yet
 		const minDBVersion = 69
-		dbVersion, err := migration.CurrentVersion(ctx, db.log, db.DB)
+		dbVersion, err := migration.CurrentVersion(ctx, db.log, &withRebind{tagdb, db.DB})
 		if err != nil {
 			return errs.New("error current version: %+v", err)
 		}
@@ -74,9 +78,17 @@ func (db *satelliteDB) CreateTables(ctx context.Context) error {
 
 		return migration.Run(ctx, db.log.Named("migrate"))
 	default:
-		return migrate.Create(ctx, "database", db.DB)
+		return migrate.Create(ctx, "database", &withRebind{tagdb, db.DB})
 	}
 }
+
+type withRebind struct {
+	tagsql.DB
+	dbx *dbx.DB
+}
+
+func (r *withRebind) Schema() string         { return r.dbx.Schema() }
+func (r *withRebind) Rebind(x string) string { return r.dbx.Rebind(x) }
 
 // CheckVersion confirms the database is at the desired version
 func (db *satelliteDB) CheckVersion(ctx context.Context) error {
@@ -92,11 +104,12 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 
 // PostgresMigration returns steps needed for migrating postgres database.
 func (db *satelliteDB) PostgresMigration() *migrate.Migration {
+	tagdb := &withRebind{tagsql.Wrap(db.DB.DB), db.DB}
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
 			{
-				DB:          db.DB,
+				DB:          tagdb,
 				Description: "Initial setup",
 				Version:     69,
 				Action: migrate.SQL{
@@ -496,7 +509,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          tagdb,
 				Description: "Add coupons and coupon_usage tables",
 				Version:     70,
 				Action: migrate.SQL{
@@ -522,7 +535,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          tagdb,
 				Description: "Reset node reputations to re-enable disqualification",
 				Version:     71,
 				Action: migrate.SQL{
@@ -530,7 +543,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          tagdb,
 				Description: "Add unique to user_credits to match dbx schema",
 				Version:     72,
 				Action: migrate.SQL{
@@ -538,7 +551,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          tagdb,
 				Description: "Add node downtime tracking table",
 				Version:     73,
 				Action: migrate.SQL{
@@ -552,7 +565,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          tagdb,
 				Description: "Drop storagenode_bandwidth_rollups allocated not null constraint",
 				Version:     74,
 				Action: migrate.SQL{
@@ -561,7 +574,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          tagdb,
 				Description: "Drop coupon related tables",
 				Version:     75,
 				Action: migrate.SQL{
@@ -570,7 +583,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          tagdb,
 				Description: "Update coupon related tables",
 				Version:     76,
 				Action: migrate.SQL{
@@ -596,7 +609,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          tagdb,
 				Description: "Create reported_serials table for faster order processing",
 				Version:     77,
 				Action: migrate.SQL{
@@ -613,7 +626,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          tagdb,
 				Description: "Drop unused indexes",
 				Version:     78,
 				Action: migrate.SQL{
@@ -622,7 +635,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          tagdb,
 				Description: "Migrate transactions adding new status completed",
 				Version:     79,
 				Action: migrate.SQL{

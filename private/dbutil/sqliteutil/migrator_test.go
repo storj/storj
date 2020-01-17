@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/sqliteutil"
+	"storj.io/storj/private/tagsql"
 )
 
 func TestMigrateTablesToDatabase(t *testing.T) {
@@ -33,7 +34,7 @@ func TestMigrateTablesToDatabase(t *testing.T) {
 	// This table should be removed after migration
 	execSQL(ctx, t, srcDB, "CREATE TABLE what(I Int);")
 
-	err := sqliteutil.MigrateTablesToDatabase(ctx, srcDB, destDB, "bobby_jones")
+	err := sqliteutil.MigrateTablesToDatabase(ctx, tagsql.Wrap(srcDB), tagsql.Wrap(destDB), "bobby_jones")
 	require.NoError(t, err)
 
 	destSchema, err := sqliteutil.QuerySchema(ctx, destDB)
@@ -69,7 +70,7 @@ func TestKeepTables(t *testing.T) {
 	execSQL(ctx, t, db, table1SQL)
 	execSQL(ctx, t, db, table2SQL)
 
-	err := sqliteutil.KeepTables(ctx, db, "table_one")
+	err := sqliteutil.KeepTables(ctx, tagsql.Wrap(db), "table_one")
 	require.NoError(t, err)
 
 	schema, err := sqliteutil.QuerySchema(ctx, db)

@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/sqliteutil"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
@@ -56,7 +57,7 @@ type SQLDB interface {
 	Close() error
 
 	Begin() (*sql.Tx, error)
-	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+	BeginTx(ctx context.Context, txOptions *sql.TxOptions) (*sql.Tx, error)
 
 	Conn(ctx context.Context) (*sql.Conn, error)
 	Driver() driver.Driver
@@ -479,7 +480,10 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		return ErrDatabase.Wrap(err)
 	}
 
-	err = sqliteutil.MigrateTablesToDatabase(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), db.rawDatabaseFromName(dbName), tablesToKeep...)
+	err = sqliteutil.MigrateTablesToDatabase(ctx,
+		withTagTx{db.rawDatabaseFromName(DeprecatedInfoDBName)},
+		withTagTx{db.rawDatabaseFromName(dbName)},
+		tablesToKeep...)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
@@ -499,13 +503,34 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 	return nil
 }
 
+// withTagTx makes SQLDB work with tagsql.DB.
+type withTagTx struct {
+	SQLDB
+}
+
+func (db withTagTx) Conn(ctx context.Context) (tagsql.Conn, error) {
+	conn, err := db.SQLDB.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return tagsql.ConnWithoutTxContext(conn), nil
+}
+
+func (db withTagTx) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (tagsql.Tx, error) {
+	tx, err := db.SQLDB.BeginTx(ctx, txOptions)
+	if err != nil {
+		return nil, err
+	}
+	return tagsql.TxWithoutContext(tx), nil
+}
+
 // Migration returns table migrations.
 func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 	return &migrate.Migration{
 		Table: VersionTable,
 		Steps: []*migrate.Step{
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Initial setup",
 				Version:     0,
 				Action: migrate.SQL{
@@ -587,7 +612,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Network Wipe #2",
 				Version:     1,
 				Action: migrate.SQL{
@@ -595,7 +620,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Add tracking of deletion failures.",
 				Version:     2,
 				Action: migrate.SQL{
@@ -603,7 +628,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Add vouchersDB for storing and retrieving vouchers.",
 				Version:     3,
 				Action: migrate.SQL{
@@ -615,7 +640,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Add index on pieceinfo expireation",
 				Version:     4,
 				Action: migrate.SQL{
@@ -624,7 +649,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Partial Network Wipe - Tardigrade Satellites",
 				Version:     5,
 				Action: migrate.SQL{
@@ -636,7 +661,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Add creation date.",
 				Version:     6,
 				Action: migrate.SQL{
@@ -644,7 +669,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Drop certificate table.",
 				Version:     7,
 				Action: migrate.SQL{
@@ -653,7 +678,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Drop old used serials and remove pieceinfo_deletion_failed index.",
 				Version:     8,
 				Action: migrate.SQL{
@@ -662,7 +687,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Add order limit table.",
 				Version:     9,
 				Action: migrate.SQL{
@@ -670,7 +695,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Optimize index usage.",
 				Version:     10,
 				Action: migrate.SQL{
@@ -681,7 +706,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Create bandwidth_usage_rollup table.",
 				Version:     11,
 				Action: migrate.SQL{
@@ -695,7 +720,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Clear Tables from Alpha data",
 				Version:     12,
 				Action: migrate.SQL{
@@ -743,10 +768,10 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
 						log.Sugar().Debug(err)
@@ -768,10 +793,10 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "tmp"))
 					if err != nil {
 						log.Sugar().Debug(err)
@@ -781,7 +806,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Start piece_expirations table, deprecate pieceinfo table",
 				Version:     15,
 				Action: migrate.SQL{
@@ -798,7 +823,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Add reputation and storage usage cache tables",
 				Version:     16,
 				Action: migrate.SQL{
@@ -826,7 +851,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Create piece_space_used table",
 				Version:     17,
 				Action: migrate.SQL{
@@ -840,7 +865,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Drop vouchers table",
 				Version:     18,
 				Action: migrate.SQL{
@@ -848,7 +873,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Add disqualified field to reputation",
 				Version:     19,
 				Action: migrate.SQL{
@@ -872,7 +897,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Empty storage_usage table, rename storage_usage.timestamp to interval_start",
 				Version:     20,
 				Action: migrate.SQL{
@@ -886,7 +911,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Create satellites table and satellites_exit_progress table",
 				Version:     21,
 				Action: migrate.SQL{
@@ -909,19 +934,19 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Vacuum info db",
 				Version:     22,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
 					_, err := db.deprecatedInfoDB.GetDB().ExecContext(ctx, "VACUUM;")
 					return err
 				}),
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Split into multiple sqlite databases",
 				Version:     23,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
 					// Migrate all the tables to new database files.
 					if err := db.migrateToDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
@@ -955,17 +980,17 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          withTagTx{db.deprecatedInfoDB},
 				Description: "Drop unneeded tables in deprecatedInfoDB",
 				Version:     24,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
 					// We drop the migrated tables from the deprecated database and VACUUM SQLite3
 					// in migration step 23 because if we were to keep that as part of step 22
 					// and an error occurred it would replay the entire migration but some tables
 					// may have successfully dropped and we would experience unrecoverable data loss.
 					// This way if step 22 completes it never gets replayed even if a drop table or
 					// VACUUM call fails.
-					if err := sqliteutil.KeepTables(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), VersionTable); err != nil {
+					if err := sqliteutil.KeepTables(ctx, withTagTx{db.rawDatabaseFromName(DeprecatedInfoDBName)}, VersionTable); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -983,7 +1008,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.satellitesDB,
+				DB:          withTagTx{db.satellitesDB},
 				Description: "Remove address from satellites table",
 				Version:     25,
 				Action: migrate.SQL{
@@ -1001,7 +1026,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.pieceExpirationDB,
+				DB:          withTagTx{db.pieceExpirationDB},
 				Description: "Add Trash column to pieceExpirationDB",
 				Version:     26,
 				Action: migrate.SQL{
@@ -1012,7 +1037,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.ordersDB,
+				DB:          withTagTx{db.ordersDB},
 				Description: "Add index archived_at to ordersDB",
 				Version:     27,
 				Action: migrate.SQL{
@@ -1020,7 +1045,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.notificationsDB,
+				DB:          withTagTx{db.notificationsDB},
 				Description: "Create notifications table",
 				Version:     28,
 				Action: migrate.SQL{

@@ -13,6 +13,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
+	"storj.io/storj/private/tagsql"
 )
 
 var (
@@ -65,7 +67,7 @@ type Step struct {
 
 // Action is something that needs to be done
 type Action interface {
-	Run(ctx context.Context, log *zap.Logger, db DB, tx *sql.Tx) error
+	Run(ctx context.Context, log *zap.Logger, db DB, tx tagsql.Tx) error
 }
 
 // TargetVersion returns migration with steps upto specified version
@@ -164,7 +166,7 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 			stepLog.Info(step.Description)
 		}
 
-		err = WithTx(ctx, step.DB, func(ctx context.Context, tx *sql.Tx) error {
+		err = WithTx(ctx, step.DB, func(ctx context.Context, tx tagsql.Tx) error {
 			err = step.Action.Run(ctx, stepLog, step.DB, tx)
 			if err != nil {
 				return err
@@ -197,8 +199,8 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 
 // createVersionTable creates a new version table
 func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db DB) error {
-	err := WithTx(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.Exec(rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
+	err := WithTx(ctx, db, func(ctx context.Context, tx tagsql.Tx) error {
+		_, err := tx.Exec(ctx, rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
 		return err
 	})
 	return Error.Wrap(err)
@@ -207,8 +209,8 @@ func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Log
 // getLatestVersion finds the latest version table
 func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logger, db DB) (int, error) {
 	var version sql.NullInt64
-	err := WithTx(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRow(rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
+	err := WithTx(ctx, db, func(ctx context.Context, tx tagsql.Tx) error {
+		err := tx.QueryRow(ctx, rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
 		if err == sql.ErrNoRows || !version.Valid {
 			version.Int64 = -1
 			return nil
@@ -220,8 +222,8 @@ func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logge
 }
 
 // addVersion adds information about a new migration
-func (migration *Migration) addVersion(ctx context.Context, tx *sql.Tx, db DB, version int) error {
-	_, err := tx.Exec(rebind(db, `
+func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db DB, version int) error {
+	_, err := tx.Exec(ctx, rebind(db, `
 		INSERT INTO `+migration.Table+` (version, commited_at) VALUES (?, ?)`), //nolint:misspell
 		version, time.Now().String(),
 	)
@@ -241,9 +243,9 @@ func (migration *Migration) CurrentVersion(ctx context.Context, log *zap.Logger,
 type SQL []string
 
 // Run runs the SQL statements
-func (sql SQL) Run(ctx context.Context, log *zap.Logger, db DB, tx *sql.Tx) (err error) {
+func (sql SQL) Run(ctx context.Context, log *zap.Logger, db DB, tx tagsql.Tx) (err error) {
 	for _, query := range sql {
-		_, err := tx.Exec(rebind(db, query))
+		_, err := tx.Exec(ctx, rebind(db, query))
 		if err != nil {
 			return err
 		}
@@ -252,9 +254,9 @@ func (sql SQL) Run(ctx context.Context, log *zap.Logger, db DB, tx *sql.Tx) (err
 }
 
 // Func is an arbitrary operation
-type Func func(ctx context.Context, log *zap.Logger, db DB, tx *sql.Tx) error
+type Func func(ctx context.Context, log *zap.Logger, db DB, tx tagsql.Tx) error
 
 // Run runs the migration
-func (fn Func) Run(ctx context.Context, log *zap.Logger, db DB, tx *sql.Tx) error {
+func (fn Func) Run(ctx context.Context, log *zap.Logger, db DB, tx tagsql.Tx) error {
 	return fn(ctx, log, db, tx)
 }

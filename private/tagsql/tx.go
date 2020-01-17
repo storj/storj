@@ -10,6 +10,11 @@ import (
 	"storj.io/storj/pkg/traces"
 )
 
+// TxWithoutContext wraps *sql.Tx disabling context cancellation.
+func TxWithoutContext(tx *sql.Tx) Tx {
+	return &sqlTx{tx: tx, useContext: false}
+}
+
 // Tx is an interface for *sql.Tx-like transactions.
 type Tx interface {
 	// Exec and other methods take a context for tracing

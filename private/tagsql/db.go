@@ -11,6 +11,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"time"
 
 	"storj.io/storj/pkg/traces"
@@ -51,14 +52,14 @@ type DB interface {
 	// To be deprecated, the following take ctx as argument,
 	// however do not pass it forward to the underlying database.
 	Begin(ctx context.Context) (Tx, error)
-	Driver(ctx context.Context) driver.Driver
+	Driver() driver.Driver
 	Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	Ping(ctx context.Context) error
 	Prepare(ctx context.Context, query string) (Stmt, error)
 	Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row
 
-	BeginTx(ctx context.Context) (Tx, error)
+	BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error)
 	Conn(ctx context.Context) (Conn, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	PingContext(ctx context.Context) error
@@ -90,7 +91,10 @@ func (s *sqlDB) Begin(ctx context.Context) (Tx, error) {
 	return &sqlTx{tx: tx, useContext: s.useContext && s.useTxContext}, err
 }
 
-func (s *sqlDB) BeginTx(ctx context.Context) (Tx, error) {
+func (s *sqlDB) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error) {
+	if txOptions != nil {
+		return nil, errors.New("txOptions not supported")
+	}
 	traces.Tag(ctx, traces.TagDB)
 
 	var tx *sql.Tx
@@ -128,8 +132,7 @@ func (s *sqlDB) Conn(ctx context.Context) (Conn, error) {
 	return &sqlConn{conn: conn, useContext: s.useContext, useTxContext: s.useTxContext}, nil
 }
 
-func (s *sqlDB) Driver(ctx context.Context) driver.Driver {
-	traces.Tag(ctx, traces.TagDB)
+func (s *sqlDB) Driver() driver.Driver {
 	return s.db.Driver()
 }
 

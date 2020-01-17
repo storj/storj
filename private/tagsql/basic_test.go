@@ -59,7 +59,7 @@ func TestDetect(t *testing.T) {
 				require.NoError(t, tx.Rollback())
 			}
 
-			tx, err = db.BeginTx(ctx)
+			tx, err = db.BeginTx(ctx, nil)
 			require.Error(t, err)
 			if tx != nil {
 				require.NoError(t, tx.Rollback())
@@ -79,7 +79,7 @@ func TestDetect(t *testing.T) {
 			if alt {
 				tx, err = db.Begin(parentctx)
 			} else {
-				tx, err = db.BeginTx(parentctx)
+				tx, err = db.BeginTx(parentctx, nil)
 			}
 			require.NoError(t, err)
 
