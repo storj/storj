@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 
 	"storj.io/common/encryption"
 	"storj.io/common/macaroon"
@@ -149,6 +151,11 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
 
+	if err = endpoint.checkRate(ctx, keyInfo.ProjectID); err != nil {
+		endpoint.log.Debug("rate check failed", zap.Error(err))
+		return nil, err
+	}
+
 	// Revocations are currently handled by just deleting the key.
 	err = key.Check(ctx, keyInfo.Secret, action, nil)
 	if err != nil {
@@ -157,6 +164,36 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	}
 
 	return keyInfo, nil
+}
+
+func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) error {
+	if !endpoint.limiterConfig.Enabled {
+		return nil
+	}
+	limiter, err := endpoint.limiterCache.Get(projectID.String(), func() (interface{}, error) {
+		limit := rate.Limit(endpoint.limiterConfig.Rate)
+
+		project, err := endpoint.projects.Get(ctx, projectID)
+		if err != nil {
+			return false, err
+		}
+		if project.RateLimit != nil && *project.RateLimit > 0 {
+			limit = rate.Limit(*project.RateLimit)
+		}
+
+		// initialize the limiter with limit and burst the same so that we don't limit how quickly calls
+		// are made within the second.
+		return rate.NewLimiter(limit, int(limit)), nil
+	})
+	if err != nil {
+		return rpcstatus.Error(rpcstatus.Unavailable, err.Error())
+	}
+
+	if !limiter.(*rate.Limiter).Allow() {
+		return rpcstatus.Error(rpcstatus.PermissionDenied, "Too Many Requests")
+	}
+
+	return nil
 }
 
 func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequestOld) (err error) {

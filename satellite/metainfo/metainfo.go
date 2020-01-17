@@ -24,6 +24,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	lrucache "storj.io/storj/pkg/cache"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/private/context2"
 	"storj.io/storj/private/dbutil"
@@ -81,19 +82,23 @@ type Endpoint struct {
 	partners          *rewards.PartnersService
 	peerIdentities    overlay.PeerIdentities
 	projectUsage      *accounting.Service
+	projects          console.Projects
 	apiKeys           APIKeys
 	createRequests    *createRequests
 	requiredRSConfig  RSConfig
 	satellite         signing.Signer
 	maxCommitInterval time.Duration
+	limiterCache      *lrucache.ExpiringLRU
+	limiterConfig     RateLimiterConfig
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *DeletePiecesService,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB,
 	partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.Service, rsConfig RSConfig,
-	satellite signing.Signer, maxCommitInterval time.Duration) *Endpoint {
+	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
+	rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration,
+	limiterConfig RateLimiterConfig) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:               log,
@@ -106,10 +111,13 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *DeletePiecesS
 		peerIdentities:    peerIdentities,
 		apiKeys:           apiKeys,
 		projectUsage:      projectUsage,
+		projects:          projects,
 		createRequests:    newCreateRequests(),
 		requiredRSConfig:  rsConfig,
 		satellite:         satellite,
 		maxCommitInterval: maxCommitInterval,
+		limiterCache:      lrucache.New(lrucache.Options{Capacity: limiterConfig.CacheCapacity}),
+		limiterConfig:     limiterConfig,
 	}
 }
 

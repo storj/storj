@@ -642,6 +642,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Add rate_limit column to projects table",
+				Version:     80,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN rate_limit integer;`,
+				},
+			},
 		},
 	}
 }

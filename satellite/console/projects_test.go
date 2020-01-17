@@ -6,7 +6,7 @@ package console_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -38,6 +38,7 @@ func TestProjectsRepository(t *testing.T) {
 		var project *console.Project
 		var owner *console.User
 
+		rateLimit := 100
 		t.Run("Insert project successfully", func(t *testing.T) {
 			var err error
 			owner, err = users.Insert(ctx, &console.User{
@@ -47,75 +48,72 @@ func TestProjectsRepository(t *testing.T) {
 				Email:        email,
 				PasswordHash: []byte(pass),
 			})
-			assert.NoError(t, err)
-			assert.NotNil(t, owner)
+			require.NoError(t, err)
+			require.NotNil(t, owner)
 
 			project = &console.Project{
 				Name:        name,
 				Description: description,
 				OwnerID:     owner.ID,
+				RateLimit:   &rateLimit,
 			}
 
 			project, err = projects.Insert(ctx, project)
-			assert.NotNil(t, project)
-			assert.NoError(t, err)
-		})
-
-		t.Run("Get project success", func(t *testing.T) {
-			projectByID, err := projects.Get(ctx, project.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, projectByID.ID, project.ID)
-			assert.Equal(t, projectByID.Name, name)
-			assert.Equal(t, projectByID.OwnerID, owner.ID)
-			assert.Equal(t, projectByID.Description, description)
+			require.NotNil(t, project)
+			require.NoError(t, err)
 		})
 
 		t.Run("Get by projectID success", func(t *testing.T) {
 			projectByID, err := projects.Get(ctx, project.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, projectByID.ID, project.ID)
-			assert.Equal(t, projectByID.Name, name)
-			assert.Equal(t, projectByID.OwnerID, owner.ID)
-			assert.Equal(t, projectByID.Description, description)
+			require.NoError(t, err)
+			require.Equal(t, project.ID, projectByID.ID)
+			require.Equal(t, name, projectByID.Name)
+			require.Equal(t, owner.ID, projectByID.OwnerID)
+			require.Equal(t, description, projectByID.Description)
+			require.Equal(t, rateLimit, *projectByID.RateLimit)
 		})
 
 		t.Run("Update project success", func(t *testing.T) {
 			oldProject, err := projects.Get(ctx, project.ID)
-			assert.NoError(t, err)
-			assert.NotNil(t, oldProject)
+			require.NoError(t, err)
+			require.NotNil(t, oldProject)
+
+			newRateLimit := 1000
 
 			// creating new project with updated values
 			newProject := &console.Project{
 				ID:          oldProject.ID,
 				Description: newDescription,
+				RateLimit:   &newRateLimit,
 			}
 
 			err = projects.Update(ctx, newProject)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// fetching updated project from db
 			newProject, err = projects.Get(ctx, oldProject.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, newProject.ID, oldProject.ID)
-			assert.Equal(t, newProject.Description, newDescription)
+			require.NoError(t, err)
+			require.Equal(t, oldProject.ID, newProject.ID)
+			require.Equal(t, newDescription, newProject.Description)
+			require.Equal(t, newRateLimit, *newProject.RateLimit)
 		})
 
 		t.Run("Delete project success", func(t *testing.T) {
 			oldProject, err := projects.Get(ctx, project.ID)
-			assert.NoError(t, err)
-			assert.NotNil(t, oldProject)
+			require.NoError(t, err)
+			require.NotNil(t, oldProject)
 
 			err = projects.Delete(ctx, oldProject.ID)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			_, err = projects.Get(ctx, oldProject.ID)
-			assert.Error(t, err)
+			require.Error(t, err)
 		})
 
 		t.Run("GetAll success", func(t *testing.T) {
 			allProjects, err := projects.GetAll(ctx)
-			assert.NoError(t, err)
-			assert.Equal(t, len(allProjects), 0)
+			require.NoError(t, err)
+			require.Equal(t, 0, len(allProjects))
 
 			newProject := &console.Project{
 				Description: description,
@@ -123,11 +121,11 @@ func TestProjectsRepository(t *testing.T) {
 			}
 
 			_, err = projects.Insert(ctx, newProject)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			allProjects, err = projects.GetAll(ctx)
-			assert.NoError(t, err)
-			assert.Equal(t, len(allProjects), 1)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(allProjects))
 
 			newProject2 := &console.Project{
 				Description: description,
@@ -135,11 +133,11 @@ func TestProjectsRepository(t *testing.T) {
 			}
 
 			_, err = projects.Insert(ctx, newProject2)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			allProjects, err = projects.GetAll(ctx)
-			assert.NoError(t, err)
-			assert.Equal(t, len(allProjects), 2)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(allProjects))
 		})
 	})
 }

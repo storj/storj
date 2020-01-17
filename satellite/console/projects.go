@@ -42,6 +42,7 @@ type Project struct {
 	Description string    `json:"description"`
 	PartnerID   uuid.UUID `json:"partnerId"`
 	OwnerID     uuid.UUID `json:"ownerId"`
+	RateLimit   *int      `json:"rateLimit"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

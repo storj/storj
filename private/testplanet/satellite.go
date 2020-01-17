@@ -330,6 +330,11 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				Loop: metainfo.LoopConfig{
 					CoalesceDuration: 1 * time.Second,
 				},
+				RateLimiter: metainfo.RateLimiterConfig{
+					Enabled:       true,
+					Rate:          100,
+					CacheCapacity: 100,
+				},
 			},
 			Orders: orders.Config{
 				Expiration:          7 * 24 * time.Hour,

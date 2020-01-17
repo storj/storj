@@ -1152,3 +1152,79 @@ func TestValidateRS(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestRateLimit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = 2
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		err := ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		require.NoError(t, err)
+		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		require.NoError(t, err)
+		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		require.Error(t, err)
+	})
+}
+
+func TestRateLimit_Disabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Enabled = false
+				config.Metainfo.RateLimiter.Rate = 2
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		err := ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		require.NoError(t, err)
+		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		require.NoError(t, err)
+		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		require.NoError(t, err)
+	})
+}
+
+func TestRateLimit_ProjectRateLimitOverride(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = 2
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		rateLimit := 3
+		projects[0].RateLimit = &rateLimit
+
+		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
+		require.NoError(t, err)
+
+		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		require.NoError(t, err)
+		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		require.NoError(t, err)
+		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		require.NoError(t, err)
+		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		require.Error(t, err)
+	})
+}

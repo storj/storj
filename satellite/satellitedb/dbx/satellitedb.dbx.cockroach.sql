@@ -189,6 +189,7 @@ CREATE TABLE projects (
 	name text NOT NULL,
 	description text NOT NULL,
 	usage_limit bigint NOT NULL,
+	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,

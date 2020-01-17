@@ -319,9 +319,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 			peer.DB.PeerIdentities(),
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
+			peer.DB.Console().Projects(),
 			config.Metainfo.RS,
 			signing.SignerFromFullIdentity(peer.Identity),
 			config.Metainfo.MaxCommitInterval,
+			config.Metainfo.RateLimiter,
 		)
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 		pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2)

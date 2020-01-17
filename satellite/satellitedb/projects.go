@@ -95,6 +95,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	if !project.PartnerID.IsZero() {
 		createFields.PartnerId = dbx.Project_PartnerId(project.PartnerID[:])
 	}
+	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
@@ -127,6 +128,7 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 
 	updateFields := dbx.Project_Update_Fields{
 		Description: dbx.Project_Description(project.Description),
+		RateLimit:   dbx.Project_RateLimit_Raw(project.RateLimit),
 	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,
@@ -199,6 +201,7 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		Description: project.Description,
 		PartnerID:   partnerID,
 		OwnerID:     ownerID,
+		RateLimit:   project.RateLimit,
 		CreatedAt:   project.CreatedAt,
 	}, nil
 }
