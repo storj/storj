@@ -248,7 +248,7 @@ func (sql SQL) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql
 	for _, query := range sql {
 		_, err := tx.Exec(ctx, rebind(db, query))
 		if err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 	}
 	return nil
