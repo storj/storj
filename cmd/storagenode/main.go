@@ -188,9 +188,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
 
-	err = db.Preflight(ctx)
+	preflightEnabled, err := cmd.Flags().GetBool("preflight.database-check")
 	if err != nil {
-		return errs.New("Error during preflight check for storagenode databases: %+v", err)
+		return errs.New("Cannot retrieve preflight.database-check flag: %+v", err)
+	}
+	if preflightEnabled {
+		err = db.Preflight(ctx)
+		if err != nil {
+			return errs.New("Error during preflight check for storagenode databases: %+v", err)
+		}
 	}
 
 	if err := peer.Storage2.CacheService.Init(ctx); err != nil {
