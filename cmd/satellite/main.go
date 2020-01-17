@@ -23,10 +23,12 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/context2"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -222,7 +224,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, liveAccounting.Close())
 	}()
 
-	peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, version.Build, &runCfg.Config)
+	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), runCfg.Orders.FlushBatchSize)
+	defer func() {
+		err = errs.Combine(err, rollupsWriteCache.CloseAndFlush(context2.WithoutCancellation(ctx)))
+	}()
+
+	peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, version.Build, &runCfg.Config)
 	if err != nil {
 		return err
 	}

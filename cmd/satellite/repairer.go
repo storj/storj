@@ -10,9 +10,11 @@ import (
 
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/context2"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -49,6 +51,11 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
+	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), runCfg.Orders.FlushBatchSize)
+	defer func() {
+		err = errs.Combine(err, rollupsWriteCache.CloseAndFlush(context2.WithoutCancellation(ctx)))
+	}()
+
 	peer, err := satellite.NewRepairer(
 		log,
 		identity,
@@ -58,6 +65,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		db.Buckets(),
 		db.OverlayCache(),
 		db.Orders(),
+		rollupsWriteCache,
 		version.Build,
 		&runCfg.Config,
 	)

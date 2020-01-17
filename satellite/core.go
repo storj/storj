@@ -128,7 +128,10 @@ type Core struct {
 }
 
 // New creates a new satellite
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, versionInfo version.Info, config *Config) (*Core, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB,
+	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache,
+	rollupsWriteCache *orders.RollupsWriteCache,
+	versionInfo version.Info, config *Config) (*Core, error) {
 	peer := &Core{
 		Log:      log,
 		Identity: full,
@@ -194,9 +197,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 	}
 
 	{ // setup orders
-		ordersWriteCache := orders.NewRollupsWriteCache(log, peer.DB.Orders(), config.Orders.FlushBatchSize)
-		peer.Orders.DB = ordersWriteCache
-		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), ordersWriteCache, config.Orders)
+		peer.Orders.DB = rollupsWriteCache
+		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), rollupsWriteCache, config.Orders)
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
@@ -454,6 +456,10 @@ func (peer *Core) Close() error {
 
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
+	if peer.Orders.Chore != nil {
+		errlist.Add(peer.Orders.Chore.Close())
+	}
+
 	// close servers, to avoid new connections to closing subsystems
 	if peer.DowntimeTracking.EstimationChore != nil {
 		errlist.Add(peer.DowntimeTracking.EstimationChore.Close())
@@ -508,9 +514,6 @@ func (peer *Core) Close() error {
 	}
 	if peer.Metainfo.Loop != nil {
 		errlist.Add(peer.Metainfo.Loop.Close())
-	}
-	if peer.Orders.Chore.Loop != nil {
-		errlist.Add(peer.Orders.Chore.Close())
 	}
 
 	return errlist.Err()

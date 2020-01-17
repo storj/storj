@@ -439,10 +439,12 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if err != nil {
 			return xs, errs.Wrap(err)
 		}
-
 		planet.databases = append(planet.databases, liveAccounting)
 
-		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, versionInfo, &config)
+		rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
+		planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
+
+		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, versionInfo, &config)
 		if err != nil {
 			return xs, err
 		}
@@ -558,7 +560,10 @@ func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db sate
 	}
 	planet.databases = append(planet.databases, liveAccounting)
 
-	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, &config, versionInfo)
+	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
+	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
+
+	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo)
 }
 
 func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config,
@@ -571,5 +576,16 @@ func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db
 		return nil, errs.Wrap(err)
 	}
 
-	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Orders(), versionInfo, &config)
+	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
+	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
+
+	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Orders(), rollupsWriteCache, versionInfo, &config)
+}
+
+type rollupsWriteCacheCloser struct {
+	*orders.RollupsWriteCache
+}
+
+func (cache rollupsWriteCacheCloser) Close() error {
+	return cache.RollupsWriteCache.CloseAndFlush(context.TODO())
 }

@@ -49,8 +49,12 @@ type Repairer struct {
 }
 
 // NewRepairer creates a new repairer peer.
-func NewRepairer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
-	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB, ordersDB orders.DB, versionInfo version.Info, config *Config) (*Repairer, error) {
+func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
+	pointerDB metainfo.PointerDB,
+	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
+	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB, ordersDB orders.DB,
+	rollupsWriteCache *orders.RollupsWriteCache,
+	versionInfo version.Info, config *Config) (*Repairer, error) {
 	peer := &Repairer{
 		Log:      log,
 		Identity: full,
@@ -84,9 +88,8 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainf
 	}
 
 	{ // setup orders
-		ordersWriteCache := orders.NewRollupsWriteCache(log, ordersDB, config.Orders.FlushBatchSize)
-		peer.Orders.DB = ordersWriteCache
-		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), ordersWriteCache, config.Orders)
+		peer.Orders.DB = rollupsWriteCache
+		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), rollupsWriteCache, config.Orders)
 		peer.Orders.Service = orders.NewService(
 			log.Named("orders"),
 			signing.SignerFromFullIdentity(peer.Identity),

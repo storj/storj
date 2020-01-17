@@ -147,7 +147,9 @@ type API struct {
 }
 
 // NewAPI creates a new satellite API process
-func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, config *Config, versionInfo version.Info) (*API, error) {
+func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
+	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
+	config *Config, versionInfo version.Info) (*API, error) {
 	peer := &API{
 		Log:      log,
 		Identity: full,
@@ -237,9 +239,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 	}
 
 	{ // setup orders
-		ordersWriteCache := orders.NewRollupsWriteCache(log, peer.DB.Orders(), config.Orders.FlushBatchSize)
-		peer.Orders.DB = ordersWriteCache
-		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), ordersWriteCache, config.Orders)
+		peer.Orders.DB = rollupsWriteCache
+		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), rollupsWriteCache, config.Orders)
 		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),

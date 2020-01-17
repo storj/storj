@@ -35,13 +35,15 @@ type RollupData map[CacheKey]CacheData
 // RollupsWriteCache stores information needed to update bucket bandwidth rollups
 type RollupsWriteCache struct {
 	DB
-	batchSize   int
-	currentSize int
-	latestTime  time.Time
+	batchSize int
+	wg        sync.WaitGroup
+	log       *zap.Logger
 
-	log            *zap.Logger
 	mu             sync.Mutex
 	pendingRollups RollupData
+	currentSize    int
+	latestTime     time.Time
+	stopped        bool
 
 	nextFlushCompletion *sync2.Fence
 }
@@ -59,14 +61,12 @@ func NewRollupsWriteCache(log *zap.Logger, db DB, batchSize int) *RollupsWriteCa
 
 // UpdateBucketBandwidthAllocation updates the rollups cache adding allocated data for a bucket bandwidth rollup
 func (cache *RollupsWriteCache) UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
-	cache.updateCacheValue(ctx, projectID, bucketName, action, amount, 0, intervalStart.UTC())
-	return nil
+	return cache.updateCacheValue(ctx, projectID, bucketName, action, amount, 0, intervalStart.UTC())
 }
 
 // UpdateBucketBandwidthInline updates the rollups cache adding inline data for a bucket bandwidth rollup
 func (cache *RollupsWriteCache) UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
-	cache.updateCacheValue(ctx, projectID, bucketName, action, 0, amount, intervalStart.UTC())
-	return nil
+	return cache.updateCacheValue(ctx, projectID, bucketName, action, 0, amount, intervalStart.UTC())
 }
 
 // resetCache should only be called after you have acquired the cache lock. It
@@ -82,17 +82,28 @@ func (cache *RollupsWriteCache) resetCache() (RollupData, time.Time, int) {
 	return pendingRollups, latestTime, oldSize
 }
 
-// FlushToDB resets cache then flushes the everything in the rollups write cache to the database
-func (cache *RollupsWriteCache) FlushToDB(ctx context.Context) {
+// Flush resets cache then flushes the everything in the rollups write cache to the database
+func (cache *RollupsWriteCache) Flush(ctx context.Context) {
 	defer mon.Task()(&ctx)(nil)
 	cache.mu.Lock()
-	defer cache.mu.Unlock()
 	pendingRollups, latestTime, oldSize := cache.resetCache()
-	go cache.flushToDB(ctx, pendingRollups, latestTime, oldSize)
+	cache.mu.Unlock()
+	cache.flush(ctx, pendingRollups, latestTime, oldSize)
 }
 
-// flushToDB flushes the everything in the rollups write cache to the database
-func (cache *RollupsWriteCache) flushToDB(ctx context.Context, pendingRollups RollupData, latestTime time.Time, oldSize int) {
+// CloseAndFlush flushes anything in the cache and marks the cache as stopped.
+func (cache *RollupsWriteCache) CloseAndFlush(ctx context.Context) error {
+	cache.mu.Lock()
+	cache.stopped = true
+	cache.mu.Unlock()
+	cache.wg.Wait()
+
+	cache.Flush(ctx)
+	return nil
+}
+
+// flush flushes the everything in the rollups write cache to the database
+func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups RollupData, latestTime time.Time, oldSize int) {
 	defer mon.Task()(&ctx)(nil)
 
 	rollups := make([]BucketBandwidthRollup, 0, oldSize)
@@ -120,11 +131,15 @@ func (cache *RollupsWriteCache) flushToDB(ctx context.Context, pendingRollups Ro
 	completion.Release()
 }
 
-func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, allocated, inline int64, intervalStart time.Time) {
+func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, allocated, inline int64, intervalStart time.Time) error {
 	defer mon.Task()(&ctx)(nil)
 
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
+
+	if cache.stopped {
+		return Error.New("RollupsWriteCache is stopped")
+	}
 
 	if intervalStart.After(cache.latestTime) {
 		cache.latestTime = intervalStart
@@ -145,13 +160,20 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 	cache.pendingRollups[key] = data
 
 	if cache.currentSize < cache.batchSize {
-		return
+		return nil
 	}
 	pendingRollups, latestTime, oldSize := cache.resetCache()
-	go cache.flushToDB(ctx, pendingRollups, latestTime, oldSize)
+
+	cache.wg.Add(1)
+	go func() {
+		cache.flush(ctx, pendingRollups, latestTime, oldSize)
+		cache.wg.Done()
+	}()
+
+	return nil
 }
 
-// OnNextFlush waits until the next time a flushToDB call is made, then closes
+// OnNextFlush waits until the next time a flush call is made, then closes
 // the returned channel.
 func (cache *RollupsWriteCache) OnNextFlush() <-chan struct{} {
 	cache.mu.Lock()

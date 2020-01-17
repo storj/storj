@@ -15,17 +15,17 @@ import (
 //
 // architecture: Chore
 type Chore struct {
-	log              *zap.Logger
-	ordersWriteCache *RollupsWriteCache
-	Loop             *sync2.Cycle
+	log               *zap.Logger
+	rollupsWriteCache *RollupsWriteCache
+	Loop              *sync2.Cycle
 }
 
 // NewChore creates new chore for flushing the orders write cache to the database.
-func NewChore(log *zap.Logger, ordersWriteCache *RollupsWriteCache, config Config) *Chore {
+func NewChore(log *zap.Logger, rollupsWriteCache *RollupsWriteCache, config Config) *Chore {
 	return &Chore{
-		log:              log,
-		ordersWriteCache: ordersWriteCache,
-		Loop:             sync2.NewCycle(config.FlushInterval),
+		log:               log,
+		rollupsWriteCache: rollupsWriteCache,
+		Loop:              sync2.NewCycle(config.FlushInterval),
 	}
 }
 
@@ -33,7 +33,7 @@ func NewChore(log *zap.Logger, ordersWriteCache *RollupsWriteCache, config Confi
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
-		chore.ordersWriteCache.FlushToDB(ctx)
+		chore.rollupsWriteCache.Flush(ctx)
 		return nil
 	})
 }

@@ -36,23 +36,23 @@ func getTotalBandwidthInGB(ctx context.Context, accountingDB accounting.ProjectA
 	return total, nil
 }
 
-// TestOrdersWriteCacheBatchLimitReached makes sure bandwidth rollup values are not written to the
+// TestRollupsWriteCacheBatchLimitReached makes sure bandwidth rollup values are not written to the
 // db until the batch size is reached.
-func TestOrdersWriteCacheBatchLimitReached(t *testing.T) {
+func TestRollupsWriteCacheBatchLimitReached(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		useBatchSize := 10
 		amount := (memory.MB * 500).Int64()
 		projectID := testrand.UUID()
 		startTime := time.Now().UTC()
 
-		owc := orders.NewRollupsWriteCache(zaptest.NewLogger(t), db.Orders(), useBatchSize)
+		rwc := orders.NewRollupsWriteCache(zaptest.NewLogger(t), db.Orders(), useBatchSize)
 
 		accountingDB := db.ProjectAccounting()
 
 		// use different bucketName for each write, so they don't get aggregated yet
 		for i := 0; i < useBatchSize-1; i++ {
 			bucketName := fmt.Sprintf("my_files_%d", i)
-			err := owc.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), pb.PieceAction_GET, amount, startTime)
+			err := rwc.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), pb.PieceAction_GET, amount, startTime)
 			require.NoError(t, err)
 
 			// check that nothing was actually written since it should just be stored
@@ -61,9 +61,9 @@ func TestOrdersWriteCacheBatchLimitReached(t *testing.T) {
 			require.Equal(t, int64(0), total)
 		}
 
-		whenDone := owc.OnNextFlush()
+		whenDone := rwc.OnNextFlush()
 		// write one more rollup record to hit the threshold
-		err := owc.UpdateBucketBandwidthAllocation(ctx, projectID, []byte("my_files_last"), pb.PieceAction_GET, amount, startTime)
+		err := rwc.UpdateBucketBandwidthAllocation(ctx, projectID, []byte("my_files_last"), pb.PieceAction_GET, amount, startTime)
 		require.NoError(t, err)
 
 		// make sure flushing is done
@@ -80,9 +80,9 @@ func TestOrdersWriteCacheBatchLimitReached(t *testing.T) {
 	})
 }
 
-// TestOrdersWriteCacheBatchChore makes sure bandwidth rollup values are not written to the
+// TestRollupsWriteCacheBatchChore makes sure bandwidth rollup values are not written to the
 // db until the chore flushes the DB (assuming the batch size is not reached).
-func TestOrdersWriteCacheBatchChore(t *testing.T) {
+func TestRollupsWriteCacheBatchChore(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	},
@@ -109,10 +109,9 @@ func TestOrdersWriteCacheBatchChore(t *testing.T) {
 				require.Equal(t, int64(0), total)
 			}
 
-			owc := ordersDB.(*orders.RollupsWriteCache)
-			whenDone := owc.OnNextFlush()
+			rwc := ordersDB.(*orders.RollupsWriteCache)
+			whenDone := rwc.OnNextFlush()
 			// wait for Loop to complete
-			planet.Satellites[0].Orders.Chore.Loop.Restart()
 			planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 
 			// make sure flushing is done
