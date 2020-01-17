@@ -21,7 +21,7 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 
 	// find tables
 	err := func() error {
-		rows, err := db.Query(`
+		rows, err := db.QueryContext(ctx, `
 			SELECT table_name, column_name, is_nullable, data_type
 			FROM  information_schema.columns
 			WHERE table_schema = CURRENT_SCHEMA
@@ -54,7 +54,7 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 
 	// find constraints
 	err = func() error {
-		rows, err := db.Query(`
+		rows, err := db.QueryContext(ctx, `
 			SELECT
 				pg_class.relname      AS table_name,
 				pg_constraint.conname AS constraint_name,

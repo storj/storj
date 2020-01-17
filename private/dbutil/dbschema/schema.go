@@ -12,8 +12,6 @@ import (
 
 // Queryer is a representation for something that can query.
 type Queryer interface {
-	// Query executes a query that returns rows, typically a SELECT.
-	Query(query string, args ...interface{}) (*sql.Rows, error)
 	// QueryContext executes a query that returns rows, typically a SELECT.
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 }
