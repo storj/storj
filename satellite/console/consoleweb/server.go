@@ -129,6 +129,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
+	router.HandleFunc("/populate-promotional-coupons", server.populatePromotionalCoupons).Methods(http.MethodPost)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
 	router.Handle(
@@ -327,7 +328,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
-// accountActivationHandler is web app http handler function
+// createRegistrationTokenHandler is web app http handler function.
 func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -370,6 +371,40 @@ func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *h
 	}
 
 	response.Secret = token.Secret.String()
+}
+
+// populatePromotionalCoupons is web app http handler function for populating promotional coupons.
+func (server *Server) populatePromotionalCoupons(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+	w.Header().Set(contentType, applicationJSON)
+
+	var response struct {
+		Error string `json:"error,omitempty"`
+	}
+
+	defer func() {
+		err := json.NewEncoder(w).Encode(&response)
+		if err != nil {
+			server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
+		}
+	}()
+
+	equality := subtle.ConstantTimeCompare(
+		[]byte(r.Header.Get("Authorization")),
+		[]byte(server.config.AuthToken),
+	)
+	if equality != 1 {
+		w.WriteHeader(401)
+		response.Error = "unauthorized"
+		return
+	}
+
+	err := server.service.Payments().PopulatePromotionalCoupons(ctx)
+	if err != nil {
+		response.Error = err.Error()
+		return
+	}
 }
 
 // accountActivationHandler is web app http handler function

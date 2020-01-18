@@ -6,12 +6,15 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/memory"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -354,4 +357,116 @@ func couponUsageFromDbxSlice(couponUsageDbx *dbx.CouponUsage) (usage stripecoinp
 	}
 
 	return usage, err
+}
+
+// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have a project
+// and do not have a promotional coupon yet. And updates project limits to selected size.
+func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []uuid.UUID, duration int, amount int64, projectLimit memory.Size) (err error) {
+	defer mon.Task()(&ctx, users, duration, amount, projectLimit)(&err)
+
+	// converting to []interface{} instead of [][]byte
+	// to pass it to QueryContext as usersIDs...
+	var usersIDs []interface{}
+	for i := range users {
+		usersIDs = append(usersIDs, users[i][:])
+	}
+
+	query := coupons.db.Rebind(fmt.Sprintf(
+		`SELECT users_with_projects.id, users_with_projects.project_id FROM (
+				 SELECT selected_users.id, first_proj.id as project_id
+				 FROM (select id, status from users where id in `+generateArgumentsDBX(len(users))+`) as selected_users INNER JOIN
+  				     (select distinct on (owner_id) owner_id, id from projects order by owner_id, created_at asc) as first_proj
+  				 ON (selected_users.id = first_proj.owner_id)
+				 WHERE selected_users.status = %d) AS users_with_projects
+			  WHERE users_with_projects.id NOT IN (
+				 SELECT user_id FROM coupons WHERE type = %d
+			  );`, console.Active, payments.CouponTypePromotional),
+	)
+
+	usersIDsRows, err := coupons.db.QueryContext(ctx, query, usersIDs...)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, usersIDsRows.Close()) }()
+
+	type UserAndProjectIDs struct {
+		userID    uuid.UUID
+		projectID uuid.UUID
+	}
+
+	var ids []UserAndProjectIDs
+
+	for usersIDsRows.Next() {
+		var userID uuid.UUID
+		var userIDBytes []byte
+		var projectID uuid.UUID
+		var projectIDBytes []byte
+
+		err = usersIDsRows.Scan(&userIDBytes, &projectIDBytes)
+		if err != nil {
+			return err
+		}
+
+		userID, err = dbutil.BytesToUUID(userIDBytes)
+		if err != nil {
+			return err
+		}
+
+		projectID, err = dbutil.BytesToUUID(projectIDBytes)
+		if err != nil {
+			return err
+		}
+
+		ids = append(ids, UserAndProjectIDs{userID: userID, projectID: projectID})
+	}
+	if err = usersIDsRows.Err(); err != nil {
+		return err
+	}
+
+	return coupons.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		for _, userAndProjectID := range ids {
+			err = coupons.Insert(ctx, payments.Coupon{
+				UserID:      userAndProjectID.userID,
+				ProjectID:   userAndProjectID.projectID,
+				Amount:      amount,
+				Duration:    duration,
+				Description: fmt.Sprintf("Promotional credits (limited time - %d billing periods)", duration),
+				Type:        payments.CouponTypePromotional,
+				Status:      payments.CouponActive,
+			})
+			if err != nil {
+				return err
+			}
+
+			_, err = coupons.db.Update_Project_By_Id(ctx,
+				dbx.Project_Id(userAndProjectID.projectID[:]),
+				dbx.Project_Update_Fields{
+					UsageLimit: dbx.Project_UsageLimit(projectLimit.Int64()),
+				},
+			)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+// generates variadic number of '?' symbols in brackets depends on input parameter.
+func generateArgumentsDBX(length int) string {
+	start := "("
+
+	if length >= 1 {
+		start += "?"
+	}
+
+	middle := ""
+	for i := 1; i < length; i++ {
+		middle += ", ?"
+	}
+
+	end := ")"
+
+	return start + middle + end
 }

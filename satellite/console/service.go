@@ -17,6 +17,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -203,7 +204,7 @@ func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID str
 	return payments.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
 }
 
-// BillingHistory returns a list of invoices, transactions and all others billing history items for payment account.
+// BillingHistory returns a list of billing history items for payment account.
 func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -217,7 +218,6 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		return nil, Error.Wrap(err)
 	}
 
-	// TODO: add transactions, etc in future
 	for _, invoice := range invoices {
 		billingHistory = append(billingHistory, &BillingHistoryItem{
 			ID:          invoice.ID,
@@ -275,9 +275,8 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 	for _, coupon := range coupons {
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
-				ID: coupon.ID.String(),
-				// TODO: update description in future, when there will be more coupon types.
-				Description: fmt.Sprintf("Promotional credits (limited time - %d billing periods)", coupon.Duration),
+				ID:          coupon.ID.String(),
+				Description: coupon.Description,
 				Amount:      coupon.Amount,
 				Status:      "Added to balance",
 				Link:        "",
@@ -307,6 +306,15 @@ func (payments PaymentsService) TokenDeposit(ctx context.Context, amount int64) 
 
 	tx, err := payments.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
 	return tx, errs.Wrap(err)
+}
+
+// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
+// a project, payment method and do not have a promotional coupon yet.
+// And updates project limits to selected size.
+func (payments PaymentsService) PopulatePromotionalCoupons(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return Error.Wrap(payments.service.accounts.PopulatePromotionalCoupons(ctx, 2, 5500, memory.TB))
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -381,6 +389,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			FullName:     user.FullName,
 			ShortName:    user.ShortName,
 			PasswordHash: hash,
+			Status:       Inactive,
 		}
 		if user.PartnerID != "" {
 			partnerID, err := uuid.Parse(user.PartnerID)

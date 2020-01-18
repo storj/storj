@@ -9,6 +9,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/common/memory"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -43,6 +44,10 @@ type CouponsDB interface {
 	ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (CouponUsagePage, error)
 	// ApplyUsage applies coupon usage and updates its status.
 	ApplyUsage(ctx context.Context, couponID uuid.UUID, period time.Time) error
+
+	// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have a project
+	// and do not have a promotional coupon yet. And updates project limits to selected size.
+	PopulatePromotionalCoupons(ctx context.Context, users []uuid.UUID, duration int, amount int64, projectLimit memory.Size) error
 }
 
 // CouponUsage stores amount of money that should be charged from coupon for billing period.

@@ -8,8 +8,9 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/common/memory"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -93,6 +94,15 @@ func (accounts *accounts) Coupons(ctx context.Context, userID uuid.UUID) (coupon
 	defer mon.Task()(&ctx, userID)(&err)
 
 	return coupons, nil
+}
+
+// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
+// a project, payment method and do not have a promotional coupon yet.
+// And updates project limits to selected size.
+func (accounts *accounts) PopulatePromotionalCoupons(ctx context.Context, duration int, amount int64, projectLimit memory.Size) (err error) {
+	defer mon.Task()(&ctx, duration, amount, projectLimit)(&err)
+
+	return nil
 }
 
 // List returns a list of credit cards for a given payment account.
