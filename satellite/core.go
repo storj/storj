@@ -208,6 +208,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metainfo
 				Address:   config.Contact.ExternalAddress,
 			},
 			config.Repairer.MaxExcessRateOptimalThreshold,
+			config.Orders.NodeStatusLogging,
 		)
 	}
 

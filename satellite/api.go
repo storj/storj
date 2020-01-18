@@ -258,6 +258,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB, pointerDB metai
 				Address:   config.Contact.ExternalAddress,
 			},
 			config.Repairer.MaxExcessRateOptimalThreshold,
+			config.Orders.NodeStatusLogging,
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 		pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint.DRPC())
