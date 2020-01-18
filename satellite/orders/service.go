@@ -30,6 +30,7 @@ type Config struct {
 	FlushBatchSize               int           `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
 	FlushInterval                time.Duration `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
 	ReportedRollupsReadBatchSize int           `help:"how many records to read in a single transaction when calculating billable bandwidth" default:"1000"`
+	NodeStatusLogging            bool          `help:"log the offline/disqualification status of nodes" default:"false"`
 }
 
 // Service for creating order limits.
@@ -43,13 +44,14 @@ type Service struct {
 	satelliteAddress                    *pb.NodeAddress
 	orderExpiration                     time.Duration
 	repairMaxExcessRateOptimalThreshold float64
+	nodeStatusLogging                   bool
 }
 
 // NewService creates new service for creating order limits.
 func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
 	orders DB, orderExpiration time.Duration, satelliteAddress *pb.NodeAddress,
-	repairMaxExcessRateOptimalThreshold float64,
+	repairMaxExcessRateOptimalThreshold float64, nodeStatusLogging bool,
 ) *Service {
 	return &Service{
 		log:                                 log,
@@ -59,6 +61,7 @@ func NewService(
 		satelliteAddress:                    satelliteAddress,
 		orderExpiration:                     orderExpiration,
 		repairMaxExcessRateOptimalThreshold: repairMaxExcessRateOptimalThreshold,
+		nodeStatusLogging:                   nodeStatusLogging,
 	}
 }
 
@@ -70,11 +73,11 @@ func (service *Service) VerifyOrderLimitSignature(ctx context.Context, signed *p
 
 func (service *Service) createSerial(ctx context.Context) (_ storj.SerialNumber, err error) {
 	defer mon.Task()(&ctx)(&err)
-	uuid, err := uuid.New()
+	id, err := uuid.New()
 	if err != nil {
 		return storj.SerialNumber{}, Error.Wrap(err)
 	}
-	return storj.SerialNumber(*uuid), nil
+	return storj.SerialNumber(*id), nil
 }
 
 func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, expiresAt time.Time) (err error) {
@@ -147,13 +150,17 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 		}
 
 		if node.Disqualified != nil {
-			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
-			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}
@@ -292,13 +299,17 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 		}
 
 		if node.Disqualified != nil {
-			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
-			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}
@@ -376,13 +387,17 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 		}
 
 		if node.Disqualified != nil {
-			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
-			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}
@@ -541,13 +556,17 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 		}
 
 		if node.Disqualified != nil {
-			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
-			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}

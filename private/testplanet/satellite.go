@@ -336,6 +336,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				SettlementBatchSize: 10,
 				FlushBatchSize:      10,
 				FlushInterval:       defaultInterval,
+				NodeStatusLogging:   true,
 			},
 			Checker: checker.Config{
 				Interval:                  defaultInterval,

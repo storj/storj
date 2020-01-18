@@ -98,6 +98,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity, pointerDB metainf
 				Address:   config.Contact.ExternalAddress,
 			},
 			config.Repairer.MaxExcessRateOptimalThreshold,
+			config.Orders.NodeStatusLogging,
 		)
 	}
 
