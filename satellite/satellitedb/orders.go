@@ -633,7 +633,7 @@ func (queue *ordersDBQueue) GetPendingSerialsBatch(ctx context.Context, size int
 	// TODO: no idea of this query makes sense on cockroach. it may do a terrible job with it.
 	// but it's blazing fast on postgres and that's where we have the problem! :D :D :D
 
-	var rows *sql.Rows
+	var rows tagsql.Rows
 	switch queue.impl {
 	case dbutil.Postgres:
 		rows, err = queue.tx.Query(ctx, `

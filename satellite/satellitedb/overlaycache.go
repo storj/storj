@@ -19,6 +19,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/private/version"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -104,7 +105,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var rows *sql.Rows
+	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT last_net FROM nodes
 			WHERE id = any($1::bytea[])
@@ -149,7 +150,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay
 func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var rows *sql.Rows
+	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT last_net, id, address, last_ip_port
 		FROM nodes
@@ -191,7 +192,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 	}
 
 	// get offline nodes
-	var rows *sql.Rows
+	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
@@ -223,7 +224,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 	}
 
 	// get reliable and online nodes
-	var rows *sql.Rows
+	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])

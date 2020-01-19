@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/context2"
 	"storj.io/private/traces"
 )
@@ -19,7 +21,7 @@ type Conn interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	PingContext(ctx context.Context) error
 	PrepareContext(ctx context.Context, query string) (Stmt, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 	Raw(ctx context.Context, f func(driverConn interface{}) error) (err error)
 }
@@ -39,6 +41,7 @@ type sqlConn struct {
 	conn         *sql.Conn
 	useContext   bool
 	useTxContext bool
+	tracker      *tracker
 }
 
 func (s *sqlConn) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error) {
@@ -54,11 +57,15 @@ func (s *sqlConn) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, er
 	if err != nil {
 		return nil, err
 	}
-	return &sqlTx{tx: tx, useContext: s.useContext && s.useTxContext}, nil
+	return &sqlTx{
+		tx:         tx,
+		useContext: s.useContext && s.useTxContext,
+		tracker:    s.tracker.child(1),
+	}, nil
 }
 
 func (s *sqlConn) Close() error {
-	return s.conn.Close()
+	return errs.Combine(s.tracker.close(), s.conn.Close())
 }
 
 func (s *sqlConn) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
@@ -86,15 +93,19 @@ func (s *sqlConn) PrepareContext(ctx context.Context, query string) (Stmt, error
 	if err != nil {
 		return nil, err
 	}
-	return &sqlStmt{stmt: stmt, useContext: s.useContext}, nil
+	return &sqlStmt{
+		stmt:       stmt,
+		useContext: s.useContext,
+		tracker:    s.tracker.child(1),
+	}, nil
 }
 
-func (s *sqlConn) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+func (s *sqlConn) QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error) {
 	traces.Tag(ctx, traces.TagDB)
 	if !s.useContext {
 		ctx = context2.WithoutCancellation(ctx)
 	}
-	return s.conn.QueryContext(ctx, query, args...)
+	return s.tracker.wrapRows(s.conn.QueryContext(ctx, query, args...))
 }
 
 func (s *sqlConn) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {

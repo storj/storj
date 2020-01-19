@@ -10,15 +10,16 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"storj.io/storj/private/tagsql"
 )
 
 // Queryer is a representation for something that can query.
 type Queryer interface {
-	// QueryContext executes a query that returns rows, typically a SELECT.
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-
 	// QueryRowContext executes a query that returns a single row.
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	// QueryContext executes a query that returns rows, typically a SELECT.
+	QueryContext(ctx context.Context, query string, args ...interface{}) (tagsql.Rows, error)
 }
 
 // Schema is the database structure.

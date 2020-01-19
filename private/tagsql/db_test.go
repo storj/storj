@@ -43,6 +43,9 @@ func run(t *testing.T, fn func(*testcontext.Context, *testing.T, tagsql.DB, tags
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 
+		db.SetMaxOpenConns(100)
+		db.SetMaxIdleConns(100)
+
 		fn(ctx, t, db.DB, tagsql.SupportNone)
 	})
 
@@ -55,6 +58,9 @@ func run(t *testing.T, fn func(*testcontext.Context, *testing.T, tagsql.DB, tags
 		db, err := cockroachutil.OpenUnique(ctx, connstr, "detect")
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
+
+		db.SetMaxOpenConns(100)
+		db.SetMaxIdleConns(100)
 
 		fn(ctx, t, db.DB, tagsql.SupportNone)
 	})

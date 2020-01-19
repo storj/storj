@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/dbutil/cockroachutil"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
 )
 
@@ -21,7 +22,7 @@ type orderedCockroachIterator struct {
 	delimiter      byte
 	batchSize      int
 	curIndex       int
-	curRows        *sql.Rows
+	curRows        tagsql.Rows
 	skipPrefix     bool
 	lastKeySeen    storage.Key
 	largestKey     storage.Key
@@ -64,7 +65,7 @@ func newOrderedCockroachIterator(ctx context.Context, cli *Client, opts storage.
 func (oci *orderedCockroachIterator) Close() error {
 	defer mon.Task()(nil)(nil)
 
-	return errs.Combine(oci.errEncountered, oci.curRows.Close())
+	return errs.Combine(oci.curRows.Err(), oci.errEncountered, oci.curRows.Close())
 }
 
 // Next fills in info for the next item in an ongoing listing.
@@ -157,7 +158,7 @@ func (oci *orderedCockroachIterator) Next(ctx context.Context, item *storage.Lis
 	}
 }
 
-func (oci *orderedCockroachIterator) doNextQuery(ctx context.Context) (_ *sql.Rows, err error) {
+func (oci *orderedCockroachIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	gt := ">"
