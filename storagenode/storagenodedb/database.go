@@ -967,16 +967,6 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 						return ErrDatabase.Wrap(err)
 					}
 
-					// Close the deprecated db in order to free up unused
-					// disk space
-					if err := db.closeDatabase(DeprecatedInfoDBName); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
-					if err := db.openDatabase(DeprecatedInfoDBName); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
 					return nil
 				}),
 			},
