@@ -166,7 +166,7 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 		}
 		results = append(results, r)
 	}
-	return results, nil
+	return results, Error.Wrap(rows.Err())
 }
 
 func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {
