@@ -17,10 +17,7 @@ import (
 )
 
 func TestApiKeysRepository(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		projects := db.Console().Projects()
 		apikeys := db.Console().APIKeys()
 

@@ -20,10 +20,7 @@ import (
 
 func TestProgress(t *testing.T) {
 	// test basic graceful exit progress crud
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		geDB := db.GracefulExit()
 
 		testData := []struct {
@@ -59,10 +56,7 @@ func TestProgress(t *testing.T) {
 
 func TestTransferQueueItem(t *testing.T) {
 	// test basic graceful exit transfer queue crud
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		geDB := db.GracefulExit()
 
 		nodeID1 := testrand.NodeID()

@@ -21,10 +21,7 @@ import (
 )
 
 func TestCouponRepository(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		couponsRepo := db.StripeCoinPayments().Coupons()
 		coupon := payments.Coupon{
 			Duration:    2,
@@ -105,10 +102,7 @@ func TestCouponRepository(t *testing.T) {
 // 8. Populating coupons again. For 6 users above. Only 1 new coupon should be added.
 // Three new coupons total should be added by 2 runs of PopulatePromotionalCoupons method.
 func TestPopulatePromotionalCoupons(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		usersRepo := db.Console().Users()
 		projectsRepo := db.Console().Projects()
 		couponsRepo := db.StripeCoinPayments().Coupons()

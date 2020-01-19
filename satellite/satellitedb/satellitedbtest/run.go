@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+
 	"storj.io/common/testcontext"
 
 	"storj.io/storj/private/dbutil"
@@ -161,7 +162,7 @@ func CreatePointerDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil
 
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
-func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
+func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB)) {
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
 		t.Run(dbInfo.MasterDB.Name+"/"+dbInfo.PointerDB.Name, func(t *testing.T) {
@@ -191,7 +192,7 @@ func Run(t *testing.T, test func(t *testing.T, db satellite.DB)) {
 			}
 
 			// TODO: pass the ctx down
-			test(t, db)
+			test(ctx, t, db)
 		})
 	}
 }

@@ -19,10 +19,7 @@ import (
 )
 
 func TestInsertSelect(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
 		seg := &pb.InjuredSegment{
@@ -40,10 +37,7 @@ func TestInsertSelect(t *testing.T) {
 }
 
 func TestInsertDuplicate(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
 		seg := &pb.InjuredSegment{
@@ -58,10 +52,7 @@ func TestInsertDuplicate(t *testing.T) {
 }
 
 func TestDequeueEmptyQueue(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
 		_, err := q.Select(ctx)
@@ -71,10 +62,7 @@ func TestDequeueEmptyQueue(t *testing.T) {
 }
 
 func TestSequential(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
 		const N = 100
@@ -112,10 +100,7 @@ func TestSequential(t *testing.T) {
 }
 
 func TestParallel(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 		const N = 100
 		entries := make(chan *pb.InjuredSegment, N)

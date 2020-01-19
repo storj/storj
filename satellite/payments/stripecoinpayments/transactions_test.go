@@ -23,10 +23,7 @@ import (
 )
 
 func TestTransactionsDB(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
 		amount, ok := new(big.Float).SetPrec(1000).SetString("2.0000000000000000005")
@@ -151,7 +148,7 @@ func TestTransactionsDBList(t *testing.T) {
 	}
 
 	t.Run("pending transactions", func(t *testing.T) {
-		satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 			for _, tx := range txs {
 				_, err := db.StripeCoinPayments().Transactions().Insert(ctx, tx)
 				require.NoError(t, err)
@@ -173,7 +170,7 @@ func TestTransactionsDBList(t *testing.T) {
 	})
 
 	t.Run("unapplied transaction", func(t *testing.T) {
-		satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 			var updatedTxs []stripecoinpayments.Transaction
 			var updates []stripecoinpayments.TransactionUpdate
 			var applies coinpayments.TransactionIDList
@@ -216,10 +213,7 @@ func TestTransactionsDBList(t *testing.T) {
 }
 
 func TestTransactionsDBRates(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
 		val, ok := new(big.Float).SetPrec(1000).SetString("4.0000000000000000005")

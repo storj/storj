@@ -19,10 +19,7 @@ import (
 )
 
 func TestGetExitingNodes(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
 		exiting := make(map[storj.NodeID]bool)
 		exitingCount := 0
@@ -90,10 +87,7 @@ func TestGetExitingNodes(t *testing.T) {
 }
 
 func TestGetGracefulExitNodesByTimeframe(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
 		exitingToday := make(map[storj.NodeID]bool)
 		exitingLastWeek := make(map[storj.NodeID]bool)

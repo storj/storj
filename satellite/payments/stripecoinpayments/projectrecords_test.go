@@ -18,10 +18,7 @@ import (
 )
 
 func TestProjectRecords(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		utc := time.Now().UTC()
 
 		prjID, err := uuid.New()
@@ -70,10 +67,7 @@ func TestProjectRecords(t *testing.T) {
 }
 
 func TestProjectRecordsList(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		utc := time.Now().UTC()
 
 		start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)

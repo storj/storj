@@ -32,11 +32,7 @@ func TestProjectsRepository(t *testing.T) {
 		newDescription = "some new description"
 	)
 
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		// repositories
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // repositories
 		users := db.Console().Users()
 		projects := db.Console().Projects()
 		var project *console.Project

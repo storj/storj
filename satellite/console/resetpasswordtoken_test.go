@@ -25,10 +25,7 @@ func TestNewRegistrationSecret(t *testing.T) {
 		userFullName = "name"
 	)
 
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		users := db.Console().Users()
 		rptokens := db.Console().ResetPasswordTokens()
 

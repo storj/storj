@@ -17,10 +17,7 @@ import (
 
 func TestDowntime(t *testing.T) {
 	// test basic downtime functionality
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		downtimeDB := db.DowntimeTracking()
 
 		now := time.Now()

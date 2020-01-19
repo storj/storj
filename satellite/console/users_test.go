@@ -30,10 +30,7 @@ const (
 )
 
 func TestUserRepository(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repository := db.Console().Users()
 		partnerID := testrand.UUID()
 
@@ -62,10 +59,7 @@ func TestUserRepository(t *testing.T) {
 }
 
 func TestUserEmailCase(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		for _, testCase := range []struct {
 			email string
 		}{

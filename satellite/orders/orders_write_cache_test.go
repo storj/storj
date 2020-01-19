@@ -39,10 +39,7 @@ func getTotalBandwidthInGB(ctx context.Context, accountingDB accounting.ProjectA
 // TestOrdersWriteCacheBatchLimitReached makes sure bandwidth rollup values are not written to the
 // db until the batch size is reached.
 func TestOrdersWriteCacheBatchLimitReached(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		useBatchSize := 10
 		amount := (memory.MB * 500).Int64()
 		projectID := testrand.UUID()

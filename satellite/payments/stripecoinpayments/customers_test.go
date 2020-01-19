@@ -19,10 +19,7 @@ import (
 )
 
 func TestCustomersRepository(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		customers := db.StripeCoinPayments().Customers()
 
 		customerID := "customerID"
@@ -48,10 +45,7 @@ func TestCustomersRepository(t *testing.T) {
 }
 
 func TestCustomersRepositoryList(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		customersDB := db.StripeCoinPayments().Customers()
 
 		const custLen = 5

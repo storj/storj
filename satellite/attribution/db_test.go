@@ -62,12 +62,8 @@ func (testData *AttributionTestData) init() {
 }
 
 func TestDB(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		attributionDB := db.Attribution()
-
 		project1, project2 := testrand.UUID(), testrand.UUID()
 		partner1, partner2 := testrand.UUID(), testrand.UUID()
 
@@ -95,10 +91,7 @@ func TestDB(t *testing.T) {
 }
 
 func TestQueryAttribution(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		now := time.Now().UTC()
 
 		projectID := testrand.UUID()
