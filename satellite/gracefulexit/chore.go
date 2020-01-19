@@ -46,7 +46,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
-		chore.log.Debug("checking pending exits")
 
 		exitingNodes, err := chore.overlay.GetExitingNodes(ctx)
 		if err != nil {
@@ -55,10 +54,10 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		nodeCount := len(exitingNodes)
-		chore.log.Debug("graceful exit", zap.Int("exitingNodes", nodeCount))
 		if nodeCount == 0 {
 			return nil
 		}
+		chore.log.Debug("found exiting nodes", zap.Int("exitingNodes", nodeCount))
 
 		exitingNodesLoopIncomplete := make(storj.NodeIDList, 0, nodeCount)
 		for _, node := range exitingNodes {

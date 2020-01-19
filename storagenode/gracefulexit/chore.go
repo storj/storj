@@ -54,8 +54,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	err = chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
-		chore.log.Debug("checking pending exits")
-
 		satellites, err := chore.satelliteDB.ListGracefulExits(ctx)
 		if err != nil {
 			chore.log.Error("error retrieving satellites.", zap.Error(err))
@@ -63,9 +61,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		if len(satellites) == 0 {
-			chore.log.Debug("no satellites found")
 			return nil
 		}
+		chore.log.Debug("exiting", zap.Int("satellites", len(satellites)))
 
 		for _, satellite := range satellites {
 			mon.Meter("satellite_gracefulexit_request").Mark(1) //locked
