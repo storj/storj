@@ -164,13 +164,20 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 // Iterate iterates over items based on opts
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	all, err := client.allPrefixedItems(opts.Prefix, opts.First, nil)
+
+	if opts.Limit <= 0 || opts.Limit > storage.LookupLimit {
+		opts.Limit = storage.LookupLimit
+	}
+
+	all, err := client.allPrefixedItems(opts.Prefix, opts.First, nil, opts.Limit)
 	if err != nil {
 		return err
 	}
+
 	if !opts.Recurse {
 		all = storage.SortAndCollapse(all, opts.Prefix)
 	}
+
 	return fn(ctx, &storage.StaticIterator{
 		Items: all,
 	})
@@ -182,12 +189,12 @@ func (client *Client) FlushDB() error {
 	return err
 }
 
-func (client *Client) allPrefixedItems(prefix, first, last storage.Key) (storage.Items, error) {
+func (client *Client) allPrefixedItems(prefix, first, last storage.Key, limit int) (storage.Items, error) {
 	var all storage.Items
 	seen := map[string]struct{}{}
 
 	match := string(escapeMatch([]byte(prefix))) + "*"
-	it := client.db.Scan(0, match, 0).Iterator()
+	it := client.db.Scan(0, match, int64(limit)).Iterator()
 	for it.Next() {
 		key := it.Val()
 		if !first.IsZero() && storage.Key(key).Less(first) {

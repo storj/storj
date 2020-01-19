@@ -225,6 +225,11 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 // Iterate iterates over items based on opts
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if opts.Limit <= 0 || opts.Limit > storage.LookupLimit {
+		opts.Limit = storage.LookupLimit
+	}
+
 	return client.view(func(bucket *bolt.Bucket) error {
 		var cursor advancer = forward{bucket.Cursor()}
 

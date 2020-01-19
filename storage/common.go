@@ -48,7 +48,7 @@ type Values []Value
 type Items []ListItem
 
 // LookupLimit is enforced by storage implementations
-const LookupLimit = 1000
+const LookupLimit = 10000
 
 // ListItem returns Key, Value, IsPrefix
 type ListItem struct {
@@ -85,6 +85,8 @@ type IterateOptions struct {
 	First Key
 	// Recurse, do not collapse items based on Delimiter
 	Recurse bool
+	// The maximum number of elements to be returned
+	Limit int
 }
 
 // Iterator iterates over a sequence of ListItems
