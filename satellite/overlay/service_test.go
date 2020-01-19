@@ -583,7 +583,7 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 			nodeLastContacts, err := db.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Duration(0))
 			require.NoError(t, err)
 			require.Len(t, nodeLastContacts, 1)
-			require.Equal(t, twoHoursAgo.Truncate(time.Second), nodeLastContacts[0].LastContactSuccess.Truncate(time.Second))
+			require.InDelta(t, 0, twoHoursAgo.Sub(nodeLastContacts[0].LastContactSuccess).Seconds(), 1)
 			require.True(t, nodeLastContacts[0].LastContactFailure.IsZero())
 		}
 

@@ -126,13 +126,14 @@ func TestTransferQueueItem(t *testing.T) {
 
 				require.Equal(t, item.RootPieceID, latestItem.RootPieceID)
 				require.Equal(t, item.DurabilityRatio, latestItem.DurabilityRatio)
-				require.True(t, item.RequestedAt.Truncate(time.Millisecond).Equal(latestItem.RequestedAt.Truncate(time.Millisecond)))
+				require.InDelta(t, 0, latestItem.RequestedAt.Sub(now).Seconds(), 1)
 			}
 
 			queueItems, err := geDB.GetIncomplete(ctx, nodeID1, 10, 0)
 			require.NoError(t, err)
 			require.Len(t, queueItems, 2)
 		}
+
 		// mark the first item finished and test that only 1 item gets returned from the GetIncomplete
 		{
 			item, err := geDB.GetTransferQueueItem(ctx, nodeID1, path1, 1)

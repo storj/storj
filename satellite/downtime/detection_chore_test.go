@@ -45,7 +45,7 @@ func TestDetectionChore(t *testing.T) {
 			nodeLastContacts, err := satellite.DB.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Hour)
 			require.NoError(t, err)
 			require.Len(t, nodeLastContacts, 1)
-			require.Equal(t, oldCheckinTime.Truncate(time.Second), nodeLastContacts[0].LastContactSuccess.Truncate(time.Second)) // truncate to avoid flakiness
+			require.InDelta(t, 0, oldCheckinTime.Sub(nodeLastContacts[0].LastContactSuccess).Seconds(), 1)
 
 			// run detection chore
 			satellite.DowntimeTracking.DetectionChore.Loop.TriggerWait()
@@ -74,7 +74,8 @@ func TestDetectionChore(t *testing.T) {
 			nodeLastContacts, err := satellite.DB.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Hour)
 			require.NoError(t, err)
 			require.Len(t, nodeLastContacts, 1)
-			require.Equal(t, oldCheckinTime.Truncate(time.Second), nodeLastContacts[0].LastContactSuccess.Truncate(time.Second)) // truncate to avoid flakiness
+			delta := oldCheckinTime.Sub(nodeLastContacts[0].LastContactSuccess).Seconds()
+			require.InDelta(t, 0, delta, 1)
 
 			// run detection chore - again
 			satellite.DowntimeTracking.DetectionChore.Loop.TriggerWait()
@@ -82,7 +83,7 @@ func TestDetectionChore(t *testing.T) {
 			// downtime duration should be > 1hr
 			downtime, err := satellite.DB.DowntimeTracking().GetOfflineTime(ctx, node.ID(), time.Now().Add(-time.Hour), time.Now().Add(time.Hour))
 			require.NoError(t, err)
-			require.EqualValues(t, time.Hour, downtime.Truncate(time.Hour)) // truncate to avoid flakiness
+			require.InDelta(t, 1, downtime.Hours(), 0.5)
 		}
 	})
 }
