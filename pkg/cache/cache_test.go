@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+
+	"storj.io/common/testcontext"
 )
 
 func TestCache_LRU(t *testing.T) {
@@ -33,23 +35,26 @@ func TestCache_Expires(t *testing.T) {
 	check := newChecker(t, cache)
 
 	check("a", 1)
+	time.Sleep(time.Second)
 	check("a", 2)
 }
 
 func TestCache_Fuzz(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	cache := New(Options{Capacity: 2, Expiration: 100 * time.Millisecond})
 	keys := "abcdefghij"
 
 	var ops uint64
 	procs := runtime.GOMAXPROCS(-1)
-	errch := make(chan error, procs)
+
 	for i := 0; i < procs; i++ {
-		go func() {
+		ctx.Go(func() error {
 			rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 			for {
 				if atomic.AddUint64(&ops, 1) > 1000000 {
-					errch <- nil
-					return
+					return nil
 				}
 
 				shouldErr := rng.Intn(10) == 0
@@ -67,25 +72,20 @@ func TestCache_Fuzz(t *testing.T) {
 
 				if ran {
 					if shouldErr && err == nil {
-						errch <- errs.New("should have errored and did not")
-						return
+						return errs.New("should have errored and did not")
 					}
 					if !shouldErr && err != nil {
-						errch <- errs.New("should not have errored but did")
-						return
+						return errs.New("should not have errored but did")
 					}
 				}
 				if value != key && !(ran && shouldErr) {
-					errch <- errs.New("expected %q but got %q", key, value)
-					return
+					return errs.New("expected %q but got %q", key, value)
 				}
 			}
-		}()
+		})
 	}
 
-	for i := 0; i < procs; i++ {
-		require.NoError(t, <-errch)
-	}
+	ctx.Wait()
 }
 
 //
