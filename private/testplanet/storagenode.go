@@ -132,6 +132,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				},
 			},
 			Retain: retain.Config{
+				MaxTimeSkew: 10 * time.Second,
 				Status:      retain.Enabled,
 				Concurrency: 5,
 			},

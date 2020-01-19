@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/storage"
+	"storj.io/storj/storagenode"
 )
 
 // TestGarbageCollection does the following:
@@ -36,6 +37,9 @@ func TestGarbageCollection(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.GarbageCollection.FalsePositiveRate = 0.000000001
 				config.GarbageCollection.Interval = 500 * time.Millisecond
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Retain.MaxTimeSkew = 0
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
