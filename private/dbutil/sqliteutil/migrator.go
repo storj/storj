@@ -26,10 +26,10 @@ type DB interface {
 
 var (
 	// ErrMigrateTables is error class for MigrateTables
-	ErrMigrateTables = errs.Class("migrate tables:")
+	ErrMigrateTables = errs.Class("migrate tables")
 
 	// ErrKeepTables is error class for MigrateTables
-	ErrKeepTables = errs.Class("keep tables:")
+	ErrKeepTables = errs.Class("keep tables")
 )
 
 // getSqlite3Conn attempts to get a *sqlite3.SQLiteConn from the connection.
@@ -205,7 +205,8 @@ func dropTables(ctx context.Context, db DB, tablesToKeep ...string) (err error) 
 			}
 			tables = append(tables, tableName)
 		}
-		err = rows.Close()
+
+		err = errs.Combine(rows.Err(), rows.Close())
 		if err != nil {
 			return err
 		}
