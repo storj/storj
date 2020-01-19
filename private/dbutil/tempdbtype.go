@@ -4,21 +4,21 @@
 package dbutil
 
 import (
-	"database/sql"
-
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/private/tagsql"
 )
 
 // TempDatabase is a database (or something that works like an isolated database,
 // such as a PostgreSQL schema) with a semi-unique name which will be cleaned up
 // when closed. Mainly useful for testing purposes.
 type TempDatabase struct {
-	*sql.DB
+	tagsql.DB
 	ConnStr        string
 	Schema         string
 	Driver         string
 	Implementation Implementation
-	Cleanup        func(*sql.DB) error
+	Cleanup        func(tagsql.DB) error
 }
 
 // Close closes the database and deletes the schema.

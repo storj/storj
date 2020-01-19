@@ -5,18 +5,18 @@ package sqliteutil
 
 import (
 	"context"
-	"database/sql"
 	"strconv"
 
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/dbutil/dbschema"
+	"storj.io/storj/private/tagsql"
 )
 
 // LoadSchemaFromSQL inserts script into connstr and loads schema.
 func LoadSchemaFromSQL(ctx context.Context, script string) (_ *dbschema.Schema, err error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := tagsql.Open("sqlite3", ":memory:")
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -32,7 +32,7 @@ func LoadSchemaFromSQL(ctx context.Context, script string) (_ *dbschema.Schema, 
 
 // LoadSnapshotFromSQL inserts script into connstr and loads schema.
 func LoadSnapshotFromSQL(ctx context.Context, script string) (_ *dbschema.Snapshot, err error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := tagsql.Open("sqlite3", ":memory:")
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

@@ -18,6 +18,15 @@ import (
 	"storj.io/storj/private/context2"
 )
 
+// Open opens *sql.DB and wraps the implementation with tagging.
+func Open(driverName, dataSourceName string) (DB, error) {
+	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		return nil, err
+	}
+	return Wrap(db), nil
+}
+
 // Wrap turns a *sql.DB into a DB-matching interface.
 func Wrap(db *sql.DB) DB {
 	support, err := DetectContextSupport(db)
@@ -73,6 +82,8 @@ type DB interface {
 	SetMaxIdleConns(n int)
 	SetMaxOpenConns(n int)
 	Stats() sql.DBStats
+
+	Internal() *sql.DB
 }
 
 // sqlDB implements DB, which optionally disables contexts.
@@ -81,6 +92,8 @@ type sqlDB struct {
 	useContext   bool
 	useTxContext bool
 }
+
+func (s *sqlDB) Internal() *sql.DB { return s.db }
 
 func (s *sqlDB) Begin(ctx context.Context) (Tx, error) {
 	traces.Tag(ctx, traces.TagDB)

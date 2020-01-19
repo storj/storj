@@ -8,7 +8,6 @@ package schema
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -16,11 +15,12 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/tagsql"
 )
 
 // PrepareDB applies schema migrations as necessary to the given database to
 // get it up to date.
-func PrepareDB(ctx context.Context, db *sql.DB, dbURL string) error {
+func PrepareDB(ctx context.Context, db tagsql.DB, dbURL string) error {
 	srcDriver, err := bindata.WithInstance(bindata.Resource(AssetNames(), Asset))
 	if err != nil {
 		return err
@@ -37,7 +37,7 @@ func PrepareDB(ctx context.Context, db *sql.DB, dbURL string) error {
 		}
 	}
 
-	dbDriver, err := postgres.WithInstance(db, &postgres.Config{})
+	dbDriver, err := postgres.WithInstance(db.Internal(), &postgres.Config{})
 	if err != nil {
 		return err
 	}

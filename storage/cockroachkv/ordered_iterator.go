@@ -137,7 +137,7 @@ func (opi *orderedCockroachIterator) doNextQuery(ctx context.Context) (_ *sql.Ro
 		gt = ">="
 	}
 
-	return opi.client.db.Query(fmt.Sprintf(`
+	return opi.client.db.QueryContext(ctx, fmt.Sprintf(`
 		SELECT pd.fullpath, pd.metadata
 		FROM pathdata pd
 		WHERE pd.fullpath %s $1:::BYTEA

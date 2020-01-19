@@ -5,7 +5,6 @@ package cockroachutil
 
 import (
 	"context"
-	"database/sql"
 	"encoding/hex"
 	"math/rand"
 	"net/url"
@@ -16,6 +15,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/tagsql"
 )
 
 var mon = monkit.Package()
@@ -39,25 +39,26 @@ func OpenUnique(ctx context.Context, connStr string, schemaPrefix string) (db *d
 
 	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
 
-	masterDB, err := sql.Open("cockroach", connStr)
+	masterDB, err := tagsql.Open("cockroach", connStr)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	defer func() {
 		err = errs.Combine(err, masterDB.Close())
 	}()
-	err = masterDB.Ping()
+
+	err = masterDB.PingContext(ctx)
 	if err != nil {
 		return nil, errs.New("Could not open masterDB at conn %q: %w", connStr, err)
 	}
 
-	_, err = masterDB.Exec("CREATE DATABASE " + pq.QuoteIdentifier(schemaName))
+	_, err = masterDB.Exec(ctx, "CREATE DATABASE "+pq.QuoteIdentifier(schemaName))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	cleanup := func(cleanupDB *sql.DB) error {
-		_, err := cleanupDB.Exec("DROP DATABASE " + pq.QuoteIdentifier(schemaName))
+	cleanup := func(cleanupDB tagsql.DB) error {
+		_, err := cleanupDB.Exec(context.TODO(), "DROP DATABASE "+pq.QuoteIdentifier(schemaName))
 		return errs.Wrap(err)
 	}
 
@@ -66,7 +67,7 @@ func OpenUnique(ctx context.Context, connStr string, schemaPrefix string) (db *d
 		return nil, errs.Combine(err, cleanup(masterDB))
 	}
 
-	sqlDB, err := sql.Open("cockroach", modifiedConnStr)
+	sqlDB, err := tagsql.Open("cockroach", modifiedConnStr)
 	if err != nil {
 		return nil, errs.Combine(errs.Wrap(err), cleanup(masterDB))
 	}

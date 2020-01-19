@@ -4,7 +4,6 @@
 package cockroachutil_test
 
 import (
-	"database/sql"
 	"strings"
 	"testing"
 
@@ -15,6 +14,7 @@ import (
 	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
+	"storj.io/storj/private/tagsql"
 )
 
 func TestTempCockroachDB(t *testing.T) {
@@ -38,20 +38,20 @@ func TestTempCockroachDB(t *testing.T) {
 	connStrCopy := testDB.ConnStr
 
 	// assert new test db exists and can be connected to again
-	otherConn, err := sql.Open(driverCopy, connStrCopy)
+	otherConn, err := tagsql.Open(driverCopy, connStrCopy)
 	require.NoError(t, err)
 	defer ctx.Check(otherConn.Close)
 
 	// verify the name matches expectation
 	var dbName string
-	row := otherConn.QueryRow(`SELECT current_database()`)
+	row := otherConn.QueryRowContext(ctx, `SELECT current_database()`)
 	err = row.Scan(&dbName)
 	require.NoError(t, err)
 	require.Truef(t, strings.HasPrefix(dbName, prefix), "Expected prefix of %q for current db name, but found %q", prefix, dbName)
 
 	// verify there is a db with such a name
 	var count int
-	row = otherConn.QueryRow(`SELECT COUNT(*) FROM pg_database WHERE datname = current_database()`)
+	row = otherConn.QueryRowContext(ctx, `SELECT COUNT(*) FROM pg_database WHERE datname = current_database()`)
 	err = row.Scan(&count)
 	require.NoError(t, err)
 	require.Equalf(t, 1, count, "Expected 1 DB with matching name, but counted %d", count)
@@ -62,13 +62,13 @@ func TestTempCockroachDB(t *testing.T) {
 
 	// make a new connection back to the master connstr just to check that the our temp db
 	// really was dropped
-	plainDBConn, err := sql.Open("cockroach", *pgtest.CrdbConnStr)
+	plainDBConn, err := tagsql.Open("cockroach", *pgtest.CrdbConnStr)
 	require.NoError(t, err)
 	defer ctx.Check(plainDBConn.Close)
 
 	// assert new test db was deleted (we expect this connection to keep working, even though its
 	// database was deleted out from under it!)
-	row = plainDBConn.QueryRow(`SELECT COUNT(*) FROM pg_database WHERE datname = $1`, dbName)
+	row = plainDBConn.QueryRowContext(ctx, `SELECT COUNT(*) FROM pg_database WHERE datname = $1`, dbName)
 	err = row.Scan(&count)
 	require.NoError(t, err)
 	require.Equalf(t, 0, count, "Expected 0 DB with matching name, but counted %d (deletion failure?)", count)

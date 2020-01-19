@@ -25,27 +25,25 @@ import (
 )
 
 func TestBasicMigrationSqliteNoRebind(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := tagsql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-	tagdb := tagsql.Wrap(db)
 
-	basicMigration(ctx, t, tagdb, tagdb)
+	basicMigration(ctx, t, db, db)
 }
 
 func TestBasicMigrationSqlite(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := tagsql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-	tagdb := tagsql.Wrap(db)
 
-	basicMigration(ctx, t, tagdb, &sqliteDB{DB: tagdb})
+	basicMigration(ctx, t, db, &sqliteDB{DB: db})
 }
 
 func TestBasicMigrationPostgres(t *testing.T) {
@@ -74,9 +72,8 @@ func testBasicMigrationGeneric(ctx *testcontext.Context, t *testing.T, connStr s
 		t.Fatal(err)
 	}
 	defer func() { assert.NoError(t, db.Close()) }()
-	tagdb := tagsql.Wrap(db.DB)
 
-	basicMigration(ctx, t, tagdb, &postgresDB{DB: tagdb})
+	basicMigration(ctx, t, db.DB, &postgresDB{DB: db.DB})
 }
 
 func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB migrate.DB) {
@@ -155,11 +152,11 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 }
 
 func TestMultipleMigrationSqlite(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := tagsql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
-	tagdb := tagsql.Wrap(db)
-	multipleMigration(t, tagdb, &sqliteDB{DB: tagdb})
+
+	multipleMigration(t, db, &sqliteDB{DB: db})
 }
 
 func TestMultipleMigrationPostgres(t *testing.T) {
@@ -167,12 +164,11 @@ func TestMultipleMigrationPostgres(t *testing.T) {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
 
-	db, err := sql.Open("postgres", *pgtest.ConnStr)
+	db, err := tagsql.Open("postgres", *pgtest.ConnStr)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
-	tagdb := tagsql.Wrap(db)
 
-	multipleMigration(t, tagdb, &postgresDB{DB: tagdb})
+	multipleMigration(t, db, &postgresDB{DB: db})
 }
 
 func multipleMigration(t *testing.T, db tagsql.DB, testDB migrate.DB) {
@@ -232,12 +228,11 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB migrate.DB) {
 }
 
 func TestFailedMigrationSqlite(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := tagsql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
-	tagdb := tagsql.Wrap(db)
 
-	failedMigration(t, tagdb, &sqliteDB{DB: tagdb})
+	failedMigration(t, db, &sqliteDB{DB: db})
 }
 
 func TestFailedMigrationPostgres(t *testing.T) {
@@ -245,12 +240,11 @@ func TestFailedMigrationPostgres(t *testing.T) {
 		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
 	}
 
-	db, err := sql.Open("postgres", *pgtest.ConnStr)
+	db, err := tagsql.Open("postgres", *pgtest.ConnStr)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
-	tagdb := tagsql.Wrap(db)
 
-	failedMigration(t, tagdb, &postgresDB{DB: tagdb})
+	failedMigration(t, db, &postgresDB{DB: db})
 }
 
 func failedMigration(t *testing.T, db tagsql.DB, testDB migrate.DB) {

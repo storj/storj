@@ -33,7 +33,7 @@ type Client struct {
 func New(dbURL string) (*Client, error) {
 	dbURL = pgutil.CheckApplicationName(dbURL)
 
-	db, err := sql.Open("postgres", dbURL)
+	db, err := tagsql.Open("postgres", dbURL)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func New(dbURL string) (*Client, error) {
 		return nil, err
 	}
 
-	return NewWith(tagsql.Wrap(db)), nil
+	return NewWith(db), nil
 }
 
 // NewWith instantiates a new postgreskv client given db.

@@ -3,7 +3,7 @@
 
 package storagenodedb
 
-// dbContainerImpl fulfills the migrate.DB interface and the SQLDB interface
+// dbContainerImpl fulfills the migrate.DB interface and the SQLDB interface.
 type dbContainerImpl struct {
 	SQLDB
 }
@@ -27,7 +27,7 @@ func (db *dbContainerImpl) Configure(sqlDB SQLDB) {
 	db.SQLDB = sqlDB
 }
 
-// GetDB returns the raw *sql.DB underlying this dbContainerImpl
+// GetDB returns underlying implementation of dbContainerImpl.
 func (db *dbContainerImpl) GetDB() SQLDB {
 	return db.SQLDB
 }

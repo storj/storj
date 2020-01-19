@@ -4,7 +4,6 @@
 package tagsql_test
 
 import (
-	"database/sql"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -18,14 +17,14 @@ import (
 	"storj.io/storj/private/tagsql"
 )
 
-func run(t *testing.T, fn func(*testcontext.Context, *testing.T, *sql.DB, tagsql.ContextSupport)) {
+func run(t *testing.T, fn func(*testcontext.Context, *testing.T, tagsql.DB, tagsql.ContextSupport)) {
 	t.Helper()
 
 	t.Run("mattn-sqlite3", func(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		db, err := sql.Open("sqlite3", ":memory:")
+		db, err := tagsql.Open("sqlite3", ":memory:")
 		if err != nil {
 			t.Fatal(err)
 		}

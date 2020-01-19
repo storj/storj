@@ -5,7 +5,6 @@ package sqliteutil_test
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -34,7 +33,7 @@ func TestMigrateTablesToDatabase(t *testing.T) {
 	// This table should be removed after migration
 	execSQL(ctx, t, srcDB, "CREATE TABLE what(I Int);")
 
-	err := sqliteutil.MigrateTablesToDatabase(ctx, tagsql.Wrap(srcDB), tagsql.Wrap(destDB), "bobby_jones")
+	err := sqliteutil.MigrateTablesToDatabase(ctx, srcDB, destDB, "bobby_jones")
 	require.NoError(t, err)
 
 	destSchema, err := sqliteutil.QuerySchema(ctx, destDB)
@@ -70,7 +69,7 @@ func TestKeepTables(t *testing.T) {
 	execSQL(ctx, t, db, table1SQL)
 	execSQL(ctx, t, db, table2SQL)
 
-	err := sqliteutil.KeepTables(ctx, tagsql.Wrap(db), "table_one")
+	err := sqliteutil.KeepTables(ctx, db, "table_one")
 	require.NoError(t, err)
 
 	schema, err := sqliteutil.QuerySchema(ctx, db)
@@ -86,13 +85,13 @@ func TestKeepTables(t *testing.T) {
 	require.Equal(t, snapshot.Data, data)
 }
 
-func execSQL(ctx context.Context, t *testing.T, db *sql.DB, query string, args ...interface{}) {
+func execSQL(ctx context.Context, t *testing.T, db tagsql.DB, query string, args ...interface{}) {
 	_, err := db.ExecContext(ctx, query, args...)
 	require.NoError(t, err)
 }
 
-func newMemDB(t *testing.T) *sql.DB {
-	db, err := sql.Open("sqlite3", ":memory:")
+func newMemDB(t *testing.T) tagsql.DB {
+	db, err := tagsql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	return db
 }

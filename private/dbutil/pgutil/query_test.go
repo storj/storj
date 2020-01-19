@@ -50,7 +50,7 @@ func doQueryTest(t *testing.T, connStr string) {
 	require.NoError(t, err)
 	assert.Equal(t, &dbschema.Schema{}, emptySchema)
 
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		CREATE TABLE users (
 			a bigint NOT NULL,
 			b bigint NOT NULL,

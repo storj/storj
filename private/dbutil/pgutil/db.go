@@ -5,7 +5,6 @@ package pgutil
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 
 	"github.com/lib/pq"
@@ -14,6 +13,7 @@ import (
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/dbschema"
+	"storj.io/storj/private/tagsql"
 )
 
 var (
@@ -32,11 +32,11 @@ func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbut
 	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
 	connStrWithSchema := ConnstrWithSchema(connstr, schemaName)
 
-	db, err := sql.Open("postgres", connStrWithSchema)
+	db, err := tagsql.Open("postgres", connStrWithSchema)
 	if err == nil {
 		// check that connection actually worked before trying CreateSchema, to make
 		// troubleshooting (lots) easier
-		err = db.Ping()
+		err = db.PingContext(ctx)
 	}
 	if err != nil {
 		return nil, errs.New("failed to connect to %q with driver postgres: %w", connStrWithSchema, err)
@@ -47,7 +47,7 @@ func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbut
 		return nil, errs.Combine(err, db.Close())
 	}
 
-	cleanup := func(cleanupDB *sql.DB) error {
+	cleanup := func(cleanupDB tagsql.DB) error {
 		return DropSchema(ctx, cleanupDB, schemaName)
 	}
 

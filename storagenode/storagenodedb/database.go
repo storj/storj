@@ -263,13 +263,13 @@ func (db *DB) openDatabase(dbName string) error {
 		driver = "sqlite3"
 	}
 
-	sqlDB, err := sql.Open(driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	sqlDB, err := tagsql.Open(driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
 
 	mDB := db.SQLDBs[dbName]
-	mDB.Configure(tagsql.Wrap(sqlDB))
+	mDB.Configure(sqlDB)
 
 	dbutil.Configure(sqlDB, mon)
 

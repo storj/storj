@@ -92,7 +92,7 @@ func loadSnapshotFromSQL(ctx context.Context, connstr, script string) (_ *dbsche
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	_, err = db.Exec(script)
+	_, err = db.ExecContext(ctx, script)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	_, err = db.Exec(script)
+	_, err = db.ExecContext(ctx, script)
 	if err != nil {
 		return nil, err
 	}
@@ -132,12 +132,20 @@ func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema
 	return pgutil.QuerySchema(ctx, db)
 }
 
+func TestMigrateCockroach(t *testing.T) {
+	if *pgtest.CrdbConnStr == "" {
+		t.Skip("Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr)
+	}
+	t.Parallel()
+	migrateTest(t, *pgtest.CrdbConnStr)
+}
+
 func TestMigratePostgres(t *testing.T) {
 	if *pgtest.ConnStr == "" {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr)
 	}
 	t.Parallel()
-	pgMigrateTest(t, *pgtest.ConnStr)
+	migrateTest(t, *pgtest.ConnStr)
 }
 
 // satelliteDB provides access to certain methods on a *satellitedb.satelliteDB
@@ -147,7 +155,7 @@ type satelliteDB interface {
 	PostgresMigration() *migrate.Migration
 }
 
-func pgMigrateTest(t *testing.T, connStr string) {
+func migrateTest(t *testing.T, connStr string) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 

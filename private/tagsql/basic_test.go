@@ -15,9 +15,7 @@ import (
 )
 
 func TestDetect(t *testing.T) {
-	run(t, func(parentctx *testcontext.Context, t *testing.T, rawdb *sql.DB, support tagsql.ContextSupport) {
-		db := tagsql.Wrap(rawdb)
-
+	run(t, func(parentctx *testcontext.Context, t *testing.T, db tagsql.DB, support tagsql.ContextSupport) {
 		_, err := db.ExecContext(parentctx, "CREATE TABLE example (num INT)")
 		require.NoError(t, err)
 		_, err = db.ExecContext(parentctx, "INSERT INTO example (num) values (1)")
