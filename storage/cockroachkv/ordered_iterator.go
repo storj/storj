@@ -27,7 +27,7 @@ type orderedCockroachIterator struct {
 	errEncountered error
 }
 
-func newOrderedCockroachIterator(ctx context.Context, cli *Client, opts storage.IterateOptions, batchSize int) (_ *orderedCockroachIterator, err error) {
+func newOrderedCockroachIterator(ctx context.Context, cli *Client, opts storage.IterateOptions) (_ *orderedCockroachIterator, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if opts.Prefix == nil {
 		opts.Prefix = storage.Key("")
@@ -43,7 +43,7 @@ func newOrderedCockroachIterator(ctx context.Context, cli *Client, opts storage.
 		client:    cli,
 		opts:      &opts,
 		delimiter: byte('/'),
-		batchSize: batchSize,
+		batchSize: opts.Limit,
 		curIndex:  0,
 	}
 

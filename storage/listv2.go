@@ -81,6 +81,7 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 		Prefix:  opts.Prefix,
 		First:   firstFull,
 		Recurse: opts.Recursive,
+		Limit:   limit,
 	}, iterate)
 
 	return result, more, err

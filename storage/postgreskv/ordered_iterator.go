@@ -27,7 +27,7 @@ type orderedPostgresIterator struct {
 	errEncountered error
 }
 
-func newOrderedPostgresIterator(ctx context.Context, cli *Client, opts storage.IterateOptions, batchSize int) (_ *orderedPostgresIterator, err error) {
+func newOrderedPostgresIterator(ctx context.Context, cli *Client, opts storage.IterateOptions) (_ *orderedPostgresIterator, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if opts.Prefix == nil {
 		opts.Prefix = storage.Key("")
@@ -43,7 +43,7 @@ func newOrderedPostgresIterator(ctx context.Context, cli *Client, opts storage.I
 		client:    cli,
 		opts:      &opts,
 		delimiter: byte('/'),
-		batchSize: batchSize,
+		batchSize: opts.Limit,
 		curIndex:  0,
 	}
 

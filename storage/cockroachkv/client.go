@@ -19,11 +19,6 @@ import (
 	"storj.io/storj/storage/cockroachkv/schema"
 )
 
-const (
-	defaultBatchSize          = 128
-	defaultRecursiveBatchSize = 10000
-)
-
 var (
 	mon = monkit.Package()
 )
@@ -170,12 +165,11 @@ func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	batchSize := defaultBatchSize
-	if opts.Recurse {
-		batchSize = defaultRecursiveBatchSize
+	if opts.Limit <= 0 || opts.Limit > storage.LookupLimit {
+		opts.Limit = storage.LookupLimit
 	}
 
-	opi, err := newOrderedCockroachIterator(ctx, client, opts, batchSize)
+	opi, err := newOrderedCockroachIterator(ctx, client, opts)
 	if err != nil {
 		return err
 	}
