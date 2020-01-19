@@ -250,11 +250,7 @@ func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, node
 		AND piece_num = ?`,
 	)
 	_, err = db.db.ExecContext(ctx, sql, nodeID, path, pieceNum)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
+	return Error.Wrap(err)
 }
 
 func scanRows(rows *sql.Rows) (transferQueueItemRows []*gracefulexit.TransferQueueItem, err error) {
@@ -276,7 +272,7 @@ func scanRows(rows *sql.Rows) (transferQueueItemRows []*gracefulexit.TransferQue
 
 		transferQueueItemRows = append(transferQueueItemRows, transferQueueItem)
 	}
-	return transferQueueItemRows, nil
+	return transferQueueItemRows, Error.Wrap(rows.Err())
 }
 
 func dbxToTransferQueueItem(dbxTransferQueue *dbx.GracefulExitTransferQueue) (item *gracefulexit.TransferQueueItem, err error) {
