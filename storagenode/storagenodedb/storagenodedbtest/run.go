@@ -25,7 +25,7 @@ func init() {
 
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
-func Run(t *testing.T, test func(t *testing.T, db storagenode.DB)) {
+func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db storagenode.DB)) {
 	t.Run("Sqlite", func(t *testing.T) {
 		t.Parallel()
 		ctx := testcontext.New(t)
@@ -53,6 +53,6 @@ func Run(t *testing.T, test func(t *testing.T, db storagenode.DB)) {
 			t.Fatal(err)
 		}
 
-		test(t, db)
+		test(ctx, t, db)
 	})
 }

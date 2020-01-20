@@ -29,10 +29,7 @@ import (
 )
 
 func TestDatabase(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		// Ensure that database implementation handles context cancellation.
 		canceledCtx, cancel := context.WithCancel(ctx)
 		cancel()

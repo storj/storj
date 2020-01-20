@@ -52,10 +52,7 @@ func TestStorageUsage(t *testing.T) {
 		dailyStampsTotals[stamp.IntervalStart.UTC()] += stamp.AtRestTotal
 	}
 
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		storageUsageDB := db.StorageUsage()
 
 		t.Run("test store", func(t *testing.T) {
@@ -101,10 +98,7 @@ func TestStorageUsage(t *testing.T) {
 }
 
 func TestEmptyStorageUsage(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		var emptySummary float64
 		now := time.Now()
 

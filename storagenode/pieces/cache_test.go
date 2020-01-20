@@ -25,10 +25,7 @@ import (
 )
 
 func TestDBInit(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		spaceUsedDB := db.PieceSpaceUsedDB()
 		total, err := spaceUsedDB.GetPieceTotal(ctx)
 		require.NoError(t, err)
@@ -68,10 +65,7 @@ func TestDBInit(t *testing.T) {
 	})
 }
 func TestCacheInit(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		spaceUsedDB := db.PieceSpaceUsedDB()
 		err := spaceUsedDB.Init(ctx)
 		require.NoError(t, err)
@@ -140,10 +134,7 @@ func TestCacheInit(t *testing.T) {
 }
 
 func TestPersistCacheTotals(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		// The database should start out with 0 for all totals
 		var expectedPieces int64
 		spaceUsedDB := db.PieceSpaceUsedDB()
@@ -321,10 +312,7 @@ func TestRecalculateCacheMissed(t *testing.T) {
 }
 
 func TestCacheCreateDeleteAndTrash(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		cache := pieces.NewBlobsUsageCache(db.Pieces())
 		pieceContent := []byte("stuff")
 		satelliteID := testrand.NodeID()

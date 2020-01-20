@@ -56,10 +56,7 @@ var (
 )
 
 func TestBandwidthDB(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
@@ -133,10 +130,7 @@ func TestBandwidthDB(t *testing.T) {
 }
 
 func TestEgressSummary(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
@@ -204,10 +198,7 @@ func TestEgressSummary(t *testing.T) {
 }
 
 func TestIngressSummary(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
@@ -275,10 +266,7 @@ func TestIngressSummary(t *testing.T) {
 }
 
 func TestEmptyBandwidthDB(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
 		now := time.Now()
@@ -316,10 +304,7 @@ func TestEmptyBandwidthDB(t *testing.T) {
 }
 
 func TestBandwidthDailyRollups(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		const (
 			numSatellites = 5
 			days          = 30
@@ -449,10 +434,7 @@ func TestBandwidthDailyRollups(t *testing.T) {
 }
 
 func TestCachedBandwidthMonthRollover(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
@@ -487,10 +469,7 @@ func TestCachedBandwidthMonthRollover(t *testing.T) {
 }
 
 func TestBandwidthRollup(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		err := db.CreateTables(ctx)
 		if err != nil {
 			t.Fatal(err)
@@ -593,10 +572,7 @@ func TestBandwidthRollup(t *testing.T) {
 }
 
 func TestDB_Trivial(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		{ // Ensure Add works at all
 			err := db.Bandwidth().Add(ctx, testrand.NodeID(), pb.PieceAction_GET, 0, time.Now())
 			require.NoError(t, err)

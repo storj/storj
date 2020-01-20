@@ -18,10 +18,7 @@ import (
 
 // TestDB tests the graceful exit database calls
 func TestDB(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		for i := 0; i <= 3; i++ {
 			nodeID := testrand.NodeID()
 			start := time.Now()

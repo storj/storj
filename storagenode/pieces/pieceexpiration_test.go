@@ -19,10 +19,7 @@ import (
 
 func TestPieceExpirationDB(t *testing.T) {
 	// test GetExpired, SetExpiration, DeleteExpiration, DeleteFailed
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		expireDB := db.PieceExpirationDB()
 
 		satelliteID := testrand.NodeID()

@@ -19,10 +19,7 @@ import (
 )
 
 func TestNotificationsDB(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		notificationsdb := db.Notifications()
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
@@ -129,10 +126,7 @@ func TestNotificationsDB(t *testing.T) {
 }
 
 func TestEmptyNotificationsDB(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		notificationsdb := db.Notifications()
 
 		notificationCursor := notifications.Cursor{

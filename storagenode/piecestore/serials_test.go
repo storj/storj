@@ -20,10 +20,7 @@ import (
 )
 
 func TestUsedSerials(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		usedSerials := db.UsedSerials()
 
 		node0 := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
@@ -103,10 +100,7 @@ func TestUsedSerials(t *testing.T) {
 }
 
 func TestUsedSerials_Trivial(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		satelliteID, serial := testrand.NodeID(), testrand.SerialNumber()
 
 		{ // Ensure Add works at all
