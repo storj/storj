@@ -1135,6 +1135,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	endpoint.log.Info("Object Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "object"))
+
 	return &pb.ObjectBeginResponse{
 		Bucket:               req.Bucket,
 		EncryptedPath:        req.EncryptedPath,
@@ -1316,7 +1318,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 			index++
 		}
 	}
-	endpoint.log.Info("Get Object", zap.Stringer("Project ID", keyInfo.ProjectID))
+	endpoint.log.Info("Object Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
 
 	return &pb.ObjectGetResponse{
 		Object: object,
@@ -1365,7 +1367,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			items[i].ExpiresAt = segment.Pointer.ExpirationDate
 		}
 	}
-	endpoint.log.Info("List Objects", zap.Stringer("Project ID", keyInfo.ProjectID))
+	endpoint.log.Info("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
 
 	return &pb.ObjectListResponse{
 		Items: items,
@@ -1418,6 +1420,8 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	if err != nil {
 		return nil, err
 	}
+
+	endpoint.log.Info("Object Delete", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "delete"), zap.String("type", "object"))
 
 	return &pb.ObjectBeginDeleteResponse{
 		StreamId: streamID,
@@ -1525,7 +1529,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		CreationDate:        time.Now(),
 	})
 
-	endpoint.log.Info("Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID))
+	endpoint.log.Info("Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "remote"))
 
 	return &pb.SegmentBeginResponse{
 		SegmentId:       segmentID,
@@ -1746,7 +1750,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	endpoint.log.Info("Make Inline Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
+	endpoint.log.Info("Inline Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "inline"))
 
 	return &pb.SegmentMakeInlineResponse{}, nil
 }
@@ -1799,7 +1803,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		CreationDate:        time.Now(),
 	})
 
-	endpoint.log.Info("Delete Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
+	endpoint.log.Info("Segment Delete", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "delete"), zap.String("type", "segment"))
 
 	return &pb.SegmentBeginDeleteResponse{
 		SegmentId:       segmentID,
@@ -1872,7 +1876,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	endpoint.log.Info("List Segments", zap.Stringer("Project ID", keyInfo.ProjectID))
+	endpoint.log.Info("Segment List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "segment"))
 
 	if streamMeta.NumberOfSegments > 0 {
 		// use unencrypted number of segments
@@ -2073,7 +2077,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
-		endpoint.log.Info("Download Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
+		endpoint.log.Info("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "download"), zap.String("type", "inline"))
 		return &pb.SegmentDownloadResponse{
 			SegmentId:           segmentID,
 			SegmentSize:         pointer.SegmentSize,
@@ -2100,7 +2104,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			}
 		}
 
-		endpoint.log.Info("Download Segment", zap.Stringer("Project ID", keyInfo.ProjectID))
+		endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "download"), zap.String("type", "remote"))
 
 		return &pb.SegmentDownloadResponse{
 			SegmentId:       segmentID,
