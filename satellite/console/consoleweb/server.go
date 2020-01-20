@@ -21,6 +21,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
+	"github.com/graphql-go/graphql/gqlerrors"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -556,14 +557,30 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
+
+	handleError := func(code int, err error) {
+		w.WriteHeader(code)
+
+		var jsonError struct {
+			Error string `json:"error"`
+		}
+
+		jsonError.Error = err.Error()
+
+		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
+			server.log.Error("error graphql error", zap.Error(err))
+		}
+	}
+
 	w.Header().Set(contentType, applicationJSON)
 
-	token := getToken(r)
 	query, err := getQuery(w, r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		handleError(http.StatusBadRequest, err)
 		return
 	}
+
+	token := getToken(r)
 
 	ctx = auth.WithAPIKey(ctx, []byte(token))
 	auth, err := server.service.Authorize(ctx)
@@ -593,14 +610,72 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 		RootObject:     rootObject,
 	})
 
-	err = json.NewEncoder(w).Encode(result)
-	if err != nil {
-		server.log.Error(err.Error())
+	getGqlError := func(err gqlerrors.FormattedError) error {
+		if gerr, ok := err.OriginalError().(*gqlerrors.Error); ok {
+			return gerr.OriginalError
+		}
+
+		return nil
+	}
+
+	parseConsoleError := func(err error) (int, error) {
+		switch {
+		case console.ErrUnauthorized.Has(err):
+			return http.StatusUnauthorized, err
+		case console.ErrValidation.Has(err):
+			return http.StatusBadRequest, err
+		case console.Error.Has(err):
+			return http.StatusInternalServerError, err
+		}
+
+		return 0, nil
+	}
+
+	handleErrors := func(code int, errors gqlerrors.FormattedErrors) {
+		w.WriteHeader(code)
+
+		var jsonError struct {
+			Errors []string `json:"errors"`
+		}
+
+		for _, err := range errors {
+			jsonError.Errors = append(jsonError.Errors, err.Message)
+		}
+
+		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
+			server.log.Error("error graphql error", zap.Error(err))
+		}
+	}
+
+	handleGraphqlErrors := func() {
+		for _, err := range result.Errors {
+			gqlErr := getGqlError(err)
+			if gqlErr == nil {
+				continue
+			}
+
+			code, err := parseConsoleError(gqlErr)
+			if err != nil {
+				handleError(code, err)
+				return
+			}
+		}
+
+		handleErrors(http.StatusBadRequest, result.Errors)
+	}
+
+	if result.HasErrors() {
+		handleGraphqlErrors()
 		return
 	}
 
-	sugar := server.log.Sugar()
-	sugar.Debug(result)
+	err = json.NewEncoder(w).Encode(result)
+	if err != nil {
+		server.log.Error("error encoding grapql result", zap.Error(err))
+		return
+	}
+
+	server.log.Sugar().Debug(result)
 }
 
 // serveError serves error static pages.

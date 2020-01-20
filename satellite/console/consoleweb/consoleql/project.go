@@ -116,20 +116,20 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 
 					_, err := console.GetAuth(p.Context)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					cursor := cursorArgsToProjectMembersCursor(p.Args[CursorArg].(map[string]interface{}))
 					page, err := service.GetProjectMembers(p.Context, project.ID, cursor)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					var users []projectMember
 					for _, member := range page.ProjectMembers {
 						user, err := service.GetUser(p.Context, member.MemberID)
 						if err != nil {
-							return nil, HandleError(err)
+							return nil, err
 						}
 
 						users = append(users, projectMember{
@@ -206,7 +206,7 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 
 					usage, err := service.GetProjectUsage(p.Context, project.ID, since, before)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return usage, nil
@@ -230,7 +230,7 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 
 					page, err := service.GetBucketTotals(p.Context, project.ID, cursor, before)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return page, nil

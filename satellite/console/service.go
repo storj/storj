@@ -1262,11 +1262,7 @@ func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 
 	user, err := s.authorize(ctx, claims)
 	if err != nil {
-		if ErrUnauthorized.Has(err) {
-			return Authorization{}, ErrUnauthorized.Wrap(err)
-		}
-
-		return Authorization{}, ErrTokenExpiration.Wrap(err)
+		return Authorization{}, ErrUnauthorized.Wrap(err)
 	}
 
 	return Authorization{
@@ -1349,7 +1345,7 @@ func (s *Service) authenticate(ctx context.Context, token consoleauth.Token) (_ 
 func (s *Service) authorize(ctx context.Context, claims *consoleauth.Claims) (_ *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !claims.Expiration.IsZero() && claims.Expiration.Before(time.Now()) {
-		return nil, errs.New("token is outdated")
+		return nil, ErrTokenExpiration.Wrap(err)
 	}
 
 	user, err := s.store.Users().Get(ctx, claims.ID)

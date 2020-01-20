@@ -71,7 +71,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					project, err := service.CreateProject(p.Context, projectInput)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return project, nil
@@ -94,11 +94,11 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					project, err := service.GetProject(p.Context, *projectID)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					if err = service.DeleteProject(p.Context, project.ID); err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return project, nil
@@ -126,7 +126,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					project, err := service.UpdateProject(p.Context, *projectID, description)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return project, nil
@@ -159,12 +159,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					project, err := service.GetProject(p.Context, *projectID)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					users, err := service.AddProjectMembers(p.Context, *projectID, userEmails)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					rootObject := p.Info.RootValue.(map[string]interface{})
@@ -226,12 +226,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					err = service.DeleteProjectMembers(p.Context, *projectID, userEmails)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					project, err := service.GetProject(p.Context, *projectID)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return project, nil
@@ -259,7 +259,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					info, key, err := service.CreateAPIKey(p.Context, *pID, name)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return createAPIKey{
@@ -289,7 +289,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 						key, err := service.GetAPIKeyInfo(p.Context, *keyID)
 						if err != nil {
-							return nil, HandleError(err)
+							return nil, err
 						}
 
 						keyIds = append(keyIds, *keyID)
@@ -298,7 +298,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					err := service.DeleteAPIKeys(p.Context, keyIds)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return keys, nil
