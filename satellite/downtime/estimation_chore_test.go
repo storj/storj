@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 )

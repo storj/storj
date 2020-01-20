@@ -20,7 +20,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/testcontext"
-
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"

@@ -10,7 +10,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
-
 	"golang.org/x/time/rate"
 
 	"storj.io/common/pb"

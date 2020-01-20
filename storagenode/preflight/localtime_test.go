@@ -13,14 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
+	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
-	"storj.io/storj/pkg/server"
-
-	"storj.io/common/identity/testidentity"
-	"storj.io/common/peertls/extensions"
 	"storj.io/common/testcontext"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/trust"

@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"

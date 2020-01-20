@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-
 	"storj.io/storj/satellite/overlay"
 )
 
