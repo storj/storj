@@ -46,7 +46,7 @@ func TestCreateObject(t *testing.T) {
 	}
 
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		require.NoError(t, err)
 
 		for i, tt := range []struct {
@@ -94,7 +94,7 @@ func TestCreateObject(t *testing.T) {
 
 func TestGetObject(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		require.NoError(t, err)
 		upload(ctx, t, db, streams, bucket, TestFile, nil)
 
@@ -127,7 +127,7 @@ func TestGetObjectStream(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		data := testrand.Bytes(32 * memory.KiB)
 
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		require.NoError(t, err)
 
 		emptyFile := upload(ctx, t, db, streams, bucket, "empty-file", nil)
@@ -271,7 +271,7 @@ func TestDeleteObject(t *testing.T) {
 		db, streams, err := newMetainfoParts(planet, encStore)
 		require.NoError(t, err)
 
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -323,7 +323,7 @@ func TestDeleteObject(t *testing.T) {
 
 func TestListObjectsEmpty(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		testBucketInfo, err := db.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		require.NoError(t, err)
 
 		_, err = db.ListObjects(ctx, storj.Bucket{}, storj.ListOptions{})
@@ -354,7 +354,7 @@ func TestListObjects_EncryptionBypass(t *testing.T) {
 		db, streams, err := newMetainfoParts(planet, encStore)
 		require.NoError(t, err)
 
-		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncAESGCM})
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		require.NoError(t, err)
 
 		filePaths := []string{
@@ -412,7 +412,11 @@ func TestListObjects_EncryptionBypass(t *testing.T) {
 
 func TestListObjects(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncNull})
+		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{
+			PathCipher:                  storj.EncNull,
+			DefaultRedundancyScheme:     defaultRS,
+			DefaultEncryptionParameters: defaultEP,
+		})
 		require.NoError(t, err)
 
 		filePaths := []string{
@@ -425,7 +429,7 @@ func TestListObjects(t *testing.T) {
 			upload(ctx, t, db, streams, bucket, path, nil)
 		}
 
-		otherBucket, err := db.CreateBucket(ctx, "otherbucket", nil)
+		otherBucket, err := db.CreateBucket(ctx, "otherbucket", &defaultBucket)
 		require.NoError(t, err)
 
 		upload(ctx, t, db, streams, otherBucket, "file-in-other-bucket", nil)

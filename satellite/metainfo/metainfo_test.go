@@ -494,11 +494,11 @@ func TestBeginCommitListSegment(t *testing.T) {
 			EncryptionParameters: storj.EncryptionParameters{},
 			ExpiresAt:            time.Now().UTC().Add(24 * time.Hour),
 		}
-		streamID, err := metainfoClient.BeginObject(ctx, params)
+		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
 
 		segmentID, limits, _, err := metainfoClient.BeginSegment(ctx, metainfo.BeginSegmentParams{
-			StreamID: streamID,
+			StreamID: beginObjectResponse.StreamID,
 			Position: storj.SegmentPosition{
 				Index: 0,
 			},
@@ -548,7 +548,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID:          streamID,
+			StreamID:          beginObjectResponse.StreamID,
 			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
@@ -689,7 +689,7 @@ func TestInlineSegment(t *testing.T) {
 			EncryptionParameters: storj.EncryptionParameters{},
 			ExpiresAt:            time.Now().UTC().Add(24 * time.Hour),
 		}
-		streamID, err := metainfoClient.BeginObject(ctx, params)
+		beginObjectResp, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
 
 		segments := []int32{0, 1, 2, 3, 4, 5, 6}
@@ -697,7 +697,7 @@ func TestInlineSegment(t *testing.T) {
 		for i, segment := range segments {
 			segmentsData[i] = testrand.Bytes(memory.KiB)
 			err = metainfoClient.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
-				StreamID: streamID,
+				StreamID: beginObjectResp.StreamID,
 				Position: storj.SegmentPosition{
 					Index: segment,
 				},
@@ -711,7 +711,7 @@ func TestInlineSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID:          streamID,
+			StreamID:          beginObjectResp.StreamID,
 			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
@@ -778,7 +778,7 @@ func TestInlineSegment(t *testing.T) {
 		}
 
 		{ // test deleting segments
-			streamID, err = metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+			streamID, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
 				Bucket:        params.Bucket,
 				EncryptedPath: params.EncryptedPath,
 			})
@@ -1073,7 +1073,7 @@ func TestBatch(t *testing.T) {
 			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "third-test-bucket")
 			require.NoError(t, err)
 
-			streamID, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+			beginObjectResp, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
 				Bucket:        []byte("third-test-bucket"),
 				EncryptedPath: []byte("encrypted-path"),
 			})
@@ -1086,7 +1086,7 @@ func TestBatch(t *testing.T) {
 				expectedData[i] = testrand.Bytes(memory.KiB)
 
 				requests = append(requests, &metainfo.MakeInlineSegmentParams{
-					StreamID: streamID,
+					StreamID: beginObjectResp.StreamID,
 					Position: storj.SegmentPosition{
 						Index: int32(i),
 					},
@@ -1099,7 +1099,7 @@ func TestBatch(t *testing.T) {
 			})
 			require.NoError(t, err)
 			requests = append(requests, &metainfo.CommitObjectParams{
-				StreamID:          streamID,
+				StreamID:          beginObjectResp.StreamID,
 				EncryptedMetadata: metadata,
 			})
 

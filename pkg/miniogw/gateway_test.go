@@ -40,9 +40,29 @@ const (
 	TestFile   = "test-file"
 	DestBucket = "dest-bucket"
 	DestFile   = "dest-file"
+	TestAPIKey = "test-api-key"
 )
 
-var TestAPIKey = "test-api-key"
+var (
+	defaultRS = storj.RedundancyScheme{
+		RequiredShares: 2,
+		RepairShares:   2,
+		OptimalShares:  3,
+		TotalShares:    4,
+		ShareSize:      256 * memory.B.Int32(),
+	}
+
+	defaultEP = storj.EncryptionParameters{
+		CipherSuite: storj.EncAESGCM,
+		BlockSize:   defaultRS.StripeSize(),
+	}
+
+	defaultBucket = storj.Bucket{
+		PathCipher:                  storj.EncAESGCM,
+		DefaultRedundancyScheme:     defaultRS,
+		DefaultEncryptionParameters: defaultEP,
+	}
+)
 
 func TestMakeBucketWithLocation(t *testing.T) {
 	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
@@ -78,7 +98,7 @@ func TestGetBucketInfo(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		info, err := m.CreateBucket(ctx, TestBucket, nil)
+		info, err := m.CreateBucket(ctx, TestBucket, &defaultBucket)
 		assert.NoError(t, err)
 
 		// Check the bucket info using the Minio API
@@ -101,7 +121,7 @@ func TestDeleteBucket(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create a bucket with a file using the Metainfo API
-		bucket, err := m.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := m.CreateBucket(ctx, TestBucket, &defaultBucket)
 		assert.NoError(t, err)
 
 		_, err = createFile(ctx, m, strms, bucket, TestFile, nil, nil)
@@ -136,7 +156,7 @@ func TestListBuckets(t *testing.T) {
 		bucketNames := []string{"bucket-1", "bucket-2", "bucket-3"}
 		buckets := make([]storj.Bucket, len(bucketNames))
 		for i, bucketName := range bucketNames {
-			bucket, err := m.CreateBucket(ctx, bucketName, nil)
+			bucket, err := m.CreateBucket(ctx, bucketName, &defaultBucket)
 			buckets[i] = bucket
 			assert.NoError(t, err)
 		}
@@ -186,7 +206,7 @@ func TestPutObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, &defaultBucket)
 		assert.NoError(t, err)
 
 		// Check the error when putting an object with empty name
@@ -232,7 +252,7 @@ func TestGetObjectInfo(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, &defaultBucket)
 		assert.NoError(t, err)
 
 		// Check the error when getting an object with empty name
@@ -277,7 +297,7 @@ func TestGetObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, &defaultBucket)
 		assert.NoError(t, err)
 
 		// Check the error when getting an object with empty name
@@ -340,7 +360,7 @@ func TestCopyObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the source bucket using the Metainfo API
-		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, &defaultBucket)
 		assert.NoError(t, err)
 
 		// Check the error when copying an object with empty name
@@ -368,7 +388,7 @@ func TestCopyObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: DestBucket}, err)
 
 		// Create the destination bucket using the Metainfo API
-		destBucketInfo, err := m.CreateBucket(ctx, DestBucket, nil)
+		destBucketInfo, err := m.CreateBucket(ctx, DestBucket, &defaultBucket)
 		assert.NoError(t, err)
 
 		// Copy the object using the Minio API
@@ -410,7 +430,7 @@ func TestDeleteObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, &defaultBucket)
 		assert.NoError(t, err)
 
 		// Check the error when deleting an object with empty name
@@ -470,7 +490,11 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket and files using the Metainfo API
-		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncNull})
+		testBucketInfo, err := m.CreateBucket(ctx, TestBucket, &storj.Bucket{
+			PathCipher:                  storj.EncNull,
+			DefaultRedundancyScheme:     defaultRS,
+			DefaultEncryptionParameters: defaultEP,
+		})
 		assert.NoError(t, err)
 
 		filePaths := []string{
@@ -701,7 +725,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(m, ec, rs)
+	segments := segments.NewSegmentStore(m, ec)
 
 	var encKey storj.Key
 	copy(encKey[:], TestEncKey)
