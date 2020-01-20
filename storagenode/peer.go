@@ -106,7 +106,40 @@ type Config struct {
 
 // Verify verifies whether configuration is consistent and acceptable.
 func (config *Config) Verify(log *zap.Logger) error {
-	return config.Operator.Verify(log)
+	err := config.Operator.Verify(log)
+	if err != nil {
+		return err
+	}
+
+	if config.Contact.ExternalAddress != "" {
+		err := isAddressValid(config.Contact.ExternalAddress)
+		if err != nil {
+			return errs.New("invalid contact.external-address: %v", err)
+		}
+	}
+
+	if config.Server.Address != "" {
+		err := isAddressValid(config.Server.Address)
+		if err != nil {
+			return errs.New("invalid server.address: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func isAddressValid(addrstring string) error {
+	addr, port, err := net.SplitHostPort(addrstring)
+	if err != nil || port == "" {
+		return errs.New("split host-port %q failed: %+v", addrstring, err)
+	}
+
+	resolvedhosts, err := net.LookupHost(addr)
+	if err != nil || len(resolvedhosts) == 0 {
+		return errs.New("lookup %q failed: %+v", addr, err)
+	}
+
+	return nil
 }
 
 // Peer is the representation of a Storage Node.
