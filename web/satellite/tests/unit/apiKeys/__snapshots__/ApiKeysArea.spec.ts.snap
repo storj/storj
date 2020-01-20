@@ -61,7 +61,6 @@ exports[`ApiKeysArea renders empty screen with add key prompt 1`] = `
     }" onitemclick="function () { [native code] }" dataset="[object Object],[object Object]"></vlist-stub>
       </div>
       <!---->
-      <p class="api-keys-items__additional-info">Want to give limited access? <b>Use API Keys.</b></p>
     </div>
     <!---->
     <!---->

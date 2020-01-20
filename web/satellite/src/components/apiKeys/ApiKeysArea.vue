@@ -87,7 +87,6 @@
                     :total-page-count="totalPageCount"
                     :on-page-click-callback="onPageClick"
                 />
-                <p class="api-keys-items__additional-info">Want to give limited access? <b>Use API Keys.</b></p>
             </div>
             <div class="empty-search-result-area" v-if="isEmptySearchResultShown">
                 <h1 class="empty-search-result-area__title">No results found</h1>
@@ -400,11 +399,6 @@ export default class ApiKeysArea extends Vue {
                 flex-direction: column;
                 width: 100%;
                 justify-content: flex-start;
-            }
-
-            &__additional-info {
-                font-size: 16px;
-                color: #afb7c1;
             }
         }
     }

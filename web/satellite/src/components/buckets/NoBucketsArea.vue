@@ -207,7 +207,7 @@ export default class NoBucketArea extends Vue {}
 
             &__help {
                 margin-top: 20px;
-                font-size: 15px;
+                font-size: 13px;
                 line-height: 18px;
                 text-decoration: underline;
                 color: #2683ff;
