@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
@@ -40,34 +39,34 @@ func TestCouponRepository(t *testing.T) {
 
 		t.Run("insert", func(t *testing.T) {
 			err := couponsRepo.Insert(ctx, coupon)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			coupons, err := couponsRepo.List(ctx, payments.CouponActive)
-			assert.NoError(t, err)
-			assert.Equal(t, 1, len(coupons))
+			require.NoError(t, err)
+			require.Equal(t, 1, len(coupons))
 			coupon = coupons[0]
 		})
 
 		t.Run("update", func(t *testing.T) {
 			err := couponsRepo.Update(ctx, coupon.ID, payments.CouponUsed)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			coupons, err := couponsRepo.List(ctx, payments.CouponUsed)
-			assert.NoError(t, err)
-			assert.Equal(t, payments.CouponUsed, coupons[0].Status)
+			require.NoError(t, err)
+			require.Equal(t, payments.CouponUsed, coupons[0].Status)
 			coupon = coupons[0]
 		})
 
 		t.Run("get latest on empty table return stripecoinpayments.ErrNoCouponUsages", func(t *testing.T) {
 			_, err := couponsRepo.GetLatest(ctx, coupon.ID)
-			assert.Error(t, err)
-			assert.Equal(t, true, stripecoinpayments.ErrNoCouponUsages.Has(err))
+			require.Error(t, err)
+			require.Equal(t, true, stripecoinpayments.ErrNoCouponUsages.Has(err))
 		})
 
 		t.Run("total on empty table returns 0", func(t *testing.T) {
 			total, err := couponsRepo.TotalUsage(ctx, coupon.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, int64(0), total)
+			require.NoError(t, err)
+			require.Equal(t, int64(0), total)
 		})
 
 		t.Run("add usage", func(t *testing.T) {
@@ -76,17 +75,17 @@ func TestCouponRepository(t *testing.T) {
 				Amount:   1,
 				Period:   now,
 			})
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			date, err := couponsRepo.GetLatest(ctx, coupon.ID)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			// go and postgres has different precision. go - nanoseconds, postgres micro
-			assert.Equal(t, date.UTC(), now.Round(time.Microsecond))
+			require.Equal(t, date.UTC(), now.Round(time.Microsecond))
 		})
 
 		t.Run("total usage", func(t *testing.T) {
 			amount, err := couponsRepo.TotalUsage(ctx, coupon.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, amount, int64(1))
+			require.NoError(t, err)
+			require.Equal(t, amount, int64(1))
 		})
 	})
 }
@@ -276,41 +275,41 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 				user5.ID,
 			}
 			err := couponsRepo.PopulatePromotionalCoupons(ctx, usersIds, 2, 5500, memory.TB)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			user1Coupons, err := couponsRepo.ListByUserID(ctx, user1.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 1, len(user1Coupons))
-			assert.Equal(t, proj1.ID, user1Coupons[0].ProjectID)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(user1Coupons))
+			require.Equal(t, proj1.ID, user1Coupons[0].ProjectID)
 
 			proj1Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj1.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, memory.TB, proj1Usage)
+			require.NoError(t, err)
+			require.Equal(t, memory.TB, proj1Usage)
 
 			proj2Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj2.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 0, int(proj2Usage))
+			require.NoError(t, err)
+			require.Equal(t, 0, int(proj2Usage))
 
 			user2Coupons, err := couponsRepo.ListByUserID(ctx, user2.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 1, len(user2Coupons))
+			require.NoError(t, err)
+			require.Equal(t, 1, len(user2Coupons))
 
 			proj3Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj3.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, memory.TB, proj3Usage)
+			require.NoError(t, err)
+			require.Equal(t, memory.TB, proj3Usage)
 
 			user3Coupons, err := couponsRepo.ListByUserID(ctx, user3.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 0, len(user3Coupons))
+			require.NoError(t, err)
+			require.Equal(t, 0, len(user3Coupons))
 
 			user4Coupons, err := couponsRepo.ListByUserID(ctx, user4.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 0, len(user4Coupons))
+			require.NoError(t, err)
+			require.Equal(t, 0, len(user4Coupons))
 
 			user5Coupons, err := couponsRepo.ListByUserID(ctx, user5.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 1, len(user5Coupons))
-			assert.Equal(t, "qw", user5Coupons[0].Description)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(user5Coupons))
+			require.Equal(t, "qw", user5Coupons[0].Description)
 		})
 
 		t.Run("second population", func(t *testing.T) {
@@ -323,49 +322,49 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 				user6.ID,
 			}
 			err := couponsRepo.PopulatePromotionalCoupons(ctx, usersIds, 2, 5500, memory.TB)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			user1Coupons, err := couponsRepo.ListByUserID(ctx, user1.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 1, len(user1Coupons))
-			assert.Equal(t, proj1.ID, user1Coupons[0].ProjectID)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(user1Coupons))
+			require.Equal(t, proj1.ID, user1Coupons[0].ProjectID)
 
 			proj1Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj1.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, memory.TB, proj1Usage)
+			require.NoError(t, err)
+			require.Equal(t, memory.TB, proj1Usage)
 
 			proj2Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj2.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 0, int(proj2Usage))
+			require.NoError(t, err)
+			require.Equal(t, 0, int(proj2Usage))
 
 			user2Coupons, err := couponsRepo.ListByUserID(ctx, user2.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 1, len(user2Coupons))
+			require.NoError(t, err)
+			require.Equal(t, 1, len(user2Coupons))
 
 			proj3Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj3.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, memory.TB, proj3Usage)
+			require.NoError(t, err)
+			require.Equal(t, memory.TB, proj3Usage)
 
 			user3Coupons, err := couponsRepo.ListByUserID(ctx, user3.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 0, len(user3Coupons))
+			require.NoError(t, err)
+			require.Equal(t, 0, len(user3Coupons))
 
 			user4Coupons, err := couponsRepo.ListByUserID(ctx, user4.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 0, len(user4Coupons))
+			require.NoError(t, err)
+			require.Equal(t, 0, len(user4Coupons))
 
 			user5Coupons, err := couponsRepo.ListByUserID(ctx, user5.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 1, len(user5Coupons))
-			assert.Equal(t, "qw", user5Coupons[0].Description)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(user5Coupons))
+			require.Equal(t, "qw", user5Coupons[0].Description)
 
 			user6Coupons, err := couponsRepo.ListByUserID(ctx, user6.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, 1, len(user6Coupons))
+			require.NoError(t, err)
+			require.Equal(t, 1, len(user6Coupons))
 
 			proj5Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj5.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, memory.TB, proj5Usage)
+			require.NoError(t, err)
+			require.Equal(t, memory.TB, proj5Usage)
 		})
 	})
 }

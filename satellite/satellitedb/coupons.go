@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
@@ -364,70 +365,16 @@ func couponUsageFromDbxSlice(couponUsageDbx *dbx.CouponUsage) (usage stripecoinp
 func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []uuid.UUID, duration int, amount int64, projectLimit memory.Size) (err error) {
 	defer mon.Task()(&ctx, users, duration, amount, projectLimit)(&err)
 
-	// converting to []interface{} instead of [][]byte
-	// to pass it to QueryContext as usersIDs...
-	var usersIDs []interface{}
-	for i := range users {
-		usersIDs = append(usersIDs, users[i][:])
-	}
-
-	query := coupons.db.Rebind(fmt.Sprintf(
-		`SELECT users_with_projects.id, users_with_projects.project_id FROM (
-				 SELECT selected_users.id, first_proj.id as project_id
-				 FROM (select id, status from users where id in `+generateArgumentsDBX(len(users))+`) as selected_users INNER JOIN
-  				     (select distinct on (owner_id) owner_id, id from projects order by owner_id, created_at asc) as first_proj
-  				 ON (selected_users.id = first_proj.owner_id)
-				 WHERE selected_users.status = %d) AS users_with_projects
-			  WHERE users_with_projects.id NOT IN (
-				 SELECT user_id FROM coupons WHERE type = %d
-			  );`, console.Active, payments.CouponTypePromotional),
-	)
-
-	usersIDsRows, err := coupons.db.QueryContext(ctx, query, usersIDs...)
+	ids, err := coupons.activeUserWithProjectAndWithoutCoupon(ctx, users)
 	if err != nil {
-		return err
-	}
-	defer func() { err = errs.Combine(err, usersIDsRows.Close()) }()
-
-	type UserAndProjectIDs struct {
-		userID    uuid.UUID
-		projectID uuid.UUID
-	}
-
-	var ids []UserAndProjectIDs
-
-	for usersIDsRows.Next() {
-		var userID uuid.UUID
-		var userIDBytes []byte
-		var projectID uuid.UUID
-		var projectIDBytes []byte
-
-		err = usersIDsRows.Scan(&userIDBytes, &projectIDBytes)
-		if err != nil {
-			return err
-		}
-
-		userID, err = dbutil.BytesToUUID(userIDBytes)
-		if err != nil {
-			return err
-		}
-
-		projectID, err = dbutil.BytesToUUID(projectIDBytes)
-		if err != nil {
-			return err
-		}
-
-		ids = append(ids, UserAndProjectIDs{userID: userID, projectID: projectID})
-	}
-	if err = usersIDsRows.Err(); err != nil {
 		return err
 	}
 
 	return coupons.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		for _, userAndProjectID := range ids {
+		for _, id := range ids {
 			err = coupons.Insert(ctx, payments.Coupon{
-				UserID:      userAndProjectID.userID,
-				ProjectID:   userAndProjectID.projectID,
+				UserID:      id.UserID,
+				ProjectID:   id.ProjectID,
 				Amount:      amount,
 				Duration:    duration,
 				Description: fmt.Sprintf("Promotional credits (limited time - %d billing periods)", duration),
@@ -439,7 +386,7 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []
 			}
 
 			_, err = coupons.db.Update_Project_By_Id(ctx,
-				dbx.Project_Id(userAndProjectID.projectID[:]),
+				dbx.Project_Id(id.ProjectID[:]),
 				dbx.Project_Update_Fields{
 					UsageLimit: dbx.Project_UsageLimit(projectLimit.Int64()),
 				},
@@ -453,20 +400,51 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []
 	})
 }
 
-// generates variadic number of '?' symbols in brackets depends on input parameter.
-func generateArgumentsDBX(length int) string {
-	start := "("
+type userAndProject struct {
+	UserID    uuid.UUID
+	ProjectID uuid.UUID
+}
 
-	if length >= 1 {
-		start += "?"
+func (coupons *coupons) activeUserWithProjectAndWithoutCoupon(ctx context.Context, users []uuid.UUID) (ids []userAndProject, err error) {
+	var userIDs [][]byte
+	for i := range users {
+		userIDs = append(userIDs, users[i][:])
 	}
 
-	middle := ""
-	for i := 1; i < length; i++ {
-		middle += ", ?"
+	rows, err := coupons.db.QueryContext(ctx, coupons.db.Rebind(`
+		SELECT users_with_projects.id, users_with_projects.project_id
+		FROM (
+			SELECT selected_users.id, first_proj.id AS project_id
+			FROM (
+				SELECT id, status
+				FROM users
+				WHERE id = any(?)
+			) AS selected_users
+			INNER JOIN (
+				SELECT DISTINCT ON (owner_id) owner_id, id
+				FROM projects
+				ORDER BY owner_id, created_at ASC
+			) AS first_proj
+			ON selected_users.id = first_proj.owner_id
+			WHERE selected_users.status = ?
+		) AS users_with_projects
+		WHERE users_with_projects.id NOT IN (
+			SELECT user_id FROM coupons WHERE type = ?
+		)
+	`), pq.ByteaArray(userIDs), console.Active, payments.CouponTypePromotional)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var id userAndProject
+		err = rows.Scan(&uuidScan{&id.UserID}, &uuidScan{&id.ProjectID})
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
 	}
 
-	end := ")"
-
-	return start + middle + end
+	return ids, rows.Err()
 }
