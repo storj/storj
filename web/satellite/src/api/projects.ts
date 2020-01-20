@@ -121,7 +121,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      */
     public async getLimits(projectId): Promise<ProjectLimits> {
         const path = `${this.ROOT_PATH}/${projectId}/usage-limits`;
-        const response = await this.http.get(path, true);
+        const response = await this.http.get(path);
 
         if (response.ok) {
             const limits = await response.json();

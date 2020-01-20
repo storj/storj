@@ -14,7 +14,6 @@ import LoadingLogoIcon from '@/../static/images/LogoWhite.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AppState } from '@/utils/constants/appStateEnum';
@@ -78,7 +77,6 @@ export default class Login extends Vue {
 
         try {
             this.authToken = await this.auth.token(this.email, this.password);
-            AuthToken.set(this.authToken);
             this.$segment.track(SegmentEvent.USER_LOGGED_IN, {
                 email: this.email,
             });
@@ -96,7 +94,6 @@ export default class Login extends Vue {
         this.activateLoadingOverlay();
 
         setTimeout(() => {
-            AuthToken.set(this.authToken);
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
             this.isLoading = false;
             this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);

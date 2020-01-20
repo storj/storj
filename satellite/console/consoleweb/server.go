@@ -32,15 +32,13 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/referrals"
 )
 
 const (
-	authorization = "Authorization"
-	contentType   = "Content-Type"
-
-	authorizationBearer = "Bearer "
+	contentType = "Content-Type"
 
 	applicationJSON    = "application/json"
 	applicationGraphql = "application/graphql"
@@ -86,8 +84,9 @@ type Server struct {
 	mailService      *mailservice.Service
 	referralsService *referrals.Service
 
-	listener net.Listener
-	server   http.Server
+	listener   net.Listener
+	server     http.Server
+	cookieAuth *consolewebauth.CookieAuth
 
 	stripePublicKey string
 
@@ -117,6 +116,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
 
+	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
+		Name: "_tokenKey",
+		Path: "/",
+	})
+
 	if server.config.ExternalAddress != "" {
 		if !strings.HasSuffix(server.config.ExternalAddress, "/") {
 			server.config.ExternalAddress += "/"
@@ -128,10 +132,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router := mux.NewRouter()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
-	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/populate-promotional-coupons", server.populatePromotionalCoupons).Methods(http.MethodPost)
 	router.HandleFunc("/robots.txt", server.seoHandler)
+
+	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.grapqlHandler)))
 
 	router.Handle(
 		"/api/v0/projects/{id}/usage-limits",
@@ -143,7 +148,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	referralsRouter.Handle("/tokens", server.withAuth(http.HandlerFunc(referralsController.GetTokens))).Methods(http.MethodGet)
 	referralsRouter.HandleFunc("/register", referralsController.Register).Methods(http.MethodPost)
 
-	authController := consoleapi.NewAuth(logger, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
@@ -255,18 +260,28 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 // authMiddlewareHandler performs initial authorization before every request.
 func (server *Server) withAuth(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
 		var err error
-		defer mon.Task()(&ctx)(&err)
-		token := getToken(r)
+		var ctx context.Context
 
-		ctx = auth.WithAPIKey(ctx, []byte(token))
-		auth, err := server.service.Authorize(ctx)
-		if err != nil {
-			ctx = console.WithAuthFailure(ctx, err)
-		} else {
-			ctx = console.WithAuth(ctx, auth)
+		defer mon.Task()(&ctx)(&err)
+
+		ctxWithAuth := func(ctx context.Context) context.Context {
+			token, err := server.cookieAuth.GetToken(r)
+			if err != nil {
+				return console.WithAuthFailure(ctx, err)
+			}
+
+			ctx = auth.WithAPIKey(ctx, []byte(token))
+
+			auth, err := server.service.Authorize(ctx)
+			if err != nil {
+				return console.WithAuthFailure(ctx, err)
+			}
+
+			return console.WithAuth(ctx, auth)
 		}
+
+		ctx = ctxWithAuth(r.Context())
 
 		handler.ServeHTTP(w, r.Clone(ctx))
 	})
@@ -278,13 +293,13 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	tokenCookie, err := r.Cookie("_tokenKey")
+	token, err := server.cookieAuth.GetToken(r)
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return
 	}
 
-	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
+	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return
@@ -376,34 +391,39 @@ func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *h
 
 // populatePromotionalCoupons is web app http handler function for populating promotional coupons.
 func (server *Server) populatePromotionalCoupons(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
-	w.Header().Set(contentType, applicationJSON)
+	var err error
+	var ctx context.Context
 
-	var response struct {
-		Error string `json:"error,omitempty"`
-	}
+	defer mon.Task()(&ctx)(&err)
 
-	defer func() {
-		err := json.NewEncoder(w).Encode(&response)
-		if err != nil {
+	handleError := func(status int, err error) {
+		w.WriteHeader(status)
+		w.Header().Set(contentType, applicationJSON)
+
+		var response struct {
+			Error string `json:"error"`
+		}
+
+		response.Error = err.Error()
+
+		if err := json.NewEncoder(w).Encode(response); err != nil {
 			server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
 		}
-	}()
+	}
+
+	ctx = r.Context()
 
 	equality := subtle.ConstantTimeCompare(
 		[]byte(r.Header.Get("Authorization")),
 		[]byte(server.config.AuthToken),
 	)
 	if equality != 1 {
-		w.WriteHeader(401)
-		response.Error = "unauthorized"
+		handleError(http.StatusUnauthorized, errs.New("unauthorized"))
 		return
 	}
 
-	err := server.service.Payments().PopulatePromotionalCoupons(ctx)
-	if err != nil {
-		response.Error = err.Error()
+	if err = server.service.Payments().PopulatePromotionalCoupons(ctx); err != nil {
+		handleError(http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -578,16 +598,6 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		handleError(http.StatusBadRequest, err)
 		return
-	}
-
-	token := getToken(r)
-
-	ctx = auth.WithAPIKey(ctx, []byte(token))
-	auth, err := server.service.Authorize(ctx)
-	if err != nil {
-		ctx = console.WithAuthFailure(ctx, err)
-	} else {
-		ctx = console.WithAuth(ctx, auth)
 	}
 
 	rootObject := make(map[string]interface{})

@@ -22,7 +22,7 @@ export class AuthHttpApi {
      */
     public async resendEmail(userId: string): Promise<void> {
         const path = `${this.ROOT_PATH}/resend-email/${userId}`;
-        const response = await this.http.post(path, userId, false);
+        const response = await this.http.post(path, userId);
         if (response.ok) {
             return;
         }
@@ -43,7 +43,7 @@ export class AuthHttpApi {
             email: email,
             password: password,
         };
-        const response = await this.http.post(path, JSON.stringify(body), false);
+        const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             return await response.json();
         }
@@ -63,7 +63,7 @@ export class AuthHttpApi {
      */
     public async forgotPassword(email: string): Promise<void> {
         const path = `${this.ROOT_PATH}/forgot-password/${email}`;
-        await this.http.post(path, email, false);
+        await this.http.post(path, email);
     }
 
     /**
@@ -78,7 +78,7 @@ export class AuthHttpApi {
             fullName: userInfo.fullName,
             shortName: userInfo.shortName,
         };
-        const response = await this.http.patch(path, JSON.stringify(body), true);
+        const response = await this.http.patch(path, JSON.stringify(body));
         if (response.ok) {
             return;
         }
@@ -93,7 +93,7 @@ export class AuthHttpApi {
      */
     public async get(): Promise<User> {
         const path = `${this.ROOT_PATH}/account`;
-        const response = await this.http.get(path, true);
+        const response = await this.http.get(path);
         if (response.ok) {
             return await response.json();
         }
@@ -114,7 +114,7 @@ export class AuthHttpApi {
             password: password,
             newPassword: newPassword,
         };
-        const response = await this.http.post(path, JSON.stringify(body), true);
+        const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             return;
         }
@@ -140,7 +140,7 @@ export class AuthHttpApi {
         const body = {
             password: password,
         };
-        const response = await this.http.post(path, JSON.stringify(body), true);
+        const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             return;
         }
@@ -174,7 +174,7 @@ export class AuthHttpApi {
             partnerId: user.partnerId ? user.partnerId : '',
         };
 
-        const response = await this.http.post(path, JSON.stringify(body), false);
+        const response = await this.http.post(path, JSON.stringify(body));
         if (!response.ok) {
             if (response.status === 401) {
                 throw new ErrorUnauthorized('we are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
@@ -204,7 +204,7 @@ export class AuthHttpApi {
             email: user.email,
         };
 
-        const response = await this.http.post(path, JSON.stringify(body), false);
+        const response = await this.http.post(path, JSON.stringify(body));
         if (!response.ok) {
             if (response.status === 400) {
                 throw new Error('we are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');

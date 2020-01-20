@@ -14,7 +14,6 @@ import { makeProjectsModule } from '@/store/modules/projects';
 import { makeUsageModule } from '@/store/modules/usage';
 import { makeUsersModule } from '@/store/modules/users';
 import { User } from '@/types/users';
-import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
@@ -98,8 +97,6 @@ describe('Dashboard', () => {
     });
 
     it('loads routes correctly when authorithed without project with available routes', async () => {
-        jest.spyOn(AuthToken, 'get').mockReturnValue('authToken');
-
         const availableWithoutProject = [
             RouteConfig.Account.with(RouteConfig.Billing).path,
             RouteConfig.Account.with(RouteConfig.Profile).path,
@@ -119,8 +116,6 @@ describe('Dashboard', () => {
     });
 
     it('loads routes correctly when authorithed without project with unavailable routes', async () => {
-        jest.spyOn(AuthToken, 'get').mockReturnValue('authToken');
-
         const unavailableWithoutProject = [
             RouteConfig.ApiKeys.path,
             RouteConfig.Buckets.path,

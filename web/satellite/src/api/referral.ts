@@ -19,7 +19,7 @@ export class ReferralHttpApi {
      */
     public async getTokens(): Promise<string[]> {
         const path = `${this.ROOT_PATH}/tokens`;
-        const response = await this.http.get(path, true);
+        const response = await this.http.get(path);
 
         if (response.ok) {
             return await response.json();

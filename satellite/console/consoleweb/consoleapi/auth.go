@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -24,24 +25,26 @@ var ErrAuthAPI = errs.Class("console auth api error")
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
 	log                   *zap.Logger
-	service               *console.Service
-	mailService           *mailservice.Service
 	ExternalAddress       string
 	LetUsKnowURL          string
 	TermsAndConditionsURL string
 	ContactInfoURL        string
+	service               *console.Service
+	mailService           *mailservice.Service
+	cookieAuth            *consolewebauth.CookieAuth
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
 	return &Auth{
 		log:                   log,
-		service:               service,
-		mailService:           mailService,
 		ExternalAddress:       externalAddress,
 		LetUsKnowURL:          letUsKnowURL,
 		TermsAndConditionsURL: termsAndConditionsURL,
 		ContactInfoURL:        contactInfoURL,
+		service:               service,
+		mailService:           mailService,
+		cookieAuth:            cookieAuth,
 	}
 }
 
@@ -67,6 +70,8 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 		return
 	}
+
+	a.cookieAuth.SetTokenCookie(w, token)
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(token)

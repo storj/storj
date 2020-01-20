@@ -30,7 +30,6 @@ import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
-import { AuthToken } from '@/utils/authToken';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
@@ -56,8 +55,6 @@ export default class AccountDropdown extends Vue {
     }
 
     public onLogoutClick(): void {
-        AuthToken.remove();
-
         this.$router.push(RouteConfig.Login.path);
         this.$store.dispatch(PM_ACTIONS.CLEAR);
         this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);

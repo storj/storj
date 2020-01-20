@@ -43,7 +43,6 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { Project } from '@/types/projects';
-import { AuthToken } from '@/utils/authToken';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
@@ -76,7 +75,6 @@ export default class DashboardArea extends Vue {
         } catch (error) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
             await this.$notify.error(error.message);
-            AuthToken.remove();
             await this.$router.push(RouteConfig.Login.path);
 
             return;
@@ -90,7 +88,6 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(GET_PROJECT_CHARGES);
         } catch (error) {
             if (error instanceof ErrorUnauthorized) {
-                AuthToken.remove();
                 await this.$router.push(RouteConfig.Login.path);
 
                 return;
