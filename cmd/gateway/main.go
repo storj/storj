@@ -338,7 +338,7 @@ Your S3 Gateway is configured and ready to use!
 
 Some things to try next:
 
-* See http://documentation.tardigrade.io/api-reference/s3-gateway for some example commands`)
+* See https://documentation.tardigrade.io/api-reference/s3-gateway for some example commands`)
 
 	return nil
 }

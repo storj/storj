@@ -192,7 +192,7 @@ Your Uplink CLI is configured and ready to use!
 
 Some things to try next:
 
-* See http://documentation.tardigrade.io/api-reference/uplink-cli for some example commands`)
+* See https://documentation.tardigrade.io/api-reference/uplink-cli for some example commands`)
 
 	return nil
 }
