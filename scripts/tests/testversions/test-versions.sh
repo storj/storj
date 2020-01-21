@@ -54,10 +54,10 @@ if [ ! -d ${main_cfg_dir}/uplink ]; then
     mkdir -p ${main_cfg_dir}/uplink
     api_key=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_API_KEY)
     sat_addr=$(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_ADDR)
-    should_use_access=$(echo $uplink_version | awk 'BEGIN{FS="[v.]"} $3 >= 30 {print $0}')
+    should_use_access=$(echo $uplink_version | awk 'BEGIN{FS="[v.]"} $3 >= 30 || $2 >= 1 {print $0}')
     if [[ ${#should_use_access} -gt 0 ]]; then
         access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
-        uplink import --config-dir="${main_cfg_dir}/uplink" "${access}"
+        uplink import --config-dir="${main_cfg_dir}/uplink" "${access}" --client.segment-size="64.0 KiB"
     else
         uplink setup --config-dir="${main_cfg_dir}/uplink" --non-interactive --api-key="$api_key" --satellite-addr="$sat_addr" --enc.encryption-key="test" --client.segment-size="64.0 KiB"
     fi
@@ -67,8 +67,9 @@ if [[ $uplink_version = "v0.29.10" ]]; then
     uplink share --config-dir="${main_cfg_dir}/uplink" | grep "Scope" | awk -F ": " '{print $2}' | tee ${main_cfg_dir}/uplink/access.txt
 fi
 
-# after this version we need to use access instead of separate values for api key, sat addr, and encryption key
-if [[ $uplink_version = "v0.30.4" ]] && [ -e ${main_cfg_dir}/uplink/access.txt ]
+# after version v0.30.x we need to use access instead of separate values for api key, sat addr, and encryption key
+should_use_access=$(echo $uplink_version | awk 'BEGIN{FS="[v.]"} $3 == 30 {print $0}')
+if [[ ${#should_use_access} -gt 0 ]] && [ -e ${main_cfg_dir}/uplink/access.txt ]
 then
     # the access provided by storj-sim uses an empty encryption key; we cannot do uplink setup above with an empty encryption key
     # therefore, we use a hack -> get an access key from the existing uplink config, then import that same access key
