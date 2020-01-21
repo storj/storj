@@ -137,9 +137,8 @@ func TestRollupDeletes(t *testing.T) {
 				raw, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
 				require.NoError(t, err)
 				for _, r := range raw {
-					assert.InDelta(t, 0, r.IntervalEndTime.Sub(timestamp).Seconds(), 1)
+					assert.WithinDuration(t, timestamp, r.IntervalEndTime, time.Second)
 					assert.Equal(t, testData[i].nodeData[r.NodeID], r.DataTotal)
-
 				}
 
 				// Advance time by 24 hours

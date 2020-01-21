@@ -120,7 +120,7 @@ func TestTransferQueueItem(t *testing.T) {
 
 				require.Equal(t, item.RootPieceID, latestItem.RootPieceID)
 				require.Equal(t, item.DurabilityRatio, latestItem.DurabilityRatio)
-				require.InDelta(t, 0, latestItem.RequestedAt.Sub(now).Seconds(), 1)
+				require.WithinDuration(t, now, *latestItem.RequestedAt, time.Second)
 			}
 
 			queueItems, err := geDB.GetIncomplete(ctx, nodeID1, 10, 0)

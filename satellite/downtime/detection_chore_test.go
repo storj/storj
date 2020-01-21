@@ -45,7 +45,7 @@ func TestDetectionChore(t *testing.T) {
 			nodeLastContacts, err := satellite.DB.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Hour)
 			require.NoError(t, err)
 			require.Len(t, nodeLastContacts, 1)
-			require.InDelta(t, 0, oldCheckinTime.Sub(nodeLastContacts[0].LastContactSuccess).Seconds(), 1)
+			require.WithinDuration(t, oldCheckinTime, nodeLastContacts[0].LastContactSuccess, time.Second)
 
 			// run detection chore
 			satellite.DowntimeTracking.DetectionChore.Loop.TriggerWait()
@@ -74,8 +74,7 @@ func TestDetectionChore(t *testing.T) {
 			nodeLastContacts, err := satellite.DB.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Hour)
 			require.NoError(t, err)
 			require.Len(t, nodeLastContacts, 1)
-			delta := oldCheckinTime.Sub(nodeLastContacts[0].LastContactSuccess).Seconds()
-			require.InDelta(t, 0, delta, 1)
+			require.WithinDuration(t, oldCheckinTime, nodeLastContacts[0].LastContactSuccess, time.Second)
 
 			// run detection chore - again
 			satellite.DowntimeTracking.DetectionChore.Loop.TriggerWait()
