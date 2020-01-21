@@ -44,11 +44,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	err = os.MkdirAll(setupDir, 0700)
-	if err != nil {
-		return err
-	}
-
 	if setupCfg.NonInteractive {
 		return cmdSetupNonInteractive(cmd, setupDir)
 	}
@@ -78,6 +73,12 @@ func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string) error {
 	if err != nil {
 		return err
 	}
+
+	err = os.MkdirAll(setupDir, 0700)
+	if err != nil {
+		return err
+	}
+
 	return Error.Wrap(process.SaveConfig(cmd, filepath.Join(setupDir, process.DefaultCfgFilename),
 		process.SaveConfigWithOverride("access", accessData),
 		process.SaveConfigRemovingDeprecated()))
@@ -177,6 +178,11 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 
 	if setupCfg.Access == "" {
 		saveCfgOpts = append(saveCfgOpts, process.SaveConfigWithOverride("access", accessName))
+	}
+
+	err = os.MkdirAll(setupDir, 0700)
+	if err != nil {
+		return err
 	}
 
 	configPath := filepath.Join(setupDir, process.DefaultCfgFilename)
