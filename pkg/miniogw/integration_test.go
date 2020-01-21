@@ -14,6 +14,7 @@ import (
 	"github.com/minio/cli"
 	minio "github.com/minio/minio/cmd"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
@@ -37,78 +38,74 @@ type config struct {
 func TestUploadDownload(t *testing.T) {
 	t.Skip("disable because, keeps stalling CI intermittently")
 
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// add project to satisfy constraint
+		_, err := planet.Satellites[0].DB.Console().Projects().Insert(ctx, &console.Project{
+			Name: "testProject",
+		})
+		require.NoError(t, err)
 
-	planet, err := testplanet.New(t, 1, 30, 1)
-	assert.NoError(t, err)
+		var gwCfg config
+		gwCfg.Minio.Dir = ctx.Dir("minio")
+		gwCfg.Server.Address = "127.0.0.1:7777"
 
-	defer ctx.Check(planet.Shutdown)
+		uplinkCfg := planet.Uplinks[0].GetConfig(planet.Satellites[0])
 
-	// add project to satisfy constraint
-	_, err = planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
-		Name: "testProject",
-	})
-	assert.NoError(t, err)
+		planet.Start(ctx)
 
-	var gwCfg config
-	gwCfg.Minio.Dir = ctx.Dir("minio")
-	gwCfg.Server.Address = "127.0.0.1:7777"
+		// create identity for gateway
+		ca, err := testidentity.NewTestCA(ctx)
+		assert.NoError(t, err)
+		identity, err := ca.NewIdentity()
+		assert.NoError(t, err)
 
-	uplinkCfg := planet.Uplinks[0].GetConfig(planet.Satellites[0])
+		// setup and start gateway
+		go func() {
+			// TODO: this leaks the gateway server, however it shouldn't
+			err := runGateway(ctx, gwCfg, uplinkCfg, zaptest.NewLogger(t), identity)
+			if err != nil {
+				t.Log(err)
+			}
+		}()
 
-	planet.Start(ctx)
+		time.Sleep(100 * time.Millisecond)
 
-	// create identity for gateway
-	ca, err := testidentity.NewTestCA(ctx)
-	assert.NoError(t, err)
-	identity, err := ca.NewIdentity()
-	assert.NoError(t, err)
+		client, err := s3client.NewMinio(s3client.Config{
+			S3Gateway:     gwCfg.Server.Address,
+			Satellite:     planet.Satellites[0].Addr(),
+			AccessKey:     gwCfg.Minio.AccessKey,
+			SecretKey:     gwCfg.Minio.SecretKey,
+			APIKey:        uplinkCfg.Legacy.Client.APIKey,
+			EncryptionKey: "fake-encryption-key",
+			NoSSL:         true,
+		})
+		assert.NoError(t, err)
 
-	// setup and start gateway
-	go func() {
-		// TODO: this leaks the gateway server, however it shouldn't
-		err := runGateway(ctx, gwCfg, uplinkCfg, zaptest.NewLogger(t), identity)
-		if err != nil {
-			t.Log(err)
+		bucket := "bucket"
+
+		err = client.MakeBucket(bucket, "")
+		assert.NoError(t, err)
+
+		// generate enough data for a remote segment
+		data := []byte{}
+		for i := 0; i < 5000; i++ {
+			data = append(data, 'a')
 		}
-	}()
 
-	time.Sleep(100 * time.Millisecond)
+		objectName := "testdata"
 
-	client, err := s3client.NewMinio(s3client.Config{
-		S3Gateway:     gwCfg.Server.Address,
-		Satellite:     planet.Satellites[0].Addr(),
-		AccessKey:     gwCfg.Minio.AccessKey,
-		SecretKey:     gwCfg.Minio.SecretKey,
-		APIKey:        uplinkCfg.Legacy.Client.APIKey,
-		EncryptionKey: "fake-encryption-key",
-		NoSSL:         true,
+		err = client.Upload(bucket, objectName, data)
+		assert.NoError(t, err)
+
+		buffer := make([]byte, len(data))
+
+		bytes, err := client.Download(bucket, objectName, buffer)
+		assert.NoError(t, err)
+
+		assert.Equal(t, string(data), string(bytes))
 	})
-	assert.NoError(t, err)
-
-	bucket := "bucket"
-
-	err = client.MakeBucket(bucket, "")
-	assert.NoError(t, err)
-
-	// generate enough data for a remote segment
-	data := []byte{}
-	for i := 0; i < 5000; i++ {
-		data = append(data, 'a')
-	}
-
-	objectName := "testdata"
-
-	err = client.Upload(bucket, objectName, data)
-	assert.NoError(t, err)
-
-	buffer := make([]byte, len(data))
-
-	bytes, err := client.Download(bucket, objectName, buffer)
-	assert.NoError(t, err)
-
-	assert.Equal(t, string(data), string(bytes))
 }
 
 // runGateway creates and starts a gateway

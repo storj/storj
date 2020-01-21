@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
@@ -22,105 +21,39 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
-func TestNewDeletePiecesService(t *testing.T) {
-	type params struct {
-		maxConcurrentConns int
-		dialer             rpc.Dialer
-		log                *zap.Logger
-	}
-	var testCases = []struct {
-		desc   string
-		args   params
-		errMsg string
-	}{
-		{
-			desc: "ok",
-			args: params{
-				maxConcurrentConns: 10,
-				dialer:             rpc.NewDefaultDialer(nil),
-				log:                zaptest.NewLogger(t),
-			},
-		},
-		{
-			desc: "error: 0 maxConcurrentCons",
-			args: params{
-				maxConcurrentConns: 0,
-				dialer:             rpc.NewDefaultDialer(nil),
-				log:                zaptest.NewLogger(t),
-			},
-			errMsg: "greater than 0",
-		},
-		{
-			desc: "error: negative maxConcurrentCons",
-			args: params{
-				maxConcurrentConns: -3,
-				dialer:             rpc.NewDefaultDialer(nil),
-				log:                zaptest.NewLogger(t),
-			},
-			errMsg: "greater than 0",
-		},
-		{
-			desc: "error: zero dialer",
-			args: params{
-				maxConcurrentConns: 87,
-				dialer:             rpc.Dialer{},
-				log:                zaptest.NewLogger(t),
-			},
-			errMsg: "dialer cannot be its zero value",
-		},
-		{
-			desc: "error: nil logger",
-			args: params{
-				maxConcurrentConns: 2,
-				dialer:             rpc.NewDefaultDialer(nil),
-				log:                nil,
-			},
-			errMsg: "logger cannot be nil",
-		},
-	}
+func TestDeletePiecesService_New_Error(t *testing.T) {
+	log := zaptest.NewLogger(t)
+	dialer := rpc.NewDefaultDialer(nil)
 
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.desc, func(t *testing.T) {
-			t.Parallel()
+	_, err := metainfo.NewDeletePiecesService(nil, dialer, 8)
+	require.True(t, metainfo.ErrDeletePieces.Has(err), err)
+	require.Contains(t, err.Error(), "logger cannot be nil")
 
-			svc, err := metainfo.NewDeletePiecesService(tc.args.log, tc.args.dialer, tc.args.maxConcurrentConns)
-			if tc.errMsg != "" {
-				require.Error(t, err)
-				require.True(t, metainfo.ErrDeletePieces.Has(err), "unexpected error class")
-				require.Contains(t, err.Error(), tc.errMsg)
-				return
-			}
+	_, err = metainfo.NewDeletePiecesService(log, rpc.Dialer{}, 87)
+	require.True(t, metainfo.ErrDeletePieces.Has(err), err)
+	require.Contains(t, err.Error(), "dialer cannot be its zero value")
 
-			require.NoError(t, err)
-			require.NotNil(t, svc)
+	_, err = metainfo.NewDeletePiecesService(log, dialer, 0)
+	require.True(t, metainfo.ErrDeletePieces.Has(err), err)
+	require.Contains(t, err.Error(), "greater than 0")
 
-		})
-	}
+	_, err = metainfo.NewDeletePiecesService(log, dialer, -3)
+	require.True(t, metainfo.ErrDeletePieces.Has(err), err)
+	require.Contains(t, err.Error(), "greater than 0")
 }
 
-func TestDeletePiecesService_DeletePieces(t *testing.T) {
-	t.Run("all nodes up", func(t *testing.T) {
-		t.Parallel()
-
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		planet, err := testplanet.New(t, 1, 4, 1)
-		require.NoError(t, err)
-		defer ctx.Check(planet.Shutdown)
-		planet.Start(ctx)
-
-		var (
-			uplnk        = planet.Uplinks[0]
-			satelliteSys = planet.Satellites[0]
-		)
+func TestDeletePiecesService_DeletePieces_AllNodesUp(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplnk := planet.Uplinks[0]
+		satelliteSys := planet.Satellites[0]
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
 			// Use RSConfig for ensuring that we don't have long-tail cancellations
 			// and the upload doesn't leave garbage in the SNs
-			err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
 				Client: cmd.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
 				},
@@ -165,7 +98,7 @@ func TestDeletePiecesService_DeletePieces(t *testing.T) {
 			nodesPieces = append(nodesPieces, nodePieces)
 		}
 
-		err = satelliteSys.API.Metainfo.DeletePiecesService.DeletePieces(ctx, nodesPieces, 0.75)
+		err := satelliteSys.API.Metainfo.DeletePiecesService.DeletePieces(ctx, nodesPieces, 0.75)
 		require.NoError(t, err)
 
 		// calculate the SNs used space after delete the pieces
@@ -183,28 +116,20 @@ func TestDeletePiecesService_DeletePieces(t *testing.T) {
 			t.Fatalf("deleted used space is less than 0.75%%. Got %f", deletedUsedSpace)
 		}
 	})
+}
 
-	t.Run("some nodes down", func(t *testing.T) {
-		t.Parallel()
-
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		planet, err := testplanet.New(t, 1, 4, 1)
-		require.NoError(t, err)
-		defer ctx.Check(planet.Shutdown)
-		planet.Start(ctx)
-
-		var (
-			uplnk        = planet.Uplinks[0]
-			satelliteSys = planet.Satellites[0]
-		)
+func TestDeletePiecesService_DeletePieces_SomeNodesDown(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplnk := planet.Uplinks[0]
+		satelliteSys := planet.Satellites[0]
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
 			// Use RSConfig for ensuring that we don't have long-tail cancellations
 			// and the upload doesn't leave garbage in the SNs
-			err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
 				Client: cmd.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
 				},
@@ -246,7 +171,7 @@ func TestDeletePiecesService_DeletePieces(t *testing.T) {
 			}
 		}
 
-		err = satelliteSys.API.Metainfo.DeletePiecesService.DeletePieces(ctx, nodesPieces, 0.9999)
+		err := satelliteSys.API.Metainfo.DeletePiecesService.DeletePieces(ctx, nodesPieces, 0.9999)
 		require.NoError(t, err)
 
 		// Check that storage nodes which are online when deleting pieces don't
@@ -260,28 +185,20 @@ func TestDeletePiecesService_DeletePieces(t *testing.T) {
 
 		require.Zero(t, totalUsedSpace, "totalUsedSpace online nodes")
 	})
+}
 
-	t.Run("all nodes down", func(t *testing.T) {
-		t.Parallel()
-
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		planet, err := testplanet.New(t, 1, 4, 1)
-		require.NoError(t, err)
-		defer ctx.Check(planet.Shutdown)
-		planet.Start(ctx)
-
-		var (
-			uplnk        = planet.Uplinks[0]
-			satelliteSys = planet.Satellites[0]
-		)
+func TestDeletePiecesService_DeletePieces_AllNodesDown(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplnk := planet.Uplinks[0]
+		satelliteSys := planet.Satellites[0]
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
 			// Use RSConfig for ensuring that we don't have long-tail cancellations
 			// and the upload doesn't leave garbage in the SNs
-			err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
 				Client: cmd.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
 				},
@@ -327,7 +244,7 @@ func TestDeletePiecesService_DeletePieces(t *testing.T) {
 			require.NoError(t, planet.StopPeer(sn))
 		}
 
-		err = satelliteSys.API.Metainfo.DeletePiecesService.DeletePieces(ctx, nodesPieces, 0.9999)
+		err := satelliteSys.API.Metainfo.DeletePiecesService.DeletePieces(ctx, nodesPieces, 0.9999)
 		require.NoError(t, err)
 
 		var totalUsedSpace int64
@@ -340,28 +257,20 @@ func TestDeletePiecesService_DeletePieces(t *testing.T) {
 
 		require.Equal(t, expectedTotalUsedSpace, totalUsedSpace, "totalUsedSpace")
 	})
+}
 
-	t.Run("invalid dialer", func(t *testing.T) {
-		t.Parallel()
-
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		planet, err := testplanet.New(t, 1, 4, 1)
-		require.NoError(t, err)
-		defer ctx.Check(planet.Shutdown)
-		planet.Start(ctx)
-
-		var (
-			uplnk        = planet.Uplinks[0]
-			satelliteSys = planet.Satellites[0]
-		)
+func TestDeletePiecesService_DeletePieces_InvalidDialer(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplnk := planet.Uplinks[0]
+		satelliteSys := planet.Satellites[0]
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
 			// Use RSConfig for ensuring that we don't have long-tail cancellations
 			// and the upload doesn't leave garbage in the SNs
-			err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
 				Client: cmd.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
 				},
@@ -413,6 +322,7 @@ func TestDeletePiecesService_DeletePieces(t *testing.T) {
 			zaptest.NewLogger(t), dialer, len(nodesPieces)-1,
 		)
 		require.NoError(t, err)
+		defer ctx.Check(service.Close)
 
 		err = service.DeletePieces(ctx, nodesPieces, 0.75)
 		require.NoError(t, err)
@@ -427,40 +337,31 @@ func TestDeletePiecesService_DeletePieces(t *testing.T) {
 		// because no node can be dialed the SNs used space should be the same
 		require.Equal(t, expectedTotalUsedSpace, totalUsedSpaceAfterDelete)
 	})
+}
 
-	t.Run("empty nodes pieces", func(t *testing.T) {
-		t.Parallel()
+func TestDeletePiecesService_DeletePieces_Invalid(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		deletePiecesService := planet.Satellites[0].API.Metainfo.DeletePiecesService
 
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
+		t.Run("empty node pieces", func(t *testing.T) {
+			t.Parallel()
+			err := deletePiecesService.DeletePieces(ctx, metainfo.NodesPieces{}, 0.75)
+			require.Error(t, err)
+			assert.False(t, metainfo.ErrDeletePieces.Has(err), err)
+			assert.Contains(t, err.Error(), "invalid number of tasks")
+		})
 
-		planet, err := testplanet.New(t, 1, 4, 1)
-		require.NoError(t, err)
-		defer ctx.Check(planet.Shutdown)
-		planet.Start(ctx)
-
-		err = planet.Satellites[0].API.Metainfo.DeletePiecesService.DeletePieces(ctx, metainfo.NodesPieces{}, 0.75)
-		require.Error(t, err)
-		assert.False(t, metainfo.ErrDeletePieces.Has(err), "unexpected error class")
-		assert.Contains(t, err.Error(), "invalid number of tasks")
-	})
-
-	t.Run("invalid threshold", func(t *testing.T) {
-		t.Parallel()
-
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		planet, err := testplanet.New(t, 1, 4, 1)
-		require.NoError(t, err)
-		defer ctx.Check(planet.Shutdown)
-		planet.Start(ctx)
-
-		nodesPieces := make(metainfo.NodesPieces, 1)
-		nodesPieces[0].Pieces = make([]storj.PieceID, 2)
-		err = planet.Satellites[0].API.Metainfo.DeletePiecesService.DeletePieces(ctx, nodesPieces, 1)
-		require.Error(t, err)
-		assert.False(t, metainfo.ErrDeletePieces.Has(err), "unexpected error class")
-		assert.Contains(t, err.Error(), "invalid successThreshold")
+		t.Run("invalid threshold", func(t *testing.T) {
+			t.Parallel()
+			nodesPieces := metainfo.NodesPieces{
+				{Pieces: make([]storj.PieceID, 2)},
+			}
+			err := deletePiecesService.DeletePieces(ctx, nodesPieces, 1)
+			require.Error(t, err)
+			assert.False(t, metainfo.ErrDeletePieces.Has(err), err)
+			assert.Contains(t, err.Error(), "invalid successThreshold")
+		})
 	})
 }

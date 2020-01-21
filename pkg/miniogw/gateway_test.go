@@ -16,6 +16,7 @@ import (
 	"github.com/minio/minio/pkg/auth"
 	"github.com/minio/minio/pkg/hash"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 	"go.uber.org/zap/zaptest"
 
@@ -65,7 +66,7 @@ var (
 )
 
 func TestMakeBucketWithLocation(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when creating bucket with empty name
 		err := layer.MakeBucketWithLocation(ctx, "", "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -88,7 +89,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 }
 
 func TestGetBucketInfo(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when getting info about bucket with empty name
 		_, err := layer.GetBucketInfo(ctx, "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -111,7 +112,7 @@ func TestGetBucketInfo(t *testing.T) {
 }
 
 func TestDeleteBucket(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when deleting bucket with empty name
 		err := layer.DeleteBucket(ctx, "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -146,7 +147,7 @@ func TestDeleteBucket(t *testing.T) {
 }
 
 func TestListBuckets(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check that empty list is return if no buckets exist yet
 		bucketInfos, err := layer.ListBuckets(ctx)
 		assert.NoError(t, err)
@@ -174,31 +175,29 @@ func TestListBuckets(t *testing.T) {
 }
 
 func TestPutObject(t *testing.T) {
-	data, err := hash.NewReader(bytes.NewReader([]byte("test")),
-		int64(len("test")),
-		"098f6bcd4621d373cade4e832627b4f6",
-		"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
-	if err != nil {
-		t.Fatal(err)
-	}
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
+		data, err := hash.NewReader(bytes.NewReader([]byte("test")),
+			int64(len("test")),
+			"098f6bcd4621d373cade4e832627b4f6",
+			"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
+		require.NoError(t, err)
 
-	metadata := map[string]string{
-		"content-type": "media/foo",
-		"key1":         "value1",
-		"key2":         "value2",
-	}
+		metadata := map[string]string{
+			"content-type": "media/foo",
+			"key1":         "value1",
+			"key2":         "value2",
+		}
 
-	serMetaInfo := pb.SerializableMeta{
-		ContentType: metadata["content-type"],
-		UserDefined: map[string]string{
-			"key1": metadata["key1"],
-			"key2": metadata["key2"],
-		},
-	}
+		serMetaInfo := pb.SerializableMeta{
+			ContentType: metadata["content-type"],
+			UserDefined: map[string]string{
+				"key1": metadata["key1"],
+				"key2": metadata["key2"],
+			},
+		}
 
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when putting an object to a bucket with empty name
-		_, err := layer.PutObject(ctx, "", "", nil, nil)
+		_, err = layer.PutObject(ctx, "", "", nil, nil)
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
 
 		// Check the error when putting an object to a non-existing bucket
@@ -242,7 +241,7 @@ func TestPutObject(t *testing.T) {
 }
 
 func TestGetObjectInfo(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when getting an object from a bucket with empty name
 		_, err := layer.GetObjectInfo(ctx, "", "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -287,7 +286,7 @@ func TestGetObjectInfo(t *testing.T) {
 }
 
 func TestGetObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when getting an object from a bucket with empty name
 		err := layer.GetObject(ctx, "", "", 0, 0, nil, "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -350,7 +349,7 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestCopyObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when copying an object from a bucket with empty name
 		_, err := layer.CopyObject(ctx, "", TestFile, DestBucket, DestFile, minio.ObjectInfo{})
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -420,7 +419,7 @@ func TestCopyObject(t *testing.T) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when deleting an object from a bucket with empty name
 		err := layer.DeleteObject(ctx, "", "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -456,7 +455,7 @@ func TestDeleteObject(t *testing.T) {
 }
 
 func TestListObjects(t *testing.T) {
-	testListObjects(t, func(ctx context.Context, layer minio.ObjectLayer, bucket, prefix, marker, delimiter string, maxKeys int) ([]string, []minio.ObjectInfo, bool, error) {
+	testListObjects(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, bucket, prefix, marker, delimiter string, maxKeys int) ([]string, []minio.ObjectInfo, bool, error) {
 		list, err := layer.ListObjects(ctx, TestBucket, prefix, marker, delimiter, maxKeys)
 		if err != nil {
 			return nil, nil, false, err
@@ -466,7 +465,7 @@ func TestListObjects(t *testing.T) {
 }
 
 func TestListObjectsV2(t *testing.T) {
-	testListObjects(t, func(ctx context.Context, layer minio.ObjectLayer, bucket, prefix, marker, delimiter string, maxKeys int) ([]string, []minio.ObjectInfo, bool, error) {
+	testListObjects(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, bucket, prefix, marker, delimiter string, maxKeys int) ([]string, []minio.ObjectInfo, bool, error) {
 		list, err := layer.ListObjectsV2(ctx, TestBucket, prefix, marker, delimiter, maxKeys, false, "")
 		if err != nil {
 			return nil, nil, false, err
@@ -475,8 +474,8 @@ func TestListObjectsV2(t *testing.T) {
 	})
 }
 
-func testListObjects(t *testing.T, listObjects func(context.Context, minio.ObjectLayer, string, string, string, string, int) ([]string, []minio.ObjectInfo, bool, error)) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
+func testListObjects(t *testing.T, listObjects func(*testing.T, context.Context, minio.ObjectLayer, string, string, string, string, int) ([]string, []minio.ObjectInfo, bool, error)) {
+	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when listing objects with unsupported delimiter
 		_, err := layer.ListObjects(ctx, TestBucket, "", "", "#", 0)
 		assert.Equal(t, minio.UnsupportedDelimiter{Delimiter: "#"}, err)
@@ -634,7 +633,7 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
 			// Check that the expected objects can be listed using the Minio API
-			prefixes, objects, isTruncated, err := listObjects(ctx, layer, TestBucket, tt.prefix, tt.marker, tt.delimiter, tt.maxKeys)
+			prefixes, objects, isTruncated, err := listObjects(t, ctx, layer, TestBucket, tt.prefix, tt.marker, tt.delimiter, tt.maxKeys)
 			if assert.NoError(t, err, errTag) {
 				assert.Equal(t, tt.more, isTruncated, errTag)
 				assert.Equal(t, tt.prefixes, prefixes, errTag)
@@ -660,25 +659,15 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 	})
 }
 
-func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, *kvmetainfo.DB, streams.Store)) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+func runTest(t *testing.T, test func(*testing.T, context.Context, minio.ObjectLayer, *kvmetainfo.DB, streams.Store)) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		layer, m, strms, err := initEnv(ctx, t, planet)
+		require.NoError(t, err)
 
-	planet, err := testplanet.New(t, 1, 4, 1)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	defer ctx.Check(planet.Shutdown)
-
-	planet.Start(ctx)
-
-	layer, m, strms, err := initEnv(ctx, t, planet)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	test(ctx, layer, m, strms)
+		test(t, ctx, layer, m, strms)
+	})
 }
 
 func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (minio.ObjectLayer, *kvmetainfo.DB, streams.Store, error) {

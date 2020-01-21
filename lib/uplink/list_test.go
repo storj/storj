@@ -161,9 +161,7 @@ func TestPutGetList(t *testing.T) {
 		})
 }
 
-func runTest(ctx context.Context, t *testing.T, apiKey, satelliteAddr string,
-	test putGetListTest) {
-
+func runTest(ctx context.Context, t *testing.T, apiKey, satelliteAddr string, test putGetListTest) {
 	errCatch := func(fn func() error) { require.NoError(t, fn()) }
 
 	cfg := &uplink.Config{}

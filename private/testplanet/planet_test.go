@@ -4,8 +4,6 @@
 package testplanet_test
 
 import (
-	"context"
-	"strconv"
 	"testing"
 	"time"
 
@@ -71,23 +69,4 @@ func TestContact(t *testing.T) {
 			require.NoError(t, err)
 		}
 	})
-}
-
-func BenchmarkCreate(b *testing.B) {
-	storageNodes := []int{4, 10, 100}
-	for _, count := range storageNodes {
-		storageNodeCount := count
-		b.Run(strconv.Itoa(storageNodeCount), func(b *testing.B) {
-			ctx := context.Background()
-			for i := 0; i < b.N; i++ {
-				planet, err := testplanet.New(nil, 1, storageNodeCount, 1)
-				require.NoError(b, err)
-
-				planet.Start(ctx)
-
-				err = planet.Shutdown()
-				require.NoError(b, err)
-			}
-		})
-	}
 }
