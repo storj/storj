@@ -129,6 +129,21 @@ pipeline {
                     }
                 }
 
+
+                stage('Cockroach Backwards Compatibility') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.5'
+                        STORJ_NETWORK_HOST6 = '127.0.0.5'
+
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
+                        sh 'make test-sim-backwards-compatible'
+                    }
+                }
+
                stage('Build [gomobile]') {
                     steps {
                         // just to verify its building with recent changes
