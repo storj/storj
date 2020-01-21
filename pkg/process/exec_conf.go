@@ -319,8 +319,9 @@ func cleanup(cmd *cobra.Command, loadConfig func(cmd *cobra.Command, vip *viper.
 
 		err = workErr
 		if err != nil {
-			// This function call os.Exit(1)
-			logger.Fatal("Unrecoverable error", zap.Error(err))
+			logger.Debug("Unrecoverable error", zap.Error(err))
+			fmt.Println("Error:", err.Error())
+			os.Exit(1)
 		}
 
 		return nil
