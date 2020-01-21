@@ -35,7 +35,11 @@ import (
 // - Downloads the data from those left nodes and check that it's the same than
 //   the uploaded one
 func TestDataRepair(t *testing.T) {
-	const RepairMaxExcessRateOptimalThreshold = 0.05
+	const (
+		RepairMaxExcessRateOptimalThreshold = 0.05
+		minThreshold                        = 3
+		successThreshold                    = 7
+	)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -44,6 +48,11 @@ func TestDataRepair(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+
+				config.Metainfo.RS.MinThreshold = minThreshold
+				config.Metainfo.RS.RepairThreshold = 5
+				config.Metainfo.RS.SuccessThreshold = successThreshold
+				config.Metainfo.RS.TotalThreshold = 9
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -57,18 +66,8 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 
-		var (
-			testData         = testrand.Bytes(8 * memory.KiB)
-			minThreshold     = 3
-			successThreshold = 7
-		)
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: int16(minThreshold),
-			RepairShares:   5,
-			OptimalShares:  int16(successThreshold),
-			TotalShares:    9,
-		}, "testbucket", "test/path", testData)
+		testData := testrand.Bytes(8 * memory.KiB)
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		pointer, path := getRemoteSegment(t, ctx, satellite)
@@ -176,6 +175,11 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+
+				config.Metainfo.RS.MinThreshold = 3
+				config.Metainfo.RS.RepairThreshold = 5
+				config.Metainfo.RS.SuccessThreshold = 7
+				config.Metainfo.RS.TotalThreshold = 9
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -189,13 +193,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 3,
-			RepairShares:   5,
-			OptimalShares:  7,
-			TotalShares:    9,
-		}, "testbucket", "test/path", testData)
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		pointer, path := getRemoteSegment(t, ctx, satellite)
@@ -293,6 +291,11 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+
+				config.Metainfo.RS.MinThreshold = 3
+				config.Metainfo.RS.RepairThreshold = 5
+				config.Metainfo.RS.SuccessThreshold = 7
+				config.Metainfo.RS.TotalThreshold = 9
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -306,13 +309,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 3,
-			RepairShares:   5,
-			OptimalShares:  7,
-			TotalShares:    9,
-		}, "testbucket", "test/path", testData)
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		pointer, path := getRemoteSegment(t, ctx, satellite)
@@ -407,6 +404,9 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 10,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(3, 5, 7, 7),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
@@ -419,13 +419,7 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 3,
-			RepairShares:   5,
-			OptimalShares:  7,
-			TotalShares:    7,
-		}, "testbucket", "test/path", testData)
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		pointer, _ := getRemoteSegment(t, ctx, satellite)
@@ -490,6 +484,9 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 10,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(3, 5, 7, 7),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
@@ -502,13 +499,7 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 3,
-			RepairShares:   5,
-			OptimalShares:  7,
-			TotalShares:    7,
-		}, "testbucket", "test/path", testData)
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		pointer, _ := getRemoteSegment(t, ctx, satellite)
@@ -576,6 +567,9 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 12,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(3, 5, 7, 7),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
@@ -586,13 +580,7 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 3,
-			RepairShares:   5,
-			OptimalShares:  7,
-			TotalShares:    7,
-		}, "testbucket", "test/path", testData)
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		// get a remote segment from metainfo
@@ -686,6 +674,11 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Checker.RepairOverride = repairOverride
+
+				config.Metainfo.RS.MinThreshold = 3
+				config.Metainfo.RS.RepairThreshold = 4
+				config.Metainfo.RS.SuccessThreshold = 9
+				config.Metainfo.RS.TotalThreshold = 9
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -699,13 +692,7 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 3,
-			RepairShares:   4,
-			OptimalShares:  9,
-			TotalShares:    9,
-		}, "testbucket", "test/path", testData)
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		pointer, path := getRemoteSegment(t, ctx, satellite)
@@ -772,6 +759,11 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Checker.RepairOverride = repairOverride
+
+				config.Metainfo.RS.MinThreshold = 3
+				config.Metainfo.RS.RepairThreshold = 6
+				config.Metainfo.RS.SuccessThreshold = 9
+				config.Metainfo.RS.TotalThreshold = 9
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -785,13 +777,7 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 
 		var testData = testrand.Bytes(8 * memory.KiB)
 		// first, upload some remote data
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 3,
-			RepairShares:   6,
-			OptimalShares:  9,
-			TotalShares:    9,
-		}, "testbucket", "test/path", testData)
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		pointer, path := getRemoteSegment(t, ctx, satellite)
@@ -879,7 +865,12 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 // - Verify that the number of pieces which repaired has uploaded don't overpass
 //	 the established limit (success threshold + % of excess)
 func TestDataRepairUploadLimit(t *testing.T) {
-	const RepairMaxExcessRateOptimalThreshold = 0.05
+	const (
+		RepairMaxExcessRateOptimalThreshold = 0.05
+		repairThreshold                     = 5
+		successThreshold                    = 7
+		maxThreshold                        = 9
+	)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -888,6 +879,11 @@ func TestDataRepairUploadLimit(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+
+				config.Metainfo.RS.MinThreshold = 3
+				config.Metainfo.RS.RepairThreshold = repairThreshold
+				config.Metainfo.RS.SuccessThreshold = successThreshold
+				config.Metainfo.RS.TotalThreshold = maxThreshold
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -897,11 +893,6 @@ func TestDataRepairUploadLimit(t *testing.T) {
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 
-		const (
-			repairThreshold  = 5
-			successThreshold = 7
-			maxThreshold     = 9
-		)
 		var (
 			maxRepairUploadThreshold = int(
 				math.Ceil(
@@ -912,13 +903,7 @@ func TestDataRepairUploadLimit(t *testing.T) {
 			testData = testrand.Bytes(8 * memory.KiB)
 		)
 
-		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 3,
-			RepairShares:   int16(repairThreshold),
-			OptimalShares:  int16(successThreshold),
-			TotalShares:    int16(maxThreshold),
-		}, "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		pointer, path := getRemoteSegment(t, ctx, satellite)

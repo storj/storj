@@ -28,6 +28,9 @@ func TestSendingReceivingOrders(t *testing.T) {
 	// test happy path
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		for _, storageNode := range planet.StorageNodes {
@@ -36,8 +39,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
-		redundancy := noLongTailRedundancy(planet)
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		sumBeforeSend := 0
@@ -72,6 +74,9 @@ func TestUnableToSendOrders(t *testing.T) {
 	// test sending when satellite is unavailable
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		for _, storageNode := range planet.StorageNodes {
@@ -80,8 +85,7 @@ func TestUnableToSendOrders(t *testing.T) {
 
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
-		redundancy := noLongTailRedundancy(planet)
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		sumBeforeSend := 0
@@ -117,6 +121,9 @@ func TestUnableToSendOrders(t *testing.T) {
 func TestUploadDownloadBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		wayInTheFuture := time.Now().UTC().Add(1000 * time.Hour)
 		hourBeforeTheFuture := wayInTheFuture.Add(-time.Hour)
@@ -128,8 +135,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
-		redundancy := noLongTailRedundancy(planet)
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
@@ -175,12 +181,6 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 			require.Equal(t, expectedStorageBandwidth[storageNode.ID()], nodeBandwidth)
 		}
 	})
-}
-
-func noLongTailRedundancy(planet *testplanet.Planet) storj.RedundancyScheme {
-	redundancy := planet.Uplinks[0].GetConfig(planet.Satellites[0]).GetRedundancyScheme()
-	redundancy.OptimalShares = redundancy.TotalShares
-	return redundancy
 }
 
 func TestSplitBucketIDInvalid(t *testing.T) {

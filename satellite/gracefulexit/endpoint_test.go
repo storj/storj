@@ -151,21 +151,16 @@ func TestConcurrentConnections(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  int16(successThreshold),
-			TotalShares:    int16(successThreshold),
-		}
-
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		// check that there are no exiting nodes.
@@ -253,6 +248,11 @@ func TestRecvTimeout(t *testing.T) {
 				// This config value will create a very short timeframe allowed for receiving
 				// data from storage nodes. This will cause context to cancel with timeout.
 				config.GracefulExit.RecvTimeout = 10 * time.Millisecond
+
+				config.Metainfo.RS.MinThreshold = 2
+				config.Metainfo.RS.RepairThreshold = 3
+				config.Metainfo.RS.SuccessThreshold = successThreshold
+				config.Metainfo.RS.TotalThreshold = successThreshold
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -261,15 +261,7 @@ func TestRecvTimeout(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  int16(successThreshold),
-			TotalShares:    int16(successThreshold),
-		}
-
-		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		exitingNode, err := findNodeToExit(ctx, planet, 1)
@@ -980,23 +972,18 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  int16(successThreshold),
-			TotalShares:    int16(successThreshold),
-		}
-
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
-		err = uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		// check that there are no exiting nodes.
@@ -1032,7 +1019,7 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 
 		// updating the first object and deleting the second. this will cause a root piece ID change which will result in
 		// a successful graceful exit instead of a request to transfer pieces since the root piece IDs will have changed.
-		err = uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
+		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 		err = uplinkPeer.Delete(ctx, satellite, "testbucket", "test/path1")
 		require.NoError(t, err)
@@ -1245,6 +1232,11 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 				// so we set the max failures percentage extra high.
 				config.GracefulExit.OverallMaxFailuresPercentage = 101
 				config.GracefulExit.MaxOrderLimitSendCount = maxOrderLimitSendCount
+
+				config.Metainfo.RS.MinThreshold = 2
+				config.Metainfo.RS.RepairThreshold = 3
+				config.Metainfo.RS.SuccessThreshold = 4
+				config.Metainfo.RS.TotalThreshold = 4
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1258,15 +1250,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 			nodeFullIDs[node.ID()] = node.Identity
 		}
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  4,
-			TotalShares:    4,
-		}
-
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path", testrand.Bytes(5*memory.KiB))
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		// check that there are no exiting nodes.
@@ -1376,6 +1360,11 @@ func TestIneligibleNodeAge(t *testing.T) {
 			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
 				// Set the required node age to 1 month.
 				config.GracefulExit.NodeMinAgeInMonths = 1
+
+				config.Metainfo.RS.MinThreshold = 2
+				config.Metainfo.RS.RepairThreshold = 3
+				config.Metainfo.RS.SuccessThreshold = 4
+				config.Metainfo.RS.TotalThreshold = 4
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1389,15 +1378,7 @@ func TestIneligibleNodeAge(t *testing.T) {
 			nodeFullIDs[node.ID()] = node.Identity
 		}
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  4,
-			TotalShares:    4,
-		}
-
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path", testrand.Bytes(5*memory.KiB))
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		// check that there are no exiting nodes.
@@ -1434,11 +1415,14 @@ func TestIneligibleNodeAge(t *testing.T) {
 }
 
 func testTransfers(t *testing.T, objects int, verifier func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.SatelliteSystem, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int)) {
-	successThreshold := 4
+	const successThreshold = 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -1450,16 +1434,8 @@ func testTransfers(t *testing.T, objects int, verifier func(t *testing.T, ctx *t
 			nodeFullIDs[node.ID()] = node.Identity
 		}
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  int16(successThreshold),
-			TotalShares:    int16(successThreshold),
-		}
-
 		for i := 0; i < objects; i++ {
-			err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
+			err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
 			require.NoError(t, err)
 		}
 

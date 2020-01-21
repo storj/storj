@@ -350,7 +350,6 @@ func TestBucketAttrsApply(t *testing.T) {
 			defer ctx.Check(readBack.Close)
 
 			assert.Equal(t, inBucketConfig.EncryptionParameters, readBack.Meta.Volatile.EncryptionParameters)
-			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, readBack.Meta.Volatile.RedundancyScheme)
 			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize.Int64(), readBack.Meta.Volatile.SegmentsSize)
 
 			strm, err := readBack.DownloadRange(ctx, 0, -1)

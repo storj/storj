@@ -1092,43 +1092,14 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid expiration time")
 	}
 
-	err = endpoint.validateBucket(ctx, req.Bucket)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	bucket, err := endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	// take bucket RS values if not set in request
-	pbRS := req.RedundancyScheme
-	if pbRS.Type == 0 {
-		pbRS.Type = pb.RedundancyScheme_SchemeType(bucket.DefaultRedundancyScheme.Algorithm)
-	}
-	if pbRS.ErasureShareSize == 0 {
-		pbRS.ErasureShareSize = bucket.DefaultRedundancyScheme.ShareSize
-	}
-	if pbRS.MinReq == 0 {
-		pbRS.MinReq = int32(bucket.DefaultRedundancyScheme.RequiredShares)
-	}
-	if pbRS.RepairThreshold == 0 {
-		pbRS.RepairThreshold = int32(bucket.DefaultRedundancyScheme.RepairShares)
-	}
-	if pbRS.SuccessThreshold == 0 {
-		pbRS.SuccessThreshold = int32(bucket.DefaultRedundancyScheme.OptimalShares)
-	}
-	if pbRS.Total == 0 {
-		pbRS.Total = int32(bucket.DefaultRedundancyScheme.TotalShares)
-	}
-
-	pbEP := req.EncryptionParameters
-	if pbEP.CipherSuite == 0 {
-		pbEP.CipherSuite = pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite)
-	}
-	if pbEP.BlockSize == 0 {
-		pbEP.BlockSize = int64(bucket.DefaultEncryptionParameters.BlockSize)
+	// use only satellite values for Redundancy Scheme
+	pbRS := &pb.RedundancyScheme{
+		Type:             pb.RedundancyScheme_RS,
+		MinReq:           int32(endpoint.requiredRSConfig.MinThreshold),
+		RepairThreshold:  int32(endpoint.requiredRSConfig.RepairThreshold),
+		SuccessThreshold: int32(endpoint.requiredRSConfig.SuccessThreshold),
+		Total:            int32(endpoint.requiredRSConfig.TotalThreshold),
+		ErasureShareSize: endpoint.requiredRSConfig.ErasureShareSize.Int32(),
 	}
 
 	streamID, err := endpoint.packStreamID(ctx, &pb.SatStreamID{
@@ -1146,12 +1117,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	endpoint.log.Info("Object Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "object"))
 
 	return &pb.ObjectBeginResponse{
-		Bucket:               req.Bucket,
-		EncryptedPath:        req.EncryptedPath,
-		Version:              req.Version,
-		StreamId:             streamID,
-		RedundancyScheme:     pbRS,
-		EncryptionParameters: pbEP,
+		Bucket:           req.Bucket,
+		EncryptedPath:    req.EncryptedPath,
+		Version:          req.Version,
+		StreamId:         streamID,
+		RedundancyScheme: pbRS,
 	}, nil
 }
 

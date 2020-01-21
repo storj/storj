@@ -73,6 +73,9 @@ func TestUplinksParallel(t *testing.T) {
 func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 5),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
@@ -80,13 +83,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 		testData := testrand.Bytes(memory.MiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  4,
-			TotalShares:    5,
-		}, "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		// get a remote segment from pointerdb
@@ -195,16 +192,13 @@ func (mock *piecestoreMock) RestoreTrash(context.Context, *pb.RestoreTrashReques
 func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 5),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		expectedData := testrand.Bytes(memory.MiB)
 
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  4,
-			TotalShares:    5,
-		}, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		// get a remote segment from pointerdb

@@ -34,6 +34,11 @@ func TestChore(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.GracefulExit.MaxInactiveTimeFrame = maximumInactiveTimeFrame
+
+				config.Metainfo.RS.MinThreshold = 4
+				config.Metainfo.RS.RepairThreshold = 6
+				config.Metainfo.RS.SuccessThreshold = 8
+				config.Metainfo.RS.TotalThreshold = 8
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -43,18 +48,10 @@ func TestChore(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 4,
-			RepairShares:   6,
-			OptimalShares:  8,
-			TotalShares:    8,
-		}
-
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
-		err = uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path2", testrand.Bytes(5*memory.KiB))
+		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path2", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		exitStatusRequest := overlay.ExitStatusRequest{
@@ -130,7 +127,10 @@ func TestChore(t *testing.T) {
 }
 
 func TestDurabilityRatio(t *testing.T) {
-	var maximumInactiveTimeFrame = time.Second * 1
+	const (
+		maximumInactiveTimeFrame = time.Second * 1
+		successThreshold         = 4
+	)
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 4,
@@ -138,6 +138,11 @@ func TestDurabilityRatio(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.GracefulExit.MaxInactiveTimeFrame = maximumInactiveTimeFrame
+
+				config.Metainfo.RS.MinThreshold = 2
+				config.Metainfo.RS.RepairThreshold = 3
+				config.Metainfo.RS.SuccessThreshold = successThreshold
+				config.Metainfo.RS.TotalThreshold = 4
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -148,15 +153,7 @@ func TestDurabilityRatio(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  4,
-			TotalShares:    4,
-		}
-
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		exitStatusRequest := overlay.ExitStatusRequest{
@@ -223,7 +220,7 @@ func TestDurabilityRatio(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 1)
 		for _, incomplete := range incompleteTransfers {
-			require.Equal(t, float64(rs.OptimalShares-1)/float64(rs.OptimalShares), incomplete.DurabilityRatio)
+			require.Equal(t, float64(successThreshold-1)/float64(successThreshold), incomplete.DurabilityRatio)
 			require.NotNil(t, incomplete.RootPieceID)
 		}
 	})

@@ -280,6 +280,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the desired total pieces for a segment. o.
 # metainfo.rs.success-threshold: 80
 
+# the largest amount of pieces to encode to. n.
+# metainfo.rs.total-threshold: 110
+
 # validate redundancy scheme configuration
 # metainfo.rs.validate: true
 

@@ -1110,49 +1110,6 @@ func TestBatch(t *testing.T) {
 	})
 }
 
-func TestValidateRS(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.RS.MinTotalThreshold = 4
-				config.Metainfo.RS.MaxTotalThreshold = 5
-				config.Metainfo.RS.Validate = true
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		ul := planet.Uplinks[0]
-		satellite := planet.Satellites[0]
-
-		testData := testrand.Bytes(8 * memory.KiB)
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 1,
-			RepairShares:   2,
-			OptimalShares:  3,
-			TotalShares:    3,
-		}
-		// test below permitted total value
-		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/below", testData)
-		require.Error(t, err)
-
-		// test above permitted total value
-		rs.TotalShares = 6
-		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/above", testData)
-		require.Error(t, err)
-
-		// test minimum permitted total value
-		rs.TotalShares = 4
-		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/min", testData)
-		require.NoError(t, err)
-
-		// test maximum permitted total value
-		rs.TotalShares = 5
-		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/max", testData)
-		require.NoError(t, err)
-	})
-}
-
 func TestRateLimit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,

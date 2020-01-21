@@ -24,15 +24,18 @@ const (
 // RSConfig is a configuration struct that keeps details about default
 // redundancy strategy information
 type RSConfig struct {
-	MaxSegmentSize    memory.Size `help:"maximum segment size" default:"64MiB"`
-	MaxBufferMem      memory.Size `help:"maximum buffer memory to be allocated for read buffers" default:"4MiB"`
-	ErasureShareSize  memory.Size `help:"the size of each new erasure share in bytes" default:"256B"`
-	MinThreshold      int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
-	RepairThreshold   int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
-	SuccessThreshold  int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
-	MinTotalThreshold int         `help:"the largest amount of pieces to encode to. n (lower bound for validation)." releaseDefault:"95" devDefault:"10"`
-	MaxTotalThreshold int         `help:"the largest amount of pieces to encode to. n (upper bound for validation)." releaseDefault:"130" devDefault:"10"`
-	Validate          bool        `help:"validate redundancy scheme configuration" default:"true"`
+	MaxSegmentSize   memory.Size `help:"maximum segment size" default:"64MiB"`
+	MaxBufferMem     memory.Size `help:"maximum buffer memory to be allocated for read buffers" default:"4MiB"`
+	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"256B"`
+	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
+	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
+	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
+	TotalThreshold   int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"110" devDefault:"10"`
+
+	// TODO left for validation until we will remove CreateSegmentOld
+	MinTotalThreshold int  `help:"the largest amount of pieces to encode to. n (lower bound for validation)." releaseDefault:"95" devDefault:"10"`
+	MaxTotalThreshold int  `help:"the largest amount of pieces to encode to. n (upper bound for validation)." releaseDefault:"130" devDefault:"10"`
+	Validate          bool `help:"validate redundancy scheme configuration" default:"true"`
 }
 
 // RateLimiterConfig is a configuration struct for endpoint rate limiting

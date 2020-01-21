@@ -24,85 +24,78 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 	t.Run("all nodes up", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			var (
+				uplnk        = planet.Uplinks[0]
+				satelliteSys = planet.Satellites[0]
+			)
 
-		planet, err := testplanet.New(t, 1, 4, 1)
-		require.NoError(t, err)
-		defer ctx.Check(planet.Shutdown)
-		planet.Start(ctx)
+			var testCases = []struct {
+				caseDescription string
+				objData         []byte
+			}{
+				{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
+				{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
+				{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
+				{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
+			}
 
-		var (
-			uplnk        = planet.Uplinks[0]
-			satelliteSys = planet.Satellites[0]
-		)
+			for i, tc := range testCases {
+				i := i
+				tc := tc
+				t.Run(tc.caseDescription, func(t *testing.T) {
+					var (
+						bucketName = "a-bucket"
+						objectName = "object-filename" + strconv.Itoa(i)
+					)
 
-		var testCases = []struct {
-			caseDescription string
-			objData         []byte
-		}{
-			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-			{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
-			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
-			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
-		}
-
-		for i, tc := range testCases {
-			i := i
-			tc := tc
-			t.Run(tc.caseDescription, func(t *testing.T) {
-				var (
-					bucketName = "a-bucket"
-					objectName = "object-filename" + strconv.Itoa(i)
-				)
-
-				// Use RSConfig for ensuring that we don't have long-tail cancellations and the
-				// upload doesn't leave garbage in the SNs
-				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-					Client: cmd.ClientConfig{
-						SegmentSize: 10 * memory.KiB,
+					// Use RSConfig for ensuring that we don't have long-tail cancellations and the
+					// upload doesn't leave garbage in the SNs
+					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+						Client: cmd.ClientConfig{
+							SegmentSize: 10 * memory.KiB,
+						},
 					},
-					RS: cmd.RSConfig{
-						MinThreshold:     2,
-						RepairThreshold:  2,
-						SuccessThreshold: 4,
-						MaxThreshold:     4,
-					},
-				},
-					bucketName, objectName, tc.objData,
-				)
-				require.NoError(t, err)
-
-				// calculate the SNs total used space after data upload
-				var totalUsedSpace int64
-				for _, sn := range planet.StorageNodes {
-					usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						bucketName, objectName, tc.objData,
+					)
 					require.NoError(t, err)
-					totalUsedSpace += usedSpace
-				}
 
-				projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
-				err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-					ctx, *projectID, []byte(bucketName), encryptedPath,
-				)
-				require.NoError(t, err)
+					// calculate the SNs total used space after data upload
+					var totalUsedSpace int64
+					for _, sn := range planet.StorageNodes {
+						usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						require.NoError(t, err)
+						totalUsedSpace += usedSpace
+					}
 
-				// calculate the SNs used space after delete the pieces
-				var totalUsedSpaceAfterDelete int64
-				for _, sn := range planet.StorageNodes {
-					usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
+					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
+						ctx, *projectID, []byte(bucketName), encryptedPath,
+					)
 					require.NoError(t, err)
-					totalUsedSpaceAfterDelete += usedSpace
-				}
 
-				// At this point we can only guarantee that the 75% of the SNs pieces
-				// are delete due to the success threshold
-				deletedUsedSpace := float64(totalUsedSpace-totalUsedSpaceAfterDelete) / float64(totalUsedSpace)
-				if deletedUsedSpace < 0.75 {
-					t.Fatalf("deleted used space is less than 0.75%%. Got %f", deletedUsedSpace)
-				}
-			})
-		}
+					// calculate the SNs used space after delete the pieces
+					var totalUsedSpaceAfterDelete int64
+					for _, sn := range planet.StorageNodes {
+						usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						require.NoError(t, err)
+						totalUsedSpaceAfterDelete += usedSpace
+					}
+
+					// At this point we can only guarantee that the 75% of the SNs pieces
+					// are delete due to the success threshold
+					deletedUsedSpace := float64(totalUsedSpace-totalUsedSpaceAfterDelete) / float64(totalUsedSpace)
+					if deletedUsedSpace < 0.75 {
+						t.Fatalf("deleted used space is less than 0.75%%. Got %f", deletedUsedSpace)
+					}
+				})
+			}
+		})
 	})
 
 	t.Run("some nodes down", func(t *testing.T) {
@@ -121,70 +114,63 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 			i := i
 			tc := tc
 			t.Run(tc.caseDescription, func(t *testing.T) {
-				ctx := testcontext.New(t)
-				defer ctx.Cleanup()
-
-				planet, err := testplanet.New(t, 1, 4, 1)
-				require.NoError(t, err)
-				defer ctx.Check(planet.Shutdown)
-				planet.Start(ctx)
-
-				var (
-					uplnk        = planet.Uplinks[0]
-					satelliteSys = planet.Satellites[0]
-				)
 
 				var (
 					bucketName = "a-bucket"
 					objectName = "object-filename" + strconv.Itoa(i)
 				)
 
-				// Use RSConfig for ensuring that we don't have long-tail cancellations and the
-				// upload doesn't leave garbage in the SNs
-				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-					Client: cmd.ClientConfig{
-						SegmentSize: 10 * memory.KiB,
+				testplanet.Run(t, testplanet.Config{
+					SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+					Reconfigure: testplanet.Reconfigure{
+						Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 					},
-					RS: cmd.RSConfig{
-						MinThreshold:     2,
-						RepairThreshold:  2,
-						SuccessThreshold: 4,
-						MaxThreshold:     4,
-					},
-				}, bucketName, objectName, tc.objData)
-				require.NoError(t, err)
-
-				// Shutdown the first 2 storage nodes before we delete the pieces
-				require.NoError(t, planet.StopPeer(planet.StorageNodes[0]))
-				require.NoError(t, planet.StopPeer(planet.StorageNodes[1]))
-
-				projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
-				err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-					ctx, *projectID, []byte(bucketName), encryptedPath,
-				)
-				require.NoError(t, err)
-
-				// Check that storage nodes that were offline when deleting the pieces
-				// they are still holding data
-				var totalUsedSpace int64
-				for i := 0; i < 2; i++ {
-					usedSpace, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
+				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+					var (
+						uplnk        = planet.Uplinks[0]
+						satelliteSys = planet.Satellites[0]
+					)
+					// Use RSConfig for ensuring that we don't have long-tail cancellations and the
+					// upload doesn't leave garbage in the SNs
+					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+						Client: cmd.ClientConfig{
+							SegmentSize: 10 * memory.KiB,
+						},
+					}, bucketName, objectName, tc.objData)
 					require.NoError(t, err)
-					totalUsedSpace += usedSpace
-				}
 
-				require.NotZero(t, totalUsedSpace, "totalUsedSpace offline nodes")
+					// Shutdown the first 2 storage nodes before we delete the pieces
+					require.NoError(t, planet.StopPeer(planet.StorageNodes[0]))
+					require.NoError(t, planet.StopPeer(planet.StorageNodes[1]))
 
-				// Check that storage nodes which are online when deleting pieces don't
-				// hold any piece
-				totalUsedSpace = 0
-				for i := 2; i < len(planet.StorageNodes); i++ {
-					usedSpace, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
+					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
+					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
+						ctx, *projectID, []byte(bucketName), encryptedPath,
+					)
 					require.NoError(t, err)
-					totalUsedSpace += usedSpace
-				}
 
-				require.Zero(t, totalUsedSpace, "totalUsedSpace online nodes")
+					// Check that storage nodes that were offline when deleting the pieces
+					// they are still holding data
+					var totalUsedSpace int64
+					for i := 0; i < 2; i++ {
+						usedSpace, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
+						require.NoError(t, err)
+						totalUsedSpace += usedSpace
+					}
+
+					require.NotZero(t, totalUsedSpace, "totalUsedSpace offline nodes")
+
+					// Check that storage nodes which are online when deleting pieces don't
+					// hold any piece
+					totalUsedSpace = 0
+					for i := 2; i < len(planet.StorageNodes); i++ {
+						usedSpace, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
+						require.NoError(t, err)
+						totalUsedSpace += usedSpace
+					}
+
+					require.Zero(t, totalUsedSpace, "totalUsedSpace online nodes")
+				})
 			})
 		}
 	})
@@ -209,56 +195,48 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					bucketName = "a-bucket"
 					objectName = "object-filename" + strconv.Itoa(i)
 				)
-
-				ctx := testcontext.New(t)
-				defer ctx.Cleanup()
-
-				planet, err := testplanet.New(t, 1, 4, 1)
-				require.NoError(t, err)
-				defer ctx.Check(planet.Shutdown)
-				planet.Start(ctx)
-
-				var (
-					uplnk        = planet.Uplinks[0]
-					satelliteSys = planet.Satellites[0]
-				)
-
-				// Use RSConfig for ensuring that we don't have long-tail cancellations and the
-				// upload doesn't leave garbage in the SNs
-				err = uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-					Client: cmd.ClientConfig{
-						SegmentSize: 10 * memory.KiB,
+				testplanet.Run(t, testplanet.Config{
+					SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+					Reconfigure: testplanet.Reconfigure{
+						Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 					},
-					RS: cmd.RSConfig{
-						MinThreshold:     2,
-						RepairThreshold:  2,
-						SuccessThreshold: 4,
-						MaxThreshold:     4,
-					},
-				}, bucketName, objectName, tc.objData)
-				require.NoError(t, err)
+				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+					var (
+						uplnk        = planet.Uplinks[0]
+						satelliteSys = planet.Satellites[0]
+					)
 
-				// Shutdown all the storage nodes before we delete the pieces
-				for _, sn := range planet.StorageNodes {
-					require.NoError(t, planet.StopPeer(sn))
-				}
-
-				projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
-				err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-					ctx, *projectID, []byte(bucketName), encryptedPath,
-				)
-				require.NoError(t, err)
-
-				// Check that storage nodes that were offline when deleting the pieces
-				// they are still holding data
-				var totalUsedSpace int64
-				for _, sn := range planet.StorageNodes {
-					usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+					// Use RSConfig for ensuring that we don't have long-tail cancellations and the
+					// upload doesn't leave garbage in the SNs
+					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+						Client: cmd.ClientConfig{
+							SegmentSize: 10 * memory.KiB,
+						},
+					}, bucketName, objectName, tc.objData)
 					require.NoError(t, err)
-					totalUsedSpace += usedSpace
-				}
 
-				require.NotZero(t, totalUsedSpace, "totalUsedSpace")
+					// Shutdown all the storage nodes before we delete the pieces
+					for _, sn := range planet.StorageNodes {
+						require.NoError(t, planet.StopPeer(sn))
+					}
+
+					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
+					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
+						ctx, *projectID, []byte(bucketName), encryptedPath,
+					)
+					require.NoError(t, err)
+
+					// Check that storage nodes that were offline when deleting the pieces
+					// they are still holding data
+					var totalUsedSpace int64
+					for _, sn := range planet.StorageNodes {
+						usedSpace, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						require.NoError(t, err)
+						totalUsedSpace += usedSpace
+					}
+
+					require.NotZero(t, totalUsedSpace, "totalUsedSpace")
+				})
 			})
 		}
 	})

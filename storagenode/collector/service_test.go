@@ -19,6 +19,9 @@ import (
 func TestCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(1, 1, 2, 2),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		for _, storageNode := range planet.StorageNodes {
 			// stop collector, so we can run it manually
@@ -30,17 +33,7 @@ func TestCollector(t *testing.T) {
 		expectedData := testrand.Bytes(100 * memory.KiB)
 
 		// upload some data to exactly 2 nodes that expires in 8 days
-		err := planet.Uplinks[0].UploadWithExpirationAndConfig(ctx,
-			planet.Satellites[0],
-			&storj.RedundancyScheme{
-				Algorithm:      storj.ReedSolomon,
-				RequiredShares: 1,
-				RepairShares:   1,
-				OptimalShares:  2,
-				TotalShares:    2,
-			},
-			"testbucket", "test/path",
-			expectedData, time.Now().Add(8*24*time.Hour))
+		err := planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData, time.Now().Add(8*24*time.Hour))
 		require.NoError(t, err)
 
 		// stop satellite to prevent audits
