@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"storj.io/common/fpath"
 	"storj.io/common/storj"
@@ -60,7 +61,7 @@ var RootCmd = &cobra.Command{
 	Use:                "uplink",
 	Short:              "The Storj client-side CLI",
 	Args:               cobra.OnlyValidArgs,
-	PersistentPreRunE:  startCPUProfile,
+	PersistentPreRunE:  combineCobraFuncs(startCPUProfile, modifyFlagDefaults),
 	PersistentPostRunE: stopAndWriteProfile,
 }
 
@@ -219,5 +220,27 @@ func toStringMapE(from interface{}) (to map[string]interface{}) {
 		return to
 	default:
 		return cast.ToStringMap(from)
+	}
+}
+
+func modifyFlagDefaults(cmd *cobra.Command, args []string) (err error) {
+	levelFlag := cmd.Flag("log.level")
+	if levelFlag != nil && !levelFlag.Changed {
+		err := flag.Set("log.level", zapcore.WarnLevel.String())
+		if err != nil {
+			return Error.Wrap(errs.Combine(errs.New("unable to set log level flag"), err))
+		}
+	}
+	return nil
+}
+
+func combineCobraFuncs(funcs ...func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) (err error) {
+		for _, fn := range funcs {
+			if err = fn(cmd, args); err != nil {
+				return err
+			}
+		}
+		return err
 	}
 }
