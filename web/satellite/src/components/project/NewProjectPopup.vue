@@ -5,8 +5,8 @@
     <div class="new-project-popup-container" @keyup.enter="createProjectClick" @keyup.esc="onCloseClick">
         <div class="new-project-popup" id="newProjectPopup" >
             <div class="new-project-popup__info-panel-container">
-                <h2 class="new-project-popup__info-panel-container__main-label-text">Create a Project</h2>
-                <CreateProjectIcon alt="Create project illustration"/>
+                <h2 class="new-project-popup__info-panel-container__main-label-text">Create New Project</h2>
+                <img src="@/../static/images/project/createProject.jpg" alt="create project image">
             </div>
             <div class="new-project-popup__form-container">
                 <HeaderedInput
@@ -59,7 +59,6 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-import CreateProjectIcon from '@/../static/images/project/createProject.svg';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -76,7 +75,6 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
     components: {
         HeaderedInput,
         VButton,
-        CreateProjectIcon,
         CloseCrossIcon,
     },
 })

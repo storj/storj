@@ -38,7 +38,6 @@ export default class VButton extends Vue {
         return { width: this.width, height: this.height };
     }
 
-    @Watch('isDisabled')
     public get containerClassName(): string {
         if (this.isDisabled) return 'container disabled';
 

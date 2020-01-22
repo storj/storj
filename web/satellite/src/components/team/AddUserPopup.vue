@@ -7,7 +7,7 @@
             <div class="add-user__main">
                 <div class='add-user__info-panel-container'>
                     <h2 class='add-user__info-panel-container__main-label-text'>Add Team Member</h2>
-                    <AddMemberIcon/>
+                    <img src="@/../static/images/team/addMember.jpg" alt="add team member image">
                 </div>
                 <div class='add-user__form-container'>
                     <p class='add-user__form-container__common-label' v-if="!formError">Email Address</p>
@@ -79,7 +79,6 @@ import VButton from '@/components/common/VButton.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 import AddFieldIcon from '@/../static/images/team/addField.svg';
-import AddMemberIcon from '@/../static/images/team/addMember.svg';
 import AddMemberNotificationIcon from '@/../static/images/team/addMemberNotification.svg';
 import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 
@@ -92,7 +91,6 @@ import { validateEmail } from '@/utils/validation';
 @Component({
     components: {
         VButton,
-        AddMemberIcon,
         ErrorIcon,
         DeleteFieldIcon,
         AddFieldIcon,
@@ -353,8 +351,8 @@ export default class AddUserPopup extends Vue {
             position: relative;
             justify-content: center;
             background-color: #fff;
-            padding: 80px 20px 80px 60px;
-            width: calc(100% - 80px);
+            padding: 80px 20px 80px 30px;
+            width: calc(100% - 50px);
         }
 
         &__info-panel-container {
@@ -362,22 +360,16 @@ export default class AddUserPopup extends Vue {
             flex-direction: column;
             justify-content: flex-start;
             align-items: center;
-            margin-right: 100px;
-            padding: 0 50px;
-
-            &__text {
-                font-size: 16px;
-                margin-top: 0;
-                margin-bottom: 50px;
-            }
+            margin-right: 150px;
 
             &__main-label-text {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 29px;
                 color: #384b65;
-                margin-top: 0;
-                width: 107%;
+                margin: 0 0 90px 0;
+                width: 130%;
+                text-align: end;
                 user-select: none;
             }
         }
@@ -407,8 +399,7 @@ export default class AddUserPopup extends Vue {
             &__inputs-group {
                 max-height: 35vh;
                 overflow-y: hidden;
-                padding-left: 50px;
-                padding-right: 50px;
+                padding: 0 50px;
 
                 &__item {
                     display: flex;
@@ -489,7 +480,6 @@ export default class AddUserPopup extends Vue {
     .notification-wrap {
         background-color: rgba(194, 214, 241, 1);
         height: 98px;
-        width: calc(100% - 100px);
         display: flex;
         justify-content: flex-start;
         padding: 0 50px;
