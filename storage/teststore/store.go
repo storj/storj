@@ -202,12 +202,14 @@ func (store *Client) Close() error {
 // Iterate iterates over items based on opts
 func (store *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer store.locked()()
 
+	store.mu.Lock()
 	store.CallCount.Iterate++
 	if store.forcedError() {
+		store.mu.Unlock()
 		return errInternal
 	}
+	store.mu.Unlock()
 
 	var cursor advancer = &forward{newCursor(store)}
 
@@ -304,8 +306,10 @@ func (cursor *cursor) close() {
 // positionForward positions at key or the next item
 func (cursor *cursor) positionForward(key storage.Key) {
 	store := cursor.store
+	store.mu.Lock()
 	cursor.version = store.version
 	cursor.nextIndex, _ = store.indexOf(key)
+	store.mu.Unlock()
 	cursor.lastKey = storage.CloneKey(key)
 }
 
@@ -314,6 +318,7 @@ func (cursor *cursor) next() (*storage.ListItem, bool) {
 	if cursor.done {
 		return nil, false
 	}
+	defer store.locked()()
 
 	if cursor.version != store.version {
 		cursor.version = store.version

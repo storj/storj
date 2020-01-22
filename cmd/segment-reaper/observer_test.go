@@ -21,7 +21,6 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -29,6 +28,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/teststore"
 )
 
 func TestMain(m *testing.M) {
@@ -524,10 +524,7 @@ func TestObserver_processSegment_switch_project(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	// need bolddb to have DB with concurrent access support
-	db, err := metainfo.NewStore(zaptest.NewLogger(t), "bolt://"+ctx.File("pointers.db"))
-	require.NoError(t, err)
-	defer ctx.Check(db.Close)
+	db := teststore.New()
 
 	buffer := new(bytes.Buffer)
 	writer := csv.NewWriter(buffer)
@@ -601,9 +598,7 @@ func TestObserver_processSegment_single_project(t *testing.T) {
 		tt := tt
 		t.Run("#"+strconv.Itoa(i), func(t *testing.T) {
 			// need boltdb to have DB with concurrent access support
-			db, err := metainfo.NewStore(zaptest.NewLogger(t), "bolt://"+ctx.File("pointers.db"))
-			require.NoError(t, err)
-			defer ctx.Check(db.Close)
+			db := teststore.New()
 
 			for i, ttObject := range tt.objects {
 				for _, segment := range ttObject.segments {
@@ -632,7 +627,7 @@ func TestObserver_processSegment_single_project(t *testing.T) {
 				objects: make(bucketsObjects),
 				writer:  csv.NewWriter(new(bytes.Buffer)),
 			}
-			err = observer.detectZombieSegments(ctx)
+			err := observer.detectZombieSegments(ctx)
 			require.NoError(t, err)
 
 			for i, ttObject := range tt.objects {

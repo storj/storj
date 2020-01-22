@@ -5,7 +5,6 @@ package testplanet
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -25,9 +24,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
-	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/version"
 	versionchecker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite"
@@ -55,7 +51,6 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage/redis/redisserver"
 )
@@ -241,19 +236,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if planet.config.Reconfigure.NewSatelliteDB != nil {
 			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
 		} else {
-			// TODO: This is analogous to the way we worked prior to the advent of OpenUnique,
-			// but it seems wrong. Tests that use planet.Start() instead of testplanet.Run()
-			// will not get run against both types of DB.
-			connStr := *pgtest.ConnStr
-			if *pgtest.CrdbConnStr != "" {
-				connStr = *pgtest.CrdbConnStr
-			}
-			var tempDB *dbutil.TempDatabase
-			tempDB, err = tempdb.OpenUnique(context.TODO(), connStr, fmt.Sprintf("%s.%d", planet.id, i))
-			if err != nil {
-				return nil, err
-			}
-			db, err = satellitedbtest.CreateMasterDBOnTopOf(log.Named("db"), tempDB)
+			return nil, errs.New("NewSatelliteDB not defined")
 		}
 		if err != nil {
 			return nil, err
@@ -263,7 +246,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if planet.config.Reconfigure.NewSatellitePointerDB != nil {
 			pointerDB, err = planet.config.Reconfigure.NewSatellitePointerDB(log.Named("pointerdb"), i)
 		} else {
-			pointerDB, err = metainfo.NewStore(log.Named("pointerdb"), "bolt://"+filepath.Join(storageDir, "pointers.db"))
+			return nil, errs.New("NewSatellitePointerDB not defined")
 		}
 		if err != nil {
 			return nil, err
