@@ -28,7 +28,13 @@
             </div>
         </div>
         <PaymentsBonus
-            v-if="isDefaultState && isBonusInfoShown"
+            v-if="isDefaultBonusBannerShown"
+            :any-credit-cards="false"
+            class="payment-methods-area__bonus"
+        />
+        <PaymentsBonus
+            v-else
+            :any-credit-cards="true"
             class="payment-methods-area__bonus"
         />
         <div class="payment-methods-area__adding-container storj" v-if="isAddingStorjState">
@@ -138,7 +144,11 @@ export default class PaymentMethods extends Vue {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
     }
 
-    public get isBonusInfoShown(): boolean {
+    public get isDefaultBonusBannerShown(): boolean {
+        return this.isDefaultState && this.noCreditCards;
+    }
+
+    public get noCreditCards(): boolean {
         return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 

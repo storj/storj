@@ -21,7 +21,7 @@
         </div>
         <AccountBalance/>
         <MonthlyBillingSummary/>
-        <PaymentMethods />
+        <PaymentMethods/>
         <DepositAndBilling/>
     </div>
 </template>
