@@ -334,7 +334,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				},
 				RateLimiter: metainfo.RateLimiterConfig{
 					Enabled:       true,
-					Rate:          100,
+					Rate:          1000,
 					CacheCapacity: 100,
 				},
 			},
