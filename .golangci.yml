@@ -10,41 +10,43 @@ run:
 
 linters:
   enable:
-    - govet       # check standard vet rules
-    - golint      # check standard linting rules
-    - staticcheck # comprehensive checks
-    - errcheck    # find unchecked errors
-    - ineffassign # find ineffective assignments
-    - varcheck    # find unused global variables and constants
-    - structcheck # check for unused struct parameters
-    - deadcode    # find code that is not used
-    - bodyclose   # find unclosed http response bodies
-    - nakedret    # check for naked returns
-    - gofmt       # sanity check formatting
-    - misspell    # check spelling
-    - unconvert   # remove unnecessary conversions
-    - scopelint   # checks for unpinned variables
-    - gocritic    # checks for style, performance issues, and common programming errors
-    - dogsled     # checks for too many ignored arguments
-    #TODO#- whitespace  # checks for leading/trailing newlines
-    #TODO#- unparam     # check for unused parameters
-    #TODO#- maligned    # check for better memory usage
-    #TODO#- prealloc    # easy optimizations
+    - govet                   # check standard vet rules
+    - golint                  # check standard linting rules
+    - staticcheck             # comprehensive checks
+    - errcheck                # find unchecked errors
+    - ineffassign             # find ineffective assignments
+    - varcheck                # find unused global variables and constants
+    - structcheck             # check for unused struct parameters
+    - deadcode                # find code that is not used
+    - bodyclose               # find unclosed http response bodies
+    - nakedret                # check for naked returns
+    - gofmt                   # sanity check formatting
+    - misspell                # check spelling
+    - unconvert               # remove unnecessary conversions
+    - scopelint               # checks for unpinned variables
+    - gocritic                # checks for style, performance issues, and common programming errors
+    - dogsled                 # checks for too many ignored arguments
+    - goprintffuncname        # Checks that printf-like functions are named with `f` at the end [fast: true, auto-fix: false]
+    #TODO#- whitespace        # checks for leading/trailing newlines
+    #TODO#- unparam           # check for unused parameters
+    #TODO#- maligned          # check for better memory usage
+    #TODO#- prealloc          # easy optimizations
     #TODO#- gosec
   disable:
     - godox
-    - wsl         # too much noise
-    - goimports   # disabled, because it's slow, using scripts/check-imports.go instead.
-    - goconst     # check for things that could be replaced by constants
-    - gocyclo     # needs tweaking
-    - depguard    # unused
-    - gosec       # needs tweaking
-    - stylecheck  # has false positives
-    - dupl        # slow
-    - interfacer  # not that useful
-    - gosimple    # part of staticcheck
-    - unused      # part of staticcheck
+    - wsl             # too much noise
+    - goimports       # disabled, because it's slow, using scripts/check-imports.go instead.
+    - goconst         # check for things that could be replaced by constants
+    - gocyclo         # needs tweaking
+    - depguard        # unused
+    - gosec           # needs tweaking
+    - stylecheck      # has false positives
+    - dupl            # slow
+    - interfacer      # not that useful
+    - gosimple        # part of staticcheck
+    - unused          # part of staticcheck
     - lll
+    - rowserrcheck    # checks if sql.Rows.Err is checked correctly - Disabled  because it reports false positive with defer statements after Query call
   fast: false
 
 output:
