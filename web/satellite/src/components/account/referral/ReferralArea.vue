@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="referral-container">
+    <div class="referral-container" :class="{collapsed: isBannerShown}">
         <div class="referral-container__title-container">
             <p class="referral-container__title-container__text">Refer A Friend And Help Build The</p>
             <p class="referral-container__title-container__text">Decentralized Future</p>
@@ -44,6 +44,10 @@ Vue.use(VueClipboards);
 export default class ReferralArea extends Vue {
     public copyLink(): void {
         this.$notify.success('Link saved to clipboard');
+    }
+
+    public get isBannerShown(): boolean {
+        return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
     public get isAvailableLinks(): boolean {
@@ -156,5 +160,9 @@ export default class ReferralArea extends Vue {
                 color: #384b65;
             }
         }
+    }
+
+    .collapsed {
+        height: auto !important;
     }
 </style>

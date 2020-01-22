@@ -5,8 +5,10 @@ import Vuex from 'vuex';
 
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 
+import { PaymentsHttpApi } from '@/api/payments';
 import { API_KEYS_MUTATIONS, makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeNotificationsModule } from '@/store/modules/notifications';
+import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ApiKey, ApiKeysPage } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
@@ -28,9 +30,11 @@ const apiKeysApi = new ApiKeysMock();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
+const paymentsApi = new PaymentsHttpApi();
+const paymentsModule = makePaymentsModule(paymentsApi);
 const notificationsModule = makeNotificationsModule();
 const { CLEAR, SET_PAGE } = API_KEYS_MUTATIONS;
-const store = new Vuex.Store({ modules: { projectsModule, apiKeysModule, notificationsModule }});
+const store = new Vuex.Store({ modules: { projectsModule, apiKeysModule, paymentsModule, notificationsModule }});
 
 describe('ApiKeysArea', () => {
     const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);

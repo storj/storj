@@ -83,7 +83,7 @@ export default class NoBucketArea extends Vue {}
     }
 
     .no-buckets-area {
-        padding: 40px 180px 120px 180px;
+        padding: 40px 180px 0 180px;
         font-family: 'font_regular', sans-serif;
 
         &__header {

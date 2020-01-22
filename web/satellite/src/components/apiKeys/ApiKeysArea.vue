@@ -3,7 +3,7 @@
 
 <template>
     <div class="api-keys-area">
-        <h1 class="api-keys-area__title">API Keys</h1>
+        <h1 class="api-keys-area__title" v-if="isTitleShown">API Keys</h1>
         <div class="api-keys-area__container">
             <ApiKeysCreationPopup
                 @closePopup="closeNewApiKeyPopup"
@@ -93,6 +93,7 @@
                 <EmptySearchResultIcon class="empty-search-result-area__image"/>
             </div>
             <EmptyState
+                :class="{collapsed: isBannerShown}"
                 :on-button-click="onCreateApiKeyClick"
                 v-if="isEmptyStateShown"
                 main-title="Let's create your first API Key"
@@ -266,6 +267,14 @@ export default class ApiKeysArea extends Vue {
 
     public get isEmpty(): boolean {
         return this.$store.getters.apiKeys.length === 0;
+    }
+
+    public get isBannerShown(): boolean {
+        return this.$store.state.paymentsModule.creditCards.length === 0;
+    }
+
+    public get isTitleShown(): boolean {
+        return !this.isBannerShown && this.isEmpty;
     }
 
     public get hasSearchQuery(): boolean {
@@ -479,6 +488,10 @@ export default class ApiKeysArea extends Vue {
             background-color: #de3e3d;
             box-shadow: none;
         }
+    }
+
+    .collapsed {
+        margin-top: 0 !important;
     }
 
     ::-webkit-scrollbar,

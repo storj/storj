@@ -2,7 +2,7 @@
 
 exports[`ApiKeysArea renders correctly 1`] = `
 <div class="api-keys-area">
-  <h1 class="api-keys-area__title">API Keys</h1>
+  <!---->
   <div class="api-keys-area__container">
     <apikeyscreationpopup-stub></apikeyscreationpopup-stub>
     <apikeyscopypopup-stub apikeysecret=""></apikeyscopypopup-stub>
@@ -31,14 +31,14 @@ exports[`ApiKeysArea renders correctly 1`] = `
     <path d=&quot;M141.606 146.546H143.707C145.522 146.546 147.051 144.922 147.051 143.011C147.051 141.005 145.618 139.477 143.707 139.477H141.606C139.791 139.477 138.262 141.101 138.262 143.011C138.358 145.017 139.791 146.546 141.606 146.546Z&quot; fill=&quot;#8F96AD&quot;/>
     <path d=&quot;M154.216 146.546H156.317C158.132 146.546 159.661 144.922 159.661 143.011C159.661 141.005 158.228 139.477 156.317 139.477H154.216C152.401 139.477 150.872 141.101 150.872 143.011C150.968 145.017 152.401 146.546 154.216 146.546Z&quot; fill=&quot;#8F96AD&quot;/>
     <path d=&quot;M126.229 158.861C125.787 158.861 125.433 158.861 125.079 158.949C124.372 159.037 123.665 158.598 123.4 157.983C115.091 142.97 99.0028 132.786 80.4398 132.786C63.6447 132.786 48.7943 141.127 40.0431 153.857C39.6011 154.471 38.8056 154.735 38.0984 154.647C35.8885 154.208 33.5903 153.944 31.292 153.944C13.9665 153.857 0 167.553 0 184.585C0 184.585 0 184.585 0 184.672C0 185.638 0.795558 186.428 1.8563 186.428H150.449C151.421 186.428 152.305 185.638 152.305 184.672V184.585C152.305 170.362 140.637 158.861 126.229 158.861Z&quot; fill=&quot;#B0B6C9&quot;/>
-    </svg>" isbuttonshown="true" onbuttonclick="function () { [native code] }" buttonlabel="Create an API Key"></emptystate-stub>
+    </svg>" isbuttonshown="true" onbuttonclick="function () { [native code] }" buttonlabel="Create an API Key" class="collapsed"></emptystate-stub>
   </div>
 </div>
 `;
 
 exports[`ApiKeysArea renders empty screen with add key prompt 1`] = `
 <div class="api-keys-area">
-  <h1 class="api-keys-area__title">API Keys</h1>
+  <!---->
   <div class="api-keys-area__container">
     <apikeyscreationpopup-stub></apikeyscreationpopup-stub>
     <apikeyscopypopup-stub apikeysecret=""></apikeyscopypopup-stub>
@@ -70,7 +70,7 @@ exports[`ApiKeysArea renders empty screen with add key prompt 1`] = `
 
 exports[`ApiKeysArea renders empty search state correctly 1`] = `
 <div class="api-keys-area">
-  <h1 class="api-keys-area__title">API Keys</h1>
+  <!---->
   <div class="api-keys-area__container">
     <apikeyscreationpopup-stub></apikeyscreationpopup-stub>
     <apikeyscopypopup-stub apikeysecret=""></apikeyscopypopup-stub>
@@ -99,7 +99,7 @@ exports[`ApiKeysArea renders empty search state correctly 1`] = `
     <path d=&quot;M141.606 146.546H143.707C145.522 146.546 147.051 144.922 147.051 143.011C147.051 141.005 145.618 139.477 143.707 139.477H141.606C139.791 139.477 138.262 141.101 138.262 143.011C138.358 145.017 139.791 146.546 141.606 146.546Z&quot; fill=&quot;#8F96AD&quot;/>
     <path d=&quot;M154.216 146.546H156.317C158.132 146.546 159.661 144.922 159.661 143.011C159.661 141.005 158.228 139.477 156.317 139.477H154.216C152.401 139.477 150.872 141.101 150.872 143.011C150.968 145.017 152.401 146.546 154.216 146.546Z&quot; fill=&quot;#8F96AD&quot;/>
     <path d=&quot;M126.229 158.861C125.787 158.861 125.433 158.861 125.079 158.949C124.372 159.037 123.665 158.598 123.4 157.983C115.091 142.97 99.0028 132.786 80.4398 132.786C63.6447 132.786 48.7943 141.127 40.0431 153.857C39.6011 154.471 38.8056 154.735 38.0984 154.647C35.8885 154.208 33.5903 153.944 31.292 153.944C13.9665 153.857 0 167.553 0 184.585C0 184.585 0 184.585 0 184.672C0 185.638 0.795558 186.428 1.8563 186.428H150.449C151.421 186.428 152.305 185.638 152.305 184.672V184.585C152.305 170.362 140.637 158.861 126.229 158.861Z&quot; fill=&quot;#B0B6C9&quot;/>
-    </svg>" isbuttonshown="true" onbuttonclick="function () { [native code] }" buttonlabel="Create an API Key"></emptystate-stub>
+    </svg>" isbuttonshown="true" onbuttonclick="function () { [native code] }" buttonlabel="Create an API Key" class="collapsed"></emptystate-stub>
   </div>
 </div>
 `;
