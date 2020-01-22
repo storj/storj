@@ -27,7 +27,7 @@ if [ ! -d ${main_cfg_dir}/uplink-old-api ]; then
     mkdir -p ${main_cfg_dir}/uplink-old-api
     access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
     old_sat_api_addr="127.0.0.1:30000"
-    uplink import --satellite-addr="$old_sat_api_addr" --config-dir="${main_cfg_dir}/uplink-old-api" "$access"
+    uplink import --satellite-addr="$old_sat_api_addr" --config-dir="${main_cfg_dir}/uplink-old-api" "$access"  --client.segment-size="64.0 KiB"
 fi
 
 echo -e "\nConfig directory for uplink:"
