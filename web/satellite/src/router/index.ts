@@ -47,7 +47,8 @@ export abstract class RouteConfig {
     public static Profile = new NavigationLink('profile', 'Profile');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
-    public static Referral = new NavigationLink('referral', 'Referral');
+    // TODO: disabled until implementation
+    // public static Referral = new NavigationLink('referral', 'Referral');
 
     // not in project yet
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
@@ -59,7 +60,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
     RouteConfig.Profile.name,
-    RouteConfig.Referral.name,
+    // RouteConfig.Referral.name,
 ];
 
 export const router = new Router({
@@ -107,11 +108,11 @@ export const router = new Router({
                             name: RouteConfig.BillingHistory.name,
                             component: BillingHistory,
                         },
-                        {
-                            path: RouteConfig.Referral.path,
-                            name: RouteConfig.Referral.name,
-                            component: ReferralArea,
-                        },
+                        // {
+                        //     path: RouteConfig.Referral.path,
+                        //     name: RouteConfig.Referral.name,
+                        //     component: ReferralArea,
+                        // },
                     ],
                 },
                 {

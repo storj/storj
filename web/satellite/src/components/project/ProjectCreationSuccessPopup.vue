@@ -10,7 +10,7 @@
             <div class="project-creation-success-popup__form-container">
                 <h2 class="project-creation-success-popup__form-container__main-label-text">Congrats!</h2>
                 <p class="project-creation-success-popup__form-container__confirmation-text">You just created your project. Next, we recommend you create your first API Key for this project. API Keys allow developers to manage their projects and build applications on top of the Storj network through our
-                    <a class="project-creation-success-popup__form-container__confirmation-text__link" href="https://github.com/storj/storj/wiki/Uplink-CLI" target="_blank">Uplink CLI.</a>
+                    <a class="project-creation-success-popup__form-container__confirmation-text__link" href="https://documentation.tardigrade.io/api-reference/uplink-cli" target="_blank">Uplink CLI.</a>
                 </p>
                 <div class="project-creation-success-popup__form-container__button-container">
                     <VButton
