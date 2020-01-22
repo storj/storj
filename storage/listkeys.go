@@ -11,8 +11,8 @@ import (
 // limit is capped to LookupLimit
 func ListKeys(ctx context.Context, store KeyValueStore, first Key, limit int) (_ Keys, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if limit <= 0 || limit > LookupLimit {
-		limit = LookupLimit
+	if limit <= 0 || limit > store.LookupLimit() {
+		limit = store.LookupLimit()
 	}
 
 	keys := make(Keys, 0, limit)

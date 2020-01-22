@@ -25,6 +25,8 @@ var (
 // Client is the entrypoint into a postgreskv data store
 type Client struct {
 	db tagsql.DB
+
+	lookupLimit int
 }
 
 // New instantiates a new postgreskv client given db URL
@@ -48,8 +50,14 @@ func New(dbURL string) (*Client, error) {
 
 // NewWith instantiates a new postgreskv client given db.
 func NewWith(db tagsql.DB) *Client {
-	return &Client{db: db}
+	return &Client{db: db, lookupLimit: storage.DefaultLookupLimit}
 }
+
+// SetLookupLimit sets the lookup limit.
+func (client *Client) SetLookupLimit(v int) { client.lookupLimit = v }
+
+// LookupLimit returns the maximum limit that is allowed.
+func (client *Client) LookupLimit() int { return client.lookupLimit }
 
 // Close closes the client
 func (client *Client) Close() error {
@@ -94,12 +102,12 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 	return val, Error.Wrap(err)
 }
 
-// GetAll finds all values for the provided keys (up to storage.LookupLimit).
+// GetAll finds all values for the provided keys (up to LookupLimit).
 // If more keys are provided than the maximum, an error will be returned.
 func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(keys) > storage.LookupLimit {
+	if len(keys) > client.lookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
 
@@ -163,8 +171,8 @@ func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if opts.Limit <= 0 || opts.Limit > storage.LookupLimit {
-		opts.Limit = storage.LookupLimit
+	if opts.Limit <= 0 || opts.Limit > client.lookupLimit {
+		opts.Limit = client.lookupLimit
 	}
 
 	opi, err := newOrderedPostgresIterator(ctx, client, opts)

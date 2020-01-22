@@ -20,6 +20,8 @@ var mon = monkit.Package()
 
 // Client implements in-memory key value store
 type Client struct {
+	lookupLimit int
+
 	mu sync.Mutex
 
 	Items      []storage.ListItem
@@ -40,7 +42,13 @@ type Client struct {
 }
 
 // New creates a new in-memory key-value store
-func New() *Client { return &Client{} }
+func New() *Client { return &Client{lookupLimit: storage.DefaultLookupLimit} }
+
+// SetLookupLimit sets the lookup limit.
+func (store *Client) SetLookupLimit(v int) { store.lookupLimit = v }
+
+// LookupLimit returns the maximum limit that is allowed.
+func (store *Client) LookupLimit() int { return store.lookupLimit }
 
 // indexOf finds index of key or where it could be inserted
 func (store *Client) indexOf(key storage.Key) (int, bool) {
@@ -122,7 +130,7 @@ func (store *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.V
 	defer store.locked()()
 
 	store.CallCount.GetAll++
-	if len(keys) > storage.LookupLimit {
+	if len(keys) > store.lookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
 

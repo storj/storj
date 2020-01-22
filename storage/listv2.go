@@ -27,8 +27,8 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 	defer mon.Task()(&ctx)(&err)
 
 	limit := opts.Limit
-	if limit <= 0 || limit > LookupLimit {
-		limit = LookupLimit
+	if limit <= 0 || limit > store.LookupLimit() {
+		limit = store.LookupLimit()
 	}
 
 	more = true

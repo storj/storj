@@ -42,6 +42,7 @@ func TestSuite(t *testing.T) {
 
 	// zap := zaptest.NewLogger(t)
 	// loggedStore := storelogger.New(zap, store)
+	store.SetLookupLimit(500)
 	testsuite.RunTests(t, store)
 }
 

@@ -33,6 +33,8 @@ const defaultNodeExpiration = 0 * time.Minute
 type Client struct {
 	db  *redis.Client
 	TTL time.Duration
+
+	lookupLimit int
 }
 
 // NewClient returns a configured Client instance, verifying a successful connection to redis
@@ -43,7 +45,8 @@ func NewClient(address, password string, db int) (*Client, error) {
 			Password: password,
 			DB:       db,
 		}),
-		TTL: defaultNodeExpiration,
+		TTL:         defaultNodeExpiration,
+		lookupLimit: storage.DefaultLookupLimit,
 	}
 
 	// ping here to verify we are able to connect to redis with the initialized client.
@@ -74,6 +77,12 @@ func NewClientFrom(address string) (*Client, error) {
 
 	return NewClient(redisurl.Host, q.Get("password"), db)
 }
+
+// SetLookupLimit sets the lookup limit.
+func (client *Client) SetLookupLimit(v int) { client.lookupLimit = v }
+
+// LookupLimit returns the maximum limit that is allowed.
+func (client *Client) LookupLimit() int { return client.lookupLimit }
 
 // Get looks up the provided key from redis returning either an error or the result.
 func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
@@ -124,14 +133,14 @@ func (client *Client) Close() error {
 }
 
 // GetAll is the bulk method for gets from the redis data store.
-// The maximum keys returned will be storage.LookupLimit. If more than that
+// The maximum keys returned will be LookupLimit. If more than that
 // is requested, an error will be returned
 func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(keys) == 0 {
 		return nil, nil
 	}
-	if len(keys) > storage.LookupLimit {
+	if len(keys) > client.lookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
 
@@ -165,8 +174,8 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if opts.Limit <= 0 || opts.Limit > storage.LookupLimit {
-		opts.Limit = storage.LookupLimit
+	if opts.Limit <= 0 || opts.Limit > client.lookupLimit {
+		opts.Limit = client.lookupLimit
 	}
 
 	all, err := client.allPrefixedItems(opts.Prefix, opts.First, nil, opts.Limit)

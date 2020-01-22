@@ -22,6 +22,7 @@ func TestSuite(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	client.SetLookupLimit(500)
 	testsuite.RunTests(t, client)
 }
 

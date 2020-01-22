@@ -28,6 +28,7 @@ type Client struct {
 	Bucket []byte
 
 	referenceCount *int32
+	lookupLimit    int
 }
 
 const (
@@ -62,47 +63,15 @@ func New(path, bucket string) (*Client, error) {
 		referenceCount: refCount,
 		Path:           path,
 		Bucket:         []byte(bucket),
+		lookupLimit:    storage.DefaultLookupLimit,
 	}, nil
 }
 
-// NewShared instantiates a new BoltDB with multiple buckets
-func NewShared(path string, buckets ...string) ([]*Client, error) {
-	db, err := bolt.Open(path, fileMode, &bolt.Options{Timeout: defaultTimeout})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+// SetLookupLimit sets the lookup limit.
+func (client *Client) SetLookupLimit(v int) { client.lookupLimit = v }
 
-	err = Error.Wrap(db.Update(func(tx *bolt.Tx) error {
-		for _, bucket := range buckets {
-			_, err := tx.CreateBucketIfNotExists([]byte(bucket))
-			if err != nil {
-				return err
-			}
-		}
-		return err
-	}))
-	if err != nil {
-		if closeErr := Error.Wrap(db.Close()); closeErr != nil {
-			return nil, errs.Combine(err, closeErr)
-		}
-		return nil, err
-	}
-
-	refCount := new(int32)
-	*refCount = int32(len(buckets))
-
-	clients := []*Client{}
-	for _, bucket := range buckets {
-		clients = append(clients, &Client{
-			db:             db,
-			referenceCount: refCount,
-			Path:           path,
-			Bucket:         []byte(bucket),
-		})
-	}
-
-	return clients, nil
-}
+// LookupLimit returns the maximum limit that is allowed.
+func (client *Client) LookupLimit() int { return client.lookupLimit }
 
 func (client *Client) update(fn func(*bolt.Bucket) error) error {
 	return Error.Wrap(client.db.Update(func(tx *bolt.Tx) error {
@@ -199,11 +168,11 @@ func (client *Client) Close() (err error) {
 	return nil
 }
 
-// GetAll finds all values for the provided keys (up to storage.LookupLimit).
+// GetAll finds all values for the provided keys (up to LookupLimit).
 // If more keys are provided than the maximum, an error will be returned.
 func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if len(keys) > storage.LookupLimit {
+	if len(keys) > client.lookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
 
@@ -226,8 +195,8 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if opts.Limit <= 0 || opts.Limit > storage.LookupLimit {
-		opts.Limit = storage.LookupLimit
+	if opts.Limit <= 0 || opts.Limit > client.lookupLimit {
+		opts.Limit = client.lookupLimit
 	}
 
 	return client.view(func(bucket *bolt.Bucket) error {

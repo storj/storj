@@ -47,8 +47,8 @@ type Values []Value
 // Items keeps all ListItem
 type Items []ListItem
 
-// LookupLimit is enforced by storage implementations
-const LookupLimit = 10000
+// DefaultLookupLimit is the default lookup limit for storage implementations
+const DefaultLookupLimit = 10000
 
 // ListItem returns Key, Value, IsPrefix
 type ListItem struct {
@@ -75,6 +75,9 @@ type KeyValueStore interface {
 	CompareAndSwap(ctx context.Context, key Key, oldValue, newValue Value) error
 	// Close closes the store
 	Close() error
+
+	// LookupLimit returns the maximum limit that is allowed.
+	LookupLimit() int
 }
 
 // IterateOptions contains options for iterator

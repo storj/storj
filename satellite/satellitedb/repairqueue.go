@@ -15,6 +15,9 @@ import (
 	"storj.io/storj/storage"
 )
 
+// RepairQueueSelectLimit defines how many items can be selected at the same time.
+const RepairQueueSelectLimit = 1000
+
 type repairQueue struct {
 	db *satelliteDB
 }
@@ -65,8 +68,8 @@ func (r *repairQueue) Delete(ctx context.Context, seg *pb.InjuredSegment) (err e
 
 func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if limit <= 0 || limit > storage.LookupLimit {
-		limit = storage.LookupLimit
+	if limit <= 0 || limit > RepairQueueSelectLimit {
+		limit = RepairQueueSelectLimit
 	}
 	//todo: strictly enforce order-by or change tests
 	rows, err := r.db.QueryContext(ctx, r.db.Rebind(`SELECT data FROM injuredsegments LIMIT ?`), limit)

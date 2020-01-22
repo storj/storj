@@ -21,11 +21,15 @@ import (
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/storage"
 )
 
 var (
 	mon = monkit.Package()
+)
+
+const (
+	// OverlayPaginateLimit defines how many nodes can be paginated at the same time.
+	OverlayPaginateLimit = 1000
 )
 
 var _ overlay.DB = (*overlaycache)(nil)
@@ -451,8 +455,8 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 	// more represents end of table. If there are more rows in the database, more will be true.
 	more := true
 
-	if limit <= 0 || limit > storage.LookupLimit {
-		limit = storage.LookupLimit
+	if limit <= 0 || limit > OverlayPaginateLimit {
+		limit = OverlayPaginateLimit
 	}
 
 	dbxInfos, err := cache.db.Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, offset)
@@ -483,8 +487,8 @@ func (cache *overlaycache) PaginateQualified(ctx context.Context, offset int64, 
 	// more represents end of table. If there are more rows in the database, more will be true.
 	more := true
 
-	if limit <= 0 || limit > storage.LookupLimit {
-		limit = storage.LookupLimit
+	if limit <= 0 || limit > OverlayPaginateLimit {
+		limit = OverlayPaginateLimit
 	}
 
 	dbxInfos, err := cache.db.Limited_Node_Id_Node_LastNet_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, offset)

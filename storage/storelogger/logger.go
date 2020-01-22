@@ -31,6 +31,9 @@ func New(log *zap.Logger, store storage.KeyValueStore) *Logger {
 	return &Logger{log.Named(name), store}
 }
 
+// LookupLimit returns the maximum limit that is allowed.
+func (store *Logger) LookupLimit() int { return store.store.LookupLimit() }
+
 // Put adds a value to store
 func (store *Logger) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)

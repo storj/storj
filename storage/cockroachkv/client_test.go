@@ -44,5 +44,6 @@ func TestSuite(t *testing.T) {
 	store, cleanup := newTestCockroachDB(ctx, t)
 	defer cleanup()
 
+	store.SetLookupLimit(500)
 	testsuite.RunTests(t, store)
 }

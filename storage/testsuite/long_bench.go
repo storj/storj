@@ -380,7 +380,7 @@ func deepRecursive(b *testing.B, ctx *testcontext.Context, store storage.KeyValu
 
 	// these are not expected to exhaust all available items
 	opts.doIterations = 500
-	opts.batchSize = storage.LookupLimit
+	opts.batchSize = store.LookupLimit()
 	opts.expectCount = opts.doIterations * opts.batchSize
 
 	// verify with:

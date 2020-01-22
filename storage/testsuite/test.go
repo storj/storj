@@ -37,8 +37,10 @@ func RunTests(t *testing.T, store storage.KeyValueStore) {
 }
 
 func testConstraints(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
+	lookupLimit := store.LookupLimit()
+
 	var items storage.Items
-	for i := 0; i < storage.LookupLimit+5; i++ {
+	for i := 0; i < lookupLimit+5; i++ {
 		items = append(items, storage.ListItem{
 			Key:   storage.Key("test-" + strconv.Itoa(i)),
 			Value: storage.Value("xyz"),
@@ -70,24 +72,24 @@ func testConstraints(t *testing.T, ctx *testcontext.Context, store storage.KeyVa
 	})
 
 	t.Run("GetAll limit", func(t *testing.T) {
-		_, err := store.GetAll(ctx, items[:storage.LookupLimit].GetKeys())
+		_, err := store.GetAll(ctx, items[:lookupLimit].GetKeys())
 		if err != nil {
 			t.Fatalf("GetAll LookupLimit should succeed: %v", err)
 		}
 
-		_, err = store.GetAll(ctx, items[:storage.LookupLimit+1].GetKeys())
+		_, err = store.GetAll(ctx, items[:lookupLimit+1].GetKeys())
 		if err == nil && err == storage.ErrLimitExceeded {
 			t.Fatalf("GetAll LookupLimit+1 should fail: %v", err)
 		}
 	})
 
 	t.Run("List limit", func(t *testing.T) {
-		keys, err := store.List(ctx, nil, storage.LookupLimit)
-		if err != nil || len(keys) != storage.LookupLimit {
+		keys, err := store.List(ctx, nil, lookupLimit)
+		if err != nil || len(keys) != lookupLimit {
 			t.Fatalf("List LookupLimit should succeed: %v / got %d", err, len(keys))
 		}
-		_, err = store.List(ctx, nil, storage.LookupLimit+1)
-		if err != nil || len(keys) != storage.LookupLimit {
+		_, err = store.List(ctx, nil, lookupLimit+1)
+		if err != nil || len(keys) != lookupLimit {
 			t.Fatalf("List LookupLimit+1 shouldn't fail: %v / got %d", err, len(keys))
 		}
 	})
