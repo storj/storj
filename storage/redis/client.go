@@ -194,7 +194,7 @@ func (client *Client) allPrefixedItems(prefix, first, last storage.Key, limit in
 	seen := map[string]struct{}{}
 
 	match := string(escapeMatch([]byte(prefix))) + "*"
-	it := client.db.Scan(0, match, int64(limit)).Iterator()
+	it := client.db.Scan(0, match, 0).Iterator()
 	for it.Next() {
 		key := it.Val()
 		if !first.IsZero() && storage.Key(key).Less(first) {
