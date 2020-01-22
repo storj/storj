@@ -57,7 +57,7 @@ type Config struct {
 // AccessConfig holds information about which accesses exist and are selected.
 type AccessConfig struct {
 	Accesses map[string]string `internal:"true"`
-	Access   string            `help:"the serialized access, or name of the access to use" default:""`
+	Access   string            `help:"the serialized access, or name of the access to use" default:"" basic-help:"true"`
 
 	// used for backward compatibility
 	Scopes map[string]string `internal:"true"` // deprecated

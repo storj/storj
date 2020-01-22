@@ -25,6 +25,7 @@ func init() {
 		RunE:  deleteObject,
 	}, RootCmd)
 	rmEncryptedFlag = rmCmd.Flags().Bool("encrypted", false, "if true, treat paths as base64-encoded encrypted paths")
+	setBasicFlags(rmCmd.Flags(), "encrypted")
 }
 
 func deleteObject(cmd *cobra.Command, args []string) error {

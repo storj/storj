@@ -39,6 +39,9 @@ func init() {
 	// flags.
 	// TODO: revisit after the configuration/flag code is refactored.
 	process.Bind(importCmd, &importCfg, defaults, cfgstruct.ConfDir(confDir))
+
+	// NB: access is not supported by `setup` or `import`
+	cfgstruct.SetBoolAnnotation(importCmd.Flags(), "access", cfgstruct.BasicHelpAnnotationName, false)
 }
 
 // importMain is the function executed when importCmd is called

@@ -38,6 +38,8 @@ func init() {
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
 	metadata = cpCmd.Flags().String("metadata", "", "optional metadata for the object. Please use a single level JSON object of string to string only")
+
+	setBasicFlags(cpCmd.Flags(), "progress", "expires", "metadata")
 }
 
 // upload transfers src from local machine to s3 compatible object dst

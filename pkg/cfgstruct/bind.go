@@ -27,6 +27,10 @@ const (
 	// FlagSource is a source annotation for config values that just come from
 	// flags (i.e. are never persisted to file)
 	FlagSource = "flag"
+
+	// BasicHelpAnnotationName is the name of the annotation used to indicate
+	// a flag should be included in basic usage/help.
+	BasicHelpAnnotationName = "basic-help"
 )
 
 var (
@@ -182,18 +186,18 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 
 			markHidden := false
 			if onlyForSetup {
-				setBoolAnnotation(flags, flagname, "setup")
+				SetBoolAnnotation(flags, flagname, "setup", true)
 			}
 			if field.Tag.Get("user") == "true" {
-				setBoolAnnotation(flags, flagname, "user")
+				SetBoolAnnotation(flags, flagname, "user", true)
 			}
 			if field.Tag.Get("hidden") == "true" {
 				markHidden = true
-				setBoolAnnotation(flags, flagname, "hidden")
+				SetBoolAnnotation(flags, flagname, "hidden", true)
 			}
 			if field.Tag.Get("deprecated") == "true" {
 				markHidden = true
-				setBoolAnnotation(flags, flagname, "deprecated")
+				SetBoolAnnotation(flags, flagname, "deprecated", true)
 			}
 			if source := field.Tag.Get("source"); source != "" {
 				setSourceAnnotation(flags, flagname, source)
@@ -276,20 +280,23 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				panic(fmt.Sprintf("invalid field type: %s", field.Type.String()))
 			}
 			if onlyForSetup {
-				setBoolAnnotation(flags, flagname, "setup")
+				SetBoolAnnotation(flags, flagname, "setup", true)
 			}
 			if field.Tag.Get("user") == "true" {
-				setBoolAnnotation(flags, flagname, "user")
+				SetBoolAnnotation(flags, flagname, "user", true)
+			}
+			if field.Tag.Get(BasicHelpAnnotationName) == "true" {
+				SetBoolAnnotation(flags, flagname, BasicHelpAnnotationName, true)
 			}
 
 			markHidden := false
 			if field.Tag.Get("hidden") == "true" {
 				markHidden = true
-				setBoolAnnotation(flags, flagname, "hidden")
+				SetBoolAnnotation(flags, flagname, "hidden", true)
 			}
 			if field.Tag.Get("deprecated") == "true" {
 				markHidden = true
-				setBoolAnnotation(flags, flagname, "deprecated")
+				SetBoolAnnotation(flags, flagname, "deprecated", true)
 			}
 			if source := field.Tag.Get("source"); source != "" {
 				setSourceAnnotation(flags, flagname, source)
@@ -343,13 +350,14 @@ func setStringAnnotation(flagset interface{}, name, key, value string) {
 	}
 }
 
-func setBoolAnnotation(flagset interface{}, name, key string) {
+// SetBoolAnnotation sets an annotation (if it can) on flagset with a value of []string{"true|false"}.
+func SetBoolAnnotation(flagset interface{}, name, key string, value bool) {
 	flags, ok := flagset.(*pflag.FlagSet)
 	if !ok {
 		return
 	}
 
-	err := flags.SetAnnotation(name, key, []string{"true"})
+	err := flags.SetAnnotation(name, key, []string{strconv.FormatBool(value)})
 	if err != nil {
 		panic(fmt.Sprintf("unable to set %s annotation for %s: %v", key, name, err))
 	}

@@ -29,6 +29,8 @@ func init() {
 	}, RootCmd)
 	lsRecursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
 	lsEncryptedFlag = lsCmd.Flags().Bool("encrypted", false, "if true, show paths as base64-encoded encrypted paths")
+
+	setBasicFlags(lsCmd.Flags(), "recursive", "encrypted")
 }
 
 func list(cmd *cobra.Command, args []string) error {

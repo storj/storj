@@ -21,16 +21,16 @@ import (
 )
 
 var shareCfg struct {
-	DisallowReads     bool     `default:"false" help:"if true, disallow reads"`
-	DisallowWrites    bool     `default:"false" help:"if true, disallow writes"`
-	DisallowLists     bool     `default:"false" help:"if true, disallow lists"`
-	DisallowDeletes   bool     `default:"false" help:"if true, disallow deletes"`
-	Readonly          bool     `default:"false" help:"implies disallow_writes and disallow_deletes"`
-	Writeonly         bool     `default:"false" help:"implies disallow_reads and disallow_lists"`
-	NotBefore         string   `help:"disallow access before this time"`
-	NotAfter          string   `help:"disallow access after this time"`
+	DisallowReads     bool     `default:"false" help:"if true, disallow reads" basic-help:"true"`
+	DisallowWrites    bool     `default:"false" help:"if true, disallow writes" basic-help:"true"`
+	DisallowLists     bool     `default:"false" help:"if true, disallow lists" basic-help:"true"`
+	DisallowDeletes   bool     `default:"false" help:"if true, disallow deletes" basic-help:"true"`
+	Readonly          bool     `default:"false" help:"implies disallow_writes and disallow_deletes" basic-help:"true"`
+	Writeonly         bool     `default:"false" help:"implies disallow_reads and disallow_lists" basic-help:"true"`
+	NotBefore         string   `help:"disallow access before this time" basic-help:"true"`
+	NotAfter          string   `help:"disallow access after this time" basic-help:"true"`
 	AllowedPathPrefix []string `help:"whitelist of path prefixes to require, overrides the [allowed-path-prefix] arguments"`
-	ExportTo          string   `default:"" help:"path to export the shared access to"`
+	ExportTo          string   `default:"" help:"path to export the shared access to" basic-help:"true"`
 
 	// Share requires information about the current access
 	AccessConfig

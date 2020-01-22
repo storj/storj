@@ -32,6 +32,9 @@ var (
 func init() {
 	RootCmd.AddCommand(setupCmd)
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
+
+	// NB: access is not supported by `setup` or `import`
+	cfgstruct.SetBoolAnnotation(setupCmd.Flags(), "access", cfgstruct.BasicHelpAnnotationName, false)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
