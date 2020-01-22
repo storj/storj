@@ -14,7 +14,7 @@ import (
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:   "put",
+		Use:   "put sj://BUCKET/KEY",
 		Short: "Copies data from standard in to a Storj object",
 		RunE:  putMain,
 	}, RootCmd)

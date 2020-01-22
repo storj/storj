@@ -20,7 +20,7 @@ var (
 
 func init() {
 	rmCmd := addCmd(&cobra.Command{
-		Use:   "rm",
+		Use:   "rm sj://BUCKET/KEY",
 		Short: "Delete an object",
 		RunE:  deleteObject,
 	}, RootCmd)

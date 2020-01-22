@@ -41,7 +41,7 @@ func init() {
 	// above, and addCmd adds a whole lot more than we want.
 
 	shareCmd := &cobra.Command{
-		Use:   "share [allowed-path-prefix]...",
+		Use:   "share [ALLOWED_PATH_PREFIX]...",
 		Short: "Shares restricted access to objects.",
 		RunE:  shareMain,
 	}

@@ -18,7 +18,7 @@ import (
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:   "mb",
+		Use:   "mb sj://BUCKET",
 		Short: "Create a new bucket",
 		RunE:  makeBucket,
 	}, RootCmd)

@@ -30,7 +30,7 @@ var (
 
 func init() {
 	cpCmd := addCmd(&cobra.Command{
-		Use:   "cp",
+		Use:   "cp SOURCE DESTINATION",
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
 	}, RootCmd)

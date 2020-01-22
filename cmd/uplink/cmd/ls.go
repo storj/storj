@@ -23,7 +23,7 @@ var (
 
 func init() {
 	lsCmd := addCmd(&cobra.Command{
-		Use:   "ls",
+		Use:   "ls [sj://BUCKET[/PREFIX]]",
 		Short: "List objects and prefixes or all buckets",
 		RunE:  list,
 	}, RootCmd)

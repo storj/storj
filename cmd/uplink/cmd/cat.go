@@ -14,7 +14,7 @@ import (
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:   "cat",
+		Use:   "cat sj://BUCKET/KEY",
 		Short: "Copies a Storj object to standard out",
 		RunE:  catMain,
 	}, RootCmd)
