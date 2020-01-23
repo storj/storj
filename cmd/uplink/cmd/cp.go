@@ -292,7 +292,7 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	// if both local
 	if src.IsLocal() && dst.IsLocal() {
-		return errors.New("at least one of the source or the desination must be a Storj URL")
+		return errors.New("at least one of the source or the destination must be a Storj URL")
 	}
 
 	// if uploading
