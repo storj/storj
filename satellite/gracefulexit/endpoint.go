@@ -180,11 +180,20 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	pending := NewPendingMap()
 
 	var group errgroup.Group
+	defer func() {
+		err2 := errs2.IgnoreCanceled(group.Wait())
+		if err2 != nil {
+			endpoint.log.Error("incompleteLoop gave error", zap.Error(err2))
+		}
+	}()
+
+	// we cancel this context in all situations where we want to exit the loop
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	group.Go(func() error {
 		incompleteLoop := sync2.NewCycle(endpoint.interval)
 
-		// we cancel this context in all situations where we want to exit the loop
-		ctx, cancel := context.WithCancel(ctx)
 		loopErr := incompleteLoop.Run(ctx, func(ctx context.Context) error {
 			if pending.Length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
@@ -223,6 +232,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	for {
 		finishedPromise := pending.IsFinishedPromise()
 		finished, err := finishedPromise.Wait(ctx)
+		err = errs2.IgnoreCanceled(err)
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
@@ -315,12 +325,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 			}
 		default:
 			return rpcstatus.Error(rpcstatus.Unknown, Error.New("unknown storage node message: %v", m).Error())
-		}
-	}
-
-	if err := group.Wait(); err != nil {
-		if !errs.Is(err, context.Canceled) {
-			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 		}
 	}
 
