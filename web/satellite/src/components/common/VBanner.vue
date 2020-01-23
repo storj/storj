@@ -2,15 +2,15 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="banner">
-        <NotificationSvg />
-        <div class="column">
-            <p class="banner__text">{{ text }}</p>
-            <p class="banner__additional-text">{{ additionalText }}</p>
+    <div class="banner-wrap">
+        <div class="banner" :class="{link: isLinkActive}" @click="onBannerClick">
+            <NotificationSvg />
+            <div class="column">
+                <p class="banner__text">{{ text }}</p>
+                <p class="banner__additional-text">{{ additionalText }}</p>
+            </div>
+            <ArrowRightIcon class="banner__arrow" v-if="isLinkActive" />
         </div>
-        <router-link :to="path" class="banner__link" v-if="isLinkActive">
-            <ArrowRightIcon />
-        </router-link>
     </div>
 </template>
 
@@ -40,25 +40,37 @@ export default class VBanner extends Vue {
     public get isLinkActive(): boolean {
         return this.$route.path !== this.path;
     }
+
+    public onBannerClick(): void {
+        if (!this.isLinkActive) {
+            return;
+        }
+
+        this.$router.push(this.path);
+    }
 }
 </script>
 
 <style scoped lang="scss">
+    .banner-wrap {
+        margin: 32px 65px 15px 65px;
+    }
+
     .banner {
         position: relative;
         display: flex;
         align-items: center;
         justify-content: flex-start;
-        padding: 20px 20px 20px 20px;
+        padding: 20px;
         border-radius: 12px;
         background-color: #d0e3fe;
-        margin: 32px 65px 15px 65px;
 
         &__text {
             font-family: 'font_medium', sans-serif;
             font-size: 16px;
             font-weight: 500;
             line-height: 19px;
+            color: #1e2d42;
             margin: 0;
         }
 
@@ -69,16 +81,11 @@ export default class VBanner extends Vue {
             color: #717e92;
         }
 
-        &__link {
+        &__arrow {
             position: absolute;
             top: 50%;
             right: 32px;
             transform: translate(0, -50%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
         }
     }
 
@@ -88,5 +95,9 @@ export default class VBanner extends Vue {
         align-items: flex-start;
         justify-content: center;
         margin: 0 17px;
+    }
+
+    .link {
+        cursor: pointer;
     }
 </style>

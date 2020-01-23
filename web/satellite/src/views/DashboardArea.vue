@@ -204,7 +204,7 @@ export default class DashboardArea extends Vue {
             position: relative;
             width: 100%;
             height: calc(100vh - 50px);
-            overflow-y: auto;
+            overflow-y: scroll;
             display: flex;
             flex-direction: column;
 
