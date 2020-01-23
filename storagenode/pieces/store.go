@@ -514,6 +514,10 @@ func (store *Store) DeleteFailed(ctx context.Context, expired ExpiredInfo, when 
 // this information is collected, and because it is possible that various errors in directory
 // traversal could cause this count to be undersized.
 //
+// Returns:
+// - piecesTotal: the total space used by pieces, including headers
+// - piecesContentSize: the space used by piece content, not including headers
+//
 // This returns both the total size of pieces plus the contentSize of pieces.
 func (store *Store) SpaceUsedForPieces(ctx context.Context) (piecesTotal int64, piecesContentSize int64, err error) {
 	if cache, ok := store.blobs.(*BlobsUsageCache); ok {
@@ -534,7 +538,8 @@ func (store *Store) SpaceUsedForPieces(ctx context.Context) (piecesTotal int64, 
 	return piecesTotal, piecesContentSize, nil
 }
 
-// SpaceUsedForTrash returns the total space used by the the piece store's trash
+// SpaceUsedForTrash returns the total space used by the the piece store's
+// trash, including all headers.
 func (store *Store) SpaceUsedForTrash(ctx context.Context) (int64, error) {
 	// If the blobs is cached, it will return the cached value
 	return store.blobs.SpaceUsedForTrash(ctx)

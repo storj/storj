@@ -204,9 +204,9 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 		require.NoError(t, err)
 		exitingNode.GracefulExit.Chore.Loop.Pause()
 
-		_, spaceUsed, err := exitingNode.Storage2.BlobsCache.SpaceUsedForPieces(ctx)
+		_, piecesContentSize, err := exitingNode.Storage2.BlobsCache.SpaceUsedForPieces(ctx)
 		require.NoError(t, err)
-		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), spaceUsed)
+		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), piecesContentSize)
 		require.NoError(t, err)
 
 		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(),

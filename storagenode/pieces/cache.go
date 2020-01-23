@@ -130,7 +130,13 @@ func (service *CacheService) Close() (err error) {
 }
 
 // BlobsUsageCache is a blob storage with a cache for storing
-// totals of current space used
+// totals of current space used.
+//
+// The following names have the following meaning:
+// - piecesTotal: the total space used by pieces, including headers
+// - piecesContentSize: the space used by piece content, not including headers
+// - trashTotal: the total space used in the trash, including headers
+// - pieceTotal and pieceContentSize are the corollary for a single file
 //
 // architecture: Database
 type BlobsUsageCache struct {

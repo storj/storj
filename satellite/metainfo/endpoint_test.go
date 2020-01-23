@@ -68,9 +68,9 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// calculate the SNs total used space after data upload
 					var totalUsedSpace int64
 					for _, sn := range planet.StorageNodes {
-						usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
-						totalUsedSpace += usedSpace
+						totalUsedSpace += piecesTotal
 					}
 
 					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
@@ -82,9 +82,9 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
 					for _, sn := range planet.StorageNodes {
-						usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
-						totalUsedSpaceAfterDelete += usedSpace
+						totalUsedSpaceAfterDelete += piecesTotal
 					}
 
 					// At this point we can only guarantee that the 75% of the SNs pieces
@@ -153,9 +153,9 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// they are still holding data
 					var totalUsedSpace int64
 					for i := 0; i < 2; i++ {
-						usedSpace, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
+						piecesTotal, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
-						totalUsedSpace += usedSpace
+						totalUsedSpace += piecesTotal
 					}
 
 					require.NotZero(t, totalUsedSpace, "totalUsedSpace offline nodes")
@@ -164,9 +164,9 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// hold any piece
 					totalUsedSpace = 0
 					for i := 2; i < len(planet.StorageNodes); i++ {
-						usedSpace, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
+						piecesTotal, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
-						totalUsedSpace += usedSpace
+						totalUsedSpace += piecesTotal
 					}
 
 					require.Zero(t, totalUsedSpace, "totalUsedSpace online nodes")
@@ -230,9 +230,9 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// they are still holding data
 					var totalUsedSpace int64
 					for _, sn := range planet.StorageNodes {
-						usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
-						totalUsedSpace += usedSpace
+						totalUsedSpace += piecesTotal
 					}
 
 					require.NotZero(t, totalUsedSpace, "totalUsedSpace")
