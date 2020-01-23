@@ -241,6 +241,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if err != nil {
 			return nil, err
 		}
+		planet.databases = append(planet.databases, db)
 
 		var pointerDB metainfo.PointerDB
 		if planet.config.Reconfigure.NewSatellitePointerDB != nil {
@@ -251,6 +252,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if err != nil {
 			return nil, err
 		}
+		planet.databases = append(planet.databases, pointerDB)
 
 		liveAccountingServer := redisserver.NewMini()
 		addr, _, err := liveAccountingServer.Run()
@@ -453,8 +455,6 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if err != nil {
 			return nil, err
 		}
-		planet.databases = append(planet.databases, db)
-		planet.databases = append(planet.databases, pointerDB)
 
 		api, err := planet.newAPI(i, identity, db, pointerDB, config, versionInfo)
 		if err != nil {
@@ -575,6 +575,7 @@ func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+	planet.databases = append(planet.databases, revocationDB)
 
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
