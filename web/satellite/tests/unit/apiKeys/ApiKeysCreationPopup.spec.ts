@@ -44,6 +44,9 @@ describe('ApiKeysCreationPopup', () => {
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
             localVue,
+            propsData: {
+                isPopupShown: true,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();

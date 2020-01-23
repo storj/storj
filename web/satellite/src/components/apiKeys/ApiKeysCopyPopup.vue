@@ -13,6 +13,9 @@
                 <p class="copy-button__label">Copy</p>
             </div>
         </div>
+        <div class="save-api-popup__link-container">
+            <a class="save-api-popup__link-container__link" href="https://documentation.tardigrade.io/api-reference/uplink-cli" target="_blank">Create a Bucket & Upload an Object -></a>
+        </div>
         <div class="save-api-popup__close-cross-container" @click="onCloseClick">
             <CloseCrossIcon/>
         </div>
@@ -53,7 +56,7 @@ export default class ApiKeysCopyPopup extends Vue {
 
 <style scoped lang="scss">
     .save-api-popup {
-        padding: 32px 40px 60px 40px;
+        padding: 32px 40px;
         background-color: #fff;
         border-radius: 24px;
         margin-top: 29px;
@@ -87,6 +90,21 @@ export default class ApiKeysCopyPopup extends Vue {
                     line-height: 21px;
                     word-break: break-all;
                 }
+            }
+        }
+
+        &__link-container {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            width: 100%;
+            margin: 20px 0 0 0;
+
+            &__link {
+                font-size: 16px;
+                line-height: 21px;
+                text-decoration: underline;
+                color: #2683ff;
             }
         }
 

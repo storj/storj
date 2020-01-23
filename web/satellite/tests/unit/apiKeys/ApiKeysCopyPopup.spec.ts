@@ -18,6 +18,7 @@ localVue.use(notificationPlugin);
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
 const notificationsModule = makeNotificationsModule();
+const testKey = 'test';
 
 const store = new Vuex.Store({ modules: { notificationsModule, apiKeysModule }});
 
@@ -26,9 +27,14 @@ describe('ApiKeysCopyPopup', () => {
         const wrapper = mount(ApiKeysCopyPopup, {
             store,
             localVue,
+            propsData: {
+                isPopupShown: true,
+                apiKeySecret: testKey,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
+        expect(wrapper.find('.save-api-popup__copy-area__key-area__key').text()).toBe(testKey);
     });
 
     it('function onCloseClick works correctly', async () => {
