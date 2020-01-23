@@ -36,6 +36,11 @@ func ExecuteInTx(ctx context.Context, dbDriver driver.Driver, tx txLike, fn func
 		return crdb.ExecuteInTx(ctx, tx, fn)
 	}
 	defer func() {
+		if x := recover(); x != nil {
+			// does nothing if tx is already rolled back or committed.
+			_ = tx.Rollback()
+			panic(x)
+		}
 		if err == nil {
 			err = tx.Commit()
 		} else {
