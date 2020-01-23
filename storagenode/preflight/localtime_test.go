@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
@@ -21,6 +22,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/trust"
 )
@@ -33,6 +35,11 @@ type mockServer struct {
 func TestLocalTime_InSync(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Preflight.LocalTimeCheck = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		storagenode := planet.StorageNodes[0]
 		err := storagenode.Preflight.LocalTime.Check(ctx)
@@ -66,20 +73,20 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 
 	t.Run("Less than 30m", func(t *testing.T) {
 		// register mock GetTime endpoint to mock server
+		var group errgroup.Group
+		defer ctx.Check(group.Wait)
+
 		contactServer, err := server.New(log, mockSatTLSOptions, config.Address, config.PrivateAddress, nil)
 		require.NoError(t, err)
-		defer func() {
-			err := contactServer.Close()
-			require.NoError(t, err)
-		}()
+		defer ctx.Check(contactServer.Close)
+
 		pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
 			localTime: time.Now().UTC().Add(-25 * time.Minute),
 		})
 
-		go func() {
-			err := contactServer.Run(ctx)
-			require.NoError(t, err)
-		}()
+		group.Go(func() error {
+			return contactServer.Run(ctx)
+		})
 
 		// get mock server address
 		_, portStr, err := net.SplitHostPort(contactServer.Addr().String())
@@ -116,25 +123,25 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		}, pool, dialer)
 		err = localtime.Check(ctx)
 		require.NoError(t, err)
+
 	})
 
 	t.Run("More than 30m", func(t *testing.T) {
 		// register mock GetTime endpoint to mock server
+		var group errgroup.Group
+		defer ctx.Check(group.Wait)
+
 		contactServer, err := server.New(log, mockSatTLSOptions, config.Address, config.PrivateAddress, nil)
 		require.NoError(t, err)
-		defer func() {
-			err := contactServer.Close()
-			require.NoError(t, err)
-		}()
+		defer ctx.Check(contactServer.Close)
 
 		pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
 			localTime: time.Now().UTC().Add(-31 * time.Minute),
 		})
 
-		go func() {
-			err := contactServer.Run(ctx)
-			require.NoError(t, err)
-		}()
+		group.Go(func() error {
+			return contactServer.Run(ctx)
+		})
 
 		// get mock server address
 		_, portStr, err := net.SplitHostPort(contactServer.Addr().String())
