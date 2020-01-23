@@ -34,7 +34,6 @@ const advancedFlagName = "advanced"
 
 // UplinkFlags configuration flags
 type UplinkFlags struct {
-	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
 	Config
 
 	Version checker.Config

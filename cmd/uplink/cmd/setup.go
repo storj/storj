@@ -38,6 +38,8 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
 	if cmd.Flag("access").Changed {
 		return ErrAccessFlag
 	}
@@ -46,50 +48,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-
-	if setupCfg.NonInteractive {
-		return cmdSetupNonInteractive(cmd, setupDir)
-	}
-	return cmdSetupInteractive(cmd, setupDir)
-}
-
-// cmdSetupNonInteractive sets up uplink non-interactively.
-func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string) error {
-	// ensure we're using the access for the setup
-	access, err := setupCfg.GetAccess()
-	if err != nil {
-		return err
-	}
-
-	// apply helpful default host and port to the address
-	vip, err := process.Viper(cmd)
-	if err != nil {
-		return err
-	}
-	access.SatelliteAddr, err = ApplyDefaultHostAndPortToAddr(
-		access.SatelliteAddr, vip.GetString("satellite-addr"))
-	if err != nil {
-		return err
-	}
-
-	accessData, err := access.Serialize()
-	if err != nil {
-		return err
-	}
-
-	err = os.MkdirAll(setupDir, 0700)
-	if err != nil {
-		return err
-	}
-
-	return Error.Wrap(process.SaveConfig(cmd, filepath.Join(setupDir, process.DefaultCfgFilename),
-		process.SaveConfigWithOverride("access", accessData),
-		process.SaveConfigRemovingDeprecated()))
-}
-
-// cmdSetupInteractive sets up uplink interactively.
-func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
-	ctx, _ := process.Ctx(cmd)
 
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
