@@ -32,4 +32,6 @@ const (
 	Charge BillingHistoryItemType = 2
 	// Coupon is an entity that adds some funds to Accounts balance for some fixed period.
 	Coupon BillingHistoryItemType = 3
+	// Credits is an entity that adds some funds to Accounts balance after deposit with storj coins.
+	Credits BillingHistoryItemType = 4
 )

@@ -63,7 +63,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			db.StripeCoinPayments(),
 			db.Console().Projects(),
 			db.ProjectAccounting(),
-			"0", "0", "0",
+			"0", "0", "0", 10,
 		)
 		require.NoError(t, err)
 

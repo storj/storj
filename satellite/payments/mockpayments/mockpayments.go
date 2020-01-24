@@ -57,6 +57,14 @@ var _ payments.Coupons = (*coupons)(nil)
 // architecture: Service
 type coupons struct{}
 
+// ensures that credits implements payments.Credits.
+var _ payments.Credits = (*credits)(nil)
+
+// credits is an implementation of payments.Credits.
+//
+// architecture: Service
+type credits struct{}
+
 // Accounts exposes all needed functionality to manage payment accounts.
 func Accounts() payments.Accounts {
 	return &accounts{}
@@ -80,6 +88,11 @@ func (accounts *accounts) StorjTokens() payments.StorjTokens {
 // Coupons exposes all needed functionality to manage coupons.
 func (accounts *accounts) Coupons() payments.Coupons {
 	return &coupons{}
+}
+
+// Credits exposes all needed functionality to manage coupons.
+func (accounts *accounts) Credits() payments.Credits {
+	return &credits{}
 }
 
 // Setup creates a payment account for the user.
@@ -188,4 +201,18 @@ func (coupons *coupons) AddPromotionalCoupon(ctx context.Context, userID uuid.UU
 	defer mon.Task()(&ctx, userID, duration, amount, projectLimit)(&err)
 
 	return nil
+}
+
+// Create attaches a credit for payment account.
+func (credits *credits) Create(ctx context.Context, credit payments.Credit) (err error) {
+	defer mon.Task()(&ctx, credit)(&err)
+
+	return nil
+}
+
+// ListByUserID return list of all credits of specified payment account.
+func (credits *credits) ListByUserID(ctx context.Context, userID uuid.UUID) (_ []payments.Credit, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	return ([]payments.Credit)(nil), Error.Wrap(err)
 }

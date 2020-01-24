@@ -58,6 +58,8 @@ type Service struct {
 	ByteHourCents   decimal.Decimal
 	EgressByteCents decimal.Decimal
 	ObjectHourCents decimal.Decimal
+	// BonusRate amount of percents
+	BonusRate int64
 
 	mu       sync.Mutex
 	rates    coinpayments.CurrencyRateInfos
@@ -65,7 +67,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string) (*Service, error) {
+func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate int64) (*Service, error) {
 	backendConfig := &stripe.BackendConfig{
 		LeveledLogger: log.Sugar(),
 	}
@@ -123,6 +125,7 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 		ByteHourCents:   byteHourCents,
 		EgressByteCents: egressByteCents,
 		ObjectHourCents: objectHourCents,
+		BonusRate:       bonusRate,
 	}, nil
 }
 
@@ -299,7 +302,17 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 
 	// TODO: 0 amount will return an error, how to handle that?
 	_, err = service.stripeClient.CustomerBalanceTransactions.New(params)
-	return err
+	if err != nil {
+		return err
+	}
+
+	credit := payments.Credit{
+		UserID:        tx.AccountID,
+		Amount:        cents / 100 * service.BonusRate,
+		TransactionID: tx.ID,
+	}
+
+	return service.db.Credits().InsertCredit(ctx, credit)
 }
 
 // UpdateRates fetches new rates and updates service rate cache.
@@ -425,6 +438,8 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 
 		currentUsagePrice := service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount).TotalInt64()
 
+		amountToChargeFromCoupon := currentUsagePrice
+
 		// TODO: only for 1 coupon per project
 		for _, coupon := range coupons {
 			if coupon.IsExpired() {
@@ -441,13 +456,13 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 			}
 			remaining := coupon.Amount - alreadyChargedAmount
 
-			if currentUsagePrice >= remaining {
-				currentUsagePrice = remaining
+			if amountToChargeFromCoupon >= remaining {
+				amountToChargeFromCoupon = remaining
 			}
 
 			usages = append(usages, CouponUsage{
 				Period:   start,
-				Amount:   currentUsagePrice,
+				Amount:   amountToChargeFromCoupon,
 				Status:   CouponUsageStatusUnapplied,
 				CouponID: coupon.ID,
 			})

@@ -736,6 +736,29 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN rate_limit integer;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Create Credits related tables",
+				Version:     81,
+				Action: migrate.SQL{
+					`CREATE TABLE credits (
+						user_id bytea NOT NULL,
+						transaction_id text NOT NULL,
+						amount bigint NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( transaction_id )
+					);`,
+					`CREATE TABLE credits_spendings (
+						id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						project_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						status int NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 		},
 	}
 }

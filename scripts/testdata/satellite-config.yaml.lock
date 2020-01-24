@@ -373,6 +373,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 
+# amount of percents that user will earn as bonus credits by depositing in STORJ tokens
+# payments.bonus-rate: 10
+
 # price user should pay for each TB of egress
 # payments.egress-tb-price: "45"
 

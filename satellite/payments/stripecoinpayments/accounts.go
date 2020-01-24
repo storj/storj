@@ -87,7 +87,12 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 		couponsAmount += coupon.Amount - alreadyUsed
 	}
 
-	return -c.Balance + couponsAmount, nil
+	creditBalance, err := accounts.service.db.Credits().Balance(ctx, userID)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	return -c.Balance + couponsAmount + creditBalance, nil
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.
@@ -179,4 +184,10 @@ func (accounts *accounts) StorjTokens() payments.StorjTokens {
 // Coupons exposes all needed functionality to manage coupons.
 func (accounts *accounts) Coupons() payments.Coupons {
 	return &coupons{service: accounts.service}
+}
+
+// Credits exposes all needed functionality to manage credits.
+func (accounts *accounts) Credits() payments.Credits {
+
+	return &credits{service: accounts.service}
 }

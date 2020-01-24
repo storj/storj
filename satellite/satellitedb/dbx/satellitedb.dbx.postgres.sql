@@ -71,6 +71,22 @@ CREATE TABLE coupon_usages (
 	period timestamp with time zone NOT NULL,
 	PRIMARY KEY ( coupon_id, period )
 );
+CREATE TABLE credits (
+	user_id bytea NOT NULL,
+	transaction_id text NOT NULL,
+	amount bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( transaction_id )
+);
+CREATE TABLE credits_spendings (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,

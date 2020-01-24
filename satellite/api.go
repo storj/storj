@@ -517,7 +517,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.ProjectAccounting(),
 				pc.StorageTBPrice,
 				pc.EgressTBPrice,
-				pc.ObjectPrice)
+				pc.ObjectPrice,
+				pc.BonusRate)
 
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
