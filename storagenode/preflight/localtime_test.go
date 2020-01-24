@@ -64,7 +64,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 	mockSatTLSOptions, err := tlsopts.NewOptions(mockSatID, config.Config, nil)
 	require.NoError(t, err)
 
-	t.Run("Less than 24h", func(t *testing.T) {
+	t.Run("Less than 30m", func(t *testing.T) {
 		// register mock GetTime endpoint to mock server
 		contactServer, err := server.New(log, mockSatTLSOptions, config.Address, config.PrivateAddress, nil)
 		require.NoError(t, err)
@@ -73,7 +73,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 			require.NoError(t, err)
 		}()
 		pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
-			localTime: time.Now().UTC().Add(-2 * time.Hour),
+			localTime: time.Now().UTC().Add(-25 * time.Minute),
 		})
 
 		go func() {
@@ -110,7 +110,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		err = pool.Refresh(ctx)
 		require.NoError(t, err)
 
-		// should not return any error when node's clock is off no more than 24
+		// should not return any error when node's clock is off no more than 30m
 		localtime := preflight.NewLocalTime(log, preflight.Config{
 			LocalTimeCheck: true,
 		}, pool, dialer)
@@ -118,7 +118,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("More than 24h", func(t *testing.T) {
+	t.Run("More than 30m", func(t *testing.T) {
 		// register mock GetTime endpoint to mock server
 		contactServer, err := server.New(log, mockSatTLSOptions, config.Address, config.PrivateAddress, nil)
 		require.NoError(t, err)
@@ -128,7 +128,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		}()
 
 		pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
-			localTime: time.Now().UTC().Add(-25 * time.Hour),
+			localTime: time.Now().UTC().Add(-31 * time.Minute),
 		})
 
 		go func() {
@@ -165,7 +165,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		err = pool.Refresh(ctx)
 		require.NoError(t, err)
 
-		// should return an error when node's clock is off by more than 24h with all trusted satellites
+		// should return an error when node's clock is off by more than 30m with all trusted satellites
 		localtime := preflight.NewLocalTime(log, preflight.Config{
 			LocalTimeCheck: true,
 		}, pool, dialer)

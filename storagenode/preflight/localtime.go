@@ -18,10 +18,10 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
-// ErrClockOutOfSyncMinor is the error class for system clock is off by more than 1h
+// ErrClockOutOfSyncMinor is the error class for system clock is off by more than 10m
 var ErrClockOutOfSyncMinor = errs.Class("system clock is off")
 
-// ErrClockOutOfSyncMajor is the error class for system clock is out of sync by more than 24h
+// ErrClockOutOfSyncMajor is the error class for system clock is out of sync by more than 30m
 var ErrClockOutOfSyncMajor = errs.Class("system clock is out of sync")
 
 // LocalTime checks local system clock against all trusted satellites.
@@ -126,14 +126,14 @@ func (localTime *LocalTime) getSatelliteTime(ctx context.Context, satelliteID st
 func (localTime *LocalTime) checkSatelliteTime(ctx context.Context, satelliteTime time.Time, systemTime time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	diff := math.Abs(satelliteTime.Sub(systemTime).Hours())
-	// check to see if the timestamp received from satellites are off by more than 24h
-	if diff > 24 {
-		return ErrClockOutOfSyncMajor.New("clock off by %f", diff)
+	diff := math.Abs(satelliteTime.Sub(systemTime).Minutes())
+	// check to see if the timestamp received from satellites are off by more than 30m
+	if diff > 30 {
+		return ErrClockOutOfSyncMajor.New("clock off by %f minutes", diff)
 	}
-	// check to see if the timestamp received from satellites are off by more than 1h
-	if diff > 1 {
-		return ErrClockOutOfSyncMinor.New("clock off by %f", diff)
+	// check to see if the timestamp received from satellites are off by more than 10m
+	if diff > 10 {
+		return ErrClockOutOfSyncMinor.New("clock off by %f minutes", diff)
 	}
 
 	return nil
