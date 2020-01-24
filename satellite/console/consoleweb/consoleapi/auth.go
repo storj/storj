@@ -143,6 +143,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		&consoleql.AccountActivationEmail{
 			ActivationLink: link,
 			Origin:         a.ExternalAddress,
+			UserName:       userName,
 		},
 	)
 
@@ -356,6 +357,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 			ActivationLink:        link,
 			TermsAndConditionsURL: termsAndConditionsURL,
 			ContactInfoURL:        contactInfoURL,
+			UserName:              userName,
 		},
 	)
 }
