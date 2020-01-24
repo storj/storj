@@ -91,13 +91,14 @@ export default class ProjectSelectionDropdown extends Vue {
 
     .project-selection-choice-container {
         position: absolute;
-        top: 9vh;
+        top: 75px;
         left: -5px;
         border-radius: 4px;
         padding: 10px 0 10px 0;
         box-shadow: 0 4px rgba(231, 232, 238, 0.6);
         background-color: #fff;
         z-index: 1120;
+        border-top: 1px solid rgba(169, 181, 193, 0.3);
     }
 
     .project-selection-overflow-container {

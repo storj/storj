@@ -71,13 +71,14 @@ export default class AccountDropdown extends Vue {
 <style scoped lang="scss">
     .account-dropdown-choice-container {
         position: absolute;
-        top: 9vh;
+        top: 75px;
         right: 0;
         border-radius: 4px;
-        padding: 10px 0 10px 0;
+        padding: 10px 0;
         box-shadow: 0 4px rgba(231, 232, 238, 0.6);
         background-color: #fff;
         z-index: 1120;
+        border-top: 1px solid rgba(169, 181, 193, 0.3);
     }
 
     .account-dropdown-overflow-container {

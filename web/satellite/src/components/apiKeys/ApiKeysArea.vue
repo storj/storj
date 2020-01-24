@@ -274,7 +274,7 @@ export default class ApiKeysArea extends Vue {
     }
 
     public get isTitleShown(): boolean {
-        return !this.isBannerShown && this.isEmpty;
+        return !(this.isBannerShown && this.isEmpty);
     }
 
     public get hasSearchQuery(): boolean {
@@ -432,6 +432,7 @@ export default class ApiKeysArea extends Vue {
 
     .pagination-area {
         margin-left: -25px;
+        padding-bottom: 15px;
     }
 
     .header-default-state,

@@ -156,7 +156,7 @@ export default class ApiKeysCreationPopup extends Vue {
             left: 0;
             background-color: #f5f6fa;
             width: 100%;
-            height: 70vh;
+            height: 70.5vh;
             z-index: 100;
             opacity: 0.3;
         }

@@ -41,8 +41,7 @@
         </div>
         <div class="no-buckets-area__footer">
             <a class="no-buckets-area__footer__button" href="https://documentation.tardigrade.io/api-reference/uplink-cli" target="_blank">
-                <ButtonArrowIcon/>
-                <p class="no-buckets-area__footer__button__label">Create My First Bucket</p>
+                <p class="no-buckets-area__footer__button__label">Get Started</p>
             </a>
             <a class="no-buckets-area__footer__help" href="https://support.tardigrade.io/hc/en-us/articles/360035332472-Why-can-t-I-upload-from-the-browser-" target="_blank">Why can't I upload from the browser?</a>
         </div>
@@ -54,7 +53,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
-import ButtonArrowIcon from '@/../static/images/buckets/noBucketState/button.svg';
 import DotsIcon from '@/../static/images/buckets/noBucketState/dots.svg';
 import FirstStepIcon from '@/../static/images/buckets/noBucketState/one.svg';
 import ThirdStepIcon from '@/../static/images/buckets/noBucketState/three.svg';
@@ -67,12 +65,10 @@ import SecondStepIcon from '@/../static/images/buckets/noBucketState/two.svg';
         SecondStepIcon,
         ThirdStepIcon,
         DotsIcon,
-        ButtonArrowIcon,
     },
 })
 export default class NoBucketArea extends Vue {}
 </script>
-
 
 <style scoped lang="scss">
     h1,
@@ -187,17 +183,16 @@ export default class NoBucketArea extends Vue {}
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                width: 250px;
+                padding: 0 30px;
                 height: 55px;
                 background-color: #2683ff;
                 border-radius: 6px;
 
                 &__label {
                     color: #fff;
-                    font-family: 'font_medium', sans-serif;
-                    font-size: 16px;
-                    line-height: 23px;
-                    margin: 2px 0 0 10px;
+                    font-family: 'font_bold', sans-serif;
+                    font-size: 18px;
+                    line-height: 21px;
                 }
 
                 &:hover {

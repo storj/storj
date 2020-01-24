@@ -5,6 +5,7 @@
     <div class="project-selection-container" id="projectDropdownButton">
         <p class="project-selection-container__no-projects-text" v-if="!hasProjects">You have no projects</p>
         <div class="project-selection-toggle-container" @click="toggleSelection" v-if="hasProjects">
+            <p class="project-selection-toggle-container__common">Project:</p>
             <h1 class="project-selection-toggle-container__name">{{name}}</h1>
             <div class="project-selection-toggle-container__expander-area">
                 <ExpandIcon
@@ -92,6 +93,17 @@ export default class ProjectSelectionArea extends Vue {
         width: 100%;
         height: 50px;
 
+        &__common {
+            font-family: 'font_medium', sans-serif;
+            font-size: 16px;
+            line-height: 23px;
+            color: rgba(56, 75, 101, 0.4);
+            opacity: 0.7;
+            cursor: pointer;
+            user-select: none;
+            margin-right: 5px;
+        }
+
         &__name {
             font-family: 'font_medium', sans-serif;
             font-size: 16px;
@@ -120,6 +132,10 @@ export default class ProjectSelectionArea extends Vue {
         .project-selection-toggle-container {
             justify-content: space-between;
             margin-left: 10px;
+
+            &__common {
+                display: none;
+            }
         }
     }
 </style>

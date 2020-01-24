@@ -29,7 +29,7 @@
         <div class="usage-report-container__main-area">
             <div class="usage-report-container__main-area__info-area">
                 <div class="usage-report-container__main-area__info-area__item">
-                    <h1 class="usage-report-container__main-area__info-area__item__title">Storage, {{storageDataDimension}}*h</h1>
+                    <h1 class="usage-report-container__main-area__info-area__item__title">Storage, {{storageDataDimension}} x Hours</h1>
                     <h2 class="usage-report-container__main-area__info-area__item__amount">{{storage}}</h2>
                 </div>
                 <div class="usage-report-container__main-area__info-area__item">
