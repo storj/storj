@@ -412,11 +412,11 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	pieceID := remote.RootPieceId.Derive(nodeID, incomplete.PieceNum)
 
 	parts := storj.SplitPath(storj.Path(incomplete.Path))
-	if len(parts) < 2 {
+	if len(parts) < 3 {
 		return Error.New("invalid path for node ID %v, piece ID %v", incomplete.NodeID, pieceID)
 	}
 
-	bucketID := []byte(storj.JoinPaths(parts[0], parts[1]))
+	bucketID := []byte(storj.JoinPaths(parts[0], parts[2]))
 	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, incomplete.PieceNum, remote.RootPieceId, int32(pieceSize))
 	if err != nil {
 		return Error.Wrap(err)
