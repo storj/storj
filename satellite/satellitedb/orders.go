@@ -478,10 +478,10 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 		}
 		if lastProjectID != rollup.ProjectID {
 			lastProjectID = rollup.ProjectID
-			// take the slice over rollup.ProjectID, because it is going to stay
-			// the same up to the ExecContext call, whereas lastProjectID is likely
-			// to be overwritten
-			args = append(args, rollup.ProjectID[:])
+			// Take the slice over a copy of the value so that we don't mutate
+			// the underlying value for different range iterations. :grrcox:
+			project := rollup.ProjectID
+			args = append(args, project[:])
 			projectIDArgNum = len(args)
 		}
 		if lastBucketName != rollup.BucketName {

@@ -183,6 +183,62 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 	})
 }
 
+func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		wayInTheFuture := time.Now().UTC().Add(1000 * time.Hour)
+		hourBeforeTheFuture := wayInTheFuture.Add(-time.Hour)
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
+
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.Sender.Pause()
+		}
+
+		// Upload some data to two different projects in different buckets.
+		firstExpectedData := testrand.Bytes(50 * memory.KiB)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket0", "test/path", firstExpectedData)
+		require.NoError(t, err)
+		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket0", "test/path")
+		require.NoError(t, err)
+		require.Equal(t, firstExpectedData, data)
+
+		secondExpectedData := testrand.Bytes(100 * memory.KiB)
+		err = planet.Uplinks[1].Upload(ctx, planet.Satellites[0], "testbucket1", "test/path", secondExpectedData)
+		require.NoError(t, err)
+		data, err = planet.Uplinks[1].Download(ctx, planet.Satellites[0], "testbucket1", "test/path")
+		require.NoError(t, err)
+		require.Equal(t, secondExpectedData, data)
+
+		//HACKFIX: We need enough time to pass after the download ends for storagenodes to save orders
+		time.Sleep(200 * time.Millisecond)
+
+		// Have the nodes send up the orders.
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.Sender.TriggerWait()
+		}
+
+		// Run the chore as if we were far in the future so that the orders are expired.
+		reportedRollupChore := planet.Satellites[0].Core.Accounting.ReportedRollupChore
+		require.NoError(t, reportedRollupChore.RunOnce(ctx, wayInTheFuture))
+
+		// Query and ensure that there's no data recorded for the bucket from the other project
+		ordersDB := planet.Satellites[0].DB.Orders()
+		uplink0Project := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
+		uplink1Project := planet.Uplinks[1].ProjectID[planet.Satellites[0].ID()]
+
+		wrongBucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, uplink0Project, []byte("testbucket1"), hourBeforeTheFuture, wayInTheFuture)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), wrongBucketBandwidth)
+		wrongBucketBandwidth, err = ordersDB.GetBucketBandwidth(ctx, uplink1Project, []byte("testbucket0"), hourBeforeTheFuture, wayInTheFuture)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), wrongBucketBandwidth)
+	})
+}
+
 func TestSplitBucketIDInvalid(t *testing.T) {
 	var testCases = []struct {
 		name     string
