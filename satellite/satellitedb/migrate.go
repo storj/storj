@@ -718,12 +718,11 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`INSERT INTO stripecoinpayments_apply_balance_intents
 						(SELECT id, 0, now() FROM coinpayments_transactions WHERE status = 100)`,
 					// update all received transactions with applied balance intent to be completed
-					`UPDATE coinpayments_transactions
+					`UPDATE coinpayments_transactions AS txs
 						SET status = 100
-						FROM coinpayments_transactions as txs
-						INNER JOIN stripecoinpayments_apply_balance_intents as ints
-						ON txs.id = ints.tx_id
-						WHERE txs.status = 1
+						FROM stripecoinpayments_apply_balance_intents AS ints
+						WHERE ints.tx_id = txs.id
+						AND txs.status = 1
 						AND ints.state = 1
 					`,
 				},
