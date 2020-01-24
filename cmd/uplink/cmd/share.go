@@ -27,8 +27,8 @@ var shareCfg struct {
 	DisallowDeletes   bool     `default:"false" help:"if true, disallow deletes" basic-help:"true"`
 	Readonly          bool     `default:"false" help:"implies disallow_writes and disallow_deletes" basic-help:"true"`
 	Writeonly         bool     `default:"false" help:"implies disallow_reads and disallow_lists" basic-help:"true"`
-	NotBefore         string   `help:"disallow access before this time" basic-help:"true"`
-	NotAfter          string   `help:"disallow access after this time" basic-help:"true"`
+	NotBefore         string   `help:"disallow access before this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
+	NotAfter          string   `help:"disallow access after this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
 	AllowedPathPrefix []string `help:"whitelist of path prefixes to require, overrides the [allowed-path-prefix] arguments"`
 	ExportTo          string   `default:"" help:"path to export the shared access to" basic-help:"true"`
 
@@ -50,8 +50,6 @@ func init() {
 	process.Bind(shareCmd, &shareCfg, defaults, cfgstruct.ConfDir(getConfDir()))
 }
 
-const shareISO8601 = "2006-01-02T15:04:05-0700"
-
 func parseHumanDate(date string, now time.Time) (*time.Time, error) {
 	switch {
 	case date == "":
@@ -67,7 +65,7 @@ func parseHumanDate(date string, now time.Time) (*time.Time, error) {
 		t := now.Add(-d)
 		return &t, errs.Wrap(err)
 	default:
-		t, err := time.Parse(shareISO8601, date)
+		t, err := time.Parse(time.RFC3339, date)
 		return &t, errs.Wrap(err)
 	}
 }
