@@ -747,6 +747,15 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeOffline.New("%v", nodeID)
 	}
 
+	// TODO: we're using `PUT_REPAIR` here even though `PUT_GRACEFUL_EXIT` exists and
+	// seems like the perfect thing because we're in a pickle. we can't use `PUT`
+	// because we don't want to charge bucket owners for graceful exit bandwidth, and
+	// we can't use `PUT_GRACEFUL_EXIT` because storagenode will only accept upload
+	// orders with `PUT` or `PUT_REPAIR` as the action. we also don't have a bunch of
+	// supporting code/tables to aggregate `PUT_GRACEFUL_EXIT` bandwidth into our rollups
+	// and stuff. so, for now, we just use `PUT_REPAIR` because it's the least bad of
+	// our options. this should be fixed.
+
 	orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 		SerialNumber:     serialNumber,
 		SatelliteId:      service.satellite.ID(),
@@ -754,7 +763,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		UplinkPublicKey:  piecePublicKey,
 		StorageNodeId:    nodeID,
 		PieceId:          rootPieceID.Derive(nodeID, pieceNum),
-		Action:           pb.PieceAction_PUT,
+		Action:           pb.PieceAction_PUT_REPAIR,
 		Limit:            int64(shareSize),
 		OrderCreation:    time.Now().UTC(),
 		OrderExpiration:  orderExpiration,
