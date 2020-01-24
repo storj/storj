@@ -264,6 +264,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		var action pb.PieceAction
 		var expiresArgNum, bucketArgNum, serialArgNum, actionArgNum int
 		var args []interface{}
+		writeComma := false
 		args = append(args, storageNodeID.Bytes(), time.Now().UTC())
 
 		for i, request := range requests {
@@ -275,7 +276,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 				continue
 			}
 
-			if i > 0 {
+			if writeComma {
 				stmt.WriteString(",")
 			}
 			if expiresAt != roundToNextDay(request.OrderLimit.OrderExpiration) {
@@ -308,6 +309,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 				serialArgNum,
 				len(args),
 			))
+			writeComma = true
 
 			responses = append(responses, &orders.ProcessOrderResponse{
 				SerialNumber: request.Order.SerialNumber,
