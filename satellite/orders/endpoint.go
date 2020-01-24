@@ -51,7 +51,7 @@ type DB interface {
 	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
 
 	// ProcessOrders takes a list of order requests and processes them in a batch
-	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest) (responses []*ProcessOrderResponse, err error)
+	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest, observedAt time.Time) (responses []*ProcessOrderResponse, err error)
 
 	// GetBillableBandwidth gets total billable (expired reported serial) bandwidth for nodes and buckets for all actions.
 	GetBillableBandwidth(ctx context.Context, now time.Time) (bucketRollups []BucketBandwidthRollup, storagenodeRollups []StoragenodeBandwidthRollup, err error)
@@ -314,7 +314,7 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 func (endpoint *Endpoint) processOrders(ctx context.Context, stream settlementStream, requests []*ProcessOrderRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	responses, err := endpoint.DB.ProcessOrders(ctx, requests)
+	responses, err := endpoint.DB.ProcessOrders(ctx, requests, time.Now())
 	if err != nil {
 		return err
 	}

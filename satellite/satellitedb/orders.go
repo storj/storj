@@ -7,10 +7,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -194,7 +194,7 @@ func (db *ordersDB) UnuseSerialNumber(ctx context.Context, serialNumber storj.Se
 // ProcessOrders take a list of order requests and "settles" them in one transaction.
 //
 // ProcessOrders requires that all orders come from the same storage node.
-func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest) (responses []*orders.ProcessOrderResponse, err error) {
+func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.ProcessOrderRequest, observedAt time.Time) (responses []*orders.ProcessOrderResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(requests) == 0 {
@@ -209,121 +209,109 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		}
 	}
 
-	// sort requests by serial number, all of them should be from the same storage node
-	sort.Slice(requests, func(i, k int) bool {
-		return requests[i].OrderLimit.SerialNumber.Less(requests[k].OrderLimit.SerialNumber)
-	})
-
-	// do a read only transaction to get all the project id/bucket ids
-	var bucketIDs [][]byte
-	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		for _, request := range requests {
-			row, err := tx.Find_SerialNumber_By_SerialNumber(ctx,
-				dbx.SerialNumber_SerialNumber(request.Order.SerialNumber.Bytes()))
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			if row != nil {
-				bucketIDs = append(bucketIDs, row.BucketId)
-			} else {
-				bucketIDs = append(bucketIDs, nil)
-			}
+	// Do a read first to get all the project id/bucket ids. We could combine this with the
+	// upsert below by doing a join, but there isn't really any need for special consistency
+	// semantics between these two queries, and it should make things easier on the database
+	// (particularly cockroachDB) to have the freedom to perform them separately.
+	//
+	// We don't expect the serial_number -> bucket_id relationship ever to change, as long as a
+	// serial_number exists. There is a possibility of a serial_number being deleted between
+	// this query and the next, but that is ok too (rows in reported_serials may end up having
+	// serial numbers that no longer exist in serial_numbers, but that shouldn't break
+	// anything.)
+	bucketIDs, err := func() (bucketIDs [][]byte, err error) {
+		bucketIDs = make([][]byte, len(requests))
+		serialNums := make([][]byte, len(requests))
+		for i, request := range requests {
+			serialNums[i] = request.Order.SerialNumber.Bytes()
 		}
-		return nil
-	})
+		rows, err := db.db.QueryContext(ctx, `
+			SELECT request.i, sn.bucket_id
+			FROM
+				serial_numbers sn,
+				unnest($1::bytea[]) WITH ORDINALITY AS request(serial_number, i)
+			WHERE request.serial_number = sn.serial_number
+		`, pq.ByteaArray(serialNums))
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		defer func() { err = errs.Combine(err, rows.Close(), rows.Err()) }()
+		for rows.Next() {
+			var index int
+			var bucketID []byte
+			err = rows.Scan(&index, &bucketID)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			bucketIDs[index-1] = bucketID
+		}
+		return bucketIDs, nil
+	}()
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	// perform all of the upserts into reported serials table
-	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		var stmt strings.Builder
-		var stmtBegin, stmtEnd string
-		switch db.db.implementation {
-		case dbutil.Postgres:
-			stmtBegin = `INSERT INTO reported_serials ( expires_at, storage_node_id, bucket_id, action, serial_number, settled, observed_at ) VALUES `
-			stmtEnd = ` ON CONFLICT ( expires_at, storage_node_id, bucket_id, action, serial_number )
-				DO UPDATE SET
-					expires_at = EXCLUDED.expires_at,
-					storage_node_id = EXCLUDED.storage_node_id,
-					bucket_id = EXCLUDED.bucket_id,
-					action = EXCLUDED.action,
-					serial_number = EXCLUDED.serial_number,
-					settled = EXCLUDED.settled,
-					observed_at = EXCLUDED.observed_at`
-		case dbutil.Cockroach:
-			stmtBegin = `UPSERT INTO reported_serials ( expires_at, storage_node_id, bucket_id, action, serial_number, settled, observed_at ) VALUES `
-		default:
-			return errs.New("invalid dbType: %v", db.db.driver)
-		}
+	expiresAtArray := make([]time.Time, 0, len(requests))
+	bucketIDArray := make([][]byte, 0, len(requests))
+	actionArray := make([]pb.PieceAction, 0, len(requests))
+	serialNumArray := make([][]byte, 0, len(requests))
+	settledArray := make([]int64, 0, len(requests))
 
-		stmt.WriteString(stmtBegin)
-		var expiresAt time.Time
-		var bucketID []byte
-		var serialNum storj.SerialNumber
-		var action pb.PieceAction
-		var expiresArgNum, bucketArgNum, serialArgNum, actionArgNum int
-		var args []interface{}
-		writeComma := false
-		args = append(args, storageNodeID.Bytes(), time.Now().UTC())
-
-		for i, request := range requests {
-			if bucketIDs[i] == nil {
-				responses = append(responses, &orders.ProcessOrderResponse{
-					SerialNumber: request.Order.SerialNumber,
-					Status:       pb.SettlementResponse_REJECTED,
-				})
-				continue
-			}
-
-			if writeComma {
-				stmt.WriteString(",")
-			}
-			if expiresAt != roundToNextDay(request.OrderLimit.OrderExpiration) {
-				expiresAt = roundToNextDay(request.OrderLimit.OrderExpiration)
-				args = append(args, expiresAt)
-				expiresArgNum = len(args)
-			}
-			if string(bucketID) != string(bucketIDs[i]) {
-				bucketID = bucketIDs[i]
-				args = append(args, bucketID)
-				bucketArgNum = len(args)
-			}
-			if action != request.OrderLimit.Action {
-				action = request.OrderLimit.Action
-				args = append(args, action)
-				actionArgNum = len(args)
-			}
-			if serialNum != request.Order.SerialNumber {
-				serialNum = request.Order.SerialNumber
-				args = append(args, serialNum.Bytes())
-				serialArgNum = len(args)
-			}
-
-			args = append(args, request.Order.Amount)
-			stmt.WriteString(fmt.Sprintf(
-				"($%d,$1,$%d,$%d,$%d,$%d,$2)",
-				expiresArgNum,
-				bucketArgNum,
-				actionArgNum,
-				serialArgNum,
-				len(args),
-			))
-			writeComma = true
-
+	for i, request := range requests {
+		if bucketIDs[i] == nil {
 			responses = append(responses, &orders.ProcessOrderResponse{
 				SerialNumber: request.Order.SerialNumber,
-				Status:       pb.SettlementResponse_ACCEPTED,
+				Status:       pb.SettlementResponse_REJECTED,
 			})
+			continue
 		}
-		stmt.WriteString(stmtEnd)
-		_, err = tx.Tx.ExecContext(ctx, stmt.String(), args...)
-		if err != nil {
-			return Error.Wrap(err)
-		}
+		expiresAtArray = append(expiresAtArray, roundToNextDay(request.OrderLimit.OrderExpiration))
+		bucketIDArray = append(bucketIDArray, bucketIDs[i])
+		actionArray = append(actionArray, request.OrderLimit.Action)
+		serialNumCopy := request.Order.SerialNumber
+		serialNumArray = append(serialNumArray, serialNumCopy[:])
+		settledArray = append(settledArray, request.Order.Amount)
 
-		return nil
-	})
+		responses = append(responses, &orders.ProcessOrderResponse{
+			SerialNumber: request.Order.SerialNumber,
+			Status:       pb.SettlementResponse_ACCEPTED,
+		})
+	}
+
+	var stmt string
+	switch db.db.implementation {
+	case dbutil.Postgres:
+		stmt = `
+			INSERT INTO reported_serials (
+				expires_at, storage_node_id, bucket_id, action, serial_number, settled, observed_at
+			)
+			SELECT unnest($1::timestamptz[]), $2::bytea, unnest($3::bytea[]), unnest($4::integer[]), unnest($5::bytea[]), unnest($6::bigint[]), $7::timestamptz
+			ON CONFLICT ( expires_at, storage_node_id, bucket_id, action, serial_number )
+			DO UPDATE SET
+				settled = EXCLUDED.settled,
+				observed_at = EXCLUDED.observed_at
+		`
+	case dbutil.Cockroach:
+		stmt = `
+			UPSERT INTO reported_serials (
+				expires_at, storage_node_id, bucket_id, action, serial_number, settled, observed_at
+			)
+			SELECT unnest($1::timestamptz[]), $2::bytea, unnest($3::bytea[]), unnest($4::integer[]), unnest($5::bytea[]), unnest($6::bigint[]), $7::timestamptz
+		`
+	default:
+		return nil, Error.New("invalid dbType: %v", db.db.driver)
+	}
+
+	_, err = db.db.ExecContext(ctx, stmt,
+		pq.Array(expiresAtArray),
+		storageNodeID.Bytes(),
+		pq.ByteaArray(bucketIDArray),
+		pq.Array(actionArray),
+		pq.ByteaArray(serialNumArray),
+		pq.Array(settledArray),
+		observedAt.UTC(),
+	)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

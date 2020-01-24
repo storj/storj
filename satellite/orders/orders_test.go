@@ -302,7 +302,7 @@ func BenchmarkOrders(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					requests := buildBenchmarkData(ctx, b, db, snID, bucketID, c)
 
-					_, err := db.Orders().ProcessOrders(ctx, requests)
+					_, err := db.Orders().ProcessOrders(ctx, requests, time.Now())
 					assert.NoError(b, err)
 				}
 			})
@@ -345,11 +345,12 @@ func TestProcessOrders(t *testing.T) {
 		serialNum := storj.SerialNumber{2}
 		serialNum2 := storj.SerialNumber{3}
 		projectID, _ := uuid.New()
+		now := time.Now()
 
 		// setup: create serial number records
-		err := ordersDB.CreateSerialInfo(ctx, serialNum, []byte(projectID.String()+"/b"), time.Now().AddDate(0, 0, 1))
+		err := ordersDB.CreateSerialInfo(ctx, serialNum, []byte(projectID.String()+"/b"), now.AddDate(0, 0, 1))
 		require.NoError(t, err)
-		err = ordersDB.CreateSerialInfo(ctx, serialNum2, []byte(projectID.String()+"/c"), time.Now().AddDate(0, 0, 1))
+		err = ordersDB.CreateSerialInfo(ctx, serialNum2, []byte(projectID.String()+"/c"), now.AddDate(0, 0, 1))
 		require.NoError(t, err)
 
 		var requests []*orders.ProcessOrderRequest
@@ -364,10 +365,10 @@ func TestProcessOrders(t *testing.T) {
 					SerialNumber:    serialNum,
 					StorageNodeId:   storj.NodeID{1},
 					Action:          pb.PieceAction_DELETE,
-					OrderExpiration: time.Now().AddDate(0, 0, 3),
+					OrderExpiration: now.AddDate(0, 0, 3),
 				},
 			})
-			actualResponses, err := ordersDB.ProcessOrders(ctx, requests)
+			actualResponses, err := ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
 			require.NoError(t, err)
 			expectedResponses := []*orders.ProcessOrderResponse{
 				{
@@ -388,21 +389,21 @@ func TestProcessOrders(t *testing.T) {
 					SerialNumber:    serialNum2,
 					StorageNodeId:   storj.NodeID{2},
 					Action:          pb.PieceAction_PUT,
-					OrderExpiration: time.Now().AddDate(0, 0, 1)},
+					OrderExpiration: now.AddDate(0, 0, 1)},
 			})
-			_, err = ordersDB.ProcessOrders(ctx, requests)
+			_, err = ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
 			require.Error(t, err, "different storage nodes")
 		})
 
 		t.Run("process two orders from same storagenodes and confirm we get two responses", func(t *testing.T) {
 			requests[0].OrderLimit.StorageNodeId = storj.NodeID{2}
-			actualResponses, err := ordersDB.ProcessOrders(ctx, requests)
+			actualResponses, err := ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
 			require.NoError(t, err)
 			assert.Equal(t, 2, len(actualResponses))
 		})
 
 		t.Run("confirm the correct data from processing orders was written to reported_serials table", func(t *testing.T) {
-			bbr, snr, err := ordersDB.GetBillableBandwidth(ctx, time.Now().AddDate(0, 0, 3))
+			bbr, snr, err := ordersDB.GetBillableBandwidth(ctx, now.AddDate(0, 0, 3))
 			require.NoError(t, err)
 			assert.Equal(t, 1, len(bbr))
 			expected := []orders.BucketBandwidthRollup{
@@ -426,7 +427,7 @@ func TestProcessOrders(t *testing.T) {
 				},
 			}
 			assert.Equal(t, expectedRollup, snr)
-			bbr, snr, err = ordersDB.GetBillableBandwidth(ctx, time.Now().AddDate(0, 0, 5))
+			bbr, snr, err = ordersDB.GetBillableBandwidth(ctx, now.AddDate(0, 0, 5))
 			require.NoError(t, err)
 			assert.Equal(t, 2, len(bbr))
 			assert.Equal(t, 3, len(snr))
@@ -443,7 +444,7 @@ func TestProcessOrders(t *testing.T) {
 						SerialNumber:    invalidSerial,
 						StorageNodeId:   storj.NodeID{1},
 						Action:          pb.PieceAction_PUT,
-						OrderExpiration: time.Now().AddDate(0, 0, 1),
+						OrderExpiration: now.AddDate(0, 0, 1),
 					},
 				},
 				{
@@ -455,13 +456,91 @@ func TestProcessOrders(t *testing.T) {
 						SerialNumber:    serialNum,
 						StorageNodeId:   storj.NodeID{1},
 						Action:          pb.PieceAction_PUT,
-						OrderExpiration: time.Now().AddDate(0, 0, 1),
+						OrderExpiration: now.AddDate(0, 0, 1),
 					},
 				},
 			}
-			responses, err := ordersDB.ProcessOrders(ctx, requests)
+			responses, err := ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
 			require.NoError(t, err)
 			assert.Equal(t, pb.SettlementResponse_REJECTED, responses[0].Status)
+		})
+
+		t.Run("in case of conflicting ProcessOrderRequests, later one wins", func(t *testing.T) {
+			// unique nodeID so the other tests here don't interfere
+			nodeID := testrand.NodeID()
+			requests := []*orders.ProcessOrderRequest{
+				{
+					Order: &pb.Order{
+						SerialNumber: serialNum,
+						Amount:       100,
+					},
+					OrderLimit: &pb.OrderLimit{
+						SerialNumber:    serialNum,
+						StorageNodeId:   nodeID,
+						Action:          pb.PieceAction_GET,
+						OrderExpiration: now.AddDate(0, 0, 1),
+					},
+				},
+				{
+					Order: &pb.Order{
+						SerialNumber: serialNum2,
+						Amount:       200,
+					},
+					OrderLimit: &pb.OrderLimit{
+						SerialNumber:    serialNum2,
+						StorageNodeId:   nodeID,
+						Action:          pb.PieceAction_GET,
+						OrderExpiration: now.AddDate(0, 0, 1),
+					},
+				},
+			}
+			responses, err := ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
+			require.NoError(t, err)
+			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[0].Status)
+			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[1].Status)
+
+			requests = []*orders.ProcessOrderRequest{
+				{
+					Order: &pb.Order{
+						SerialNumber: serialNum,
+						Amount:       1,
+					},
+					OrderLimit: &pb.OrderLimit{
+						SerialNumber:    serialNum,
+						StorageNodeId:   nodeID,
+						Action:          pb.PieceAction_GET,
+						OrderExpiration: now.AddDate(0, 0, 1),
+					},
+				},
+				{
+					Order: &pb.Order{
+						SerialNumber: serialNum2,
+						Amount:       500,
+					},
+					OrderLimit: &pb.OrderLimit{
+						SerialNumber:    serialNum2,
+						StorageNodeId:   nodeID,
+						Action:          pb.PieceAction_GET,
+						OrderExpiration: now.AddDate(0, 0, 1),
+					},
+				},
+			}
+			responses, err = ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
+			require.NoError(t, err)
+			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[0].Status)
+			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[1].Status)
+
+			_, storagenodeRollups, err := ordersDB.GetBillableBandwidth(ctx, now.AddDate(0, 0, 10))
+			require.NoError(t, err)
+			found := false
+			for _, rollup := range storagenodeRollups {
+				if rollup.NodeID == nodeID {
+					require.Equal(t, pb.PieceAction_GET, rollup.Action)
+					require.Equal(t, int64(501), rollup.Settled)
+					found = true
+				}
+			}
+			require.True(t, found)
 		})
 	})
 }
