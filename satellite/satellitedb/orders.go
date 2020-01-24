@@ -6,8 +6,6 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -437,64 +435,43 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 
 	orders.SortBucketBandwidthRollups(rollups)
 
-	const stmtBegin = `
-		INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-		VALUES
-	`
-	const stmtEnd = `
+	intervalStart = intervalStart.UTC()
+	intervalStart = time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, time.UTC)
+
+	var bucketNames [][]byte
+	var projectIDs [][]byte
+	var actionSlice []int32
+	var inlineSlice []int64
+	var allocatedSlice []int64
+	var settledSlice []int64
+
+	for _, rollup := range rollups {
+		rollup := rollup
+		bucketNames = append(bucketNames, []byte(rollup.BucketName))
+		projectIDs = append(projectIDs, rollup.ProjectID[:])
+		actionSlice = append(actionSlice, int32(rollup.Action))
+		inlineSlice = append(inlineSlice, rollup.Inline)
+		allocatedSlice = append(allocatedSlice, rollup.Allocated)
+		settledSlice = append(settledSlice, rollup.Settled)
+	}
+
+	_, err = tx.tx.Tx.ExecContext(ctx, `
+		INSERT INTO bucket_bandwidth_rollups (
+			bucket_name, project_id,
+			interval_start, interval_seconds,
+			action, inline, allocated, settled)
+		SELECT
+			unnest($1::bytea[]), unnest($2::bytea[]),
+			$3, $4,
+			unnest($5::integer[]), unnest($6::integer[]), unnest($7::integer[]), unnest($8::integer[])
 		ON CONFLICT(bucket_name, project_id, interval_start, action)
 		DO UPDATE SET
 			allocated = bucket_bandwidth_rollups.allocated + EXCLUDED.allocated,
 			inline = bucket_bandwidth_rollups.inline + EXCLUDED.inline,
-			settled = bucket_bandwidth_rollups.settled + EXCLUDED.settled
-	`
-
-	intervalStart = intervalStart.UTC()
-	intervalStart = time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, time.UTC)
-
-	var lastProjectID uuid.UUID
-	var lastBucketName string
-	var projectIDArgNum int
-	var bucketNameArgNum int
-	var args []interface{}
-
-	var stmt strings.Builder
-	stmt.WriteString(stmtBegin)
-
-	args = append(args, intervalStart)
-	for i, rollup := range rollups {
-		if i > 0 {
-			stmt.WriteString(",")
-		}
-		if lastProjectID != rollup.ProjectID {
-			lastProjectID = rollup.ProjectID
-			// Take the slice over a copy of the value so that we don't mutate
-			// the underlying value for different range iterations. :grrcox:
-			project := rollup.ProjectID
-			args = append(args, project[:])
-			projectIDArgNum = len(args)
-		}
-		if lastBucketName != rollup.BucketName {
-			lastBucketName = rollup.BucketName
-			args = append(args, lastBucketName)
-			bucketNameArgNum = len(args)
-		}
-		args = append(args, rollup.Action, rollup.Inline, rollup.Allocated, rollup.Settled)
-
-		stmt.WriteString(fmt.Sprintf(
-			"($%d,$%d,$1,%d,$%d,$%d,$%d,$%d)",
-			bucketNameArgNum,
-			projectIDArgNum,
-			defaultIntervalSeconds,
-			len(args)-3,
-			len(args)-2,
-			len(args)-1,
-			len(args),
-		))
-	}
-	stmt.WriteString(stmtEnd)
-
-	_, err = tx.tx.Tx.ExecContext(ctx, stmt.String(), args...)
+			settled = bucket_bandwidth_rollups.settled + EXCLUDED.settled`,
+		pq.ByteaArray(bucketNames), pq.ByteaArray(projectIDs),
+		intervalStart, defaultIntervalSeconds,
+		pq.Array(actionSlice), pq.Array(inlineSlice), pq.Array(allocatedSlice), pq.Array(settledSlice))
 	if err != nil {
 		tx.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
 	}
@@ -510,57 +487,42 @@ func (tx *ordersDBTx) UpdateStoragenodeBandwidthBatch(ctx context.Context, inter
 
 	orders.SortStoragenodeBandwidthRollups(rollups)
 
-	const stmtBegin = `
-		INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-		VALUES
-	`
-	const stmtEnd = `
-		ON CONFLICT(storagenode_id, interval_start, action)
-		DO UPDATE SET
-			allocated = storagenode_bandwidth_rollups.allocated + EXCLUDED.allocated,
-			settled = storagenode_bandwidth_rollups.settled + EXCLUDED.settled
-	`
+	var storageNodeIDs []storj.NodeID
+	var actionSlice []int32
+	var allocatedSlice []int64
+	var settledSlice []int64
 
 	intervalStart = intervalStart.UTC()
 	intervalStart = time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, time.UTC)
 
-	var lastNodeID storj.NodeID
-	var nodeIDArgNum int
-	var args []interface{}
-
-	var stmt strings.Builder
-	stmt.WriteString(stmtBegin)
-
-	args = append(args, intervalStart)
-	for i, rollup := range rollups {
-		if i > 0 {
-			stmt.WriteString(",")
-		}
-		if lastNodeID != rollup.NodeID {
-			lastNodeID = rollup.NodeID
-			// take the slice over rollup.ProjectID, because it is going to stay
-			// the same up to the ExecContext call, whereas lastProjectID is likely
-			// to be overwritten
-			args = append(args, rollup.NodeID.Bytes())
-			nodeIDArgNum = len(args)
-		}
-		args = append(args, rollup.Action, rollup.Allocated, rollup.Settled)
-
-		stmt.WriteString(fmt.Sprintf(
-			"($%d,$1,%d,$%d,$%d,$%d)",
-			nodeIDArgNum,
-			defaultIntervalSeconds,
-			len(args)-2,
-			len(args)-1,
-			len(args),
-		))
+	for i := range rollups {
+		rollup := &rollups[i]
+		storageNodeIDs = append(storageNodeIDs, rollup.NodeID)
+		actionSlice = append(actionSlice, int32(rollup.Action))
+		allocatedSlice = append(allocatedSlice, rollup.Allocated)
+		settledSlice = append(settledSlice, rollup.Settled)
 	}
-	stmt.WriteString(stmtEnd)
 
-	_, err = tx.tx.Tx.ExecContext(ctx, stmt.String(), args...)
+	_, err = tx.tx.Tx.ExecContext(ctx, `
+		INSERT INTO storagenode_bandwidth_rollups(
+			storagenode_id,
+			interval_start, interval_seconds,
+			action, allocated, settled)
+		SELECT
+			unnest($1::bytea[]),
+			$2, $3,
+			unnest($4::integer[]), unnest($5::integer[]), unnest($6::integer[])
+		ON CONFLICT(storagenode_id, interval_start, action)
+		DO UPDATE SET
+			allocated = storagenode_bandwidth_rollups.allocated + EXCLUDED.allocated,
+			settled = storagenode_bandwidth_rollups.settled + EXCLUDED.settled`,
+		postgresNodeIDList(storageNodeIDs),
+		intervalStart, defaultIntervalSeconds,
+		pq.Array(actionSlice), pq.Array(allocatedSlice), pq.Array(settledSlice))
 	if err != nil {
 		tx.log.Error("Storagenode bandwidth rollup batch flush failed.", zap.Error(err))
 	}
+
 	return err
 }
 
