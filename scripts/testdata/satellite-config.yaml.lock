@@ -146,16 +146,16 @@ contact.external-address: ""
 # graceful-exit.enabled: true
 
 # size of the buffer used to batch transfer queue reads and sends to the storage node.
-# graceful-exit.endpoint-batch-size: 100
+# graceful-exit.endpoint-batch-size: 300
 
 # maximum number of transfer failures per piece.
-# graceful-exit.max-failures-per-piece: 3
+# graceful-exit.max-failures-per-piece: 5
 
 # maximum inactive time frame of transfer activities per node.
 # graceful-exit.max-inactive-time-frame: 168h0m0s
 
 # maximum number of order limits a satellite sends to a node before marking piece transfer failed
-# graceful-exit.max-order-limit-send-count: 5
+# graceful-exit.max-order-limit-send-count: 10
 
 # minimum age for a node on the network in order to initiate graceful exit
 # graceful-exit.node-min-age-in-months: 6
