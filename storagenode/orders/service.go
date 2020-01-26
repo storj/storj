@@ -327,7 +327,7 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 			}
 
 			err = OrderError.New("failed to receive settlement response: %w", err)
-			log.Error("rpc client error when receiveing new order settlements", zap.Error(err))
+			log.Error("rpc client error when receiving new order settlements", zap.Error(err))
 			errList.Add(err)
 			break
 		}
@@ -340,7 +340,7 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 			status = StatusRejected
 		default:
 			err := OrderError.New("unexpected settlement status response: %d", response.Status)
-			log.Error("rpc client received a unexpected new orders setlement status",
+			log.Error("rpc client received an unexpected new orders settlement status",
 				zap.Error(err), zap.Any("response", response),
 			)
 			errList.Add(err)
