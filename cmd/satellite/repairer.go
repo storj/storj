@@ -40,7 +40,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating metainfo database: %+v", err)
 	}
 	defer func() {
-		err = errs.Combine(err, db.Close())
+		err = errs.Combine(err, pointerDB.Close())
 	}()
 
 	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
