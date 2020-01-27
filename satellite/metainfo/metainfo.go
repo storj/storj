@@ -2145,6 +2145,10 @@ func sortLimits(limits []*pb.AddressedOrderLimit, pointer *pb.Pointer) []*pb.Add
 
 func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID storj.NodeID) *pb.AddressedOrderLimit {
 	for _, limit := range limits {
+		if limit == nil || limit.GetLimit() == nil {
+			continue
+		}
+
 		if limit.GetLimit().StorageNodeId == storageNodeID {
 			return limit
 		}

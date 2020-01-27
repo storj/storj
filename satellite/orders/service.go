@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"math"
+	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -45,6 +47,8 @@ type Service struct {
 	orderExpiration                     time.Duration
 	repairMaxExcessRateOptimalThreshold float64
 	nodeStatusLogging                   bool
+	rngMu                               sync.Mutex
+	rng                                 *rand.Rand
 }
 
 // NewService creates new service for creating order limits.
@@ -62,6 +66,7 @@ func NewService(
 		orderExpiration:                     orderExpiration,
 		repairMaxExcessRateOptimalThreshold: repairMaxExcessRateOptimalThreshold,
 		nodeStatusLogging:                   nodeStatusLogging,
+		rng:                                 rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -96,7 +101,7 @@ func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID
 	var bucketAllocation int64
 
 	for _, addressedOrderLimit := range addressedOrderLimits {
-		if addressedOrderLimit != nil {
+		if addressedOrderLimit != nil && addressedOrderLimit.Limit != nil {
 			orderLimit := addressedOrderLimit.Limit
 			action = orderLimit.Action
 			bucketAllocation += orderLimit.Limit
@@ -165,7 +170,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
+		orderLimit := &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
@@ -177,9 +182,6 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 			PieceExpiration:  pieceExpiration,
 			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
-		})
-		if err != nil {
-			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}
 
 		limits = append(limits, &pb.AddressedOrderLimit{
@@ -199,6 +201,28 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
+	neededLimits := pb.NewRedundancySchemeToStorj(pointer.GetRemote().GetRedundancy()).DownloadNodes()
+	if int(neededLimits) < redundancy.RequiredCount() {
+		err = Error.New("not enough needed node orderlimits: got %d, required %d", neededLimits, redundancy.RequiredCount())
+		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, combinedErrs))
+	}
+	// an orderLimit was created for each piece, but lets only use
+	// the number of orderLimits actually needed to do the download
+	limits, err = service.RandomSampleOfOrderLimits(limits, int(neededLimits))
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	for i, limit := range limits {
+		if limit == nil {
+			continue
+		}
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, limit.Limit)
+		if err != nil {
+			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+		}
+		limits[i].Limit = orderLimit
+	}
 	projectID, bucketName, err := SplitBucketID(bucketID)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
@@ -208,6 +232,27 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 	}
 
 	return limits, piecePrivateKey, nil
+}
+
+// RandomSampleOfOrderLimits returns a random sample of the order limits
+func (service *Service) RandomSampleOfOrderLimits(limits []*pb.AddressedOrderLimit, sampleSize int) ([]*pb.AddressedOrderLimit, error) {
+	service.rngMu.Lock()
+	perm := service.rng.Perm(len(limits))
+	service.rngMu.Unlock()
+
+	// the sample slice is the same size as the limits slice since that represents all
+	// of the pieces of a pointer in the correct order and we want to maintain the order
+	var sample = make([]*pb.AddressedOrderLimit, len(limits))
+	for _, i := range perm {
+		limit := limits[i]
+		sample[i] = limit
+
+		sampleSize--
+		if sampleSize <= 0 {
+			break
+		}
+	}
+	return sample, nil
 }
 
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
