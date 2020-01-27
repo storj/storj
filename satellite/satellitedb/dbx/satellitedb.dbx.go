@@ -9252,7 +9252,7 @@ func (obj *postgresImpl) Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx conte
 	rows []*ReportedSerial, next *Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number, reported_serials.settled, reported_serials.observed_at, reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number FROM reported_serials WHERE reported_serials.expires_at <= ? AND (reported_serials.expires_at > ? OR (reported_serials.expires_at = ? AND (reported_serials.storage_node_id > ? OR (reported_serials.storage_node_id = ? AND (reported_serials.bucket_id > ? OR (reported_serials.bucket_id = ? AND (reported_serials.action > ? OR (reported_serials.action = ? AND reported_serials.serial_number > ?)))))))) ORDER BY reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number, reported_serials.settled, reported_serials.observed_at, reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number FROM reported_serials WHERE reported_serials.expires_at <= ? AND (reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number) > (?, ?, ?, ?, ?) ORDER BY reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number, reported_serials.settled, reported_serials.observed_at, reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number FROM reported_serials WHERE reported_serials.expires_at <= ? ORDER BY reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number LIMIT ?")
 
@@ -9261,7 +9261,7 @@ func (obj *postgresImpl) Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx conte
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_expires_at, start._value_expires_at, start._value_storage_node_id, start._value_storage_node_id, start._value_bucket_id, start._value_bucket_id, start._value_action, start._value_action, start._value_serial_number, limit)
+		__values = append(__values, start._value_expires_at, start._value_storage_node_id, start._value_bucket_id, start._value_action, start._value_serial_number, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -14758,7 +14758,7 @@ func (obj *cockroachImpl) Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx cont
 	rows []*ReportedSerial, next *Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number, reported_serials.settled, reported_serials.observed_at, reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number FROM reported_serials WHERE reported_serials.expires_at <= ? AND (reported_serials.expires_at > ? OR (reported_serials.expires_at = ? AND (reported_serials.storage_node_id > ? OR (reported_serials.storage_node_id = ? AND (reported_serials.bucket_id > ? OR (reported_serials.bucket_id = ? AND (reported_serials.action > ? OR (reported_serials.action = ? AND reported_serials.serial_number > ?)))))))) ORDER BY reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number, reported_serials.settled, reported_serials.observed_at, reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number FROM reported_serials WHERE reported_serials.expires_at <= ? AND (reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number) > (?, ?, ?, ?, ?) ORDER BY reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number, reported_serials.settled, reported_serials.observed_at, reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number FROM reported_serials WHERE reported_serials.expires_at <= ? ORDER BY reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number LIMIT ?")
 
@@ -14767,7 +14767,7 @@ func (obj *cockroachImpl) Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx cont
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_expires_at, start._value_expires_at, start._value_storage_node_id, start._value_storage_node_id, start._value_bucket_id, start._value_bucket_id, start._value_action, start._value_action, start._value_serial_number, limit)
+		__values = append(__values, start._value_expires_at, start._value_storage_node_id, start._value_bucket_id, start._value_action, start._value_serial_number, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
