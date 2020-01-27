@@ -112,14 +112,13 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}
 
-		for i, tc := range testCases {
-			i := i
+		for _, tc := range testCases {
 			tc := tc
 			t.Run(tc.caseDescription, func(t *testing.T) {
 
-				var (
+				const (
 					bucketName = "a-bucket"
-					objectName = "object-filename" + strconv.Itoa(i)
+					objectName = "object-filename"
 				)
 
 				testplanet.Run(t, testplanet.Config{
@@ -189,13 +188,12 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
 		}
 
-		for i, tc := range testCases {
-			i := i
+		for _, tc := range testCases {
 			tc := tc
 			t.Run(tc.caseDescription, func(t *testing.T) {
-				var (
+				const (
 					bucketName = "a-bucket"
-					objectName = "object-filename" + strconv.Itoa(i)
+					objectName = "object-filename"
 				)
 				testplanet.Run(t, testplanet.Config{
 					SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
