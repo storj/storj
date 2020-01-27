@@ -30,7 +30,7 @@
             </div>
             <p class="password-strength-container__rule-area__rule">At least one special character</p>
         </div>
-        <p class="password-strength-container__subtitle">Avoid using a password that you use on other websities or that might be easily guessed by someone else.</p>
+        <p class="password-strength-container__subtitle">Avoid using a password that you use on other websites or that might be easily guessed by someone else.</p>
     </div>
 </template>
 
