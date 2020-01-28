@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
@@ -18,6 +17,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -49,6 +49,9 @@ type Core struct {
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
 	DB       DB
+
+	Servers  *lifecycle.Group
+	Services *lifecycle.Group
 
 	Dialer rpc.Dialer
 
@@ -136,6 +139,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		Log:      log,
 		Identity: full,
 		DB:       db,
+
+		Servers:  lifecycle.NewGroup(log.Named("servers")),
+		Services: lifecycle.NewGroup(log.Named("services")),
 	}
 
 	var err error
@@ -146,6 +152,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
 		peer.Version = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+
+		peer.Services.Add(lifecycle.Item{
+			Name: "version",
+			Run:  peer.Version.Run,
+		})
 	}
 
 	{ // setup listener and server
@@ -177,11 +188,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Version: *pbVersion,
 		}
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "contact:service",
+			Close: peer.Contact.Service.Close,
+		})
 	}
 
 	{ // setup overlay
 		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
 		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "overlay",
+			Close: peer.Overlay.Service.Close,
+		})
 	}
 
 	{ // setup live accounting
@@ -198,7 +217,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup orders
 		peer.Orders.DB = rollupsWriteCache
-		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), rollupsWriteCache, config.Orders)
+		peer.Orders.Chore = orders.NewChore(log.Named("orders:chore"), rollupsWriteCache, config.Orders)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "overlay",
+			Run:   peer.Orders.Chore.Run,
+			Close: peer.Orders.Chore.Close,
+		})
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
@@ -221,21 +245,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Buckets(),
 		)
 		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Database)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "metainfo:loop",
+			Run:   peer.Metainfo.Loop.Run,
+			Close: peer.Metainfo.Loop.Close,
+		})
 	}
 
 	{ // setup datarepair
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
-			peer.Log.Named("checker"),
+			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
 			peer.DB.Irreparable(),
 			peer.Metainfo.Service,
 			peer.Metainfo.Loop,
 			peer.Overlay.Service,
 			config.Checker)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "repair:checker",
+			Run:   peer.Repair.Checker.Run,
+			Close: peer.Repair.Checker.Close,
+		})
 
 		segmentRepairer := repairer.NewSegmentRepairer(
-			log.Named("repairer"),
+			log.Named("segment-repair"),
 			peer.Metainfo.Service,
 			peer.Orders.Service,
 			peer.Overlay.Service,
@@ -248,11 +282,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 
 		peer.Repair.Repairer = repairer.NewService(
-			peer.Log.Named("repairer"),
+			peer.Log.Named("repair"),
 			peer.DB.RepairQueue(),
 			&config.Repairer,
 			segmentRepairer,
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "repair",
+			Run:   peer.Repair.Repairer.Run,
+			Close: peer.Repair.Repairer.Close,
+		})
 	}
 
 	{ // setup audit
@@ -278,42 +317,78 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			int32(config.MaxReverifyCount),
 		)
 
-		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit worker"),
+		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit:worker"),
 			peer.Audit.Queue,
 			peer.Audit.Verifier,
 			peer.Audit.Reporter,
 			config,
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "audit:worker",
+			Run:   peer.Audit.Worker.Run,
+			Close: peer.Audit.Worker.Close,
+		})
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit chore"),
+		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
 			peer.Audit.Queue,
 			peer.Metainfo.Loop,
 			config,
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "audit:chore",
+			Run:   peer.Audit.Chore.Run,
+			Close: peer.Audit.Chore.Close,
+		})
 	}
 
 	{ // setup garbage collection
 		peer.GarbageCollection.Service = gc.NewService(
-			peer.Log.Named("garbage collection"),
+			peer.Log.Named("garbage-collection"),
 			config.GarbageCollection,
 			peer.Dialer,
 			peer.Overlay.DB,
 			peer.Metainfo.Loop,
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name: "garbage-collection",
+			Run:  peer.GarbageCollection.Service.Run,
+		})
 	}
 
 	{ // setup db cleanup
 		peer.DBCleanup.Chore = dbcleanup.NewChore(peer.Log.Named("dbcleanup"), peer.DB.Orders(), config.DBCleanup)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "dbcleanup",
+			Run:   peer.DBCleanup.Chore.Run,
+			Close: peer.DBCleanup.Chore.Close,
+		})
 	}
 
 	{ // setup accounting
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Loop, config.Tally.Interval)
-		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
-		peer.Accounting.ReportedRollupChore = reportedrollup.NewChore(peer.Log.Named("reportedrollup"), peer.DB.Orders(), config.ReportedRollup)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("accounting:tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Loop, config.Tally.Interval)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "accounting:tally",
+			Run:   peer.Accounting.Tally.Run,
+			Close: peer.Accounting.Tally.Close,
+		})
+
+		peer.Accounting.Rollup = rollup.New(peer.Log.Named("accounting:rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "accounting:rollup",
+			Run:   peer.Accounting.Rollup.Run,
+			Close: peer.Accounting.Rollup.Close,
+		})
+
+		peer.Accounting.ReportedRollupChore = reportedrollup.NewChore(peer.Log.Named("accounting:reported-rollup"), peer.DB.Orders(), config.ReportedRollup)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "accounting:reported-rollup",
+			Run:   peer.Accounting.ReportedRollupChore.Run,
+			Close: peer.Accounting.ReportedRollupChore.Close,
+		})
 	}
 
 	// TODO: remove in future, should be in API
@@ -342,12 +417,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				pc.StripeCoinPayments.TransactionUpdateInterval,
 				pc.StripeCoinPayments.AccountBalanceUpdateInterval,
 			)
+			peer.Services.Add(lifecycle.Item{
+				Name: "payments.stripe:service",
+				Run:  peer.Payments.Chore.Run,
+			})
 		}
 	}
 
 	{ // setup graceful exit
 		if config.GracefulExit.Enabled {
 			peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("gracefulexit"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.Loop, config.GracefulExit)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "gracefulexit",
+				Run:   peer.GracefulExit.Chore.Run,
+				Close: peer.GracefulExit.Chore.Close,
+			})
 		} else {
 			peer.Log.Named("gracefulexit").Info("disabled")
 		}
@@ -359,6 +443,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Metrics,
 			peer.Metainfo.Loop,
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "metrics",
+			Run:   peer.Metrics.Chore.Run,
+			Close: peer.Metrics.Chore.Close,
+		})
 	}
 
 	{ // setup downtime tracking
@@ -371,6 +460,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DowntimeTracking.Service,
 			peer.DB.DowntimeTracking(),
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "downtime:detection",
+			Run:   peer.DowntimeTracking.DetectionChore.Run,
+			Close: peer.DowntimeTracking.DetectionChore.Close,
+		})
 
 		peer.DowntimeTracking.EstimationChore = downtime.NewEstimationChore(
 			peer.Log.Named("downtime:estimation"),
@@ -379,6 +473,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DowntimeTracking.Service,
 			peer.DB.DowntimeTracking(),
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "downtime:estimation",
+			Run:   peer.DowntimeTracking.EstimationChore.Run,
+			Close: peer.DowntimeTracking.EstimationChore.Close,
+		})
 	}
 
 	return peer, nil
@@ -390,133 +489,18 @@ func (peer *Core) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.DBCleanup.Chore.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Accounting.Tally.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Accounting.Rollup.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Accounting.ReportedRollupChore.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.Worker.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Audit.Chore.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
-	})
-	if peer.GracefulExit.Chore != nil {
-		group.Go(func() error {
-			return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
-		})
-	}
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Metrics.Chore.Run(ctx))
-	})
-	if peer.Payments.Chore != nil {
-		group.Go(func() error {
-			return errs2.IgnoreCanceled(peer.Payments.Chore.Run(ctx))
-		})
-	}
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.DowntimeTracking.DetectionChore.Run(ctx))
-	})
-
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.DowntimeTracking.EstimationChore.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Orders.Chore.Run(ctx))
-	})
+	peer.Servers.Run(ctx, group)
+	peer.Services.Run(ctx, group)
 
 	return group.Wait()
 }
 
 // Close closes all the resources.
 func (peer *Core) Close() error {
-	var errlist errs.Group
-
-	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
-
-	if peer.Orders.Chore != nil {
-		errlist.Add(peer.Orders.Chore.Close())
-	}
-
-	// close servers, to avoid new connections to closing subsystems
-	if peer.DowntimeTracking.EstimationChore != nil {
-		errlist.Add(peer.DowntimeTracking.EstimationChore.Close())
-	}
-
-	if peer.DowntimeTracking.DetectionChore != nil {
-		errlist.Add(peer.DowntimeTracking.DetectionChore.Close())
-	}
-
-	if peer.Metrics.Chore != nil {
-		errlist.Add(peer.Metrics.Chore.Close())
-	}
-
-	if peer.GracefulExit.Chore != nil {
-		errlist.Add(peer.GracefulExit.Chore.Close())
-	}
-
-	// close services in reverse initialization order
-
-	if peer.Audit.Chore != nil {
-		errlist.Add(peer.Audit.Chore.Close())
-	}
-	if peer.Audit.Worker != nil {
-		errlist.Add(peer.Audit.Worker.Close())
-	}
-
-	if peer.Accounting.Rollup != nil {
-		errlist.Add(peer.Accounting.ReportedRollupChore.Close())
-	}
-	if peer.Accounting.Rollup != nil {
-		errlist.Add(peer.Accounting.Rollup.Close())
-	}
-	if peer.Accounting.Tally != nil {
-		errlist.Add(peer.Accounting.Tally.Close())
-	}
-
-	if peer.DBCleanup.Chore != nil {
-		errlist.Add(peer.DBCleanup.Chore.Close())
-	}
-	if peer.Repair.Repairer != nil {
-		errlist.Add(peer.Repair.Repairer.Close())
-	}
-	if peer.Repair.Checker != nil {
-		errlist.Add(peer.Repair.Checker.Close())
-	}
-
-	if peer.Overlay.Service != nil {
-		errlist.Add(peer.Overlay.Service.Close())
-	}
-	if peer.Contact.Service != nil {
-		errlist.Add(peer.Contact.Service.Close())
-	}
-	if peer.Metainfo.Loop != nil {
-		errlist.Add(peer.Metainfo.Loop.Close())
-	}
-
-	return errlist.Err()
+	return errs.Combine(
+		peer.Servers.Close(),
+		peer.Services.Close(),
+	)
 }
 
 // ID returns the peer ID.

@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
@@ -18,6 +17,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/metainfo"
@@ -33,6 +33,9 @@ import (
 type Repairer struct {
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
+
+	Servers  *lifecycle.Group
+	Services *lifecycle.Group
 
 	Dialer  rpc.Dialer
 	Version *version_checker.Service
@@ -58,6 +61,9 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	peer := &Repairer{
 		Log:      log,
 		Identity: full,
+
+		Servers:  lifecycle.NewGroup(log.Named("servers")),
+		Services: lifecycle.NewGroup(log.Named("services")),
 	}
 
 	{
@@ -66,6 +72,11 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
 		peer.Version = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+
+		peer.Services.Add(lifecycle.Item{
+			Name: "version",
+			Run:  peer.Version.Run,
+		})
 	}
 
 	{ // setup dialer
@@ -85,11 +96,20 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 
 	{ // setup overlay
 		peer.Overlay = overlay.NewService(log.Named("overlay"), overlayCache, config.Overlay)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "overlay",
+			Close: peer.Overlay.Close,
+		})
 	}
 
 	{ // setup orders
 		peer.Orders.DB = rollupsWriteCache
-		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), rollupsWriteCache, config.Orders)
+		peer.Orders.Chore = orders.NewChore(log.Named("orders:chore"), rollupsWriteCache, config.Orders)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "orders:chore",
+			Run:   peer.Orders.Chore.Run,
+			Close: peer.Orders.Chore.Close,
+		})
 		peer.Orders.Service = orders.NewService(
 			log.Named("orders"),
 			signing.SignerFromFullIdentity(peer.Identity),
@@ -119,6 +139,12 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
 		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "repair",
+			Run:   peer.Repairer.Run,
+			Close: peer.Repairer.Close,
+		})
 	}
 
 	return peer, nil
@@ -130,37 +156,18 @@ func (peer *Repairer) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Orders.Chore.Run(ctx))
-	})
-	group.Go(func() error {
-		peer.Log.Info("Repairer started")
-		return errs2.IgnoreCanceled(peer.Repairer.Run(ctx))
-	})
+	peer.Servers.Run(ctx, group)
+	peer.Services.Run(ctx, group)
 
 	return group.Wait()
 }
 
 // Close closes all the resources.
 func (peer *Repairer) Close() error {
-	var errlist errs.Group
-
-	// close services in reverse initialization order
-
-	if peer.Overlay != nil {
-		errlist.Add(peer.Overlay.Close())
-	}
-	if peer.Repairer != nil {
-		errlist.Add(peer.Repairer.Close())
-	}
-	if peer.Orders.Chore != nil {
-		errlist.Add(peer.Orders.Chore.Close())
-	}
-
-	return errlist.Err()
+	return errs.Combine(
+		peer.Servers.Close(),
+		peer.Services.Close(),
+	)
 }
 
 // ID returns the peer ID.

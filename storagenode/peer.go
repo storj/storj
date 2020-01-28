@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
@@ -23,6 +22,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/overlay"
@@ -153,6 +153,9 @@ type Peer struct {
 	Identity *identity.FullIdentity
 	DB       DB
 
+	Servers  *lifecycle.Group
+	Services *lifecycle.Group
+
 	Dialer rpc.Dialer
 
 	Server *server.Server
@@ -219,6 +222,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		Log:      log,
 		Identity: full,
 		DB:       db,
+
+		Servers:  lifecycle.NewGroup(log.Named("servers")),
+		Services: lifecycle.NewGroup(log.Named("services")),
 	}
 
 	var err error
@@ -229,6 +235,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
 		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
+
+		peer.Services.Add(lifecycle.Item{
+			Name: "version",
+			Run:  peer.Version.Run,
+		})
 	}
 
 	{ // setup listener and server
@@ -245,6 +256,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Servers.Add(lifecycle.Item{
+			Name: "server",
+			Run: func(ctx context.Context) error {
+				peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
+				peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
+				peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
+				return peer.Server.Run(ctx)
+			},
+			Close: peer.Server.Close,
+		})
 	}
 
 	{ // setup trust pool
@@ -252,6 +274,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		peer.Services.Add(lifecycle.Item{
+			Name: "trust",
+			Run:  peer.Storage2.Trust.Run,
+		})
 	}
 
 	{
@@ -289,10 +315,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self)
+
 		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Storage2.Trust, peer.Dialer, peer.Contact.Service)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "contact:chore",
+			Run:   peer.Contact.Chore.Run,
+			Close: peer.Contact.Chore.Close,
+		})
+
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
 		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 		pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint)
+
 	}
 
 	{ // setup storage
@@ -312,6 +346,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Trust,
 			peer.Storage2.Store,
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "pieces:trash",
+			Run:   peer.Storage2.TrashChore.Run,
+			Close: peer.Storage2.TrashChore.Close,
+		})
 
 		peer.Storage2.CacheService = pieces.NewService(
 			log.Named("piecestore:cache"),
@@ -319,6 +358,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Store,
 			config.Storage2.CacheSyncInterval,
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "piecestore:cache",
+			Run:   peer.Storage2.CacheService.Run,
+			Close: peer.Storage2.CacheService.Close,
+		})
 
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),
@@ -331,12 +375,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.Storage.KBucketRefreshInterval,
 			config.Storage2.Monitor,
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "piecestore:monitor",
+			Run:   peer.Storage2.Monitor.Run,
+			Close: peer.Storage2.Monitor.Close,
+		})
 
 		peer.Storage2.RetainService = retain.NewService(
 			peer.Log.Named("retain"),
 			peer.Storage2.Store,
 			config.Retain,
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "retain",
+			Run:   peer.Storage2.RetainService.Run,
+			Close: peer.Storage2.RetainService.Close,
+		})
 
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
@@ -375,13 +429,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Trust,
 			config.Storage2.Orders,
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "orders",
+			Run:   peer.Storage2.Orders.Run,
+			Close: peer.Storage2.Orders.Close,
+		})
 	}
 
 	{ // setup node stats service
 		peer.NodeStats.Service = nodestats.NewService(
 			peer.Log.Named("nodestats:service"),
 			peer.Dialer,
-			peer.Storage2.Trust)
+			peer.Storage2.Trust,
+		)
 
 		peer.NodeStats.Cache = nodestats.NewCache(
 			peer.Log.Named("nodestats:cache"),
@@ -391,7 +451,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				StorageUsage: peer.DB.StorageUsage(),
 			},
 			peer.NodeStats.Service,
-			peer.Storage2.Trust)
+			peer.Storage2.Trust,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "nodestats:cache",
+			Run:   peer.NodeStats.Cache.Run,
+			Close: peer.NodeStats.Cache.Close,
+		})
 	}
 
 	{ // setup storage node operator dashboard
@@ -408,8 +475,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Reputation(),
 			peer.DB.StorageUsage(),
 			peer.Contact.PingStats,
-			peer.Contact.Service)
-
+			peer.Contact.Service,
+		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -432,6 +499,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Console.Service,
 			peer.Console.Listener,
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "console:endpoint",
+			Run:   peer.Console.Endpoint.Run,
+			Close: peer.Console.Endpoint.Close,
+		})
 	}
 
 	{ // setup storage inspector
@@ -467,11 +539,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Dialer,
 			peer.DB.Satellites(),
 		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "gracefulexit:chore",
+			Run:   peer.GracefulExit.Chore.Run,
+			Close: peer.GracefulExit.Chore.Close,
+		})
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
+	peer.Services.Add(lifecycle.Item{
+		Name:  "collector",
+		Run:   peer.Collector.Run,
+		Close: peer.Collector.Close,
+	})
 
 	peer.Bandwidth = bandwidth.NewService(peer.Log.Named("bandwidth"), peer.DB.Bandwidth(), config.Bandwidth)
+	peer.Services.Add(lifecycle.Item{
+		Name:  "bandwidth",
+		Run:   peer.Bandwidth.Run,
+		Close: peer.Bandwidth.Close,
+	})
 
 	return peer, nil
 }
@@ -492,112 +579,18 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	}
 
 	group, ctx := errgroup.WithContext(ctx)
-
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Contact.Chore.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Collector.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.Orders.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.CacheService.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.RetainService.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.TrashChore.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Bandwidth.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Storage2.Trust.Run(ctx))
-	})
-
-	group.Go(func() error {
-		// TODO: move the message into Server instead
-		// Don't change the format of this comment, it is used to figure out the node id.
-		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
-		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
-		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
-		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
-	})
-
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.NodeStats.Cache.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
-	})
-
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.GracefulExit.Chore.Run(ctx))
-	})
+	peer.Servers.Run(ctx, group)
+	peer.Services.Run(ctx, group)
 
 	return group.Wait()
 }
 
 // Close closes all the resources.
 func (peer *Peer) Close() error {
-	var errlist errs.Group
-
-	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
-
-	// close servers, to avoid new connections to closing subsystems
-	if peer.Server != nil {
-		errlist.Add(peer.Server.Close())
-	}
-
-	// close services in reverse initialization order
-	if peer.GracefulExit.Chore != nil {
-		errlist.Add(peer.GracefulExit.Chore.Close())
-	}
-	if peer.Contact.Chore != nil {
-		errlist.Add(peer.Contact.Chore.Close())
-	}
-	if peer.Bandwidth != nil {
-		errlist.Add(peer.Bandwidth.Close())
-	}
-	if peer.Storage2.TrashChore != nil {
-		errlist.Add(peer.Storage2.TrashChore.Close())
-	}
-	if peer.Storage2.RetainService != nil {
-		errlist.Add(peer.Storage2.RetainService.Close())
-	}
-	if peer.Storage2.Monitor != nil {
-		errlist.Add(peer.Storage2.Monitor.Close())
-	}
-	if peer.Storage2.Orders != nil {
-		errlist.Add(peer.Storage2.Orders.Close())
-	}
-	if peer.Storage2.CacheService != nil {
-		errlist.Add(peer.Storage2.CacheService.Close())
-	}
-	if peer.Collector != nil {
-		errlist.Add(peer.Collector.Close())
-	}
-
-	if peer.Console.Endpoint != nil {
-		errlist.Add(peer.Console.Endpoint.Close())
-	} else if peer.Console.Listener != nil {
-		errlist.Add(peer.Console.Listener.Close())
-	}
-
-	if peer.NodeStats.Cache != nil {
-		errlist.Add(peer.NodeStats.Cache.Close())
-	}
-
-	return errlist.Err()
+	return errs.Combine(
+		peer.Servers.Close(),
+		peer.Services.Close(),
+	)
 }
 
 // ID returns the peer ID.

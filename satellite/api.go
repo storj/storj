@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
@@ -23,6 +22,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/version"
@@ -60,6 +60,9 @@ type API struct {
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
 	DB       DB
+
+	Servers  *lifecycle.Group
+	Services *lifecycle.Group
 
 	Dialer  rpc.Dialer
 	Server  *server.Server
@@ -154,6 +157,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		Log:      log,
 		Identity: full,
 		DB:       db,
+
+		Servers:  lifecycle.NewGroup(log.Named("servers")),
+		Services: lifecycle.NewGroup(log.Named("services")),
 	}
 
 	var err error
@@ -164,6 +170,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
 		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+
+		peer.Services.Add(lifecycle.Item{
+			Name: "version",
+			Run:  peer.Version.Run,
+		})
 	}
 
 	{ // setup listener and server
@@ -184,11 +195,29 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Servers.Add(lifecycle.Item{
+			Name: "server",
+			Run: func(ctx context.Context) error {
+				// Don't change the format of this comment, it is used to figure out the node id.
+				peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
+				peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
+				peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
+				return peer.Server.Run(ctx)
+			},
+			Close: peer.Server.Close,
+		})
 	}
 
 	{ // setup overlay
 		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
+
 		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "overlay",
+			Close: peer.Overlay.Service.Close,
+		})
+
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pb.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
 		pb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPC(), peer.Overlay.Inspector)
@@ -219,6 +248,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
 		pb.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 		pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "contact:service",
+			Close: peer.Contact.Service.Close,
+		})
 	}
 
 	{ // setup vouchers
@@ -240,7 +274,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup orders
 		peer.Orders.DB = rollupsWriteCache
-		peer.Orders.Chore = orders.NewChore(log.Named("orders chore"), rollupsWriteCache, config.Orders)
+		peer.Orders.Chore = orders.NewChore(log.Named("orders:chore"), rollupsWriteCache, config.Orders)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "orders:chore",
+			Run:   peer.Orders.Chore.Run,
+			Close: peer.Orders.Chore.Close,
+		})
+
 		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
@@ -291,6 +331,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Servers.Add(lifecycle.Item{
+			Name:  "marketing:endpoint",
+			Run:   peer.Marketing.Endpoint.Run,
+			Close: peer.Marketing.Endpoint.Close,
+		})
 	}
 
 	{ // setup metainfo
@@ -301,13 +347,17 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 
 		peer.Metainfo.DeletePiecesService, err = metainfo.NewDeletePiecesService(
-			peer.Log.Named("metainfo:DeletePiecesService"),
+			peer.Log.Named("metainfo:delete-pieces"),
 			peer.Dialer,
 			metainfoDeletePiecesConcurrencyLimit,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		peer.Services.Add(lifecycle.Item{
+			Name:  "metainfo:delete-pieces",
+			Close: peer.Metainfo.DeletePiecesService.Close,
+		})
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -328,6 +378,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 		pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "metainfo:endpoint",
+			Close: peer.Metainfo.Endpoint2.Close,
+		})
 	}
 
 	{ // setup datarepair
@@ -410,6 +465,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "mail:service",
+			Close: peer.Mail.Service.Close,
+		})
 	}
 
 	{ // setup payments
@@ -433,12 +493,18 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
 
 			peer.Payments.Version = stripecoinpayments.NewVersionService(
-				peer.Log.Named("payments.stripe:service"),
+				peer.Log.Named("payments.stripe:version"),
 				service,
 				pc.StripeCoinPayments.ConversionRatesCycleInterval)
 
 			pb.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
 			pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "payments.stripe:version",
+				Run:   peer.Payments.Version.Run,
+				Close: peer.Payments.Version.Close,
+			})
 		}
 	}
 
@@ -485,6 +551,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 		)
+
+		peer.Servers.Add(lifecycle.Item{
+			Name:  "console:endpoint",
+			Run:   peer.Console.Endpoint.Run,
+			Close: peer.Console.Endpoint.Close,
+		})
 	}
 
 	{ // setup node stats endpoint
@@ -526,74 +598,18 @@ func (peer *API) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
-	})
-	group.Go(func() error {
-		// Don't change the format of this comment, it is used to figure out the node id.
-		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
-		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
-		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
-		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
-	})
-	if peer.Payments.Version != nil {
-		group.Go(func() error {
-			return errs2.IgnoreCanceled(peer.Payments.Version.Run(ctx))
-		})
-	}
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Orders.Chore.Run(ctx))
-	})
+	peer.Servers.Run(ctx, group)
+	peer.Services.Run(ctx, group)
 
 	return group.Wait()
 }
 
 // Close closes all the resources.
 func (peer *API) Close() error {
-	var errlist errs.Group
-
-	// close servers, to avoid new connections to closing subsystems
-	if peer.Server != nil {
-		errlist.Add(peer.Server.Close())
-	}
-	if peer.Marketing.Endpoint != nil {
-		errlist.Add(peer.Marketing.Endpoint.Close())
-	} else if peer.Marketing.Listener != nil {
-		errlist.Add(peer.Marketing.Listener.Close())
-	}
-	if peer.Console.Endpoint != nil {
-		errlist.Add(peer.Console.Endpoint.Close())
-	} else if peer.Console.Listener != nil {
-		errlist.Add(peer.Console.Listener.Close())
-	}
-	if peer.Mail.Service != nil {
-		errlist.Add(peer.Mail.Service.Close())
-	}
-	if peer.Payments.Version != nil {
-		errlist.Add(peer.Payments.Version.Close())
-	}
-	if peer.Metainfo.Endpoint2 != nil {
-		errlist.Add(peer.Metainfo.Endpoint2.Close())
-	}
-	if peer.Contact.Service != nil {
-		errlist.Add(peer.Contact.Service.Close())
-	}
-	if peer.Overlay.Service != nil {
-		errlist.Add(peer.Overlay.Service.Close())
-	}
-	if peer.Orders.Chore.Loop != nil {
-		errlist.Add(peer.Orders.Chore.Close())
-	}
-	if peer.Metainfo.DeletePiecesService != nil {
-		errlist.Add(peer.Metainfo.DeletePiecesService.Close())
-	}
-	return errlist.Err()
+	return errs.Combine(
+		peer.Servers.Close(),
+		peer.Services.Close(),
+	)
 }
 
 // ID returns the peer ID.
