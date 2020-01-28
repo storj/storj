@@ -276,9 +276,9 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 // getTotalEgress returns total egress (settled + inline) of each bucket_bandwidth_rollup
 // in selected time period, project id.
-// only process PieceAction_GET, PieceAction_GET_AUDIT, PieceAction_GET_REPAIR actions.
+// only process PieceAction_GET.
 func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.UUID, since, before time.Time) (totalEgress int64, err error) {
-	totalEgressQuery := db.db.Rebind(fmt.Sprintf(`
+	totalEgressQuery := db.db.Rebind(`
 		SELECT 
 			COALESCE(SUM(settled) + SUM(inline), 0)  
 		FROM 
@@ -287,10 +287,10 @@ func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.
 			project_id = ? AND 
 			interval_start >= ? AND 
 			interval_start <= ? AND 
-			action IN (%d, %d, %d);
-	`, pb.PieceAction_GET, pb.PieceAction_GET_AUDIT, pb.PieceAction_GET_REPAIR))
+			action = ?;
+	`)
 
-	totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], since, before)
+	totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], since, before, pb.PieceAction_GET)
 
 	err = totalEgressRow.Scan(&totalEgress)
 
@@ -535,10 +535,9 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, err
 	}
 
-	rollupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
+	rollupsQuery := db.db.Rebind(`SELECT COALESCE(SUM(settled) + SUM(inline), 0)
 		FROM bucket_bandwidth_rollups
-		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
-		GROUP BY action`)
+		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ? AND action = ?`)
 
 	storageQuery := db.db.Rebind(`SELECT inline, remote, object_count
 		FROM bucket_storage_tallies
@@ -556,37 +555,19 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		}
 
 		// get bucket_bandwidth_rollups
-		rollupsRows, err := db.db.QueryContext(ctx, rollupsQuery, projectID[:], []byte(bucket), since, before)
+		rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(bucket), since, before, pb.PieceAction_GET)
+
+		var egress int64
+		err = rollupRow.Scan(&egress)
 		if err != nil {
-			return nil, err
-		}
-		defer func() { err = errs.Combine(err, rollupsRows.Close()) }()
-
-		var totalEgress int64
-		for rollupsRows.Next() {
-			var action pb.PieceAction
-			var settled, inline int64
-
-			err = rollupsRows.Scan(&settled, &inline, &action)
-			if err != nil {
+			if err != sql.ErrNoRows {
 				return nil, err
 			}
-
-			// add values for egress
-			if action == pb.PieceAction_GET || action == pb.PieceAction_GET_AUDIT || action == pb.PieceAction_GET_REPAIR {
-				totalEgress += settled + inline
-			}
-		}
-		if err := rollupsRows.Err(); err != nil {
-			return nil, err
 		}
 
-		bucketUsage.Egress = memory.Size(totalEgress).GB()
+		bucketUsage.Egress = memory.Size(egress).GB()
 
 		storageRow := db.db.QueryRowContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
-		if err != nil {
-			return nil, err
-		}
 
 		var inline, remote, objectCount int64
 		err = storageRow.Scan(&inline, &remote, &objectCount)
