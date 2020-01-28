@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
@@ -17,7 +18,6 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/common/memory"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -55,9 +55,9 @@ type Service struct {
 	stripeClient *client.API
 	coinPayments *coinpayments.Client
 
-	PerObjectPrice int64
-	EgressPrice    int64
-	TBhPrice       int64
+	ByteHourCents   decimal.Decimal
+	EgressByteCents decimal.Decimal
+	ObjectHourCents decimal.Decimal
 
 	mu       sync.Mutex
 	rates    coinpayments.CurrencyRateInfos
@@ -65,7 +65,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, perObjectPrice, egressPrice, tbhPrice int64) *Service {
+func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string) (*Service, error) {
 	backendConfig := &stripe.BackendConfig{
 		LeveledLogger: log.Sugar(),
 	}
@@ -85,17 +85,44 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 		},
 	)
 
-	return &Service{
-		log:            log,
-		db:             db,
-		projectsDB:     projectsDB,
-		usageDB:        usageDB,
-		stripeClient:   stripeClient,
-		coinPayments:   coinPaymentsClient,
-		TBhPrice:       tbhPrice,
-		PerObjectPrice: perObjectPrice,
-		EgressPrice:    egressPrice,
+	tbMonthDollars, err := decimal.NewFromString(storageTBPrice)
+	if err != nil {
+		return nil, err
 	}
+	egressByteDollars, err := decimal.NewFromString(egressTBPrice)
+	if err != nil {
+		return nil, err
+	}
+	objectMonthDollars, err := decimal.NewFromString(objectPrice)
+	if err != nil {
+		return nil, err
+	}
+
+	// change the precision from dollars to cents
+	tbMonthCents := tbMonthDollars.Shift(2)
+	egressByteCents := egressByteDollars.Shift(2)
+	objectHourCents := objectMonthDollars.Shift(2)
+
+	// get per hour prices from storage and objects
+	hoursPerMonth := decimal.New(30*24, 0)
+
+	tbHourCents := tbMonthCents.Div(hoursPerMonth)
+	objectHourCents = objectHourCents.Div(hoursPerMonth)
+
+	// convert tb to bytes for storage price
+	byteHourCents := tbHourCents.Div(decimal.New(1000000000000, 0))
+
+	return &Service{
+		log:             log,
+		db:              db,
+		projectsDB:      projectsDB,
+		usageDB:         usageDB,
+		stripeClient:    stripeClient,
+		coinPayments:    coinPaymentsClient,
+		ByteHourCents:   byteHourCents,
+		EgressByteCents: egressByteCents,
+		ObjectHourCents: objectHourCents,
+	}, nil
 }
 
 // Accounts exposes all needed functionality to manage payment accounts.
@@ -394,11 +421,7 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 			return err
 		}
 
-		egressPrice := usage.Egress * service.EgressPrice / int64(memory.TB)
-		objectCountPrice := int64(usage.ObjectCount * float64(service.PerObjectPrice))
-		storageGbHrsPrice := int64(usage.Storage*float64(service.TBhPrice)) / int64(memory.TB)
-
-		currentUsagePrice := egressPrice + objectCountPrice + storageGbHrsPrice
+		currentUsagePrice := service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount).TotalInt64()
 
 		// TODO: only for 1 coupon per project
 		for _, coupon := range coupons {
@@ -506,15 +529,10 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 		return err
 	}
 
-	// TODO: reuse this code fragment.
-	egressPrice := record.Egress * service.EgressPrice / int64(memory.TB)
-	objectCountPrice := int64(record.Objects * float64(service.PerObjectPrice))
-	storageGbHrsPrice := int64(record.Storage*float64(service.TBhPrice)) / int64(memory.TB)
-
-	currentUsageAmount := egressPrice + objectCountPrice + storageGbHrsPrice
+	projectPrice := service.calculateProjectUsagePrice(record.Egress, record.Storage, record.Objects)
 
 	projectItem := &stripe.InvoiceItemParams{
-		Amount:      stripe.Int64(currentUsageAmount),
+		Amount:      stripe.Int64(projectPrice.TotalInt64()),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 		Customer:    stripe.String(cusID),
 		Description: stripe.String(fmt.Sprintf("project %s", projName)),
@@ -705,4 +723,30 @@ func (service *Service) createInvoice(ctx context.Context, cusID string) (err er
 	}
 
 	return nil
+}
+
+// projectUsagePrice represents pricing for project usage.
+type projectUsagePrice struct {
+	Storage decimal.Decimal
+	Egress  decimal.Decimal
+	Objects decimal.Decimal
+}
+
+// Total returns project usage price total.
+func (price projectUsagePrice) Total() decimal.Decimal {
+	return price.Storage.Add(price.Egress).Add(price.Objects)
+}
+
+// Total returns project usage price total.
+func (price projectUsagePrice) TotalInt64() int64 {
+	return price.Storage.Add(price.Egress).Add(price.Objects).IntPart()
+}
+
+// calculateProjectUsagePrice calculate project usage price.
+func (service *Service) calculateProjectUsagePrice(egress int64, storage, objects float64) projectUsagePrice {
+	return projectUsagePrice{
+		Storage: service.ByteHourCents.Mul(decimal.NewFromFloat(storage)),
+		Egress:  service.EgressByteCents.Mul(decimal.New(egress, 0)),
+		Objects: service.ObjectHourCents.Mul(decimal.NewFromFloat(objects)),
+	}
 }

@@ -11,7 +11,7 @@ import (
 type Config struct {
 	Provider           string `help:"payments provider to use" default:""`
 	StripeCoinPayments stripecoinpayments.Config
-	PerObjectPrice     int64 `help:"price in cents user should pay for each object storing in network" devDefault:"0" releaseDefault:"0"`
-	EgressPrice        int64 `help:"price in cents user should pay for each TB of egress" devDefault:"0" releaseDefault:"0"`
-	TbhPrice           int64 `help:"price in cents user should pay for storing each TB per hour" devDefault:"0" releaseDefault:"0"`
+	StorageTBPrice     string `help:"price user should pay for storing TB per month" default:"10"`
+	EgressTBPrice      string `help:"price user should pay for each TB of egress" default:"45"`
+	ObjectPrice        string `help:"price user should pay for each object stored in network per month" default:"0.0000022"`
 }

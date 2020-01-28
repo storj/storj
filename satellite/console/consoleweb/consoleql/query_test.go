@@ -42,14 +42,15 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 		)
 
-		payments := stripecoinpayments.NewService(
+		payments, err := stripecoinpayments.NewService(
 			log.Named("payments"),
 			stripecoinpayments.Config{},
 			db.StripeCoinPayments(),
 			db.Console().Projects(),
 			db.ProjectAccounting(),
-			0, 0, 0,
+			"0", "0", "0",
 		)
+		require.NoError(t, err)
 
 		miniredis := redisserver.NewMini()
 		addr, cleanup, err := miniredis.Run()

@@ -419,15 +419,19 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		default:
 			peer.Payments.Accounts = mockpayments.Accounts()
 		case "stripecoinpayments":
-			service := stripecoinpayments.NewService(
+			service, err := stripecoinpayments.NewService(
 				peer.Log.Named("payments.stripe:service"),
 				pc.StripeCoinPayments,
 				peer.DB.StripeCoinPayments(),
 				peer.DB.Console().Projects(),
 				peer.DB.ProjectAccounting(),
-				pc.PerObjectPrice,
-				pc.EgressPrice,
-				pc.TbhPrice)
+				pc.StorageTBPrice,
+				pc.EgressTBPrice,
+				pc.ObjectPrice)
+
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
 
 			peer.Payments.Accounts = service.Accounts()
 			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
