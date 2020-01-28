@@ -54,6 +54,7 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 				}
 			}
 
+			task := mon.TaskNamed("appending_to_results")(nil)
 			if opts.IncludeValue {
 				result = append(result, ListItem{
 					Key:      CloneKey(relativeKey),
@@ -66,6 +67,7 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 					IsPrefix: item.IsPrefix,
 				})
 			}
+			task(nil)
 		}
 
 		// we still need to consume one item for the more flag
