@@ -3,10 +3,10 @@
 
 <div class="navigation-area">
     <div class="navigation-area__wrap">
-        <div class="navigation-area__logo" @click="onLogoClick">
+        <router-link :to="homePath" class="navigation-area__logo">
             <LogoIcon class="navigation-area__logo__img"/>
             <LogoTextIcon class="navigation-area__logo__text"/>
-        </div>
+        </router-link>
         <ProjectSelectionArea class="project-selection-area"/>
         <p class="navigation-area__project-title">PROJECT</p>
         <router-link :aria-label="navItem.name" class="navigation-area__item-container" :class="{disabled: isProjectNotSelected && navItem.path !== '/project-details'}" v-for="navItem in navigation" :key="navItem.name" :to="navItem.path">

@@ -3,10 +3,10 @@
 exports[`NavigationArea snapshot not changed with project 1`] = `
 <div class="navigation-area">
   <div class="navigation-area__wrap">
-    <div class="navigation-area__logo">
+    <router-link-stub to="/project-overview" tag="a" event="click" class="navigation-area__logo">
       <logoicon-stub class="navigation-area__logo__img"></logoicon-stub>
       <logotexticon-stub class="navigation-area__logo__text"></logotexticon-stub>
-    </div>
+    </router-link-stub>
     <projectselectionarea-stub class="project-selection-area"></projectselectionarea-stub>
     <p class="navigation-area__project-title">PROJECT</p>
     <router-link-stub to="/project-overview" tag="a" event="click" aria-label="Overview" class="navigation-area__item-container">
@@ -88,10 +88,10 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
 exports[`NavigationArea snapshot not changed without project 1`] = `
 <div class="navigation-area">
   <div class="navigation-area__wrap">
-    <div class="navigation-area__logo">
+    <router-link-stub to="/project-overview" tag="a" event="click" class="navigation-area__logo">
       <logoicon-stub class="navigation-area__logo__img"></logoicon-stub>
       <logotexticon-stub class="navigation-area__logo__text"></logotexticon-stub>
-    </div>
+    </router-link-stub>
     <projectselectionarea-stub class="project-selection-area"></projectselectionarea-stub>
     <p class="navigation-area__project-title">PROJECT</p>
     <router-link-stub to="/project-overview" tag="a" event="click" aria-label="Overview" class="navigation-area__item-container disabled">
