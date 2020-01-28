@@ -32,7 +32,7 @@ node('node') {
               sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
               // fetch the remote master branch
               sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/master:refs/remotes/origin/master'
-              sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/testversions/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.6'
+              sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/testversions/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.7'
             }
             catch(err){
                 throw err
@@ -67,7 +67,7 @@ node('node') {
           sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
           // fetch the remote master branch
           sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/master:refs/remotes/origin/master'
-          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/rollingupgrade/test-sim-rolling-upgrade.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.6'
+          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/rollingupgrade/test-sim-rolling-upgrade.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.7'
         }
         catch(err){
             throw err
@@ -123,14 +123,14 @@ node('node') {
     stage('Push Images') {
       lastStage = env.STAGE_NAME
       sh 'make push-images'
-      
+
       echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Upload') {
       lastStage = env.STAGE_NAME
       sh 'make binaries-upload'
-      
+
       echo "Current build result: ${currentBuild.result}"
     }
 
