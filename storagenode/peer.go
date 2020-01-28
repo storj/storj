@@ -133,7 +133,9 @@ func isAddressValid(addrstring string) error {
 	if err != nil || port == "" {
 		return errs.New("split host-port %q failed: %+v", addrstring, err)
 	}
-
+	if addr == "" {
+		return nil
+	}
 	resolvedhosts, err := net.LookupHost(addr)
 	if err != nil || len(resolvedhosts) == 0 {
 		return errs.New("lookup %q failed: %+v", addr, err)
