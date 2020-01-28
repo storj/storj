@@ -746,7 +746,8 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	convBucket, err := convertBucketToProto(ctx, bucket)
+	// override RS to fit satellite settings
+	convBucket, err := convertBucketToProto(ctx, bucket, endpoint.redundancyScheme())
 	if err != nil {
 		return resp, err
 	}
@@ -800,7 +801,8 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
 	}
 
-	convBucket, err := convertBucketToProto(ctx, bucket)
+	// override RS to fit satellite settings
+	convBucket, err := convertBucketToProto(ctx, bucket, endpoint.redundancyScheme())
 	if err != nil {
 		endpoint.log.Error("error while converting bucket to proto", zap.String("bucketName", bucket.Name), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
@@ -1046,26 +1048,18 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	}, nil
 }
 
-func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *pb.Bucket, err error) {
-	rs := bucket.DefaultRedundancyScheme
+func convertBucketToProto(ctx context.Context, bucket storj.Bucket, rs *pb.RedundancyScheme) (pbBucket *pb.Bucket, err error) {
 	partnerID, err := bucket.PartnerID.MarshalJSON()
 	if err != nil {
 		return pbBucket, rpcstatus.Error(rpcstatus.Internal, "UUID marshal error")
 	}
 	return &pb.Bucket{
-		Name:               []byte(bucket.Name),
-		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
-		PartnerId:          partnerID,
-		CreatedAt:          bucket.Created,
-		DefaultSegmentSize: bucket.DefaultSegmentsSize,
-		DefaultRedundancyScheme: &pb.RedundancyScheme{
-			Type:             pb.RedundancyScheme_RS,
-			MinReq:           int32(rs.RequiredShares),
-			Total:            int32(rs.TotalShares),
-			RepairThreshold:  int32(rs.RepairShares),
-			SuccessThreshold: int32(rs.OptimalShares),
-			ErasureShareSize: rs.ShareSize,
-		},
+		Name:                    []byte(bucket.Name),
+		PathCipher:              pb.CipherSuite(int(bucket.PathCipher)),
+		PartnerId:               partnerID,
+		CreatedAt:               bucket.Created,
+		DefaultSegmentSize:      bucket.DefaultSegmentsSize,
+		DefaultRedundancyScheme: rs,
 		DefaultEncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
 			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
@@ -1092,14 +1086,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// use only satellite values for Redundancy Scheme
-	pbRS := &pb.RedundancyScheme{
-		Type:             pb.RedundancyScheme_RS,
-		MinReq:           int32(endpoint.requiredRSConfig.MinThreshold),
-		RepairThreshold:  int32(endpoint.requiredRSConfig.RepairThreshold),
-		SuccessThreshold: int32(endpoint.requiredRSConfig.SuccessThreshold),
-		Total:            int32(endpoint.requiredRSConfig.TotalThreshold),
-		ErasureShareSize: endpoint.requiredRSConfig.ErasureShareSize.Int32(),
-	}
+	pbRS := endpoint.redundancyScheme()
 
 	streamID, err := endpoint.packStreamID(ctx, &pb.SatStreamID{
 		Bucket:         req.Bucket,
@@ -2472,4 +2459,15 @@ func (endpoint *Endpoint) findIndexPreviousLastSegmentWhenNotKnowingNumSegments(
 	}
 
 	return lastIdxFound, nil
+}
+
+func (endpoint *Endpoint) redundancyScheme() *pb.RedundancyScheme {
+	return &pb.RedundancyScheme{
+		Type:             pb.RedundancyScheme_RS,
+		MinReq:           int32(endpoint.requiredRSConfig.MinThreshold),
+		RepairThreshold:  int32(endpoint.requiredRSConfig.RepairThreshold),
+		SuccessThreshold: int32(endpoint.requiredRSConfig.SuccessThreshold),
+		Total:            int32(endpoint.requiredRSConfig.TotalThreshold),
+		ErasureShareSize: endpoint.requiredRSConfig.ErasureShareSize.Int32(),
+	}
 }

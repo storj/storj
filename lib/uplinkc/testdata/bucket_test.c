@@ -36,12 +36,7 @@ void handle_project(ProjectRef project) {
             require(config.encryption_parameters.cipher_suite == info.encryption_parameters.cipher_suite);
             require(config.encryption_parameters.block_size   == info.encryption_parameters.block_size);
 
-            require(config.redundancy_scheme.algorithm        == info.redundancy_scheme.algorithm);
-            require(config.redundancy_scheme.share_size       == info.redundancy_scheme.share_size);
-            require(config.redundancy_scheme.required_shares  == info.redundancy_scheme.required_shares);
-            require(config.redundancy_scheme.repair_shares    == info.redundancy_scheme.repair_shares);
-            require(config.redundancy_scheme.optimal_shares   == info.redundancy_scheme.optimal_shares);
-            require(config.redundancy_scheme.total_shares     == info.redundancy_scheme.total_shares);
+            // ignore RS values because satellite will override it
 
             free_bucket_info(&info);
         }
