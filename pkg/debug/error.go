@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package process
+package debug
 
 import (
 	"google.golang.org/grpc/status"
