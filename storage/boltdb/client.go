@@ -153,6 +153,34 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	})
 }
 
+// DeleteMultiple deletes keys ignoring missing keys
+func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
+	defer mon.Task()(&ctx, len(keys))(&err)
+
+	var items storage.Items
+	err = client.update(func(bucket *bolt.Bucket) error {
+		for _, key := range keys {
+			value := bucket.Get(key)
+			if len(value) == 0 {
+				continue
+			}
+
+			items = append(items, storage.ListItem{
+				Key:   key,
+				Value: value,
+			})
+
+			err := bucket.Delete(key)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	return items, err
+}
+
 // List returns either a list of keys for which boltdb has values or an error.
 func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)

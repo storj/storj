@@ -127,6 +127,12 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	return delete(ctx, client.db, key)
 }
 
+// DeleteMultiple deletes keys ignoring missing keys
+func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
+	defer mon.Task()(&ctx, len(keys))(&err)
+	return deleteMultiple(ctx, client.db, keys)
+}
+
 // Close closes a redis client
 func (client *Client) Close() error {
 	return client.db.Close()
@@ -313,4 +319,33 @@ func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err er
 		return Error.New("delete error: %v", err)
 	}
 	return errs.Wrap(err)
+}
+
+func deleteMultiple(ctx context.Context, cmdable redis.Cmdable, keys []storage.Key) (_ storage.Items, err error) {
+	defer mon.Task()(&ctx, len(keys))(&err)
+
+	var items storage.Items
+	for _, key := range keys {
+		value, err := get(ctx, cmdable, key)
+		if err != nil {
+			if errs.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
+				continue
+			}
+			return items, err
+		}
+
+		err = delete(ctx, cmdable, key)
+		if err != nil {
+			if errs.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
+				continue
+			}
+			return items, err
+		}
+		items = append(items, storage.ListItem{
+			Key:   key,
+			Value: value,
+		})
+	}
+
+	return items, nil
 }

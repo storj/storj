@@ -175,6 +175,35 @@ func (store *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	return nil
 }
 
+// DeleteMultiple deletes keys ignoring missing keys
+func (store *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
+	defer mon.Task()(&ctx, len(keys))(&err)
+	defer store.locked()()
+
+	store.version++
+	store.CallCount.Delete++
+
+	if store.forcedError() {
+		return nil, errInternal
+	}
+
+	var items storage.Items
+	for _, key := range keys {
+		keyIndex, found := store.indexOf(key)
+		if !found {
+			continue
+		}
+		e := store.Items[keyIndex]
+		items = append(items, storage.ListItem{
+			Key:   e.Key,
+			Value: e.Value,
+		})
+		store.delete(keyIndex)
+	}
+
+	return items, nil
+}
+
 // List lists all keys starting from start and upto limit items
 func (store *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)

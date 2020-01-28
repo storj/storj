@@ -6,7 +6,10 @@ package testsuite
 import (
 	"bytes"
 	"math/rand"
+	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/storage"
@@ -90,7 +93,50 @@ func testCRUD(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStor
 	})
 
 	t.Run("Delete", func(t *testing.T) {
-		for _, item := range items {
+		k := len(items) / 2
+		batch, nonbatch := items[:k], items[k:]
+
+		var list []storage.Key
+		for _, item := range batch {
+			list = append(list, item.Key)
+		}
+
+		var expected storage.Items
+		for _, item := range batch {
+			value, err := store.Get(ctx, item.Key)
+			if err != nil {
+				t.Fatalf("failed to get %v: %v", item.Key, value)
+			}
+			expected = append(expected, storage.ListItem{
+				Key:   item.Key,
+				Value: value,
+			})
+		}
+
+		deleted, err := store.DeleteMultiple(ctx, list)
+		if err != nil {
+			t.Fatalf("failed to batch delete: %v", err)
+		}
+
+		sort.Slice(expected, func(i, k int) bool {
+			return expected[i].Key.Less(expected[k].Key)
+		})
+		sort.Slice(deleted, func(i, k int) bool {
+			return deleted[i].Key.Less(deleted[k].Key)
+		})
+		require.Equal(t, expected, deleted)
+
+		// Duplicate delete should also be fine.
+		retry, err := store.DeleteMultiple(ctx, list)
+		if err != nil {
+			t.Fatalf("failed to batch delete: %v", err)
+		}
+		if len(retry) != 0 {
+			t.Fatalf("expected delete to return nothing: %v", len(retry))
+		}
+
+		// individual deletes
+		for _, item := range nonbatch {
 			err := store.Delete(ctx, item.Key)
 			if err != nil {
 				t.Fatalf("failed to delete %v: %v", item.Key, err)

@@ -67,6 +67,8 @@ type KeyValueStore interface {
 	GetAll(context.Context, Keys) (Values, error)
 	// Delete deletes key and the value
 	Delete(context.Context, Key) error
+	// DeleteMultiple deletes keys and returns nil for
+	DeleteMultiple(context.Context, []Key) (Items, error)
 	// List lists all keys starting from start and upto limit items
 	List(ctx context.Context, start Key, limit int) (Keys, error)
 	// Iterate iterates over items based on opts

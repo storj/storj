@@ -62,6 +62,13 @@ func (store *Logger) Delete(ctx context.Context, key storage.Key) (err error) {
 	return store.store.Delete(ctx, key)
 }
 
+// DeleteMultiple deletes keys ignoring missing keys
+func (store *Logger) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
+	defer mon.Task()(&ctx, len(keys))(&err)
+	store.log.Debug("DeleteMultiple", zap.Any("keys", keys))
+	return store.store.DeleteMultiple(ctx, keys)
+}
+
 // List lists all keys starting from first and upto limit items
 func (store *Logger) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)

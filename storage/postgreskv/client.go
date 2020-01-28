@@ -161,6 +161,38 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	return nil
 }
 
+// DeleteMultiple deletes keys ignoring missing keys
+func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
+	defer mon.Task()(&ctx, len(keys))(&err)
+
+	rows, err := client.db.QueryContext(ctx, `
+		DELETE FROM pathdata
+		WHERE fullpath = any($1::BYTEA[])
+		RETURNING fullpath, metadata`,
+		pq.ByteaArray(storage.Keys(keys).ByteSlices()))
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	var items storage.Items
+	for rows.Next() {
+		var key, value []byte
+		err := rows.Scan(&key, &value)
+		if err != nil {
+			return items, err
+		}
+		items = append(items, storage.ListItem{
+			Key:   key,
+			Value: value,
+		})
+	}
+
+	return items, rows.Err()
+}
+
 // List returns either a list of known keys, in order, or an error.
 func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)
