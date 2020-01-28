@@ -13,7 +13,10 @@ import (
 	"storj.io/storj/pkg/process"
 )
 
-var inspectCfg AccessConfig
+var (
+	inspectCfg AccessConfig
+	listCfg    AccessConfig
+)
 
 func init() {
 	// We skip the use of addCmd here because we only want the configuration options listed
@@ -29,10 +32,34 @@ func init() {
 		RunE:  accessInspect,
 		Args:  cobra.MaximumNArgs(1),
 	}
+
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "Prints name and associated satellite of all available accesses.",
+		RunE:  accessList,
+		Args:  cobra.MaximumNArgs(0),
+	}
+
 	RootCmd.AddCommand(accessCmd)
 	accessCmd.AddCommand(inspectCmd)
+	accessCmd.AddCommand(listCmd)
 
 	process.Bind(inspectCmd, &inspectCfg, defaults, cfgstruct.ConfDir(getConfDir()))
+	process.Bind(listCmd, &listCfg, defaults, cfgstruct.ConfDir(getConfDir()))
+}
+
+func accessList(cmd *cobra.Command, args []string) (err error) {
+	accesses := listCfg.Accesses
+	fmt.Println("=========== ACCESSES LIST: name / satellite ================================")
+	for name, data := range accesses {
+		access, err := libuplink.ParseScope(data)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(name, "/", access.SatelliteAddr)
+	}
+	return nil
 }
 
 func accessInspect(cmd *cobra.Command, args []string) (err error) {
