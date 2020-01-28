@@ -378,7 +378,7 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 		}
 		return &pb.SegmentDownloadResponseOld{Pointer: pointer}, nil
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
+		limits, privateKey, err := endpoint.orders.CreateGetOrderLimitsOld(ctx, bucketID, pointer)
 		if err != nil {
 			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 				endpoint.log.Sugar().Errorf("unable to create order limits for project id %s from api key id %s: %v.", keyInfo.ProjectID.String(), keyInfo.ID.String(), zap.Error(err))

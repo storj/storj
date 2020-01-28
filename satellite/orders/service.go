@@ -119,6 +119,102 @@ func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID
 	return nil
 }
 
+// CreateGetOrderLimitsOld creates the order limits for downloading the pieces of pointer for backwards compatibility
+func (service *Service) CreateGetOrderLimitsOld(ctx context.Context, bucketID []byte, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rootPieceID := pointer.GetRemote().RootPieceId
+	pieceExpiration := pointer.ExpirationDate
+	orderExpiration := time.Now().Add(service.orderExpiration)
+
+	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	serialNumber, err := service.createSerial(ctx)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+
+	var combinedErrs error
+	var limits []*pb.AddressedOrderLimit
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		node, err := service.overlay.Get(ctx, piece.NodeId)
+		if err != nil {
+			service.log.Debug("error getting node from overlay", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
+		}
+
+		if node.Disqualified != nil {
+			if service.nodeStatusLogging {
+				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			}
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
+			continue
+		}
+
+		if !service.overlay.IsOnline(node) {
+			if service.nodeStatusLogging {
+				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			}
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
+			continue
+		}
+
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
+			SerialNumber:     serialNumber,
+			SatelliteId:      service.satellite.ID(),
+			SatelliteAddress: service.satelliteAddress,
+			UplinkPublicKey:  piecePublicKey,
+			StorageNodeId:    piece.NodeId,
+			PieceId:          rootPieceID.Derive(piece.NodeId, piece.PieceNum),
+			Action:           pb.PieceAction_GET,
+			Limit:            pieceSize,
+			PieceExpiration:  pieceExpiration,
+			OrderCreation:    time.Now(),
+			OrderExpiration:  orderExpiration,
+		})
+		if err != nil {
+			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+		}
+
+		limits = append(limits, &pb.AddressedOrderLimit{
+			Limit:              orderLimit,
+			StorageNodeAddress: node.Address,
+		})
+	}
+
+	if len(limits) < redundancy.RequiredCount() {
+		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //locked
+		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
+		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, combinedErrs))
+	}
+
+	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	return limits, piecePrivateKey, nil
+}
+
 // CreateGetOrderLimits creates the order limits for downloading the pieces of pointer.
 func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byte, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
