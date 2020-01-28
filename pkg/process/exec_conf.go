@@ -58,11 +58,16 @@ func Bind(cmd *cobra.Command, config interface{}, opts ...cfgstruct.BindOpt) {
 // Exec runs a Cobra command. If a "config-dir" flag is defined it will be parsed
 // and loaded using viper.
 func Exec(cmd *cobra.Command) {
-	ExecWithCustomConfig(cmd, LoadConfig)
+	ExecWithCustomConfig(cmd, true, LoadConfig)
+}
+
+// ExecCustomDebug runs default configuration except the default debug is disabled.
+func ExecCustomDebug(cmd *cobra.Command) {
+	ExecWithCustomConfig(cmd, false, LoadConfig)
 }
 
 // ExecWithCustomConfig runs a Cobra command. Custom configuration can be loaded.
-func ExecWithCustomConfig(cmd *cobra.Command, loadConfig func(cmd *cobra.Command, vip *viper.Viper) error) {
+func ExecWithCustomConfig(cmd *cobra.Command, debugEnabled bool, loadConfig func(cmd *cobra.Command, vip *viper.Viper) error) {
 	cmd.AddCommand(&cobra.Command{
 		Use:         "version",
 		Short:       "output the version's build information, if any",
@@ -75,7 +80,7 @@ func ExecWithCustomConfig(cmd *cobra.Command, loadConfig func(cmd *cobra.Command
 	}
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	cleanup(cmd, loadConfig)
+	cleanup(cmd, debugEnabled, loadConfig)
 	err = cmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -162,9 +167,9 @@ func LoadConfig(cmd *cobra.Command, vip *viper.Viper) error {
 
 var traceOut = flag.String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
 
-func cleanup(cmd *cobra.Command, loadConfig func(cmd *cobra.Command, vip *viper.Viper) error) {
+func cleanup(cmd *cobra.Command, debugEnabled bool, loadConfig func(cmd *cobra.Command, vip *viper.Viper) error) {
 	for _, ccmd := range cmd.Commands() {
-		cleanup(ccmd, loadConfig)
+		cleanup(ccmd, debugEnabled, loadConfig)
 	}
 	if cmd.Run != nil {
 		panic("Please use cobra's RunE instead of Run")
@@ -278,10 +283,12 @@ func cleanup(cmd *cobra.Command, loadConfig func(cmd *cobra.Command, vip *viper.
 			logger.Sugar().Infof("Invalid configuration file value for key: %s", key)
 		}
 
-		err = initDebug(logger, monkit.Default)
-		if err != nil {
-			withoutStack := errors.New(err.Error())
-			logger.Debug("failed to start debug endpoints", zap.Error(withoutStack))
+		if debugEnabled {
+			err = initDebug(logger, monkit.Default)
+			if err != nil {
+				withoutStack := errors.New(err.Error())
+				logger.Debug("failed to start debug endpoints", zap.Error(withoutStack))
+			}
 		}
 
 		var workErr error

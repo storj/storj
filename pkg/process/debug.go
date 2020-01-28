@@ -16,21 +16,24 @@ import (
 )
 
 var (
-	debugAddr = flag.String("debug.addr", "127.0.0.1:0", "address to listen on for debug endpoints")
+	// DebugAddrFlag for --debug.addr
+	DebugAddrFlag = flag.String("debug.addr", "127.0.0.1:0", "address to listen on for debug endpoints")
 )
 
 func initDebug(log *zap.Logger, r *monkit.Registry) (err error) {
-	if *debugAddr == "" {
+	if *DebugAddrFlag == "" {
 		return nil
 	}
 
-	ln, err := net.Listen("tcp", *debugAddr)
+	ln, err := net.Listen("tcp", *DebugAddrFlag)
 	if err != nil {
 		return err
 	}
 
 	go func() {
-		server := debug.NewServer(log, ln, r, debug.Config{Address: *debugAddr})
+		server := debug.NewServer(log, ln, r, debug.Config{
+			Address: *DebugAddrFlag,
+		})
 		log.Debug(fmt.Sprintf("debug server listening on %s", ln.Addr().String()))
 		err := server.Run(context.TODO())
 		if err != nil {

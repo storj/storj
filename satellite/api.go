@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/identity"
 	"storj.io/common/pb"
@@ -21,6 +22,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/pkg/auth/grpcauth"
+	"storj.io/storj/pkg/debug"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/post"
@@ -67,6 +69,11 @@ type API struct {
 	Dialer  rpc.Dialer
 	Server  *server.Server
 	Version *checker.Service
+
+	Debug struct {
+		Listener net.Listener
+		Server   *debug.Server
+	}
 
 	Contact struct {
 		Service  *contact.Service
@@ -160,6 +167,22 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
+	}
+
+	{ // setup debug
+		var err error
+		if config.Debug.Address != "" {
+			peer.Debug.Listener, err = net.Listen("tcp", config.Debug.Address)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+		}
+		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, config.Debug)
+		peer.Servers.Add(lifecycle.Item{
+			Name:  "debug",
+			Run:   peer.Debug.Server.Run,
+			Close: peer.Debug.Server.Close,
+		})
 	}
 
 	var err error

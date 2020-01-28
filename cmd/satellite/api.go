@@ -23,6 +23,8 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
+	runCfg.Debug.Address = *process.DebugAddrFlag
+
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
 		zap.S().Fatal(err)

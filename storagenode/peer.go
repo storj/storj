@@ -21,6 +21,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/storj/pkg/debug"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version"
@@ -81,6 +82,7 @@ type Config struct {
 	Identity identity.Config
 
 	Server server.Config
+	Debug  debug.Config
 
 	Preflight preflight.Config
 	Contact   contact.Config
@@ -162,6 +164,11 @@ type Peer struct {
 
 	Version *checker.Service
 
+	Debug struct {
+		Listener net.Listener
+		Server   *debug.Server
+	}
+
 	// services and endpoints
 	// TODO: similar grouping to satellite.Core
 
@@ -225,6 +232,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
+	}
+
+	{ // setup debug
+		var err error
+		if config.Debug.Address != "" {
+			peer.Debug.Listener, err = net.Listen("tcp", config.Debug.Address)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+		}
+		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, config.Debug)
+		peer.Servers.Add(lifecycle.Item{
+			Name:  "debug",
+			Run:   peer.Debug.Server.Run,
+			Close: peer.Debug.Server.Close,
+		})
 	}
 
 	var err error
@@ -579,6 +602,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	}
 
 	group, ctx := errgroup.WithContext(ctx)
+
 	peer.Servers.Run(ctx, group)
 	peer.Services.Run(ctx, group)
 

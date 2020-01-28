@@ -138,6 +138,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
+	runCfg.Debug.Address = *process.DebugAddrFlag
+
 	mapDeprecatedConfigs(log)
 
 	identity, err := runCfg.Identity.Load()
@@ -323,5 +325,5 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 }
 
 func main() {
-	process.Exec(rootCmd)
+	process.ExecCustomDebug(rootCmd)
 }

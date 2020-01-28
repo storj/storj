@@ -9,6 +9,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/identity"
+	"storj.io/storj/pkg/debug"
 	"storj.io/storj/pkg/server"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -93,6 +94,7 @@ type DB interface {
 type Config struct {
 	Identity identity.Config
 	Server   server.Config
+	Debug    debug.Config
 
 	Contact contact.Config
 	Overlay overlay.Config

@@ -18,6 +18,7 @@ import (
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
+	"storj.io/storj/pkg/debug"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/storagenode"
@@ -83,6 +84,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 						WhitelistSignedLeaf: false,
 					},
 				},
+			},
+			Debug: debug.Config{
+				Address: "",
 			},
 			Preflight: preflight.Config{
 				LocalTimeCheck: false,
