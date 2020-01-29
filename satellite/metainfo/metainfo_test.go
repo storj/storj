@@ -1111,45 +1111,51 @@ func TestBatch(t *testing.T) {
 }
 
 func TestRateLimit(t *testing.T) {
+	rateLimit := 2
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.RateLimiter.Rate = 2
+				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		err := ul.CreateBucket(ctx, satellite, testrand.BucketName())
-		require.NoError(t, err)
-		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
-		require.NoError(t, err)
-		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
-		require.Error(t, err)
+		var group errs2.Group
+		for i := 0; i <= rateLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 1)
 	})
 }
 
 func TestRateLimit_Disabled(t *testing.T) {
+	rateLimit := 2
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.RateLimiter.Enabled = false
-				config.Metainfo.RateLimiter.Rate = 2
+				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		err := ul.CreateBucket(ctx, satellite, testrand.BucketName())
-		require.NoError(t, err)
-		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
-		require.NoError(t, err)
-		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
-		require.NoError(t, err)
+		var group errs2.Group
+		for i := 0; i <= rateLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 0)
 	})
 }
 
@@ -1175,13 +1181,66 @@ func TestRateLimit_ProjectRateLimitOverride(t *testing.T) {
 		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
 		require.NoError(t, err)
 
-		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		var group errs2.Group
+		for i := 0; i <= rateLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 1)
+	})
+}
+
+func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = 2
+				config.Metainfo.RateLimiter.CacheExpiration = 100 * time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
-		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
+		require.Len(t, projects, 1)
+
+		rateLimit := 3
+		projects[0].RateLimit = &rateLimit
+
+		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
 		require.NoError(t, err)
-		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
+
+		var group1 errs2.Group
+
+		for i := 0; i <= rateLimit; i++ {
+			group1.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		group1Errs := group1.Wait()
+		require.Len(t, group1Errs, 1)
+
+		rateLimit = 1
+		projects[0].RateLimit = &rateLimit
+
+		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
 		require.NoError(t, err)
-		err = ul.CreateBucket(ctx, satellite, testrand.BucketName())
-		require.Error(t, err)
+
+		time.Sleep(200 * time.Millisecond)
+
+		var group2 errs2.Group
+
+		for i := 0; i <= rateLimit; i++ {
+			group2.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		group2Errs := group2.Wait()
+		require.Len(t, group2Errs, 1)
 	})
 }

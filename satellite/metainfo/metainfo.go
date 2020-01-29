@@ -115,8 +115,11 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *DeletePiecesS
 		requiredRSConfig:  rsConfig,
 		satellite:         satellite,
 		maxCommitInterval: maxCommitInterval,
-		limiterCache:      lrucache.New(lrucache.Options{Capacity: limiterConfig.CacheCapacity}),
-		limiterConfig:     limiterConfig,
+		limiterCache: lrucache.New(lrucache.Options{
+			Capacity:   limiterConfig.CacheCapacity,
+			Expiration: limiterConfig.CacheExpiration,
+		}),
+		limiterConfig: limiterConfig,
 	}
 }
 

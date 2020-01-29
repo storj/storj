@@ -250,6 +250,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # number of projects to cache.
 # metainfo.rate-limiter.cache-capacity: 10000
 
+# how long to cache the projects limiter.
+# metainfo.rate-limiter.cache-expiration: 10m0s
+
 # whether rate limiting is enabled.
 # metainfo.rate-limiter.enabled: true
 
