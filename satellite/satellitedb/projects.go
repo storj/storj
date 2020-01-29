@@ -18,9 +18,10 @@ import (
 // ensures that projects implements console.Projects.
 var _ console.Projects = (*projects)(nil)
 
-// implementation of Projects interface repository using spacemonkeygo/dbx orm
+// implementation of Projects interface repository using spacemonkeygo/dbx orm.
 type projects struct {
-	db dbx.Methods
+	db  dbx.Methods
+	sdb *satelliteDB
 }
 
 // GetAll is a method for querying all projects from the database.

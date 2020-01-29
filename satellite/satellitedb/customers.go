@@ -71,7 +71,7 @@ func (customers *customers) List(ctx context.Context, offset int64, limit int, b
 
 	if len(dbxCustomers) == limit+1 {
 		page.Next = true
-		page.NextOffset = offset + int64(limit) + 1
+		page.NextOffset = offset + int64(limit)
 
 		dbxCustomers = dbxCustomers[:len(dbxCustomers)-1]
 	}

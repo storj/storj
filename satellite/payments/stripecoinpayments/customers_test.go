@@ -50,8 +50,7 @@ func TestCustomersRepositoryList(t *testing.T) {
 
 		const custLen = 5
 
-		var customers []stripecoinpayments.Customer
-		for i := 0; i < custLen; i++ {
+		for i := 0; i < custLen*2+3; i++ {
 			userID, err := uuid.New()
 			require.NoError(t, err)
 
@@ -62,26 +61,41 @@ func TestCustomersRepositoryList(t *testing.T) {
 
 			err = customersDB.Insert(ctx, cus.UserID, cus.ID)
 			require.NoError(t, err)
-
-			customers = append(customers, cus)
 		}
 
 		page, err := customersDB.List(ctx, 0, custLen, time.Now())
 		require.NoError(t, err)
 		require.Equal(t, custLen, len(page.Customers))
 
+		assert.True(t, page.Next)
+		assert.Equal(t, int64(5), page.NextOffset)
+
+		for i, cus := range page.Customers {
+			assert.Equal(t, "customerID"+strconv.Itoa(12-i), cus.ID)
+		}
+
+		page, err = customersDB.List(ctx, page.NextOffset, custLen, time.Now())
+		require.NoError(t, err)
+		require.Equal(t, custLen, len(page.Customers))
+
+		assert.True(t, page.Next)
+		assert.Equal(t, int64(10), page.NextOffset)
+
+		for i, cus := range page.Customers {
+			assert.Equal(t, "customerID"+strconv.Itoa(7-i), cus.ID)
+
+		}
+
+		page, err = customersDB.List(ctx, page.NextOffset, custLen, time.Now())
+		require.NoError(t, err)
+		require.Equal(t, 3, len(page.Customers))
+
 		assert.False(t, page.Next)
 		assert.Equal(t, int64(0), page.NextOffset)
 
-		for _, cus1 := range page.Customers {
-			for _, cus2 := range customers {
-				if cus1.ID != cus2.ID {
-					continue
-				}
+		for i, cus := range page.Customers {
+			assert.Equal(t, "customerID"+strconv.Itoa(2-i), cus.ID)
 
-				assert.Equal(t, cus2.ID, cus1.ID)
-				assert.Equal(t, cus2.UserID, cus1.UserID)
-			}
 		}
 	})
 }

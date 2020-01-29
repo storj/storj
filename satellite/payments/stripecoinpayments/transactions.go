@@ -65,10 +65,22 @@ type TransactionsPage struct {
 }
 
 // IDList returns transaction id list of page's transactions.
-func (page *TransactionsPage) IDList() coinpayments.TransactionIDList {
-	var list coinpayments.TransactionIDList
+func (page *TransactionsPage) IDList() TransactionAndUserList {
+	var ids = make(TransactionAndUserList)
 	for _, tx := range page.Transactions {
-		list = append(list, tx.ID)
+		ids[tx.ID] = tx.AccountID
+	}
+	return ids
+}
+
+// TransactionAndUserList is a composite type for storing userID and txID
+type TransactionAndUserList map[coinpayments.TransactionID]uuid.UUID
+
+// IDList returns transaction id list.
+func (idMap TransactionAndUserList) IDList() coinpayments.TransactionIDList {
+	var list coinpayments.TransactionIDList
+	for transactionID := range idMap {
+		list = append(list, transactionID)
 	}
 	return list
 }

@@ -11,6 +11,8 @@ import (
 )
 
 // Invoices exposes all needed functionality to manage account invoices.
+//
+// architecture: Service
 type Invoices interface {
 	// List returns a list of invoices for a given payment account.
 	List(ctx context.Context, userID uuid.UUID) ([]Invoice, error)

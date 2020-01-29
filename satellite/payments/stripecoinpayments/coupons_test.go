@@ -187,9 +187,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 			Description: "descr 1",
 			OwnerID:     user1.ID,
 		})
-		if err != nil {
-			require.NoError(t, err)
-		}
+		require.NoError(t, err)
 
 		// should not be processed as we takes only first project of the user.
 		proj2, err := projectsRepo.Insert(ctx, &console.Project{
@@ -198,9 +196,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 			Description: "descr 2",
 			OwnerID:     user1.ID,
 		})
-		if err != nil {
-			require.NoError(t, err)
-		}
+		require.NoError(t, err)
 
 		proj3, err := projectsRepo.Insert(ctx, &console.Project{
 			ID:          testrand.UUID(),
@@ -208,18 +204,16 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 			Description: "descr 3",
 			OwnerID:     user2.ID,
 		})
-		if err != nil {
-			require.NoError(t, err)
-		}
+		require.NoError(t, err)
+
 		proj4, err := projectsRepo.Insert(ctx, &console.Project{
 			ID:          testrand.UUID(),
 			Name:        "proj 1 of user 5",
 			Description: "descr 4",
 			OwnerID:     user5.ID,
 		})
-		if err != nil {
-			require.NoError(t, err)
-		}
+		require.NoError(t, err)
+
 		couponID := testrand.UUID()
 		err = couponsRepo.Insert(ctx, payments.Coupon{
 			ID:          couponID,
@@ -231,9 +225,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 			Type:        payments.CouponTypePromotional,
 			Status:      payments.CouponActive,
 		})
-		if err != nil {
-			require.NoError(t, err)
-		}
+		require.NoError(t, err)
 
 		// creating new users and projects to test that multiple execution of populate method wont generate extra coupons.
 		user6, err := usersRepo.Insert(ctx, &console.User{

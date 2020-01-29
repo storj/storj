@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/common/memory"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -131,23 +131,6 @@ func (service *Service) Accounts() payments.Accounts {
 	return &accounts{service: service}
 }
 
-// AddCoupon attaches a coupon for payment account.
-func (service *Service) AddCoupon(ctx context.Context, userID, projectID uuid.UUID, amount int64, duration int, description string, couponType payments.CouponType) (err error) {
-	defer mon.Task()(&ctx, userID, amount, duration)(&err)
-
-	coupon := payments.Coupon{
-		UserID:      userID,
-		Status:      payments.CouponActive,
-		ProjectID:   projectID,
-		Amount:      amount,
-		Type:        couponType,
-		Description: description,
-		Duration:    duration,
-	}
-
-	return Error.Wrap(service.db.Coupons().Insert(ctx, coupon))
-}
-
 // updateTransactionsLoop updates all pending transactions in a loop.
 func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -183,7 +166,7 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 }
 
 // updateTransactions updates statuses and received amount for given transactions.
-func (service *Service) updateTransactions(ctx context.Context, ids coinpayments.TransactionIDList) (err error) {
+func (service *Service) updateTransactions(ctx context.Context, ids TransactionAndUserList) (err error) {
 	defer mon.Task()(&ctx, ids)(&err)
 
 	if len(ids) == 0 {
@@ -191,7 +174,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 		return nil
 	}
 
-	infos, err := service.coinPayments.Transactions().ListInfos(ctx, ids)
+	infos, err := service.coinPayments.Transactions().ListInfos(ctx, ids.IDList())
 	if err != nil {
 		return err
 	}
@@ -214,6 +197,24 @@ func (service *Service) updateTransactions(ctx context.Context, ids coinpayments
 		// Therefore, create intent to update customer balance in the future.
 		if info.Status == coinpayments.StatusCompleted {
 			applies = append(applies, id)
+		}
+
+		userID := ids[id]
+
+		rate, err := service.db.Transactions().GetLockedRate(ctx, id)
+		if err != nil {
+			service.log.Error(fmt.Sprintf("could not add promotional coupon for user %s", userID.String()), zap.Error(err))
+			continue
+		}
+
+		cents := convertToCents(rate, &info.Received)
+
+		if cents >= 5000 {
+			err = service.Accounts().Coupons().AddPromotionalCoupon(ctx, userID, 2, 28, memory.GB*5)
+			if err != nil {
+				service.log.Error(fmt.Sprintf("could not add promotional coupon for user %s", userID.String()), zap.Error(err))
+				continue
+			}
 		}
 	}
 

@@ -8,14 +8,14 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
-
-	"storj.io/common/memory"
 )
 
 // ErrAccountNotSetup is an error type which indicates that payment account is not created.
 var ErrAccountNotSetup = errs.Class("payment account is not set up")
 
 // Accounts exposes all needed functionality to manage payment accounts.
+//
+// architecture: Service
 type Accounts interface {
 	// Setup creates a payment account for the user.
 	// If account is already set up it will return nil.
@@ -30,14 +30,6 @@ type Accounts interface {
 	// Charges returns list of all credit card charges related to account.
 	Charges(ctx context.Context, userID uuid.UUID) ([]Charge, error)
 
-	// Coupons return list of all coupons of specified payment account.
-	Coupons(ctx context.Context, userID uuid.UUID) ([]Coupon, error)
-
-	// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
-	// a project, payment method and do not have a promotional coupon yet.
-	// And updates project limits to selected size.
-	PopulatePromotionalCoupons(ctx context.Context, duration int, amount int64, projectLimit memory.Size) error
-
 	// CreditCards exposes all needed functionality to manage account credit cards.
 	CreditCards() CreditCards
 
@@ -46,4 +38,7 @@ type Accounts interface {
 
 	// Invoices exposes all needed functionality to manage account invoices.
 	Invoices() Invoices
+
+	// Coupons exposes all needed functionality to manage coupons.
+	Coupons() Coupons
 }
