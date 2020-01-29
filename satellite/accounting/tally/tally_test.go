@@ -248,6 +248,42 @@ func TestTallyLiveAccounting(t *testing.T) {
 	})
 }
 
+func TestTallyEmptyProjectUpdatesLiveAccounting(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
+		project1 := planet.Uplinks[1].ProjectID[planet.Satellites[0].ID()]
+
+		data := testrand.Bytes(1 * memory.MB)
+
+		// we need an extra bucket with data for this test. If no buckets are found at all,
+		// the update block is skipped in tally
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "test", data)
+		require.NoError(t, err)
+
+		err = planet.Uplinks[1].Upload(ctx, planet.Satellites[0], "bucket", "test", data)
+		require.NoError(t, err)
+
+		planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
+		total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, project1)
+		require.NoError(t, err)
+		require.True(t, total >= int64(len(data)))
+
+		err = planet.Uplinks[1].DeleteObject(ctx, planet.Satellites[0], "bucket", "test")
+		require.NoError(t, err)
+
+		planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
+
+		p1Total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, project1)
+		require.NoError(t, err)
+		require.Zero(t, p1Total)
+	})
+}
+
 // addBucketTally creates a new expected bucket tally based on the
 // pointer that was just created for the test case
 func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *accounting.BucketTally {
