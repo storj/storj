@@ -37,7 +37,7 @@ func (db *ConsoleDB) Users() console.Users {
 
 // Projects is a getter for Projects repository.
 func (db *ConsoleDB) Projects() console.Projects {
-	return &projects{db.methods}
+	return &projects{db: db.methods, sdb: db.db}
 }
 
 // ProjectMembers is a getter for ProjectMembers repository.

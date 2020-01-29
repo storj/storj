@@ -6,6 +6,7 @@ package console_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
@@ -50,94 +51,116 @@ func TestProjectsRepository(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.NotNil(t, owner)
-
-			project = &console.Project{
-				Name:        name,
-				Description: description,
-				OwnerID:     owner.ID,
-				RateLimit:   &rateLimit,
-			}
-
-			project, err = projects.Insert(ctx, project)
-			require.NotNil(t, project)
+			owner, err := users.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				FullName:     userFullName,
+				ShortName:    shortName,
+				Email:        email,
+				PasswordHash: []byte(pass),
+			})
 			require.NoError(t, err)
-		})
+			require.NotNil(t, owner)
 
-		t.Run("Get by projectID success", func(t *testing.T) {
-			projectByID, err := projects.Get(ctx, project.ID)
-			require.NoError(t, err)
-			require.Equal(t, project.ID, projectByID.ID)
-			require.Equal(t, name, projectByID.Name)
-			require.Equal(t, owner.ID, projectByID.OwnerID)
-			require.Equal(t, description, projectByID.Description)
-			require.Equal(t, rateLimit, *projectByID.RateLimit)
-		})
+			t.Run("Insert project successfully", func(t *testing.T) {
+				project = &console.Project{
+					Name:        name,
+					Description: description,
+					OwnerID:     owner.ID,
+					RateLimit:   &rateLimit,
+				}
 
-		t.Run("Update project success", func(t *testing.T) {
-			oldProject, err := projects.Get(ctx, project.ID)
-			require.NoError(t, err)
-			require.NotNil(t, oldProject)
+				project, err = projects.Insert(ctx, project)
+				assert.NotNil(t, project)
+				assert.NoError(t, err)
+			})
 
-			newRateLimit := 1000
+			t.Run("Get project success", func(t *testing.T) {
+				projectByID, err := projects.Get(ctx, project.ID)
+				assert.NoError(t, err)
+				assert.Equal(t, projectByID.ID, project.ID)
+				assert.Equal(t, projectByID.Name, name)
+				assert.Equal(t, projectByID.OwnerID, owner.ID)
+				assert.Equal(t, projectByID.Description, description)
+				require.NotNil(t, project)
+				require.NoError(t, err)
+			})
 
-			// creating new project with updated values
-			newProject := &console.Project{
-				ID:          oldProject.ID,
-				Description: newDescription,
-				RateLimit:   &newRateLimit,
-			}
+			t.Run("Get by projectID success", func(t *testing.T) {
+				projectByID, err := projects.Get(ctx, project.ID)
+				require.NoError(t, err)
+				require.Equal(t, project.ID, projectByID.ID)
+				require.Equal(t, name, projectByID.Name)
+				require.Equal(t, owner.ID, projectByID.OwnerID)
+				require.Equal(t, description, projectByID.Description)
+				require.Equal(t, rateLimit, *projectByID.RateLimit)
+			})
 
-			err = projects.Update(ctx, newProject)
-			require.NoError(t, err)
+			t.Run("Update project success", func(t *testing.T) {
+				oldProject, err := projects.Get(ctx, project.ID)
+				require.NoError(t, err)
+				require.NotNil(t, oldProject)
 
-			// fetching updated project from db
-			newProject, err = projects.Get(ctx, oldProject.ID)
-			require.NoError(t, err)
-			require.Equal(t, oldProject.ID, newProject.ID)
-			require.Equal(t, newDescription, newProject.Description)
-			require.Equal(t, newRateLimit, *newProject.RateLimit)
-		})
+				newRateLimit := 1000
 
-		t.Run("Delete project success", func(t *testing.T) {
-			oldProject, err := projects.Get(ctx, project.ID)
-			require.NoError(t, err)
-			require.NotNil(t, oldProject)
+				// creating new project with updated values
+				newProject := &console.Project{
+					ID:          oldProject.ID,
+					Description: newDescription,
+					RateLimit:   &newRateLimit,
+				}
 
-			err = projects.Delete(ctx, oldProject.ID)
-			require.NoError(t, err)
+				err = projects.Update(ctx, newProject)
+				require.NoError(t, err)
 
-			_, err = projects.Get(ctx, oldProject.ID)
-			require.Error(t, err)
-		})
+				// fetching updated project from db
+				newProject, err = projects.Get(ctx, oldProject.ID)
+				require.NoError(t, err)
+				require.Equal(t, oldProject.ID, newProject.ID)
+				require.Equal(t, newDescription, newProject.Description)
+				require.Equal(t, newRateLimit, *newProject.RateLimit)
+			})
 
-		t.Run("GetAll success", func(t *testing.T) {
-			allProjects, err := projects.GetAll(ctx)
-			require.NoError(t, err)
-			require.Equal(t, 0, len(allProjects))
+			t.Run("Delete project success", func(t *testing.T) {
+				oldProject, err := projects.Get(ctx, project.ID)
+				require.NoError(t, err)
+				require.NotNil(t, oldProject)
 
-			newProject := &console.Project{
-				Description: description,
-				Name:        name,
-			}
+				err = projects.Delete(ctx, oldProject.ID)
+				require.NoError(t, err)
 
-			_, err = projects.Insert(ctx, newProject)
-			require.NoError(t, err)
+				_, err = projects.Get(ctx, oldProject.ID)
+				require.Error(t, err)
+			})
 
-			allProjects, err = projects.GetAll(ctx)
-			require.NoError(t, err)
-			require.Equal(t, 1, len(allProjects))
+			t.Run("GetAll success", func(t *testing.T) {
+				allProjects, err := projects.GetAll(ctx)
+				require.NoError(t, err)
+				require.Equal(t, 0, len(allProjects))
 
-			newProject2 := &console.Project{
-				Description: description,
-				Name:        name + "2",
-			}
+				newProject := &console.Project{
+					Description: description,
+					Name:        name,
+				}
 
-			_, err = projects.Insert(ctx, newProject2)
-			require.NoError(t, err)
+				_, err = projects.Insert(ctx, newProject)
+				require.NoError(t, err)
 
-			allProjects, err = projects.GetAll(ctx)
-			require.NoError(t, err)
-			require.Equal(t, 2, len(allProjects))
+				allProjects, err = projects.GetAll(ctx)
+				require.NoError(t, err)
+				require.Equal(t, 1, len(allProjects))
+
+				newProject2 := &console.Project{
+					Description: description,
+					Name:        name + "2",
+				}
+
+				_, err = projects.Insert(ctx, newProject2)
+				require.NoError(t, err)
+
+				allProjects, err = projects.GetAll(ctx)
+				require.NoError(t, err)
+				require.Equal(t, 2, len(allProjects))
+			})
 		})
 	})
 }

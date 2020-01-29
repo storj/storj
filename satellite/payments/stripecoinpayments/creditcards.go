@@ -14,6 +14,8 @@ import (
 )
 
 // creditCards is an implementation of payments.CreditCards.
+//
+// architecture: Service
 type creditCards struct {
 	service *Service
 }

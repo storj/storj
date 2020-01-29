@@ -121,7 +121,7 @@ func (s *Service) Payments() PaymentsService {
 }
 
 // SetupAccount creates payment account for authorized user.
-func (payments PaymentsService) SetupAccount(ctx context.Context) (err error) {
+func (paymentService PaymentsService) SetupAccount(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -129,11 +129,11 @@ func (payments PaymentsService) SetupAccount(ctx context.Context) (err error) {
 		return err
 	}
 
-	return payments.service.accounts.Setup(ctx, auth.User.ID, auth.User.Email)
+	return paymentService.service.accounts.Setup(ctx, auth.User.ID, auth.User.Email)
 }
 
 // AccountBalance return account balance.
-func (payments PaymentsService) AccountBalance(ctx context.Context) (balance int64, err error) {
+func (paymentService PaymentsService) AccountBalance(ctx context.Context) (balance int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -141,11 +141,11 @@ func (payments PaymentsService) AccountBalance(ctx context.Context) (balance int
 		return 0, err
 	}
 
-	return payments.service.accounts.Balance(ctx, auth.User.ID)
+	return paymentService.service.accounts.Balance(ctx, auth.User.ID)
 }
 
 // AddCreditCard is used to save new credit card and attach it to payment account.
-func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
+func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
 	defer mon.Task()(&ctx, creditCardToken)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -153,11 +153,21 @@ func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardTok
 		return Error.Wrap(err)
 	}
 
-	return Error.Wrap(payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken))
+	err = Error.Wrap(paymentService.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = paymentService.AddPromotionalCoupon(ctx, auth.User.ID, 2, 28, memory.GB*5)
+	if err != nil {
+		paymentService.service.log.Debug(fmt.Sprintf("could not add promotional coupon sof user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+	}
+
+	return nil
 }
 
 // MakeCreditCardDefault makes a credit card default payment method.
-func (payments PaymentsService) MakeCreditCardDefault(ctx context.Context, cardID string) (err error) {
+func (paymentService PaymentsService) MakeCreditCardDefault(ctx context.Context, cardID string) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -165,11 +175,11 @@ func (payments PaymentsService) MakeCreditCardDefault(ctx context.Context, cardI
 		return err
 	}
 
-	return payments.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, cardID)
+	return paymentService.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, cardID)
 }
 
 // ProjectsCharges returns how much money current user will be charged for each project which he owns.
-func (payments PaymentsService) ProjectsCharges(ctx context.Context) (_ []payments.ProjectCharge, err error) {
+func (paymentService PaymentsService) ProjectsCharges(ctx context.Context) (_ []payments.ProjectCharge, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -177,11 +187,11 @@ func (payments PaymentsService) ProjectsCharges(ctx context.Context) (_ []paymen
 		return nil, err
 	}
 
-	return payments.service.accounts.ProjectCharges(ctx, auth.User.ID)
+	return paymentService.service.accounts.ProjectCharges(ctx, auth.User.ID)
 }
 
 // ListCreditCards returns a list of credit cards for a given payment account.
-func (payments PaymentsService) ListCreditCards(ctx context.Context) (_ []payments.CreditCard, err error) {
+func (paymentService PaymentsService) ListCreditCards(ctx context.Context) (_ []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -189,11 +199,11 @@ func (payments PaymentsService) ListCreditCards(ctx context.Context) (_ []paymen
 		return nil, err
 	}
 
-	return payments.service.accounts.CreditCards().List(ctx, auth.User.ID)
+	return paymentService.service.accounts.CreditCards().List(ctx, auth.User.ID)
 }
 
 // RemoveCreditCard is used to detach a credit card from payment account.
-func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID string) (err error) {
+func (paymentService PaymentsService) RemoveCreditCard(ctx context.Context, cardID string) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -201,11 +211,11 @@ func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID str
 		return err
 	}
 
-	return payments.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
+	return paymentService.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
 }
 
 // BillingHistory returns a list of billing history items for payment account.
-func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
+func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -213,7 +223,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		return nil, err
 	}
 
-	invoices, err := payments.service.accounts.Invoices().List(ctx, auth.User.ID)
+	invoices, err := paymentService.service.accounts.Invoices().List(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -231,7 +241,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		})
 	}
 
-	txsInfos, err := payments.service.accounts.StorjTokens().ListTransactionInfos(ctx, auth.User.ID)
+	txsInfos, err := paymentService.service.accounts.StorjTokens().ListTransactionInfos(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -250,7 +260,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		})
 	}
 
-	charges, err := payments.service.accounts.Charges(ctx, auth.User.ID)
+	charges, err := paymentService.service.accounts.Charges(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -267,7 +277,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		})
 	}
 
-	coupons, err := payments.service.accounts.Coupons(ctx, auth.User.ID)
+	coupons, err := paymentService.service.accounts.Coupons().ListByUserID(ctx, auth.User.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +306,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 }
 
 // TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
-func (payments PaymentsService) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
+func (paymentService PaymentsService) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -304,17 +314,32 @@ func (payments PaymentsService) TokenDeposit(ctx context.Context, amount int64) 
 		return nil, err
 	}
 
-	tx, err := payments.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
+	tx, err := paymentService.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
 	return tx, errs.Wrap(err)
 }
 
 // PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
 // a project, payment method and do not have a promotional coupon yet.
 // And updates project limits to selected size.
-func (payments PaymentsService) PopulatePromotionalCoupons(ctx context.Context) (err error) {
+func (paymentService PaymentsService) PopulatePromotionalCoupons(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return Error.Wrap(payments.service.accounts.PopulatePromotionalCoupons(ctx, 2, 5500, memory.TB))
+	return Error.Wrap(paymentService.service.accounts.Coupons().PopulatePromotionalCoupons(ctx, 2, 5500, memory.TB))
+}
+
+// AddPromotionalCoupon creates new coupon for specified user.
+func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID, duration int, amount int64, limit memory.Size) (err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	cards, err := paymentService.ListCreditCards(ctx)
+	if err != nil {
+		return err
+	}
+	if len(cards) == 0 {
+		return errs.New("user don't have a payment method")
+	}
+
+	return paymentService.service.accounts.Coupons().AddPromotionalCoupon(ctx, userID, duration, amount, limit)
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -827,6 +852,20 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 	if err != nil {
 		return nil, err
+	}
+
+	cards, err := s.accounts.CreditCards().List(ctx, auth.User.ID)
+	if err != nil {
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+		return p, nil
+	}
+	if len(cards) == 0 {
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s - no payment methods", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+		return p, nil
+	}
+	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID, 2, 28, memory.GB*5)
+	if err != nil {
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 	}
 
 	return p, nil

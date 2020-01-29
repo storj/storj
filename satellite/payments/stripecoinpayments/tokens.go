@@ -16,6 +16,8 @@ import (
 var _ payments.StorjTokens = (*storjTokens)(nil)
 
 // storjTokens implements payments.StorjTokens.
+//
+// architecture: Service
 type storjTokens struct {
 	service *Service
 }

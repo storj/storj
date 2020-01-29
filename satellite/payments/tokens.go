@@ -12,6 +12,8 @@ import (
 )
 
 // StorjTokens defines all payments STORJ token related functionality.
+//
+// architecture: Service
 type StorjTokens interface {
 	// Deposit creates deposit transaction for specified amount in cents.
 	Deposit(ctx context.Context, userID uuid.UUID, amount int64) (*Transaction, error)

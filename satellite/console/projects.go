@@ -21,7 +21,7 @@ type Projects interface {
 	// GetByUserID is a method for querying all projects from the database by userID.
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// GetOwn is a method for querying all projects created by current user from the database.
-	GetOwn(ctx context.Context, userID uuid.UUID) (_ []Project, err error)
+	GetOwn(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// Get is a method for querying project from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
 	// Insert is a method for inserting project into the database.

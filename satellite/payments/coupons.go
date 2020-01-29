@@ -4,10 +4,34 @@
 package payments
 
 import (
+	"context"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+
+	"storj.io/common/memory"
 )
+
+// Coupons exposes all needed functionality to manage coupons.
+//
+// architecture: Service
+type Coupons interface {
+	// ListByUserID return list of all coupons of specified payment account.
+	ListByUserID(ctx context.Context, userID uuid.UUID) ([]Coupon, error)
+
+	// Create attaches a coupon for payment account.
+	Create(ctx context.Context, coupon Coupon) (err error)
+
+	// AddPromotionalCoupon is used to add a promotional coupon for specified users who already have
+	// a project and do not have a promotional coupon yet.
+	// And updates project limits to selected size.
+	AddPromotionalCoupon(ctx context.Context, userID uuid.UUID, duration int, amount int64, projectLimit memory.Size) error
+
+	// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
+	// a project, payment method and do not have a promotional coupon yet.
+	// And updates project limits to selected size.
+	PopulatePromotionalCoupons(ctx context.Context, duration int, amount int64, projectLimit memory.Size) error
+}
 
 // Coupon is an entity that adds some funds to Accounts balance for some fixed period.
 // Coupon is attached to the project.
@@ -40,7 +64,7 @@ type CouponType int
 
 const (
 	// CouponTypePromotional defines that this coupon is a promotional coupon.
-	// Promotional coupon is added only once after adding payment method or 50$ with storj tokens.
+	// Promotional coupon is added only once per account.
 	CouponTypePromotional CouponType = 0
 )
 

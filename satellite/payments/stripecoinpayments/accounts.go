@@ -10,7 +10,6 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
-	"storj.io/common/memory"
 	"storj.io/storj/private/date"
 	"storj.io/storj/satellite/payments"
 )
@@ -19,6 +18,8 @@ import (
 var _ payments.Accounts = (*accounts)(nil)
 
 // accounts is an implementation of payments.Accounts.
+//
+// architecture: Service
 type accounts struct {
 	service *Service
 }
@@ -87,23 +88,6 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 	}
 
 	return -c.Balance + couponsAmount, nil
-}
-
-// AddCoupon attaches a coupon for payment account.
-func (accounts *accounts) AddCoupon(ctx context.Context, userID, projectID uuid.UUID, amount int64, duration int, description string, couponType payments.CouponType) (err error) {
-	defer mon.Task()(&ctx, userID, amount, duration, description, couponType)(&err)
-
-	coupon := payments.Coupon{
-		UserID:      userID,
-		Status:      payments.CouponActive,
-		ProjectID:   projectID,
-		Amount:      amount,
-		Description: description,
-		Duration:    duration,
-		Type:        couponType,
-	}
-
-	return Error.Wrap(accounts.service.db.Coupons().Insert(ctx, coupon))
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.
@@ -187,87 +171,12 @@ func (accounts *accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []pa
 	return charges, nil
 }
 
-// Coupons return list of all coupons of specified payment account.
-func (accounts *accounts) Coupons(ctx context.Context, userID uuid.UUID) (coupons []payments.Coupon, err error) {
-	defer mon.Task()(&ctx, userID)(&err)
-
-	coupons, err = accounts.service.db.Coupons().ListByUserID(ctx, userID)
-
-	return coupons, Error.Wrap(err)
-}
-
-// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
-// a project, payment method and do not have a promotional coupon yet.
-// And updates project limits to selected size.
-func (accounts *accounts) PopulatePromotionalCoupons(ctx context.Context, duration int, amount int64, projectLimit memory.Size) (err error) {
-	defer mon.Task()(&ctx, duration, amount, projectLimit)(&err)
-
-	const limit = 50
-	before := time.Now()
-
-	cusPage, err := accounts.service.db.Customers().List(ctx, 0, limit, before)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	// taking only users that attached a payment method.
-	var usersIDs []uuid.UUID
-	for _, cus := range cusPage.Customers {
-		params := &stripe.PaymentMethodListParams{
-			Type:     stripe.String(string(stripe.PaymentMethodTypeCard)),
-			Customer: stripe.String(cus.ID),
-		}
-
-		paymentMethodsIterator := accounts.service.stripeClient.PaymentMethods.List(params)
-		for paymentMethodsIterator.Next() {
-			// if user has at least 1 payment method - break a loop.
-			usersIDs = append(usersIDs, cus.UserID)
-			break
-		}
-
-		if err = paymentMethodsIterator.Err(); err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	err = accounts.service.db.Coupons().PopulatePromotionalCoupons(ctx, usersIDs, duration, amount, projectLimit)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	for cusPage.Next {
-		// we have to wait before each iteration because
-		// Stripe has rate limits - 100 read and 100 write operations per second per secret key.
-		time.Sleep(time.Second)
-
-		var usersIDs []uuid.UUID
-		for _, cus := range cusPage.Customers {
-			params := &stripe.PaymentMethodListParams{
-				Type:     stripe.String(string(stripe.PaymentMethodTypeCard)),
-				Customer: stripe.String(cus.ID),
-			}
-
-			paymentMethodsIterator := accounts.service.stripeClient.PaymentMethods.List(params)
-			for paymentMethodsIterator.Next() {
-				usersIDs = append(usersIDs, cus.UserID)
-				break
-			}
-
-			if err = paymentMethodsIterator.Err(); err != nil {
-				return Error.Wrap(err)
-			}
-		}
-
-		err = accounts.service.db.Coupons().PopulatePromotionalCoupons(ctx, usersIDs, duration, amount, projectLimit)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	return nil
-}
-
 // StorjTokens exposes all storj token related functionality.
 func (accounts *accounts) StorjTokens() payments.StorjTokens {
 	return &storjTokens{service: accounts.service}
+}
+
+// Coupons exposes all needed functionality to manage coupons.
+func (accounts *accounts) Coupons() payments.Coupons {
+	return &coupons{service: accounts.service}
 }
