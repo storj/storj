@@ -50,11 +50,11 @@ type Coupon struct {
 
 // IsExpired checks if coupon is not after its rollup period.
 func (coupon *Coupon) IsExpired() bool {
-	expirationDate := time.Date(coupon.Created.Year(), coupon.Created.Month(), 0, 0, 0, 0, 0, coupon.Created.Location())
-	expirationDate.AddDate(0, coupon.Duration, 0)
+	expirationDate := time.Date(coupon.Created.Year(), coupon.Created.Month(), 1, 0, 0, 0, 0, coupon.Created.Location())
+	expirationDate = expirationDate.AddDate(0, coupon.Duration, 0)
 
 	now := time.Now().UTC()
-	now = time.Date(now.Year(), now.Month(), 0, 0, 0, 0, 0, coupon.Created.Location())
+	now = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, coupon.Created.Location())
 
 	return expirationDate.Before(now)
 }
