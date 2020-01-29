@@ -19,7 +19,7 @@ import (
 // Config contains configurable values for rollup
 type Config struct {
 	Interval      time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s"`
-	MaxAlphaUsage memory.Size   `help:"the bandwidth and storage usage limit for the alpha release" default:"25GB"`
+	MaxAlphaUsage memory.Size   `help:"the bandwidth and storage usage limit for the alpha release" default:"5GB"`
 	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
 }
 
