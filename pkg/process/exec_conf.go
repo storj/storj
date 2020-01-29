@@ -288,6 +288,7 @@ func cleanup(cmd *cobra.Command, debugEnabled bool, loadConfig func(cmd *cobra.C
 			if err != nil {
 				withoutStack := errors.New(err.Error())
 				logger.Debug("failed to start debug endpoints", zap.Error(withoutStack))
+				err = nil
 			}
 		}
 

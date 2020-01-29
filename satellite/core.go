@@ -5,6 +5,7 @@ package satellite
 
 import (
 	"context"
+	"errors"
 	"net"
 
 	"github.com/zeebo/errs"
@@ -155,7 +156,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if config.Debug.Address != "" {
 			peer.Debug.Listener, err = net.Listen("tcp", config.Debug.Address)
 			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
+				withoutStack := errors.New(err.Error())
+				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
+				err = nil
 			}
 		}
 		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, config.Debug)
