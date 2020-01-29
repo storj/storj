@@ -38,7 +38,6 @@ import (
 	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/satellite/repair/repairer"
 )
 
 // Core is the satellite core process that runs chores
@@ -80,8 +79,7 @@ type Core struct {
 	}
 
 	Repair struct {
-		Checker  *checker.Checker
-		Repairer *repairer.Service
+		Checker *checker.Checker
 	}
 	Audit struct {
 		Queue    *audit.Queue
@@ -266,31 +264,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "repair:checker",
 			Run:   peer.Repair.Checker.Run,
 			Close: peer.Repair.Checker.Close,
-		})
-
-		segmentRepairer := repairer.NewSegmentRepairer(
-			log.Named("segment-repair"),
-			peer.Metainfo.Service,
-			peer.Orders.Service,
-			peer.Overlay.Service,
-			peer.Dialer,
-			config.Repairer.Timeout,
-			config.Repairer.MaxExcessRateOptimalThreshold,
-			config.Checker.RepairOverride,
-			config.Repairer.DownloadTimeout,
-			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
-		)
-
-		peer.Repair.Repairer = repairer.NewService(
-			peer.Log.Named("repair"),
-			peer.DB.RepairQueue(),
-			&config.Repairer,
-			segmentRepairer,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "repair",
-			Run:   peer.Repair.Repairer.Run,
-			Close: peer.Repair.Repairer.Close,
 		})
 	}
 
