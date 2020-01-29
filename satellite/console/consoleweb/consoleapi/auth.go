@@ -81,6 +81,16 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Logout removes auth cookie.
+func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	a.cookieAuth.RemoveTokenCookie(w)
+
+	w.Header().Set("Content-Type", "application/json")
+}
+
 // Register creates new user, sends activation e-mail.
 func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

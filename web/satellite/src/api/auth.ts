@@ -56,6 +56,26 @@ export class AuthHttpApi {
     }
 
     /**
+     * Used to logout user and delete auth cookie.
+     *
+     * @throws Error
+     */
+    public async logout(): Promise<void> {
+        const path = `${this.ROOT_PATH}/logout`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return;
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not logout. Please try again later');
+    }
+
+    /**
      * Used to restore password.
      *
      * @param email - email of the user

@@ -48,3 +48,15 @@ func (auth *CookieAuth) SetTokenCookie(w http.ResponseWriter, token string) {
 		SameSite: http.SameSiteStrictMode,
 	})
 }
+
+// RemoveTokenCookie removes auth cookie that is not accessible from js.
+func (auth *CookieAuth) RemoveTokenCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.settings.Name,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
