@@ -252,7 +252,7 @@ setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions
 echo -e "\nRunning stage 2."
 
 # Starting old satellite api in the background
-old_api_cmd="${test_dir}/local-network/satellite/0/old_satellite run api --config-dir ${test_dir}/local-network/satellite/0/ --server.address 127.0.0.1:30000 --server.private-address 127.0.0.1:30001 --console.address 127.0.0.1:30002 --marketing.address 127.0.0.1:30003"
+old_api_cmd="${test_dir}/local-network/satellite/0/old_satellite run api --config-dir ${test_dir}/local-network/satellite/0/ --debug.addr 127.0.0.1:30009 --server.address 127.0.0.1:30000 --server.private-address 127.0.0.1:30001 --console.address 127.0.0.1:30002 --marketing.address 127.0.0.1:30003"
 nohup $old_api_cmd &
 # Storing the background process' PID.
 old_api_pid=$!
