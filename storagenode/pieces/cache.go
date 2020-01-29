@@ -23,7 +23,7 @@ type CacheService struct {
 	log        *zap.Logger
 	usageCache *BlobsUsageCache
 	store      *Store
-	loop       sync2.Cycle
+	Loop       *sync2.Cycle
 }
 
 // NewService creates a new cache service that updates the space usage cache on startup and syncs the cache values to
@@ -33,7 +33,7 @@ func NewService(log *zap.Logger, usageCache *BlobsUsageCache, pieces *Store, int
 		log:        log,
 		usageCache: usageCache,
 		store:      pieces,
-		loop:       *sync2.NewCycle(interval),
+		Loop:       sync2.NewCycle(interval),
 	}
 }
 
@@ -68,7 +68,7 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 		service.log.Error("error during init space usage db: ", zap.Error(err))
 	}
 
-	return service.loop.Run(ctx, func(ctx context.Context) (err error) {
+	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
 		// on a loop sync the cache values to the db so that we have the them saved
@@ -125,7 +125,7 @@ func (service *CacheService) Init(ctx context.Context) (err error) {
 
 // Close closes the loop
 func (service *CacheService) Close() (err error) {
-	service.loop.Close()
+	service.Loop.Close()
 	return nil
 }
 

@@ -386,6 +386,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Run:   peer.Storage2.CacheService.Run,
 			Close: peer.Storage2.CacheService.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Piecestore Cache", peer.Storage2.CacheService.Loop))
 
 		peer.Storage2.Monitor = monitor.NewService(
 			log.Named("piecestore:monitor"),
@@ -403,6 +405,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Run:   peer.Storage2.Monitor.Run,
 			Close: peer.Storage2.Monitor.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Piecestore Monitor", peer.Storage2.Monitor.Loop))
 
 		peer.Storage2.RetainService = retain.NewService(
 			peer.Log.Named("retain"),
@@ -457,6 +461,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Run:   peer.Storage2.Orders.Run,
 			Close: peer.Storage2.Orders.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Orders Sender", peer.Storage2.Orders.Sender))
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Orders Cleanup", peer.Storage2.Orders.Cleanup))
 	}
 
 	{ // setup node stats service
@@ -476,12 +484,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.NodeStats.Service,
 			peer.Storage2.Trust,
 		)
-
 		peer.Services.Add(lifecycle.Item{
 			Name:  "nodestats:cache",
 			Run:   peer.NodeStats.Cache.Run,
 			Close: peer.NodeStats.Cache.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Node Stats Cache Reputation", peer.NodeStats.Cache.Reputation))
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Node Stats Cache Storage", peer.NodeStats.Cache.Storage))
 	}
 
 	{ // setup storage node operator dashboard
@@ -567,6 +578,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Run:   peer.GracefulExit.Chore.Run,
 			Close: peer.GracefulExit.Chore.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Graceful Exit", peer.GracefulExit.Chore.Loop))
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
@@ -575,6 +588,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		Run:   peer.Collector.Run,
 		Close: peer.Collector.Close,
 	})
+	peer.Debug.Server.Panel.Add(
+		debug.Cycle("Collector", peer.Collector.Loop))
 
 	peer.Bandwidth = bandwidth.NewService(peer.Log.Named("bandwidth"), peer.DB.Bandwidth(), config.Bandwidth)
 	peer.Services.Add(lifecycle.Item{
@@ -582,6 +597,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		Run:   peer.Bandwidth.Run,
 		Close: peer.Bandwidth.Close,
 	})
+	peer.Debug.Server.Panel.Add(
+		debug.Cycle("Bandwidth", peer.Bandwidth.Loop))
 
 	return peer, nil
 }

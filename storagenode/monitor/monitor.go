@@ -43,7 +43,7 @@ type Service struct {
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
 	allocatedBandwidth int64
-	Loop               sync2.Cycle
+	Loop               *sync2.Cycle
 	Config             Config
 }
 
@@ -58,7 +58,7 @@ func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, 
 		usageDB:            usageDB,
 		allocatedDiskSpace: allocatedDiskSpace,
 		allocatedBandwidth: allocatedBandwidth,
-		Loop:               *sync2.NewCycle(interval),
+		Loop:               sync2.NewCycle(interval),
 		Config:             config,
 	}
 }

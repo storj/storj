@@ -49,21 +49,21 @@ type Cache struct {
 	service *Service
 	trust   *trust.Pool
 
-	maxSleep        time.Duration
-	reputationCycle sync2.Cycle
-	storageCycle    sync2.Cycle
+	maxSleep   time.Duration
+	Reputation *sync2.Cycle
+	Storage    *sync2.Cycle
 }
 
 // NewCache creates new caching service instance
 func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, trust *trust.Pool) *Cache {
 	return &Cache{
-		log:             log,
-		db:              db,
-		service:         service,
-		trust:           trust,
-		maxSleep:        config.MaxSleep,
-		reputationCycle: *sync2.NewCycle(config.ReputationSync),
-		storageCycle:    *sync2.NewCycle(config.StorageSync),
+		log:        log,
+		db:         db,
+		service:    service,
+		trust:      trust,
+		maxSleep:   config.MaxSleep,
+		Reputation: sync2.NewCycle(config.ReputationSync),
+		Storage:    sync2.NewCycle(config.StorageSync),
 	}
 }
 
@@ -71,7 +71,7 @@ func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
 func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
-	cache.reputationCycle.Start(ctx, &group, func(ctx context.Context) error {
+	cache.Reputation.Start(ctx, &group, func(ctx context.Context) error {
 		if err := cache.sleep(ctx); err != nil {
 			return err
 		}
@@ -83,7 +83,7 @@ func (cache *Cache) Run(ctx context.Context) error {
 
 		return nil
 	})
-	cache.storageCycle.Start(ctx, &group, func(ctx context.Context) error {
+	cache.Storage.Start(ctx, &group, func(ctx context.Context) error {
 		if err := cache.sleep(ctx); err != nil {
 			return err
 		}
@@ -176,7 +176,7 @@ func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storj.NodeID) 
 // Close closes underlying cycles
 func (cache *Cache) Close() error {
 	defer mon.Task()(nil)(nil)
-	cache.reputationCycle.Close()
-	cache.storageCycle.Close()
+	cache.Reputation.Close()
+	cache.Storage.Close()
 	return nil
 }

@@ -29,8 +29,8 @@ type Chore struct {
 	config Config
 
 	exitingMap sync.Map
-	Loop       sync2.Cycle
-	limiter    sync2.Limiter
+	Loop       *sync2.Cycle
+	limiter    *sync2.Limiter
 }
 
 // NewChore instantiates Chore.
@@ -42,8 +42,8 @@ func NewChore(log *zap.Logger, config Config, store *pieces.Store, trust *trust.
 		trust:       trust,
 		dialer:      dialer,
 		config:      config,
-		Loop:        *sync2.NewCycle(config.ChoreInterval),
-		limiter:     *sync2.NewLimiter(config.NumWorkers),
+		Loop:        sync2.NewCycle(config.ChoreInterval),
+		limiter:     sync2.NewLimiter(config.NumWorkers),
 	}
 }
 

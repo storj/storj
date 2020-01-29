@@ -31,7 +31,7 @@ type Service struct {
 	pieces      *pieces.Store
 	usedSerials piecestore.UsedSerials
 
-	Loop sync2.Cycle
+	Loop *sync2.Cycle
 }
 
 // NewService creates a new collector service.
@@ -40,7 +40,7 @@ func NewService(log *zap.Logger, pieces *pieces.Store, usedSerials piecestore.Us
 		log:         log,
 		pieces:      pieces,
 		usedSerials: usedSerials,
-		Loop:        *sync2.NewCycle(config.Interval),
+		Loop:        sync2.NewCycle(config.Interval),
 	}
 }
 

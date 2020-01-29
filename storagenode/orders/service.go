@@ -102,8 +102,8 @@ type Service struct {
 	orders DB
 	trust  *trust.Pool
 
-	Sender  sync2.Cycle
-	Cleanup sync2.Cycle
+	Sender  *sync2.Cycle
+	Cleanup *sync2.Cycle
 }
 
 // NewService creates an order service.
@@ -115,8 +115,8 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, orders DB, trust *trust.Pool
 		config: config,
 		trust:  trust,
 
-		Sender:  *sync2.NewCycle(config.SenderInterval),
-		Cleanup: *sync2.NewCycle(config.CleanupInterval),
+		Sender:  sync2.NewCycle(config.SenderInterval),
+		Cleanup: sync2.NewCycle(config.CleanupInterval),
 	}
 }
 
