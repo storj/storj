@@ -31,6 +31,8 @@ func init() {
 // Config defines configuration for debug server.
 type Config struct {
 	Address string `internal:"true"`
+
+	Control bool `help:"expose control panel" releaseDefault:"false" devDefault:"true"`
 }
 
 // Server provides endpoints for debugging.
@@ -41,16 +43,25 @@ type Server struct {
 	server   http.Server
 	mux      http.ServeMux
 
+	Panel *Panel
+
 	registry *monkit.Registry
 }
 
-// NewServer returns a new debug.Server
+// NewServer returns a new debug.Server.
 func NewServer(log *zap.Logger, listener net.Listener, registry *monkit.Registry, config Config) *Server {
 	server := &Server{log: log}
 
 	server.listener = listener
 	server.server.Handler = &server.mux
 	server.registry = registry
+
+	server.Panel = NewPanel(log.Named("control"), "/control")
+	if config.Control {
+		server.mux.Handle("/control/", server.Panel)
+	}
+
+	server.mux.Handle("/version/", http.StripPrefix("/version", checker.NewDebugHandler(log.Named("version"))))
 
 	server.mux.HandleFunc("/debug/pprof/", pprof.Index)
 	server.mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
@@ -60,9 +71,9 @@ func NewServer(log *zap.Logger, listener net.Listener, registry *monkit.Registry
 
 	server.mux.HandleFunc("/debug/run/trace/db", server.collectTraces)
 
-	server.mux.Handle("/version/", http.StripPrefix("/version", checker.NewDebugHandler(log.Named("version"))))
 	server.mux.Handle("/mon/", http.StripPrefix("/mon", present.HTTP(server.registry)))
 	server.mux.HandleFunc("/metrics", server.metrics)
+
 	server.mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "OK")
 	})
@@ -89,13 +100,13 @@ func (server *Server) Run(ctx context.Context) error {
 	return group.Wait()
 }
 
-// Close closes server and underlying listener
+// Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return Error.Wrap(server.server.Close())
 }
 
+// metrics writes https://prometheus.io/docs/instrumenting/exposition_formats/
 func (server *Server) metrics(w http.ResponseWriter, r *http.Request) {
-	// writes https://prometheus.io/docs/instrumenting/exposition_formats/
 	// TODO(jt): deeper monkit integration so we can expose prometheus types
 	// (https://prometheus.io/docs/concepts/metric_types/)
 	server.registry.Stats(func(name string, val float64) {
@@ -105,7 +116,7 @@ func (server *Server) metrics(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// collectTraces
+// collectTraces collects traces until request is canceled.
 func (server *Server) collectTraces(w http.ResponseWriter, r *http.Request) {
 	cancel := traces.CollectTraces()
 	defer cancel()
@@ -118,6 +129,7 @@ func (server *Server) collectTraces(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// sanitize formats val to be suitable for prometheus.
 func sanitize(val string) string {
 	// https://prometheus.io/docs/concepts/data_model/
 	// specifies all metric names must match [a-zA-Z_:][a-zA-Z0-9_:]*
