@@ -158,7 +158,7 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		return Error.Wrap(err)
 	}
 
-	err = paymentService.AddPromotionalCoupon(ctx, auth.User.ID, 2, 28, memory.TB)
+	err = paymentService.AddPromotionalCoupon(ctx, auth.User.ID, 2, 5500, memory.TB)
 	if err != nil {
 		paymentService.service.log.Debug(fmt.Sprintf("could not add promotional coupon sof user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 	}
@@ -863,7 +863,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s - no payment methods", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 		return p, nil
 	}
-	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID, 2, 28, memory.TB)
+	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID, 2, 5500, memory.TB)
 	if err != nil {
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 	}
