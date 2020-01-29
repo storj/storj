@@ -1106,6 +1106,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	endpoint.log.Info("Object Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "object"))
+	mon.Meter("req_put_object").Mark(1)
 
 	return &pb.ObjectBeginResponse{
 		Bucket:           req.Bucket,
@@ -1288,6 +1289,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		}
 	}
 	endpoint.log.Info("Object Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
+	mon.Meter("req_get_object").Mark(1)
 
 	return &pb.ObjectGetResponse{
 		Object: object,
@@ -1337,6 +1339,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}
 	}
 	endpoint.log.Info("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
+	mon.Meter("req_list_object").Mark(1)
 
 	return &pb.ObjectListResponse{
 		Items: items,
@@ -1391,6 +1394,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	}
 
 	endpoint.log.Info("Object Delete", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "delete"), zap.String("type", "object"))
+	mon.Meter("req_delete_object").Mark(1)
 
 	return &pb.ObjectBeginDeleteResponse{
 		StreamId: streamID,
@@ -1499,6 +1503,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	})
 
 	endpoint.log.Info("Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "remote"))
+	mon.Meter("req_put_remote").Mark(1)
 
 	return &pb.SegmentBeginResponse{
 		SegmentId:       segmentID,
@@ -1720,6 +1725,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	}
 
 	endpoint.log.Info("Inline Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "inline"))
+	mon.Meter("req_put_inline").Mark(1)
 
 	return &pb.SegmentMakeInlineResponse{}, nil
 }
@@ -1773,6 +1779,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 	})
 
 	endpoint.log.Info("Segment Delete", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "delete"), zap.String("type", "segment"))
+	mon.Meter("req_delete_segment").Mark(1)
 
 	return &pb.SegmentBeginDeleteResponse{
 		SegmentId:       segmentID,
@@ -1846,6 +1853,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	}
 
 	endpoint.log.Info("Segment List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "segment"))
+	mon.Meter("req_list_segment").Mark(1)
 
 	if streamMeta.NumberOfSegments > 0 {
 		// use unencrypted number of segments
@@ -2046,7 +2054,9 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
-		endpoint.log.Info("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "download"), zap.String("type", "inline"))
+		endpoint.log.Info("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "inline"))
+		mon.Meter("req_get_inline").Mark(1)
+
 		return &pb.SegmentDownloadResponse{
 			SegmentId:           segmentID,
 			SegmentSize:         pointer.SegmentSize,
@@ -2073,7 +2083,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			}
 		}
 
-		endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "download"), zap.String("type", "remote"))
+		endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
+		mon.Meter("req_get_remote").Mark(1)
 
 		return &pb.SegmentDownloadResponse{
 			SegmentId:       segmentID,
