@@ -154,6 +154,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
 	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
 	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
+	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost)
 	authRouter.HandleFunc("/token", authController.Token).Methods(http.MethodPost)
 	authRouter.HandleFunc("/register", authController.Register).Methods(http.MethodPost)
 	authRouter.HandleFunc("/forgot-password/{email}", authController.ForgotPassword).Methods(http.MethodPost)
