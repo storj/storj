@@ -18,9 +18,9 @@
                     <b class="header__content-holder__right-area__node-id-container__title">Node ID:</b>
                     <p class="header__content-holder__right-area__node-id-container__id">{{this.nodeId}}</p>
                 </div>
-                <div class="header__content-holder__right-area__bell-area" @click.stop="openNotificationPopup">
+                <div class="header__content-holder__right-area__bell-area" @click.stop="toggleNotificationsPopup">
                     <BellIcon />
-                    <span class="header__content-holder__right-area__bell-area__new-circle"></span>
+                    <span class="header__content-holder__right-area__bell-area__new-circle" v-if="false"/>
                 </div>
             </div>
             <NotificationsPopup
@@ -41,6 +41,7 @@ import BellIcon from '@/../static/images/notifications/bell.svg';
 import RefreshIcon from '@/../static/images/refresh.svg';
 import StorjIcon from '@/../static/images/storjIcon.svg';
 
+import { RouteConfig } from '@/app/router';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 
 const {
@@ -59,8 +60,15 @@ const {
 export default class SNOHeader extends Vue {
     public isNotificationPopupShown: boolean = false;
 
-    public openNotificationPopup(): void {
-        this.isNotificationPopupShown = true;
+    public toggleNotificationsPopup(): void {
+        /**
+         * Blocks opening popup in current route is /notifications.
+         */
+        if (this.$route.name === RouteConfig.Notifications.name) {
+            return;
+        }
+
+        this.isNotificationPopupShown = !this.isNotificationPopupShown;
     }
 
     public closeNotificationPopup(): void {
