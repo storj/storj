@@ -318,9 +318,10 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					CoalesceDuration: 1 * time.Second,
 				},
 				RateLimiter: metainfo.RateLimiterConfig{
-					Enabled:       true,
-					Rate:          1000,
-					CacheCapacity: 100,
+					Enabled:         true,
+					Rate:            1000,
+					CacheCapacity:   100,
+					CacheExpiration: 10 * time.Second,
 				},
 			},
 			Orders: orders.Config{
