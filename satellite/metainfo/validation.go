@@ -190,7 +190,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) er
 	}
 
 	if !limiter.(*rate.Limiter).Allow() {
-		return rpcstatus.Error(rpcstatus.PermissionDenied, "Too Many Requests")
+		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
 	}
 
 	return nil
