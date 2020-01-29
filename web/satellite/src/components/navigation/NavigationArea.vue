@@ -30,6 +30,7 @@ export default class NavigationArea extends Vue {
     public isResourceButtonShown: boolean = false;
     public areAccountItemsShown: boolean = true;
     public isAccountButtonShown: boolean = false;
+    public homePath: string = RouteConfig.ProjectOverview.path;
 
     public toggleResourceItemsVisibility(): void {
         this.areResourceItemsShown = !this.areResourceItemsShown;
@@ -80,10 +81,6 @@ export default class NavigationArea extends Vue {
         // TODO: disabled until implementation
         // RouteConfig.Account.with(RouteConfig.Referral),
     ];
-
-    public onLogoClick(): void {
-        this.$router.push(RouteConfig.ProjectOverview.path);
-    }
 
     public get isProjectNotSelected(): boolean {
         return this.$store.state.projectsModule.selectedProject.id === '';
