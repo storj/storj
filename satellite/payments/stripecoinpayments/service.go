@@ -89,7 +89,7 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 	if err != nil {
 		return nil, err
 	}
-	egressByteDollars, err := decimal.NewFromString(egressTBPrice)
+	egressTBDollars, err := decimal.NewFromString(egressTBPrice)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 
 	// change the precision from dollars to cents
 	tbMonthCents := tbMonthDollars.Shift(2)
-	egressByteCents := egressByteDollars.Shift(2)
+	egressTBCents := egressTBDollars.Shift(2)
 	objectHourCents := objectMonthDollars.Shift(2)
 
 	// get per hour prices from storage and objects
@@ -109,8 +109,9 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 	tbHourCents := tbMonthCents.Div(hoursPerMonth)
 	objectHourCents = objectHourCents.Div(hoursPerMonth)
 
-	// convert tb to bytes for storage price
+	// convert tb to bytes for storage and egress
 	byteHourCents := tbHourCents.Div(decimal.New(1000000000000, 0))
+	egressByteCents := egressTBCents.Div(decimal.New(1000000000000, 0))
 
 	return &Service{
 		log:             log,
