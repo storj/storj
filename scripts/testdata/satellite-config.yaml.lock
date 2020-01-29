@@ -433,7 +433,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # rollup.interval: 24h0m0s
 
 # the bandwidth and storage usage limit for the alpha release
-# rollup.max-alpha-usage: 5.0 GB
+# rollup.max-alpha-usage: 0 B
 
 # public address to listen on
 server.address: :7777
