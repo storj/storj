@@ -3,17 +3,8 @@
 
 <template>
     <div class="payments-bonus-container">
-        <LogoIcon v-if="anyCreditCards" />
-        <GiftIcon v-else />
-        <div class="payments-bonus-container__text-container" v-if="anyCreditCards">
-            <p class="payments-bonus-container__text-container__main-text">
-                Get free credits for paying in STORJ!
-            </p>
-            <p class="payments-bonus-container__text-container__additional-text">
-                Deposit STORJ tokens to your account and receive a 10% bonus, or $10 for every $100.
-            </p>
-        </div>
-        <div class="payments-bonus-container__text-container" v-else >
+        <GiftIcon />
+        <div class="payments-bonus-container__text-container">
             <p class="payments-bonus-container__text-container__main-text">
                 Receive 1TB of Free Storage & Bandwidth for the Production Release!
             </p>
@@ -25,21 +16,16 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 import GiftIcon from '@/../static/images/account/billing/Gift.svg';
-import LogoIcon from '@/../static/images/navigation/logo.svg';
 
 @Component({
     components: {
         GiftIcon,
-        LogoIcon,
     },
 })
-export default class PaymentsBonus extends Vue {
-    @Prop({default: false})
-    public readonly anyCreditCards: boolean;
-}
+export default class PaymentsBonus extends Vue {}
 </script>
 
 <style scoped lang="scss">
