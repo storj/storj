@@ -210,7 +210,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 		cents := convertToCents(rate, &info.Received)
 
 		if cents >= 5000 {
-			err = service.Accounts().Coupons().AddPromotionalCoupon(ctx, userID, 2, 28, memory.GB*5)
+			err = service.Accounts().Coupons().AddPromotionalCoupon(ctx, userID, 2, 28, memory.TB)
 			if err != nil {
 				service.log.Error(fmt.Sprintf("could not add promotional coupon for user %s", userID.String()), zap.Error(err))
 				continue
