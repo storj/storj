@@ -1042,6 +1042,14 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
 				},
 			},
+			{
+				DB:          db.pieceSpaceUsedDB,
+				Description: "Rename total column to content_size",
+				Version:     30,
+				Action: migrate.SQL{
+					`UPDATE piece_space_used SET total = content_size`,
+				},
+			},
 		},
 	}
 }
