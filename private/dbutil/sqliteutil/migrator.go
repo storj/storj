@@ -5,7 +5,6 @@ package sqliteutil
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"fmt"
 
@@ -13,16 +12,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/dbutil/txutil"
-	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
 )
-
-// DB is the minimal interface required to perform migrations.
-type DB interface {
-	migrate.DB
-	Conn(ctx context.Context) (tagsql.Conn, error)
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-}
 
 var (
 	// ErrMigrateTables is error class for MigrateTables
@@ -49,7 +40,7 @@ func getSqlite3Conn(conn interface{}) (*sqlite3.SQLiteConn, error) {
 // MigrateTablesToDatabase copies the specified tables from srcDB into destDB.
 // All tables in destDB will be dropped other than those specified in
 // tablesToKeep.
-func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB DB, tablesToKeep ...string) error {
+func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB tagsql.DB, tablesToKeep ...string) error {
 	err := backupDBs(ctx, srcDB, destDB)
 	if err != nil {
 		return ErrMigrateTables.Wrap(err)
@@ -59,7 +50,7 @@ func MigrateTablesToDatabase(ctx context.Context, srcDB, destDB DB, tablesToKeep
 	return ErrMigrateTables.Wrap(KeepTables(ctx, destDB, tablesToKeep...))
 }
 
-func backupDBs(ctx context.Context, srcDB, destDB DB) error {
+func backupDBs(ctx context.Context, srcDB, destDB tagsql.DB) error {
 	// Retrieve the raw Sqlite3 driver connections for the src and dest so that
 	// we can execute the backup API for a corruption safe clone.
 	srcConn, err := srcDB.Conn(ctx)
@@ -164,7 +155,7 @@ func backupConns(ctx context.Context, sourceDB *sqlite3.SQLiteConn, destDB *sqli
 }
 
 // KeepTables drops all the tables except the specified tables to keep.
-func KeepTables(ctx context.Context, db DB, tablesToKeep ...string) (err error) {
+func KeepTables(ctx context.Context, db tagsql.DB, tablesToKeep ...string) (err error) {
 	err = dropTables(ctx, db, tablesToKeep...)
 	if err != nil {
 		return ErrKeepTables.Wrap(err)
@@ -182,12 +173,8 @@ func KeepTables(ctx context.Context, db DB, tablesToKeep ...string) (err error) 
 }
 
 // dropTables performs the table drops in a single transaction
-func dropTables(ctx context.Context, db DB, tablesToKeep ...string) (err error) {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	err = txutil.ExecuteInTx(ctx, db.Driver(), tx, func() error {
+func dropTables(ctx context.Context, db tagsql.DB, tablesToKeep ...string) (err error) {
+	err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		// Get a list of tables excluding sqlite3 system tables.
 		rows, err := tx.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%';")
 		if err != nil {

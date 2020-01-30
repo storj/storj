@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/private/tagsql"
 )
 
 var (
@@ -143,7 +144,7 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 }
 
 func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
-	var db migrate.DB
+	var db tagsql.DB
 	var version int
 	var statements migrate.SQL
 

@@ -76,7 +76,7 @@ func testBasicMigrationGeneric(ctx *testcontext.Context, t *testing.T, connStr s
 	basicMigration(ctx, t, db.DB, &postgresDB{DB: db.DB})
 }
 
-func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB migrate.DB) {
+func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 	dbName := strings.ToLower(`versions_` + t.Name())
 	defer func() { assert.NoError(t, dropTables(ctx, db, dbName, "users")) }()
 
@@ -98,7 +98,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 				DB:          testDB,
 				Description: "Move files",
 				Version:     2,
-				Action: migrate.Func(func(_ context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
+				Action: migrate.Func(func(_ context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					return os.Rename(ctx.File("alpha.txt"), ctx.File("beta.txt"))
 				}),
 			},
@@ -171,7 +171,7 @@ func TestMultipleMigrationPostgres(t *testing.T) {
 	multipleMigration(t, db, &postgresDB{DB: db})
 }
 
-func multipleMigration(t *testing.T, db tagsql.DB, testDB migrate.DB) {
+func multipleMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -186,7 +186,7 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 1",
 				Version:     1,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					steps++
 					return nil
 				}),
@@ -195,7 +195,7 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 2",
 				Version:     2,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					steps++
 					return nil
 				}),
@@ -211,7 +211,7 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB migrate.DB) {
 		DB:          testDB,
 		Description: "Step 3",
 		Version:     3,
-		Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
+		Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 			steps++
 			return nil
 		}),
@@ -247,7 +247,7 @@ func TestFailedMigrationPostgres(t *testing.T) {
 	failedMigration(t, db, &postgresDB{DB: db})
 }
 
-func failedMigration(t *testing.T, db tagsql.DB, testDB migrate.DB) {
+func failedMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -261,7 +261,7 @@ func failedMigration(t *testing.T, db tagsql.DB, testDB migrate.DB) {
 				DB:          testDB,
 				Description: "Step 1",
 				Version:     1,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					return fmt.Errorf("migration failed")
 				}),
 			},

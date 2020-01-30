@@ -3,31 +3,19 @@
 
 package storagenodedb
 
+import "storj.io/storj/private/tagsql"
+
 // dbContainerImpl fulfills the migrate.DB interface and the SQLDB interface.
 type dbContainerImpl struct {
-	SQLDB
-}
-
-// Schema returns schema
-// These are implemented because the migrate.DB interface requires them.
-// Maybe in the future we should untangle those.
-func (db *dbContainerImpl) Schema() string {
-	return ""
-}
-
-// Rebind rebind parameters
-// These are implemented because the migrate.DB interface requires them.
-// Maybe in the future we should untangle those.
-func (db *dbContainerImpl) Rebind(s string) string {
-	return s
+	tagsql.DB
 }
 
 // Configure sets the underlining SQLDB connection.
-func (db *dbContainerImpl) Configure(sqlDB SQLDB) {
-	db.SQLDB = sqlDB
+func (db *dbContainerImpl) Configure(newDB tagsql.DB) {
+	db.DB = newDB
 }
 
 // GetDB returns underlying implementation of dbContainerImpl.
-func (db *dbContainerImpl) GetDB() SQLDB {
-	return db.SQLDB
+func (db *dbContainerImpl) GetDB() tagsql.DB {
+	return db.DB
 }

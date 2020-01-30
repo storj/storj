@@ -7,8 +7,6 @@ package storagenodedb
 
 import (
 	"context"
-	"database/sql"
-	"database/sql/driver"
 	"os"
 	"path/filepath"
 
@@ -51,28 +49,14 @@ var (
 
 var _ storagenode.DB = (*DB)(nil)
 
-// SQLDB is an abstract database so that we can mock out what database
-// implementation we're using.
-type SQLDB interface {
-	Close() error
-
-	Conn(ctx context.Context) (tagsql.Conn, error)
-	Driver() driver.Driver
-
-	BeginTx(ctx context.Context, txOptions *sql.TxOptions) (tagsql.Tx, error)
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
-}
-
 // DBContainer defines an interface to allow accessing and setting a SQLDB
 type DBContainer interface {
-	Configure(sqlDB SQLDB)
-	GetDB() SQLDB
+	Configure(sqlDB tagsql.DB)
+	GetDB() tagsql.DB
 }
 
 // withTx is a helper method which executes callback in transaction scope
-func withTx(ctx context.Context, db SQLDB, cb func(tx tagsql.Tx) error) error {
+func withTx(ctx context.Context, db tagsql.DB, cb func(tx tagsql.Tx) error) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -247,7 +231,7 @@ func (db *DB) openDatabases() error {
 	return nil
 }
 
-func (db *DB) rawDatabaseFromName(dbName string) SQLDB {
+func (db *DB) rawDatabaseFromName(dbName string) tagsql.DB {
 	return db.SQLDBs[dbName].GetDB()
 }
 
@@ -744,7 +728,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx tagsql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
 						log.Sugar().Debug(err)
@@ -769,7 +753,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb migrate.DB, tx tagsql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "tmp"))
 					if err != nil {
 						log.Sugar().Debug(err)
@@ -910,7 +894,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Vacuum info db",
 				Version:     22,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					_, err := db.deprecatedInfoDB.GetDB().ExecContext(ctx, "VACUUM;")
 					return err
 				}),
@@ -919,7 +903,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Split into multiple sqlite databases",
 				Version:     23,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					// Migrate all the tables to new database files.
 					if err := db.migrateToDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
@@ -956,7 +940,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Drop unneeded tables in deprecatedInfoDB",
 				Version:     24,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ migrate.DB, tx tagsql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					// We drop the migrated tables from the deprecated database and VACUUM SQLite3
 					// in migration step 23 because if we were to keep that as part of step 22
 					// and an error occurred it would replay the entire migration but some tables

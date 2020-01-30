@@ -599,8 +599,6 @@ honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 storj.io/common v0.0.0-20200108114547-1c62e5708bce/go.mod h1:mDnchZF+e7g7u630Wwgu/X/zCmqpU0lvy5kQ3jQgs5k=
-storj.io/common v0.0.0-20200124181041-5b2cd8f217e2 h1:NnI0ikttUAambPxieAxRbbwacpSGxlInX9o39KhT+IU=
-storj.io/common v0.0.0-20200124181041-5b2cd8f217e2/go.mod h1:0yn1ANoDXETNBREGQHq8d7m1Kq0vWMu6Ul7C2YPZo/E=
 storj.io/common v0.0.0-20200127192906-afcfc1488e5e h1:m9led2A4O/rssM4loH44yncSM75GJLPYFgxSJbKMBjI=
 storj.io/common v0.0.0-20200127192906-afcfc1488e5e/go.mod h1:0yn1ANoDXETNBREGQHq8d7m1Kq0vWMu6Ul7C2YPZo/E=
 storj.io/common v0.0.0-20200128165341-932febe7e00f h1:1r+nfY0bKctX+sex/FyZ3ImLK3yGMh/YKlMvRJQFXZ4=

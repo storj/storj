@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/tagsql"
 )
 
@@ -59,7 +60,7 @@ type Migration struct {
 
 // Step describes a single step in migration.
 type Step struct {
-	DB          DB // The DB to execute this step on
+	DB          tagsql.DB // The DB to execute this step on
 	Description string
 	Version     int // Versions should start at 0
 	Action      Action
@@ -67,7 +68,7 @@ type Step struct {
 
 // Action is something that needs to be done
 type Action interface {
-	Run(ctx context.Context, log *zap.Logger, db DB, tx tagsql.Tx) error
+	Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error
 }
 
 // TargetVersion returns migration with steps upto specified version
@@ -166,7 +167,7 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 			stepLog.Info(step.Description)
 		}
 
-		err = WithTx(ctx, step.DB, func(ctx context.Context, tx tagsql.Tx) error {
+		err = txutil.WithTx(ctx, step.DB, nil, func(ctx context.Context, tx tagsql.Tx) error {
 			err = step.Action.Run(ctx, stepLog, step.DB, tx)
 			if err != nil {
 				return err
@@ -198,8 +199,8 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 }
 
 // createVersionTable creates a new version table
-func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db DB) error {
-	err := WithTx(ctx, db, func(ctx context.Context, tx tagsql.Tx) error {
+func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db tagsql.DB) error {
+	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		_, err := tx.Exec(ctx, rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
 		return err
 	})
@@ -207,9 +208,9 @@ func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Log
 }
 
 // getLatestVersion finds the latest version table
-func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logger, db DB) (int, error) {
+func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logger, db tagsql.DB) (int, error) {
 	var version sql.NullInt64
-	err := WithTx(ctx, db, func(ctx context.Context, tx tagsql.Tx) error {
+	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		err := tx.QueryRow(ctx, rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
 		if err == sql.ErrNoRows || !version.Valid {
 			version.Int64 = -1
@@ -222,7 +223,7 @@ func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logge
 }
 
 // addVersion adds information about a new migration
-func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db DB, version int) error {
+func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db tagsql.DB, version int) error {
 	_, err := tx.Exec(ctx, rebind(db, `
 		INSERT INTO `+migration.Table+` (version, commited_at) VALUES (?, ?)`), //nolint:misspell
 		version, time.Now().String(),
@@ -231,7 +232,7 @@ func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db DB,
 }
 
 // CurrentVersion finds the latest version for the db
-func (migration *Migration) CurrentVersion(ctx context.Context, log *zap.Logger, db DB) (int, error) {
+func (migration *Migration) CurrentVersion(ctx context.Context, log *zap.Logger, db tagsql.DB) (int, error) {
 	err := migration.ensureVersionTable(ctx, log, db)
 	if err != nil {
 		return -1, Error.Wrap(err)
@@ -243,7 +244,7 @@ func (migration *Migration) CurrentVersion(ctx context.Context, log *zap.Logger,
 type SQL []string
 
 // Run runs the SQL statements
-func (sql SQL) Run(ctx context.Context, log *zap.Logger, db DB, tx tagsql.Tx) (err error) {
+func (sql SQL) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) (err error) {
 	for _, query := range sql {
 		_, err := tx.Exec(ctx, rebind(db, query))
 		if err != nil {
@@ -254,9 +255,9 @@ func (sql SQL) Run(ctx context.Context, log *zap.Logger, db DB, tx tagsql.Tx) (e
 }
 
 // Func is an arbitrary operation
-type Func func(ctx context.Context, log *zap.Logger, db DB, tx tagsql.Tx) error
+type Func func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error
 
 // Run runs the migration
-func (fn Func) Run(ctx context.Context, log *zap.Logger, db DB, tx tagsql.Tx) error {
+func (fn Func) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
 	return fn(ctx, log, db, tx)
 }

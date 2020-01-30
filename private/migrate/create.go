@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/tagsql"
 )
 
@@ -21,7 +22,7 @@ func Create(ctx context.Context, identifier string, db DBX) error {
 	// when the schemas match.
 	justRollbackPlease := errs.Class("only used to tell WithTx to do a rollback")
 
-	err := WithTx(ctx, db, func(ctx context.Context, tx tagsql.Tx) (err error) {
+	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		schema := db.Schema()
 
 		_, err = tx.ExecContext(ctx, db.Rebind(`CREATE TABLE IF NOT EXISTS table_schemas (id text, schemaText text);`))
