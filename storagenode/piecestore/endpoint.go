@@ -300,7 +300,6 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "expected order limit as the first message")
 	}
 	limit := message.Limit
-	endpoint.log.Info("upload started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 
 	// TODO: verify that we have have expected amount of storage before continuing
 
@@ -310,6 +309,16 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
 		return err
+	}
+
+	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
 	var pieceWriter *pieces.Writer
@@ -341,6 +350,13 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 		}
 	}()
 
+	endpoint.log.Info("upload started",
+		zap.Stringer("Piece ID", limit.PieceId),
+		zap.Stringer("Satellite ID", limit.SatelliteId),
+		zap.Stringer("Action", limit.Action),
+		zap.Int64("Available Bandwidth", availableBandwidth),
+		zap.Int64("Available Space", availableSpace))
+
 	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
@@ -351,16 +367,6 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 			endpoint.log.Error("error during canceling a piece write", zap.Error(cancelErr))
 		}
 	}()
-
-	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
-	if err != nil {
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
-	}
-
-	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
-	if err != nil {
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
-	}
 
 	orderSaved := false
 	largestOrder := pb.Order{}
