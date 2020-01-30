@@ -29,7 +29,7 @@ var (
 // Config defines parameters for storage node disk and bandwidth usage monitoring.
 type Config struct {
 	Interval         time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
-	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"500GB"`
+	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"0B"`
 	MinimumBandwidth memory.Size   `help:"how much bandwidth a node at minimum has to advertise" default:"500GB"`
 }
 
