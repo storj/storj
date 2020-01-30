@@ -615,17 +615,29 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 	}
 
 	totalBySatellite = map[storj.NodeID]SatelliteUsage{}
+
 	for _, satelliteID := range satelliteIDs {
-		pieceTotal, pieceContentSize, err := store.SpaceUsedBySatellite(ctx, satelliteID)
+		var satPiecesTotal int64
+		var satPiecesContentSize int64
+
+		err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
+			pieceTotal, pieceContentSize, err := access.Size(ctx)
+			if err != nil {
+				return err
+			}
+			satPiecesTotal += pieceTotal
+			satPiecesContentSize += pieceContentSize
+			return nil
+		})
 		if err != nil {
-			return 0, 0, nil, err
+			return piecesTotal, piecesContentSize, totalBySatellite, err
 		}
 
-		piecesTotal += pieceTotal
-		piecesContentSize += pieceContentSize
+		piecesTotal += satPiecesTotal
+		piecesContentSize += satPiecesContentSize
 		totalBySatellite[satelliteID] = SatelliteUsage{
-			Total:       pieceTotal,
-			ContentSize: pieceContentSize,
+			Total:       satPiecesTotal,
+			ContentSize: satPiecesContentSize,
 		}
 	}
 	return piecesTotal, piecesContentSize, totalBySatellite, nil
