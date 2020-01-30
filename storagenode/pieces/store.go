@@ -615,6 +615,7 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 	}
 
 	totalBySatellite = map[storj.NodeID]SatelliteUsage{}
+	var group errs.Group
 
 	for _, satelliteID := range satelliteIDs {
 		var satPiecesTotal int64
@@ -630,7 +631,7 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 			return nil
 		})
 		if err != nil {
-			return piecesTotal, piecesContentSize, totalBySatellite, err
+			group.Add(err)
 		}
 
 		piecesTotal += satPiecesTotal
@@ -640,7 +641,7 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 			ContentSize: satPiecesContentSize,
 		}
 	}
-	return piecesTotal, piecesContentSize, totalBySatellite, nil
+	return piecesTotal, piecesContentSize, totalBySatellite, group.Err()
 }
 
 // GetV0PieceInfo fetches the Info record from the V0 piece info database. Obviously,
