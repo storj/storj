@@ -26,16 +26,16 @@ import (
 
 func main() {
 	ctx := context.Background()
-	logger := zap.L()
+	log := zap.L()
 
-	err := runSchemaGen(ctx, logger)
+	err := runSchemaGen(ctx, log)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%+w", err)
 		os.Exit(1)
 	}
 }
 
-func runSchemaGen(ctx context.Context, logger *zap.Logger) (err error) {
+func runSchemaGen(ctx context.Context, log *zap.Logger) (err error) {
 	storagePath, err := ioutil.TempDir("", "testdb")
 	if err != nil {
 		return errs.New("Error getting test storage path: %+w", err)
@@ -47,7 +47,7 @@ func runSchemaGen(ctx context.Context, logger *zap.Logger) (err error) {
 		}
 	}()
 
-	db, err := storagenodedb.New(logger, storagenodedb.Config{
+	db, err := storagenodedb.New(log, storagenodedb.Config{
 		Storage: storagePath,
 		Info:    filepath.Join(storagePath, "piecestore.db"),
 		Info2:   filepath.Join(storagePath, "info.db"),

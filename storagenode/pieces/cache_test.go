@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
@@ -73,7 +73,7 @@ func TestUpdate(t *testing.T) {
 			ContentSize: -21,
 		},
 	}
-	cache := pieces.NewBlobsUsageCacheTest(nil, -10, -11, -12, startSats)
+	cache := pieces.NewBlobsUsageCacheTest(zaptest.NewLogger(t), nil, -10, -11, -12, startSats)
 
 	// Sanity check that the values are negative to start
 	piecesTotal, piecesContentSize, err := cache.SpaceUsedForPieces(ctx)
@@ -105,11 +105,12 @@ func TestCacheInit(t *testing.T) {
 		err := spaceUsedDB.Init(ctx)
 		require.NoError(t, err)
 
+		log := zaptest.NewLogger(t)
 		// setup the cache with zero values
-		cache := pieces.NewBlobsUsageCacheTest(nil, 0, 0, 0, nil)
-		cacheService := pieces.NewService(zap.L(),
+		cache := pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
+		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(zap.L(), cache, nil, nil, spaceUsedDB),
+			pieces.NewStore(log, cache, nil, nil, spaceUsedDB),
 			1*time.Hour,
 		)
 
@@ -144,20 +145,20 @@ func TestCacheInit(t *testing.T) {
 			},
 		}
 		expectedTrash := int64(127)
-		cache = pieces.NewBlobsUsageCacheTest(nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalBySA)
-		cacheService = pieces.NewService(zap.L(),
+		cache = pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalBySA)
+		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(zap.L(), cache, nil, nil, spaceUsedDB),
+			pieces.NewStore(log, cache, nil, nil, spaceUsedDB),
 			1*time.Hour,
 		)
 		err = cacheService.PersistCacheTotals(ctx)
 		require.NoError(t, err)
 
 		// Now create an empty cache. Values will be read later by the db.
-		cache = pieces.NewBlobsUsageCacheTest(nil, 0, 0, 0, nil)
-		cacheService = pieces.NewService(zap.L(),
+		cache = pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
+		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(zap.L(), cache, nil, nil, spaceUsedDB),
+			pieces.NewStore(log, cache, nil, nil, spaceUsedDB),
 			1*time.Hour,
 		)
 		// Confirm that when we call Init after the cache has been persisted
@@ -185,6 +186,8 @@ func TestCacheInit(t *testing.T) {
 
 func TestPersistCacheTotals(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		log := zaptest.NewLogger(t)
+
 		// The database should start out with 0 for all totals
 		var expectedPiecesTotal int64
 		var expectedPiecesContentSize int64
@@ -224,10 +227,10 @@ func TestPersistCacheTotals(t *testing.T) {
 			},
 		}
 		expectedTrash = 127
-		cache := pieces.NewBlobsUsageCacheTest(nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalsBySA)
-		cacheService := pieces.NewService(zap.L(),
+		cache := pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalsBySA)
+		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(zap.L(), cache, nil, nil, spaceUsedDB),
+			pieces.NewStore(log, cache, nil, nil, spaceUsedDB),
 			1*time.Hour,
 		)
 		err = cacheService.PersistCacheTotals(ctx)
@@ -414,9 +417,10 @@ func TestRecalculateCache(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
+			log := zaptest.NewLogger(t)
 
 			ID1 := storj.NodeID{1, 1}
-			cache := pieces.NewBlobsUsageCacheTest(nil,
+			cache := pieces.NewBlobsUsageCacheTest(log, nil,
 				tt.piecesTotal.end,
 				tt.piecesContentSize.end,
 				tt.trash.end,
@@ -455,6 +459,7 @@ func TestRecalculateCache(t *testing.T) {
 func TestRecalculateCacheMissed(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+	log := zaptest.NewLogger(t)
 
 	ID1 := storj.NodeID{1}
 	ID2 := storj.NodeID{2}
@@ -462,7 +467,7 @@ func TestRecalculateCacheMissed(t *testing.T) {
 	// setup: once we are done recalculating the pieces on disk,
 	// there are items in the cache that are not in the
 	// new recalculated values
-	cache := pieces.NewBlobsUsageCacheTest(nil,
+	cache := pieces.NewBlobsUsageCacheTest(log, nil,
 		150,
 		200,
 		100,
@@ -498,7 +503,7 @@ func TestRecalculateCacheMissed(t *testing.T) {
 
 func TestCacheCreateDeleteAndTrash(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		cache := pieces.NewBlobsUsageCache(zap.L(), db.Pieces())
+		cache := pieces.NewBlobsUsageCache(zaptest.NewLogger(t), db.Pieces())
 		pieceContent := []byte("stuff")
 		satelliteID := testrand.NodeID()
 		refs := []storage.BlobRef{

@@ -161,9 +161,9 @@ func NewBlobsUsageCache(log *zap.Logger, blob storage.Blobs) *BlobsUsageCache {
 }
 
 // NewBlobsUsageCacheTest creates a new disk blob store with a space used cache
-func NewBlobsUsageCacheTest(blob storage.Blobs, piecesTotal, piecesContentSize, trashTotal int64, spaceUsedBySatellite map[storj.NodeID]SatelliteUsage) *BlobsUsageCache {
+func NewBlobsUsageCacheTest(log *zap.Logger, blob storage.Blobs, piecesTotal, piecesContentSize, trashTotal int64, spaceUsedBySatellite map[storj.NodeID]SatelliteUsage) *BlobsUsageCache {
 	return &BlobsUsageCache{
-		log:                  zap.L(), // TODO: fix this later
+		log:                  log,
 		Blobs:                blob,
 		piecesTotal:          piecesTotal,
 		piecesContentSize:    piecesContentSize,
