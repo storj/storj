@@ -22,7 +22,7 @@ type Chore struct {
 	log   *zap.Logger
 	rand  *rand.Rand
 	queue *Queue
-	Loop  sync2.Cycle
+	Loop  *sync2.Cycle
 
 	metainfoLoop *metainfo.Loop
 	config       Config
@@ -34,7 +34,7 @@ func NewChore(log *zap.Logger, queue *Queue, metaLoop *metainfo.Loop, config Con
 		log:   log,
 		rand:  rand.New(rand.NewSource(time.Now().Unix())),
 		queue: queue,
-		Loop:  *sync2.NewCycle(config.ChoreInterval),
+		Loop:  sync2.NewCycle(config.ChoreInterval),
 
 		metainfoLoop: metaLoop,
 		config:       config,

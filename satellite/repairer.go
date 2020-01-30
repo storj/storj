@@ -139,6 +139,9 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			Run:   peer.Orders.Chore.Run,
 			Close: peer.Orders.Chore.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Orders Chore", peer.Orders.Chore.Loop))
+
 		peer.Orders.Service = orders.NewService(
 			log.Named("orders"),
 			signing.SignerFromFullIdentity(peer.Identity),
@@ -174,6 +177,8 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			Run:   peer.Repairer.Run,
 			Close: peer.Repairer.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Repair Worker", peer.Repairer.Loop))
 	}
 
 	return peer, nil

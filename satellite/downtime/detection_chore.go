@@ -18,7 +18,7 @@ import (
 // architecture: Chore
 type DetectionChore struct {
 	log     *zap.Logger
-	Loop    sync2.Cycle
+	Loop    *sync2.Cycle
 	config  Config
 	overlay *overlay.Service
 	service *Service
@@ -29,7 +29,7 @@ type DetectionChore struct {
 func NewDetectionChore(log *zap.Logger, config Config, overlay *overlay.Service, service *Service, db DB) *DetectionChore {
 	return &DetectionChore{
 		log:     log,
-		Loop:    *sync2.NewCycle(config.DetectionInterval),
+		Loop:    sync2.NewCycle(config.DetectionInterval),
 		config:  config,
 		overlay: overlay,
 		service: service,

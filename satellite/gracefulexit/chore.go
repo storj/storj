@@ -22,7 +22,7 @@ import (
 // architecture: Chore
 type Chore struct {
 	log          *zap.Logger
-	Loop         sync2.Cycle
+	Loop         *sync2.Cycle
 	db           DB
 	config       Config
 	overlay      overlay.DB
@@ -33,7 +33,7 @@ type Chore struct {
 func NewChore(log *zap.Logger, db DB, overlay overlay.DB, metaLoop *metainfo.Loop, config Config) *Chore {
 	return &Chore{
 		log:          log,
-		Loop:         *sync2.NewCycle(config.ChoreInterval),
+		Loop:         sync2.NewCycle(config.ChoreInterval),
 		db:           db,
 		config:       config,
 		overlay:      overlay,

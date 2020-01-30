@@ -44,7 +44,7 @@ type Config struct {
 type Service struct {
 	log    *zap.Logger
 	config Config
-	Loop   sync2.Cycle
+	Loop   *sync2.Cycle
 
 	dialer       rpc.Dialer
 	overlay      overlay.DB
@@ -63,7 +63,7 @@ func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overl
 	return &Service{
 		log:    log,
 		config: config,
-		Loop:   *sync2.NewCycle(config.Interval),
+		Loop:   sync2.NewCycle(config.Interval),
 
 		dialer:       dialer,
 		overlay:      overlay,

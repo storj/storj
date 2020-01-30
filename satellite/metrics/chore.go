@@ -32,7 +32,7 @@ type Config struct {
 type Chore struct {
 	log          *zap.Logger
 	config       Config
-	Loop         sync2.Cycle
+	Loop         *sync2.Cycle
 	metainfoLoop *metainfo.Loop
 	Counter      *Counter
 }
@@ -42,7 +42,7 @@ func NewChore(log *zap.Logger, config Config, loop *metainfo.Loop) *Chore {
 	return &Chore{
 		log:          log,
 		config:       config,
-		Loop:         *sync2.NewCycle(config.ChoreInterval),
+		Loop:         sync2.NewCycle(config.ChoreInterval),
 		metainfoLoop: loop,
 	}
 }

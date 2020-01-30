@@ -35,7 +35,7 @@ type Config struct {
 // architecture: Chore
 type Service struct {
 	log  *zap.Logger
-	Loop sync2.Cycle
+	Loop *sync2.Cycle
 
 	metainfoLoop            *metainfo.Loop
 	liveAccounting          accounting.Cache
@@ -47,7 +47,7 @@ type Service struct {
 func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
 	return &Service{
 		log:  log,
-		Loop: *sync2.NewCycle(interval),
+		Loop: sync2.NewCycle(interval),
 
 		metainfoLoop:            metainfoLoop,
 		liveAccounting:          liveAccounting,

@@ -56,21 +56,22 @@ type Button struct {
 }
 
 // Add adds a button group to the panel.
-func (panel *Panel) Add(cat *ButtonGroup) {
+func (panel *Panel) Add(cats ...*ButtonGroup) {
 	panel.mu.Lock()
 	defer panel.mu.Unlock()
 
-	if cat.Slug == "" {
-		cat.Slug = slugify(cat.Name)
+	for _, cat := range cats {
+		if cat.Slug == "" {
+			cat.Slug = slugify(cat.Name)
+		}
+		for _, but := range cat.Buttons {
+			but.Slug = slugify(but.Name)
+
+			panel.lookup["/"+path.Join(cat.Slug, but.Slug)] = but
+		}
+
+		panel.categories = append(panel.categories, cat)
 	}
-	for _, but := range cat.Buttons {
-		but.Slug = slugify(but.Name)
-
-		panel.lookup["/"+path.Join(cat.Slug, but.Slug)] = but
-	}
-
-	panel.categories = append(panel.categories, cat)
-
 	sort.Slice(panel.categories, func(i, k int) bool {
 		return panel.categories[i].Name < panel.categories[k].Name
 	})

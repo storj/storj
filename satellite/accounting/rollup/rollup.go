@@ -28,7 +28,7 @@ type Config struct {
 // architecture: Chore
 type Service struct {
 	logger        *zap.Logger
-	Loop          sync2.Cycle
+	Loop          *sync2.Cycle
 	sdb           accounting.StoragenodeAccounting
 	deleteTallies bool
 }
@@ -37,7 +37,7 @@ type Service struct {
 func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time.Duration, deleteTallies bool) *Service {
 	return &Service{
 		logger:        logger,
-		Loop:          *sync2.NewCycle(interval),
+		Loop:          sync2.NewCycle(interval),
 		sdb:           sdb,
 		deleteTallies: deleteTallies,
 	}

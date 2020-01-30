@@ -34,7 +34,7 @@ type Chore struct {
 	log    *zap.Logger
 	orders orders.DB
 
-	Serials sync2.Cycle
+	Serials *sync2.Cycle
 }
 
 // NewChore creates new chore for deleting DB entries.
@@ -43,7 +43,7 @@ func NewChore(log *zap.Logger, orders orders.DB, config Config) *Chore {
 		log:    log,
 		orders: orders,
 
-		Serials: *sync2.NewCycle(config.SerialsInterval),
+		Serials: sync2.NewCycle(config.SerialsInterval),
 	}
 }
 

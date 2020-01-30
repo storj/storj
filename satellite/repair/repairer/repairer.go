@@ -42,7 +42,7 @@ type Service struct {
 	queue    queue.RepairQueue
 	config   *Config
 	Limiter  *sync2.Limiter
-	Loop     sync2.Cycle
+	Loop     *sync2.Cycle
 	repairer *SegmentRepairer
 }
 
@@ -53,7 +53,7 @@ func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repair
 		queue:    queue,
 		config:   config,
 		Limiter:  sync2.NewLimiter(config.MaxRepair),
-		Loop:     *sync2.NewCycle(config.Interval),
+		Loop:     sync2.NewCycle(config.Interval),
 		repairer: repairer,
 	}
 }

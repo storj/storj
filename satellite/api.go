@@ -308,6 +308,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Orders.Chore.Run,
 			Close: peer.Orders.Chore.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Orders Chore", peer.Orders.Chore.Loop))
 
 		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
 		peer.Orders.Endpoint = orders.NewEndpoint(

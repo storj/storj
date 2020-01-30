@@ -24,9 +24,9 @@ var ErrChore = errs.Class("stripecoinpayments chore error")
 type Chore struct {
 	log                 *zap.Logger
 	service             *Service
-	TransactionCycle    sync2.Cycle
-	CouponUsageCycle    sync2.Cycle
-	AccountBalanceCycle sync2.Cycle
+	TransactionCycle    *sync2.Cycle
+	CouponUsageCycle    *sync2.Cycle
+	AccountBalanceCycle *sync2.Cycle
 }
 
 // NewChore creates new clearing loop chore.
@@ -35,8 +35,9 @@ func NewChore(log *zap.Logger, service *Service, txInterval, accBalanceInterval 
 	return &Chore{
 		log:                 log,
 		service:             service,
-		TransactionCycle:    *sync2.NewCycle(txInterval),
-		AccountBalanceCycle: *sync2.NewCycle(accBalanceInterval),
+		TransactionCycle:    sync2.NewCycle(txInterval),
+		AccountBalanceCycle: sync2.NewCycle(accBalanceInterval),
+		CouponUsageCycle:    sync2.NewCycle(0),
 	}
 }
 

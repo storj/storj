@@ -294,6 +294,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Repair.Checker.Run,
 			Close: peer.Repair.Checker.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Repair Checker", peer.Repair.Checker.Loop))
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Repair Checker Irreparable", peer.Repair.Checker.IrreparableLoop))
 	}
 
 	{ // setup audit
@@ -330,6 +334,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Audit.Worker.Run,
 			Close: peer.Audit.Worker.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Audit Worker", peer.Audit.Worker.Loop))
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -345,6 +351,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Audit.Chore.Run,
 			Close: peer.Audit.Chore.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Audit Chore", peer.Audit.Chore.Loop))
 	}
 
 	{ // setup garbage collection
@@ -359,6 +367,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name: "garbage-collection",
 			Run:  peer.GarbageCollection.Service.Run,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Garbage Collection", peer.GarbageCollection.Service.Loop))
 	}
 
 	{ // setup db cleanup
@@ -368,6 +378,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.DBCleanup.Chore.Run,
 			Close: peer.DBCleanup.Chore.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("DB Cleanup Serials", peer.DBCleanup.Chore.Serials))
 	}
 
 	{ // setup accounting
@@ -377,6 +389,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Accounting.Tally.Run,
 			Close: peer.Accounting.Tally.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Accounting Tally", peer.Accounting.Tally.Loop))
 
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("accounting:rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 		peer.Services.Add(lifecycle.Item{
@@ -384,6 +398,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Accounting.Rollup.Run,
 			Close: peer.Accounting.Rollup.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Accounting Rollup", peer.Accounting.Rollup.Loop))
 
 		peer.Accounting.ReportedRollupChore = reportedrollup.NewChore(peer.Log.Named("accounting:reported-rollup"), peer.DB.Orders(), config.ReportedRollup)
 		peer.Services.Add(lifecycle.Item{
@@ -391,6 +407,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Accounting.ReportedRollupChore.Run,
 			Close: peer.Accounting.ReportedRollupChore.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Accounting Reported Rollup", peer.Accounting.ReportedRollupChore.Loop))
 	}
 
 	// TODO: remove in future, should be in API
@@ -427,6 +445,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				Name: "payments.stripe:service",
 				Run:  peer.Payments.Chore.Run,
 			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Payments Stripe Transactions", peer.Payments.Chore.TransactionCycle),
+				debug.Cycle("Payments Stripe Coupons", peer.Payments.Chore.CouponUsageCycle),
+				debug.Cycle("Payments Stripe Account Balance", peer.Payments.Chore.AccountBalanceCycle),
+			)
 		}
 	}
 
@@ -438,6 +461,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				Run:   peer.GracefulExit.Chore.Run,
 				Close: peer.GracefulExit.Chore.Close,
 			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Graceful Exit", peer.GracefulExit.Chore.Loop))
 		} else {
 			peer.Log.Named("gracefulexit").Info("disabled")
 		}
@@ -454,6 +479,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Metrics.Chore.Run,
 			Close: peer.Metrics.Chore.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Metrics", peer.Metrics.Chore.Loop))
 	}
 
 	{ // setup downtime tracking
@@ -471,6 +498,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.DowntimeTracking.DetectionChore.Run,
 			Close: peer.DowntimeTracking.DetectionChore.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Downtime Detection", peer.DowntimeTracking.DetectionChore.Loop))
 
 		peer.DowntimeTracking.EstimationChore = downtime.NewEstimationChore(
 			peer.Log.Named("downtime:estimation"),
@@ -484,6 +513,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.DowntimeTracking.EstimationChore.Run,
 			Close: peer.DowntimeTracking.EstimationChore.Close,
 		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Downtime Estimation", peer.DowntimeTracking.EstimationChore.Loop))
 	}
 
 	return peer, nil
