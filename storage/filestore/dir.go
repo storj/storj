@@ -579,8 +579,11 @@ func (dir *Dir) listNamespacesInPath(ctx context.Context, path string) (ids [][]
 	defer func() { err = errs.Combine(err, openDir.Close()) }()
 	for {
 		dirNames, err := openDir.Readdirnames(nameBatchSize)
-		if err != nil && err != io.EOF {
-			return nil, err
+		if err != nil {
+			if err == io.EOF || os.IsNotExist(err) {
+				return ids, nil
+			}
+			return ids, err
 		}
 		if len(dirNames) == 0 {
 			return ids, nil
@@ -625,10 +628,13 @@ func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path 
 			return err
 		}
 		subdirNames, err := openDir.Readdirnames(nameBatchSize)
-		if err != nil && err != io.EOF {
+		if err != nil {
+			if err == io.EOF || os.IsNotExist(err) {
+				return nil
+			}
 			return err
 		}
-		if os.IsNotExist(err) || len(subdirNames) == 0 {
+		if len(subdirNames) == 0 {
 			return nil
 		}
 		if err := ctx.Err(); err != nil {
