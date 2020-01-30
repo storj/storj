@@ -49,7 +49,7 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 	if err != nil {
 		service.log.Error("error getting current space used calculation: ", zap.Error(err))
 	}
-	trashTotal, err := service.store.SpaceUsedForTrash(ctx)
+	trashTotal, err := service.usageCache.Blobs.SpaceUsedForTrash(ctx)
 	if err != nil {
 		service.log.Error("error getting current space for trash: ", zap.Error(err))
 	}
