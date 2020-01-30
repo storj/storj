@@ -32,7 +32,8 @@ func init() {
 type Config struct {
 	Address string `internal:"true"`
 
-	Control bool `help:"expose control panel" releaseDefault:"false" devDefault:"true"`
+	ControlTitle string `internal:"true"`
+	Control      bool   `help:"expose control panel" releaseDefault:"false" devDefault:"true"`
 }
 
 // Server provides endpoints for debugging.
@@ -56,7 +57,7 @@ func NewServer(log *zap.Logger, listener net.Listener, registry *monkit.Registry
 	server.server.Handler = &server.mux
 	server.registry = registry
 
-	server.Panel = NewPanel(log.Named("control"), "/control")
+	server.Panel = NewPanel(log.Named("control"), "/control", config.ControlTitle)
 	if config.Control {
 		server.mux.Handle("/control/", server.Panel)
 	}

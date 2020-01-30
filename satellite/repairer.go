@@ -85,7 +85,9 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 				err = nil
 			}
 		}
-		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, config.Debug)
+		debugConfig := config.Debug
+		debugConfig.ControlTitle = "Repair"
+		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,

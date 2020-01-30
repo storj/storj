@@ -245,7 +245,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				err = nil
 			}
 		}
-		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, config.Debug)
+		debugConfig := config.Debug
+		debugConfig.ControlTitle = "Storage Node"
+		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,

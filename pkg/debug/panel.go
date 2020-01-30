@@ -23,7 +23,8 @@ import (
 type Panel struct {
 	log *zap.Logger
 
-	url string
+	url  string
+	name string
 
 	mu         sync.RWMutex
 	lookup     map[string]*Button
@@ -31,10 +32,11 @@ type Panel struct {
 }
 
 // NewPanel creates a new panel.
-func NewPanel(log *zap.Logger, url string) *Panel {
+func NewPanel(log *zap.Logger, url, name string) *Panel {
 	return &Panel{
 		log:    log,
 		url:    url,
+		name:   name,
 		lookup: map[string]*Button{},
 	}
 }
@@ -88,6 +90,7 @@ func (panel *Panel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if url == "/" {
 		err := buttonsTemplate.Execute(w, map[string]interface{}{
+			"Name":       panel.name,
 			"URL":        panel.url,
 			"Categories": panel.categories,
 		})
@@ -131,7 +134,7 @@ var buttonsTemplate = template.Must(template.New("").Parse(`<!DOCTYPE html>
 </style>
 </head>
 <body>
-	<h1>Control Panel</h1>
+	<h1>{{ .Name }} Control Panel</h1>
 	{{ $url := .URL }}
 	{{ range $cat := .Categories }}
 	<div class="category">
