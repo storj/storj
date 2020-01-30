@@ -1026,7 +1026,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 			},
 			{
 				DB:          db.pieceSpaceUsedDB,
-				Description: "Rename total column to content_size",
+				Description: "Migrate piece_space_used to add total column",
 				Version:     29,
 				Action: migrate.SQL{
 					`ALTER TABLE piece_space_used RENAME TO _piece_space_used_old`,
@@ -1044,10 +1044,19 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 			},
 			{
 				DB:          db.pieceSpaceUsedDB,
-				Description: "Rename total column to content_size",
+				Description: "Initialize piece_space_used total column to content_size",
 				Version:     30,
 				Action: migrate.SQL{
 					`UPDATE piece_space_used SET total = content_size`,
+				},
+			},
+			{
+				DB:          db.pieceSpaceUsedDB,
+				Description: "Remove all 0 values from piece_space_used",
+				Version:     31,
+				Action: migrate.SQL{
+					`UPDATE piece_space_used SET total = 0 WHERE total < 0`,
+					`UPDATE piece_space_used SET content_size = 0 WHERE content_size < 0`,
 				},
 			},
 		},

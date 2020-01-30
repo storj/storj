@@ -453,7 +453,7 @@ func TestRecalculateCacheMissed(t *testing.T) {
 
 func TestCacheCreateDeleteAndTrash(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		cache := pieces.NewBlobsUsageCache(db.Pieces())
+		cache := pieces.NewBlobsUsageCache(zap.L(), db.Pieces())
 		pieceContent := []byte("stuff")
 		satelliteID := testrand.NodeID()
 		refs := []storage.BlobRef{
