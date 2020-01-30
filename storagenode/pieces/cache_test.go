@@ -63,6 +63,42 @@ func TestDBInit(t *testing.T) {
 		require.Equal(t, int64(150), trashTotal)
 	})
 }
+
+func TestUpdate(t *testing.T) {
+	ctx := testcontext.New(t)
+	sat1 := testrand.NodeID()
+	startSats := map[storj.NodeID]pieces.SatelliteUsage{
+		sat1: {
+			Total:       -20,
+			ContentSize: -21,
+		},
+	}
+	cache := pieces.NewBlobsUsageCacheTest(nil, -10, -11, -12, startSats)
+
+	// Sanity check that the values are negative to start
+	piecesTotal, piecesContentSize, err := cache.SpaceUsedForPieces(ctx)
+	require.NoError(t, err)
+
+	trashTotal, err := cache.SpaceUsedForTrash(ctx)
+	require.NoError(t, err)
+
+	require.Equal(t, int64(-10), piecesTotal)
+	require.Equal(t, int64(-11), piecesContentSize)
+	require.Equal(t, int64(-12), trashTotal)
+
+	cache.Update(ctx, sat1, -1, -2, -3)
+
+	piecesTotal, piecesContentSize, err = cache.SpaceUsedForPieces(ctx)
+	require.NoError(t, err)
+
+	trashTotal, err = cache.SpaceUsedForTrash(ctx)
+	require.NoError(t, err)
+
+	require.Equal(t, int64(0), piecesTotal)
+	require.Equal(t, int64(0), piecesContentSize)
+	require.Equal(t, int64(0), trashTotal)
+}
+
 func TestCacheInit(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		spaceUsedDB := db.PieceSpaceUsedDB()
@@ -346,8 +382,8 @@ func TestRecalculateCache(t *testing.T) {
 			piecesTotal: testItem{
 				start:    100,
 				end:      0,
-				new:      90,
-				expected: 40,
+				new:      -90,
+				expected: 0,
 			},
 			piecesContentSize: testItem{
 				start:    100,
@@ -359,6 +395,15 @@ func TestRecalculateCache(t *testing.T) {
 				start:    100,
 				end:      0,
 				new:      -25,
+				expected: 0,
+			},
+		},
+		{
+			name: "6",
+			piecesTotal: testItem{
+				start:    50,
+				end:      -50,
+				new:      -50,
 				expected: 0,
 			},
 		},

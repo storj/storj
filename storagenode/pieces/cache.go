@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -241,42 +242,31 @@ func (blobs *BlobsUsageCache) Update(ctx context.Context, satelliteID storj.Node
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
 
-	newPiecesTotal := blobs.piecesTotal + piecesTotalDelta
-	if newPiecesTotal < 0 {
-		blobs.log.Error("newPiecesTotal < 0", zap.Int64("newPiecesTotal", newPiecesTotal))
-		newPiecesTotal = 0
-	}
-	blobs.piecesTotal = newPiecesTotal
+	blobs.piecesTotal += piecesTotalDelta
+	blobs.piecesContentSize += piecesContentSizeDelta
+	blobs.trashTotal += trashDelta
 
-	newPiecesContentSize := blobs.piecesContentSize + piecesContentSizeDelta
-	if newPiecesContentSize < 0 {
-		blobs.log.Error("newPiecesContentSize < 0", zap.Int64("newPiecesContentSize", newPiecesContentSize))
-		newPiecesContentSize = 0
-	}
-	blobs.piecesContentSize = newPiecesContentSize
-
-	newTrashTotal := blobs.trashTotal + trashDelta
-	if newTrashTotal < 0 {
-		blobs.log.Error("newTrashTotal < 0", zap.Int64("newTrashTotal", newTrashTotal))
-		newTrashTotal = 0
-	}
-	blobs.trashTotal = newTrashTotal
+	blobs.ensurePositiveCacheValue(&blobs.piecesTotal, "piecesTotal")
+	blobs.ensurePositiveCacheValue(&blobs.piecesContentSize, "piecesContentSize")
+	blobs.ensurePositiveCacheValue(&blobs.trashTotal, "trashTotal")
 
 	oldVals := blobs.spaceUsedBySatellite[satelliteID]
-	newSatPiecesTotal := oldVals.Total + piecesTotalDelta
-	if newSatPiecesTotal < 0 {
-		blobs.log.Error("newSatPiecesTotal < 0", zap.Int64("newSatPiecesTotal", newSatPiecesTotal))
-		newSatPiecesTotal = 0
+	newVals := SatelliteUsage{
+		Total:       oldVals.Total + piecesTotalDelta,
+		ContentSize: oldVals.ContentSize + piecesContentSizeDelta,
 	}
-	newSatPiecesContentSize := oldVals.ContentSize + piecesContentSizeDelta
-	if newSatPiecesContentSize < 0 {
-		blobs.log.Error("newSatPiecesContentSize < 0", zap.Int64("newSatPiecesContentSize", newSatPiecesContentSize))
-		newSatPiecesContentSize = 0
+	blobs.ensurePositiveCacheValue(&newVals.Total, "satPiecesTotal")
+	blobs.ensurePositiveCacheValue(&newVals.ContentSize, "satPiecesContentSize")
+	blobs.spaceUsedBySatellite[satelliteID] = newVals
+
+}
+
+func (blobs *BlobsUsageCache) ensurePositiveCacheValue(value *int64, name string) {
+	if *value >= 0 {
+		return
 	}
-	blobs.spaceUsedBySatellite[satelliteID] = SatelliteUsage{
-		Total:       newSatPiecesTotal,
-		ContentSize: newSatPiecesContentSize,
-	}
+	blobs.log.Error(fmt.Sprintf("%s < 0", name), zap.Int64(name, *value))
+	*value = 0
 }
 
 // Trash moves the ref to the trash and updates the cache
@@ -453,6 +443,9 @@ func (blobs *BlobsUsageCache) Recalculate(
 
 func estimate(newSpaceUsedTotal, totalAtIterationStart, totalAtIterationEnd int64) int64 {
 	if newSpaceUsedTotal == totalAtIterationEnd {
+		if newSpaceUsedTotal < 0 {
+			return 0
+		}
 		return newSpaceUsedTotal
 	}
 
