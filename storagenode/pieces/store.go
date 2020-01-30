@@ -195,7 +195,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	writer, err := NewWriter(blobWriter, store.blobs, satellite)
+	writer, err := NewWriter(store.log.Named("blob-writer"), blobWriter, store.blobs, satellite)
 	return writer, Error.Wrap(err)
 }
 
@@ -227,7 +227,7 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	writer, err := NewWriter(blobWriter, store.blobs, satellite)
+	writer, err := NewWriter(store.log.Named("blob-writer"), blobWriter, store.blobs, satellite)
 	return writer, Error.Wrap(err)
 }
 

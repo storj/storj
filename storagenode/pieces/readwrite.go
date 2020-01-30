@@ -11,6 +11,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/pkcrypto"
@@ -61,6 +62,7 @@ var BadFormatVersion = errs.Class("Incompatible storage format version")
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
 type Writer struct {
+	log       *zap.Logger
 	hash      hash.Hash
 	blob      storage.BlobWriter
 	pieceSize int64 // piece size only; i.e., not including piece header
@@ -71,8 +73,8 @@ type Writer struct {
 }
 
 // NewWriter creates a new writer for storage.BlobWriter.
-func NewWriter(blobWriter storage.BlobWriter, blobs storage.Blobs, satellite storj.NodeID) (*Writer, error) {
-	w := &Writer{}
+func NewWriter(log *zap.Logger, blobWriter storage.BlobWriter, blobs storage.Blobs, satellite storj.NodeID) (*Writer, error) {
+	w := &Writer{log: log}
 	if blobWriter.StorageFormatVersion() >= filestore.FormatV1 {
 		// We skip past the reserved header area for now- we want the header to be at the
 		// beginning of the file, to make it quick to seek there and also to make it easier
@@ -136,7 +138,9 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 			if err == nil {
 				totalSize, sizeErr := w.blob.Size()
 				if sizeErr != nil {
-					// Nothing to do here. If we cannot get the size, we cannot update the cache
+					w.log.Error("Failed to calculate piece size, cannot update the cache",
+						zap.Error(sizeErr), zap.Stringer("piece ID", pieceHeader.GetOrderLimit().PieceId),
+						zap.Stringer("satellite ID", w.satellite))
 					return
 				}
 				cache.Update(ctx, w.satellite, totalSize, w.Size(), 0)
