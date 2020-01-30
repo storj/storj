@@ -358,7 +358,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup storage
-		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.DB.Pieces())
+		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.Log.Named("blobscache"), peer.DB.Pieces())
 
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"),
 			peer.Storage2.BlobsCache,

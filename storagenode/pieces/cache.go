@@ -141,6 +141,7 @@ func (service *CacheService) Close() (err error) {
 // architecture: Database
 type BlobsUsageCache struct {
 	storage.Blobs
+	log *zap.Logger
 
 	mu                   sync.Mutex
 	piecesTotal          int64
@@ -150,8 +151,9 @@ type BlobsUsageCache struct {
 }
 
 // NewBlobsUsageCache creates a new disk blob store with a space used cache
-func NewBlobsUsageCache(blob storage.Blobs) *BlobsUsageCache {
+func NewBlobsUsageCache(log *zap.Logger, blob storage.Blobs) *BlobsUsageCache {
 	return &BlobsUsageCache{
+		log:                  log,
 		Blobs:                blob,
 		spaceUsedBySatellite: map[storj.NodeID]SatelliteUsage{},
 	}
@@ -160,6 +162,7 @@ func NewBlobsUsageCache(blob storage.Blobs) *BlobsUsageCache {
 // NewBlobsUsageCacheTest creates a new disk blob store with a space used cache
 func NewBlobsUsageCacheTest(blob storage.Blobs, piecesTotal, piecesContentSize, trashTotal int64, spaceUsedBySatellite map[storj.NodeID]SatelliteUsage) *BlobsUsageCache {
 	return &BlobsUsageCache{
+		log:                  zap.L(), // TODO: fix this later
 		Blobs:                blob,
 		piecesTotal:          piecesTotal,
 		piecesContentSize:    piecesContentSize,
@@ -237,13 +240,42 @@ func (blobs *BlobsUsageCache) pieceSizes(ctx context.Context, blobRef storage.Bl
 func (blobs *BlobsUsageCache) Update(ctx context.Context, satelliteID storj.NodeID, piecesTotalDelta, piecesContentSizeDelta, trashDelta int64) {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
-	blobs.piecesTotal += piecesTotalDelta
-	blobs.piecesContentSize += piecesContentSizeDelta
-	blobs.trashTotal += trashDelta
+
+	newPiecesTotal := blobs.piecesTotal + piecesTotalDelta
+	if newPiecesTotal < 0 {
+		blobs.log.Error("newPiecesTotal < 0", zap.Int64("newPiecesTotal", newPiecesTotal))
+		newPiecesTotal = 0
+	}
+	blobs.piecesTotal = newPiecesTotal
+
+	newPiecesContentSize := blobs.piecesContentSize + piecesContentSizeDelta
+	if newPiecesContentSize < 0 {
+		blobs.log.Error("newPiecesContentSize < 0", zap.Int64("newPiecesContentSize", newPiecesContentSize))
+		newPiecesContentSize = 0
+	}
+	blobs.piecesContentSize = newPiecesContentSize
+
+	newTrashTotal := blobs.trashTotal + trashDelta
+	if newTrashTotal < 0 {
+		blobs.log.Error("newTrashTotal < 0", zap.Int64("newTrashTotal", newTrashTotal))
+		newTrashTotal = 0
+	}
+	blobs.trashTotal = newTrashTotal
+
 	oldVals := blobs.spaceUsedBySatellite[satelliteID]
+	newSatPiecesTotal := oldVals.Total + piecesTotalDelta
+	if newSatPiecesTotal < 0 {
+		blobs.log.Error("newSatPiecesTotal < 0", zap.Int64("newSatPiecesTotal", newSatPiecesTotal))
+		newSatPiecesTotal = 0
+	}
+	newSatPiecesContentSize := oldVals.ContentSize + piecesContentSizeDelta
+	if newSatPiecesContentSize < 0 {
+		blobs.log.Error("newSatPiecesContentSize < 0", zap.Int64("newSatPiecesContentSize", newSatPiecesContentSize))
+		newSatPiecesContentSize = 0
+	}
 	blobs.spaceUsedBySatellite[satelliteID] = SatelliteUsage{
-		Total:       oldVals.Total + piecesTotalDelta,
-		ContentSize: oldVals.ContentSize + piecesContentSizeDelta,
+		Total:       newSatPiecesTotal,
+		ContentSize: newSatPiecesContentSize,
 	}
 }
 
