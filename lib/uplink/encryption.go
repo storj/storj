@@ -28,9 +28,9 @@ type EncryptionAccess struct {
 
 // NewEncryptionAccess creates an encryption access context
 func NewEncryptionAccess() *EncryptionAccess {
-	return &EncryptionAccess{
-		store: encryption.NewStore(),
-	}
+	store := encryption.NewStore()
+	store.SetDefaultPathCipher(defaultCipher)
+	return &EncryptionAccess{store: store}
 }
 
 // NewEncryptionAccessWithDefaultKey creates an encryption access context with

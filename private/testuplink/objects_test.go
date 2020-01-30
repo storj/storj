@@ -268,6 +268,7 @@ func TestDeleteObject(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		encStore := newTestEncStore(TestEncKey)
+		encStore.SetDefaultPathCipher(storj.EncAESGCM)
 		db, streams, err := newMetainfoParts(planet, encStore)
 		require.NoError(t, err)
 
@@ -277,7 +278,7 @@ func TestDeleteObject(t *testing.T) {
 		}
 
 		unencryptedPath := paths.NewUnencrypted(TestFile)
-		encryptedPath, err := encryption.EncryptPath(bucket.Name, unencryptedPath, storj.EncAESGCM, encStore)
+		encryptedPath, err := encryption.EncryptPathWithStoreCipher(bucket.Name, unencryptedPath, encStore)
 		require.NoError(t, err)
 
 		for i, path := range []string{unencryptedPath.String(), encryptedPath.String()} {
@@ -305,15 +306,6 @@ func TestDeleteObject(t *testing.T) {
 
 			err = db.DeleteObject(ctx, bucket, "non-existing-file")
 			assert.True(t, storj.ErrObjectNotFound.Has(err))
-
-			{
-				invalidPathCipherBucket := storj.Bucket{
-					Name:       bucket.Name,
-					PathCipher: bucket.PathCipher + 1,
-				}
-				err = db.DeleteObject(ctx, invalidPathCipherBucket, TestFile)
-				assert.True(t, storj.ErrObjectNotFound.Has(err))
-			}
 
 			err = db.DeleteObject(ctx, bucket, path)
 			assert.NoError(t, err)
@@ -351,6 +343,7 @@ func TestListObjects_EncryptionBypass(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		encStore := newTestEncStore(TestEncKey)
+		encStore.SetDefaultPathCipher(storj.EncAESGCM)
 		db, streams, err := newMetainfoParts(planet, encStore)
 		require.NoError(t, err)
 
@@ -392,7 +385,7 @@ func TestListObjects_EncryptionBypass(t *testing.T) {
 			decoded = strings.TrimRight(decoded, "/")
 			encryptedPath := paths.NewEncrypted(decoded)
 
-			decryptedPath, err := encryption.DecryptPath(bucket.Name, encryptedPath, storj.EncAESGCM, encStore)
+			decryptedPath, err := encryption.DecryptPathWithStoreCipher(bucket.Name, encryptedPath, encStore)
 			require.NoError(t, err)
 
 			// NB: require decrypted path is a member of `filePaths`.
@@ -411,7 +404,7 @@ func TestListObjects_EncryptionBypass(t *testing.T) {
 }
 
 func TestListObjects(t *testing.T) {
-	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+	runTestWithPathCipher(t, storj.EncNull, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{
 			PathCipher:                  storj.EncNull,
 			DefaultRedundancyScheme:     defaultRS,
