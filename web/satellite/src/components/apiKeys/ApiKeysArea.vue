@@ -418,7 +418,6 @@ export default class ApiKeysArea extends Vue {
             line-height: 39px;
             color: #263549;
             margin: 0;
-            user-select: none;
         }
 
         .api-keys-header {

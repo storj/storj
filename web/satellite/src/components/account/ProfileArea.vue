@@ -145,7 +145,6 @@ export default class ProfileArea extends Vue {
         position: relative;
         font-family: 'font_regular', sans-serif;
         padding-bottom: 100px;
-        user-select: none;
 
         &__title {
             font-family: 'font_bold', sans-serif;

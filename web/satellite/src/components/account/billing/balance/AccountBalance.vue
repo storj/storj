@@ -99,7 +99,6 @@ export default class AccountBalance extends Vue {
                 font-size: 32px;
                 line-height: 48px;
                 margin-right: 13px;
-                user-select: none;
             }
 
             &__info-button {

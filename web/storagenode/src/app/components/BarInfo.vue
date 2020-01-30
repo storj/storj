@@ -72,7 +72,6 @@ export default class BarInfo extends Vue {
             font-size: 14px;
             line-height: 21px;
             color: #586c86;
-            user-select: none;
         }
 
         &__amount {

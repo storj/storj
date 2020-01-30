@@ -72,7 +72,6 @@ export default class DepositAndBilling extends Vue {
             &__title {
                 font-size: 32px;
                 line-height: 48px;
-                user-select: none;
             }
 
             .button {

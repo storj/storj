@@ -69,7 +69,6 @@ export default class ChecksArea extends Vue {
                 line-height: 21px;
                 color: #586c86;
                 margin: 0 5px 0 0;
-                user-select: none;
             }
 
             .checks-area-image {

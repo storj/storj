@@ -24,7 +24,7 @@
                         </div>
                         <span class="current-month-area__content__usage-charges__head__name__title">Usage Charges</span>
                     </div>
-                    <span>Estimated total {{ chargesSummary | centsToDollars }}</span>
+                    <span>Estimated total <span class="summary">{{ chargesSummary | centsToDollars }}</span></span>
                 </div>
                 <div class="current-month-area__content__usage-charges__content" v-if="areUsageChargesShown" @click.stop>
                     <UsageChargeItem
@@ -134,11 +134,11 @@ export default class MonthlyBillingSummary extends Vue {
                     font-family: 'font_bold', sans-serif;
                     font-size: 32px;
                     line-height: 48px;
-                    user-select: none;
                 }
 
                 &__title-info {
                     font-size: 18px;
+                    user-select: text;
                 }
             }
 
@@ -165,7 +165,6 @@ export default class MonthlyBillingSummary extends Vue {
                 font-size: 14px;
                 line-height: 21px;
                 color: #afb7c1;
-                user-select: none;
             }
 
             &__usage-charges {
@@ -195,10 +194,6 @@ export default class MonthlyBillingSummary extends Vue {
                             justify-content: center;
                             margin-right: 12px;
                         }
-
-                        &__title {
-                            user-select: none;
-                        }
                     }
                 }
 
@@ -214,5 +209,9 @@ export default class MonthlyBillingSummary extends Vue {
 
     .item {
         border-top: 1px solid rgba(169, 181, 193, 0.3);
+    }
+
+    .summary {
+        user-select: text;
     }
 </style>

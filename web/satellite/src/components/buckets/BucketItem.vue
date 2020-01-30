@@ -3,10 +3,10 @@
 
 <template>
     <div class="container">
-        <div class="container__item" :title="itemData.bucketName">{{ itemData.formattedBucketName() }}</div>
-        <div class="container__item">{{ itemData.storage.toFixed(4) }}</div>
-        <div class="container__item">{{ itemData.egress.toFixed(4) }}</div>
-        <div class="container__item">{{ itemData.objectCount.toString() }}</div>
+        <p class="container__item" :title="itemData.bucketName">{{ itemData.formattedBucketName() }}</p>
+        <p class="container__item">{{ itemData.storage.toFixed(4) }}</p>
+        <p class="container__item">{{ itemData.egress.toFixed(4) }}</p>
+        <p class="container__item">{{ itemData.objectCount.toString() }}</p>
     </div>
 </template>
 
@@ -25,10 +25,6 @@ export default class BucketItem extends Vue {
 <style scoped lang="scss">
     .container {
         padding: 25px 0;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
         outline: none;
         display: flex;
         background: #fff;
