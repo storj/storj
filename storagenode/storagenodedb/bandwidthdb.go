@@ -48,7 +48,7 @@ func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action
 		if beginningOfMonth.Equal(db.usedSince) {
 			db.usedSpace += amount
 		} else if beginningOfMonth.After(db.usedSince) {
-			usage, err := db.Summary(ctx, beginningOfMonth, time.Now().UTC())
+			usage, err := db.Summary(ctx, beginningOfMonth, time.Now())
 			if err != nil {
 				return err
 			}
@@ -60,17 +60,18 @@ func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action
 }
 
 // MonthSummary returns summary of the current months bandwidth usages
-func (db *bandwidthDB) MonthSummary(ctx context.Context) (_ int64, err error) {
+func (db *bandwidthDB) MonthSummary(ctx context.Context, now time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	db.usedMu.RLock()
-	beginningOfMonth := getBeginningOfMonth(time.Now().UTC())
+	beginningOfMonth := getBeginningOfMonth(now)
 	if beginningOfMonth.Equal(db.usedSince) {
 		defer db.usedMu.RUnlock()
 		return db.usedSpace, nil
 	}
 	db.usedMu.RUnlock()
 
-	usage, err := db.Summary(ctx, beginningOfMonth, time.Now())
+	usage, err := db.Summary(ctx, beginningOfMonth, now)
 	if err != nil {
 		return 0, err
 	}
@@ -435,6 +436,6 @@ func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, ar
 }
 
 func getBeginningOfMonth(now time.Time) time.Time {
-	y, m, _ := now.Date()
-	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().UTC().Location())
+	y, m, _ := now.UTC().Date()
+	return time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
 }

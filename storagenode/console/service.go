@@ -165,7 +165,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	bandwidthUsage, err := s.bandwidthDB.MonthSummary(ctx)
+	bandwidthUsage, err := s.bandwidthDB.MonthSummary(ctx, time.Now())
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
