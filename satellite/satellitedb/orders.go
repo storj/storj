@@ -463,7 +463,7 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 		SELECT
 			unnest($1::bytea[]), unnest($2::bytea[]),
 			$3, $4,
-			unnest($5::integer[]), unnest($6::integer[]), unnest($7::integer[]), unnest($8::integer[])
+			unnest($5::bigint[]), unnest($6::bigint[]), unnest($7::bigint[]), unnest($8::bigint[])
 		ON CONFLICT(bucket_name, project_id, interval_start, action)
 		DO UPDATE SET
 			allocated = bucket_bandwidth_rollups.allocated + EXCLUDED.allocated,
@@ -511,7 +511,7 @@ func (tx *ordersDBTx) UpdateStoragenodeBandwidthBatch(ctx context.Context, inter
 		SELECT
 			unnest($1::bytea[]),
 			$2, $3,
-			unnest($4::integer[]), unnest($5::integer[]), unnest($6::integer[])
+			unnest($4::bigint[]), unnest($5::bigint[]), unnest($6::bigint[])
 		ON CONFLICT(storagenode_id, interval_start, action)
 		DO UPDATE SET
 			allocated = storagenode_bandwidth_rollups.allocated + EXCLUDED.allocated,
