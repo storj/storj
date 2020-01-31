@@ -256,12 +256,12 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		}
 		planet.databases = append(planet.databases, pointerDB)
 
-		liveAccountingServer := redisserver.NewMini()
-		addr, _, err := liveAccountingServer.Run()
+		redis, err := redisserver.Mini()
 		if err != nil {
-			return xs, errs.Wrap(err)
+			return nil, err
 		}
-		planet.databases = append(planet.databases, liveAccountingServer)
+
+		planet.databases = append(planet.databases, redis)
 
 		config := satellite.Config{
 			Server: server.Config{
@@ -382,7 +382,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				Interval: defaultInterval,
 			},
 			LiveAccounting: live.Config{
-				StorageBackend: "redis://" + addr + "?db=0",
+				StorageBackend: "redis://" + redis.Addr() + "?db=0",
 			},
 			Mail: mailservice.Config{
 				SMTPServerAddress: "smtp.mail.test:587",
@@ -540,6 +540,8 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.Accounting.Rollup = peer.Accounting.Rollup
 	system.Accounting.ProjectUsage = peer.Accounting.ProjectUsage
 	system.Accounting.ReportedRollup = peer.Accounting.ReportedRollupChore
+
+	system.LiveAccounting = peer.LiveAccounting
 
 	system.Marketing.Listener = api.Marketing.Listener
 	system.Marketing.Endpoint = api.Marketing.Endpoint

@@ -52,12 +52,11 @@ func TestGraphqlQuery(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		miniredis := redisserver.NewMini()
-		addr, cleanup, err := miniredis.Run()
+		redis, err := redisserver.Mini()
 		require.NoError(t, err)
-		defer cleanup()
+		defer ctx.Check(redis.Close)
 
-		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "redis://" + addr + "?db=0"})
+		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
 		require.NoError(t, err)
 
 		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, 0)
