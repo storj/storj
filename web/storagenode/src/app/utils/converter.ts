@@ -8,7 +8,7 @@ export const TB = 1e12;
 export const PB = 1e15;
 
 /**
- * Used to format amount from bytes to more compact unit
+ * Used to format amount from bytes to more compact unit.
  * @param bytes - holds amount of bytes
  * @returns bytes - amount of formatted bytes with unit name
  */

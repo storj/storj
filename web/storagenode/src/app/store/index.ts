@@ -9,12 +9,12 @@ import { node } from './modules/node';
 
 Vue.use(Vuex);
 
-// storage node store (vuex)
-const store = new Vuex.Store({
+/**
+ * storage node store (vuex)
+ */
+export const store = new Vuex.Store({
    modules: {
        node,
        appStateModule,
-   }
+   },
 });
-
-export default store;

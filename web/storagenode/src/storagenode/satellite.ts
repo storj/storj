@@ -16,7 +16,8 @@ export class Satellite {
         public egressSummary: number,
         public ingressSummary: number,
         public audit: Metric,
-        public uptime: Metric) {}
+        public uptime: Metric,
+    ) {}
 }
 
 /**
@@ -53,7 +54,8 @@ export class Metric {
         public successCount: number,
         public alpha: number,
         public beta: number,
-        public score: number) {}
+        public score: number,
+    ) {}
 }
 
 /**
@@ -63,7 +65,8 @@ export class Egress {
     public constructor(
         public audit: number,
         public repair: number,
-        public usage: number) {}
+        public usage: number,
+    ) {}
 }
 
 /**
@@ -72,7 +75,8 @@ export class Egress {
 export class Ingress {
     public constructor(
         public repair: number,
-        public usage: number) {}
+        public usage: number,
+    ) {}
 }
 
 /**
@@ -82,7 +86,8 @@ export class BandwidthUsed {
     public constructor(
         public egress: Egress,
         public ingress: Ingress,
-        public intervalStart: Date) {}
+        public intervalStart: Date,
+    ) {}
 
     /**
      * Used to summarize all bandwidth usage data

@@ -28,9 +28,13 @@ const {
     },
 })
 export default class Dashboard extends Vue {
-    public async mounted() {
-        await this.$store.dispatch(GET_NODE_INFO);
-        await this.$store.dispatch(SELECT_SATELLITE, null);
+    public mounted() {
+        try {
+            this.$store.dispatch(GET_NODE_INFO);
+            this.$store.dispatch(SELECT_SATELLITE, null);
+        } catch (error) {
+            console.error(error);
+        }
     }
 }
 </script>

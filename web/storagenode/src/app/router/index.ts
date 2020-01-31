@@ -15,7 +15,10 @@ export abstract class RouteConfig {
     public static Notifications = new NavigationLink('/notifications', 'Notifications');
 }
 
-const router = new Router({
+/**
+ * Router describes location mapping with components.
+ */
+export const router = new Router({
     mode: 'history',
     routes: [
         {
@@ -30,5 +33,3 @@ const router = new Router({
         },
     ]
 });
-
-export default router;

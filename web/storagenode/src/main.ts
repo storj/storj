@@ -5,8 +5,8 @@ import Vue, { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 
 import App from './app/App.vue';
-import router from './app/router';
-import store from './app/store';
+import { router } from './app/router';
+import { store } from './app/store';
 
 Vue.config.productionTip = false;
 
