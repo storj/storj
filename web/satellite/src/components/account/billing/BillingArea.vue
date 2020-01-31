@@ -69,7 +69,7 @@ export default class BillingArea extends Vue {
 
 <style scoped lang="scss">
     .account-billing-area {
-        padding-bottom: 35px;
+        padding-bottom: 55px;
 
         &__notification-container {
             margin-top: 35px;

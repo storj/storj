@@ -22,7 +22,7 @@
                 @input="onCustomAmountChange"
             >
             <p class="label__sign" v-if="customAmount">$</p>
-            <div class="input-svg" @click.self.stop="closeCustomAmountSelection">
+            <div class="input-svg" @click.stop="closeCustomAmountSelection">
                 <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
                 </svg>
@@ -56,6 +56,7 @@
                 Custom Amount
             </div>
         </div>
+        <div class="payment-selection-blur" v-if="isSelectionShown"/>
     </div>
 </template>
 
@@ -234,7 +235,7 @@ export default class TokenDepositSelection extends Vue {
         color: #354049;
         background-color: white;
         z-index: 102;
-        margin-right: 10px;
+        margin: 0 10px 100px 0;
         border-radius: 12px;
         top: 50px;
         box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
@@ -281,5 +282,13 @@ export default class TokenDepositSelection extends Vue {
                 background-color: red;
             }
         }
+    }
+
+    .payment-selection-blur {
+        width: 258px;
+        height: 50px;
+        position: absolute;
+        top: 0;
+        left: 0;
     }
 </style>

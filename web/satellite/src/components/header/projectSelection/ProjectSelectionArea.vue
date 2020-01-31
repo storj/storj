@@ -42,15 +42,23 @@ import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
     },
 })
 export default class ProjectSelectionArea extends Vue {
+    private isLoading: boolean = false;
+
     public async toggleSelection(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
             await this.$notify.error(error.message);
+            this.isLoading = false;
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
+        this.isLoading = false;
     }
 
     public get name(): string {
