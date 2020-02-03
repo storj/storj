@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"path/filepath"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -188,6 +189,16 @@ func (server *Server) satelliteHandler(w http.ResponseWriter, r *http.Request) {
 // cacheMiddleware is a middleware for caching static files.
 func (server *Server) cacheMiddleware(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// "mime" package, which http.FileServer uses, depends on Operating System
+		// configuration for mime-types. When a system has hardcoded mime-types to
+		// something else, they might serve ".js" as a "plain/text".
+		//
+		// Override any of that default behavior to ensure we get the correct types for
+		// common files.
+		if contentType, ok := CommonContentType(filepath.Ext(r.URL.Path)); ok {
+			w.Header().Set("Content-Type", contentType)
+		}
+
 		w.Header().Set("Cache-Control", "public, max-age=31536000")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 
