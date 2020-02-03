@@ -61,13 +61,15 @@ goimports-st: ## Applies goimports to every go file in `git status` (ignores unt
 	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
 
 .PHONY: build-packages
-build-packages: build-packages-race build-packages-normal build-npm ## Test docker images locally
+build-packages: build-packages-race build-packages-normal build-satellite-npm build-storagenode-npm ## Test docker images locally
 build-packages-race:
 	go build -v ./...
 build-packages-normal:
 	go build -v -race ./...
-build-npm:
+build-satellite-npm:
 	cd web/satellite && npm ci
+build-storagenode-npm:
+	cd web/storagenode && npm ci
 
 ##@ Simulator
 

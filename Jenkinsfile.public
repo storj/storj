@@ -27,7 +27,7 @@ pipeline {
 
                 sh 'service postgresql start'
 
-                sh 'make -j3 build-packages'
+                sh 'make -j4 build-packages'
                 sh 'make install-sim'
 
                 sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8080 --cache 512MiB --max-sql-memory 512MiB --background'
@@ -151,13 +151,23 @@ pipeline {
                     }
                 }
 
-                stage('npm') {
+                stage('satellite npm') {
                     steps {
                         dir("web/satellite") {
                             sh 'npm run build'
                             sh 'npm run lint'
-                            // TODO: reenable with vue4
-                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm audit'
+                            sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('storagenode npm') {
+                    steps {
+                        dir("web/storagenode") {
+                            sh 'npm run build'
+                            sh 'npm run lint'
+                            sh 'npm audit'
                             sh 'npm run test'
                         }
                     }
