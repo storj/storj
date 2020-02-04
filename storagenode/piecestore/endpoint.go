@@ -335,12 +335,18 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 		}
 		uploadDuration := dt.Nanoseconds()
 
-		if err != nil {
+		if errs2.IsCanceled(err) {
+			mon.Meter("upload_cancel_byte_meter").Mark64(uploadSize)
+			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
+			mon.IntVal("upload_cancel_duration_ns").Observe(uploadDuration)
+			mon.FloatVal("upload_cancel_rate_bytes_per_sec").Observe(uploadRate)
+			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+		} else if err != nil {
 			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+			endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
 			mon.Meter("upload_success_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_success_size_bytes").Observe(uploadSize)
@@ -364,6 +370,9 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 	defer func() {
 		// cancel error if it hasn't been committed
 		if cancelErr := pieceWriter.Cancel(ctx); cancelErr != nil {
+			if errs2.IsCanceled(cancelErr) {
+				return
+			}
 			endpoint.log.Error("error during canceling a piece write", zap.Error(cancelErr))
 		}
 	}()
@@ -569,12 +578,18 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			downloadRate = float64(downloadSize) / dt.Seconds()
 		}
 		downloadDuration := dt.Nanoseconds()
-		if err != nil {
+		if errs2.IsCanceled(err) {
+			mon.Meter("download_cancel_byte_meter").Mark64(downloadSize)
+			mon.IntVal("download_cancel_size_bytes").Observe(downloadSize)
+			mon.IntVal("download_cancel_duration_ns").Observe(downloadDuration)
+			mon.FloatVal("download_cancel_rate_bytes_per_sec").Observe(downloadRate)
+			endpoint.log.Info("download canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+		} else if err != nil {
 			mon.Meter("download_failure_byte_meter").Mark64(downloadSize)
 			mon.IntVal("download_failure_size_bytes").Observe(downloadSize)
 			mon.IntVal("download_failure_duration_ns").Observe(downloadDuration)
 			mon.FloatVal("download_failure_rate_bytes_per_sec").Observe(downloadRate)
-			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+			endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
 			mon.Meter("download_success_byte_meter").Mark64(downloadSize)
 			mon.IntVal("download_success_size_bytes").Observe(downloadSize)
@@ -594,6 +609,9 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	defer func() {
 		err := pieceReader.Close() // similarly how transcation Rollback works
 		if err != nil {
+			if errs2.IsCanceled(err) {
+				return
+			}
 			// no reason to report this error to the uplink
 			endpoint.log.Error("failed to close piece reader", zap.Error(err))
 		}
@@ -705,7 +723,6 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 				return nil
 			}
 			if errs2.IsCanceled(err) {
-				endpoint.log.Debug("client canceled connection")
 				return nil
 			}
 			if err != nil {
