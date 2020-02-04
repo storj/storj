@@ -19,6 +19,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
@@ -182,6 +183,83 @@ func TestCacheInit(t *testing.T) {
 		require.Equal(t, int64(127), actualTrash)
 	})
 
+}
+
+func TestCachServiceRun(t *testing.T) {
+	log := zaptest.NewLogger(t)
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		spaceUsedDB := db.PieceSpaceUsedDB()
+
+		blobstore, err := filestore.NewAt(log, ctx.Dir())
+		require.NoError(t, err)
+
+		// Prior to initializing the cache service (which should walk the files),
+		// write a single file so something exists to be counted
+		expBlobSize := memory.KB
+		w, err := blobstore.Create(ctx, storage.BlobRef{
+			Namespace: testrand.NodeID().Bytes(),
+			Key:       testrand.PieceID().Bytes(),
+		}, -1)
+		require.NoError(t, err)
+		_, err = w.Write(testrand.Bytes(expBlobSize))
+		require.NoError(t, err)
+		require.NoError(t, w.Commit(ctx))
+
+		// Now write a piece that we are going to trash
+		expTrashSize := 2 * memory.KB
+		trashRef := storage.BlobRef{
+			Namespace: testrand.NodeID().Bytes(),
+			Key:       testrand.PieceID().Bytes(),
+		}
+		w, err = blobstore.Create(ctx, trashRef, -1)
+		require.NoError(t, err)
+		_, err = w.Write(testrand.Bytes(expTrashSize))
+		require.NoError(t, err)
+		require.NoError(t, w.Commit(ctx))
+		require.NoError(t, blobstore.Trash(ctx, trashRef)) // trash it
+
+		// Now instantiate the cache
+		cache := pieces.NewBlobsUsageCache(log, blobstore)
+		cacheService := pieces.NewService(log,
+			cache,
+			pieces.NewStore(log, cache, nil, nil, spaceUsedDB),
+			1*time.Hour,
+		)
+
+		// Init the cache service, to read the values from the db (should all be 0)
+		require.NoError(t, cacheService.Init(ctx))
+		piecesTotal, piecesContentSize, err := cache.SpaceUsedForPieces(ctx)
+		require.NoError(t, err)
+		trashTotal, err := cache.SpaceUsedForTrash(ctx)
+		require.NoError(t, err)
+
+		// Assert that all the values start as 0, since we have not walked the files
+		assert.Equal(t, int64(0), piecesTotal)
+		assert.Equal(t, int64(0), piecesContentSize)
+		assert.Equal(t, int64(0), trashTotal)
+
+		// Run the cache service, which will walk all the pieces
+		var eg errgroup.Group
+		eg.Go(func() error {
+			return cacheService.Run(ctx)
+		})
+
+		// Wait for the cache service init to finish
+		cacheService.InitFence.Wait(ctx)
+
+		// Check and verify that the reported sizes match expected values
+		piecesTotal, piecesContentSize, err = cache.SpaceUsedForPieces(ctx)
+		require.NoError(t, err)
+		trashTotal, err = cache.SpaceUsedForTrash(ctx)
+		require.NoError(t, err)
+
+		assert.Equal(t, int64(expBlobSize), piecesTotal)
+		assert.Equal(t, int64(expBlobSize-pieces.V1PieceHeaderReservedArea), piecesContentSize)
+		assert.True(t, trashTotal >= int64(expTrashSize))
+
+		require.NoError(t, cacheService.Close())
+		require.NoError(t, eg.Wait())
+	})
 }
 
 func TestPersistCacheTotals(t *testing.T) {

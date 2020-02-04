@@ -25,6 +25,10 @@ type CacheService struct {
 	usageCache *BlobsUsageCache
 	store      *Store
 	Loop       *sync2.Cycle
+
+	// InitFence is released once the cache's Run method returns or when it has
+	// completed its first loop. This is useful for testing.
+	InitFence sync2.Fence
 }
 
 // NewService creates a new cache service that updates the space usage cache on startup and syncs the cache values to
@@ -42,6 +46,7 @@ func NewService(log *zap.Logger, usageCache *BlobsUsageCache, pieces *Store, int
 // to persistent storage on an interval
 func (service *CacheService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer service.InitFence.Release()
 
 	totalsAtStart := service.usageCache.copyCacheTotals()
 
@@ -49,10 +54,12 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 	piecesTotal, piecesContentSize, totalsBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
 	if err != nil {
 		service.log.Error("error getting current space used calculation: ", zap.Error(err))
+		return err
 	}
 	trashTotal, err := service.usageCache.Blobs.SpaceUsedForTrash(ctx)
 	if err != nil {
 		service.log.Error("error getting current space for trash: ", zap.Error(err))
+		return err
 	}
 	service.usageCache.Recalculate(
 		piecesTotal,
@@ -67,6 +74,7 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 
 	if err = service.store.spaceUsedDB.Init(ctx); err != nil {
 		service.log.Error("error during init space usage db: ", zap.Error(err))
+		return err
 	}
 
 	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
@@ -77,6 +85,7 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 		if err := service.PersistCacheTotals(ctx); err != nil {
 			service.log.Error("error persisting cache totals to the database: ", zap.Error(err))
 		}
+		service.InitFence.Release()
 		return err
 	})
 }
