@@ -39,7 +39,8 @@ export class Stamp {
      */
     public static emptyWithDate(date: number): Stamp {
         const now = new Date();
-        now.setDate(date);
+        now.setUTCDate(date);
+        now.setUTCHours(0, 0, 0, 0);
 
         return new Stamp(0, now);
     }
@@ -105,7 +106,8 @@ export class BandwidthUsed {
      */
     public static emptyWithDate(date: number): BandwidthUsed {
         const now = new Date();
-        now.setDate(date);
+        now.setUTCDate(date);
+        now.setUTCHours(0, 0, 0, 0);
 
         return new BandwidthUsed(new Egress(0, 0, 0), new Ingress(0, 0), now);
     }
@@ -134,7 +136,8 @@ export class EgressUsed {
      */
     public static emptyWithDate(date: number): EgressUsed {
         const now = new Date();
-        now.setDate(date);
+        now.setUTCDate(date);
+        now.setUTCHours(0, 0, 0, 0);
 
         return new EgressUsed(new Egress(0, 0, 0), now);
     }
@@ -163,7 +166,8 @@ export class IngressUsed {
      */
     public static emptyWithDate(date: number): IngressUsed {
         const now = new Date();
-        now.setDate(date);
+        now.setUTCDate(date);
+        now.setUTCHours(0, 0, 0, 0);
 
         return new IngressUsed(new Ingress(0, 0), now);
     }
