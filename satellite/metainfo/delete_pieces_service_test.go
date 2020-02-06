@@ -356,7 +356,8 @@ func TestDeletePiecesService_DeletePieces_Invalid(t *testing.T) {
 		t.Run("invalid threshold", func(t *testing.T) {
 			t.Parallel()
 			nodesPieces := metainfo.NodesPieces{
-				{Pieces: make([]storj.PieceID, 2)},
+				{Pieces: make([]storj.PieceID, 1)},
+				{Pieces: make([]storj.PieceID, 1)},
 			}
 			err := deletePiecesService.DeletePieces(ctx, nodesPieces, 1)
 			require.Error(t, err)
