@@ -18,8 +18,7 @@ replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190918084
 require (
 	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
 	github.com/alessio/shellescape v0.0.0-20190409004728-b115ca0f9053
-	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
-	github.com/alicebob/miniredis v2.5.0+incompatible
+	github.com/alicebob/miniredis/v2 v2.11.1
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/boltdb/bolt v1.3.1
@@ -94,7 +93,6 @@ require (
 	github.com/tidwall/gjson v1.1.3 // indirect
 	github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1 // indirect
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
-	github.com/yuin/gopher-lua v0.0.0-20180918061612-799fa34954fb // indirect
 	github.com/zeebo/admission/v2 v2.0.0-20191108235419-c7982d45d29a
 	github.com/zeebo/errs v1.2.2
 	github.com/zeebo/structs v1.0.2
