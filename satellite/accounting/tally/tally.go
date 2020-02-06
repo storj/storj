@@ -132,6 +132,9 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 		for projectID, latest := range latestLiveTotals {
 			delta := latest - initialLiveTotals[projectID]
+			if delta < 0 {
+				delta = 0
+			}
 			err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latest+tallyProjectTotals[projectID]+(delta/2))
 			if err != nil {
 				return Error.Wrap(err)
