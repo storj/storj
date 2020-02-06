@@ -15,7 +15,7 @@
                 :key="link.url"
             >
                 <p class="referral-container__copy-and-share-container__link-holder__link">{{ link.url }}</p>
-                <div class="copy-button" v-clipboard="link.url" @click="copyLink">Copy</div>
+                <div class="copy-button" v-clipboard:copy="link.url" @click="copyLink">Copy</div>
             </div>
         </div>
         <div class="referral-container__not-available" v-else>
@@ -26,15 +26,12 @@
 </template>
 
 <script lang="ts">
-import VueClipboards from 'vue-clipboards';
 import { Component, Vue } from 'vue-property-decorator';
 
 import NoLinksIcon from '@/../static/images/referral/NoLinks.svg';
 
 import { REFERRAL_ACTIONS } from '@/store/modules/referral';
 import { ReferralLink } from '@/types/referral';
-
-Vue.use(VueClipboards);
 
 @Component({
     components: {

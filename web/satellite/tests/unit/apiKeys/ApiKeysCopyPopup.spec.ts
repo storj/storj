@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import VueClipboard from 'vue-clipboard2';
 import Vuex from 'vuex';
 
 import ApiKeysCopyPopup from '@/components/apiKeys/ApiKeysCopyPopup.vue';
@@ -13,6 +14,7 @@ import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
+localVue.use(VueClipboard);
 const notificationPlugin = new NotificatorPlugin();
 localVue.use(notificationPlugin);
 const apiKeysApi = new ApiKeysApiGql();
@@ -23,7 +25,7 @@ const testKey = 'test';
 const store = new Vuex.Store({ modules: { notificationsModule, apiKeysModule }});
 
 describe('ApiKeysCopyPopup', () => {
-    it('renders correctly', () => {
+    it('renders correctly', async () => {
         const wrapper = mount(ApiKeysCopyPopup, {
             store,
             localVue,
@@ -35,6 +37,9 @@ describe('ApiKeysCopyPopup', () => {
 
         expect(wrapper).toMatchSnapshot();
         expect(wrapper.find('.save-api-popup__copy-area__key-area__key').text()).toBe(testKey);
+
+        await wrapper.find('.copy-button').trigger('click');
+        expect(wrapper).toMatchSnapshot();
     });
 
     it('function onCloseClick works correctly', async () => {

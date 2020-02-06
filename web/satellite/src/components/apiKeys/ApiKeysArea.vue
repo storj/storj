@@ -107,7 +107,6 @@
 </template>
 
 <script lang="ts">
-import VueClipboards from 'vue-clipboards';
 import { Component, Vue } from 'vue-property-decorator';
 
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
@@ -128,8 +127,6 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
 import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
-
-Vue.use(VueClipboards);
 
 // header state depends on api key selection state
 enum HeaderState {
