@@ -6,17 +6,31 @@ package admin
 
 import (
 	"context"
+	"crypto/subtle"
 	"net"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/console"
 )
 
 // Config defines configuration for debug server.
 type Config struct {
 	Address string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
+
+	AuthorizationToken string `internal:"true"`
+}
+
+// DB is databases needed for the admin server.
+type DB interface {
+	// ProjectAccounting returns database for storing information about project data use
+	ProjectAccounting() accounting.ProjectAccounting
+	// Console returns database for satellite console
+	Console() console.DB
 }
 
 // Server provides endpoints for debugging.
@@ -25,17 +39,55 @@ type Server struct {
 
 	listener net.Listener
 	server   http.Server
-	mux      mux.Router
+	mux      *mux.Router
+
+	db DB
 }
 
 // NewServer returns a new debug.Server.
-func NewServer(log *zap.Logger, listener net.Listener, config Config) *Server {
-	server := &Server{log: log}
+func NewServer(log *zap.Logger, listener net.Listener, db DB, config Config) *Server {
+	server := &Server{
+		log: log,
+	}
 
+	server.db = db
 	server.listener = listener
-	server.server.Handler = &server.mux
+	server.mux = mux.NewRouter()
+	server.server.Handler = &protectedServer{
+		allowedAuthorization: config.AuthorizationToken,
+		next:                 server.mux,
+	}
+
+	server.mux.HandleFunc("/project/{project}/limit", server.getProjectLimit).Methods("GET")
+	server.mux.HandleFunc("/project/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
 
 	return server
+}
+
+type protectedServer struct {
+	allowedAuthorization string
+
+	next http.Handler
+}
+
+func (server *protectedServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if server.allowedAuthorization == "" {
+		http.Error(w, "Authorization not enabled.", http.StatusForbidden)
+		return
+	}
+
+	equality := subtle.ConstantTimeCompare(
+		[]byte(r.Header.Get("Authorization")),
+		[]byte(server.allowedAuthorization),
+	)
+	if equality != 1 {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	r.Header.Set("Cache-Control", "must-revalidate")
+
+	server.next.ServeHTTP(w, r)
 }
 
 // Run starts the debug endpoint.

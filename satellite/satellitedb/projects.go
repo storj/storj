@@ -139,6 +139,24 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 	return err
 }
 
+// UpdateRateLimit is a method for updating projects rate limit.
+func (projects *projects) UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rateLimit := &newLimit
+	if newLimit == 0 {
+		rateLimit = nil
+	}
+
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			RateLimit: dbx.Project_RateLimit_Raw(rateLimit),
+		})
+
+	return err
+}
+
 // List returns paginated projects, created before provided timestamp.
 func (projects *projects) List(ctx context.Context, offset int64, limit int, before time.Time) (_ console.ProjectsPage, err error) {
 	defer mon.Task()(&ctx)(&err)

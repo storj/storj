@@ -406,6 +406,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				Address:         "127.0.0.1:0",
 				StaticDir:       filepath.Join(developmentRoot, "web/satellite"),
 				PasswordCost:    console.TestPasswordCost,
+				AuthToken:       "very-secret-token",
 				AuthTokenSecret: "my-suppa-secret-key",
 			},
 			Marketing: marketingweb.Config{
