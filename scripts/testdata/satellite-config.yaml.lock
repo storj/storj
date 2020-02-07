@@ -1,3 +1,6 @@
+# admin peer http listening address
+# admin.address: ""
+
 # how often to run the reservoir chore
 # audit.chore-interval: 24h0m0s
 

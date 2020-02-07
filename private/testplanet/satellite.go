@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -189,7 +190,12 @@ func (system *SatelliteSystem) URL() storj.NodeURL {
 
 // Close closes all the subsystems in the Satellite system
 func (system *SatelliteSystem) Close() error {
-	return errs.Combine(system.API.Close(), system.Core.Close(), system.Repairer.Close())
+	return errs.Combine(
+		system.API.Close(),
+		system.Core.Close(),
+		system.Repairer.Close(),
+		system.Admin.Close(),
+	)
 }
 
 // Run runs all the subsystems in the Satellite system
@@ -204,6 +210,9 @@ func (system *SatelliteSystem) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.Repairer.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.Admin.Run(ctx))
 	})
 	return group.Wait()
 }
@@ -281,6 +290,9 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			},
 			Debug: debug.Config{
 				Address: "",
+			},
+			Admin: admin.Config{
+				Address: "127.0.0.1:0",
 			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
