@@ -61,6 +61,7 @@ type SatelliteSystem struct {
 	Core     *satellite.Core
 	API      *satellite.API
 	Repairer *satellite.Repairer
+	Admin    *satellite.Admin
 
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
@@ -466,6 +467,11 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			return xs, err
 		}
 
+		adminPeer, err := planet.newAdmin(i, identity, db, pointerDB, config, versionInfo)
+		if err != nil {
+			return xs, err
+		}
+
 		repairerPeer, err := planet.newRepairer(i, identity, db, pointerDB, config, versionInfo)
 		if err != nil {
 			return xs, err
@@ -473,7 +479,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + api.Addr())
 
-		system := createNewSystem(log, peer, api, repairerPeer)
+		system := createNewSystem(log, peer, api, repairerPeer, adminPeer)
 		xs = append(xs, system)
 	}
 	return xs, nil
@@ -483,11 +489,12 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many prrocesses.
-func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer) *SatelliteSystem {
+func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin) *SatelliteSystem {
 	system := &SatelliteSystem{
 		Core:     peer,
 		API:      api,
 		Repairer: repairerPeer,
+		Admin:    adminPeer,
 	}
 	system.Log = log
 	system.Identity = peer.Identity
@@ -571,8 +578,21 @@ func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db sate
 	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo)
 }
 
-func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config,
-	versionInfo version.Info) (*satellite.Repairer, error) {
+func (planet *Planet) newAdmin(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
+	prefix := "satellite-admin" + strconv.Itoa(count)
+	log := planet.log.Named(prefix)
+	var err error
+
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, revocationDB)
+
+	return satellite.NewAdmin(log, identity, db, pointerDB, revocationDB, versionInfo, &config)
+}
+
+func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
 	prefix := "satellite-repairer" + strconv.Itoa(count)
 	log := planet.log.Named(prefix)
 

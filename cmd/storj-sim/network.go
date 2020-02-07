@@ -63,10 +63,10 @@ const (
 	debugHTTP   = 9
 
 	// satellite specific constants
-	redisPort          = 4
-	debugMigrationHTTP = 6
-	debugPeerHTTP      = 7
-	debugRepairerHTTP  = 8
+	redisPort         = 4
+	debugAdminHTTP    = 6
+	debugPeerHTTP     = 7
+	debugRepairerHTTP = 8
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -366,7 +366,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		migrationProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"migration",
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugMigrationHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
 		})
 
@@ -382,6 +382,19 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			},
 		})
 		coreProcess.WaitForExited(migrationProcess)
+
+		adminProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-admin/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Address:    "",
+		})
+		adminProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
+			"run": {
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugAdminHTTP)),
+			},
+		})
+		adminProcess.WaitForExited(migrationProcess)
 
 		repairProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-repairer/%d", i),
