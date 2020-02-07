@@ -64,6 +64,7 @@ const (
 
 	// satellite specific constants
 	redisPort         = 4
+	adminHTTP         = 5
 	debugAdminHTTP    = 6
 	debugPeerHTTP     = 7
 	debugRepairerHTTP = 8
@@ -335,6 +336,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
+
+				"--admin.address", net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
 			},
 			"run": {"api"},
 		})
@@ -387,10 +390,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Name:       fmt.Sprintf("satellite-admin/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
-			Address:    "",
+			Address:    net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
 		})
 		adminProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
+				"admin",
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugAdminHTTP)),
 			},
 		})

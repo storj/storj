@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -41,6 +42,11 @@ type Admin struct {
 	}
 
 	Version *checker.Service
+
+	Admin struct {
+		Listener net.Listener
+		Server   *admin.Server
+	}
 }
 
 // NewAdmin creates a new satellite admin peer.
@@ -89,6 +95,22 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:  peer.Version.Run,
 		})
 	}
+
+	{ // setup debug
+		var err error
+		peer.Admin.Listener, err = net.Listen("tcp", config.Admin.Address)
+		if err != nil {
+			return nil, err
+		}
+
+		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, config.Admin)
+		peer.Servers.Add(lifecycle.Item{
+			Name:  "admin",
+			Run:   peer.Admin.Server.Run,
+			Close: peer.Admin.Server.Close,
+		})
+	}
+
 	return peer, nil
 }
 
