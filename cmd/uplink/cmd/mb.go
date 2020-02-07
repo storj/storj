@@ -21,6 +21,7 @@ func init() {
 		Use:   "mb sj://BUCKET",
 		Short: "Create a new bucket",
 		RunE:  makeBucket,
+		Args:  cobra.ExactArgs(1),
 	}, RootCmd)
 }
 

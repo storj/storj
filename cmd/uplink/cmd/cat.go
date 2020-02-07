@@ -17,6 +17,7 @@ func init() {
 		Use:   "cat sj://BUCKET/KEY",
 		Short: "Copies a Storj object to standard out",
 		RunE:  catMain,
+		Args:  cobra.ExactArgs(1),
 	}, RootCmd)
 }
 

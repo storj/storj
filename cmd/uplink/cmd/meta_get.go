@@ -19,6 +19,7 @@ func init() {
 		Use:   "get [KEY] PATH",
 		Short: "Get a Storj object's metadata",
 		RunE:  metaGetMain,
+		Args:  cobra.RangeArgs(1, 2),
 	}, metaCmd)
 }
 
