@@ -451,8 +451,8 @@ github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
 github.com/yuin/gopher-lua v0.0.0-20190206043414-8bfc7677f583 h1:SZPG5w7Qxq7bMcMVl6e3Ht2X7f+AAGQdzjkbyOnNNZ8=
 github.com/yuin/gopher-lua v0.0.0-20190206043414-8bfc7677f583/go.mod h1:gqRgreBUhTSL0GeU64rtZ3Uq3wtjOa/TB2YfrtkCbVQ=
-github.com/zeebo/admission/v2 v2.0.0-20191108235419-c7982d45d29a h1:ycSw8pJ2MFGraixL9hFv5bknnIH7wQZ76S7h/4sLGcI=
-github.com/zeebo/admission/v2 v2.0.0-20191108235419-c7982d45d29a/go.mod h1:gSeHGelDHW7Vq6UyJo2boeSt/6Dsnqpisv0i4YZSOyM=
+github.com/zeebo/admission/v2 v2.0.0 h1:220NPZzKmyfklysKFO95L7E2Gt5NwlxTWGE14VP8heE=
+github.com/zeebo/admission/v2 v2.0.0/go.mod h1:gSeHGelDHW7Vq6UyJo2boeSt/6Dsnqpisv0i4YZSOyM=
 github.com/zeebo/assert v0.0.0-20181109011804-10f827ce2ed6 h1:bs7mSHVrLRQHxqWcm0hyez0sA23YuXb8Pwnq5NhyZ8A=
 github.com/zeebo/assert v0.0.0-20181109011804-10f827ce2ed6/go.mod h1:yssERNPivllc1yU3BvpjYI5BUW+zglcz6QWqeVRL5t0=
 github.com/zeebo/assert v1.0.0 h1:qw3LXzO7lbptWIQ6DsemJIUOoaqyKbgY3M8b8yvlaaY=

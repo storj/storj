@@ -93,7 +93,7 @@ require (
 	github.com/tidwall/gjson v1.1.3 // indirect
 	github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1 // indirect
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
-	github.com/zeebo/admission/v2 v2.0.0-20191108235419-c7982d45d29a
+	github.com/zeebo/admission/v2 v2.0.0
 	github.com/zeebo/errs v1.2.2
 	github.com/zeebo/structs v1.0.2
 	go.uber.org/zap v1.10.0
