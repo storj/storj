@@ -186,6 +186,11 @@ func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error)
 		return 0, Error.Wrap(err)
 	}
 	allocatedSpace := service.allocatedDiskSpace
+
+	mon.IntVal("allocated_space").Observe(allocatedSpace)
+	mon.IntVal("used_space").Observe(usedSpace)
+	mon.IntVal("available_space").Observe(allocatedSpace - usedSpace)
+
 	return allocatedSpace - usedSpace, nil
 }
 
@@ -200,6 +205,7 @@ func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err er
 
 	mon.IntVal("allocated_bandwidth").Observe(allocatedBandwidth) //locked
 	mon.IntVal("used_bandwidth").Observe(usage)                   //locked
+	mon.IntVal("available_bandwidth").Observe(allocatedBandwidth - usage)
 
 	return allocatedBandwidth - usage, nil
 }
