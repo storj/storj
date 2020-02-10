@@ -75,7 +75,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 			totalBandwidthUsage.Add(usage)
 		}
 
-		err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
+		err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "test/path")
 		require.NoError(t, err)
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
 		require.Error(t, err)

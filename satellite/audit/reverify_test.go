@@ -535,7 +535,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		// delete the file
-		err = ul.Delete(ctx, satellite, "testbucket", "test/path1")
+		err = ul.DeleteObject(ctx, satellite, "testbucket", "test/path1")
 		require.NoError(t, err)
 
 		// call reverify on the deleted file and expect a segment deleted error

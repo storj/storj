@@ -644,7 +644,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		// delete the file
-		err = ul.Delete(ctx, satellite, "testbucket", "test/path")
+		err = ul.DeleteObject(ctx, satellite, "testbucket", "test/path")
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)

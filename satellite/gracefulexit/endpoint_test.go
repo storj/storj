@@ -1021,7 +1021,7 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 		// a successful graceful exit instead of a request to transfer pieces since the root piece IDs will have changed.
 		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path0", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
-		err = uplinkPeer.Delete(ctx, satellite, "testbucket", "test/path1")
+		err = uplinkPeer.DeleteObject(ctx, satellite, "testbucket", "test/path1")
 		require.NoError(t, err)
 
 		// reconnect to the satellite.

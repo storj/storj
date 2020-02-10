@@ -284,7 +284,7 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "test-bucket", "test-file")
+		err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "test-bucket", "test-file")
 		require.NoError(t, err)
 
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "test-bucket", "test-file")

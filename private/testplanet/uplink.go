@@ -269,8 +269,8 @@ func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satell
 	return downloader, cleanup, err
 }
 
-// Delete deletes an object at the path in a bucket
-func (client *Uplink) Delete(ctx context.Context, satellite *SatelliteSystem, bucketName string, path storj.Path) error {
+// DeleteObject deletes an object at the path in a bucket
+func (client *Uplink) DeleteObject(ctx context.Context, satellite *SatelliteSystem, bucketName string, path storj.Path) error {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
 	if err != nil {
 		return err
@@ -300,6 +300,21 @@ func (client *Uplink) CreateBucket(ctx context.Context, satellite *SatelliteSyst
 	bucketCfg.Volatile.SegmentsSize = clientCfg.GetSegmentSize()
 
 	_, err = project.CreateBucket(ctx, bucketName, bucketCfg)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteBucket deletes a bucket.
+func (client *Uplink) DeleteBucket(ctx context.Context, satellite *SatelliteSystem, bucketName string) error {
+	project, err := client.GetProject(ctx, satellite)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	err = project.DeleteBucket(ctx, bucketName)
 	if err != nil {
 		return err
 	}
