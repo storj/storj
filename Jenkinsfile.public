@@ -156,7 +156,7 @@ pipeline {
                         dir("web/satellite") {
                             sh 'npm run build'
                             sh 'npm run lint'
-                            sh 'npm audit'
+                            sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }
                     }
@@ -167,7 +167,7 @@ pipeline {
                         dir("web/storagenode") {
                             sh 'npm run build'
                             sh 'npm run lint'
-                            sh 'npm audit'
+                            sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }
                     }
