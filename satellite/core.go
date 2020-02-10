@@ -491,7 +491,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Downtime,
 			peer.Overlay.Service,
 			peer.DowntimeTracking.Service,
-			peer.DB.DowntimeTracking(),
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "downtime:detection",

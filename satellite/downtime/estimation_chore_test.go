@@ -9,13 +9,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/downtime"
 )
 
-func TestEstimationChore(t *testing.T) {
+// TestEstimationChoreBasic tests the basic functionality of the downtime estimation chore:
+// 1. Test that when a node that had one failed ping, and one successful ping >1s later does not have recorded downtime
+// 2. Test that when a node that had one failed ping, and another failed ping >1s later has at least 1s of recorded downtime
+func TestEstimationChoreBasic(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
@@ -72,5 +77,71 @@ func TestEstimationChore(t *testing.T) {
 			require.Equal(t, oldNode.Reputation.LastContactSuccess, newNode.Reputation.LastContactSuccess)
 			require.True(t, oldNode.Reputation.LastContactFailure.Before(newNode.Reputation.LastContactFailure))
 		}
+	})
+}
+
+// TestEstimationChoreSatelliteDowntime tests the situation where downtime is estimated when the satellite was started after the last failed ping
+// If a storage node has a failed ping, then another ping fails later, the estimation chore will normally take the difference between these pings and record that as the downtime.
+// If the satellite was started between the old failed ping and the new failed ping, we do not want to risk including satellite downtime in our calculation - no downtime should be recorded in this case.
+func TestEstimationChoreSatelliteDowntime(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Downtime.EstimationBatchSize = 1
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		satellite := planet.Satellites[0]
+		node.Contact.Chore.Pause(ctx)
+		satellite.DowntimeTracking.EstimationChore.Loop.Pause()
+
+		// mark node as failing an uptime check so the estimation chore picks it up
+		_, err := satellite.DB.OverlayCache().UpdateUptime(ctx, node.ID(), false)
+		require.NoError(t, err)
+		oldNode, err := satellite.DB.OverlayCache().Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.True(t, oldNode.Reputation.LastContactSuccess.Before(oldNode.Reputation.LastContactFailure))
+		// close the node service so the ping back will fail
+		err = node.Server.Close()
+		require.NoError(t, err)
+
+		// create new estimation chore that starts after the node's last contacted time
+		newEstimationChore := downtime.NewEstimationChore(
+			satellite.Log,
+			downtime.Config{
+				EstimationInterval:  1 * time.Second,
+				EstimationBatchSize: 10,
+			},
+			satellite.Overlay.Service,
+			satellite.DowntimeTracking.Service,
+			satellite.DB.DowntimeTracking(),
+		)
+
+		time.Sleep(1 * time.Second) // wait for 1s because estimation chore truncates offline duration to seconds
+
+		var group errgroup.Group
+		group.Go(func() error {
+			return newEstimationChore.Run(ctx)
+		})
+		defer func() {
+			err = newEstimationChore.Close()
+			require.NoError(t, err)
+			err = group.Wait()
+			require.NoError(t, err)
+		}()
+
+		newEstimationChore.Loop.TriggerWait()
+		// since the estimation chore was started after the last ping, the node's offline time should be 0
+		downtime, err := satellite.DB.DowntimeTracking().GetOfflineTime(ctx, node.ID(), time.Now().Add(-5*time.Hour), time.Now())
+		require.NoError(t, err)
+		require.EqualValues(t, downtime, 0)
+
+		// expect node last contact failure was updated
+		newNode, err := satellite.DB.OverlayCache().Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.Equal(t, oldNode.Reputation.LastContactSuccess, newNode.Reputation.LastContactSuccess)
+		require.True(t, oldNode.Reputation.LastContactFailure.Before(newNode.Reputation.LastContactFailure))
 	})
 }

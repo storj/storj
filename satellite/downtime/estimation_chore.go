@@ -17,23 +17,25 @@ import (
 //
 // architecture: Chore
 type EstimationChore struct {
-	log     *zap.Logger
-	Loop    *sync2.Cycle
-	config  Config
-	overlay *overlay.Service
-	service *Service
-	db      DB
+	log       *zap.Logger
+	Loop      *sync2.Cycle
+	config    Config
+	startTime time.Time
+	overlay   *overlay.Service
+	service   *Service
+	db        DB
 }
 
 // NewEstimationChore instantiates EstimationChore.
 func NewEstimationChore(log *zap.Logger, config Config, overlay *overlay.Service, service *Service, db DB) *EstimationChore {
 	return &EstimationChore{
-		log:     log,
-		Loop:    sync2.NewCycle(config.EstimationInterval),
-		config:  config,
-		overlay: overlay,
-		service: service,
-		db:      db,
+		log:       log,
+		Loop:      sync2.NewCycle(config.EstimationInterval),
+		config:    config,
+		startTime: time.Now().UTC(),
+		overlay:   overlay,
+		service:   service,
+		db:        db,
 	}
 }
 
@@ -60,7 +62,7 @@ func (chore *EstimationChore) Run(ctx context.Context) (err error) {
 					zap.Error(err))
 				continue
 			}
-			if !success {
+			if !success && node.LastContactFailure.After(chore.startTime) {
 				now := time.Now().UTC()
 				duration := now.Sub(node.LastContactFailure)
 
