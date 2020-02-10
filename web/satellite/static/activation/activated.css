@@ -29,6 +29,8 @@ a {
     font-weight: bold;
     font-size: 32px;
     line-height: 39px;
+    margin: 24px 0 24px 0;
+    color: #384b65;
 }
 
 .container__info {
@@ -37,6 +39,8 @@ a {
     font-family: 'font_regular', sans-serif;
     font-size: 18px;
     line-height: 26px;
+    margin: 0;
+    color: #354049;
 }
 
 .container__button {
@@ -60,5 +64,5 @@ a {
 }
 
 .container__button:hover {
-    box-shadow: 0 4px 20px rgba(35, 121, 236, 0.4);
+    background-color: #0059d0;
 }

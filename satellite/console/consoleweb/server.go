@@ -441,15 +441,21 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 			zap.String("token", activationToken),
 			zap.Error(err))
 
-		// TODO: when new error pages will be created - change http.StatusNotFound on appropriate one
+		if console.ErrEmailUsed.Has(err) {
+			server.serveError(w, http.StatusConflict)
+			return
+		}
+
+		if console.Error.Has(err) {
+			server.serveError(w, http.StatusInternalServerError)
+			return
+		}
+
 		server.serveError(w, http.StatusNotFound)
 		return
 	}
 
-	if err = server.templates.activated.Execute(w, nil); err != nil {
-		server.log.Error("account activated template could not be executed", zap.Error(Error.Wrap(err)))
-		return
-	}
+	http.Redirect(w, r, server.config.ExternalAddress+"login?activated=true", http.StatusTemporaryRedirect)
 }
 
 func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
@@ -697,10 +703,15 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 		if err != nil {
 			server.log.Error("cannot parse internalServerError template", zap.Error(Error.Wrap(err)))
 		}
-	default:
+	case http.StatusNotFound:
 		err := server.templates.notFound.Execute(w, nil)
 		if err != nil {
 			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
+		}
+	case http.StatusConflict:
+		err := server.templates.activated.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse already activated template", zap.Error(Error.Wrap(err)))
 		}
 	}
 }
