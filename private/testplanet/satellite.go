@@ -289,6 +289,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					NewNodePercentage: 0,
 					OnlineWindow:      time.Minute,
 					DistinctIP:        false,
+					MinimumDiskSpace:  100 * memory.MB,
 
 					AuditReputationRepairWeight: 1,
 					AuditReputationUplinkWeight: 1,

@@ -202,7 +202,6 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: int(req.Redundancy.Total),
 		FreeBandwidth:  maxPieceSize,
-		FreeDisk:       maxPieceSize,
 	}
 	nodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
@@ -1484,7 +1483,6 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: redundancy.TotalCount(),
 		FreeBandwidth:  maxPieceSize,
-		FreeDisk:       maxPieceSize,
 	}
 	nodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
 	if err != nil {

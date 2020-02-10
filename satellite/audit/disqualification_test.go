@@ -176,7 +176,6 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 			MinimumRequiredNodes: 4,
 			RequestedCount:       0,
 			FreeBandwidth:        0,
-			FreeDisk:             0,
 			ExcludedNodes:        nil,
 			MinimumVersion:       "", // semver or empty
 		}

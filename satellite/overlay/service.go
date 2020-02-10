@@ -112,7 +112,6 @@ type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
 	FreeBandwidth        int64
-	FreeDisk             int64
 	ExcludedNodes        []storj.NodeID
 	MinimumVersion       string // semver or empty
 }
@@ -288,7 +287,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	if newNodeCount > 0 {
 		newNodes, err = service.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
 			FreeBandwidth:  req.FreeBandwidth,
-			FreeDisk:       req.FreeDisk,
+			FreeDisk:       preferences.MinimumDiskSpace.Int64(),
 			AuditCount:     preferences.AuditCount,
 			ExcludedNodes:  excludedNodes,
 			MinimumVersion: preferences.MinimumVersion,
@@ -311,7 +310,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	criteria := NodeCriteria{
 		FreeBandwidth:  req.FreeBandwidth,
-		FreeDisk:       req.FreeDisk,
+		FreeDisk:       preferences.MinimumDiskSpace.Int64(),
 		AuditCount:     preferences.AuditCount,
 		UptimeCount:    preferences.UptimeCount,
 		ExcludedNodes:  excludedNodes,
