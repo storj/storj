@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+
 	"storj.io/storj/storage"
 )
 
@@ -468,7 +469,7 @@ func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID)
 	return service.db.DisqualifyNode(ctx, nodeID)
 }
 
-func getIP(ctx context.Context, target string) (ip net.IPAddr, err error) {
+func GetIP(ctx context.Context, target string) (ip net.IPAddr, err error) {
 	defer mon.Task()(&ctx)(&err)
 	host, _, err := net.SplitHostPort(target)
 	if err != nil {
@@ -491,7 +492,7 @@ func (service *Service) GetOfflineNodesLimited(ctx context.Context, limit int) (
 func GetNetwork(ctx context.Context, target string) (network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	addr, err := getIP(ctx, target)
+	addr, err := GetIP(ctx, target)
 	if err != nil {
 		return "", err
 	}

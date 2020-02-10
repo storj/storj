@@ -32,6 +32,7 @@ require (
 	github.com/fatih/structs v1.0.0 // indirect
 	github.com/go-ini/ini v1.38.2 // indirect
 	github.com/go-redis/redis v6.14.1+incompatible
+	github.com/gocarina/gocsv v0.0.0-20191214001331-e6697589f2e0 // indirect
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang-migrate/migrate/v4 v4.7.0
 	github.com/golang/protobuf v1.3.2
@@ -48,12 +49,14 @@ require (
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c // indirect
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
 	github.com/jackc/pgx v3.2.0+incompatible
+	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc0
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
+	github.com/kr/pretty v0.1.0
 	github.com/lib/pq v1.3.0
 	github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271

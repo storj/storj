@@ -736,6 +736,52 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN rate_limit integer;`,
 				},
 			},
+			{
+				Description: "Add node compensation tables and accounting rollup start_date index",
+				Version:     81,
+				Action: migrate.SQL{
+					// Storage Node Payments and indices
+					`CREATE TABLE storagenode_payments (
+						id bigserial NOT NULL,
+						created_at timestamp NOT NULL,
+						node_id bytea NOT NULL,
+						period text NOT NULL,
+						amount bigint NOT NULL,
+						receipt text,
+						notes text,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );`,
+					// Storage Node Paystubs and indices
+					`CREATE TABLE storagenode_paystubs (
+						period text NOT NULL,
+						node_id bytea NOT NULL,
+						created_at timestamp NOT NULL,
+						codes text NOT NULL,
+						usage_at_rest double precision NOT NULL,
+						usage_get bigint NOT NULL,
+						usage_put bigint NOT NULL,
+						usage_get_repair bigint NOT NULL,
+						usage_put_repair bigint NOT NULL,
+						usage_get_audit bigint NOT NULL,
+						comp_at_rest bigint NOT NULL,
+						comp_get bigint NOT NULL,
+						comp_put bigint NOT NULL,
+						comp_get_repair bigint NOT NULL,
+						comp_put_repair bigint NOT NULL,
+						comp_get_audit bigint NOT NULL,
+						surge_percent integer NOT NULL,
+						held bigint NOT NULL,
+						owed bigint NOT NULL,
+						disposed bigint NOT NULL,
+						payed bigint NOT NULL,
+						PRIMARY KEY ( period, node_id )
+					);`,
+					`CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );`,
+					// Additional index on accounting rollups to speed up invoicing queries
+					`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );`,
+				},
+			},
 		},
 	}
 }
