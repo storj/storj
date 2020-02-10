@@ -84,7 +84,6 @@ import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
@@ -122,7 +121,7 @@ export default class PaymentMethods extends Vue {
             });
             this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            this.$notify.error(error.message);
         }
     }
 
@@ -213,6 +212,13 @@ export default class PaymentMethods extends Vue {
 
     public async onConfirmAddStripe(): Promise<void> {
         await this.$refs.stripeCardInput.onSubmit();
+
+        try {
+            await this.$store.dispatch(GET_BILLING_HISTORY);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
         this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
             project_id: this.$store.getters.selectedProject.id,
         });
@@ -228,21 +234,21 @@ export default class PaymentMethods extends Vue {
         try {
             await this.$store.dispatch(ADD_CREDIT_CARD, token);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
 
             this.isLoading = false;
 
             return;
         }
 
-        await this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+        await this.$notify.success('Card successfully added');
         this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
             project_id: this.$store.getters.selectedProject.id,
         });
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
             this.isLoading = false;
         }
 

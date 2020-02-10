@@ -61,6 +61,7 @@ import VButton from '@/components/common/VButton.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { CreateProjectModel, Project } from '@/types/projects';
@@ -117,9 +118,9 @@ export default class NewProjectPopup extends Vue {
             this.$segment.track(SegmentEvent.PROJECT_CREATED, {
                 project_id: this.createdProjectId,
             });
-        } catch (e) {
+        } catch (error) {
             this.isLoading = false;
-            await this.$notify.error(e.message);
+            await this.$notify.error(error.message);
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
             return;
@@ -129,8 +130,14 @@ export default class NewProjectPopup extends Vue {
 
         try {
             await this.fetchProjectMembers();
-        } catch (e) {
-            await this.$notify.error(e.message);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        try {
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
+        } catch (error) {
+            await this.$notify.error(error.message);
         }
 
         this.clearApiKeys();
