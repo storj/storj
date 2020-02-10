@@ -42,6 +42,14 @@ export default class Login extends Vue {
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
+    public isActivatedBannerShown: boolean = false;
+
+    public mounted(): void {
+        if (this.$route.query.activated === 'true') {
+            this.isActivatedBannerShown = true;
+        }
+    }
+
     /**
      * Checks if page is inside iframe
      */
