@@ -42,7 +42,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			planet, err := NewCustom(zaptest.NewLogger(t), planetConfig)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("%+v", err)
 			}
 			defer ctx.Check(planet.Shutdown)
 
