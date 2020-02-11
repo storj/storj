@@ -35,7 +35,7 @@ func TestCreditsRepository(t *testing.T) {
 			ProjectID: testrand.UUID(),
 			UserID:    userID,
 			Amount:    5,
-			Status:    int(stripecoinpayments.CreditsSpendingStatusUnapplied),
+			Status:    stripecoinpayments.CreditsSpendingStatusUnapplied,
 		}
 
 		t.Run("insert", func(t *testing.T) {
@@ -53,6 +53,7 @@ func TestCreditsRepository(t *testing.T) {
 			spendings, err := creditsRepo.ListCreditsSpendings(ctx, userID)
 			assert.NoError(t, err)
 			assert.Equal(t, 1, len(spendings))
+			spending.ID = spendings[0].ID
 		})
 
 		t.Run("get credit by transactionID", func(t *testing.T) {
@@ -62,12 +63,12 @@ func TestCreditsRepository(t *testing.T) {
 		})
 
 		t.Run("update spending", func(t *testing.T) {
-			err := creditsRepo.ApplyCreditsSpending(ctx, spending.ID, int(stripecoinpayments.CreditsSpendingStatusApplied))
+			err := creditsRepo.ApplyCreditsSpending(ctx, spending.ID)
 			assert.NoError(t, err)
 
 			spendings, err := creditsRepo.ListCreditsSpendings(ctx, userID)
 			require.NoError(t, err)
-			require.Equal(t, int(stripecoinpayments.CreditsSpendingStatusApplied), spendings[0].Status)
+			require.Equal(t, stripecoinpayments.CreditsSpendingStatusApplied, spendings[0].Status)
 			spending = spendings[0]
 		})
 
