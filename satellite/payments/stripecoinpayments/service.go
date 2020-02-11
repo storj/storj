@@ -670,6 +670,87 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 	return err
 }
 
+// InvoiceApplyCredits iterates through credits with status false of project and creates invoice line items
+// for stripe customer.
+func (service *Service) InvoiceApplyCredits(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const limit = 25
+	before := time.Now().UTC()
+
+	spendingsPage, err := service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, limit, before)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if err = service.applySpendings(ctx, spendingsPage.Spendings); err != nil {
+		return Error.Wrap(err)
+	}
+
+	for spendingsPage.Next {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), spendingsPage.NextOffset, limit, before)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if err = service.applySpendings(ctx, spendingsPage.Spendings); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// applyCredits applies concrete spending as invoice line item.
+func (service *Service) applySpendings(ctx context.Context, spendings []CreditsSpending) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for _, spending := range spendings {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+
+		if err = service.createInvoiceCreditItem(ctx, spending); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// createInvoiceItems consumes invoice project record and creates invoice line items for stripe customer.
+func (service *Service) createInvoiceCreditItem(ctx context.Context, spending CreditsSpending) (err error) {
+	defer mon.Task()(&ctx, spending)(&err)
+
+	err = service.db.Credits().ApplyCreditsSpending(ctx, spending.ID, int(CreditsSpendingStatusApplied))
+	if err != nil {
+		return err
+	}
+	customerID, err := service.db.Customers().GetCustomerID(ctx, spending.UserID)
+
+	projectItem := &stripe.InvoiceItemParams{
+		Amount:      stripe.Int64(-spending.Amount),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Customer:    stripe.String(customerID),
+		Description: stripe.String(fmt.Sprintf("Discount from credits")),
+		Period: &stripe.InvoiceItemPeriodParams{
+			End:   stripe.Int64(spending.Created.AddDate(0, 1, 0).Unix()),
+			Start: stripe.Int64(spending.Created.Unix()),
+		},
+	}
+
+	projectItem.AddMetadata("projectID", spending.ProjectID.String())
+	projectItem.AddMetadata("userID", spending.UserID.String())
+
+	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+
+	return err
+}
+
 // CreateInvoices lists through all customers and creates invoices.
 func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
