@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensures that credit implements payments.CreditsDB.
@@ -104,13 +104,18 @@ func (credits *credit) ListCreditsPaged(ctx context.Context, offset int64, limit
 func (credits *credit) InsertCreditsSpending(ctx context.Context, spending stripecoinpayments.CreditsSpending) (err error) {
 	defer mon.Task()(&ctx, spending)(&err)
 
+	id, err := uuid.New()
+	if err != nil {
+		return err
+	}
+
 	_, err = credits.db.Create_CreditsSpending(
 		ctx,
-		dbx.CreditsSpending_Id(spending.ID[:]),
+		dbx.CreditsSpending_Id(id[:]),
 		dbx.CreditsSpending_UserId(spending.UserID[:]),
 		dbx.CreditsSpending_ProjectId(spending.ProjectID[:]),
 		dbx.CreditsSpending_Amount(spending.Amount),
-		dbx.CreditsSpending_Status(spending.Status),
+		dbx.CreditsSpending_Status(int(spending.Status)),
 	)
 
 	return err
@@ -132,13 +137,13 @@ func (credits *credit) ListCreditsSpendings(ctx context.Context, userID uuid.UUI
 }
 
 // ApplyCreditsSpending applies spending and updates its status.
-func (credits *credit) ApplyCreditsSpending(ctx context.Context, spendingID uuid.UUID, status int) (err error) {
+func (credits *credit) ApplyCreditsSpending(ctx context.Context, spendingID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = credits.db.Update_CreditsSpending_By_Id(
 		ctx,
 		dbx.CreditsSpending_Id(spendingID[:]),
-		dbx.CreditsSpending_Update_Fields{Status: dbx.CreditsSpending_Status(status)},
+		dbx.CreditsSpending_Update_Fields{Status: dbx.CreditsSpending_Status(int(stripecoinpayments.CreditsSpendingStatusApplied))},
 	)
 
 	return err
@@ -248,9 +253,15 @@ func fromDBXSpending(dbxSpending *dbx.CreditsSpending) (spending stripecoinpayme
 		return stripecoinpayments.CreditsSpending{}, err
 	}
 
-	spending.Status = dbxSpending.Status
+	spending.Status = stripecoinpayments.CreditsSpendingStatus(dbxSpending.Status)
 	spending.Created = dbxSpending.CreatedAt
 	spending.Amount = dbxSpending.Amount
+	spendingID, err := dbutil.BytesToUUID(dbxSpending.Id)
+	if err != nil {
+		return stripecoinpayments.CreditsSpending{}, err
+	}
+
+	spending.ID = spendingID
 
 	return spending, nil
 }

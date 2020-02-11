@@ -33,7 +33,7 @@ type CreditsDB interface {
 	// ListCreditsSpendingsPaged returns all spending of specific user.
 	ListCreditsSpendingsPaged(ctx context.Context, status int, offset int64, limit int, before time.Time) (CreditsSpendingsPage, error)
 	// ApplyCreditsSpending updated spending's status.
-	ApplyCreditsSpending(ctx context.Context, spendingID uuid.UUID, status int) (err error)
+	ApplyCreditsSpending(ctx context.Context, spendingID uuid.UUID) (err error)
 
 	// Balance returns difference between all credits and creditsSpendings of specific user.
 	Balance(ctx context.Context, userID uuid.UUID) (int64, error)
@@ -52,27 +52,27 @@ type credits struct {
 // CreditsSpending is an entity that holds funds been used from Accounts bonus credit balance.
 // Status shows if spending have been used to pay for invoice already or not.
 type CreditsSpending struct {
-	ID        uuid.UUID `json:"id"`
-	ProjectID uuid.UUID `json:"projectId"`
-	UserID    uuid.UUID `json:"userId"`
-	Amount    int64     `json:"amount"`
-	Status    int       `json:"status"`
-	Created   time.Time `json:"created"`
+	ID        uuid.UUID             `json:"id"`
+	ProjectID uuid.UUID             `json:"projectId"`
+	UserID    uuid.UUID             `json:"userId"`
+	Amount    int64                 `json:"amount"`
+	Status    CreditsSpendingStatus `json:"status"`
+	Created   time.Time             `json:"created"`
 }
 
-// CreditsSpendingsPage holds set of spendings and indicates if
-// there are more spendings to fetch.
+// CreditsSpendingsPage holds set of creditsSpendings and indicates if
+// there are more creditsSpendings to fetch.
 type CreditsSpendingsPage struct {
 	Spendings  []CreditsSpending
 	Next       bool
 	NextOffset int64
 }
 
-// CreditsSpendingStatus indicates the state of the spending.
+// CreditsSpendingStatus indicates the state of the creditsSpending.
 type CreditsSpendingStatus int
 
 const (
-	// CreditsSpendingStatusUnapplied is a default spending state.
+	// CreditsSpendingStatusUnapplied is a default creditsSpending state.
 	CreditsSpendingStatusUnapplied CreditsSpendingStatus = 0
 	// CreditsSpendingStatusApplied status indicates that spending was applied.
 	CreditsSpendingStatusApplied CreditsSpendingStatus = 1
