@@ -269,5 +269,5 @@ func migrateTest(t *testing.T, connStr string) {
 	}
 
 	// verify that we also match the dbx version
-	require.Equal(t, dbxschema, finalSchema, "dbx")
+	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }

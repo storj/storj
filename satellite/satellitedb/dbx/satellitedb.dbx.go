@@ -292,7 +292,7 @@ CREATE TABLE accounting_timestamps (
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
-	interval_start timestamp NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
 	inline bigint NOT NULL,
@@ -303,7 +303,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
-	interval_start timestamp NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
 	remote_segments_count integer NOT NULL,
@@ -370,7 +370,7 @@ CREATE TABLE graceful_exit_progress (
 	bytes_transferred bigint NOT NULL,
 	pieces_transferred bigint NOT NULL,
 	pieces_failed bigint NOT NULL,
-	updated_at timestamp NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE graceful_exit_transfer_queue (
@@ -379,19 +379,19 @@ CREATE TABLE graceful_exit_transfer_queue (
 	piece_num integer NOT NULL,
 	root_piece_id bytea,
 	durability_ratio double precision NOT NULL,
-	queued_at timestamp NOT NULL,
-	requested_at timestamp,
-	last_failed_at timestamp,
+	queued_at timestamp with time zone NOT NULL,
+	requested_at timestamp with time zone,
+	last_failed_at timestamp with time zone,
 	last_failed_code integer,
 	failed_count integer,
-	finished_at timestamp,
+	finished_at timestamp with time zone,
 	order_limit_send_count integer NOT NULL,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
-	attempted timestamp,
+	attempted timestamp with time zone,
 	num_healthy_pieces integer DEFAULT 52 NOT NULL,
 	PRIMARY KEY ( path )
 );
@@ -438,9 +438,9 @@ CREATE TABLE nodes (
 	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
 	uptime_reputation_alpha double precision NOT NULL,
 	uptime_reputation_beta double precision NOT NULL,
-	exit_initiated_at timestamp,
-	exit_loop_completed_at timestamp,
-	exit_finished_at timestamp,
+	exit_initiated_at timestamp with time zone,
+	exit_loop_completed_at timestamp with time zone,
+	exit_finished_at timestamp with time zone,
 	exit_success boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -531,12 +531,12 @@ CREATE TABLE serial_numbers (
 	id serial NOT NULL,
 	serial_number bytea NOT NULL,
 	bucket_id bytea NOT NULL,
-	expires_at timestamp NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
-	interval_start timestamp NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
 	allocated bigint DEFAULT 0,
@@ -626,7 +626,7 @@ CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
 	partner_id bytea NOT NULL,
-	last_updated timestamp NOT NULL,
+	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 );
 CREATE TABLE api_keys (
@@ -793,7 +793,7 @@ CREATE TABLE accounting_timestamps (
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
-	interval_start timestamp NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
 	inline bigint NOT NULL,
@@ -804,7 +804,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
-	interval_start timestamp NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
 	remote_segments_count integer NOT NULL,
@@ -871,7 +871,7 @@ CREATE TABLE graceful_exit_progress (
 	bytes_transferred bigint NOT NULL,
 	pieces_transferred bigint NOT NULL,
 	pieces_failed bigint NOT NULL,
-	updated_at timestamp NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE graceful_exit_transfer_queue (
@@ -880,19 +880,19 @@ CREATE TABLE graceful_exit_transfer_queue (
 	piece_num integer NOT NULL,
 	root_piece_id bytea,
 	durability_ratio double precision NOT NULL,
-	queued_at timestamp NOT NULL,
-	requested_at timestamp,
-	last_failed_at timestamp,
+	queued_at timestamp with time zone NOT NULL,
+	requested_at timestamp with time zone,
+	last_failed_at timestamp with time zone,
 	last_failed_code integer,
 	failed_count integer,
-	finished_at timestamp,
+	finished_at timestamp with time zone,
 	order_limit_send_count integer NOT NULL,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
-	attempted timestamp,
+	attempted timestamp with time zone,
 	num_healthy_pieces integer DEFAULT 52 NOT NULL,
 	PRIMARY KEY ( path )
 );
@@ -939,9 +939,9 @@ CREATE TABLE nodes (
 	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
 	uptime_reputation_alpha double precision NOT NULL,
 	uptime_reputation_beta double precision NOT NULL,
-	exit_initiated_at timestamp,
-	exit_loop_completed_at timestamp,
-	exit_finished_at timestamp,
+	exit_initiated_at timestamp with time zone,
+	exit_loop_completed_at timestamp with time zone,
+	exit_finished_at timestamp with time zone,
 	exit_success boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -1032,12 +1032,12 @@ CREATE TABLE serial_numbers (
 	id serial NOT NULL,
 	serial_number bytea NOT NULL,
 	bucket_id bytea NOT NULL,
-	expires_at timestamp NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
-	interval_start timestamp NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
 	allocated bigint DEFAULT 0,
@@ -1127,7 +1127,7 @@ CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
 	partner_id bytea NOT NULL,
-	last_updated timestamp NOT NULL,
+	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 );
 CREATE TABLE api_keys (
@@ -1574,7 +1574,6 @@ type BucketBandwidthRollup_IntervalStart_Field struct {
 }
 
 func BucketBandwidthRollup_IntervalStart(v time.Time) BucketBandwidthRollup_IntervalStart_Field {
-	v = toUTC(v)
 	return BucketBandwidthRollup_IntervalStart_Field{_set: true, _value: v}
 }
 
@@ -1744,7 +1743,6 @@ type BucketStorageTally_IntervalStart_Field struct {
 }
 
 func BucketStorageTally_IntervalStart(v time.Time) BucketStorageTally_IntervalStart_Field {
-	v = toUTC(v)
 	return BucketStorageTally_IntervalStart_Field{_set: true, _value: v}
 }
 
@@ -2723,7 +2721,6 @@ type GracefulExitProgress_UpdatedAt_Field struct {
 }
 
 func GracefulExitProgress_UpdatedAt(v time.Time) GracefulExitProgress_UpdatedAt_Field {
-	v = toUTC(v)
 	return GracefulExitProgress_UpdatedAt_Field{_set: true, _value: v}
 }
 
@@ -2889,7 +2886,6 @@ type GracefulExitTransferQueue_QueuedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_QueuedAt(v time.Time) GracefulExitTransferQueue_QueuedAt_Field {
-	v = toUTC(v)
 	return GracefulExitTransferQueue_QueuedAt_Field{_set: true, _value: v}
 }
 
@@ -2909,7 +2905,6 @@ type GracefulExitTransferQueue_RequestedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_RequestedAt(v time.Time) GracefulExitTransferQueue_RequestedAt_Field {
-	v = toUTC(v)
 	return GracefulExitTransferQueue_RequestedAt_Field{_set: true, _value: &v}
 }
 
@@ -2944,7 +2939,6 @@ type GracefulExitTransferQueue_LastFailedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_LastFailedAt(v time.Time) GracefulExitTransferQueue_LastFailedAt_Field {
-	v = toUTC(v)
 	return GracefulExitTransferQueue_LastFailedAt_Field{_set: true, _value: &v}
 }
 
@@ -3047,7 +3041,6 @@ type GracefulExitTransferQueue_FinishedAt_Field struct {
 }
 
 func GracefulExitTransferQueue_FinishedAt(v time.Time) GracefulExitTransferQueue_FinishedAt_Field {
-	v = toUTC(v)
 	return GracefulExitTransferQueue_FinishedAt_Field{_set: true, _value: &v}
 }
 
@@ -3159,7 +3152,6 @@ type Injuredsegment_Attempted_Field struct {
 }
 
 func Injuredsegment_Attempted(v time.Time) Injuredsegment_Attempted_Field {
-	v = toUTC(v)
 	return Injuredsegment_Attempted_Field{_set: true, _value: &v}
 }
 
@@ -4088,7 +4080,6 @@ type Node_ExitInitiatedAt_Field struct {
 }
 
 func Node_ExitInitiatedAt(v time.Time) Node_ExitInitiatedAt_Field {
-	v = toUTC(v)
 	return Node_ExitInitiatedAt_Field{_set: true, _value: &v}
 }
 
@@ -4121,7 +4112,6 @@ type Node_ExitLoopCompletedAt_Field struct {
 }
 
 func Node_ExitLoopCompletedAt(v time.Time) Node_ExitLoopCompletedAt_Field {
-	v = toUTC(v)
 	return Node_ExitLoopCompletedAt_Field{_set: true, _value: &v}
 }
 
@@ -4154,7 +4144,6 @@ type Node_ExitFinishedAt_Field struct {
 }
 
 func Node_ExitFinishedAt(v time.Time) Node_ExitFinishedAt_Field {
-	v = toUTC(v)
 	return Node_ExitFinishedAt_Field{_set: true, _value: &v}
 }
 
@@ -5542,7 +5531,6 @@ type SerialNumber_ExpiresAt_Field struct {
 }
 
 func SerialNumber_ExpiresAt(v time.Time) SerialNumber_ExpiresAt_Field {
-	v = toUTC(v)
 	return SerialNumber_ExpiresAt_Field{_set: true, _value: v}
 }
 
@@ -5601,7 +5589,6 @@ type StoragenodeBandwidthRollup_IntervalStart_Field struct {
 }
 
 func StoragenodeBandwidthRollup_IntervalStart(v time.Time) StoragenodeBandwidthRollup_IntervalStart_Field {
-	v = toUTC(v)
 	return StoragenodeBandwidthRollup_IntervalStart_Field{_set: true, _value: v}
 }
 
@@ -7046,7 +7033,6 @@ type ValueAttribution_LastUpdated_Field struct {
 }
 
 func ValueAttribution_LastUpdated(v time.Time) ValueAttribution_LastUpdated_Field {
-	v = toUTC(v)
 	return ValueAttribution_LastUpdated_Field{_set: true, _value: v}
 }
 
@@ -8443,7 +8429,7 @@ func (obj *postgresImpl) Create_ValueAttribution(ctx context.Context,
 	__project_id_val := value_attribution_project_id.value()
 	__bucket_name_val := value_attribution_bucket_name.value()
 	__partner_id_val := value_attribution_partner_id.value()
-	__last_updated_val := __now.UTC()
+	__last_updated_val := __now
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, partner_id, last_updated ) VALUES ( ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.last_updated")
 
@@ -9366,7 +9352,7 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitProgress(ctx context.Context
 	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
 	__pieces_transferred_val := int64(0)
 	__pieces_failed_val := int64(0)
-	__updated_at_val := __now.UTC()
+	__updated_at_val := __now
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, pieces_transferred, pieces_failed, updated_at ) VALUES ( ?, ?, ?, ?, ? )")
 
@@ -9400,7 +9386,7 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Co
 	__piece_num_val := graceful_exit_transfer_queue_piece_num.value()
 	__root_piece_id_val := optional.RootPieceId.value()
 	__durability_ratio_val := graceful_exit_transfer_queue_durability_ratio.value()
-	__queued_at_val := __now.UTC()
+	__queued_at_val := __now
 	__requested_at_val := optional.RequestedAt.value()
 	__last_failed_at_val := optional.LastFailedAt.value()
 	__last_failed_code_val := optional.LastFailedCode.value()
@@ -13125,7 +13111,7 @@ func (obj *postgresImpl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx conte
 
 	__now := obj.db.Hooks.Now().UTC()
 
-	__values = append(__values, __now.UTC())
+	__values = append(__values, __now)
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
 	__args = append(__args, graceful_exit_progress_node_id.value())
@@ -14476,7 +14462,7 @@ func (obj *cockroachImpl) Create_ValueAttribution(ctx context.Context,
 	__project_id_val := value_attribution_project_id.value()
 	__bucket_name_val := value_attribution_bucket_name.value()
 	__partner_id_val := value_attribution_partner_id.value()
-	__last_updated_val := __now.UTC()
+	__last_updated_val := __now
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, partner_id, last_updated ) VALUES ( ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.last_updated")
 
@@ -15399,7 +15385,7 @@ func (obj *cockroachImpl) CreateNoReturn_GracefulExitProgress(ctx context.Contex
 	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
 	__pieces_transferred_val := int64(0)
 	__pieces_failed_val := int64(0)
-	__updated_at_val := __now.UTC()
+	__updated_at_val := __now
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, pieces_transferred, pieces_failed, updated_at ) VALUES ( ?, ?, ?, ?, ? )")
 
@@ -15433,7 +15419,7 @@ func (obj *cockroachImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.C
 	__piece_num_val := graceful_exit_transfer_queue_piece_num.value()
 	__root_piece_id_val := optional.RootPieceId.value()
 	__durability_ratio_val := graceful_exit_transfer_queue_durability_ratio.value()
-	__queued_at_val := __now.UTC()
+	__queued_at_val := __now
 	__requested_at_val := optional.RequestedAt.value()
 	__last_failed_at_val := optional.LastFailedAt.value()
 	__last_failed_code_val := optional.LastFailedCode.value()
@@ -19158,7 +19144,7 @@ func (obj *cockroachImpl) UpdateNoReturn_GracefulExitProgress_By_NodeId(ctx cont
 
 	__now := obj.db.Hooks.Now().UTC()
 
-	__values = append(__values, __now.UTC())
+	__values = append(__values, __now)
 	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
 
 	__args = append(__args, graceful_exit_progress_node_id.value())
