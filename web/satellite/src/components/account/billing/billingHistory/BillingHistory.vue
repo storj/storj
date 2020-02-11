@@ -17,6 +17,7 @@
             <BillingItem
                 v-for="item in billingHistoryItems"
                 :billing-item="item"
+                :key="item.id"
             />
         </div>
 <!--        <VPagination-->
@@ -80,6 +81,7 @@ export default class BillingHistory extends Vue {
 
     .billing-history-area {
         margin-top: 83px;
+        padding: 0 0 80px 0;
         background-color: #f5f6fa;
         font-family: 'font_regular', sans-serif;
 
