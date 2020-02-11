@@ -426,10 +426,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicGRPC)),
 		})
 
+		encAccess := uplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
+		encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+
 		accessData, err := (&uplink.Scope{
 			SatelliteAddr:    satellite.Address,
 			APIKey:           defaultAPIKey,
-			EncryptionAccess: uplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
+			EncryptionAccess: encAccess,
 		}).Serialize()
 		if err != nil {
 			return nil, err

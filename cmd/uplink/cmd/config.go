@@ -154,6 +154,7 @@ func (a AccessConfig) GetAccess() (_ *libuplink.Scope, err error) {
 			return nil, errs.Wrap(err)
 		}
 		encAccess = libuplink.NewEncryptionAccessWithDefaultKey(*key)
+		encAccess.SetDefaultPathCipher(storj.EncAESGCM)
 	}
 
 	return &libuplink.Scope{

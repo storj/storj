@@ -334,6 +334,7 @@ func (client *Uplink) GetConfig(satellite *SatelliteSystem) cmd.Config {
 
 	encAccess := libuplink.NewEncryptionAccess()
 	encAccess.SetDefaultKey(storj.Key{})
+	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
 
 	accessData, err := (&libuplink.Scope{
 		SatelliteAddr:    satellite.Addr(),

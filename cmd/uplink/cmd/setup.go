@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/storj/cmd/internal/wizard"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
@@ -119,10 +120,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return Error.Wrap(err)
 	}
 
+	encAccess := libuplink.NewEncryptionAccessWithDefaultKey(*key)
+	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+
 	accessData, err := (&libuplink.Scope{
 		SatelliteAddr:    satelliteAddress,
 		APIKey:           apiKey,
-		EncryptionAccess: libuplink.NewEncryptionAccessWithDefaultKey(*key),
+		EncryptionAccess: encAccess,
 	}).Serialize()
 	if err != nil {
 		return Error.Wrap(err)

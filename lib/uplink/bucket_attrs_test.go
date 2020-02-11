@@ -293,7 +293,6 @@ func TestBucketAttrs(t *testing.T) {
 // specific config, the specific config applies and not the bucket attrs.
 func TestBucketAttrsApply(t *testing.T) {
 	var (
-		access          = uplink.NewEncryptionAccessWithDefaultKey(storj.Key{0, 1, 2, 3, 4})
 		bucketName      = "dodecahedron"
 		objectPath1     = "vax/vex/vox"
 		objectContents  = "Willingham,Ray,Jaffe,Johnson,Riegel,O'Brien,Bailey,Mercer"
@@ -324,6 +323,8 @@ func TestBucketAttrsApply(t *testing.T) {
 		}
 		testConfig testConfig
 	)
+	access := uplink.NewEncryptionAccessWithDefaultKey(storj.Key{0, 1, 2, 3, 4})
+	access.SetDefaultPathCipher(storj.EncAESGCM)
 
 	// so our test object will not be inlined (otherwise it will lose its RS params)
 	testConfig.uplinkCfg.Volatile.MaxInlineSize = 1

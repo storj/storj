@@ -108,7 +108,7 @@ require (
 	gopkg.in/ini.v1 v1.38.2 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/yaml.v2 v2.2.4
-	storj.io/common v0.0.0-20200130005211-04afbf4cd6a5
+	storj.io/common v0.0.0-20200207172231-7113b4908e35
 	storj.io/drpc v0.0.8
-	storj.io/uplink v0.0.0-20200131143957-f3b6350b4add
+	storj.io/uplink v0.0.0-20200211130624-1f304dca3b7d
 )

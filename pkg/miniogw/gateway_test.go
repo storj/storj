@@ -475,7 +475,7 @@ func TestListObjectsV2(t *testing.T) {
 }
 
 func testListObjects(t *testing.T, listObjects func(*testing.T, context.Context, minio.ObjectLayer, string, string, string, string, int) ([]string, []minio.ObjectInfo, bool, error)) {
-	runTest(t, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
+	runTestWithPathCipher(t, storj.EncNull, func(t *testing.T, ctx context.Context, layer minio.ObjectLayer, m *kvmetainfo.DB, strms streams.Store) {
 		// Check the error when listing objects with unsupported delimiter
 		_, err := layer.ListObjects(ctx, TestBucket, "", "", "#", 0)
 		assert.Equal(t, minio.UnsupportedDelimiter{Delimiter: "#"}, err)
@@ -660,17 +660,21 @@ func testListObjects(t *testing.T, listObjects func(*testing.T, context.Context,
 }
 
 func runTest(t *testing.T, test func(*testing.T, context.Context, minio.ObjectLayer, *kvmetainfo.DB, streams.Store)) {
+	runTestWithPathCipher(t, storj.EncNull, test)
+}
+
+func runTestWithPathCipher(t *testing.T, pathCipher storj.CipherSuite, test func(*testing.T, context.Context, minio.ObjectLayer, *kvmetainfo.DB, streams.Store)) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		layer, m, strms, err := initEnv(ctx, t, planet)
+		layer, m, strms, err := initEnv(ctx, t, planet, pathCipher)
 		require.NoError(t, err)
 
 		test(t, ctx, layer, m, strms)
 	})
 }
 
-func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (minio.ObjectLayer, *kvmetainfo.DB, streams.Store, error) {
+func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet, pathCipher storj.CipherSuite) (minio.ObjectLayer, *kvmetainfo.DB, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(ctx, &console.Project{
@@ -719,6 +723,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 	var encKey storj.Key
 	copy(encKey[:], TestEncKey)
 	access := libuplink.NewEncryptionAccessWithDefaultKey(encKey)
+	access.SetDefaultPathCipher(pathCipher)
 	encStore := access.Store()
 
 	blockSize := rs.StripeSize()

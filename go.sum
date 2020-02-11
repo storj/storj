@@ -604,8 +604,14 @@ honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 storj.io/common v0.0.0-20200130005211-04afbf4cd6a5 h1:BqnkK/pId17R1a70qWcCm2fBgR3kQ5fLBKZ69W+8ecU=
 storj.io/common v0.0.0-20200130005211-04afbf4cd6a5/go.mod h1:n4sxosrQlw5iDBlbTdBtae/8ZqnXUG3nA5XZdIHJibY=
+storj.io/common v0.0.0-20200207172231-7113b4908e35 h1:uz4o0HBF9QK3yhdq9V5/HYqfsSm3kzSmwPT4jdL+7hE=
+storj.io/common v0.0.0-20200207172231-7113b4908e35/go.mod h1:n4sxosrQlw5iDBlbTdBtae/8ZqnXUG3nA5XZdIHJibY=
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2/go.mod h1:/ascUDbzNAv0A3Jj7wUIKFBH2JdJ2uJIBO/b9+2yHgQ=
 storj.io/drpc v0.0.8 h1:wu68cMmtoT0vSWIAZz29RpJkWdi4o0S8BIrLslpH5FQ=
 storj.io/drpc v0.0.8/go.mod h1:v39uWro/EbXXk+gNnrM9FQuVVS2zUBWBfeduydgeXUA=
 storj.io/uplink v0.0.0-20200131143957-f3b6350b4add h1:/G2nFSq00KxD/9tQIpNJA2vRGkaSHdZvi1ZsX4qAgbQ=
 storj.io/uplink v0.0.0-20200131143957-f3b6350b4add/go.mod h1:sqhw1H30vF8pD6coKYkx0nLAkw9M0ISwjLi+3R5b3A8=
+storj.io/uplink v0.0.0-20200210111421-04761b3aaccd h1:jjOXtv0L9sd/i5UW0qsaMjFDA857z0BTBIsTIhImumk=
+storj.io/uplink v0.0.0-20200210111421-04761b3aaccd/go.mod h1:sqhw1H30vF8pD6coKYkx0nLAkw9M0ISwjLi+3R5b3A8=
+storj.io/uplink v0.0.0-20200211130624-1f304dca3b7d h1:Co/Sa2VflIZ4tHk+eLj8vSES/ciksSHILX9+fuTGtAQ=
+storj.io/uplink v0.0.0-20200211130624-1f304dca3b7d/go.mod h1:sqhw1H30vF8pD6coKYkx0nLAkw9M0ISwjLi+3R5b3A8=

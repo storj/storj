@@ -316,10 +316,13 @@ func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overr
 		return Error.Wrap(err)
 	}
 
+	encAccess := libuplink.NewEncryptionAccessWithDefaultKey(*key)
+	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+
 	accessData, err := (&libuplink.Scope{
 		SatelliteAddr:    satelliteAddress,
 		APIKey:           apiKey,
-		EncryptionAccess: libuplink.NewEncryptionAccessWithDefaultKey(*key),
+		EncryptionAccess: encAccess,
 	}).Serialize()
 	if err != nil {
 		return Error.Wrap(err)
