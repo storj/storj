@@ -161,10 +161,18 @@ model node (
 	field last_contact_failure timestamp ( updatable )
 
 	field contained bool ( updatable )
+    // node is disqualified when it fails too many audits or is offline for too long
 	field disqualified timestamp ( updatable, nullable )
+    // node is placed under inspection when it has too many unknown-error audits
+	field under_inspection timestamp ( updatable, nullable )
 
+	// audit_reputation_fields track information related to successful vs. failed error audits
 	field audit_reputation_alpha  float64 ( updatable )
 	field audit_reputation_beta   float64 ( updatable )
+	// unknown_audit_reputation fields track information related to successful vs. unknown error audits
+	field unknown_audit_reputation_alpha  float64 ( updatable )
+	field unknown_audit_reputation_beta   float64 ( updatable )
+	// TODO(moby) should we remove uptime alpha/beta?
 	field uptime_reputation_alpha float64 ( updatable )
 	field uptime_reputation_beta  float64 ( updatable )
 
@@ -1160,5 +1168,5 @@ read limitoffset (
     select credits_spending
     where credits_spending.created_at <= ?
     where credits_spending.status = ?
-    orderby desc credits_spending+.created_at
+    orderby desc credits_spending.created_at
 )
