@@ -28,14 +28,17 @@ type Processes struct {
 	Output    *PrefixWriter
 	Directory string
 	List      []*Process
+
+	MaxStartupWait time.Duration
 }
 
 // NewProcesses returns a group of processes
 func NewProcesses(dir string) *Processes {
 	return &Processes{
-		Output:    NewPrefixWriter("sim", os.Stdout),
-		Directory: dir,
-		List:      nil,
+		Output:         NewPrefixWriter("sim", os.Stdout),
+		Directory:      dir,
+		List:           nil,
+		MaxStartupWait: time.Minute,
 	}
 }
 
@@ -190,6 +193,9 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	defer process.Status.Started.Release()
 	defer process.Status.Exited.Release()
 
+	ctx, cancelProcess := context.WithCancel(ctx)
+	defer cancelProcess()
+
 	// wait for dependencies to start
 	for _, fence := range process.Wait {
 		if !fence.Wait(ctx) {
@@ -271,7 +277,15 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		process.Status.Started.Release()
 	} else {
 		// release started when we are able to connect to the process address
-		go process.monitorAddress()
+		go func() {
+			defer process.Status.Started.Release()
+
+			err := process.waitForAddress(process.processes.MaxStartupWait)
+			if err != nil {
+				fmt.Fprintf(process.processes.Output, "failed to wait startup: %v", err)
+				cancelProcess()
+			}
+		}()
 	}
 
 	// wait for process completion
@@ -286,16 +300,22 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	return err
 }
 
-// monitorAddress will monitor starting when we are able to start the process.
-func (process *Process) monitorAddress() {
+// waitForAddress will monitor starting when we are able to start the process.
+func (process *Process) waitForAddress(maxStartupWait time.Duration) error {
+	start := time.Now()
 	for !process.Status.Started.Released() {
 		if process.tryConnect() {
-			process.Status.Started.Release()
-			return
+			return nil
 		}
+
 		// wait a bit before retrying to reduce load
 		time.Sleep(50 * time.Millisecond)
+
+		if time.Since(start) > maxStartupWait {
+			return fmt.Errorf("%s did not start in required time %v", process.Name, maxStartupWait)
+		}
 	}
+	return nil
 }
 
 // tryConnect will try to connect to the process public address
