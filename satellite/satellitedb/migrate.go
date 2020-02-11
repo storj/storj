@@ -834,6 +834,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Add unknown audit reputation and suspended flag to nodes table",
+				Version:     85,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1;`,
+					`ALTER TABLE nodes ADD COLUMN unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0;`,
+					`ALTER TABLE nodes ADD COLUMN suspended timestamp with time zone;`,
+				},
+			},
 		},
 	}
 }
