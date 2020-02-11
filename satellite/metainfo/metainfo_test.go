@@ -1244,3 +1244,66 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 		require.Len(t, group2Errs, 1)
 	})
 }
+
+func TestOverwriteZombieSegments(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+		config := uplink.GetConfig(planet.Satellites[0])
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		var testCases = []struct {
+			deletedSegments []int32
+			objectSize      memory.Size
+			segmentSize     memory.Size
+			label           string
+		}{
+			{label: "inline", deletedSegments: []int32{0, -1}, objectSize: 5 * memory.KiB, segmentSize: 1 * memory.KiB},
+			{label: "remote", deletedSegments: []int32{0, -1}, objectSize: 23 * memory.KiB, segmentSize: 5 * memory.KiB},
+		}
+
+		for i, tc := range testCases {
+			i := i
+			tc := tc
+			t.Run(tc.label, func(t *testing.T) {
+				data := testrand.Bytes(tc.objectSize)
+				config.Client.SegmentSize = tc.segmentSize
+				bucket := "testbucket" + strconv.Itoa(i)
+				objectKey := "test-path" + strconv.Itoa(i)
+				err := uplink.UploadWithClientConfig(ctx, planet.Satellites[0], config, bucket, objectKey, data)
+				require.NoError(t, err)
+
+				items, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+					Bucket: []byte(bucket),
+					Limit:  1,
+				})
+				require.NoError(t, err)
+
+				object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+					Bucket:        []byte(bucket),
+					EncryptedPath: items[0].EncryptedPath,
+				})
+				require.NoError(t, err)
+
+				// delete some segments to leave only zombie segments
+				for _, segment := range tc.deletedSegments {
+					_, _, _, err = metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
+						StreamID: object.StreamID,
+						Position: storj.SegmentPosition{
+							Index: segment,
+						},
+					})
+					require.NoError(t, err)
+				}
+
+				err = uplink.UploadWithClientConfig(ctx, planet.Satellites[0], config, bucket, objectKey, data)
+				require.NoError(t, err)
+			})
+
+		}
+	})
+}
