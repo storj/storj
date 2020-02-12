@@ -53,7 +53,7 @@ import (
 	"storj.io/storj/satellite/vouchers"
 )
 
-// TODO: orange/v3-3406 this value may change once it's used in production
+// TODO: SM-86: make this into a config value
 const metainfoDeletePiecesConcurrencyLimit = 100
 
 // API is the satellite API process

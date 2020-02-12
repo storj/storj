@@ -6,7 +6,6 @@ package metainfo
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -34,7 +33,7 @@ type DeletePiecesService struct {
 
 	// TODO: v3-3406 this values is currently only used to limit the concurrent
 	// connections by each single method call.
-	maxConns int
+	limiter *sync2.ParentLimiter
 }
 
 // NewDeletePiecesService creates a new DeletePiecesService. maxConcurrentConns
@@ -59,9 +58,9 @@ func NewDeletePiecesService(log *zap.Logger, dialer rpc.Dialer, maxConcurrentCon
 	}
 
 	return &DeletePiecesService{
-		maxConns: maxConcurrentConns,
-		dialer:   dialer,
-		log:      log,
+		limiter: sync2.NewParentLimiter(maxConcurrentConns),
+		dialer:  dialer,
+		log:     log,
 	}, nil
 }
 
@@ -80,13 +79,7 @@ func (service *DeletePiecesService) DeletePieces(
 		return err
 	}
 
-	// TODO: v3-3476 This timeout will go away in a second commit
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// TODO: v3-3406 this limiter will be global to the service instance if we
-	// decide to do so
-	limiter := sync2.NewLimiter(service.maxConns)
+	limiter := service.limiter.Child()
 	for _, n := range nodes {
 		node := n.Node
 		pieces := n.Pieces
@@ -159,20 +152,13 @@ func (service *DeletePiecesService) DeletePieces(
 	}
 
 	threshold.Wait(ctx)
-	// return to the client after the success threshold but wait some time before
-	// canceling the remaining deletes
-	timer := time.AfterFunc(200*time.Millisecond, cancel)
-	defer timer.Stop()
-
-	limiter.Wait()
 	return nil
 }
 
 // Close wait until all the resources used by the service are closed before
 // returning.
 func (service *DeletePiecesService) Close() error {
-	// TODO: orange/v3-3476 it will wait until all the goroutines run by the
-	// DeletePieces finish rather than using the current timeout.
+	service.limiter.Wait()
 	return nil
 }
 
