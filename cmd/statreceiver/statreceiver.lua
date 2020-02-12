@@ -30,7 +30,7 @@ pbufsize = 1000
 --  * db("postgres", connstring) goes to postgres
    influx_out = graphite("influx-internal.datasci.storj.io.:2003")
    graphite_out = graphite("graphite-internal.datasci.storj.io.:2003")
-   influx_out_v3 = influx("influx-internal.datasci.storj.io:8086/write?db=v3_stats_new")
+   influx_out_v3 = influx("http://influx-internal.datasci.storj.io:8086/write?db=v3_stats_new")
 
 v2_metric_handlers = sanitize(mbufprep(mcopy(
   -- send all satellite data to graphite
