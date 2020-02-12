@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import Vue, { VNode } from 'vue';
+import VueClipboard from 'vue-clipboard2';
 import { DirectiveBinding } from 'vue/types/options';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
@@ -20,6 +21,7 @@ const segment = new SegmentioPlugin();
 
 Vue.use(notificator);
 Vue.use(segment);
+Vue.use(VueClipboard);
 
 let clickOutsideEvent: EventListener;
 

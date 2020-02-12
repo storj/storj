@@ -4,6 +4,9 @@
 package overlay_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"net"
 	"runtime"
 	"strings"
 	"testing"
@@ -14,12 +17,80 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 )
+
+func TestMinimumDiskSpace(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node0 := planet.StorageNodes[0]
+		node0.Contact.Chore.Pause(ctx)
+		nodeDossier := node0.Local()
+		ident := node0.Identity
+		peer := rpcpeer.Peer{
+			Addr: &net.TCPAddr{
+				IP:   net.ParseIP(nodeDossier.Address.GetAddress()),
+				Port: 5,
+			},
+			State: tls.ConnectionState{
+				PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
+			},
+		}
+		peerCtx := rpcpeer.NewContext(ctx, &peer)
+
+		// report disk space less than minimum
+		_, err := planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
+			Address: nodeDossier.Address.GetAddress(),
+			Version: &nodeDossier.Version,
+			Capacity: &pb.NodeCapacity{
+				FreeBandwidth: 100000,
+				FreeDisk:      9 * memory.MB.Int64(),
+			},
+			Operator: &nodeDossier.Operator,
+		})
+		require.NoError(t, err)
+
+		// request 2 nodes, expect failure from not enough nodes
+		_, err = planet.Satellites[0].Overlay.Service.FindStorageNodes(ctx, overlay.FindStorageNodesRequest{
+			MinimumRequiredNodes: 2,
+			RequestedCount:       2,
+		})
+		require.Error(t, err)
+		require.True(t, overlay.ErrNotEnoughNodes.Has(err))
+
+		// report disk space greater than minimum
+		_, err = planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
+			Address: nodeDossier.Address.GetAddress(),
+			Version: &nodeDossier.Version,
+			Capacity: &pb.NodeCapacity{
+				FreeBandwidth: 100000,
+				FreeDisk:      11 * memory.MB.Int64(),
+			},
+			Operator: &nodeDossier.Operator,
+		})
+		require.NoError(t, err)
+
+		// request 2 nodes, expect success
+		_, err = planet.Satellites[0].Overlay.Service.FindStorageNodes(ctx, overlay.FindStorageNodesRequest{
+			MinimumRequiredNodes: 2,
+			RequestedCount:       2,
+		})
+		require.NoError(t, err)
+	})
+}
 
 func TestOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
@@ -181,7 +252,6 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 
 		response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
 			FreeBandwidth:  0,
-			FreeDisk:       0,
 			RequestedCount: tt.RequestCount,
 			ExcludedNodes:  excludedNodes,
 		}, &tt.Preferences)
@@ -279,7 +349,6 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 
 			response, err := satellite.Overlay.Service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
 				FreeBandwidth:  0,
-				FreeDisk:       0,
 				RequestedCount: tt.RequestCount,
 			}, &tt.Preferences)
 
@@ -353,6 +422,54 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 		}
 		_, err = satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.Error(t, err)
+	})
+}
+
+func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Test does not work with macOS")
+	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			// will create 2 storage nodes with same IP; 2 will have unique
+			UniqueIPCount: 2,
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.DistinctIP = true
+				config.Overlay.Node.NewNodePercentage = 1
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// select one of the nodes that shares an IP with others to exclude
+		var excludedNodes storj.NodeIDList
+		addrCounts := make(map[string]int)
+		var excludedNodeAddr string
+		for _, node := range planet.StorageNodes {
+			addrNoPort := strings.Split(node.Addr(), ":")[0]
+			if addrCounts[addrNoPort] > 0 {
+				excludedNodes = append(excludedNodes, node.ID())
+				break
+			}
+			addrCounts[addrNoPort]++
+		}
+		require.Len(t, excludedNodes, 1)
+		res, err := satellite.Overlay.Service.Get(ctx, excludedNodes[0])
+		require.NoError(t, err)
+		excludedNodeAddr = res.LastIp
+
+		req := overlay.FindStorageNodesRequest{
+			MinimumRequiredNodes: 2,
+			RequestedCount:       2,
+			ExcludedNodes:        excludedNodes,
+		}
+		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
+		require.NoError(t, err)
+		require.Len(t, nodes, 2)
+		require.NotEqual(t, nodes[0].LastIp, nodes[1].LastIp)
+		require.NotEqual(t, nodes[0].LastIp, excludedNodeAddr)
+		require.NotEqual(t, nodes[1].LastIp, excludedNodeAddr)
 	})
 }
 
@@ -440,7 +557,6 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 	for _, tt := range tests {
 		response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
 			FreeBandwidth:  0,
-			FreeDisk:       0,
 			RequestedCount: tt.requestCount,
 		}, &tt.preferences)
 		if tt.shouldFailWith != nil {

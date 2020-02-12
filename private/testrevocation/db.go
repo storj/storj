@@ -21,12 +21,12 @@ func RunDBs(t *testing.T, test func(*testing.T, extensions.RevocationDB, storage
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		addr, cleanup, err := redisserver.Start()
+		redis, err := redisserver.Mini()
 		require.NoError(t, err)
-		defer cleanup()
+		defer ctx.Check(redis.Close)
 
 		// Test using redis-backed revocation DB
-		dbURL := "redis://" + addr + "?db=0"
+		dbURL := "redis://" + redis.Addr() + "?db=0"
 		db, err := revocation.NewDB(dbURL)
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)

@@ -427,7 +427,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.ProjectAccounting(),
 				pc.StorageTBPrice,
 				pc.EgressTBPrice,
-				pc.ObjectPrice)
+				pc.ObjectPrice,
+				pc.BonusRate)
 
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
@@ -491,7 +492,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Downtime,
 			peer.Overlay.Service,
 			peer.DowntimeTracking.Service,
-			peer.DB.DowntimeTracking(),
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "downtime:detection",

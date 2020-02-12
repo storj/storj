@@ -202,7 +202,6 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: int(req.Redundancy.Total),
 		FreeBandwidth:  maxPieceSize,
-		FreeDisk:       maxPieceSize,
 	}
 	nodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
@@ -311,7 +310,7 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
-	err = endpoint.metainfo.Put(ctx, path, req.Pointer)
+	err = endpoint.metainfo.UnsynchronizedPut(ctx, path, req.Pointer)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1191,7 +1190,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
 	}
 
-	err = endpoint.metainfo.Put(ctx, lastSegmentPath, lastSegmentPointer)
+	err = endpoint.metainfo.UnsynchronizedPut(ctx, lastSegmentPath, lastSegmentPointer)
 	if err != nil {
 		endpoint.log.Error("unable to put pointer", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
@@ -1484,7 +1483,6 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: redundancy.TotalCount(),
 		FreeBandwidth:  maxPieceSize,
-		FreeDisk:       maxPieceSize,
 	}
 	nodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
@@ -1646,7 +1644,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
-	err = endpoint.metainfo.Put(ctx, path, pointer)
+	err = endpoint.metainfo.UnsynchronizedPut(ctx, path, pointer)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1717,7 +1715,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		Metadata:       metadata,
 	}
 
-	err = endpoint.metainfo.Put(ctx, path, pointer)
+	err = endpoint.metainfo.UnsynchronizedPut(ctx, path, pointer)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}

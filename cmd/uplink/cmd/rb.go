@@ -18,6 +18,7 @@ func init() {
 		Use:   "rb sj://BUCKET",
 		Short: "Remove an empty bucket",
 		RunE:  deleteBucket,
+		Args:  cobra.ExactArgs(1),
 	}, RootCmd)
 }
 

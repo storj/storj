@@ -451,7 +451,7 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		satellite.Repair.Checker.Loop.Pause()
 
 		// Delete segment from the satellite database
-		err = uplinkPeer.Delete(ctx, satellite, "testbucket", "test/path")
+		err = uplinkPeer.DeleteObject(ctx, satellite, "testbucket", "test/path")
 		require.NoError(t, err)
 
 		// Verify that the segment is on the repair queue

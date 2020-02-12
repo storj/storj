@@ -52,24 +52,24 @@ describe('ApiKeysCreationPopup', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('function onCloseClick works correctly', () => {
+    it('function onCloseClick works correctly', async () => {
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
             localVue,
         });
 
-        wrapper.vm.onCloseClick();
+        await wrapper.vm.onCloseClick();
 
         expect(wrapper.emitted()).toEqual({'closePopup': [[]]});
     });
 
-    it('function onChangeName works correctly', () => {
+    it('function onChangeName works correctly', async () => {
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
             localVue,
         });
 
-        wrapper.vm.onChangeName(value);
+        await wrapper.vm.onChangeName(value);
 
         wrapper.vm.$data.name = value.trim();
         expect(wrapper.vm.$data.name).toMatch('testValue');

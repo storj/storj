@@ -190,7 +190,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	return &server
 }
 
-// Run starts the server that host webapp and api endpoint
+// Run starts the server that host webapp and api endpoint.
 func (server *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -288,7 +288,7 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 	})
 }
 
-// bucketUsageReportHandler generate bucket usage report page for project
+// bucketUsageReportHandler generate bucket usage report page for project.
 func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

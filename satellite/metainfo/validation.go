@@ -166,7 +166,8 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	return keyInfo, nil
 }
 
-func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) error {
+func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !endpoint.limiterConfig.Enabled {
 		return nil
 	}
@@ -190,6 +191,12 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) er
 	}
 
 	if !limiter.(*rate.Limiter).Allow() {
+		endpoint.log.Warn("too many requests for project",
+			zap.Stringer("projectID", projectID),
+			zap.Float64("limit", float64(limiter.(*rate.Limiter).Limit())))
+
+		mon.Event("metainfo_rate_limit_exceeded") //locked
+
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
 	}
 

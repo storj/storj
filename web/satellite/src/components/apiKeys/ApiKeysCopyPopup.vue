@@ -8,13 +8,21 @@
             <div class="save-api-popup__copy-area__key-area">
                 <p class="save-api-popup__copy-area__key-area__key">{{apiKeySecret}}</p>
             </div>
-            <div class="copy-button" v-clipboard="apiKeySecret" @click="onCopyClick">
+            <div class="copy-button" @click="onCopyClick">
                 <CopyButtonLabelIcon/>
                 <p class="copy-button__label">Copy</p>
             </div>
         </div>
         <div class="save-api-popup__link-container">
-            <a class="save-api-popup__link-container__link" href="https://documentation.tardigrade.io/api-reference/uplink-cli" target="_blank">Create a Bucket & Upload an Object -></a>
+            <a
+                class="save-api-popup__link-container__link"
+                href="https://documentation.tardigrade.io/api-reference/uplink-cli"
+                target="_blank"
+                v-if="isLinkVisible"
+                @click.self.stop="segmentTrack"
+            >
+                Create a Bucket & Upload an Object ->
+            </a>
         </div>
         <div class="save-api-popup__close-cross-container" @click="onCloseClick">
             <CloseCrossIcon/>
@@ -31,6 +39,8 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import CopyButtonLabelIcon from '@/../static/images/apiKeys/copyButtonLabel.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
+
 @Component({
     components: {
         HeaderlessInput,
@@ -44,12 +54,23 @@ export default class ApiKeysCopyPopup extends Vue {
     @Prop({default: ''})
     private readonly apiKeySecret: string;
 
+    public isLinkVisible: boolean = false;
+
     public onCloseClick(): void {
         this.$emit('closePopup');
+        this.isLinkVisible = false;
     }
 
-    public async onCopyClick(): Promise<void> {
-        await this.$notify.success('Key saved to clipboard');
+    public onCopyClick(): void {
+        this.isLinkVisible = true;
+        this.$copyText(this.apiKeySecret);
+        this.$notify.success('Key saved to clipboard');
+    }
+
+    public segmentTrack(): void {
+        this.$segment.track(SegmentEvent.CLI_DOCS_VIEWED, {
+            email: this.$store.getters.user.email,
+        });
     }
 }
 </script>
@@ -81,6 +102,7 @@ export default class ApiKeysCopyPopup extends Vue {
             padding: 29px 32px 29px 24px;
             border-radius: 12px;
             position: relative;
+            margin-bottom: 20px;
 
             &__key-area {
 
@@ -98,7 +120,7 @@ export default class ApiKeysCopyPopup extends Vue {
             justify-content: flex-end;
             align-items: center;
             width: 100%;
-            margin: 20px 0 0 0;
+            height: 21px;
 
             &__link {
                 font-size: 16px;

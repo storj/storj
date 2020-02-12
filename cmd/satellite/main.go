@@ -79,6 +79,11 @@ var (
 		Short: "Run the repair service",
 		RunE:  cmdRepairerRun,
 	}
+	runAdminCmd = &cobra.Command{
+		Use:   "admin",
+		Short: "Run the satellite Admin",
+		RunE:  cmdAdminRun,
+	}
 	setupCmd = &cobra.Command{
 		Use:         "setup",
 		Short:       "Create config files",
@@ -159,6 +164,7 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 	runCmd.AddCommand(runMigrationCmd)
 	runCmd.AddCommand(runAPICmd)
+	runCmd.AddCommand(runAdminCmd)
 	runCmd.AddCommand(runRepairerCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(qdiagCmd)
@@ -170,6 +176,7 @@ func init() {
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runAdminCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))

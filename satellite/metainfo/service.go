@@ -49,6 +49,22 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 	return Error.Wrap(err)
 }
 
+// UnsynchronizedPut puts pointer to db under specific path without verifying for existing pointer under the same path.
+func (s *Service) UnsynchronizedPut(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Update the pointer with the creation date
+	pointer.CreationDate = time.Now()
+
+	pointerBytes, err := proto.Marshal(pointer)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.db.Put(ctx, []byte(path), pointerBytes)
+	return Error.Wrap(err)
+}
+
 // UpdatePieces calls UpdatePiecesCheckDuplicates with checkDuplicates equal to false.
 func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece) (pointer *pb.Pointer, err error) {
 	return s.UpdatePiecesCheckDuplicates(ctx, path, ref, toAdd, toRemove, false)

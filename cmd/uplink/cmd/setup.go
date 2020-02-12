@@ -25,6 +25,7 @@ var (
 		Short:       "Create an uplink config file",
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
+		Args:        cobra.NoArgs,
 	}
 	setupCfg UplinkFlags
 )

@@ -61,6 +61,8 @@ func newOrderedCockroachIterator(ctx context.Context, cli *Client, opts storage.
 }
 
 func (opi *orderedCockroachIterator) Close() error {
+	defer mon.Task()(nil)(nil)
+
 	return errs.Combine(opi.errEncountered, opi.curRows.Close())
 }
 
@@ -70,28 +72,38 @@ func (opi *orderedCockroachIterator) Next(ctx context.Context, item *storage.Lis
 
 	for {
 		for !opi.curRows.Next() {
-			if err := opi.curRows.Err(); err != nil && err != sql.ErrNoRows {
-				opi.errEncountered = errs.Wrap(err)
-				return false
+			result := func() bool {
+				defer mon.TaskNamed("acquire_new_query")(nil)(nil)
+
+				if err := opi.curRows.Err(); err != nil && err != sql.ErrNoRows {
+					opi.errEncountered = errs.Wrap(err)
+					return false
+				}
+				if err := opi.curRows.Close(); err != nil {
+					opi.errEncountered = errs.Wrap(err)
+					return false
+				}
+				if opi.curIndex < opi.batchSize {
+					return false
+				}
+				newRows, err := opi.doNextQuery(ctx)
+				if err != nil {
+					opi.errEncountered = errs.Wrap(err)
+					return false
+				}
+				opi.curRows = newRows
+				opi.curIndex = 0
+				return true
+			}()
+			if !result {
+				return result
 			}
-			if err := opi.curRows.Close(); err != nil {
-				opi.errEncountered = errs.Wrap(err)
-				return false
-			}
-			if opi.curIndex < opi.batchSize {
-				return false
-			}
-			newRows, err := opi.doNextQuery(ctx)
-			if err != nil {
-				opi.errEncountered = errs.Wrap(err)
-				return false
-			}
-			opi.curRows = newRows
-			opi.curIndex = 0
 		}
 
 		var k, v []byte
+		scanTask := mon.TaskNamed("scan_next_row")(nil)
 		err := opi.curRows.Scan(&k, &v)
+		scanTask(&err)
 		if err != nil {
 			opi.errEncountered = errs.Wrap(err)
 			return false

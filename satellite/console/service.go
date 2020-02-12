@@ -115,7 +115,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 	}, nil
 }
 
-// Payments separates all payment related functionality
+// Payments separates all payment related functionality.
 func (s *Service) Payments() PaymentsService {
 	return PaymentsService{service: s}
 }
@@ -292,6 +292,23 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 				Link:        "",
 				Start:       coupon.Created,
 				Type:        Coupon,
+			},
+		)
+	}
+
+	credits, err := paymentService.service.accounts.Credits().ListByUserID(ctx, auth.User.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, credit := range credits {
+		billingHistory = append(billingHistory,
+			&BillingHistoryItem{
+				Description: "10% bonus for deposit made in STORJ",
+				Amount:      credit.Amount,
+				Status:      "Added to balance",
+				Start:       credit.Created,
+				Type:        Credits,
 			},
 		)
 	}

@@ -75,7 +75,8 @@ func TestProjectRecordsList(t *testing.T) {
 
 		projectRecordsDB := db.StripeCoinPayments().ProjectRecords()
 
-		const recordsLen = 5
+		const limit = 5
+		const recordsLen = limit * 4
 
 		var createProjectRecords []stripecoinpayments.CreateProjectRecord
 		for i := 0; i < recordsLen; i++ {
@@ -95,10 +96,19 @@ func TestProjectRecordsList(t *testing.T) {
 		err := projectRecordsDB.Create(ctx, createProjectRecords, []stripecoinpayments.CouponUsage{}, start, end)
 		require.NoError(t, err)
 
-		page, err := projectRecordsDB.ListUnapplied(ctx, 0, recordsLen, time.Now())
+		page, err := projectRecordsDB.ListUnapplied(ctx, 0, limit, time.Now())
 		require.NoError(t, err)
-		require.Equal(t, recordsLen, len(page.Records))
 
+		records := page.Records
+
+		for page.Next {
+			page, err = projectRecordsDB.ListUnapplied(ctx, page.NextOffset, limit, time.Now())
+			require.NoError(t, err)
+
+			records = append(records, page.Records...)
+		}
+
+		require.Equal(t, recordsLen, len(records))
 		assert.False(t, page.Next)
 		assert.Equal(t, int64(0), page.NextOffset)
 

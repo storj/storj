@@ -16,6 +16,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
@@ -145,6 +146,57 @@ func TestMigratePostgres(t *testing.T) {
 	}
 	t.Parallel()
 	migrateTest(t, *pgtest.ConnStr)
+}
+
+func BenchmarkSetup_Postgres(b *testing.B) {
+	if *pgtest.ConnStr == "" {
+		b.Skip("Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr)
+	}
+	b.Run("merged", func(b *testing.B) {
+		benchmarkSetup(b, *pgtest.ConnStr, true)
+	})
+	b.Run("separate", func(b *testing.B) {
+		benchmarkSetup(b, *pgtest.ConnStr, false)
+	})
+}
+
+func BenchmarkSetup_Cockroach(b *testing.B) {
+	if *pgtest.CrdbConnStr == "" {
+		b.Skip("Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr)
+	}
+	b.Run("merged", func(b *testing.B) {
+		benchmarkSetup(b, *pgtest.CrdbConnStr, true)
+	})
+	b.Run("separate", func(b *testing.B) {
+		benchmarkSetup(b, *pgtest.CrdbConnStr, false)
+	})
+}
+
+func benchmarkSetup(b *testing.B, connStr string, merged bool) {
+	for i := 0; i < b.N; i++ {
+		func() {
+			ctx := context.Background()
+			log := zap.NewNop()
+
+			// create tempDB
+			tempDB, err := tempdb.OpenUnique(ctx, connStr, "migrate")
+			require.NoError(b, err)
+			defer func() { require.NoError(b, tempDB.Close()) }()
+
+			// create a new satellitedb connection
+			db, err := satellitedb.New(log, tempDB.ConnStr, satellitedb.Options{})
+			require.NoError(b, err)
+			defer func() { require.NoError(b, db.Close()) }()
+
+			if merged {
+				err = db.TestingCreateTables(ctx)
+				require.NoError(b, err)
+			} else {
+				err = db.CreateTables(ctx)
+				require.NoError(b, err)
+			}
+		}()
+	}
 }
 
 // satelliteDB provides access to certain methods on a *satellitedb.satelliteDB

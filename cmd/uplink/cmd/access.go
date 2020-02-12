@@ -37,7 +37,7 @@ func init() {
 		Use:   "list",
 		Short: "Prints name and associated satellite of all available accesses.",
 		RunE:  accessList,
-		Args:  cobra.MaximumNArgs(0),
+		Args:  cobra.NoArgs,
 	}
 
 	RootCmd.AddCommand(accessCmd)

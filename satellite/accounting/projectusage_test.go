@@ -34,21 +34,11 @@ import (
 )
 
 func TestProjectUsageStorage(t *testing.T) {
-	cases := []struct {
-		name             string
-		expectedExceeded bool
-		expectedResource string
-		expectedStatus   rpcstatus.StatusCode
-	}{
-		{name: "doesn't exceed storage or bandwidth project limit", expectedExceeded: false, expectedStatus: 0},
-		{name: "exceeds storage project limit", expectedExceeded: true, expectedResource: "storage", expectedStatus: rpcstatus.ResourceExhausted},
-	}
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Rollup.MaxAlphaUsage = 2 * memory.MB
+				config.Rollup.MaxAlphaUsage = 1 * memory.MB
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -83,32 +73,19 @@ func TestProjectUsageStorage(t *testing.T) {
 			}
 		})
 
-		for _, ttc := range cases {
-			testCase := ttc
-			t.Run(testCase.name, func(t *testing.T) {
-				// Setup: create some bytes for the uplink to upload
-				expectedData := testrand.Bytes(1 * memory.MB)
+		data := testrand.Bytes(1 * memory.MB)
 
-				// Setup: upload data to test exceeding storage project limit
-				if testCase.expectedResource == "storage" {
-					err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", expectedData)
-					atomic.StoreUint32(&uploaded, 1)
-					require.NoError(t, err)
-					// by triggering tally we ensure that this segment is 100% accounted for
-					planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
-				}
+		// successful upload
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", data)
+		atomic.StoreUint32(&uploaded, 1)
+		require.NoError(t, err)
+		planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
 
-				// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
-				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", expectedData)
-				atomic.StoreUint32(&uploaded, 1)
-				if testCase.expectedResource == "storage" {
-					require.True(t, errs2.IsRPC(actualErr, testCase.expectedStatus))
-				} else {
-					require.NoError(t, actualErr)
-				}
-
-				planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
-			})
+		// upload fails due to storage limit
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", data)
+		require.Error(t, err)
+		if !errs2.IsRPC(err, rpcstatus.ResourceExhausted) {
+			t.Fatal("Expected resource exhausted error. Got", err.Error())
 		}
 
 		checkcancel()

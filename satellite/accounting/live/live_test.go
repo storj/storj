@@ -32,15 +32,15 @@ func TestLiveAccountingCache(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	address, cleanup, err := redisserver.Start()
+	redis, err := redisserver.Mini()
 	require.NoError(t, err)
-	defer cleanup()
+	defer ctx.Check(redis.Close)
 
 	for _, tt := range tests {
 		var config live.Config
 		if tt.backend == "redis" {
 			config = live.Config{
-				StorageBackend: "redis://" + address + "?db=0",
+				StorageBackend: "redis://" + redis.Addr() + "?db=0",
 			}
 		}
 
@@ -75,12 +75,12 @@ func TestRedisCacheConcurrency(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	address, cleanup, err := redisserver.Start()
+	redis, err := redisserver.Mini()
 	require.NoError(t, err)
-	defer cleanup()
+	defer ctx.Check(redis.Close)
 
 	config := live.Config{
-		StorageBackend: "redis://" + address + "?db=0",
+		StorageBackend: "redis://" + redis.Addr() + "?db=0",
 	}
 	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
@@ -109,9 +109,9 @@ func TestRedisCacheConcurrency(t *testing.T) {
 
 func populateCache(ctx context.Context, cache accounting.Cache) (projectIDs []uuid.UUID, sum int64, _ error) {
 	const (
-		valuesListSize  = 1000
+		valuesListSize  = 10
 		valueMultiplier = 4096
-		numProjects     = 200
+		numProjects     = 100
 	)
 	// make a largish list of varying values
 	someValues := make([]int64, valuesListSize)
@@ -162,15 +162,15 @@ func TestGetAllProjectTotals(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	address, cleanup, err := redisserver.Start()
+	redis, err := redisserver.Mini()
 	require.NoError(t, err)
-	defer cleanup()
+	defer ctx.Check(redis.Close)
 
 	for _, tt := range tests {
 		var config live.Config
 		if tt.backend == "redis" {
 			config = live.Config{
-				StorageBackend: "redis://" + address + "?db=0",
+				StorageBackend: "redis://" + redis.Addr() + "?db=0",
 			}
 		}
 

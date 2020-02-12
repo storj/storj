@@ -118,6 +118,10 @@ export class AuthHttpApi {
             return await response.json();
         }
 
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
         throw new Error('can not get user data');
     }
 

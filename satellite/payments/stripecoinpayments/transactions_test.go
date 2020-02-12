@@ -114,7 +114,8 @@ func TestTransactionsDBList(t *testing.T) {
 	defer ctx.Cleanup()
 
 	const (
-		transactionCount = 10
+		limit            = 5
+		transactionCount = limit * 4
 	)
 
 	// create transactions
@@ -154,10 +155,20 @@ func TestTransactionsDBList(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			page, err := db.StripeCoinPayments().Transactions().ListPending(ctx, 0, transactionCount, time.Now())
+			page, err := db.StripeCoinPayments().Transactions().ListPending(ctx, 0, limit, time.Now())
 			require.NoError(t, err)
+
+			pendingTXs := page.Transactions
+
+			for page.Next {
+				page, err = db.StripeCoinPayments().Transactions().ListPending(ctx, page.NextOffset, limit, time.Now())
+				require.NoError(t, err)
+
+				pendingTXs = append(pendingTXs, page.Transactions...)
+			}
+
 			require.False(t, page.Next)
-			require.Equal(t, transactionCount, len(page.Transactions))
+			require.Equal(t, transactionCount, len(pendingTXs))
 
 			for _, act := range page.Transactions {
 				for _, exp := range txs {
@@ -196,10 +207,20 @@ func TestTransactionsDBList(t *testing.T) {
 			err := db.StripeCoinPayments().Transactions().Update(ctx, updates, applies)
 			require.NoError(t, err)
 
-			page, err := db.StripeCoinPayments().Transactions().ListUnapplied(ctx, 0, transactionCount, time.Now())
+			page, err := db.StripeCoinPayments().Transactions().ListUnapplied(ctx, 0, limit, time.Now())
 			require.NoError(t, err)
+
+			unappliedTXs := page.Transactions
+
+			for page.Next {
+				page, err = db.StripeCoinPayments().Transactions().ListUnapplied(ctx, page.NextOffset, limit, time.Now())
+				require.NoError(t, err)
+
+				unappliedTXs = append(unappliedTXs, page.Transactions...)
+			}
+
 			require.False(t, page.Next)
-			require.Equal(t, transactionCount, len(page.Transactions))
+			require.Equal(t, transactionCount, len(unappliedTXs))
 
 			for _, act := range page.Transactions {
 				for _, exp := range updatedTxs {

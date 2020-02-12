@@ -33,6 +33,7 @@ func init() {
 		Use:   "cp SOURCE DESTINATION",
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
+		Args:  cobra.ExactArgs(2),
 	}, RootCmd)
 
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")

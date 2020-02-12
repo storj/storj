@@ -260,7 +260,7 @@ func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int6
 
 	if len(page.Transactions) == limit+1 {
 		page.Next = true
-		page.NextOffset = offset + int64(limit) + 1
+		page.NextOffset = offset + int64(limit)
 		page.Transactions = page.Transactions[:len(page.Transactions)-1]
 	}
 
@@ -343,7 +343,7 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 
 	if len(page.Transactions) == limit+1 {
 		page.Next = true
-		page.NextOffset = offset + int64(limit) + 1
+		page.NextOffset = offset + int64(limit)
 		page.Transactions = page.Transactions[:len(page.Transactions)-1]
 	}
 

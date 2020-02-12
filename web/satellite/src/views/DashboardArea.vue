@@ -73,9 +73,12 @@ export default class DashboardArea extends Vue {
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-            await this.$notify.error(error.message);
-            await this.$router.push(RouteConfig.Login.path);
+            if (!(error instanceof ErrorUnauthorized)) {
+                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+                await this.$notify.error(error.message);
+            }
+
+            setTimeout(async () => await this.$router.push(RouteConfig.Login.path), 1000);
 
             return;
         }
@@ -87,12 +90,6 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(GET_BILLING_HISTORY);
             await this.$store.dispatch(GET_PROJECT_CHARGES);
         } catch (error) {
-            if (error instanceof ErrorUnauthorized) {
-                await this.$router.push(RouteConfig.Login.path);
-
-                return;
-            }
-
             await this.$notify.error(error.message);
         }
 

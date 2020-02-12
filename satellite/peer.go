@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
@@ -95,6 +96,8 @@ type Config struct {
 	Identity identity.Config
 	Server   server.Config
 	Debug    debug.Config
+
+	Admin admin.Config
 
 	Contact contact.Config
 	Overlay overlay.Config
