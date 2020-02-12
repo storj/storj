@@ -435,6 +435,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
 			peer.DB.UsedSerials(),
+			peer.Contact.Chore.Trigger,
 			config.Storage2,
 		)
 		if err != nil {

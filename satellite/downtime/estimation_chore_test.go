@@ -31,7 +31,7 @@ func TestEstimationChoreBasic(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
 		satellite := planet.Satellites[0]
-		node.Contact.Chore.Pause(ctx)
+		require.NoError(t, node.Contact.Chore.Pause(ctx))
 		satellite.DowntimeTracking.EstimationChore.Loop.Pause()
 		{ // test estimation chore updates uptime correctly for an online node
 			// mark node as failing an uptime check so the estimation chore picks it up
@@ -94,7 +94,7 @@ func TestEstimationChoreSatelliteDowntime(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
 		satellite := planet.Satellites[0]
-		node.Contact.Chore.Pause(ctx)
+		require.NoError(t, node.Contact.Chore.Pause(ctx))
 		satellite.DowntimeTracking.EstimationChore.Loop.Pause()
 
 		// mark node as failing an uptime check so the estimation chore picks it up
