@@ -139,6 +139,7 @@ export default class NewProjectPopup extends Vue {
 
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
         } catch (error) {
             await this.$notify.error(error.message);
         }

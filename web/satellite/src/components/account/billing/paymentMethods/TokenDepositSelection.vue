@@ -31,6 +31,7 @@
         <div
             id="paymentSelect"
             class="options-container"
+            :class="{ 'top-expand': isExpandingTop }"
             v-if="isSelectionShown"
             v-click-outside="close"
         >
@@ -94,6 +95,10 @@ export default class TokenDepositSelection extends Vue {
      */
     public isOptionSelected(option: PaymentAmountOption): boolean {
         return (option.value === this.current.value) && !this.isCustomAmount;
+    }
+
+    public get isExpandingTop(): boolean {
+        return this.$store.state.paymentsModule.billingHistory.length === 0;
     }
 
     /**
@@ -250,7 +255,6 @@ export default class TokenDepositSelection extends Vue {
         color: #354049;
         background-color: white;
         z-index: 102;
-        margin: 0 10px 100px 0;
         border-radius: 12px;
         top: 50px;
         box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
@@ -305,5 +309,10 @@ export default class TokenDepositSelection extends Vue {
         position: absolute;
         top: 0;
         left: 0;
+    }
+
+    .top-expand {
+        top: -290px;
+        box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.25);
     }
 </style>
