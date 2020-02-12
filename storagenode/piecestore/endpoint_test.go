@@ -452,58 +452,6 @@ func TestDeletePieces(t *testing.T) {
 		})
 	})
 }
-func TestDeletePiece(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		var (
-			planetSat = planet.Satellites[0]
-			planetSN  = planet.StorageNodes[0]
-		)
-
-		var client *piecestore.Client
-		{
-			dossier, err := planetSat.Overlay.DB.Get(ctx.Context, planetSN.ID())
-			require.NoError(t, err)
-
-			client, err = piecestore.Dial(
-				ctx.Context, planetSat.Dialer, &dossier.Node, zaptest.NewLogger(t), piecestore.Config{},
-			)
-			require.NoError(t, err)
-		}
-
-		t.Run("Ok", func(t *testing.T) {
-			pieceID := storj.PieceID{1}
-			data, _, _ := uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
-
-			err := client.DeletePiece(ctx.Context, pieceID)
-			require.NoError(t, err)
-
-			_, err = downloadPiece(t, ctx, pieceID, int64(len(data)), planetSN, planet.Uplinks[0], planetSat)
-			require.Error(t, err)
-
-			require.Condition(t, func() bool {
-				return strings.Contains(err.Error(), "file does not exist") ||
-					strings.Contains(err.Error(), "The system cannot find the path specified")
-			}, "unexpected error message")
-		})
-
-		t.Run("error: Not found", func(t *testing.T) {
-			err := client.DeletePiece(ctx.Context, storj.PieceID{2})
-			require.Error(t, err)
-			require.Equal(t, rpcstatus.NotFound, rpcstatus.Code(err))
-		})
-
-		t.Run("error: permission denied", func(t *testing.T) {
-			client, err := planet.Uplinks[0].DialPiecestore(ctx, planetSN)
-			require.NoError(t, err)
-
-			err = client.DeletePiece(ctx.Context, storj.PieceID{})
-			require.Error(t, err)
-			require.Equal(t, rpcstatus.PermissionDenied, rpcstatus.Code(err))
-		})
-	})
-}
 
 func TestTooManyRequests(t *testing.T) {
 	t.Skip("flaky, because of EOF issues")
