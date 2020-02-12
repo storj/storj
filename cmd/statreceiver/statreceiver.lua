@@ -31,7 +31,7 @@ pbufsize = 1000
    influx_out = graphite("influx-internal.datasci.storj.io.:2003")
    graphite_out = graphite("graphite-internal.datasci.storj.io.:2003")
 
-metric_handlers = sanitize(mbufprep(mcopy(
+v2_metric_handlers = sanitize(mbufprep(mcopy(
   -- send all satellite data to graphite
     mbuf(influx_out, mbufsize),
     mbuf(graphite_out, mbufsize))))
@@ -47,7 +47,7 @@ metric_handlers = sanitize(mbufprep(mcopy(
 
 
 v3_metric_handlers = mcopy(
-    downgrade(metric_handlers)
+    downgrade(v2_metric_handlers)
 )
 
 -- create a metric parser.
@@ -56,7 +56,7 @@ metric_parser =
           -- a metric handler, the remaining one is a per-packet application or
           -- instance filter. each filter is a regex. all packets must
           -- match all packet filters.
-    versionsplit(metric_handlers, v3_metric_handlers)) -- sanitize converts weird chars to underscores
+    versionsplit(v2_metric_handlers, v3_metric_handlers)) -- sanitize converts weird chars to underscores
     --packetfilter(".*", "", udpout("localhost:9002")))
     --packetfilter("(storagenode|satellite)-(dev|prod|alphastorj|stagingstorj)", ""))
 
