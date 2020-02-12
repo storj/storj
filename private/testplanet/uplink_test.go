@@ -174,10 +174,6 @@ func (mock *piecestoreMock) Delete(ctx context.Context, delete *pb.PieceDeleteRe
 	return nil, nil
 }
 
-func (mock *piecestoreMock) DeletePiece(ctx context.Context, delete *pb.PieceDeletePieceRequest) (_ *pb.PieceDeletePieceResponse, err error) {
-	return nil, nil
-}
-
 func (mock *piecestoreMock) DeletePieces(ctx context.Context, delete *pb.DeletePiecesRequest) (_ *pb.DeletePiecesResponse, err error) {
 	return nil, nil
 }

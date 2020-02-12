@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -207,49 +206,6 @@ func (endpoint *Endpoint) DeletePieces(
 		}
 	}
 	return &pb.DeletePiecesResponse{}, nil
-}
-
-// DeletePiece handles deleting a piece on piece store requested by satellite.
-//
-// DEPRECATED in favor of DeletePieces.
-func (endpoint *Endpoint) DeletePiece(
-	ctx context.Context, req *pb.PieceDeletePieceRequest,
-) (_ *pb.PieceDeletePieceResponse, err error) {
-	defer mon.Task()(&ctx, req.PieceId.String())(&err)
-
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
-	}
-
-	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "delete piece called with untrusted ID")
-	}
-
-	err = endpoint.store.Delete(ctx, peer.ID, req.PieceId)
-	if err != nil {
-		// TODO: https://storjlabs.atlassian.net/browse/V3-3222
-		// Once this method returns error classes change the following conditional
-		if strings.Contains(err.Error(), "file does not exist") {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, "piece not found")
-		}
-
-		endpoint.log.Error("delete failed",
-			zap.Error(err),
-			zap.Stringer("Satellite ID", peer.ID),
-			zap.Stringer("Piece ID", req.PieceId),
-		)
-
-		return nil, rpcstatus.Error(rpcstatus.Internal, "delete failed")
-	}
-
-	endpoint.log.Info("deleted",
-		zap.Stringer("Satellite ID", peer.ID),
-		zap.Stringer("Piece ID", req.PieceId),
-	)
-
-	return &pb.PieceDeletePieceResponse{}, nil
 }
 
 // Upload handles uploading a piece on piece store.
