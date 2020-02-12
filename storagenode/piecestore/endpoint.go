@@ -46,7 +46,7 @@ type OldConfig struct {
 	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
 	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls (unused)" devDefault:"" releaseDefault:""`
 	AllocatedDiskSpace     memory.Size    `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
-	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes" default:"2TB"`
+	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes (deprecated)" default:"0B"`
 	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
 }
 
@@ -269,11 +269,6 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 		return err
 	}
 
-	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
-	if err != nil {
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
-	}
-
 	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
@@ -325,7 +320,6 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 		zap.Stringer("Piece ID", limit.PieceId),
 		zap.Stringer("Satellite ID", limit.SatelliteId),
 		zap.Stringer("Action", limit.Action),
-		zap.Int64("Available Bandwidth", availableBandwidth),
 		zap.Int64("Available Space", availableSpace))
 
 	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
@@ -395,10 +389,6 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 					largestOrder.Amount, pieceWriter.Size()+int64(len(message.Chunk.Data)))
 			}
 
-			availableBandwidth -= chunkSize
-			if availableBandwidth < 0 {
-				return rpcstatus.Error(rpcstatus.Internal, "out of bandwidth")
-			}
 			availableSpace -= chunkSize
 			if availableSpace < 0 {
 				return rpcstatus.Error(rpcstatus.Internal, "out of space")
@@ -606,12 +596,6 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			chunk.Offset+chunk.ChunkSize, pieceReader.Size())
 	}
 
-	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
-	if err != nil {
-		endpoint.log.Error("error getting available bandwidth", zap.Error(err))
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
-	}
-
 	throttle := sync2.NewThrottle()
 	// TODO: see whether this can be implemented without a goroutine
 
@@ -702,11 +686,6 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			}
 
 			chunkSize := message.Order.Amount - largestOrder.Amount
-			availableBandwidth -= chunkSize
-			if availableBandwidth < 0 {
-				return rpcstatus.Error(rpcstatus.ResourceExhausted, "out of bandwidth")
-			}
-
 			if err := throttle.Produce(chunkSize); err != nil {
 				// shouldn't happen since only receiving side is calling Fail
 				return rpcstatus.Wrap(rpcstatus.Internal, err)

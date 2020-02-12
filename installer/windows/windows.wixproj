@@ -26,7 +26,6 @@
     <Compile Include="InstallDirConfig.wxs" />
     <Compile Include="CustomInstallDir.wxs" />
     <Compile Include="EmailConfig.wxs" />
-    <Compile Include="AllocatedBandwidthConfig.wxs" />
     <Compile Include="PublicAddressConfig.wxs" />
     <Compile Include="StorageDirConfig.wxs" />
     <Compile Include="WalletConfig.wxs" />

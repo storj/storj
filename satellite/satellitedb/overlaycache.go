@@ -47,13 +47,12 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		WHERE disqualified IS NULL
 		AND exit_initiated_at IS NULL
 		AND type = ?
-		AND free_bandwidth >= ?
 		AND free_disk >= ?
 		AND total_audit_count >= ?
 		AND total_uptime_count >= ?
 		AND last_contact_success > ?`
 	args := append(make([]interface{}, 0, 13),
-		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount,
+		nodeType, criteria.FreeDisk, criteria.AuditCount,
 		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
@@ -103,12 +102,11 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		WHERE disqualified IS NULL
 		AND exit_initiated_at IS NULL
 		AND type = ?
-		AND free_bandwidth >= ?
 		AND free_disk >= ?
 		AND (total_audit_count < ? OR total_uptime_count < ?)
 		AND last_contact_success > ?`
 	args := append(make([]interface{}, 0, 10),
-		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
+		nodeType, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -193,7 +191,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 
 	var rows *sql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`SELECT id, type, address, last_net,
-		free_bandwidth, free_disk, total_audit_count, audit_success_count,
+		free_disk, total_audit_count, audit_success_count,
 		total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
 		audit_reputation_beta
 		FROM nodes
@@ -210,7 +208,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	for rows.Next() {
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
+			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeDisk,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
 			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
@@ -257,7 +255,7 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 		SELECT *
 		FROM (
 			SELECT DISTINCT ON (last_net) last_net,    -- choose at max 1 node from this IP or network
-			id, type, address, free_bandwidth, free_disk, total_audit_count,
+			id, type, address, free_disk, total_audit_count,
 			audit_success_count, total_uptime_count, uptime_success_count,
 			audit_reputation_alpha, audit_reputation_beta
 			FROM nodes
@@ -276,7 +274,7 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 	for rows.Next() {
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.LastNet, &dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
+			&dbNode.Address, &dbNode.FreeDisk,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
 			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
@@ -517,66 +515,45 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 		return overlay.ErrEmptyNode
 	}
 
-	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		// TODO: use upsert
-		_, err = tx.Get_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()))
-
-		address := info.Address
-		if address == nil {
-			address = &pb.NodeAddress{}
-		}
-
-		if err != nil {
-			if err != sql.ErrNoRows {
-				return err
-			}
-			// add the node to DB for first time
-			err = tx.CreateNoReturn_Node(
-				ctx,
-				dbx.Node_Id(info.Id.Bytes()),
-				dbx.Node_Address(address.Address),
-				dbx.Node_LastNet(info.LastIp),
-				dbx.Node_Protocol(int(address.Transport)),
-				dbx.Node_Type(int(pb.NodeType_INVALID)),
-				dbx.Node_Email(""),
-				dbx.Node_Wallet(""),
-				dbx.Node_FreeBandwidth(-1),
-				dbx.Node_FreeDisk(-1),
-				dbx.Node_Major(0),
-				dbx.Node_Minor(0),
-				dbx.Node_Patch(0),
-				dbx.Node_Hash(""),
-				dbx.Node_Timestamp(time.Time{}),
-				dbx.Node_Release(false),
-				dbx.Node_Latency90(0),
-				dbx.Node_AuditSuccessCount(0),
-				dbx.Node_TotalAuditCount(0),
-				dbx.Node_UptimeSuccessCount(0),
-				dbx.Node_TotalUptimeCount(0),
-				dbx.Node_LastContactSuccess(time.Now()),
-				dbx.Node_LastContactFailure(time.Time{}),
-				dbx.Node_Contained(false),
-				dbx.Node_AuditReputationAlpha(defaults.AuditReputationAlpha0),
-				dbx.Node_AuditReputationBeta(defaults.AuditReputationBeta0),
-				//TODO: remove uptime reputation after finishing db migration
-				dbx.Node_UptimeReputationAlpha(0),
-				dbx.Node_UptimeReputationBeta(0),
-				dbx.Node_ExitSuccess(false),
-				dbx.Node_Create_Fields{
-					Disqualified: dbx.Node_Disqualified_Null(),
-				},
+	address := info.Address
+	if address == nil {
+		address = &pb.NodeAddress{}
+	}
+	query := `
+			INSERT INTO nodes
+			(
+				id, address, last_net, protocol, type,
+				email, wallet, free_disk,
+				uptime_success_count, total_uptime_count,
+				last_contact_success,
+				last_contact_failure,
+				audit_reputation_alpha, audit_reputation_beta,
+				major, minor, patch, hash, timestamp, release
 			)
-		} else {
-			err = tx.UpdateNoReturn_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()),
-				dbx.Node_Update_Fields{
-					Address:  dbx.Node_Address(address.Address),
-					LastNet:  dbx.Node_LastNet(info.LastIp),
-					Protocol: dbx.Node_Protocol(int(address.Transport)),
-				})
-		}
-
-		return err
-	})
+			VALUES (
+				$1, $2, $3, $4, $5,
+				'', '', -1,
+				0, 0,
+				$8::timestamptz,
+				'0001-01-01 00:00:00+00'::timestamptz,
+				$6, $7,
+				0, 0, 0, '', '0001-01-01 00:00:00+00'::timestamptz, false
+			)
+			ON CONFLICT (id)
+			DO UPDATE
+			SET
+				address=$2,
+				last_net=$3,
+				protocol=$4
+			`
+	_, err = cache.db.ExecContext(ctx, query,
+		// args $1 - $5
+		info.Id.Bytes(), address.Address, info.LastIp, int(address.Transport), int(pb.NodeType_INVALID),
+		// args $6 - $7
+		defaults.AuditReputationAlpha0, defaults.AuditReputationBeta0,
+		// args $8
+		time.Now(),
+	)
 	return Error.Wrap(err)
 }
 
@@ -702,7 +679,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 }
 
 // UpdateNodeInfo updates the following fields for a given node ID:
-// wallet, email for node operator, free disk and bandwidth capacity, and version
+// wallet, email for node operator, free disk, and version
 func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -717,7 +694,6 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 		}
 		if nodeInfo.GetCapacity() != nil {
 			updateFields.FreeDisk = dbx.Node_FreeDisk(nodeInfo.GetCapacity().GetFreeDisk())
-			updateFields.FreeBandwidth = dbx.Node_FreeBandwidth(nodeInfo.GetCapacity().GetFreeBandwidth())
 		}
 		if nodeInfo.GetVersion() != nil {
 			semVer, err := version.NewSemVer(nodeInfo.GetVersion().GetVersion())
@@ -1132,8 +1108,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			Wallet: info.Wallet,
 		},
 		Capacity: pb.NodeCapacity{
-			FreeBandwidth: info.FreeBandwidth,
-			FreeDisk:      info.FreeDisk,
+			FreeDisk: info.FreeDisk,
 		},
 		Reputation: *getNodeStats(info),
 		Version: pb.NodeVersion{
@@ -1426,7 +1401,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			INSERT INTO nodes
 			(
 				id, address, last_net, protocol, type,
-				email, wallet, free_bandwidth, free_disk,
+				email, wallet, free_disk,
 				uptime_success_count, total_uptime_count,
 				last_contact_success,
 				last_contact_failure,
@@ -1436,17 +1411,17 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
-				$6, $7, $8, $9,
-				$10::bool::int, 1,
-				CASE WHEN $10::bool IS TRUE THEN $19::timestamptz
+				$6, $7, $8,
+				$9::bool::int, 1,
+				CASE WHEN $9::bool IS TRUE THEN $18::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				CASE WHEN $10::bool IS FALSE THEN $19::timestamptz
+				CASE WHEN $9::bool IS FALSE THEN $18::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				$11, $12,
-				$11, $12,
-				$13, $14, $15, $16, $17, $18
+				$10, $11,
+				$10, $11,
+				$12, $13, $14, $15, $16, $17
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1456,32 +1431,32 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				protocol=$4,
 				email=$6,
 				wallet=$7,
-				free_bandwidth=$8,
-				free_disk=$9,
-				major=$13, minor=$14, patch=$15, hash=$16, timestamp=$17, release=$18,
+
+				free_disk=$8,
+				major=$12, minor=$13, patch=$14, hash=$15, timestamp=$16, release=$17,
 				total_uptime_count=nodes.total_uptime_count+1,
-				uptime_success_count = nodes.uptime_success_count + $10::bool::int,
-				last_contact_success = CASE WHEN $10::bool IS TRUE
-					THEN $19::timestamptz
+				uptime_success_count = nodes.uptime_success_count + $9::bool::int,
+				last_contact_success = CASE WHEN $9::bool IS TRUE
+					THEN $18::timestamptz
 					ELSE nodes.last_contact_success
 				END,
-				last_contact_failure = CASE WHEN $10::bool IS FALSE
-					THEN $19::timestamptz
+				last_contact_failure = CASE WHEN $9::bool IS FALSE
+					THEN $18::timestamptz
 					ELSE nodes.last_contact_failure
 				END;
 			`
 	_, err = cache.db.ExecContext(ctx, query,
 		// args $1 - $5
 		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastIP, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
-		// args $6 - $9
-		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeBandwidth(), node.Capacity.GetFreeDisk(),
-		// args $10
+		// args $6 - $8
+		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
+		// args $9
 		node.IsUp,
-		// args $11 - $12
+		// args $10 - $11
 		config.AuditReputationAlpha0, config.AuditReputationBeta0,
-		// args $13 - $18
+		// args $12 - $17
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
-		// args $19
+		// args $18
 		timestamp,
 	)
 	if err != nil {

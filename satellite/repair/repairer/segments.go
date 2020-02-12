@@ -100,8 +100,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		return true, Error.Wrap(err)
 	}
 
-	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
-
 	var excludeNodeIDs storj.NodeIDList
 	var healthyPieces, unhealthyPieces []*pb.RemotePiece
 	healthyMap := make(map[int32]bool)
@@ -171,7 +169,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: requestCount,
-		FreeBandwidth:  pieceSize,
 		ExcludedNodes:  excludeNodeIDs,
 	}
 	newNodes, err := repairer.overlay.FindStorageNodes(ctx, request)

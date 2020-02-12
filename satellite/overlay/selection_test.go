@@ -56,8 +56,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 			Address: nodeDossier.Address.GetAddress(),
 			Version: &nodeDossier.Version,
 			Capacity: &pb.NodeCapacity{
-				FreeBandwidth: 100000,
-				FreeDisk:      9 * memory.MB.Int64(),
+				FreeDisk: 9 * memory.MB.Int64(),
 			},
 			Operator: &nodeDossier.Operator,
 		})
@@ -76,8 +75,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 			Address: nodeDossier.Address.GetAddress(),
 			Version: &nodeDossier.Version,
 			Capacity: &pb.NodeCapacity{
-				FreeBandwidth: 100000,
-				FreeDisk:      11 * memory.MB.Int64(),
+				FreeDisk: 11 * memory.MB.Int64(),
 			},
 			Operator: &nodeDossier.Operator,
 		})
@@ -251,7 +249,6 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 		}
 
 		response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-			FreeBandwidth:  0,
 			RequestedCount: tt.RequestCount,
 			ExcludedNodes:  excludedNodes,
 		}, &tt.Preferences)
@@ -348,7 +345,6 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 			t.Logf("#%2d. %+v", i, tt)
 
 			response, err := satellite.Overlay.Service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-				FreeBandwidth:  0,
 				RequestedCount: tt.RequestCount,
 			}, &tt.Preferences)
 
@@ -556,7 +552,6 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 
 	for _, tt := range tests {
 		response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-			FreeBandwidth:  0,
 			RequestedCount: tt.requestCount,
 		}, &tt.preferences)
 		if tt.shouldFailWith != nil {

@@ -35,7 +35,6 @@ func TestOrderLimitPutValidation(t *testing.T) {
 		pieceExpiration     time.Duration
 		orderExpiration     time.Duration
 		limit               int64
-		availableBandwidth  int64
 		availableSpace      int64
 		err                 string
 	}{
@@ -100,17 +99,6 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			err:             "order expired:",
 		},
 		{
-			testName:           "allocated bandwidth limit",
-			pieceID:            storj.PieceID{7},
-			action:             pb.PieceAction_PUT,
-			serialNumber:       storj.SerialNumber{7},
-			pieceExpiration:    oneWeek,
-			orderExpiration:    oneWeek,
-			limit:              10 * memory.KiB.Int64(),
-			availableBandwidth: 5 * memory.KiB.Int64(),
-			err:                "out of bandwidth",
-		},
-		{
 			testName:        "allocated space limit",
 			pieceID:         storj.PieceID{8},
 			action:          pb.PieceAction_PUT,
@@ -128,8 +116,6 @@ func TestOrderLimitPutValidation(t *testing.T) {
 				SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-				// set desirable bandwidth
-				setBandwidth(ctx, t, planet, tt.availableBandwidth)
 				// set desirable space
 				setSpace(ctx, t, planet, tt.availableSpace)
 
@@ -246,14 +232,14 @@ func TestOrderLimitGetValidation(t *testing.T) {
 			limit           int64
 			err             string
 		}{
-			{ // allocated bandwidth limit
+			{ // incorrect action - PUT rather than GET
 				pieceID:         storj.PieceID{1},
-				action:          pb.PieceAction_GET,
+				action:          pb.PieceAction_PUT,
 				serialNumber:    storj.SerialNumber{1},
 				pieceExpiration: oneWeek,
 				orderExpiration: oneWeek,
 				limit:           10 * memory.KiB.Int64(),
-				err:             "out of bandwidth",
+				err:             "expected get or get repair or audit action got PUT",
 			},
 		} {
 			client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
@@ -289,27 +275,14 @@ func TestOrderLimitGetValidation(t *testing.T) {
 			closeErr := downloader.Close()
 			err = errs.Combine(readErr, closeErr)
 			if tt.err != "" {
-				assert.Equal(t, 0, len(buffer))
-				require.Error(t, err)
+				assert.Equal(t, 0, len(buffer)) //errors 10240
+				require.Error(t, err)           //nil
 				require.Contains(t, err.Error(), tt.err)
 			} else {
 				require.NoError(t, err)
 			}
 		}
 	})
-}
-
-func setBandwidth(ctx context.Context, t *testing.T, planet *testplanet.Planet, bandwidth int64) {
-	if bandwidth == 0 {
-		return
-	}
-	for _, storageNode := range planet.StorageNodes {
-		availableBandwidth, err := storageNode.Storage2.Monitor.AvailableBandwidth(ctx)
-		require.NoError(t, err)
-		diff := (bandwidth - availableBandwidth) * -1
-		err = storageNode.DB.Bandwidth().Add(ctx, planet.Satellites[0].ID(), pb.PieceAction_GET, diff, time.Now())
-		require.NoError(t, err)
-	}
 }
 
 func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, space int64) {

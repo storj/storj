@@ -108,8 +108,7 @@ func BenchmarkOverlay(b *testing.B) {
 						Email:  "a@mail.test",
 					},
 					Capacity: &pb.NodeCapacity{
-						FreeBandwidth: 1000,
-						FreeDisk:      1000,
+						FreeDisk: 1000,
 					},
 					Version: &pb.NodeVersion{
 						Version:    "1.0.0",
@@ -141,8 +140,7 @@ func BenchmarkOverlay(b *testing.B) {
 					},
 					IsUp: true,
 					Capacity: &pb.NodeCapacity{
-						FreeBandwidth: int64(i),
-						FreeDisk:      int64(i),
+						FreeDisk: int64(i),
 					},
 					Operator: &pb.NodeOperator{
 						Email:  "a@mail.test",

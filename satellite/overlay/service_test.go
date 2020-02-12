@@ -271,7 +271,6 @@ func TestNodeInfo(t *testing.T) {
 		assert.NotEmpty(t, node.Operator.Email)
 		assert.NotEmpty(t, node.Operator.Wallet)
 		assert.Equal(t, planet.StorageNodes[0].Local().Operator, node.Operator)
-		assert.NotEmpty(t, node.Capacity.FreeBandwidth)
 		assert.NotEmpty(t, node.Capacity.FreeDisk)
 		assert.Equal(t, planet.StorageNodes[0].Local().Capacity, node.Capacity)
 		assert.NotEmpty(t, node.Version.Version)
@@ -352,8 +351,7 @@ func TestUpdateCheckIn(t *testing.T) {
 			},
 			IsUp: true,
 			Capacity: &pb.NodeCapacity{
-				FreeBandwidth: int64(1234),
-				FreeDisk:      int64(5678),
+				FreeDisk: int64(5678),
 			},
 			Operator: &pb.NodeOperator{
 				Email:  expectedEmail,
@@ -381,8 +379,7 @@ func TestUpdateCheckIn(t *testing.T) {
 				Wallet: info.Operator.GetWallet(),
 			},
 			Capacity: pb.NodeCapacity{
-				FreeBandwidth: info.Capacity.GetFreeBandwidth(),
-				FreeDisk:      info.Capacity.GetFreeDisk(),
+				FreeDisk: info.Capacity.GetFreeDisk(),
 			},
 			Reputation: overlay.NodeStats{
 				UptimeCount:        1,
@@ -434,9 +431,6 @@ func TestUpdateCheckIn(t *testing.T) {
 				Address: expectedAddress,
 			},
 			IsUp: true,
-			Capacity: &pb.NodeCapacity{
-				FreeBandwidth: int64(12355),
-			},
 			Version: &pb.NodeVersion{
 				Version:    "v0.1.0",
 				CommitHash: "abc123",
@@ -454,7 +448,6 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.True(t, updatedNode.Reputation.LastContactFailure.Equal(time.Time{}.UTC()))
 		require.Equal(t, updatedNode.Address.GetAddress(), expectedAddress)
 		require.Equal(t, updatedNode.Reputation.UptimeSuccessCount, actualNode.Reputation.UptimeSuccessCount+1)
-		require.Equal(t, updatedNode.Capacity.GetFreeBandwidth(), int64(12355))
 		require.Equal(t, updatedInfo.Version.GetVersion(), updatedNode.Version.GetVersion())
 		require.Equal(t, updatedInfo.Version.GetCommitHash(), updatedNode.Version.GetCommitHash())
 		require.Equal(t, updatedInfo.Version.GetRelease(), updatedNode.Version.GetRelease())
@@ -468,9 +461,6 @@ func TestUpdateCheckIn(t *testing.T) {
 				Address: "9.8.7.6",
 			},
 			IsUp: false,
-			Capacity: &pb.NodeCapacity{
-				FreeBandwidth: int64(12355),
-			},
 			Version: &pb.NodeVersion{
 				Version:    "v0.0.0",
 				CommitHash: "",

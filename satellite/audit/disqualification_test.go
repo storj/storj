@@ -175,7 +175,6 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		request := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 4,
 			RequestedCount:       0,
-			FreeBandwidth:        0,
 			ExcludedNodes:        nil,
 			MinimumVersion:       "", // semver or empty
 		}
