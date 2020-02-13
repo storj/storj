@@ -136,6 +136,9 @@ contact.external-address: ""
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s
 
+# if true, skip the first run of GC
+# garbage-collection.skip-first: true
+
 # size of the buffer used to batch inserts into the transfer queue.
 # graceful-exit.chore-batch-size: 500
 
