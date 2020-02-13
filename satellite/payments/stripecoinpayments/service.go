@@ -138,7 +138,7 @@ func (service *Service) Accounts() payments.Accounts {
 func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const limit = 25
+	const limit = 100
 	before := time.Now()
 
 	txsPage, err := service.db.Transactions().ListPending(ctx, 0, limit, before)
@@ -229,7 +229,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const limit = 25
+	const limit = 100
 	before := time.Now()
 
 	txsPage, err := service.db.Transactions().ListUnapplied(ctx, 0, limit, before)
