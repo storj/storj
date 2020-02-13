@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
-	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
@@ -190,7 +189,7 @@ func (service *Service) CreateGetOrderLimitsOld(ctx context.Context, bucketID []
 
 		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		})
 	}
 
@@ -283,7 +282,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 
 		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		})
 	}
 
@@ -391,7 +390,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byt
 
 		limits[pieceNum] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		}
 		pieceNum++
 	}
@@ -475,7 +474,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 
 		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		})
 	}
 
@@ -563,7 +562,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 
 		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		}
 		limitsCount++
 	}
@@ -637,7 +636,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 
 	limit = &pb.AddressedOrderLimit{
 		Limit:              orderLimit,
-		StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+		StorageNodeAddress: node.Address,
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -732,7 +731,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 
 		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		}
 		limitsCount++
 	}
@@ -833,7 +832,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 
 			limits[pieceNum] = &pb.AddressedOrderLimit{
 				Limit:              orderLimit,
-				StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+				StorageNodeAddress: node.Address,
 			}
 			pieceNum++
 			totalPiecesToRepair--
@@ -916,7 +915,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 
 	limit = &pb.AddressedOrderLimit{
 		Limit:              orderLimit,
-		StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+		StorageNodeAddress: node.Address,
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -964,11 +963,4 @@ func SplitBucketID(bucketID []byte) (projectID *uuid.UUID, bucketName []byte, er
 		return nil, nil, err
 	}
 	return projectID, bucketName, nil
-}
-
-// lookupNodeAddress tries to resolve node address to an IP to avoid DNS lookups on the uplink side.
-func lookupNodeAddress(ctx context.Context, address *pb.NodeAddress) *pb.NodeAddress {
-	new := *address
-	new.Address = rpc.LookupNodeAddress(ctx, address.Address)
-	return &new
 }
