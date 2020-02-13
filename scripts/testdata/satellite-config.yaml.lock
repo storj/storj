@@ -238,6 +238,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the database connection string to use
 # metainfo.database-url: postgres://
 
+# maximum number of concurrent connection for the entire service.
+# metainfo.delete-pieces-service.max-concurrent-connection: 100
+
+# how long to wait for a node to complete a delete request.
+# metainfo.delete-pieces-service.node-operation-timeout: 5m0s
+
 # how long to wait for new observers before starting iteration
 # metainfo.loop.coalesce-duration: 5s
 

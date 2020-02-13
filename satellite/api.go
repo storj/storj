@@ -53,9 +53,6 @@ import (
 	"storj.io/storj/satellite/vouchers"
 )
 
-// TODO: SM-86: make this into a config value
-const metainfoDeletePiecesConcurrencyLimit = 100
-
 // API is the satellite API process
 //
 // architecture: Peer
@@ -379,7 +376,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Metainfo.DeletePiecesService, err = metainfo.NewDeletePiecesService(
 			peer.Log.Named("metainfo:delete-pieces"),
 			peer.Dialer,
-			metainfoDeletePiecesConcurrencyLimit,
+			config.Metainfo.DeletePiecesService,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

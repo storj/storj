@@ -5,10 +5,14 @@ package metainfo_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/memory"
 	"storj.io/common/rpc"
@@ -16,8 +20,11 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/cmd/uplink/cmd"
+	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -25,21 +32,47 @@ func TestDeletePiecesService_New_Error(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	dialer := rpc.NewDefaultDialer(nil)
 
-	_, err := metainfo.NewDeletePiecesService(nil, dialer, 8)
+	_, err := metainfo.NewDeletePiecesService(nil, dialer, metainfo.DeletePiecesServiceConfig{
+		MaxConcurrentConnection: 8,
+		NodeOperationTimeout:    time.Second,
+	})
 	require.True(t, metainfo.ErrDeletePieces.Has(err), err)
 	require.Contains(t, err.Error(), "logger cannot be nil")
 
-	_, err = metainfo.NewDeletePiecesService(log, rpc.Dialer{}, 87)
+	_, err = metainfo.NewDeletePiecesService(log, rpc.Dialer{}, metainfo.DeletePiecesServiceConfig{
+		MaxConcurrentConnection: 87,
+		NodeOperationTimeout:    time.Second,
+	})
 	require.True(t, metainfo.ErrDeletePieces.Has(err), err)
 	require.Contains(t, err.Error(), "dialer cannot be its zero value")
 
-	_, err = metainfo.NewDeletePiecesService(log, dialer, 0)
+	_, err = metainfo.NewDeletePiecesService(log, dialer, metainfo.DeletePiecesServiceConfig{
+		MaxConcurrentConnection: 0,
+		NodeOperationTimeout:    time.Second,
+	})
 	require.True(t, metainfo.ErrDeletePieces.Has(err), err)
 	require.Contains(t, err.Error(), "greater than 0")
 
-	_, err = metainfo.NewDeletePiecesService(log, dialer, -3)
+	_, err = metainfo.NewDeletePiecesService(log, dialer, metainfo.DeletePiecesServiceConfig{
+		MaxConcurrentConnection: -3,
+		NodeOperationTimeout:    time.Second,
+	})
 	require.True(t, metainfo.ErrDeletePieces.Has(err), err)
 	require.Contains(t, err.Error(), "greater than 0")
+
+	_, err = metainfo.NewDeletePiecesService(log, dialer, metainfo.DeletePiecesServiceConfig{
+		MaxConcurrentConnection: 3,
+		NodeOperationTimeout:    time.Nanosecond,
+	})
+	require.True(t, metainfo.ErrDeletePieces.Has(err), err)
+	require.Contains(t, err.Error(), "node operation timeout")
+
+	_, err = metainfo.NewDeletePiecesService(log, dialer, metainfo.DeletePiecesServiceConfig{
+		MaxConcurrentConnection: 3,
+		NodeOperationTimeout:    time.Hour,
+	})
+	require.True(t, metainfo.ErrDeletePieces.Has(err), err)
+	require.Contains(t, err.Error(), "node operation timeout")
 }
 
 func TestDeletePiecesService_DeletePieces_AllNodesUp(t *testing.T) {
@@ -307,7 +340,10 @@ func TestDeletePiecesService_DeletePieces_InvalidDialer(t *testing.T) {
 		dialer := satelliteSys.API.Dialer
 		dialer.TLSOptions = nil
 		service, err := metainfo.NewDeletePiecesService(
-			zaptest.NewLogger(t), dialer, len(nodesPieces)-1,
+			zaptest.NewLogger(t), dialer, metainfo.DeletePiecesServiceConfig{
+				MaxConcurrentConnection: len(nodesPieces) - 1,
+				NodeOperationTimeout:    2 * time.Second,
+			},
 		)
 		require.NoError(t, err)
 		defer ctx.Check(service.Close)
@@ -352,5 +388,104 @@ func TestDeletePiecesService_DeletePieces_Invalid(t *testing.T) {
 			assert.False(t, metainfo.ErrDeletePieces.Has(err), err)
 			assert.Contains(t, err.Error(), "invalid successThreshold")
 		})
+	})
+}
+
+func TestDeletePiecesService_DeletePieces_Timeout(t *testing.T) {
+	deletePiecesServiceConfig := metainfo.DeletePiecesServiceConfig{}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
+			},
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.DeletePiecesService.NodeOperationTimeout = 200 * time.Millisecond
+				config.Metainfo.RS.MinThreshold = 2
+				config.Metainfo.RS.RepairThreshold = 2
+				config.Metainfo.RS.SuccessThreshold = 4
+				config.Metainfo.RS.TotalThreshold = 4
+				deletePiecesServiceConfig = config.Metainfo.DeletePiecesService
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplnk := planet.Uplinks[0]
+		satelliteSys := planet.Satellites[0]
+
+		{
+			data := testrand.Bytes(10 * memory.KiB)
+			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
+				Client: cmd.ClientConfig{
+					SegmentSize: 10 * memory.KiB,
+				},
+			},
+				"a-bucket", "object-filename", data,
+			)
+			require.NoError(t, err)
+		}
+
+		var (
+			expectedTotalUsedSpace int64
+			nodesPieces            metainfo.NodesPieces
+		)
+		for _, sn := range planet.StorageNodes {
+			// calculate the SNs total used space after data upload
+			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+			require.NoError(t, err)
+			expectedTotalUsedSpace += piecesTotal
+
+			// Get pb node and all the pieces of the storage node
+			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
+			require.NoError(t, err)
+
+			nodePieces := metainfo.NodePieces{
+				Node: &dossier.Node,
+			}
+
+			err = sn.Storage2.Store.WalkSatellitePieces(ctx, satelliteSys.ID(),
+				func(store pieces.StoredPieceAccess) error {
+					nodePieces.Pieces = append(nodePieces.Pieces, store.PieceID())
+					return nil
+				},
+			)
+			require.NoError(t, err)
+
+			nodesPieces = append(nodesPieces, nodePieces)
+
+			// make delete operation on storage nodes slow
+			storageNodeDB := sn.DB.(*testblobs.SlowDB)
+			delay := 200 * time.Millisecond
+			storageNodeDB.SetLatency(delay)
+		}
+
+		core, recorded := observer.New(zapcore.DebugLevel)
+		log := zap.New(core)
+		service, err := metainfo.NewDeletePiecesService(log, satelliteSys.Dialer, deletePiecesServiceConfig)
+		require.NoError(t, err)
+
+		err = service.DeletePieces(ctx, nodesPieces, 0.75)
+		require.NoError(t, err)
+
+		// get all delete failure logs
+		logEntries := recorded.FilterMessageSnippet("unable to delete pieces")
+		require.Equal(t, logEntries.Len(), 4)
+
+		// error messages from the logs should all contain context canceled error
+		for _, entry := range logEntries.All() {
+			field := entry.ContextMap()
+			errMsg, ok := field["error"]
+			require.True(t, ok)
+			require.Contains(t, errMsg, "context deadline exceeded")
+		}
+
+		var totalUsedSpace int64
+		for _, sn := range planet.StorageNodes {
+			// calculate the SNs total used space after data upload
+			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+			require.NoError(t, err)
+			totalUsedSpace += piecesTotal
+		}
+
+		require.Equal(t, expectedTotalUsedSpace, totalUsedSpace, "totalUsedSpace")
 	})
 }

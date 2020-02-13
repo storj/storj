@@ -6,6 +6,7 @@ package metainfo
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -23,16 +24,17 @@ var ErrDeletePieces = errs.Class("metainfo storage node service")
 // piecesToDeleteLlimit is the maximum number of piece IDs can be sent to a storagenode in a request. Currently, the calculation is based on DRPC maximum message side, 4MB
 const piecesToDeleteLimit = 1000
 
+const minNodeOperationTimeout = 5 * time.Millisecond
+const maxNodeOperationTimeout = 10 * time.Minute
+
 // DeletePiecesService is the metainfo service in charge of deleting pieces of
 // storage nodes.
 //
 // architecture: Service
 type DeletePiecesService struct {
-	log    *zap.Logger
-	dialer rpc.Dialer
-
-	// TODO: v3-3406 this values is currently only used to limit the concurrent
-	// connections by each single method call.
+	log     *zap.Logger
+	dialer  rpc.Dialer
+	config  DeletePiecesServiceConfig
 	limiter *sync2.ParentLimiter
 }
 
@@ -41,11 +43,16 @@ type DeletePiecesService struct {
 //
 // It returns an error if maxConcurrentConns is less or equal than 0, dialer is
 // a zero value or log is nil.
-func NewDeletePiecesService(log *zap.Logger, dialer rpc.Dialer, maxConcurrentConns int) (*DeletePiecesService, error) {
-	// TODO: v3-3476 should we have an upper limit?
-	if maxConcurrentConns <= 0 {
+func NewDeletePiecesService(log *zap.Logger, dialer rpc.Dialer, config DeletePiecesServiceConfig) (*DeletePiecesService, error) {
+	if config.MaxConcurrentConnection <= 0 {
 		return nil, ErrDeletePieces.New(
-			"max concurrent connections must be greater than 0, got %d", maxConcurrentConns,
+			"max concurrent connections must be greater than 0, got %d", config.MaxConcurrentConnection,
+		)
+	}
+
+	if config.NodeOperationTimeout < minNodeOperationTimeout || config.NodeOperationTimeout > maxNodeOperationTimeout {
+		return nil, ErrDeletePieces.New(
+			"node operation timeout must be greater than %d and less than %d, got %d", minNodeOperationTimeout, maxNodeOperationTimeout, config.NodeOperationTimeout,
 		)
 	}
 
@@ -58,7 +65,8 @@ func NewDeletePiecesService(log *zap.Logger, dialer rpc.Dialer, maxConcurrentCon
 	}
 
 	return &DeletePiecesService{
-		limiter: sync2.NewParentLimiter(maxConcurrentConns),
+		limiter: sync2.NewParentLimiter(config.MaxConcurrentConnection),
+		config:  config,
 		dialer:  dialer,
 		log:     log,
 	}, nil
@@ -95,6 +103,8 @@ func (service *DeletePiecesService) DeletePieces(
 		}
 
 		limiter.Go(ctx, func() {
+			ctx, cancel := context.WithTimeout(ctx, service.config.NodeOperationTimeout)
+			defer cancel()
 			// Track the rate that each single node is dialed
 			mon.Event(fmt.Sprintf("DeletePieces_node_%s", node.Id.String()))
 

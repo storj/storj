@@ -341,6 +341,10 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					CacheCapacity:   100,
 					CacheExpiration: 10 * time.Second,
 				},
+				DeletePiecesService: metainfo.DeletePiecesServiceConfig{
+					MaxConcurrentConnection: 100,
+					NodeOperationTimeout:    2 * time.Second,
+				},
 			},
 			Orders: orders.Config{
 				Expiration:          7 * 24 * time.Hour,
