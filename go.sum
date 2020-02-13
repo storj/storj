@@ -232,8 +232,8 @@ github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0 h1:UyVaeqfY1fLPMt1i
 github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0/go.mod h1:OtVLEpPHGJkn8jgGrHlYELCA3uXLU0YSfNN0faeDM2M=
 github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3 h1:dITCBge70U9RDyZUL/Thn/yAT/ct4Rz40mNUX51dFCk=
 github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3/go.mod h1:eo5po8nCwRcvZIIR8eGi7PKthzXuunpXzUmXzxCBfBc=
-github.com/jtolds/tracetagger/v2 v2.0.0-rc0 h1:ND7ncC1SZyJ97ALL2QsKN5whzvRGOeXv0cu8PaCYttA=
-github.com/jtolds/tracetagger/v2 v2.0.0-rc0/go.mod h1:EeqZ0b80feEwRK+FutrQ/GJxruNqamJBKOezZVfzSxA=
+github.com/jtolds/tracetagger/v2 v2.0.0-rc2 h1:pxmt5o+WRYffMwMYuFlI3wKwYbPVAyiX8EEyM8a/U7o=
+github.com/jtolds/tracetagger/v2 v2.0.0-rc2/go.mod h1:EeqZ0b80feEwRK+FutrQ/GJxruNqamJBKOezZVfzSxA=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0/go.mod h1:1NbS8ALrpOvjt0rHPNLyCIeMtbizbir8U//inJ+zuB8=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
@@ -609,9 +609,5 @@ storj.io/common v0.0.0-20200210174421-a3a30fc4862d/go.mod h1:n4sxosrQlw5iDBlbTdB
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2/go.mod h1:/ascUDbzNAv0A3Jj7wUIKFBH2JdJ2uJIBO/b9+2yHgQ=
 storj.io/drpc v0.0.8 h1:wu68cMmtoT0vSWIAZz29RpJkWdi4o0S8BIrLslpH5FQ=
 storj.io/drpc v0.0.8/go.mod h1:v39uWro/EbXXk+gNnrM9FQuVVS2zUBWBfeduydgeXUA=
-storj.io/uplink v0.0.0-20200131143957-f3b6350b4add h1:/G2nFSq00KxD/9tQIpNJA2vRGkaSHdZvi1ZsX4qAgbQ=
-storj.io/uplink v0.0.0-20200131143957-f3b6350b4add/go.mod h1:sqhw1H30vF8pD6coKYkx0nLAkw9M0ISwjLi+3R5b3A8=
-storj.io/uplink v0.0.0-20200210111421-04761b3aaccd h1:jjOXtv0L9sd/i5UW0qsaMjFDA857z0BTBIsTIhImumk=
-storj.io/uplink v0.0.0-20200210111421-04761b3aaccd/go.mod h1:sqhw1H30vF8pD6coKYkx0nLAkw9M0ISwjLi+3R5b3A8=
 storj.io/uplink v0.0.0-20200211130624-1f304dca3b7d h1:Co/Sa2VflIZ4tHk+eLj8vSES/ciksSHILX9+fuTGtAQ=
 storj.io/uplink v0.0.0-20200211130624-1f304dca3b7d/go.mod h1:sqhw1H30vF8pD6coKYkx0nLAkw9M0ISwjLi+3R5b3A8=

@@ -51,7 +51,7 @@ require (
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
-	github.com/jtolds/tracetagger/v2 v2.0.0-rc0
+	github.com/jtolds/tracetagger/v2 v2.0.0-rc2
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
 	github.com/lib/pq v1.3.0
