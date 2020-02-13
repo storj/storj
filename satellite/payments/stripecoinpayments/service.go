@@ -252,7 +252,7 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 			return err
 		}
 
-		txsPage, err := service.db.Transactions().ListUnapplied(ctx, txsPage.NextOffset, limit, before)
+		txsPage, err = service.db.Transactions().ListUnapplied(ctx, txsPage.NextOffset, limit, before)
 		if err != nil {
 			return err
 		}
