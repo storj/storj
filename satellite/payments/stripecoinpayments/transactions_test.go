@@ -6,13 +6,16 @@ package stripecoinpayments_test
 import (
 	"encoding/base64"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
+	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -106,6 +109,75 @@ func TestTransactionsDB(t *testing.T) {
 			assert.Nil(t, page.Transactions)
 			assert.Equal(t, 0, len(page.Transactions))
 		})
+	})
+}
+
+func TestConcurrentConsume(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		transactions := db.StripeCoinPayments().Transactions()
+
+		const concurrentTries = 30
+
+		amount, ok := new(big.Float).SetPrec(1000).SetString("2.0000000000000000005")
+		require.True(t, ok)
+		received, ok := new(big.Float).SetPrec(1000).SetString("1.0000000000000000003")
+		require.True(t, ok)
+
+		tx, err := transactions.Insert(ctx,
+			stripecoinpayments.Transaction{
+				ID:        "testID",
+				AccountID: uuid.UUID{1, 2, 3},
+				Address:   "testAddress",
+				Amount:    *amount,
+				Received:  *received,
+				Status:    coinpayments.StatusPending,
+				Key:       "testKey",
+				Timeout:   time.Second * 60,
+			},
+		)
+		require.NoError(t, err)
+
+		err = transactions.Update(ctx,
+			[]stripecoinpayments.TransactionUpdate{{
+				TransactionID: tx.ID,
+				Status:        coinpayments.StatusCompleted,
+				Received:      *received,
+			}},
+			coinpayments.TransactionIDList{
+				tx.ID,
+			},
+		)
+		require.NoError(t, err)
+
+		var errLock sync.Mutex
+		var alreadyConsumed []error
+
+		appendError := func(err error) {
+			defer errLock.Unlock()
+			errLock.Lock()
+
+			alreadyConsumed = append(alreadyConsumed, err)
+		}
+
+		var group errs2.Group
+		for i := 0; i < concurrentTries; i++ {
+			group.Go(func() error {
+				err := transactions.Consume(ctx, tx.ID)
+
+				if err == nil {
+					return nil
+				}
+				if err == stripecoinpayments.ErrTransactionConsumed {
+					appendError(err)
+					return nil
+				}
+
+				return err
+			})
+		}
+
+		require.NoError(t, errs.Combine(group.Wait()...))
+		require.Equal(t, concurrentTries-1, len(alreadyConsumed))
 	})
 }
 
