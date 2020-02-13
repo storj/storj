@@ -185,6 +185,8 @@ export default class NewProjectPopup extends Vue {
     private selectCreatedProject(): void {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
 
+        this.$emit('hideNewProjectButton');
+
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
     }
 
