@@ -6,7 +6,7 @@ import loadScript from 'load-script';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 /**
- * Segmentio is a wrapper around segment.io analytics package
+ * Segmentio is a wrapper around segment.io analytics package.
  */
 export class Segmentio {
     private analytics: SegmentAnalytics.AnalyticsJS;

@@ -26,8 +26,14 @@ import { NavigationLink } from '@/types/navigation';
     },
 })
 export default class NavigationArea extends Vue {
+    /**
+     * Indicates if resource related navigation links appears.
+     */
     public areResourceItemsShown: boolean = true;
     public isResourceButtonShown: boolean = false;
+    /**
+     * Indicates if account related navigation links appears.
+     */
     public areAccountItemsShown: boolean = true;
     public isAccountButtonShown: boolean = false;
     public homePath: string = RouteConfig.ProjectOverview.path;

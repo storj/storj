@@ -71,6 +71,9 @@ class StrengthLabelColor {
 export default class PasswordStrength extends Vue {
     @Prop({default: ''})
     private readonly passwordString: string;
+    /**
+     * Indicates if component should be rendered.
+     */
     @Prop({default: false})
     private readonly isShown: boolean;
 
@@ -80,6 +83,9 @@ export default class PasswordStrength extends Vue {
         return this.passwordString.length >= this.MINIMAL_PASSWORD_LENGTH;
     }
 
+    /**
+     * Returns password strength label depends on score.
+     */
     public get passwordStrength(): string {
         if (this.passwordString.length < this.MINIMAL_PASSWORD_LENGTH) {
             return `Use ${this.MINIMAL_PASSWORD_LENGTH} or more characters`;
@@ -100,11 +106,11 @@ export default class PasswordStrength extends Vue {
     }
 
     public get barFillStyle(): BarFillStyle {
-        return new BarFillStyle(this.passwordStrengthColor(this.passwordStrength), this.barWidth(this.passwordStrength));
+        return new BarFillStyle(this.passwordStrengthColor, this.barWidth);
     }
 
     public get strengthLabelColor(): StrengthLabelColor {
-        return new StrengthLabelColor(this.passwordStrengthColor(this.passwordStrength));
+        return new StrengthLabelColor(this.passwordStrengthColor);
     }
 
     public get hasLowerAndUpperCaseLetters(): boolean {
@@ -115,6 +121,9 @@ export default class PasswordStrength extends Vue {
         return /\W/.test(this.passwordString);
     }
 
+    /**
+     * Returns password strength score depends on length, case variations and special characters.
+     */
     private scorePassword(): number {
         const password: string = this.passwordString;
         let score: number = 0;
@@ -142,8 +151,11 @@ export default class PasswordStrength extends Vue {
         return score;
     }
 
-    private passwordStrengthColor(strength: string): string {
-        switch (strength) {
+    /**
+     * Color for indicator between red as weak and green as strong password.
+     */
+    private get passwordStrengthColor(): string {
+        switch (this.passwordStrength) {
             case 'Good':
                 return '#ffff00';
             case 'Strong':
@@ -155,8 +167,11 @@ export default class PasswordStrength extends Vue {
         return '#e16c58';
     }
 
-    private barWidth(strength: string): string {
-        switch (strength) {
+    /**
+     * Fills password strength indicator bar.
+     */
+    private get barWidth(): string {
+        switch (this.passwordStrength) {
             case 'Weak':
                 return '81px';
             case 'Good':

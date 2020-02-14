@@ -68,6 +68,10 @@ const {
 export default class DashboardArea extends Vue {
     private readonly billingPath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
 
+    /**
+     * Lifecycle hook after initial render.
+     * Pre fetches user`s and project information.
+     */
     public async mounted(): Promise<void> {
         // TODO: combine all project related requests in one
         try {
@@ -153,16 +157,22 @@ export default class DashboardArea extends Vue {
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
     }
 
+    /**
+     * Indicates if bonus banner should be rendered.
+     */
     public get isBannerShown(): boolean {
         return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
+    /**
+     * Indicates if loading screen is active.
+     */
     public get isLoading(): boolean {
         return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
     }
 
     /**
-     * This method checks if current route is available when user has no created projects
+     * This method checks if current route is available when user has no created projects.
      */
     private isRouteAccessibleWithoutProject(): boolean {
         const availableRoutes = [

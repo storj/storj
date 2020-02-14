@@ -6,7 +6,7 @@
         <h2 class="save-api-popup__title">Save Your Secret API Key! It Will Appear Only Once.</h2>
         <div class="save-api-popup__copy-area">
             <div class="save-api-popup__copy-area__key-area">
-                <p class="save-api-popup__copy-area__key-area__key">{{apiKeySecret}}</p>
+                <p class="save-api-popup__copy-area__key-area__key">{{ apiKeySecret }}</p>
             </div>
             <div class="copy-button" @click="onCopyClick">
                 <CopyButtonLabelIcon/>
@@ -49,11 +49,17 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
     },
 })
 export default class ApiKeysCopyPopup extends Vue {
+    /**
+     * Indicates if component should be rendered.
+     */
     @Prop({default: false})
     private readonly isPopupShown: boolean;
     @Prop({default: ''})
     private readonly apiKeySecret: string;
 
+    /**
+     * Indicates if link to doc should appear after api key secret copy.
+     */
     public isLinkVisible: boolean = false;
 
     public onCloseClick(): void {
@@ -61,6 +67,9 @@ export default class ApiKeysCopyPopup extends Vue {
         this.isLinkVisible = false;
     }
 
+    /**
+     * Copies api key secret to buffer.
+     */
     public onCopyClick(): void {
         this.isLinkVisible = true;
         this.$copyText(this.apiKeySecret);

@@ -19,9 +19,9 @@
                 Balance
                 <b
                     class="account-balance-area__balance-area__balance__bold-text"
-                    :style="balanceStyle"
+                    :style="{color: balanceColor}"
                 >
-                    {{balance}}
+                    {{ balance | centsToDollars}}
                 </b>
             </span>
         </div>
@@ -46,6 +46,9 @@ const {
     },
 })
 export default class AccountBalance extends Vue {
+    /**
+     * Lifecycle hook after initial render where balance is fetched.
+     */
     public mounted() {
         try {
             this.$store.dispatch(GET_BALANCE);
@@ -54,22 +57,18 @@ export default class AccountBalance extends Vue {
         }
     }
 
-    public get balance(): string {
-        return `USD $${this.$store.state.paymentsModule.balance / 100}`;
+    /**
+     * Returns balance from store in cents.
+     */
+    public get balance(): number {
+        return this.$store.state.paymentsModule.balance;
     }
 
-    public get balanceStyle() {
-        let color: string = '#000';
-
-        if (this.$store.state.paymentsModule.balance < 0) {
-            color = '#FF0000';
-        }
-
-        return { color };
-    }
-
-    public onEarnCredits(): void {
-        return;
+    /**
+     * Returns balance color red if balance below zero and clack if not.
+     */
+    public get balanceColor(): string {
+        return this.$store.state.paymentsModule.balance < 0 ? '#FF0000' : '#000';
     }
 }
 </script>

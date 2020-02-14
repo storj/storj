@@ -14,7 +14,7 @@ export class PaymentsHttpApi implements PaymentsApi {
     private readonly ROOT_PATH: string = '/api/v0/payments';
 
     /**
-     * Get account balance
+     * Get account balance.
      *
      * @returns balance in cents
      * @throws Error
@@ -35,7 +35,7 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * Try to set up a payment account
+     * Try to set up a payment account.
      *
      * @throws Error
      */
@@ -84,7 +84,8 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * Add credit card
+     * Add credit card.
+     *
      * @param token - stripe token used to add a credit card as a payment method
      * @throws Error
      */
@@ -105,6 +106,7 @@ export class PaymentsHttpApi implements PaymentsApi {
 
     /**
      * Detach credit card from payment account.
+     *
      * @param cardId
      * @throws Error
      */
@@ -124,7 +126,7 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * Get list of user`s credit cards
+     * Get list of user`s credit cards.
      *
      * @returns list of credit cards
      * @throws Error
@@ -150,7 +152,8 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * Make credit card default
+     * Make credit card default.
+     *
      * @param cardId
      * @throws Error
      */
@@ -207,7 +210,8 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * makeTokenDeposit process coin payments
+     * makeTokenDeposit process coin payments.
+     *
      * @param amount
      * @throws Error
      */

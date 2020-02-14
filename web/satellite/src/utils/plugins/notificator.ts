@@ -4,6 +4,9 @@
 import { store } from '@/store';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
+/**
+ * Exposes UI notifications functionality.
+ */
 export class Notificator {
     public constructor(private store) {}
 
@@ -24,6 +27,9 @@ export class Notificator {
     }
 }
 
+/**
+ * Registers plugin in Vue instance.
+ */
 export class NotificatorPlugin {
     public install(Vue) {
         Vue.prototype.$notify = new Notificator(store);

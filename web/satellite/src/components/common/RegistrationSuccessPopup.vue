@@ -36,6 +36,9 @@ export default class RegistrationSuccessPopup extends Vue {
         }
     }
 
+    /**
+     * Resend email if interval timer is expired.
+     */
     public async onResendEmailButtonClick(): Promise<void> {
         if (this.isResendEmailButtonDisabled) {
             return;
@@ -57,15 +60,24 @@ export default class RegistrationSuccessPopup extends Vue {
         this.startResendEmailCountdown();
     }
 
+    /**
+     * Closes popup and redirects to login page.
+     */
     public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
         this.$router.push(RouteConfig.Login.path);
     }
 
+    /**
+     * Indicates if component should be rendered.
+     */
     public get isPopupShown(): boolean {
         return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
     }
 
+    /**
+     * Resets timer blocking email resend button spamming.
+     */
     private startResendEmailCountdown(): void {
         let countdown = 30;
 

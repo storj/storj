@@ -166,8 +166,18 @@ declare interface ResetPagination {
 export default class ApiKeysArea extends Vue {
     public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
     private FIRST_PAGE = 1;
+    /**
+     * Indicates if delete confirmation state should appear.
+     */
     private isDeleteClicked: boolean = false;
+    /**
+     * Indicates if api key name input state should appear.
+     */
     private isNewApiKeyPopupShown: boolean = false;
+    /**
+     * Indicates if copy api key state should appear.
+     * Should only appear once
+     */
     private isCopyApiKeyPopupShown: boolean = false;
     private apiKeySecret: string = '';
 
@@ -175,6 +185,9 @@ export default class ApiKeysArea extends Vue {
         pagination: HTMLElement & ResetPagination;
     };
 
+    /**
+     * Lifecycle hook after initial render where list of existing api keys is fetched.
+     */
     public async mounted(): Promise<void> {
         await this.$store.dispatch(FETCH, 1);
         this.$segment.track(SegmentEvent.API_KEYS_VIEWED, {
@@ -183,11 +196,19 @@ export default class ApiKeysArea extends Vue {
         });
     }
 
+    /**
+     * Lifecycle hook before component destruction.
+     * Clears existing api keys selection and search.
+     */
     public async beforeDestroy(): Promise<void> {
         this.onClearSelection();
         await this.$store.dispatch(SET_SEARCH_QUERY, '');
     }
 
+    /**
+     * toggles api key selection.
+     * @param apiKey
+     */
     public async toggleSelection(apiKey: ApiKey): Promise<void> {
         await this.$store.dispatch(TOGGLE_SELECTION, apiKey);
     }
@@ -218,6 +239,9 @@ export default class ApiKeysArea extends Vue {
         this.isCopyApiKeyPopupShown = false;
     }
 
+    /**
+     * Deletes selected api keys, fetches updated list and changes area state to default.
+     */
     public async onDelete(): Promise<void> {
         try {
             await this.$store.dispatch(DELETE);
@@ -246,30 +270,44 @@ export default class ApiKeysArea extends Vue {
         return ApiKeysItem;
     }
 
+    /**
+     * Returns api keys from store.
+     */
     public get apiKeyList(): ApiKey[] {
         return this.$store.getters.apiKeys;
     }
 
+    /**
+     * Returns api keys pages count from store.
+     */
     public get totalPageCount(): number {
         return this.$store.state.apiKeysModule.page.pageCount;
     }
 
+    /**
+     * Returns api keys label depends on api keys count.
+     */
     public get apiKeyCountTitle(): string {
-        if (this.selectedAPIKeysCount === 1) {
-            return 'api key';
-        }
-
-        return 'api keys';
+        return this.selectedAPIKeysCount === 1 ? 'api key' : 'api keys';
     }
 
+    /**
+     * Indicates if no api keys in store.
+     */
     public get isEmpty(): boolean {
         return this.$store.getters.apiKeys.length === 0;
     }
 
+    /**
+     * Indicates if bonus banner should appear if no credit cards is attached to account.
+     */
     public get isBannerShown(): boolean {
         return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
+    /**
+     * Indicates if "Account" title is shown.
+     */
     public get isTitleShown(): boolean {
         return !(this.isBannerShown && this.isEmpty);
     }
@@ -283,11 +321,7 @@ export default class ApiKeysArea extends Vue {
     }
 
     public get headerState(): number {
-        if (this.selectedAPIKeysCount > 0) {
-            return HeaderState.ON_SELECT;
-        }
-
-        return HeaderState.DEFAULT;
+        return this.selectedAPIKeysCount > 0 ? HeaderState.ON_SELECT : HeaderState.DEFAULT;
     }
 
     public get isHeaderShown(): boolean {
@@ -295,15 +329,15 @@ export default class ApiKeysArea extends Vue {
     }
 
     public get isDefaultHeaderState(): boolean {
-        return this.headerState === 0;
+        return this.headerState === HeaderState.DEFAULT;
     }
 
     public get areApiKeysSelected(): boolean {
-        return this.headerState === 1 && !this.isDeleteClicked;
+        return this.headerState === HeaderState.ON_SELECT && !this.isDeleteClicked;
     }
 
     public get areSelectedApiKeysBeingDeleted(): boolean {
-        return this.headerState === 1 && this.isDeleteClicked;
+        return this.headerState === HeaderState.ON_SELECT && this.isDeleteClicked;
     }
 
     public get isEmptySearchResultShown(): boolean {
@@ -314,6 +348,10 @@ export default class ApiKeysArea extends Vue {
         return this.isEmpty && !this.isNewApiKeyPopupShown && !this.hasSearchQuery;
     }
 
+    /**
+     * Fetches api keys page by clicked index.
+     * @param index
+     */
     public async onPageClick(index: number): Promise<void> {
         try {
             await this.$store.dispatch(FETCH, index);
@@ -322,6 +360,11 @@ export default class ApiKeysArea extends Vue {
         }
     }
 
+    /**
+     * Used for sorting.
+     * @param sortBy
+     * @param sortDirection
+     */
     public async onHeaderSectionClickCallback(sortBy: ApiKeyOrderBy, sortDirection: SortDirection): Promise<void> {
         await this.$store.dispatch(SET_SORT_BY, sortBy);
         await this.$store.dispatch(SET_SORT_DIRECTION, sortDirection);
@@ -336,6 +379,10 @@ export default class ApiKeysArea extends Vue {
         }
     }
 
+    /**
+     * Sets api keys search query and then fetches depends on it.
+     * @param query
+     */
     public async onSearchQueryCallback(query: string): Promise<void> {
         await this.$store.dispatch(SET_SEARCH_QUERY, query);
         try {
@@ -349,6 +396,10 @@ export default class ApiKeysArea extends Vue {
         }
     }
 
+    /**
+     * Fires UI notification with message.
+     * @param error
+     */
     public async notifyFetchError(error: Error): Promise<void> {
         await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
     }

@@ -24,10 +24,16 @@ import { DelayedNotification } from '@/types/DelayedNotification';
     },
 })
 export default class NotificationArea extends Vue {
+    /**
+     * Returns all notification queue from store.
+     */
     public get notifications(): DelayedNotification[] {
         return this.$store.state.notificationsModule.notificationQueue;
     }
 
+    /**
+     * Indicates if any notifications are in queue.
+     */
     public get doNotificationsExist(): boolean {
         return this.notifications.length > 0;
     }

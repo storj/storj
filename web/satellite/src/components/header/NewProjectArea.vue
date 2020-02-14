@@ -23,14 +23,23 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class NewProjectArea extends Vue {
+    /**
+     * Opens new project creation popup.
+     */
     public toggleSelection(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
     }
 
+    /**
+     * Indicates if new project creation popup should be rendered.
+     */
     public get isPopupShown(): boolean {
         return this.$store.state.appStateModule.appState.isNewProjectPopupShown;
     }
 
+    /**
+     * Indicates in user has no projects for button highlighting.
+     */
     public get hasProjects(): boolean {
         return this.$store.state.projectsModule.projects.length;
     }

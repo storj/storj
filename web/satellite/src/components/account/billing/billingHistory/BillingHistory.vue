@@ -48,6 +48,9 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
     },
 })
 export default class BillingHistory extends Vue {
+    /**
+     * Lifecycle hook after initial render.
+     */
     public mounted(): void {
         this.$segment.track(SegmentEvent.BILLING_HISTORY_VIEWED, {
             project_id: this.$store.getters.selectedProject.id,
@@ -55,20 +58,18 @@ export default class BillingHistory extends Vue {
         });
     }
 
+    /**
+     * Returns list of billing history listings.
+     */
     public get billingHistoryItems(): BillingHistoryItem[] {
         return this.$store.state.paymentsModule.billingHistory;
     }
 
+    /**
+     * Replaces location to root billing route.
+     */
     public onBackToAccountClick(): void {
         this.$router.push(RouteConfig.Billing.path);
-    }
-
-    public get totalPageCount(): number {
-        return 1;
-    }
-
-    public onPageClick(index: number): void {
-        return;
     }
 }
 </script>

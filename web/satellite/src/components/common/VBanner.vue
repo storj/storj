@@ -37,10 +37,16 @@ export default class VBanner extends Vue {
     @Prop({default: '/'})
     private readonly path: string;
 
+    /**
+     * Indicates if redirect arrow should be rendered if current route is not destination.
+     */
     public get isLinkActive(): boolean {
         return this.$route.path !== this.path;
     }
 
+    /**
+     * Redirects to destination route.
+     */
     public onBannerClick(): void {
         if (!this.isLinkActive) {
             return;

@@ -40,6 +40,10 @@ import {
 export default class ProjectSelectionDropdown extends Vue {
     private FIRST_PAGE = 1;
 
+    /**
+     * Fetches all project related information.
+     * @param projectID
+     */
     public async onProjectSelected(projectID: string): Promise<void> {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
@@ -76,6 +80,9 @@ export default class ProjectSelectionDropdown extends Vue {
         }
     }
 
+    /**
+     * Returns projects list from store.
+     */
     public get projects(): Project[] {
         return this.$store.getters.projects;
     }

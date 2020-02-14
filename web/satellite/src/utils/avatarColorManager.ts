@@ -1,7 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// getColor - returns color string depends on first symbol of first name
+/**
+ * Returns color string depends on first symbol of first name.
+ * @param symbol
+ */
 export function getColor(symbol): string {
     switch (symbol) {
         case 'A':

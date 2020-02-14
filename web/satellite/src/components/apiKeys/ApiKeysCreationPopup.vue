@@ -47,6 +47,9 @@ const CREATE = API_KEYS_ACTIONS.CREATE;
     },
 })
 export default class ApiKeysCreationPopup extends Vue {
+    /**
+     * Indicates if component should be rendered.
+     */
     @Prop({default: false})
     private readonly isPopupShown: boolean;
 
@@ -67,6 +70,9 @@ export default class ApiKeysCreationPopup extends Vue {
         this.$emit('closePopup');
     }
 
+    /**
+     * Creates api key.
+     */
     public async onNextClick(): Promise<void> {
         if (this.isLoading) {
             return;

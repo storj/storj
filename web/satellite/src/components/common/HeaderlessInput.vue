@@ -83,7 +83,10 @@ export default class HeaderlessInput extends Vue {
         this.type = this.isPassword ? this.passwordType : this.textType;
     }
 
-    // Used to set default value from parent component
+    /**
+     * Used to set default value from parent component.
+     * @param value
+     */
     public setValue(value: string): void {
         this.value = value;
     }
@@ -96,7 +99,9 @@ export default class HeaderlessInput extends Vue {
         this.$emit('hidePasswordStrength');
     }
 
-    // triggers on input
+    /**
+     * triggers on input.
+     */
     public onInput({ target }): void {
         if (target.value.length > this.maxSymbols) {
             this.value = target.value.slice(0, this.maxSymbols);
@@ -107,15 +112,12 @@ export default class HeaderlessInput extends Vue {
         this.$emit('setData', this.value);
     }
 
+    /**
+     * Triggers input type between text and password to show/hide symbols.
+     */
     public changeVision(): void {
         this.isPasswordShown = !this.isPasswordShown;
-        if (this.isPasswordShown) {
-            this.type = this.textType;
-
-            return;
-        }
-
-        this.type = this.passwordType;
+        this.type = this.isPasswordShown ? this.textType : this.passwordType;
     }
 
     public get isLabelShown(): boolean {
@@ -130,6 +132,9 @@ export default class HeaderlessInput extends Vue {
         return this.isPassword && this.isPasswordShown;
     }
 
+    /**
+     * Returns style objects depends on props.
+     */
     protected get style(): object {
         return {
             inputStyle: {

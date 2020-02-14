@@ -99,12 +99,18 @@ import { validateEmail } from '@/utils/validation';
     },
 })
 export default class AddUserPopup extends Vue {
+    /**
+     * Initial empty inputs set.
+     */
     private inputs: EmailInput[] = [new EmailInput(), new EmailInput(), new EmailInput()];
     private formError: string = '';
     private isLoading: boolean = false;
 
     private FIRST_PAGE = 1;
 
+    /**
+     * Tries to add users related to entered emails list to current project.
+     */
     public async onAddUsersClick(): Promise<void> {
         if (this.isLoading) {
             return;
@@ -191,6 +197,9 @@ export default class AddUserPopup extends Vue {
         this.isLoading = false;
     }
 
+    /**
+     * Adds additional email input.
+     */
     public addInput(): void {
         const inputsLength = this.inputs.length;
         if (inputsLength < 10) {
@@ -198,6 +207,10 @@ export default class AddUserPopup extends Vue {
         }
     }
 
+    /**
+     * Deletes selected email input from list.
+     * @param index
+     */
     public deleteInput(index): void {
         if (this.inputs.length === 1) return;
 
@@ -206,14 +219,24 @@ export default class AddUserPopup extends Vue {
         this.$delete(this.inputs, index);
     }
 
+    /**
+     * Closes popup.
+     */
     public onClose(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
     }
 
+    /**
+     * Indicates if emails count reached maximum.
+     */
     public get isMaxInputsCount(): boolean {
         return this.inputs.length > 9;
     }
 
+    /**
+     * Indicates if add button is active.
+     * Active when no errors and at least one input is not empty.
+     */
     public get isButtonActive(): boolean {
         if (this.formError) return false;
 
@@ -234,15 +257,21 @@ export default class AddUserPopup extends Vue {
         return this.inputs.length > 4;
     }
 
+    /**
+     * Removes error for selected input.
+     */
     private resetFormErrors(index): void {
         this.inputs[index].setError(false);
-        if (!this.hasInputError()) {
+        if (!this.hasInputError) {
 
             this.formError = '';
         }
     }
 
-    private hasInputError(): boolean {
+    /**
+     * Indicates if at least one input has error.
+     */
+    private get hasInputError(): boolean {
         return this.inputs.some((element: EmailInput) => {
             return element.error;
         });

@@ -108,25 +108,31 @@ export default class HeaderArea extends Vue {
 
     private FIRST_PAGE = 1;
 
+    /**
+     * Indicates if state after first delete click is active.
+     */
     public isDeleteClicked: boolean = false;
 
     public $refs!: {
         headerComponent: VHeader & ClearSearch;
     };
 
+    /**
+     * Lifecycle hook before component destruction.
+     * Clears selection and search query for team members page.
+     */
     public beforeDestroy(): void {
         this.onClearSelection();
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
     }
 
     public get userCountTitle(): string {
-        if (this.selectedProjectMembersCount === 1) {
-            return 'user';
-        }
-
-        return 'users';
+        return this.selectedProjectMembersCount === 1 ? 'user' : 'users';
     }
 
+    /**
+     * Opens add team members popup.
+     */
     public onAddUsersClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
     }
@@ -135,6 +141,9 @@ export default class HeaderArea extends Vue {
         this.isDeleteClicked = true;
     }
 
+    /**
+     * Clears selection and returns area state to default.
+     */
     public onClearSelection(): void {
         this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
         this.isDeleteClicked = false;
@@ -142,6 +151,9 @@ export default class HeaderArea extends Vue {
         this.$emit('onSuccessAction');
     }
 
+    /**
+     * Removes user from selected project.
+     */
     public async onDelete(): Promise<void> {
         try {
             await this.$store.dispatch(PM_ACTIONS.DELETE);
@@ -158,6 +170,10 @@ export default class HeaderArea extends Vue {
         this.isDeleteClicked = false;
     }
 
+    /**
+     * Fetches team members of current project depends on search query.
+     * @param search
+     */
     public async processSearchQuery(search: string): Promise<void> {
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
         try {
@@ -167,6 +183,9 @@ export default class HeaderArea extends Vue {
         }
     }
 
+    /**
+     * Indicates if add team member popup should be rendered.
+     */
     public get isAddTeamMembersPopupShown(): boolean {
         return this.$store.state.appStateModule.appState.isAddTeamMembersPopupShown;
     }

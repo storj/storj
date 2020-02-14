@@ -75,38 +75,65 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class ProfileArea extends Vue {
+    /**
+     * Lifecycle hook after initial render where user info is fetching.
+     */
     public mounted(): void {
         this.$store.dispatch(USER_ACTIONS.GET);
     }
 
+    /**
+     * Opens delete account popup.
+     */
     public toggleDeleteAccountPopup(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
     }
 
+    /**
+     * Opens change password popup.
+     */
     public toggleChangePasswordPopup(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
     }
 
+    /**
+     * Opens edit account info popup.
+     */
     public toggleEditProfilePopup(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
     }
 
+    /**
+     * Returns user info from store.
+     */
     public get user(): User {
         return this.$store.getters.user;
     }
 
+    /**
+     * Indicates if edit user info popup is shown.
+     */
     public get isEditProfilePopupShown(): boolean {
         return this.$store.state.appStateModule.appState.isEditProfilePopupShown;
     }
 
+    /**
+     * Indicates if change password popup is shown.
+     */
     public get isChangePasswordPopupShown(): boolean {
         return this.$store.state.appStateModule.appState.isChangePasswordPopupShown;
     }
 
+    /**
+     * Indicates if delete account popup is shown.
+     */
     public get isDeleteAccountPopupShown(): boolean {
         return this.$store.state.appStateModule.appState.isDeleteAccountPopupShown;
     }
 
+    /**
+     * Returns first letter of user name.
+     */
     public get avatarLetter(): string {
         return this.$store.getters.userName.slice(0, 1).toUpperCase();
     }

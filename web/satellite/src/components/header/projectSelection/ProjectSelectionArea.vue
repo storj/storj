@@ -44,6 +44,9 @@ import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
 export default class ProjectSelectionArea extends Vue {
     private isLoading: boolean = false;
 
+    /**
+     * Fetches projects related information and than toggles selection popup.
+     */
     public async toggleSelection(): Promise<void> {
         if (this.isLoading) return;
 
@@ -61,16 +64,25 @@ export default class ProjectSelectionArea extends Vue {
         this.isLoading = false;
     }
 
+    /**
+     * Return selected project name if it is, if not returns default label.
+     */
     public get name(): string {
         const selectedProject: Project = this.$store.state.projectsModule.selectedProject;
 
         return selectedProject.id ? selectedProject.name : 'Choose project';
     }
 
+    /**
+     * Indicates if project selection dropdown should be rendered.
+     */
     public get isDropdownShown(): boolean {
         return this.$store.state.appStateModule.appState.isProjectsDropdownShown;
     }
 
+    /**
+     * Indicates if user has projects.
+     */
     public get hasProjects(): boolean {
         return !!this.$store.state.projectsModule.projects.length;
     }

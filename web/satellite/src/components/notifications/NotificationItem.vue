@@ -34,21 +34,30 @@ export default class NotificationItem extends Vue {
 
     public isClassActive = false;
 
-    // Force delete notification
+    /**
+     * Forces notification deletion.
+     */
     public onCloseClick(): void {
         this.$store.dispatch(NOTIFICATION_ACTIONS.DELETE, this.notification.id);
     }
 
-    // Force notification to stay on page on mouse over it
+    /**
+     * Forces notification to stay on page on mouse over it.
+     */
     public onMouseOver(): void {
         this.$store.dispatch(NOTIFICATION_ACTIONS.PAUSE, this.notification.id);
     }
 
-    // Resume notification flow when mouse leaves notification
+    /**
+     * Resume notification flow when mouse leaves notification.
+     */
     public onMouseLeave(): void {
         this.$store.dispatch(NOTIFICATION_ACTIONS.RESUME, this.notification.id);
     }
 
+    /**
+     * Uses for class change for animation.
+     */
     public mounted() {
         setTimeout(() => {
             this.isClassActive = true;

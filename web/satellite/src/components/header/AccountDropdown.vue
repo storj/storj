@@ -48,15 +48,24 @@ import { LocalData } from '@/utils/localData';
 export default class AccountDropdown extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
+    /**
+     * Closes account dropdown.
+     */
     public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
     }
 
+    /**
+     * Changes location to account root route.
+     */
     public onAccountSettingsClick(): void {
         this.$router.push(RouteConfig.Account.with(RouteConfig.Profile).path);
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
     }
 
+    /**
+     * Performs logout on backend than clears all user information from store and local storage.
+     */
     public async onLogoutClick(): Promise<void> {
         try {
             await this.auth.logout();

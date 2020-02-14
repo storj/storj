@@ -22,7 +22,7 @@
                         :on-press="onAddCard"
                     />
                 </div>
-                <div class="payment-methods-area__button-area__cancel" v-if="!isDefaultState" @click="onCancel">
+                <div class="payment-methods-area__button-area__cancel" v-else @click="onCancel">
                     <p class="payment-methods-area__button-area__cancel__text">Cancel</p>
                 </div>
             </div>
@@ -134,6 +134,9 @@ export default class PaymentMethods extends Vue {
     public isAddingCardLoading: boolean = false;
     public isTransactionLoading: boolean = false;
 
+    /**
+     * Lifecycle hook after initial render where credit cards are fetched.
+     */
     public mounted() {
         try {
             this.$segment.track(SegmentEvent.PAYMENT_METHODS_VIEWED, {
@@ -149,51 +152,79 @@ export default class PaymentMethods extends Vue {
         stripeCardInput: StripeCardInput & StripeForm;
     };
 
+    /**
+     * Returns list of credit cards from store.
+     */
     public get creditCards(): CreditCard[] {
         return this.$store.state.paymentsModule.creditCards;
     }
 
+    /**
+     * Indicates if no adding card nor tokens in progress.
+     */
     public get isDefaultState(): boolean {
         return this.areaState === PaymentMethodsBlockState.DEFAULT;
     }
+
+    /**
+     * Indicates if adding tokens in progress.
+     */
     public get isAddingStorjState(): boolean {
         return this.areaState === PaymentMethodsBlockState.ADDING_STORJ;
     }
+
+    /**
+     * Indicates if adding card in progress.
+     */
     public get isAddingCardState(): boolean {
         return this.areaState === PaymentMethodsBlockState.ADDING_CARD;
     }
 
+    /**
+     * Indicates if free credits or percentage bonus banner is shown.
+     */
     public get isDefaultBonusBannerShown(): boolean {
         return this.isDefaultState && this.noCreditCards;
     }
 
+    /**
+     * Indicates if any of credit cards is attached to account.
+     */
     public get noCreditCards(): boolean {
         return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
+    /**
+     * Event for changing token deposit value.
+     */
     public onChangeTokenValue(value: number): void {
         this.tokenDepositValue = value;
     }
 
+    /**
+     * Changes area state to adding tokens state.
+     */
     public onAddSTORJ(): void {
         this.areaState = PaymentMethodsBlockState.ADDING_STORJ;
-
-        return;
-    }
-    public onAddCard(): void {
-        this.areaState = PaymentMethodsBlockState.ADDING_CARD;
-
-        return;
-    }
-    public onCancel(): void {
-        this.areaState = PaymentMethodsBlockState.DEFAULT;
-        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
-
-        return;
     }
 
     /**
-     * onConfirmAddSTORJ checks if amount is valid and if so process token
+     * Changes area state to adding card state.55
+     */
+    public onAddCard(): void {
+        this.areaState = PaymentMethodsBlockState.ADDING_CARD;
+    }
+
+    /**
+     * Changes area state and token deposit value to default.
+     */
+    public onCancel(): void {
+        this.areaState = PaymentMethodsBlockState.DEFAULT;
+        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+    }
+
+    /**
+     * onConfirmAddSTORJ checks if amount is valid and if so process token.
      * payment and return state to default
      */
     public async onConfirmAddSTORJ(): Promise<void> {
@@ -238,6 +269,9 @@ export default class PaymentMethods extends Vue {
         this.isTransactionLoading = false;
     }
 
+    /**
+     * Provides card information to Stripe and then fetches updated billing history.
+     */
     public async onConfirmAddStripe(): Promise<void> {
         await this.$refs.stripeCardInput.onSubmit();
 
@@ -252,6 +286,11 @@ export default class PaymentMethods extends Vue {
         });
     }
 
+    /**
+     * Adds card after Stripe confirmation.
+     *
+     * @param token from Stripe
+     */
     public async addCard(token: string) {
         if (this.isAddingCardLoading) return;
 

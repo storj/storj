@@ -2,25 +2,25 @@
 // See LICENSE for copying information.
 
 /**
- * Exposes all project-related functionality
+ * Exposes all project-related functionality.
  */
 export interface ProjectsApi {
     /**
-     * Creates project
+     * Creates project.
      *
      * @param createProjectModel - contains project information
      * @throws Error
      */
     create(createProjectModel: CreateProjectModel): Promise<Project>;
     /**
-     * Fetch projects
+     * Fetch projects.
      *
      * @returns Project[]
      * @throws Error
      */
     get(): Promise<Project[]>;
     /**
-     * Update project
+     * Update project.
      *
      * @param projectId - project ID
      * @param description - project description
@@ -29,7 +29,7 @@ export interface ProjectsApi {
      */
     update(projectId: string, description: string): Promise<void>;
     /**
-     * Delete project
+     * Delete project.
      *
      * @param projectId - project ID
      * @throws Error
@@ -37,7 +37,7 @@ export interface ProjectsApi {
     delete(projectId: string): Promise<void>;
 
     /**
-     * Get project limits
+     * Get project limits.
      *
      * @param projectId- project ID
      * throws Error
@@ -45,7 +45,9 @@ export interface ProjectsApi {
     getLimits(projectId: string): Promise<ProjectLimits>;
 }
 
-// Project is a type, used for creating new project in backend
+/**
+ * Project is a type, used for creating new project in backend.
+ */
 export class Project {
     public constructor(
         public id: string = '',
@@ -57,7 +59,9 @@ export class Project {
     ) {}
 }
 
-// UpdateProjectModel is a type, used for updating project description
+/**
+ * UpdateProjectModel is a type, used for updating project description.
+ */
 export class UpdateProjectModel {
     public id: string;
     public description: string;
@@ -68,7 +72,9 @@ export class UpdateProjectModel {
     }
 }
 
-// CreateProjectModel is a type, used for creating project
+/**
+ * CreateProjectModel is a type, used for creating project.
+ */
 export class CreateProjectModel {
     public name: string;
     public description: string;

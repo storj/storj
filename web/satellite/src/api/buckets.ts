@@ -6,11 +6,11 @@ import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
 
 /**
  * BucketsApiGql is a graphql implementation of Buckets API.
- * Exposes all bucket-related functionality
+ * Exposes all bucket-related functionality.
  */
 export class BucketsApiGql extends BaseGql implements BucketsApi {
     /**
-     * Fetch buckets
+     * Fetch buckets.
      *
      * @returns BucketPage
      * @throws Error
@@ -53,6 +53,11 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
         return this.getBucketPage(response.data.project.bucketUsages);
     }
 
+    /**
+     * Method for mapping buckets page from json to BucketPage type.
+     *
+     * @param page anonymous object from json
+     */
     private getBucketPage(page: any): BucketPage {
         if (!page) {
             return new BucketPage();

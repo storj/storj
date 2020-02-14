@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 /**
- * ErrorUnauthorized is a custom error type for performing unauthorized operation
+ * ErrorUnauthorized is a custom error type for performing unauthorized operations.
  */
 export class ErrorUnauthorized extends Error {
     public constructor(message: string = 'authorization required') {

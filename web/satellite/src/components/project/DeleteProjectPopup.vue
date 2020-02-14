@@ -85,6 +85,9 @@ export default class DeleteProjectPopup extends Vue {
         this.nameError = '';
     }
 
+    /**
+     * If entered project name matches tries to delete project and select another.
+     */
     public async onDeleteProjectClick(): Promise<void> {
         if (this.isLoading) {
             return;
@@ -110,17 +113,26 @@ export default class DeleteProjectPopup extends Vue {
 
         this.isLoading = false;
 
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
+        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
     }
 
+    /**
+     * Closes popup.
+     */
     public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
     }
 
+    /**
+     * Indicates if delete button is disabled when project name is not entered or incorrect.
+     */
     public get isDeleteButtonDisabled(): boolean {
         return !this.projectName || !!this.nameError;
     }
 
+    /**
+     * Checks is entered project name matches selected.
+     */
     private validateProjectName(): boolean {
         if (this.projectName === this.$store.getters.selectedProject.name) {
             return true;

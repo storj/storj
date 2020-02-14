@@ -54,15 +54,24 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class ProjectCreationSuccessPopup extends Vue {
+    /**
+     * Closes popup.
+     */
     public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
     }
 
+    /**
+     * Changes location to api keys route.
+     */
     public onCreateAPIKeyClick(): void {
         this.$router.push(RouteConfig.ApiKeys.path);
         this.onCloseClick();
     }
 
+    /**
+     * Indicates if component should be rendered.
+     */
     public get isPopupShown(): boolean {
         return this.$store.state.appStateModule.appState.isSuccessfulProjectCreationPopupShown;
     }

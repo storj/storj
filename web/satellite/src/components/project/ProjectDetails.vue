@@ -96,6 +96,9 @@ export default class ProjectDetailsArea extends Vue {
     private isEditing: boolean = false;
     private newDescription: string = '';
 
+    /**
+     * Lifecycle hook after initial render where project related information is fetched.
+     */
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
@@ -108,20 +111,29 @@ export default class ProjectDetailsArea extends Vue {
         }
     }
 
+    /**
+     * Returns selected project name.
+     */
     public get name(): string {
         return this.$store.getters.selectedProject.name;
     }
 
+    /**
+     * Returns selected project description from store.
+     */
     public get storedDescription(): string {
         return this.$store.getters.selectedProject.description;
     }
 
     public get displayedDescription(): string {
-        return this.$store.getters.selectedProject.description ?
-            this.$store.getters.selectedProject.description :
+        return this.storedDescription ?
+            this.storedDescription :
             'No description yet. Please enter some information about the project if any.';
     }
 
+    /**
+     * Indicates if component should be rendered.
+     */
     public get isPopupShown(): boolean {
         return this.$store.state.appStateModule.appState.isDeleteProjectPopupShown;
     }
@@ -130,6 +142,9 @@ export default class ProjectDetailsArea extends Vue {
         this.newDescription = value;
     }
 
+    /**
+     * Updates project description.
+     */
     public async onSaveButtonClick(): Promise<void> {
         try {
             await this.$store.dispatch(
@@ -150,6 +165,9 @@ export default class ProjectDetailsArea extends Vue {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
     }
 
+    /**
+     * Changes location to usage report route.
+     */
     public onMoreClick(): void {
         this.$router.push(RouteConfig.UsageReport.path);
     }

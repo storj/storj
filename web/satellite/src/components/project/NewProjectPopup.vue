@@ -86,20 +86,23 @@ export default class NewProjectPopup extends Vue {
     private createdProjectId: string = '';
     private isLoading: boolean = false;
 
-    public setProjectName (value: string): void {
+    public setProjectName(value: string): void {
         this.projectName = value;
         this.nameError = '';
     }
 
-    public setProjectDescription (value: string): void {
+    public setProjectDescription(value: string): void {
         this.description = value;
     }
 
-    public onCloseClick (): void {
+    public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
     }
 
-    public async createProjectClick (): Promise<void> {
+    /**
+     * Creates project.
+     */
+    public async createProjectClick(): Promise<void> {
         if (this.isLoading) {
             return;
         }

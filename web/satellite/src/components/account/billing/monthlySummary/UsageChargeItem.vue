@@ -53,9 +53,7 @@ export default class UsageChargeItem extends Vue {
         const projects: Project[] = this.$store.state.projectsModule.projects;
         const project: Project | undefined = projects.find(project => project.id === this.item.projectId);
 
-        if (!project) return '';
-
-        return project.name;
+        return project ? project.name : '';
     }
 
     /**

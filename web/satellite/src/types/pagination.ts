@@ -3,6 +3,9 @@
 
 declare type OnPageClickCallback = (search: number) => Promise<void>;
 
+/**
+ * Describes paginator page.
+ */
 export class Page {
     private readonly pageIndex: number = 1;
     private readonly onClick: OnPageClickCallback;

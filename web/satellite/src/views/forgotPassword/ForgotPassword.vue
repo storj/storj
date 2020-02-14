@@ -36,6 +36,9 @@ export default class ForgotPassword extends Vue {
         this.emailError = '';
     }
 
+    /**
+     * Sends recovery password email.
+     */
     public async onSendConfigurations(): Promise<void> {
         const self = this;
 
@@ -51,6 +54,9 @@ export default class ForgotPassword extends Vue {
         }
     }
 
+    /**
+     * Changes location to Login route.
+     */
     public onBackToLoginClick(): void {
       this.$router.push(RouteConfig.Login.path);
     }

@@ -178,7 +178,7 @@ export class AuthHttpApi {
 
     // TODO: remove secret after Vanguard release
     /**
-     * Used to register account
+     * Used to register account.
      *
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release

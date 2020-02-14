@@ -59,6 +59,10 @@ export default class RegisterArea extends Vue {
 
     public isPasswordStrengthShown: boolean = false;
 
+    /**
+     * Lifecycle hook after initial render.
+     * Sets up variables from route params.
+     */
     async mounted(): Promise<void> {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
@@ -93,6 +97,9 @@ export default class RegisterArea extends Vue {
         this.isPasswordStrengthShown = false;
     }
 
+    /**
+     * Register user.
+     */
     public async onCreateClick(): Promise<void> {
         if (this.isLoading) {
             return;
@@ -114,25 +121,37 @@ export default class RegisterArea extends Vue {
 
         this.isLoading = false;
     }
+
+    /**
+     * Reloads page.
+     */
     public onLogoClick(): void {
         location.reload();
     }
+
+    /**
+     * Changes location to login route.
+     */
     public onLoginClick(): void {
         this.$router.push(RouteConfig.Login.path);
     }
+
     public setEmail(value: string): void {
         this.user.email = value.trim();
         this.emailError = '';
     }
+
     public setFullName(value: string): void {
         this.user.fullName = value.trim();
         this.fullNameError = '';
     }
+
     public setPassword(value: string): void {
         this.user.password = value.trim();
         this.password = value;
         this.passwordError = '';
     }
+
     public setRepeatedPassword(value: string): void {
         this.repeatedPassword = value;
         this.repeatedPasswordError = '';

@@ -69,7 +69,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 @Component
 export default class TokenDepositSelection extends Vue {
     /**
-     * Set of default payment options
+     * Set of default payment options.
      */
     public paymentOptions: PaymentAmountOption[] = [
         new PaymentAmountOption(20, `USD $20`),
@@ -79,48 +79,63 @@ export default class TokenDepositSelection extends Vue {
         new PaymentAmountOption(1000, `USD $1000`),
     ];
 
+    /**
+     * current selected payment option from default ones.
+     */
     public current: PaymentAmountOption = this.paymentOptions[0];
     public customAmount: string = '';
+    /**
+     * Indicates if custom amount selection state is active.
+     */
     public isCustomAmount = false;
 
+    /**
+     * Indicates if concrete payment option is currently selected.
+     */
     public isOptionSelected(option: PaymentAmountOption): boolean {
-        return option.value === this.current.value && !this.isCustomAmount;
+        return (option.value === this.current.value) && !this.isCustomAmount;
     }
 
     /**
-     * isSelectionShown flag that indicate is token amount selection shown
+     * isSelectionShown flag that indicate is token amount selection shown.
      */
     public get isSelectionShown(): boolean {
         return this.$store.state.appStateModule.appState.isPaymentSelectionShown;
     }
 
     /**
-     * opens token amount selection
+     * opens token amount selection.
      */
     public open(): void {
         setTimeout(() => this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION, true), 0);
     }
 
     /**
-     * closes token amount selection
+     * closes token amount selection.
      */
     public close(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION, false);
     }
 
     /**
-     * onCustomAmountChange input event handle that emits value to parent component
+     * onCustomAmountChange input event handle that emits value to parent component.
      */
     public onCustomAmountChange(): void {
         this.$emit('onChangeTokenValue', parseInt(this.customAmount, 10));
     }
 
+    /**
+     * Sets view state to custom amount selection.
+     */
     public openCustomAmountSelection(): void {
         this.isCustomAmount = true;
         this.close();
         this.$emit('onChangeTokenValue', 0);
     }
 
+    /**
+     * Sets view state to default.
+     */
     public closeCustomAmountSelection(): void {
         this.open();
         this.$emit('onChangeTokenValue', this.current.value);

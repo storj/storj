@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 /**
- * Exposes all bucket-related functionality
+ * Exposes all bucket-related functionality.
  */
 export interface BucketsApi {
     /**

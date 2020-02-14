@@ -101,22 +101,37 @@ export default class UsageReport extends Vue {
         };
     }
 
+    /**
+     * Returns formatted starting date for report.
+     */
     public get startDate(): string {
         return DateFormat.getUSDate(this.$store.state.usageModule.startDate, '/');
     }
 
+    /**
+     * Returns formatted end date for report.
+     */
     public get endDate(): string {
         return DateFormat.getUSDate(this.$store.state.usageModule.endDate, '/');
     }
 
+    /**
+     * Returns used storage from store.
+     */
     public get storage(): string {
         return this.$store.state.usageModule.projectUsage.storage.formattedBytes;
     }
 
+    /**
+     * Returns used egress from store.
+     */
     public get egress(): string {
         return this.$store.state.usageModule.projectUsage.egress.formattedBytes;
     }
 
+    /**
+     * Returns objects count from store.
+     */
     public get objectsCount(): string {
         return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
     }
@@ -129,6 +144,10 @@ export default class UsageReport extends Vue {
         return this.$store.state.usageModule.projectUsage.egress.label;
     }
 
+    /**
+     * Lifecycle hook after initial render.
+     * Fetches current usage rollup.
+     */
     public async mounted(): Promise<void> {
         try {
             this.$segment.track(SegmentEvent.REPORT_VIEWED, {
@@ -142,6 +161,13 @@ export default class UsageReport extends Vue {
         }
     }
 
+    /**
+     * Lifecycle hook before changing location.
+     * Returns component state to default.
+     * @param to
+     * @param from
+     * @param next
+     */
     public async beforeRouteLeave(to, from, next): Promise<void> {
         try {
             await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.dateRange);
@@ -158,6 +184,9 @@ export default class UsageReport extends Vue {
         next();
     }
 
+    /**
+     * Changes location to project overview route.
+     */
     public onBackClick(): void {
         this.$router.push(RouteConfig.ProjectOverview.path);
     }
@@ -202,6 +231,9 @@ export default class UsageReport extends Vue {
         });
     }
 
+    /**
+     * Opens new tab with advanced report table.
+     */
     public onReportClick(): void {
         const projectID = this.$store.getters.selectedProject.id;
         const startDate = this.$store.state.usageModule.startDate;
@@ -223,6 +255,10 @@ export default class UsageReport extends Vue {
         window.open(url.href, '_blank');
     }
 
+    /**
+     * Callback for VDatePicker.
+     * @param datesArray selected date range.
+     */
     public async getDates(datesArray: Date[]): Promise<void> {
         const firstDate = new Date(datesArray[0]);
         const secondDate = new Date(datesArray[1]);
@@ -240,10 +276,10 @@ export default class UsageReport extends Vue {
         }
     }
 
-    public toLocaleDateString(date: Date): string {
-        return date.toLocaleDateString('en-US', {timeZone: 'UTC'});
-    }
-
+    /**
+     * Changes buttons styling depends on selected status.
+     * @param event
+     */
     private onButtonClickAction(event: any): void {
         let eventTarget = event.target;
 

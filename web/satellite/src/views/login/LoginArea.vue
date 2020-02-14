@@ -42,6 +42,9 @@ export default class Login extends Vue {
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
+    /**
+     * Reloads page.
+     */
     public onLogoClick(): void {
         location.reload();
     }
@@ -56,10 +59,17 @@ export default class Login extends Vue {
         this.passwordError = '';
     }
 
+    /**
+     * Changes location to register route.
+     */
     public onSignUpClick(): void {
         this.$router.push(RouteConfig.Register.path);
     }
 
+    /**
+     * Performs login action.
+     * Than change location to project overview.
+     */
     public async onLogin(): Promise<void> {
         if (this.isLoading) {
             return;
@@ -116,6 +126,9 @@ export default class Login extends Vue {
         return isNoErrors;
     }
 
+    /**
+     * Starts loading animation.
+     */
     private activateLoadingOverlay(): void {
         this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
         this.loadingLogoClassName = LOADING_CLASSES.LOADING_LOGO_ACTIVE;
