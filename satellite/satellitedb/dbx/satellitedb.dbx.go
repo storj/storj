@@ -324,6 +324,12 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE consumed_serials (
+	storage_node_id bytea NOT NULL,
+	serial_number bytea NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( storage_node_id, serial_number )
+);
 CREATE TABLE coupons (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -471,6 +477,15 @@ CREATE TABLE pending_audits (
 	reverify_count bigint NOT NULL,
 	path bytea NOT NULL,
 	PRIMARY KEY ( node_id )
+);
+CREATE TABLE pending_serial_queue (
+	storage_node_id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	serial_number bytea NOT NULL,
+	action integer NOT NULL,
+	settled bigint NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
 );
 CREATE TABLE projects (
 	id bytea NOT NULL,
@@ -646,6 +661,7 @@ CREATE TABLE user_credits (
 	PRIMARY KEY ( id ),
 	UNIQUE ( id, offer_id )
 );
+CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
@@ -767,6 +783,12 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE consumed_serials (
+	storage_node_id bytea NOT NULL,
+	serial_number bytea NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( storage_node_id, serial_number )
+);
 CREATE TABLE coupons (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -914,6 +936,15 @@ CREATE TABLE pending_audits (
 	reverify_count bigint NOT NULL,
 	path bytea NOT NULL,
 	PRIMARY KEY ( node_id )
+);
+CREATE TABLE pending_serial_queue (
+	storage_node_id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	serial_number bytea NOT NULL,
+	action integer NOT NULL,
+	settled bigint NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
 );
 CREATE TABLE projects (
 	id bytea NOT NULL,
@@ -1089,6 +1120,7 @@ CREATE TABLE user_credits (
 	PRIMARY KEY ( id ),
 	UNIQUE ( id, offer_id )
 );
+CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
@@ -1944,6 +1976,74 @@ func (f CoinpaymentsTransaction_CreatedAt_Field) value() interface{} {
 }
 
 func (CoinpaymentsTransaction_CreatedAt_Field) _Column() string { return "created_at" }
+
+type ConsumedSerial struct {
+	StorageNodeId []byte
+	SerialNumber  []byte
+	ExpiresAt     time.Time
+}
+
+func (ConsumedSerial) _Table() string { return "consumed_serials" }
+
+type ConsumedSerial_Update_Fields struct {
+}
+
+type ConsumedSerial_StorageNodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ConsumedSerial_StorageNodeId(v []byte) ConsumedSerial_StorageNodeId_Field {
+	return ConsumedSerial_StorageNodeId_Field{_set: true, _value: v}
+}
+
+func (f ConsumedSerial_StorageNodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ConsumedSerial_StorageNodeId_Field) _Column() string { return "storage_node_id" }
+
+type ConsumedSerial_SerialNumber_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ConsumedSerial_SerialNumber(v []byte) ConsumedSerial_SerialNumber_Field {
+	return ConsumedSerial_SerialNumber_Field{_set: true, _value: v}
+}
+
+func (f ConsumedSerial_SerialNumber_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ConsumedSerial_SerialNumber_Field) _Column() string { return "serial_number" }
+
+type ConsumedSerial_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ConsumedSerial_ExpiresAt(v time.Time) ConsumedSerial_ExpiresAt_Field {
+	return ConsumedSerial_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f ConsumedSerial_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ConsumedSerial_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type Coupon struct {
 	Id          []byte
@@ -4526,6 +4626,134 @@ func (f PendingAudits_Path_Field) value() interface{} {
 }
 
 func (PendingAudits_Path_Field) _Column() string { return "path" }
+
+type PendingSerialQueue struct {
+	StorageNodeId []byte
+	BucketId      []byte
+	SerialNumber  []byte
+	Action        uint
+	Settled       uint64
+	ExpiresAt     time.Time
+}
+
+func (PendingSerialQueue) _Table() string { return "pending_serial_queue" }
+
+type PendingSerialQueue_Update_Fields struct {
+}
+
+type PendingSerialQueue_StorageNodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PendingSerialQueue_StorageNodeId(v []byte) PendingSerialQueue_StorageNodeId_Field {
+	return PendingSerialQueue_StorageNodeId_Field{_set: true, _value: v}
+}
+
+func (f PendingSerialQueue_StorageNodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingSerialQueue_StorageNodeId_Field) _Column() string { return "storage_node_id" }
+
+type PendingSerialQueue_BucketId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PendingSerialQueue_BucketId(v []byte) PendingSerialQueue_BucketId_Field {
+	return PendingSerialQueue_BucketId_Field{_set: true, _value: v}
+}
+
+func (f PendingSerialQueue_BucketId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingSerialQueue_BucketId_Field) _Column() string { return "bucket_id" }
+
+type PendingSerialQueue_SerialNumber_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PendingSerialQueue_SerialNumber(v []byte) PendingSerialQueue_SerialNumber_Field {
+	return PendingSerialQueue_SerialNumber_Field{_set: true, _value: v}
+}
+
+func (f PendingSerialQueue_SerialNumber_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingSerialQueue_SerialNumber_Field) _Column() string { return "serial_number" }
+
+type PendingSerialQueue_Action_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func PendingSerialQueue_Action(v uint) PendingSerialQueue_Action_Field {
+	return PendingSerialQueue_Action_Field{_set: true, _value: v}
+}
+
+func (f PendingSerialQueue_Action_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingSerialQueue_Action_Field) _Column() string { return "action" }
+
+type PendingSerialQueue_Settled_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func PendingSerialQueue_Settled(v uint64) PendingSerialQueue_Settled_Field {
+	return PendingSerialQueue_Settled_Field{_set: true, _value: v}
+}
+
+func (f PendingSerialQueue_Settled_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingSerialQueue_Settled_Field) _Column() string { return "settled" }
+
+type PendingSerialQueue_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func PendingSerialQueue_ExpiresAt(v time.Time) PendingSerialQueue_ExpiresAt_Field {
+	return PendingSerialQueue_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f PendingSerialQueue_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingSerialQueue_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type Project struct {
 	Id          []byte
@@ -7382,11 +7610,9 @@ type LeafSerialNumber_Row struct {
 	LeafSerialNumber []byte
 }
 
-type Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation struct {
-	_value_expires_at      time.Time
+type Paged_PendingSerialQueue_Continuation struct {
 	_value_storage_node_id []byte
 	_value_bucket_id       []byte
-	_value_action          uint
 	_value_serial_number   []byte
 	_set                   bool
 }
@@ -7860,28 +8086,52 @@ func (obj *postgresImpl) CreateNoReturn_UsedSerial(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) ReplaceNoReturn_ReportedSerial(ctx context.Context,
-	reported_serial_expires_at ReportedSerial_ExpiresAt_Field,
-	reported_serial_storage_node_id ReportedSerial_StorageNodeId_Field,
-	reported_serial_bucket_id ReportedSerial_BucketId_Field,
-	reported_serial_action ReportedSerial_Action_Field,
-	reported_serial_serial_number ReportedSerial_SerialNumber_Field,
-	reported_serial_settled ReportedSerial_Settled_Field,
-	reported_serial_observed_at ReportedSerial_ObservedAt_Field) (
+func (obj *postgresImpl) ReplaceNoReturn_PendingSerialQueue(ctx context.Context,
+	pending_serial_queue_storage_node_id PendingSerialQueue_StorageNodeId_Field,
+	pending_serial_queue_bucket_id PendingSerialQueue_BucketId_Field,
+	pending_serial_queue_serial_number PendingSerialQueue_SerialNumber_Field,
+	pending_serial_queue_action PendingSerialQueue_Action_Field,
+	pending_serial_queue_settled PendingSerialQueue_Settled_Field,
+	pending_serial_queue_expires_at PendingSerialQueue_ExpiresAt_Field) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
-	__expires_at_val := reported_serial_expires_at.value()
-	__storage_node_id_val := reported_serial_storage_node_id.value()
-	__bucket_id_val := reported_serial_bucket_id.value()
-	__action_val := reported_serial_action.value()
-	__serial_number_val := reported_serial_serial_number.value()
-	__settled_val := reported_serial_settled.value()
-	__observed_at_val := reported_serial_observed_at.value()
+	__storage_node_id_val := pending_serial_queue_storage_node_id.value()
+	__bucket_id_val := pending_serial_queue_bucket_id.value()
+	__serial_number_val := pending_serial_queue_serial_number.value()
+	__action_val := pending_serial_queue_action.value()
+	__settled_val := pending_serial_queue_settled.value()
+	__expires_at_val := pending_serial_queue_expires_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO reported_serials ( expires_at, storage_node_id, bucket_id, action, serial_number, settled, observed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) ON CONFLICT ( expires_at, storage_node_id, bucket_id, action, serial_number ) DO UPDATE SET expires_at = EXCLUDED.expires_at, storage_node_id = EXCLUDED.storage_node_id, bucket_id = EXCLUDED.bucket_id, action = EXCLUDED.action, serial_number = EXCLUDED.serial_number, settled = EXCLUDED.settled, observed_at = EXCLUDED.observed_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO pending_serial_queue ( storage_node_id, bucket_id, serial_number, action, settled, expires_at ) VALUES ( ?, ?, ?, ?, ?, ? ) ON CONFLICT ( storage_node_id, bucket_id, serial_number ) DO UPDATE SET storage_node_id = EXCLUDED.storage_node_id, bucket_id = EXCLUDED.bucket_id, serial_number = EXCLUDED.serial_number, action = EXCLUDED.action, settled = EXCLUDED.settled, expires_at = EXCLUDED.expires_at")
 
 	var __values []interface{}
-	__values = append(__values, __expires_at_val, __storage_node_id_val, __bucket_id_val, __action_val, __serial_number_val, __settled_val, __observed_at_val)
+	__values = append(__values, __storage_node_id_val, __bucket_id_val, __serial_number_val, __action_val, __settled_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *postgresImpl) CreateNoReturn_ConsumedSerial(ctx context.Context,
+	consumed_serial_storage_node_id ConsumedSerial_StorageNodeId_Field,
+	consumed_serial_serial_number ConsumedSerial_SerialNumber_Field,
+	consumed_serial_expires_at ConsumedSerial_ExpiresAt_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__storage_node_id_val := consumed_serial_storage_node_id.value()
+	__serial_number_val := consumed_serial_serial_number.value()
+	__expires_at_val := consumed_serial_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO consumed_serials ( storage_node_id, serial_number, expires_at ) VALUES ( ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __storage_node_id_val, __serial_number_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -9559,22 +9809,20 @@ func (obj *postgresImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
-	reported_serial_expires_at_less_or_equal ReportedSerial_ExpiresAt_Field,
-	limit int, start *Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation) (
-	rows []*ReportedSerial, next *Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation, err error) {
+func (obj *postgresImpl) Paged_PendingSerialQueue(ctx context.Context,
+	limit int, start *Paged_PendingSerialQueue_Continuation) (
+	rows []*PendingSerialQueue, next *Paged_PendingSerialQueue_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number, reported_serials.settled, reported_serials.observed_at, reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number FROM reported_serials WHERE reported_serials.expires_at <= ? AND (reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number) > (?, ?, ?, ?, ?) ORDER BY reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number, pending_serial_queue.action, pending_serial_queue.settled, pending_serial_queue.expires_at, pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number FROM pending_serial_queue WHERE (pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number) > (?, ?, ?) ORDER BY pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number, reported_serials.settled, reported_serials.observed_at, reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number FROM reported_serials WHERE reported_serials.expires_at <= ? ORDER BY reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number, pending_serial_queue.action, pending_serial_queue.settled, pending_serial_queue.expires_at, pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number FROM pending_serial_queue ORDER BY pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number LIMIT ?")
 
 	var __values []interface{}
-	__values = append(__values, reported_serial_expires_at_less_or_equal.value())
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_expires_at, start._value_storage_node_id, start._value_bucket_id, start._value_action, start._value_serial_number, limit)
+		__values = append(__values, start._value_storage_node_id, start._value_bucket_id, start._value_serial_number, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -9588,16 +9836,16 @@ func (obj *postgresImpl) Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx conte
 	}
 	defer __rows.Close()
 
-	var __continuation Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation
+	var __continuation Paged_PendingSerialQueue_Continuation
 	__continuation._set = true
 
 	for __rows.Next() {
-		reported_serial := &ReportedSerial{}
-		err = __rows.Scan(&reported_serial.ExpiresAt, &reported_serial.StorageNodeId, &reported_serial.BucketId, &reported_serial.Action, &reported_serial.SerialNumber, &reported_serial.Settled, &reported_serial.ObservedAt, &__continuation._value_expires_at, &__continuation._value_storage_node_id, &__continuation._value_bucket_id, &__continuation._value_action, &__continuation._value_serial_number)
+		pending_serial_queue := &PendingSerialQueue{}
+		err = __rows.Scan(&pending_serial_queue.StorageNodeId, &pending_serial_queue.BucketId, &pending_serial_queue.SerialNumber, &pending_serial_queue.Action, &pending_serial_queue.Settled, &pending_serial_queue.ExpiresAt, &__continuation._value_storage_node_id, &__continuation._value_bucket_id, &__continuation._value_serial_number)
 		if err != nil {
 			return nil, nil, obj.makeErr(err)
 		}
-		rows = append(rows, reported_serial)
+		rows = append(rows, pending_serial_queue)
 		next = &__continuation
 	}
 	if err := __rows.Err(); err != nil {
@@ -9605,6 +9853,28 @@ func (obj *postgresImpl) Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx conte
 	}
 
 	return rows, next, nil
+
+}
+
+func (obj *postgresImpl) Has_ConsumedSerial_By_StorageNodeId_And_SerialNumber(ctx context.Context,
+	consumed_serial_storage_node_id ConsumedSerial_StorageNodeId_Field,
+	consumed_serial_serial_number ConsumedSerial_SerialNumber_Field) (
+	has bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM consumed_serials WHERE consumed_serials.storage_node_id = ? AND consumed_serials.serial_number = ? )")
+
+	var __values []interface{}
+	__values = append(__values, consumed_serial_storage_node_id.value(), consumed_serial_serial_number.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&has)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+	return has, nil
 
 }
 
@@ -12507,15 +12777,15 @@ func (obj *postgresImpl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx contex
 
 }
 
-func (obj *postgresImpl) Delete_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
-	reported_serial_expires_at_less_or_equal ReportedSerial_ExpiresAt_Field) (
+func (obj *postgresImpl) Delete_ConsumedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	consumed_serial_expires_at_less_or_equal ConsumedSerial_ExpiresAt_Field) (
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reported_serials WHERE reported_serials.expires_at <= ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM consumed_serials WHERE consumed_serials.expires_at <= ?")
 
 	var __values []interface{}
-	__values = append(__values, reported_serial_expires_at_less_or_equal.value())
+	__values = append(__values, consumed_serial_expires_at_less_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -13011,6 +13281,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM pending_serial_queue;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM pending_audits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -13132,6 +13412,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupons;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM consumed_serials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -13657,28 +13947,52 @@ func (obj *cockroachImpl) CreateNoReturn_UsedSerial(ctx context.Context,
 
 }
 
-func (obj *cockroachImpl) ReplaceNoReturn_ReportedSerial(ctx context.Context,
-	reported_serial_expires_at ReportedSerial_ExpiresAt_Field,
-	reported_serial_storage_node_id ReportedSerial_StorageNodeId_Field,
-	reported_serial_bucket_id ReportedSerial_BucketId_Field,
-	reported_serial_action ReportedSerial_Action_Field,
-	reported_serial_serial_number ReportedSerial_SerialNumber_Field,
-	reported_serial_settled ReportedSerial_Settled_Field,
-	reported_serial_observed_at ReportedSerial_ObservedAt_Field) (
+func (obj *cockroachImpl) ReplaceNoReturn_PendingSerialQueue(ctx context.Context,
+	pending_serial_queue_storage_node_id PendingSerialQueue_StorageNodeId_Field,
+	pending_serial_queue_bucket_id PendingSerialQueue_BucketId_Field,
+	pending_serial_queue_serial_number PendingSerialQueue_SerialNumber_Field,
+	pending_serial_queue_action PendingSerialQueue_Action_Field,
+	pending_serial_queue_settled PendingSerialQueue_Settled_Field,
+	pending_serial_queue_expires_at PendingSerialQueue_ExpiresAt_Field) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
-	__expires_at_val := reported_serial_expires_at.value()
-	__storage_node_id_val := reported_serial_storage_node_id.value()
-	__bucket_id_val := reported_serial_bucket_id.value()
-	__action_val := reported_serial_action.value()
-	__serial_number_val := reported_serial_serial_number.value()
-	__settled_val := reported_serial_settled.value()
-	__observed_at_val := reported_serial_observed_at.value()
+	__storage_node_id_val := pending_serial_queue_storage_node_id.value()
+	__bucket_id_val := pending_serial_queue_bucket_id.value()
+	__serial_number_val := pending_serial_queue_serial_number.value()
+	__action_val := pending_serial_queue_action.value()
+	__settled_val := pending_serial_queue_settled.value()
+	__expires_at_val := pending_serial_queue_expires_at.value()
 
-	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO reported_serials ( expires_at, storage_node_id, bucket_id, action, serial_number, settled, observed_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO pending_serial_queue ( storage_node_id, bucket_id, serial_number, action, settled, expires_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
-	__values = append(__values, __expires_at_val, __storage_node_id_val, __bucket_id_val, __action_val, __serial_number_val, __settled_val, __observed_at_val)
+	__values = append(__values, __storage_node_id_val, __bucket_id_val, __serial_number_val, __action_val, __settled_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *cockroachImpl) CreateNoReturn_ConsumedSerial(ctx context.Context,
+	consumed_serial_storage_node_id ConsumedSerial_StorageNodeId_Field,
+	consumed_serial_serial_number ConsumedSerial_SerialNumber_Field,
+	consumed_serial_expires_at ConsumedSerial_ExpiresAt_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__storage_node_id_val := consumed_serial_storage_node_id.value()
+	__serial_number_val := consumed_serial_serial_number.value()
+	__expires_at_val := consumed_serial_expires_at.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO consumed_serials ( storage_node_id, serial_number, expires_at ) VALUES ( ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __storage_node_id_val, __serial_number_val, __expires_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -15356,22 +15670,20 @@ func (obj *cockroachImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 
 }
 
-func (obj *cockroachImpl) Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
-	reported_serial_expires_at_less_or_equal ReportedSerial_ExpiresAt_Field,
-	limit int, start *Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation) (
-	rows []*ReportedSerial, next *Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation, err error) {
+func (obj *cockroachImpl) Paged_PendingSerialQueue(ctx context.Context,
+	limit int, start *Paged_PendingSerialQueue_Continuation) (
+	rows []*PendingSerialQueue, next *Paged_PendingSerialQueue_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number, reported_serials.settled, reported_serials.observed_at, reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number FROM reported_serials WHERE reported_serials.expires_at <= ? AND (reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number) > (?, ?, ?, ?, ?) ORDER BY reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number, pending_serial_queue.action, pending_serial_queue.settled, pending_serial_queue.expires_at, pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number FROM pending_serial_queue WHERE (pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number) > (?, ?, ?) ORDER BY pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number, reported_serials.settled, reported_serials.observed_at, reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number FROM reported_serials WHERE reported_serials.expires_at <= ? ORDER BY reported_serials.expires_at, reported_serials.storage_node_id, reported_serials.bucket_id, reported_serials.action, reported_serials.serial_number LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number, pending_serial_queue.action, pending_serial_queue.settled, pending_serial_queue.expires_at, pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number FROM pending_serial_queue ORDER BY pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number LIMIT ?")
 
 	var __values []interface{}
-	__values = append(__values, reported_serial_expires_at_less_or_equal.value())
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_expires_at, start._value_storage_node_id, start._value_bucket_id, start._value_action, start._value_serial_number, limit)
+		__values = append(__values, start._value_storage_node_id, start._value_bucket_id, start._value_serial_number, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -15385,16 +15697,16 @@ func (obj *cockroachImpl) Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx cont
 	}
 	defer __rows.Close()
 
-	var __continuation Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation
+	var __continuation Paged_PendingSerialQueue_Continuation
 	__continuation._set = true
 
 	for __rows.Next() {
-		reported_serial := &ReportedSerial{}
-		err = __rows.Scan(&reported_serial.ExpiresAt, &reported_serial.StorageNodeId, &reported_serial.BucketId, &reported_serial.Action, &reported_serial.SerialNumber, &reported_serial.Settled, &reported_serial.ObservedAt, &__continuation._value_expires_at, &__continuation._value_storage_node_id, &__continuation._value_bucket_id, &__continuation._value_action, &__continuation._value_serial_number)
+		pending_serial_queue := &PendingSerialQueue{}
+		err = __rows.Scan(&pending_serial_queue.StorageNodeId, &pending_serial_queue.BucketId, &pending_serial_queue.SerialNumber, &pending_serial_queue.Action, &pending_serial_queue.Settled, &pending_serial_queue.ExpiresAt, &__continuation._value_storage_node_id, &__continuation._value_bucket_id, &__continuation._value_serial_number)
 		if err != nil {
 			return nil, nil, obj.makeErr(err)
 		}
-		rows = append(rows, reported_serial)
+		rows = append(rows, pending_serial_queue)
 		next = &__continuation
 	}
 	if err := __rows.Err(); err != nil {
@@ -15402,6 +15714,28 @@ func (obj *cockroachImpl) Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx cont
 	}
 
 	return rows, next, nil
+
+}
+
+func (obj *cockroachImpl) Has_ConsumedSerial_By_StorageNodeId_And_SerialNumber(ctx context.Context,
+	consumed_serial_storage_node_id ConsumedSerial_StorageNodeId_Field,
+	consumed_serial_serial_number ConsumedSerial_SerialNumber_Field) (
+	has bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM consumed_serials WHERE consumed_serials.storage_node_id = ? AND consumed_serials.serial_number = ? )")
+
+	var __values []interface{}
+	__values = append(__values, consumed_serial_storage_node_id.value(), consumed_serial_serial_number.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&has)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+	return has, nil
 
 }
 
@@ -18304,15 +18638,15 @@ func (obj *cockroachImpl) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx conte
 
 }
 
-func (obj *cockroachImpl) Delete_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
-	reported_serial_expires_at_less_or_equal ReportedSerial_ExpiresAt_Field) (
+func (obj *cockroachImpl) Delete_ConsumedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	consumed_serial_expires_at_less_or_equal ConsumedSerial_ExpiresAt_Field) (
 	count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reported_serials WHERE reported_serials.expires_at <= ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM consumed_serials WHERE consumed_serials.expires_at <= ?")
 
 	var __values []interface{}
-	__values = append(__values, reported_serial_expires_at_less_or_equal.value())
+	__values = append(__values, consumed_serial_expires_at_less_or_equal.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -18808,6 +19142,16 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM pending_serial_queue;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM pending_audits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -18929,6 +19273,16 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupons;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM consumed_serials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -19352,6 +19706,19 @@ func (rx *Rx) CreateNoReturn_BucketStorageTally(ctx context.Context,
 		return
 	}
 	return tx.CreateNoReturn_BucketStorageTally(ctx, bucket_storage_tally_bucket_name, bucket_storage_tally_project_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
+
+}
+
+func (rx *Rx) CreateNoReturn_ConsumedSerial(ctx context.Context,
+	consumed_serial_storage_node_id ConsumedSerial_StorageNodeId_Field,
+	consumed_serial_serial_number ConsumedSerial_SerialNumber_Field,
+	consumed_serial_expires_at ConsumedSerial_ExpiresAt_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_ConsumedSerial(ctx, consumed_serial_storage_node_id, consumed_serial_serial_number, consumed_serial_expires_at)
 
 }
 
@@ -19852,6 +20219,17 @@ func (rx *Rx) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	return tx.Delete_BucketMetainfo_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name)
 }
 
+func (rx *Rx) Delete_ConsumedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
+	consumed_serial_expires_at_less_or_equal ConsumedSerial_ExpiresAt_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_ConsumedSerial_By_ExpiresAt_LessOrEqual(ctx, consumed_serial_expires_at_less_or_equal)
+
+}
+
 func (rx *Rx) Delete_Coupon_By_Id(ctx context.Context,
 	coupon_id Coupon_Id_Field) (
 	deleted bool, err error) {
@@ -19955,17 +20333,6 @@ func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_Project_By_Id(ctx, project_id)
-}
-
-func (rx *Rx) Delete_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
-	reported_serial_expires_at_less_or_equal ReportedSerial_ExpiresAt_Field) (
-	count int64, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx, reported_serial_expires_at_less_or_equal)
-
 }
 
 func (rx *Rx) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
@@ -20393,6 +20760,17 @@ func (rx *Rx) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Conte
 	return tx.Get_ValueAttribution_By_ProjectId_And_BucketName(ctx, value_attribution_project_id, value_attribution_bucket_name)
 }
 
+func (rx *Rx) Has_ConsumedSerial_By_StorageNodeId_And_SerialNumber(ctx context.Context,
+	consumed_serial_storage_node_id ConsumedSerial_StorageNodeId_Field,
+	consumed_serial_serial_number ConsumedSerial_SerialNumber_Field) (
+	has bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Has_ConsumedSerial_By_StorageNodeId_And_SerialNumber(ctx, consumed_serial_storage_node_id, consumed_serial_serial_number)
+}
+
 func (rx *Rx) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
@@ -20564,31 +20942,29 @@ func (rx *Rx) Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOr
 	return tx.Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOrEqual_And_State_OrderBy_Desc_CreatedAt(ctx, stripecoinpayments_invoice_project_record_created_at_less_or_equal, stripecoinpayments_invoice_project_record_state, limit, offset)
 }
 
-func (rx *Rx) Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
-	reported_serial_expires_at_less_or_equal ReportedSerial_ExpiresAt_Field,
-	limit int, start *Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation) (
-	rows []*ReportedSerial, next *Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation, err error) {
+func (rx *Rx) Paged_PendingSerialQueue(ctx context.Context,
+	limit int, start *Paged_PendingSerialQueue_Continuation) (
+	rows []*PendingSerialQueue, next *Paged_PendingSerialQueue_Continuation, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx, reported_serial_expires_at_less_or_equal, limit, start)
+	return tx.Paged_PendingSerialQueue(ctx, limit, start)
 }
 
-func (rx *Rx) ReplaceNoReturn_ReportedSerial(ctx context.Context,
-	reported_serial_expires_at ReportedSerial_ExpiresAt_Field,
-	reported_serial_storage_node_id ReportedSerial_StorageNodeId_Field,
-	reported_serial_bucket_id ReportedSerial_BucketId_Field,
-	reported_serial_action ReportedSerial_Action_Field,
-	reported_serial_serial_number ReportedSerial_SerialNumber_Field,
-	reported_serial_settled ReportedSerial_Settled_Field,
-	reported_serial_observed_at ReportedSerial_ObservedAt_Field) (
+func (rx *Rx) ReplaceNoReturn_PendingSerialQueue(ctx context.Context,
+	pending_serial_queue_storage_node_id PendingSerialQueue_StorageNodeId_Field,
+	pending_serial_queue_bucket_id PendingSerialQueue_BucketId_Field,
+	pending_serial_queue_serial_number PendingSerialQueue_SerialNumber_Field,
+	pending_serial_queue_action PendingSerialQueue_Action_Field,
+	pending_serial_queue_settled PendingSerialQueue_Settled_Field,
+	pending_serial_queue_expires_at PendingSerialQueue_ExpiresAt_Field) (
 	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.ReplaceNoReturn_ReportedSerial(ctx, reported_serial_expires_at, reported_serial_storage_node_id, reported_serial_bucket_id, reported_serial_action, reported_serial_serial_number, reported_serial_settled, reported_serial_observed_at)
+	return tx.ReplaceNoReturn_PendingSerialQueue(ctx, pending_serial_queue_storage_node_id, pending_serial_queue_bucket_id, pending_serial_queue_serial_number, pending_serial_queue_action, pending_serial_queue_settled, pending_serial_queue_expires_at)
 
 }
 
@@ -20954,6 +21330,12 @@ type Methods interface {
 		bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
 		err error)
 
+	CreateNoReturn_ConsumedSerial(ctx context.Context,
+		consumed_serial_storage_node_id ConsumedSerial_StorageNodeId_Field,
+		consumed_serial_serial_number ConsumedSerial_SerialNumber_Field,
+		consumed_serial_expires_at ConsumedSerial_ExpiresAt_Field) (
+		err error)
+
 	CreateNoReturn_GracefulExitProgress(ctx context.Context,
 		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field,
 		graceful_exit_progress_bytes_transferred GracefulExitProgress_BytesTransferred_Field) (
@@ -21223,6 +21605,10 @@ type Methods interface {
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		deleted bool, err error)
 
+	Delete_ConsumedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
+		consumed_serial_expires_at_less_or_equal ConsumedSerial_ExpiresAt_Field) (
+		count int64, err error)
+
 	Delete_Coupon_By_Id(ctx context.Context,
 		coupon_id Coupon_Id_Field) (
 		deleted bool, err error)
@@ -21265,10 +21651,6 @@ type Methods interface {
 	Delete_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		deleted bool, err error)
-
-	Delete_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
-		reported_serial_expires_at_less_or_equal ReportedSerial_ExpiresAt_Field) (
-		count int64, err error)
 
 	Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
@@ -21448,6 +21830,11 @@ type Methods interface {
 		value_attribution_bucket_name ValueAttribution_BucketName_Field) (
 		value_attribution *ValueAttribution, err error)
 
+	Has_ConsumedSerial_By_StorageNodeId_And_SerialNumber(ctx context.Context,
+		consumed_serial_storage_node_id ConsumedSerial_StorageNodeId_Field,
+		consumed_serial_serial_number ConsumedSerial_SerialNumber_Field) (
+		has bool, err error)
+
 	Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
@@ -21529,19 +21916,17 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*StripecoinpaymentsInvoiceProjectRecord, err error)
 
-	Paged_ReportedSerial_By_ExpiresAt_LessOrEqual(ctx context.Context,
-		reported_serial_expires_at_less_or_equal ReportedSerial_ExpiresAt_Field,
-		limit int, start *Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation) (
-		rows []*ReportedSerial, next *Paged_ReportedSerial_By_ExpiresAt_LessOrEqual_Continuation, err error)
+	Paged_PendingSerialQueue(ctx context.Context,
+		limit int, start *Paged_PendingSerialQueue_Continuation) (
+		rows []*PendingSerialQueue, next *Paged_PendingSerialQueue_Continuation, err error)
 
-	ReplaceNoReturn_ReportedSerial(ctx context.Context,
-		reported_serial_expires_at ReportedSerial_ExpiresAt_Field,
-		reported_serial_storage_node_id ReportedSerial_StorageNodeId_Field,
-		reported_serial_bucket_id ReportedSerial_BucketId_Field,
-		reported_serial_action ReportedSerial_Action_Field,
-		reported_serial_serial_number ReportedSerial_SerialNumber_Field,
-		reported_serial_settled ReportedSerial_Settled_Field,
-		reported_serial_observed_at ReportedSerial_ObservedAt_Field) (
+	ReplaceNoReturn_PendingSerialQueue(ctx context.Context,
+		pending_serial_queue_storage_node_id PendingSerialQueue_StorageNodeId_Field,
+		pending_serial_queue_bucket_id PendingSerialQueue_BucketId_Field,
+		pending_serial_queue_serial_number PendingSerialQueue_SerialNumber_Field,
+		pending_serial_queue_action PendingSerialQueue_Action_Field,
+		pending_serial_queue_settled PendingSerialQueue_Settled_Field,
+		pending_serial_queue_expires_at PendingSerialQueue_ExpiresAt_Field) (
 		err error)
 
 	UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,

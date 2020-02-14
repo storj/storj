@@ -12,6 +12,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -20,6 +21,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -125,8 +127,11 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		wayInTheFuture := time.Now().UTC().Add(1000 * time.Hour)
-		hourBeforeTheFuture := wayInTheFuture.Add(-time.Hour)
+		now := time.Now()
+		beforeRollup := now.Add(-time.Hour - time.Second)
+		afterRollup := now.Add(time.Hour + time.Second)
+		bucketName := "testbucket"
+
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		for _, storageNode := range planet.StorageNodes {
@@ -135,10 +140,10 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "test/path", expectedData)
 		require.NoError(t, err)
 
-		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
+		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, "test/path")
 		require.NoError(t, err)
 		require.Equal(t, expectedData, data)
 
@@ -162,21 +167,20 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 			storageNode.Storage2.Orders.Sender.TriggerWait()
 		}
 
-		// Run the chore as if we were far in the future so that the orders are expired.
 		reportedRollupChore := planet.Satellites[0].Core.Accounting.ReportedRollupChore
-		require.NoError(t, reportedRollupChore.RunOnce(ctx, wayInTheFuture))
+		require.NoError(t, reportedRollupChore.RunOnce(ctx, now))
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
 		ordersDB := planet.Satellites[0].DB.Orders()
 
-		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, projects[0].ID, []byte("testbucket"), hourBeforeTheFuture, wayInTheFuture)
+		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, projects[0].ID, []byte(bucketName), beforeRollup, afterRollup)
 		require.NoError(t, err)
 		require.Equal(t, expectedBucketBandwidth, bucketBandwidth)
 
 		for _, storageNode := range planet.StorageNodes {
-			nodeBandwidth, err := ordersDB.GetStorageNodeBandwidth(ctx, storageNode.ID(), hourBeforeTheFuture, wayInTheFuture)
+			nodeBandwidth, err := ordersDB.GetStorageNodeBandwidth(ctx, storageNode.ID(), beforeRollup, afterRollup)
 			require.NoError(t, err)
 			require.Equal(t, expectedStorageBandwidth[storageNode.ID()], nodeBandwidth)
 		}
@@ -190,8 +194,10 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		wayInTheFuture := time.Now().UTC().Add(1000 * time.Hour)
-		hourBeforeTheFuture := wayInTheFuture.Add(-time.Hour)
+		now := time.Now()
+		beforeRollup := now.Add(-time.Hour - time.Second)
+		afterRollup := now.Add(time.Hour + time.Second)
+
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		for _, storageNode := range planet.StorageNodes {
@@ -223,19 +229,26 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 
 		// Run the chore as if we were far in the future so that the orders are expired.
 		reportedRollupChore := planet.Satellites[0].Core.Accounting.ReportedRollupChore
-		require.NoError(t, reportedRollupChore.RunOnce(ctx, wayInTheFuture))
+		require.NoError(t, reportedRollupChore.RunOnce(ctx, now))
 
 		// Query and ensure that there's no data recorded for the bucket from the other project
 		ordersDB := planet.Satellites[0].DB.Orders()
 		uplink0Project := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
 		uplink1Project := planet.Uplinks[1].ProjectID[planet.Satellites[0].ID()]
 
-		wrongBucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, uplink0Project, []byte("testbucket1"), hourBeforeTheFuture, wayInTheFuture)
+		wrongBucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, uplink0Project, []byte("testbucket1"), beforeRollup, afterRollup)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), wrongBucketBandwidth)
-		wrongBucketBandwidth, err = ordersDB.GetBucketBandwidth(ctx, uplink1Project, []byte("testbucket0"), hourBeforeTheFuture, wayInTheFuture)
+		rightBucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, uplink0Project, []byte("testbucket0"), beforeRollup, afterRollup)
+		require.NoError(t, err)
+		require.Greater(t, rightBucketBandwidth, int64(0))
+
+		wrongBucketBandwidth, err = ordersDB.GetBucketBandwidth(ctx, uplink1Project, []byte("testbucket0"), beforeRollup, afterRollup)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), wrongBucketBandwidth)
+		rightBucketBandwidth, err = ordersDB.GetBucketBandwidth(ctx, uplink1Project, []byte("testbucket1"), beforeRollup, afterRollup)
+		require.NoError(t, err)
+		require.Greater(t, rightBucketBandwidth, int64(0))
 	})
 }
 
@@ -302,7 +315,7 @@ func BenchmarkOrders(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					requests := buildBenchmarkData(ctx, b, db, snID, bucketID, c)
 
-					_, err := db.Orders().ProcessOrders(ctx, requests, time.Now())
+					_, err := db.Orders().ProcessOrders(ctx, requests)
 					assert.NoError(b, err)
 				}
 			})
@@ -341,11 +354,26 @@ func buildBenchmarkData(ctx context.Context, b *testing.B, db satellite.DB, stor
 func TestProcessOrders(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		ordersDB := db.Orders()
+		chore := reportedrollup.NewChore(zaptest.NewLogger(t), ordersDB, reportedrollup.Config{})
 		invalidSerial := storj.SerialNumber{1}
 		serialNum := storj.SerialNumber{2}
 		serialNum2 := storj.SerialNumber{3}
 		projectID, _ := uuid.New()
 		now := time.Now()
+		beforeRollup := now.Add(-time.Hour - time.Second)
+		afterRollup := now.Add(time.Hour + time.Second)
+
+		// assertion helpers
+		checkBucketBandwidth := func(bucket string, amount int64) {
+			settled, err := ordersDB.GetBucketBandwidth(ctx, *projectID, []byte(bucket), beforeRollup, afterRollup)
+			require.NoError(t, err)
+			require.Equal(t, amount, settled)
+		}
+		checkStoragenodeBandwidth := func(node storj.NodeID, amount int64) {
+			settled, err := ordersDB.GetStorageNodeBandwidth(ctx, node, beforeRollup, afterRollup)
+			require.NoError(t, err)
+			require.Equal(t, amount, settled)
+		}
 
 		// setup: create serial number records
 		err := ordersDB.CreateSerialInfo(ctx, serialNum, []byte(projectID.String()+"/b"), now.AddDate(0, 0, 1))
@@ -355,7 +383,8 @@ func TestProcessOrders(t *testing.T) {
 
 		var requests []*orders.ProcessOrderRequest
 
-		t.Run("process one order and confirm we get the correct response", func(t *testing.T) {
+		// process one order and confirm we get the correct response
+		{
 			requests = append(requests, &orders.ProcessOrderRequest{
 				Order: &pb.Order{
 					SerialNumber: serialNum,
@@ -368,7 +397,7 @@ func TestProcessOrders(t *testing.T) {
 					OrderExpiration: now.AddDate(0, 0, 3),
 				},
 			})
-			actualResponses, err := ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
+			actualResponses, err := ordersDB.ProcessOrders(ctx, requests)
 			require.NoError(t, err)
 			expectedResponses := []*orders.ProcessOrderResponse{
 				{
@@ -377,9 +406,10 @@ func TestProcessOrders(t *testing.T) {
 				},
 			}
 			assert.Equal(t, expectedResponses, actualResponses)
-		})
+		}
 
-		t.Run("process two orders from different storagenodes and confirm there is an error", func(t *testing.T) {
+		// process two orders from different storagenodes and confirm there is an error
+		{
 			requests = append(requests, &orders.ProcessOrderRequest{
 				Order: &pb.Order{
 					SerialNumber: serialNum2,
@@ -391,49 +421,30 @@ func TestProcessOrders(t *testing.T) {
 					Action:          pb.PieceAction_PUT,
 					OrderExpiration: now.AddDate(0, 0, 1)},
 			})
-			_, err = ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
+			_, err = ordersDB.ProcessOrders(ctx, requests)
 			require.Error(t, err, "different storage nodes")
-		})
+		}
 
-		t.Run("process two orders from same storagenodes and confirm we get two responses", func(t *testing.T) {
+		// process two orders from same storagenodes and confirm we get two responses
+		{
 			requests[0].OrderLimit.StorageNodeId = storj.NodeID{2}
-			actualResponses, err := ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
+			actualResponses, err := ordersDB.ProcessOrders(ctx, requests)
 			require.NoError(t, err)
 			assert.Equal(t, 2, len(actualResponses))
-		})
+		}
 
-		t.Run("confirm the correct data from processing orders was written to reported_serials table", func(t *testing.T) {
-			bbr, snr, err := ordersDB.GetBillableBandwidth(ctx, now.AddDate(0, 0, 3))
-			require.NoError(t, err)
-			assert.Equal(t, 1, len(bbr))
-			expected := []orders.BucketBandwidthRollup{
-				{
-					ProjectID:  *projectID,
-					BucketName: "c",
-					Action:     pb.PieceAction_PUT,
-					Inline:     0,
-					Allocated:  0,
-					Settled:    200,
-				},
-			}
-			assert.Equal(t, expected, bbr)
-			assert.Equal(t, 1, len(snr))
-			expectedRollup := []orders.StoragenodeBandwidthRollup{
-				{
-					NodeID:    storj.NodeID{2},
-					Action:    pb.PieceAction_PUT,
-					Allocated: 0,
-					Settled:   200,
-				},
-			}
-			assert.Equal(t, expectedRollup, snr)
-			bbr, snr, err = ordersDB.GetBillableBandwidth(ctx, now.AddDate(0, 0, 5))
-			require.NoError(t, err)
-			assert.Equal(t, 2, len(bbr))
-			assert.Equal(t, 3, len(snr))
-		})
+		// confirm the correct data from processing orders was written and consumed
+		{
+			require.NoError(t, chore.RunOnce(ctx, now))
 
-		t.Run("confirm invalid order at index 0 does not result in a SQL error", func(t *testing.T) {
+			checkBucketBandwidth("b", 200)
+			checkBucketBandwidth("c", 200)
+			checkStoragenodeBandwidth(storj.NodeID{1}, 100)
+			checkStoragenodeBandwidth(storj.NodeID{2}, 300)
+		}
+
+		// confirm invalid order at index 0 does not result in a SQL error
+		{
 			requests := []*orders.ProcessOrderRequest{
 				{
 					Order: &pb.Order{
@@ -460,12 +471,13 @@ func TestProcessOrders(t *testing.T) {
 					},
 				},
 			}
-			responses, err := ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
+			responses, err := ordersDB.ProcessOrders(ctx, requests)
 			require.NoError(t, err)
 			assert.Equal(t, pb.SettlementResponse_REJECTED, responses[0].Status)
-		})
+		}
 
-		t.Run("in case of conflicting ProcessOrderRequests, later one wins", func(t *testing.T) {
+		// in case of conflicting ProcessOrderRequests, what has been recorded already wins
+		{
 			// unique nodeID so the other tests here don't interfere
 			nodeID := testrand.NodeID()
 			requests := []*orders.ProcessOrderRequest{
@@ -494,7 +506,7 @@ func TestProcessOrders(t *testing.T) {
 					},
 				},
 			}
-			responses, err := ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
+			responses, err := ordersDB.ProcessOrders(ctx, requests)
 			require.NoError(t, err)
 			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[0].Status)
 			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[1].Status)
@@ -525,23 +537,19 @@ func TestProcessOrders(t *testing.T) {
 					},
 				},
 			}
-			responses, err = ordersDB.ProcessOrders(ctx, requests, now.Add(time.Second))
+			responses, err = ordersDB.ProcessOrders(ctx, requests)
 			require.NoError(t, err)
 			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[0].Status)
 			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[1].Status)
 
-			_, storagenodeRollups, err := ordersDB.GetBillableBandwidth(ctx, now.AddDate(0, 0, 10))
-			require.NoError(t, err)
-			found := false
-			for _, rollup := range storagenodeRollups {
-				if rollup.NodeID == nodeID {
-					require.Equal(t, pb.PieceAction_GET, rollup.Action)
-					require.Equal(t, int64(501), rollup.Settled)
-					found = true
-				}
-			}
-			require.True(t, found)
-		})
+			require.NoError(t, chore.RunOnce(ctx, now))
+
+			checkBucketBandwidth("b", 201)
+			checkBucketBandwidth("c", 700)
+			checkStoragenodeBandwidth(storj.NodeID{1}, 100)
+			checkStoragenodeBandwidth(storj.NodeID{2}, 300)
+			checkStoragenodeBandwidth(nodeID, 501)
+		}
 	})
 }
 
