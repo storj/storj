@@ -445,7 +445,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.timeout: 5m0s
 
 # how often to flush the reported serial rollups to the database
-# reported-rollup.interval: 24h0m0s
+# reported-rollup.interval: 5m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true

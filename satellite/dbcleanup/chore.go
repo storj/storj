@@ -57,13 +57,22 @@ func (chore *Chore) deleteExpiredSerials(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	chore.log.Debug("deleting expired serial numbers")
 
-	deleted, err := chore.orders.DeleteExpiredSerials(ctx, time.Now().UTC())
+	now := time.Now()
+
+	deleted, err := chore.orders.DeleteExpiredSerials(ctx, now)
 	if err != nil {
 		chore.log.Error("deleting expired serial numbers", zap.Error(err))
-		return nil
+	} else {
+		chore.log.Debug("expired serials deleted", zap.Int("items deleted", deleted))
 	}
 
-	chore.log.Debug("expired serials deleted", zap.Int("items deleted", deleted))
+	deleted, err = chore.orders.DeleteExpiredConsumedSerials(ctx, now)
+	if err != nil {
+		chore.log.Error("deleting expired serial numbers", zap.Error(err))
+	} else {
+		chore.log.Debug("expired serials deleted", zap.Int("items deleted", deleted))
+	}
+
 	return nil
 }
 

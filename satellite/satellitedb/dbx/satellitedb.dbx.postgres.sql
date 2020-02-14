@@ -52,6 +52,12 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE consumed_serials (
+	storage_node_id bytea NOT NULL,
+	serial_number bytea NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( storage_node_id, serial_number )
+);
 CREATE TABLE coupons (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -199,6 +205,15 @@ CREATE TABLE pending_audits (
 	reverify_count bigint NOT NULL,
 	path bytea NOT NULL,
 	PRIMARY KEY ( node_id )
+);
+CREATE TABLE pending_serial_queue (
+	storage_node_id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	serial_number bytea NOT NULL,
+	action integer NOT NULL,
+	settled bigint NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
 );
 CREATE TABLE projects (
 	id bytea NOT NULL,
@@ -374,6 +389,7 @@ CREATE TABLE user_credits (
 	PRIMARY KEY ( id ),
 	UNIQUE ( id, offer_id )
 );
+CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );

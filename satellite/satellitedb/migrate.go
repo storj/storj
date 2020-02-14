@@ -759,6 +759,28 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Create consumed serials tables",
+				Version:     82,
+				Action: migrate.SQL{
+					`CREATE TABLE consumed_serials (
+						storage_node_id bytea NOT NULL,
+						serial_number bytea NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( storage_node_id, serial_number )
+					);`,
+					`CREATE TABLE pending_serial_queue (
+						storage_node_id bytea NOT NULL,
+						bucket_id bytea NOT NULL,
+						serial_number bytea NOT NULL,
+						action integer NOT NULL,
+						settled bigint NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
+					);`,
+				},
+			},
 		},
 	}
 }
