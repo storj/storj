@@ -1307,3 +1307,26 @@ func TestOverwriteZombieSegments(t *testing.T) {
 		}
 	})
 }
+
+func TestBucketEmptinessBeforeDelete(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		for i := 0; i < 10; i++ {
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket", "object-key"+strconv.Itoa(i), testrand.Bytes(memory.KiB))
+			require.NoError(t, err)
+		}
+
+		for i := 0; i < 10; i++ {
+			err := planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "test-bucket")
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
+
+			err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "test-bucket", "object-key"+strconv.Itoa(i))
+			require.NoError(t, err)
+		}
+
+		err := planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "test-bucket")
+		require.NoError(t, err)
+	})
+}

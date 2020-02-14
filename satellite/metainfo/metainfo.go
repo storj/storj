@@ -835,6 +835,9 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 
 	err = endpoint.metainfo.DeleteBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
+		if ErrBucketNotEmpty.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+		}
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -958,18 +961,11 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, bucketName, []byte{})
+	empty, err := endpoint.metainfo.IsBucketEmpty(ctx, keyInfo.ProjectID, bucketName)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	items, _, err := endpoint.metainfo.List(ctx, prefix, "", true, 1, 0)
-	if err != nil {
-		endpoint.log.Error("error while listing segments", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
-
-	if len(items) > 0 {
+	if !empty {
 		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
 	}
 
