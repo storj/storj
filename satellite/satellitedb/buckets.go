@@ -101,12 +101,15 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 // DeleteBucket deletes a bucket
 func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.db.Delete_BucketMetainfo_By_ProjectId_And_Name(ctx,
+	deleted, err := db.db.Delete_BucketMetainfo_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
 	)
 	if err != nil {
 		return storj.ErrBucket.Wrap(err)
+	}
+	if !deleted {
+		return storj.ErrBucketNotFound.New("")
 	}
 	return nil
 }

@@ -837,6 +837,8 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	if err != nil {
 		if ErrBucketNotEmpty.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+		} else if storj.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
