@@ -190,10 +190,10 @@ func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, 
 	}
 
 	if !opts.Recurse {
-		all = storage.SortAndCollapse(all, opts.Prefix)
+		all = sortAndCollapse(all, opts.Prefix)
 	}
 
-	return fn(ctx, &storage.StaticIterator{
+	return fn(ctx, &StaticIterator{
 		Items: all,
 	})
 }
