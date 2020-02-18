@@ -8,6 +8,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 
 	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -87,6 +88,19 @@ func InitMetricsWithCertPath(ctx context.Context, log *zap.Logger, r *monkit.Reg
 		metricsID = "" // InitMetrics() will fill in a default value
 	} else {
 		metricsID = nodeID.String()
+	}
+	return InitMetrics(ctx, log, r, metricsID)
+}
+
+// InitMetricsWithHostname initializes telemetry reporting, using the hostname as the telemetry instance ID.
+func InitMetricsWithHostname(ctx context.Context, log *zap.Logger, r *monkit.Registry) error {
+	var metricsID string
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Sugar().Errorf("Could not read hostname for telemetry setup: %v", err)
+		metricsID = "" // InitMetrics() will fill in a default value
+	} else {
+		metricsID = strings.ReplaceAll(hostname, ".", "_")
 	}
 	return InitMetrics(ctx, log, r, metricsID)
 }
