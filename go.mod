@@ -16,6 +16,7 @@ exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.
 replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190918084400-1c4561bf5127
 
 require (
+	github.com/BurntSushi/toml v0.3.1
 	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
 	github.com/alessio/shellescape v0.0.0-20190409004728-b115ca0f9053
 	github.com/alicebob/miniredis/v2 v2.11.1
