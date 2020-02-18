@@ -42,6 +42,7 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
+import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import {
     API_KEYS_ACTIONS,
@@ -87,10 +88,13 @@ export default class DashboardArea extends Vue {
             return;
         }
 
+        let balance: number = 0;
+        let creditCards: CreditCard[] = [];
+
         try {
             await this.$store.dispatch(SETUP_ACCOUNT);
-            await this.$store.dispatch(GET_BALANCE);
-            await this.$store.dispatch(GET_CREDIT_CARDS);
+            balance = await this.$store.dispatch(GET_BALANCE);
+            creditCards = await this.$store.dispatch(GET_CREDIT_CARDS);
             await this.$store.dispatch(GET_BILLING_HISTORY);
             await this.$store.dispatch(GET_PROJECT_CHARGES);
         } catch (error) {
@@ -107,13 +111,25 @@ export default class DashboardArea extends Vue {
             return;
         }
 
+        if (!projects.length && !creditCards.length && balance === 0) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+
+            try {
+                await this.$router.push(RouteConfig.Overview.path);
+            } catch (error) {
+                return;
+            }
+
+            return;
+        }
+
         if (!projects.length) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
             if (!this.isRouteAccessibleWithoutProject()) {
                 try {
                     await this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
-                } catch (err) {
+                } catch (error) {
                     return;
                 }
             }
@@ -161,7 +177,10 @@ export default class DashboardArea extends Vue {
      * Indicates if bonus banner should be rendered.
      */
     public get isBannerShown(): boolean {
-        return this.$store.state.paymentsModule.creditCards.length === 0;
+        const isNotOverviewPage = this.$route.name === RouteConfig.Overview.name;
+        const hasCreditCards = this.$store.state.paymentsModule.creditCards.length > 0;
+
+        return !(isNotOverviewPage || hasCreditCards);
     }
 
     /**
@@ -179,6 +198,7 @@ export default class DashboardArea extends Vue {
             RouteConfig.Account.with(RouteConfig.Billing).path,
             RouteConfig.Account.with(RouteConfig.Profile).path,
             RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path,
+            RouteConfig.Overview.path,
         ];
 
         return availableRoutes.includes(this.$router.currentRoute.path.toLowerCase());

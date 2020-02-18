@@ -1,0 +1,31 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`OverviewArea.vue renders correctly 1`] = `
+<div class="overview-area">
+  <h1 class="overview-area__title">Welcome to Storj</h1>
+  <p class="overview-area__sub-title">
+    To get started, let’s add a payment method.<br>We’ll provide you with a $55 credit right away!
+  </p>
+  <router-link-stub to="/account/billing" tag="a" event="click" class="overview-area__button">Add Payment Info &amp; Get $55</router-link-stub> <span class="overview-area__charge-info">You will not be charged unless $55 is used</span>
+  <div class="overview-area__steps-area">
+    <div class="overview-area__steps-area__numbers">
+      <firststepicon-stub class="overview-area__steps-area__numbers__icon"></firststepicon-stub>
+      <div class="overview-area-divider"></div>
+      <secondstepicon-stub class="overview-area__steps-area__numbers__icon"></secondstepicon-stub>
+      <div class="overview-area-divider"></div>
+      <thirdstepicon-stub class="overview-area__steps-area__numbers__icon"></thirdstepicon-stub>
+    </div>
+    <div class="overview-area__steps-area__items">
+      <div class="overview-area__steps-area__items__add-payment-info">
+        <h2 class="overview-area__steps-area__items__add-payment-info__title">Add Payment Info</h2> <img src="@/../static/images/overview/payment.jpg" alt="payment image" class="overview-area-image">
+      </div>
+      <div class="overview-area__steps-area__items__create-project">
+        <h2 class="overview-area__steps-area__items__create-project__title">Create a Project</h2> <img src="@/../static/images/overview/project.jpg" alt="project image" class="overview-area-image">
+      </div>
+      <div class="overview-area__steps-area__items__create-api-key">
+        <h2 class="overview-area__steps-area__items__create-api-key__title">Create an API Key</h2> <img src="@/../static/images/overview/apikey.jpg" alt="api key image" class="overview-area-image">
+      </div>
+    </div>
+  </div>
+</div>
+`;

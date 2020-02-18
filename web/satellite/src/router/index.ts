@@ -12,6 +12,7 @@ import ReferralArea from '@/components/account/referral/ReferralArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
+import OverviewArea from '@/components/overview/OverviewArea.vue';
 import ProjectDetails from '@/components/project/ProjectDetails.vue';
 import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
 import UsageReport from '@/components/project/UsageReport.vue';
@@ -40,6 +41,7 @@ export abstract class RouteConfig {
     public static Team = new NavigationLink('/project-members', 'Team');
     public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
     public static Buckets = new NavigationLink('/buckets', 'Buckets');
+    public static Overview = new NavigationLink('/overview', 'Initial Overview');
 
     // child paths
     public static ProjectDetails = new NavigationLink('details', 'Project Details');
@@ -151,6 +153,11 @@ export const router = new Router({
                     path: RouteConfig.Buckets.path,
                     name: RouteConfig.Buckets.name,
                     component: BucketArea,
+                },
+                {
+                    path: RouteConfig.Overview.path,
+                    name: RouteConfig.Overview.name,
+                    component: OverviewArea,
                 },
             ],
         },

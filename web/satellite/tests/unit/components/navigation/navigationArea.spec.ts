@@ -42,7 +42,7 @@ describe('NavigationArea', () => {
         const accountButton = wrapper.findAll('.navigation-area__account-title__button');
 
         expect(navigationElements.length).toBe(8);
-        expect(disabledElements.length).toBe(4);
+        expect(disabledElements.length).toBe(3);
         expect(resourcesButton.length).toBe(0);
         expect(accountButton.length).toBe(0);
 
