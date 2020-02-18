@@ -777,12 +777,6 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	// TODO set default Redundancy if not set
-	err = endpoint.validateRedundancy(ctx, req.GetDefaultRedundancyScheme())
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
 	// checks if bucket exists before updates it or makes a new entry
 	_, err = endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err == nil {

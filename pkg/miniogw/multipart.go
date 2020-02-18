@@ -14,18 +14,13 @@ import (
 
 	minio "github.com/minio/minio/cmd"
 	"github.com/minio/minio/pkg/hash"
+	"github.com/zeebo/errs"
 
-	"storj.io/storj/lib/uplink"
+	"storj.io/uplink"
 )
 
 func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, object string, metadata map[string]string) (uploadID string, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// Check that the bucket exists
-	_, _, err = layer.gateway.project.GetBucketInfo(ctx, bucket)
-	if err != nil {
-		return "", convertError(err, bucket, "")
-	}
 
 	uploads := layer.gateway.multipart
 
@@ -34,23 +29,48 @@ func (layer *gatewayLayer) NewMultipartUpload(ctx context.Context, bucket, objec
 		return "", err
 	}
 
+	// TODO: this can now be done without this separate goroutine
+
 	go func() {
+		stream, err := layer.gateway.project.UploadObject(ctx, bucket, object, nil)
+		if err != nil {
+			uploads.RemoveByID(upload.ID)
+			upload.fail(err)
+			return
+		}
+
+		// TODO: should we add prefixes to metadata?
+		// TODO: are there other fields we can extract to standard?
 		contentType := metadata["content-type"]
 		delete(metadata, "content-type")
 
-		opts := uplink.UploadOptions{
+		err = stream.SetMetadata(ctx, &uplink.StandardMetadata{
 			ContentType: contentType,
-			Metadata:    metadata,
+		}, metadata)
+		if err != nil {
+			uploads.RemoveByID(upload.ID)
+			abortErr := stream.Abort()
+			upload.fail(errs.Combine(err, abortErr))
+			return
 		}
-		objInfo, err := layer.putObject(ctx, bucket, object, upload.Stream, &opts)
 
+		_, err = io.Copy(stream, upload.Stream)
 		uploads.RemoveByID(upload.ID)
 
 		if err != nil {
-			upload.fail(err)
-		} else {
-			upload.complete(objInfo)
+			abortErr := stream.Abort()
+			upload.fail(errs.Combine(err, abortErr))
+			return
 		}
+
+		err = stream.Commit()
+		if err != nil {
+			upload.fail(errs.Combine(err, err))
+			return
+		}
+
+		// TODO how set ETag here
+		upload.complete(minioObjectInfo(bucket, "", stream.Info()))
 	}()
 
 	return upload.ID, nil

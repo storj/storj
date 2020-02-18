@@ -504,6 +504,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				if err != nil {
 					return err
 				}
+
+				satNodeID, err := identity.NodeIDFromCertPath(filepath.Join(satellite.Directory, "identity.cert"))
+				if err != nil {
+					return err
+				}
+				nodeURL := storj.NodeURL{
+					ID:      satNodeID,
+					Address: access.SatelliteAddr,
+				}
+				access.SatelliteAddr = nodeURL.String()
+
 				accessData, err := access.Serialize()
 				if err != nil {
 					return err

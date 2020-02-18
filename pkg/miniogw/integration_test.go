@@ -20,14 +20,13 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/cmd/uplink/cmd"
-	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/private/s3client"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
+	"storj.io/uplink"
 )
 
 type config struct {
@@ -136,36 +135,27 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg cmd.Config, log *za
 		return err
 	}
 
-	cfg := libuplink.Config{}
-	cfg.Volatile.Log = log
-	cfg.Volatile.TLS.SkipPeerCAWhitelist = !uplinkCfg.TLS.UsePeerCAWhitelist
-	cfg.Volatile.TLS.PeerCAWhitelistPath = uplinkCfg.TLS.PeerCAWhitelistPath
-	cfg.Volatile.MaxInlineSize = uplinkCfg.Client.MaxInlineSize
-	cfg.Volatile.MaxMemory = uplinkCfg.RS.MaxBufferMem
-
-	uplink, err := libuplink.NewUplink(ctx, &cfg)
+	oldAccess, err := uplinkCfg.GetAccess()
 	if err != nil {
 		return err
 	}
 
-	apiKey, err := libuplink.ParseAPIKey(uplinkCfg.Legacy.Client.APIKey)
+	serializedAccess, err := oldAccess.Serialize()
 	if err != nil {
 		return err
 	}
 
-	project, err := uplink.OpenProject(ctx, uplinkCfg.Legacy.Client.SatelliteAddr, apiKey)
+	access, err := uplink.ParseAccess(serializedAccess)
 	if err != nil {
 		return err
 	}
 
-	gw := miniogw.NewStorjGateway(
-		project,
-		libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
-		storj.CipherSuite(uplinkCfg.Enc.PathType),
-		uplinkCfg.GetEncryptionParameters(),
-		uplinkCfg.GetRedundancyScheme(),
-		uplinkCfg.Client.SegmentSize,
-	)
+	project, err := uplink.OpenProject(ctx, access)
+	if err != nil {
+		return err
+	}
+
+	gw := miniogw.NewStorjGateway(project)
 
 	minio.StartGateway(cliCtx, miniogw.Logging(gw, log))
 	return errors.New("unexpected minio exit")

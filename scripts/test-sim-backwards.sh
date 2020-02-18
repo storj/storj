@@ -96,6 +96,9 @@ sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim
 sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim network env STORAGENODE_8_DIR`/config.yaml
 sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim network env STORAGENODE_9_DIR`/config.yaml
 
+# override configured access with access where address is node ID + satellite addess
+export STORJ_ACCESS=$(go run "$SCRIPTDIR"/update-access.go `storj-sim network env SATELLITE_0_DIR` `storj-sim network env GATEWAY_0_ACCESS`)
+
 # run download part of backward compatibility tests from the current branch, using new uplink
 PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download
 

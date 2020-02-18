@@ -19,15 +19,14 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/fpath"
-	"storj.io/common/storj"
 	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/cmd/uplink/cmd"
-	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
+	"storj.io/uplink"
 )
 
 // GatewayFlags configuration flags
@@ -172,14 +171,15 @@ func generateKey() (key string, err error) {
 }
 
 func checkCfg(ctx context.Context) (err error) {
-	proj, err := runCfg.openProject(ctx)
+	project, err := runCfg.openProject(ctx)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, proj.Close()) }()
+	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.Forward})
-	return err
+	buckets := project.ListBuckets(ctx, nil)
+	_ = buckets.Next()
+	return buckets.Err()
 }
 
 // Run starts a Minio Gateway given proper config
@@ -223,11 +223,6 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
-	access, err := flags.GetAccess()
-	if err != nil {
-		return nil, err
-	}
-
 	project, err := flags.openProject(ctx)
 	if err != nil {
 		return nil, err
@@ -235,40 +230,34 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 
 	return miniogw.NewStorjGateway(
 		project,
-		access.EncryptionAccess,
-		storj.CipherSuite(flags.Enc.PathType),
-		flags.GetEncryptionParameters(),
-		flags.GetRedundancyScheme(),
-		flags.Client.SegmentSize,
 	), nil
 }
 
-func (flags *GatewayFlags) newUplink(ctx context.Context) (*libuplink.Uplink, error) {
-	// Transform the gateway config flags to the libuplink config object
-	libuplinkCfg := &libuplink.Config{}
-	libuplinkCfg.Volatile.Log = zap.L()
-	libuplinkCfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
-	libuplinkCfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
-	libuplinkCfg.Volatile.PeerIDVersion = flags.TLS.PeerIDVersions
-	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !flags.TLS.UsePeerCAWhitelist
-	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = flags.TLS.PeerCAWhitelistPath
-	libuplinkCfg.Volatile.DialTimeout = flags.Client.DialTimeout
-	libuplinkCfg.Volatile.PBKDFConcurrency = flags.PBKDFConcurrency
-
-	return libuplink.NewUplink(ctx, libuplinkCfg)
+func (flags *GatewayFlags) newUplinkConfig(ctx context.Context) uplink.Config {
+	// Transform the gateway config flags to the uplink config object
+	uplinkCfg := uplink.Config{}
+	uplinkCfg.DialTimeout = flags.Client.DialTimeout
+	return uplinkCfg
 }
 
-func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, error) {
-	access, err := flags.GetAccess()
+func (flags GatewayFlags) openProject(ctx context.Context) (*uplink.Project, error) {
+	oldAccess, err := flags.GetAccess()
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	// TODO(jeff): this leaks the uplink and project :(
-	uplink, err := flags.newUplink(ctx)
+
+	serializedAccess, err := oldAccess.Serialize()
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	project, err := uplink.OpenProject(ctx, access.SatelliteAddr, access.APIKey)
+
+	access, err := uplink.ParseAccess(serializedAccess)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	config := flags.newUplinkConfig(ctx)
+	project, err := config.OpenProject(ctx, access)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -284,12 +273,7 @@ func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overr
 		return Error.Wrap(err)
 	}
 
-	apiKeyString, err := wizard.PromptForAPIKey()
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	apiKey, err := libuplink.ParseAPIKey(apiKeyString)
+	apiKey, err := wizard.PromptForAPIKey()
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -299,31 +283,12 @@ func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overr
 		return Error.Wrap(err)
 	}
 
-	uplink, err := flags.newUplink(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, uplink.Close()) }()
-
-	project, err := uplink.OpenProject(ctx, satelliteAddress, apiKey)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, project.Close()) }()
-
-	key, err := project.SaltedKeyFromPassphrase(ctx, passphrase)
+	access, err := uplink.RequestAccessWithPassphrase(ctx, satelliteAddress, apiKey, passphrase)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	encAccess := libuplink.NewEncryptionAccessWithDefaultKey(*key)
-	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
-
-	accessData, err := (&libuplink.Scope{
-		SatelliteAddr:    satelliteAddress,
-		APIKey:           apiKey,
-		EncryptionAccess: encAccess,
-	}).Serialize()
+	accessData, err := access.Serialize()
 	if err != nil {
 		return Error.Wrap(err)
 	}
