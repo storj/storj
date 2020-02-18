@@ -3,7 +3,7 @@
 
 <template>
     <div class="info-area">
-        <SatelliteSelection/>
+        <SatelliteSelection />
         <div v-if="isDisqualifiedInfoShown" class="info-area__disqualified-info">
             <LargeDisqualificationIcon
                 class="info-area__disqualified-info__image"
@@ -88,11 +88,21 @@
                 />
             </div>
         </div>
-        <p class="info-area__title">Payout</p>
+<!--        <div class="info-area__payout-header">-->
+<!--            <p class="info-area__title">Payout</p>-->
+<!--            <router-link :to="PAYOUT_PATH" class="info-area__payout-header__link">-->
+<!--                <p class="info-area__payout-header__link__text">Payout Information</p>-->
+<!--                <BlueArrowRight />-->
+<!--            </router-link>-->
+<!--        </div>-->
         <PayoutArea
             label="STORJ Wallet Address"
             :wallet-address="wallet"
         />
+<!--        <section class="info-area__total-info-area">-->
+<!--            <SingleInfo width="48%" label="Total Earnings, Feb" value="$1.99" />-->
+<!--            <SingleInfo width="48%" label="Total Held Amount" value="$19.93" />-->
+<!--        </section>-->
     </div>
 </template>
 
@@ -105,11 +115,15 @@ import ChecksArea from '@/app/components/ChecksArea.vue';
 import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
 import EgressChart from '@/app/components/EgressChart.vue';
 import IngressChart from '@/app/components/IngressChart.vue';
+import EstimationArea from '@/app/components/payments/EstimationArea.vue';
+import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 import PayoutArea from '@/app/components/PayoutArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
+import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
 
+import { RouteConfig } from '@/app/router';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { formatBytes } from '@/app/utils/converter';
 import { BandwidthInfo, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
@@ -129,6 +143,7 @@ class Checks {
 
 @Component ({
     components: {
+        EstimationArea,
         EgressChart,
         IngressChart,
         SatelliteSelection,
@@ -138,9 +153,12 @@ class Checks {
         ChecksArea,
         PayoutArea,
         LargeDisqualificationIcon,
+        BlueArrowRight,
+        SingleInfo,
     },
 })
 export default class SNOContentFilling extends Vue {
+    public readonly PAYOUT_PATH: string = RouteConfig.Payout.path;
     public chartWidth: number = 0;
     public chartHeight: number = 0;
 
@@ -383,6 +401,27 @@ export default class SNOContentFilling extends Vue {
             }
         }
 
+        &__payout-header {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+
+            &__link {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: flex-end;
+
+                &__text {
+                    font-size: 16px;
+                    line-height: 22px;
+                    color: #224ca5;
+                    margin-right: 9px;
+                }
+            }
+        }
+
         &__chart-area,
         &__checks-area {
             display: flex;
@@ -393,6 +432,18 @@ export default class SNOContentFilling extends Vue {
 
         &__bar-info {
             width: 339px;
+        }
+
+        &__estimation-area {
+            margin-top: 11px;
+        }
+
+        &__total-info-area {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 20px;
         }
     }
 
