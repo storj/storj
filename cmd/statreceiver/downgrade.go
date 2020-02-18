@@ -146,13 +146,13 @@ func iterateTags(key []byte, cb func([]byte)) {
 }
 
 var knownMetrics = map[string]string{
-	"total.bytes":                                    "storj.io/storj/satellite/accounting/tally.total.bytes",
-	"total.inline_bytes":                             "storj.io/storj/satellite/accounting/tally.total.inline_bytes",
-	"total.inline_segments":                          "storj.io/storj/satellite/accounting/tally.total.inline_segments",
-	"total.objects":                                  "storj.io/storj/satellite/accounting/tally.total.objects",
-	"total.remote_bytes":                             "storj.io/storj/satellite/accounting/tally.total.remote_bytes",
-	"total.remote_segments":                          "storj.io/storj/satellite/accounting/tally.total.remote_segments",
-	"total.segments":                                 "storj.io/storj/satellite/accounting/tally.total.segments",
+	"total.bytes":                                    "storj.io/storj/satellite/accounting.total.bytes",
+	"total.inline_bytes":                             "storj.io/storj/satellite/accounting.total.inline_bytes",
+	"total.inline_segments":                          "storj.io/storj/satellite/accounting.total.inline_segments",
+	"total.objects":                                  "storj.io/storj/satellite/accounting.total.objects",
+	"total.remote_bytes":                             "storj.io/storj/satellite/accounting.total.remote_bytes",
+	"total.remote_segments":                          "storj.io/storj/satellite/accounting.total.remote_segments",
+	"total.segments":                                 "storj.io/storj/satellite/accounting.total.segments",
 	"audit_contained_nodes":                          "storj.io/storj/satellite/audit.audit_contained_nodes",
 	"audit_contained_nodes_global":                   "storj.io/storj/satellite/audit.audit_contained_nodes_global",
 	"audit_contained_percentage":                     "storj.io/storj/satellite/audit.audit_contained_percentage",
