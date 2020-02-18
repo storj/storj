@@ -643,3 +643,90 @@ func TestRandomSampleLimits(t *testing.T) {
 		assert.Equal(t, 0, nilCount)
 	})
 }
+
+func TestProcessOrders_DoubleSend(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		ordersDB := db.Orders()
+		chore := reportedrollup.NewChore(zaptest.NewLogger(t), ordersDB, reportedrollup.Config{})
+		serialNum := storj.SerialNumber{2}
+		projectID, _ := uuid.New()
+		now := time.Now()
+		beforeRollup := now.Add(-time.Hour - time.Second)
+		afterRollup := now.Add(time.Hour + time.Second)
+
+		// assertion helpers
+		checkBucketBandwidth := func(bucket string, amount int64) {
+			settled, err := ordersDB.GetBucketBandwidth(ctx, *projectID, []byte(bucket), beforeRollup, afterRollup)
+			require.NoError(t, err)
+			require.Equal(t, amount, settled)
+		}
+		checkStoragenodeBandwidth := func(node storj.NodeID, amount int64) {
+			settled, err := ordersDB.GetStorageNodeBandwidth(ctx, node, beforeRollup, afterRollup)
+			require.NoError(t, err)
+			require.Equal(t, amount, settled)
+		}
+
+		// setup: create serial number records
+		err := ordersDB.CreateSerialInfo(ctx, serialNum, []byte(projectID.String()+"/b"), now.AddDate(0, 0, 1))
+		require.NoError(t, err)
+
+		order := &orders.ProcessOrderRequest{
+			Order: &pb.Order{
+				SerialNumber: serialNum,
+				Amount:       100,
+			},
+			OrderLimit: &pb.OrderLimit{
+				SerialNumber:    serialNum,
+				StorageNodeId:   storj.NodeID{1},
+				Action:          pb.PieceAction_PUT,
+				OrderExpiration: now.AddDate(0, 0, 3),
+			},
+		}
+
+		// send the same order twice in the same request
+		{
+			actualResponses, err := ordersDB.ProcessOrders(ctx, []*orders.ProcessOrderRequest{order, order})
+			require.NoError(t, err)
+			expectedResponses := []*orders.ProcessOrderResponse{
+				{
+					SerialNumber: serialNum,
+					Status:       pb.SettlementResponse_ACCEPTED,
+				},
+				{
+					SerialNumber: serialNum,
+					Status:       pb.SettlementResponse_REJECTED,
+				},
+			}
+			assert.Equal(t, expectedResponses, actualResponses)
+		}
+
+		// confirm the correct data from processing orders was written and consumed
+		{
+			require.NoError(t, chore.RunOnce(ctx, now))
+
+			checkBucketBandwidth("b", 100)
+			checkStoragenodeBandwidth(storj.NodeID{1}, 100)
+		}
+
+		// send the already sent and handled order again
+		{
+			actualResponses, err := ordersDB.ProcessOrders(ctx, []*orders.ProcessOrderRequest{order})
+			require.NoError(t, err)
+			expectedResponses := []*orders.ProcessOrderResponse{
+				{
+					SerialNumber: serialNum,
+					Status:       pb.SettlementResponse_ACCEPTED,
+				},
+			}
+			assert.Equal(t, expectedResponses, actualResponses)
+		}
+
+		// confirm the correct data from processing orders was written and consumed
+		{
+			require.NoError(t, chore.RunOnce(ctx, now))
+
+			checkBucketBandwidth("b", 100)
+			checkStoragenodeBandwidth(storj.NodeID{1}, 100)
+		}
+	})
+}
