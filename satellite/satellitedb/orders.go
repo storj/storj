@@ -34,7 +34,7 @@ type ordersDB struct {
 	reportedRollupsReadBatchSize int
 }
 
-// CreateSerialInfo creates serial number entry in database
+// CreateSerialInfo creates serial number entry in database.
 func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return db.db.CreateNoReturn_SerialNumber(
@@ -55,7 +55,9 @@ func (db *ordersDB) DeleteExpiredSerials(ctx context.Context, now time.Time) (_ 
 	return int(count), nil
 }
 
-// UseSerialNumber creates serial number entry in database
+// UseSerialNumber creates a used serial number entry in database from an
+// existing serial number.
+// It returns the bucket ID associated to serialNumber.
 func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	statement := db.db.Rebind(
@@ -83,7 +85,7 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 	return dbxSerialNumber.BucketId, nil
 }
 
-// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
+// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket.
 func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	statement := db.db.Rebind(
@@ -102,7 +104,7 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, project
 	return nil
 }
 
-// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
+// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket.
 func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	statement := db.db.Rebind(
@@ -120,7 +122,7 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 	return nil
 }
 
-// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
+// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket.
 func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	statement := db.db.Rebind(
@@ -138,7 +140,7 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 	return nil
 }
 
-// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time
+// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node for the given intervalStart time.
 func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	statement := db.db.Rebind(
@@ -156,7 +158,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 	return nil
 }
 
-// GetBucketBandwidth gets total bucket bandwidth from period of time
+// GetBucketBandwidth gets total bucket bandwidth from period of time.
 func (db *ordersDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
@@ -168,7 +170,7 @@ func (db *ordersDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID,
 	return *sum, Error.Wrap(err)
 }
 
-// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
+// GetStorageNodeBandwidth gets total storage node bandwidth from period of time.
 func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
@@ -180,7 +182,7 @@ func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.No
 	return *sum, err
 }
 
-// UnuseSerialNumber removes pair serial number -> storage node id from database
+// UnuseSerialNumber removes pair serial number -> storage node id from database.
 func (db *ordersDB) UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	statement := `DELETE FROM used_serials WHERE storage_node_id = ? AND

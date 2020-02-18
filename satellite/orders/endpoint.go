@@ -26,9 +26,11 @@ import (
 //
 // architecture: Database
 type DB interface {
-	// CreateSerialInfo creates serial number entry in database
+	// CreateSerialInfo creates serial number entry in database.
 	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
-	// UseSerialNumber creates serial number entry in database
+	// UseSerialNumber creates a used serial number entry in database from an
+	// existing serial number.
+	// It returns the bucket ID associated to serialNumber.
 	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
 	// UnuseSerialNumber removes pair serial number -> storage node id from database
 	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
