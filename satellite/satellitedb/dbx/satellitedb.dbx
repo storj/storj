@@ -97,6 +97,8 @@ read scalar (
 model accounting_rollup (
 	key id
 
+	index ( fields start_time )
+
 	field id               serial64
 	field node_id          blob
 	field start_time       timestamp
@@ -631,6 +633,63 @@ read all (
 	select storagenode_storage_tally
 	where storagenode_storage_tally.interval_end_time >= ?
 )
+
+// --- storage node payment tables --- //
+
+model storagenode_paystub (
+	// The (period, node_id) tuple is the primary key. The primary key index
+	// should serve for quick queries for all paystubs in a given period since
+	// it comes first but efficient queries for all paystubs with a given
+	// node_id will require a distinct index.
+
+	key period node_id
+
+	index ( fields node_id )
+
+	field period     text                     // YYYY-MM, e.g. 2020-02
+	field node_id    blob                     //
+	field created_at timestamp ( autoinsert ) //
+	field codes      text                     // colon separated list
+
+	field usage_at_rest    float64            // byte-hours of data at rest
+	field usage_get        int64              // bytes of bandwidth
+	field usage_put        int64              // bytes of bandwidth
+	field usage_get_repair int64              // bytes of bandwidth
+	field usage_put_repair int64              // bytes of bandwidth
+	field usage_get_audit  int64              // bytes of bandwidth
+
+	field comp_at_rest    int64               // in micro-units of currency
+	field comp_get        int64               // in micro-units of currency
+	field comp_put        int64               // in micro-units of currency
+	field comp_get_repair int64               // in micro-units of currency
+	field comp_put_repair int64               // in micro-units of currency
+	field comp_get_audit  int64               // in micro-units of currency
+
+	field surge_percent int64                 // percentage
+
+	field held     int64                      // in micro-units of currency
+	field owed     int64                      // in micro-units of currency
+	field disposed int64                      // in micro-units of currency
+	field paid     int64                      // in micro-units of currency
+)
+
+create storagenode_paystub ( noreturn )
+
+model storagenode_payment (
+	key id
+
+	index ( fields node_id period )
+
+	field id         serial64                 //
+	field created_at timestamp ( autoinsert ) //
+	field node_id    blob                     //
+	field period     text      ( nullable )   // YYYY-MM, e.g. 2020-02
+	field amount     int64                    // in micro-units of currency
+	field receipt    text      ( nullable )   //
+	field notes      text      ( nullable )   //
+)
+
+create storagenode_payment ( noreturn )
 
 //--- peer_identity ---//
 

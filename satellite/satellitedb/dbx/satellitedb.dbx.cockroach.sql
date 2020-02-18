@@ -268,6 +268,40 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
+CREATE TABLE storagenode_payments (
+	id bigserial NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	node_id bytea NOT NULL,
+	period text,
+	amount bigint NOT NULL,
+	receipt text,
+	notes text,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE storagenode_paystubs (
+	period text NOT NULL,
+	node_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	codes text NOT NULL,
+	usage_at_rest double precision NOT NULL,
+	usage_get bigint NOT NULL,
+	usage_put bigint NOT NULL,
+	usage_get_repair bigint NOT NULL,
+	usage_put_repair bigint NOT NULL,
+	usage_get_audit bigint NOT NULL,
+	comp_at_rest bigint NOT NULL,
+	comp_get bigint NOT NULL,
+	comp_put bigint NOT NULL,
+	comp_get_repair bigint NOT NULL,
+	comp_put_repair bigint NOT NULL,
+	comp_get_audit bigint NOT NULL,
+	surge_percent bigint NOT NULL,
+	held bigint NOT NULL,
+	owed bigint NOT NULL,
+	disposed bigint NOT NULL,
+	paid bigint NOT NULL,
+	PRIMARY KEY ( period, node_id )
+);
 CREATE TABLE storagenode_storage_tallies (
 	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
@@ -390,6 +424,7 @@ CREATE TABLE user_credits (
 	PRIMARY KEY ( id ),
 	UNIQUE ( id, offer_id )
 );
+CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
@@ -397,4 +432,6 @@ CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
+CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );
