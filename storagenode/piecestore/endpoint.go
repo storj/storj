@@ -88,7 +88,7 @@ type Endpoint struct {
 	usage       bandwidth.DB
 	usedSerials UsedSerials
 
-	reportCapacity func(context.Context) error
+	reportCapacity func(context.Context)
 
 	// liveRequests tracks the total number of incoming rpc requests. For gRPC
 	// requests only, this number is compared to config.MaxConcurrentRequests
@@ -104,7 +104,7 @@ type drpcEndpoint struct{ *Endpoint }
 func (endpoint *Endpoint) DRPC() pb.DRPCPiecestoreServer { return &drpcEndpoint{Endpoint: endpoint} }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, reportCapacity func(context.Context) error, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, reportCapacity func(context.Context), config Config) (*Endpoint, error) {
 	// If config.MaxConcurrentRequests is set we want to repsect it for grpc.
 	// However, if it is 0 (unlimited) we force a limit.
 	grpcReqLimit := config.MaxConcurrentRequests
@@ -287,9 +287,7 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 		if availableSpace < endpoint.config.ReportCapacityThreshold.Int64() {
 			go func() {
 				endpoint.monitor.Loop.TriggerWait()
-				if err := endpoint.reportCapacity(ctx); err != nil {
-					endpoint.log.Error("error reporting capacity", zap.Error(err))
-				}
+				endpoint.reportCapacity(ctx)
 			}()
 		}
 	}()
