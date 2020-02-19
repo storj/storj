@@ -45,23 +45,20 @@ func TestDeletePiecesService_New_Error(t *testing.T) {
 func TestDeletePiecesService_DeletePieces_AllNodesUp(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		// Use RSConfig for ensuring that we don't have long-tail cancellations
+		// and the upload doesn't leave garbage in the SNs
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplnk := planet.Uplinks[0]
 		satelliteSys := planet.Satellites[0]
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			// Use RSConfig for ensuring that we don't have long-tail cancellations
-			// and the upload doesn't leave garbage in the SNs
 			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
 				Client: cmd.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
-				},
-				RS: cmd.RSConfig{
-					MinThreshold:     2,
-					RepairThreshold:  2,
-					SuccessThreshold: 4,
-					MaxThreshold:     4,
 				},
 			},
 				"a-bucket", "object-filename", data,
@@ -121,23 +118,20 @@ func TestDeletePiecesService_DeletePieces_AllNodesUp(t *testing.T) {
 func TestDeletePiecesService_DeletePieces_SomeNodesDown(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		// Use RSConfig for ensuring that we don't have long-tail cancellations
+		// and the upload doesn't leave garbage in the SNs
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplnk := planet.Uplinks[0]
 		satelliteSys := planet.Satellites[0]
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			// Use RSConfig for ensuring that we don't have long-tail cancellations
-			// and the upload doesn't leave garbage in the SNs
 			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
 				Client: cmd.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
-				},
-				RS: cmd.RSConfig{
-					MinThreshold:     2,
-					RepairThreshold:  2,
-					SuccessThreshold: 4,
-					MaxThreshold:     4,
 				},
 			},
 				"a-bucket", "object-filename", data,
@@ -190,23 +184,20 @@ func TestDeletePiecesService_DeletePieces_SomeNodesDown(t *testing.T) {
 func TestDeletePiecesService_DeletePieces_AllNodesDown(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		// Use RSConfig for ensuring that we don't have long-tail cancellations
+		// and the upload doesn't leave garbage in the SNs
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplnk := planet.Uplinks[0]
 		satelliteSys := planet.Satellites[0]
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			// Use RSConfig for ensuring that we don't have long-tail cancellations
-			// and the upload doesn't leave garbage in the SNs
 			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
 				Client: cmd.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
-				},
-				RS: cmd.RSConfig{
-					MinThreshold:     2,
-					RepairThreshold:  2,
-					SuccessThreshold: 4,
-					MaxThreshold:     4,
 				},
 			},
 				"a-bucket", "object-filename", data,
@@ -262,6 +253,9 @@ func TestDeletePiecesService_DeletePieces_AllNodesDown(t *testing.T) {
 func TestDeletePiecesService_DeletePieces_InvalidDialer(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplnk := planet.Uplinks[0]
 		satelliteSys := planet.Satellites[0]
@@ -273,12 +267,6 @@ func TestDeletePiecesService_DeletePieces_InvalidDialer(t *testing.T) {
 			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
 				Client: cmd.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
-				},
-				RS: cmd.RSConfig{
-					MinThreshold:     2,
-					RepairThreshold:  2,
-					SuccessThreshold: 4,
-					MaxThreshold:     4,
 				},
 			},
 				"a-bucket", "object-filename", data,

@@ -3,8 +3,8 @@
 
 <template>
     <div class="payments-bonus-container">
-        <LogoIcon v-if="anyCreditCards" />
-        <GiftIcon v-else />
+        <LogoIcon class="banner-logo-svg" v-if="anyCreditCards" />
+        <GiftIcon class="banner-gift-svg" v-else />
         <div class="payments-bonus-container__text-container" v-if="anyCreditCards">
             <p class="payments-bonus-container__text-container__main-text">
                 Get free credits for paying in STORJ!
@@ -79,5 +79,15 @@ export default class PaymentsBonus extends Vue {
                 color: #717e92;
             }
         }
+    }
+
+    .banner-logo-svg {
+        min-height: 60px;
+        min-width: 54px;
+    }
+
+    .banner-gift-svg {
+        min-height: 64px;
+        min-width: 50px;
     }
 </style>

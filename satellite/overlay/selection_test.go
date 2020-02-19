@@ -37,7 +37,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node0 := planet.StorageNodes[0]
-		node0.Contact.Chore.Pause(ctx)
+		require.NoError(t, node0.Contact.Chore.Pause(ctx))
 		nodeDossier := node0.Local()
 		ident := node0.Identity
 		peer := rpcpeer.Peer{

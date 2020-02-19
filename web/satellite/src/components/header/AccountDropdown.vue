@@ -82,6 +82,7 @@ export default class AccountDropdown extends Vue {
         this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
         this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
         this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
 
         LocalData.removeUserId();
     }

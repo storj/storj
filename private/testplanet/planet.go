@@ -213,11 +213,12 @@ func (planet *Planet) Start(ctx context.Context) {
 		peer := peer
 		group.Go(func() error {
 			peer.Storage2.Monitor.Loop.TriggerWait()
-			peer.Contact.Chore.TriggerWait(ctx)
-			return nil
+			return peer.Contact.Chore.TriggerWait(ctx)
 		})
 	}
-	_ = group.Wait()
+	if err := group.Wait(); err != nil {
+		panic(err)
+	}
 
 	planet.started = true
 }

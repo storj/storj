@@ -44,7 +44,7 @@
             </div>
             <div class="payment-methods-area__adding-container__submit-area">
                 <img
-                    v-if="isTransactionLoading"
+                    v-if="isLoading"
                     class="payment-loading-image"
                     src="@/../static/images/account/billing/loading.gif"
                     alt="loading gif"
@@ -54,7 +54,7 @@
                     width="251px"
                     height="48px"
                     :on-press="onConfirmAddSTORJ"
-                    :is-disabled="isTransactionLoading"
+                    :is-disabled="isLoading"
                 />
             </div>
         </div>
@@ -67,7 +67,7 @@
             />
             <div class="payment-methods-area__adding-container__submit-area">
                 <img
-                    v-if="isAddingCardLoading"
+                    v-if="isLoading"
                     class="payment-loading-image"
                     src="@/../static/images/account/billing/loading.gif"
                     alt="loading gif"
@@ -77,7 +77,7 @@
                     width="123px"
                     height="48px"
                     :on-press="onConfirmAddStripe"
-                    :is-disabled="isAddingCardLoading"
+                    :is-disabled="isLoading"
                 />
             </div>
         </div>
@@ -110,6 +110,7 @@ const {
     GET_CREDIT_CARDS,
     MAKE_TOKEN_DEPOSIT,
     GET_BILLING_HISTORY,
+    GET_BALANCE,
 } = PAYMENTS_ACTIONS;
 
 interface StripeForm {
@@ -131,8 +132,7 @@ export default class PaymentMethods extends Vue {
     private readonly MAX_TOKEN_AMOUNT_IN_DOLLARS = 1000000;
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
-    public isAddingCardLoading: boolean = false;
-    public isTransactionLoading: boolean = false;
+    public isLoading: boolean = false;
 
     /**
      * Lifecycle hook after initial render where credit cards are fetched.
@@ -219,6 +219,8 @@ export default class PaymentMethods extends Vue {
      * Changes area state and token deposit value to default.
      */
     public onCancel(): void {
+        if (this.isLoading) return;
+
         this.areaState = PaymentMethodsBlockState.DEFAULT;
         this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
     }
@@ -228,15 +230,15 @@ export default class PaymentMethods extends Vue {
      * payment and return state to default
      */
     public async onConfirmAddSTORJ(): Promise<void> {
-        if (this.isTransactionLoading) return;
+        if (this.isLoading) return;
 
-        this.isTransactionLoading = true;
+        this.isLoading = true;
 
         if (this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT_IN_DOLLARS || this.tokenDepositValue === 0) {
             await this.$notify.error('Deposit amount must be more than 0 and less than 1000000');
             this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
             this.areaState = PaymentMethodsBlockState.DEFAULT;
-            this.isTransactionLoading = false;
+            this.isLoading = false;
 
             return;
         }
@@ -250,7 +252,7 @@ export default class PaymentMethods extends Vue {
             }
         } catch (error) {
             await this.$notify.error(error.message);
-            this.isTransactionLoading = false;
+            this.isLoading = false;
         }
 
         this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
@@ -262,11 +264,11 @@ export default class PaymentMethods extends Vue {
             await this.$store.dispatch(GET_BILLING_HISTORY);
         } catch (error) {
             await this.$notify.error(error.message);
-            this.isTransactionLoading = false;
+            this.isLoading = false;
         }
 
         this.areaState = PaymentMethodsBlockState.DEFAULT;
-        this.isTransactionLoading = false;
+        this.isLoading = false;
     }
 
     /**
@@ -277,6 +279,7 @@ export default class PaymentMethods extends Vue {
 
         try {
             await this.$store.dispatch(GET_BILLING_HISTORY);
+            await this.$store.dispatch(GET_BALANCE);
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -292,16 +295,16 @@ export default class PaymentMethods extends Vue {
      * @param token from Stripe
      */
     public async addCard(token: string) {
-        if (this.isAddingCardLoading) return;
+        if (this.isLoading) return;
 
-        this.isAddingCardLoading = true;
+        this.isLoading = true;
 
         try {
             await this.$store.dispatch(ADD_CREDIT_CARD, token);
         } catch (error) {
             await this.$notify.error(error.message);
 
-            this.isAddingCardLoading = false;
+            this.isLoading = false;
 
             return;
         }
@@ -314,12 +317,12 @@ export default class PaymentMethods extends Vue {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
             await this.$notify.error(error.message);
-            this.isAddingCardLoading = false;
+            this.isLoading = false;
         }
 
         this.areaState = PaymentMethodsBlockState.DEFAULT;
 
-        this.isAddingCardLoading = false;
+        this.isLoading = false;
     }
 }
 </script>

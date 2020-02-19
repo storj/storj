@@ -21,7 +21,7 @@ node('node') {
 
               echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
               echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
-              sh 'docker run --rm -d --name postgres-$BUILD_NUMBER postgres:9.6'
+              sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-$BUILD_NUMBER postgres:9.6'
               sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
 
               sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
@@ -56,7 +56,7 @@ node('node') {
 
           echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
           echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
-          sh 'docker run --rm -d --name postgres-$BUILD_NUMBER postgres:9.6'
+          sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-$BUILD_NUMBER postgres:9.6'
           sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
 
           sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)

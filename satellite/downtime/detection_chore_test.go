@@ -22,7 +22,7 @@ func TestDetectionChore(t *testing.T) {
 		nodeDossier := planet.StorageNodes[0].Local()
 		satellite := planet.Satellites[0]
 
-		node.Contact.Chore.Pause(ctx)
+		require.NoError(t, node.Contact.Chore.Pause(ctx))
 		satellite.DowntimeTracking.DetectionChore.Loop.Pause()
 
 		// setup

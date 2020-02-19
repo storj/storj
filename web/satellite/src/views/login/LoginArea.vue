@@ -43,6 +43,13 @@ export default class Login extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     /**
+     * Checks if page is inside iframe
+     */
+    public get isInsideIframe(): boolean {
+        return window.self !== window.top;
+    }
+
+    /**
      * Reloads page.
      */
     public onLogoClick(): void {

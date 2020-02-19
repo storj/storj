@@ -89,6 +89,13 @@ export default class RegisterArea extends Vue {
         }
     }
 
+    /**
+     * Checks if page is inside iframe
+     */
+    public get isInsideIframe(): boolean {
+        return window.self !== window.top;
+    }
+
     public showPasswordStrength(): void {
         this.isPasswordStrengthShown = true;
     }
