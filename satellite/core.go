@@ -448,7 +448,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			})
 			peer.Debug.Server.Panel.Add(
 				debug.Cycle("Payments Stripe Transactions", peer.Payments.Chore.TransactionCycle),
-				debug.Cycle("Payments Stripe Coupons", peer.Payments.Chore.CouponUsageCycle),
 				debug.Cycle("Payments Stripe Account Balance", peer.Payments.Chore.AccountBalanceCycle),
 			)
 		}
