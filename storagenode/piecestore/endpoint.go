@@ -88,6 +88,8 @@ type Endpoint struct {
 	usage       bandwidth.DB
 	usedSerials UsedSerials
 
+	group sync2.WorkGroup // temporary fix for uncontrolled goroutine at end of doUpload
+
 	reportCapacity func(context.Context)
 
 	// liveRequests tracks the total number of incoming rpc requests. For gRPC
@@ -285,10 +287,11 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 	// if availableSpace has fallen below ReportCapacityThreshold, report capacity to satellites
 	defer func() {
 		if availableSpace < endpoint.config.ReportCapacityThreshold.Int64() {
-			go func() {
+			// workgroup is a temporary fix to clean up goroutine when peer shuts down
+			endpoint.group.Go(func() {
 				endpoint.monitor.Loop.TriggerWait()
 				endpoint.reportCapacity(ctx)
-			}()
+			})
 		}
 	}()
 
@@ -822,4 +825,10 @@ func min(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+// Close is a temporary fix to clean up uncontrolled goroutine in doUpload
+func (endpoint *Endpoint) Close() error {
+	endpoint.group.Close()
+	return nil
 }
