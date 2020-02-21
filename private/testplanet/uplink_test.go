@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
@@ -228,7 +228,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 				wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
 				require.NoError(t, err)
 				tlscfg := tlsopts.Config{
-					RevocationDBURL:     "bolt://" + filepath.Join(ctx.Dir("fakestoragenode"), "revocation.db"),
+					RevocationDBURL:     "bolt://" + ctx.File("fakestoragenode", "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: wl,
 					PeerIDVersions:      "*",
@@ -247,14 +247,17 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 				server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Addr(), storageNode.PrivateAddr(), nil)
 				require.NoError(t, err)
 				pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
-				go func() {
-					// TODO: get goroutine under control
-					err := server.Run(ctx)
-					require.NoError(t, err)
 
-					err = revocationDB.Close()
-					require.NoError(t, err)
-				}()
+				defer ctx.Check(server.Close)
+
+				ctx.Go(func() error {
+					if err := server.Run(ctx); err != nil {
+						return errs.Wrap(err)
+					}
+
+					return errs.Wrap(revocationDB.Close())
+				})
+
 				stopped = true
 				break
 			}
