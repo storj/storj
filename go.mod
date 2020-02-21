@@ -98,7 +98,7 @@ require (
 	github.com/zeebo/errs v1.2.2
 	github.com/zeebo/structs v1.0.2
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20191227163750-53104e6ec876
+	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20200107144601-ef85f5a75ddf
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
