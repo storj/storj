@@ -71,6 +71,12 @@ keyRange:
 		newKey = append(newKey, key[:i]...)
 		newKey = append(newKey, ",application="...)
 		newKey = appendTag(newKey, application)
+
+		if strings.Contains(application, "satellite") {
+			newKey = append(newKey, ",instance="...)
+			newKey = appendTag(newKey, instance)
+		}
+
 		newKey = append(newKey, key[i:]...)
 		key = newKey
 
