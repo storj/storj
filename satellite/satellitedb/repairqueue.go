@@ -11,7 +11,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/storage"
 )
 
@@ -22,16 +21,24 @@ type repairQueue struct {
 	db *satelliteDB
 }
 
-func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment, numHealthy int) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = r.db.ExecContext(ctx, r.db.Rebind(`INSERT INTO injuredsegments ( path, data ) VALUES ( ?, ? )`), seg.Path, seg)
-	if err != nil {
-		if pgutil.IsConstraintError(err) {
-			return nil // quietly fail on reinsert
-		}
-		return err
-	}
-	return nil
+	// insert if not exists, or update healthy count if does exist
+	query := `
+		INSERT INTO injuredsegments
+		(
+			path, data, num_healthy_pieces
+		)
+		VALUES (
+			$1, $2, $3
+		)
+		ON CONFLICT (path)
+		DO UPDATE
+		SET
+			num_healthy_pieces=$3
+		`
+	_, err = r.db.ExecContext(ctx, query, seg.Path, seg, numHealthy)
+	return err
 }
 
 func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err error) {
@@ -41,15 +48,15 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE injuredsegments SET attempted = now() AT TIME ZONE 'UTC' WHERE path = (
 					SELECT path FROM injuredsegments
-					WHERE attempted IS NULL OR attempted < now() AT TIME ZONE 'UTC' - interval '1 hour'
-					ORDER BY attempted LIMIT 1
+					WHERE attempted IS NULL OR attempted < now() AT TIME ZONE 'UTC' - interval '6 hours'
+					ORDER BY num_healthy_pieces ASC, attempted LIMIT 1
 				) RETURNING data`).Scan(&seg)
 	case dbutil.Postgres:
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE injuredsegments SET attempted = now() AT TIME ZONE 'UTC' WHERE path = (
 					SELECT path FROM injuredsegments
-					WHERE attempted IS NULL OR attempted < now() AT TIME ZONE 'UTC' - interval '1 hour'
-					ORDER BY attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
+					WHERE attempted IS NULL OR attempted < now() AT TIME ZONE 'UTC' - interval '6 hours'
+					ORDER BY num_healthy_pieces ASC, attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
 				) RETURNING data`).Scan(&seg)
 	default:
 		return seg, errs.New("invalid dbType: %v", r.db.implementation)

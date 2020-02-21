@@ -392,6 +392,7 @@ CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp,
+	num_healthy_pieces integer DEFAULT 52 NOT NULL,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -663,6 +664,7 @@ CREATE TABLE user_credits (
 );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
+CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
@@ -851,6 +853,7 @@ CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp,
+	num_healthy_pieces integer DEFAULT 52 NOT NULL,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -1122,6 +1125,7 @@ CREATE TABLE user_credits (
 );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
+CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
@@ -3013,15 +3017,17 @@ func (GracefulExitTransferQueue_OrderLimitSendCount_Field) _Column() string {
 }
 
 type Injuredsegment struct {
-	Path      []byte
-	Data      []byte
-	Attempted *time.Time
+	Path             []byte
+	Data             []byte
+	Attempted        *time.Time
+	NumHealthyPieces int
 }
 
 func (Injuredsegment) _Table() string { return "injuredsegments" }
 
 type Injuredsegment_Create_Fields struct {
-	Attempted Injuredsegment_Attempted_Field
+	Attempted        Injuredsegment_Attempted_Field
+	NumHealthyPieces Injuredsegment_NumHealthyPieces_Field
 }
 
 type Injuredsegment_Update_Fields struct {
@@ -3098,6 +3104,25 @@ func (f Injuredsegment_Attempted_Field) value() interface{} {
 }
 
 func (Injuredsegment_Attempted_Field) _Column() string { return "attempted" }
+
+type Injuredsegment_NumHealthyPieces_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Injuredsegment_NumHealthyPieces(v int) Injuredsegment_NumHealthyPieces_Field {
+	return Injuredsegment_NumHealthyPieces_Field{_set: true, _value: v}
+}
+
+func (f Injuredsegment_NumHealthyPieces_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Injuredsegment_NumHealthyPieces_Field) _Column() string { return "num_healthy_pieces" }
 
 type Irreparabledb struct {
 	Segmentpath        []byte
