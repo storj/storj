@@ -174,7 +174,7 @@ func (projects *projects) List(ctx context.Context, offset int64, limit int, bef
 
 	if len(dbxProjects) == limit+1 {
 		page.Next = true
-		page.NextOffset = offset + int64(limit) + 1
+		page.NextOffset = offset + int64(limit)
 
 		dbxProjects = dbxProjects[:len(dbxProjects)-1]
 	}
