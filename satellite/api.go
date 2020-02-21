@@ -65,9 +65,13 @@ type API struct {
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
 
-	Dialer  rpc.Dialer
-	Server  *server.Server
-	Version *checker.Service
+	Dialer rpc.Dialer
+	Server *server.Server
+
+	Version struct {
+		Chore   *checker.Chore
+		Service *checker.Service
+	}
 
 	Debug struct {
 		Listener net.Listener
@@ -195,11 +199,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+
+		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version.Chore = checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "version",
-			Run:  peer.Version.Run,
+			Run:  peer.Version.Chore.Run,
 		})
 	}
 

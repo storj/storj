@@ -81,6 +81,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 	if contact == nil {
 		return nil, errs.New("contact service can't be nil")
 	}
+
 	return &Service{
 		log:                log,
 		trust:              trust,

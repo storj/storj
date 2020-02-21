@@ -50,6 +50,7 @@ import (
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
+	version2 "storj.io/storj/storagenode/version"
 )
 
 var (
@@ -164,7 +165,10 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *checker.Service
+	Version struct {
+		Chore   *version2.Chore
+		Service *checker.Service
+	}
 
 	Debug struct {
 		Listener net.Listener
@@ -236,6 +240,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		Services: lifecycle.NewGroup(log.Named("services")),
 	}
 
+	{ // setup notification service.
+		peer.Notifications.Service = notifications.NewService(peer.Log, peer.DB.Notifications())
+	}
+
 	{ // setup debug
 		var err error
 		if config.Debug.Address != "" {
@@ -263,11 +271,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 
+		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
+		versionCheckInterval := 24 * time.Hour
+		peer.Version.Chore = version2.NewChore(peer.Version.Service, peer.Notifications.Service, peer.Identity.ID, versionCheckInterval)
 		peer.Services.Add(lifecycle.Item{
 			Name: "version",
-			Run:  peer.Version.Run,
+			Run:  peer.Version.Chore.Run,
 		})
 	}
 
@@ -311,10 +321,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{
 		peer.Preflight.LocalTime = preflight.NewLocalTime(peer.Log.Named("preflight:localtime"), config.Preflight, peer.Storage2.Trust, peer.Dialer)
-	}
-
-	{ // setup notification service.
-		peer.Notifications.Service = notifications.NewService(peer.Log, peer.DB.Notifications())
 	}
 
 	{ // setup contact service
@@ -513,7 +519,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Named("console:service"),
 			peer.DB.Bandwidth(),
 			peer.Storage2.Store,
-			peer.Version,
+			peer.Version.Service,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
 			config.Operator.Wallet,

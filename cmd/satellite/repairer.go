@@ -75,7 +75,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	err = peer.Version.CheckVersion(ctx)
+	_, err = peer.Version.Service.CheckVersion(ctx)
 	if err != nil {
 		return err
 	}

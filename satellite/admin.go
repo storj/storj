@@ -41,7 +41,10 @@ type Admin struct {
 		Server   *debug.Server
 	}
 
-	Version *checker.Service
+	Version struct {
+		Chore   *checker.Chore
+		Service *checker.Service
+	}
 
 	Admin struct {
 		Listener net.Listener
@@ -88,11 +91,12 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version.Chore = checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "version",
-			Run:  peer.Version.Run,
+			Run:  peer.Version.Chore.Run,
 		})
 	}
 

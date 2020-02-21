@@ -244,8 +244,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// okay, start doing stuff ====
-
-	err = peer.Version.CheckVersion(ctx)
+	_, err = peer.Version.Service.CheckVersion(ctx)
 	if err != nil {
 		return err
 	}
