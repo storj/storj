@@ -419,9 +419,9 @@ func TestTrashAndRestore(t *testing.T) {
 		// Empty trash by running the chore once
 		trashDur := 4 * 24 * time.Hour
 		chore := pieces.NewTrashChore(zaptest.NewLogger(t), 24*time.Hour, trashDur, trust, store)
-		go func() {
-			require.NoError(t, chore.Run(ctx))
-		}()
+		ctx.Go(func() error {
+			return chore.Run(ctx)
+		})
 		chore.TriggerWait(ctx)
 		require.NoError(t, chore.Close())
 
