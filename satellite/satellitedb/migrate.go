@@ -781,6 +781,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Clear repair queue and add healthy pieces count to repair queue",
+				Version:     83,
+				Action: migrate.SQL{
+					`TRUNCATE injuredsegments;`,
+					`ALTER TABLE injuredsegments ADD COLUMN num_healthy_pieces integer DEFAULT 52 NOT NULL;`,
+				},
+			},
 		},
 	}
 }

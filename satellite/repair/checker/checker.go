@@ -175,7 +175,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 			Path:         []byte(path),
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
-		})
+		}, int(numHealthy))
 		if err != nil {
 			return errs.Combine(Error.New("error adding injured segment to queue"), err)
 		}
@@ -259,7 +259,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 			Path:         []byte(path.Raw),
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
-		})
+		}, int(numHealthy))
 		if err != nil {
 			obs.log.Error("error adding injured segment to queue", zap.Error(err))
 			return nil
