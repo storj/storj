@@ -58,6 +58,6 @@ export class BaseGql {
     }
 
     private combineErrors(gqlError: any): string {
-        return gqlError.map(err => err.message).join('\n');
+        return gqlError.map(err => err).join('\n');
     }
 }

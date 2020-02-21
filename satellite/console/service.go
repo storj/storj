@@ -1390,7 +1390,7 @@ func (s *Service) authenticate(ctx context.Context, token consoleauth.Token) (_ 
 func (s *Service) authorize(ctx context.Context, claims *consoleauth.Claims) (_ *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !claims.Expiration.IsZero() && claims.Expiration.Before(time.Now()) {
-		return nil, ErrTokenExpiration.Wrap(err)
+		return nil, ErrTokenExpiration.New("")
 	}
 
 	user, err := s.store.Users().Get(ctx, claims.ID)
