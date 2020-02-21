@@ -18,7 +18,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/piecestore"
+	"storj.io/uplink/private/piecestore"
 )
 
 var (

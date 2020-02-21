@@ -28,11 +28,11 @@ import (
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
-	"storj.io/uplink/ecclient"
-	"storj.io/uplink/eestream"
-	"storj.io/uplink/metainfo/kvmetainfo"
-	"storj.io/uplink/storage/segments"
-	"storj.io/uplink/storage/streams"
+	"storj.io/uplink/private/ecclient"
+	"storj.io/uplink/private/eestream"
+	"storj.io/uplink/private/metainfo/kvmetainfo"
+	"storj.io/uplink/private/storage/segments"
+	"storj.io/uplink/private/storage/streams"
 )
 
 const (

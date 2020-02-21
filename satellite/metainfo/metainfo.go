@@ -33,8 +33,8 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/uplink/eestream"
-	"storj.io/uplink/storage/meta"
+	"storj.io/uplink/private/eestream"
+	"storj.io/uplink/private/storage/meta"
 )
 
 const (

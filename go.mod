@@ -111,5 +111,5 @@ require (
 	gopkg.in/yaml.v2 v2.2.4
 	storj.io/common v0.0.0-20200214110758-9e3820f574f6
 	storj.io/drpc v0.0.8
-	storj.io/uplink v0.0.0-20200211130624-1f304dca3b7d
+	storj.io/uplink v0.0.0-20200221135851-60db51e97359
 )

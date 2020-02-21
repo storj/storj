@@ -23,7 +23,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/eestream"
+	"storj.io/uplink/private/eestream"
 )
 
 // millis for the transfer queue building ticker

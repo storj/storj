@@ -26,7 +26,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/metainfo"
+	"storj.io/uplink/private/metainfo"
 )
 
 func TestUplinksParallel(t *testing.T) {

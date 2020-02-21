@@ -16,7 +16,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/storage"
-	"storj.io/uplink/storage/meta"
+	"storj.io/uplink/private/storage/meta"
 )
 
 var (

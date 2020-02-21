@@ -25,7 +25,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/satellites"
-	"storj.io/uplink/ecclient"
+	"storj.io/uplink/private/ecclient"
 )
 
 // Worker is responsible for completing the graceful exit for a given satellite.

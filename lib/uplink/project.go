@@ -12,11 +12,11 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/uplink/ecclient"
-	"storj.io/uplink/metainfo"
-	"storj.io/uplink/metainfo/kvmetainfo"
-	"storj.io/uplink/storage/segments"
-	"storj.io/uplink/storage/streams"
+	"storj.io/uplink/private/ecclient"
+	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/metainfo/kvmetainfo"
+	"storj.io/uplink/private/storage/segments"
+	"storj.io/uplink/private/storage/streams"
 )
 
 // Project represents a specific project access session.

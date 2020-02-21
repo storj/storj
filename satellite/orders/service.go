@@ -20,7 +20,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/eestream"
+	"storj.io/uplink/private/eestream"
 )
 
 // ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces
