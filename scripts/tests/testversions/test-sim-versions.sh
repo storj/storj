@@ -62,6 +62,8 @@ replace_in_file(){
     esac
 }
 
+scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
 # mirroring install-sim from the Makefile since it won't work on private Jenkins
 install_sim(){
     local bin_dir="$1"
@@ -72,7 +74,7 @@ install_sim(){
     go install -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+    cd ${scriptdir}/../../../cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
 
@@ -178,10 +180,10 @@ for version in ${unique_versions}; do
             pushd ${dir}
             mkdir -p ${bin_dir}
             go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-            go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+            cd ${scriptdir}/../../../cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
             # uncomment for local testing
             # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink >/dev/null 2>&1
-            # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/gateway >/dev/null 2>&1
+            # GOBIN=${bin_dir} cd ${scriptdir}/../../../cmd/gateway && go install -race -v storj.io/storj/cmd/gateway >/dev/null 2>&1
             popd
             echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
             echo "Binary shasums:"
@@ -207,7 +209,6 @@ done
 test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
-scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}"
 
 # Uploading files to the network using the latest release version for each uplink version

@@ -99,7 +99,7 @@ install_sim(){
     go install -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+    cd ${scriptdir}/../../../cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
 
@@ -179,6 +179,8 @@ fi
 
 echo "Setting up environments for versions" ${unique_versions}
 
+scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
 # Get latest release tags and clean up git worktree
 git worktree prune
 for version in ${unique_versions}; do
@@ -218,10 +220,10 @@ for version in ${unique_versions}; do
         mkdir -p ${bin_dir}
         # uncomment for Jenkins testing:
         go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-        go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+        cd ${scriptdir}/../../../cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
         # uncomment for local testing:
         # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink > /dev/null 2>&1
-        # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/gateway > /dev/null 2>&1
+        # GOBIN=${bin_dir} cd ${scriptdir}/../../../cmd/gateway && go install -race -v storj.io/storj/cmd/gateway > /dev/null 2>&1
         popd
         echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
         echo "Binary shasums:"
@@ -236,7 +238,6 @@ done
 test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
-scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 test_versions_path="$( dirname "${scriptdir}" )/testversions/test-versions.sh"
 setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}" "1"
 
