@@ -5,7 +5,6 @@ package metainfo
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -105,8 +104,7 @@ func (service *DeletePiecesService) DeletePieces(
 		limiter.Go(ctx, func() {
 			ctx, cancel := context.WithTimeout(ctx, service.config.NodeOperationTimeout)
 			defer cancel()
-			// Track the rate that each single node is dialed
-			mon.Event(fmt.Sprintf("DeletePieces_node_%s", node.Id.String()))
+			// TODO: Track the rate that each single node is dialed
 
 			// Track the low/high/recent/average/quantiles of successful nodes dialing.
 			// Not stopping the timer doesn't leak resources.
