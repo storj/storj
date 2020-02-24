@@ -17,6 +17,43 @@ import (
 	"storj.io/storj/private/testplanet"
 )
 
+func TestBillingTrafficAfterFileDeletion(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			bucketName = "testbucket"
+			filePath   = "test/path"
+		)
+
+		var (
+			satelliteSys = planet.Satellites[0]
+			uplink       = planet.Uplinks[0]
+			projectID    = uplink.ProjectID[satelliteSys.ID()]
+		)
+
+		data := testrand.Bytes(5 * memory.KiB)
+		err := uplink.Upload(ctx, satelliteSys, bucketName, filePath, data)
+		require.NoError(t, err)
+
+		_, err = uplink.Download(ctx, satelliteSys, bucketName, filePath)
+		require.NoError(t, err)
+
+		err = uplink.DeleteObject(ctx, satelliteSys, bucketName, filePath)
+		require.NoError(t, err)
+
+		err = uplink.DeleteBucket(ctx, satelliteSys, bucketName)
+		require.NoError(t, err)
+
+		// Check that download traffic gets billed even if the file and bucket was deleted
+		bandwidth := getTotalProjectBandwidth(ctx, t, planet, 0, projectID, time.Now().Add(-3*time.Hour))
+		require.NotZero(t, bandwidth, "Egress should not be empty")
+	})
+}
+
 func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
