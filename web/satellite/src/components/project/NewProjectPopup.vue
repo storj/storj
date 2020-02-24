@@ -150,6 +150,8 @@ export default class NewProjectPopup extends Vue {
 
         this.clearBucketUsage();
 
+        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+
         this.checkIfsFirstProject();
 
         this.isLoading = false;
@@ -187,8 +189,6 @@ export default class NewProjectPopup extends Vue {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
 
         this.$emit('hideNewProjectButton');
-
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
     }
 
     private checkIfsFirstProject(): void {
