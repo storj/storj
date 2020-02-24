@@ -44,6 +44,8 @@ type durabilityStats struct {
 	remoteSegmentsNeedingRepair int64
 	remoteSegmentsLost          int64
 	remoteSegmentInfo           []string
+	// remoteSegmentsOverThreshold[0]=# of healthy=rt+1, remoteSegmentsOverThreshold[1]=# of healthy=rt+2, etc...
+	remoteSegmentsOverThreshold [5]int64
 }
 
 // Checker contains the information needed to do checks for missing pieces
@@ -126,11 +128,16 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		return err
 	}
 
-	mon.IntVal("remote_files_checked").Observe(observer.monStats.objectsChecked)                        //locked
-	mon.IntVal("remote_segments_checked").Observe(observer.monStats.remoteSegmentsChecked)              //locked
-	mon.IntVal("remote_segments_needing_repair").Observe(observer.monStats.remoteSegmentsNeedingRepair) //locked
-	mon.IntVal("remote_segments_lost").Observe(observer.monStats.remoteSegmentsLost)                    //locked
-	mon.IntVal("remote_files_lost").Observe(int64(len(observer.monStats.remoteSegmentInfo)))            //locked
+	mon.IntVal("remote_files_checked").Observe(observer.monStats.objectsChecked)                             //locked
+	mon.IntVal("remote_segments_checked").Observe(observer.monStats.remoteSegmentsChecked)                   //locked
+	mon.IntVal("remote_segments_needing_repair").Observe(observer.monStats.remoteSegmentsNeedingRepair)      //locked
+	mon.IntVal("remote_segments_lost").Observe(observer.monStats.remoteSegmentsLost)                         //locked
+	mon.IntVal("remote_files_lost").Observe(int64(len(observer.monStats.remoteSegmentInfo)))                 //locked
+	mon.IntVal("remote_segments_over_threshold_1").Observe(observer.monStats.remoteSegmentsOverThreshold[0]) //locked
+	mon.IntVal("remote_segments_over_threshold_2").Observe(observer.monStats.remoteSegmentsOverThreshold[1]) //locked
+	mon.IntVal("remote_segments_over_threshold_3").Observe(observer.monStats.remoteSegmentsOverThreshold[2]) //locked
+	mon.IntVal("remote_segments_over_threshold_4").Observe(observer.monStats.remoteSegmentsOverThreshold[3]) //locked
+	mon.IntVal("remote_segments_over_threshold_5").Observe(observer.monStats.remoteSegmentsOverThreshold[4]) //locked
 
 	return nil
 }
@@ -311,6 +318,15 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 		if err != nil {
 			obs.log.Error("error handling irreparable segment to queue", zap.Error(err))
 			return nil
+		}
+	} else if numHealthy > redundancy.RepairThreshold && numHealthy <= (redundancy.RepairThreshold+int32(len(obs.monStats.remoteSegmentsOverThreshold))) {
+		// record metrics for segments right above repair threshold
+		// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
+		for i := range obs.monStats.remoteSegmentsOverThreshold {
+			if numHealthy == (redundancy.RepairThreshold + int32(i) + 1) {
+				obs.monStats.remoteSegmentsOverThreshold[i]++
+				break
+			}
 		}
 	}
 
