@@ -80,7 +80,9 @@ storj.io/storj/satellite/repair/repairer."repair_segment_pieces_successful" IntV
 storj.io/storj/satellite/repair/repairer."repair_segment_pieces_total" IntVal
 storj.io/storj/satellite/repair/repairer."repair_segment_size" IntVal
 storj.io/storj/satellite/repair/repairer."repair_success" Meter
+storj.io/storj/satellite/repair/repairer."repair_too_many_nodes_failed" Meter
 storj.io/storj/satellite/repair/repairer."repair_unnecessary" Meter
+storj.io/storj/satellite/repair/repairer."segment_deleted_before_repair" Meter
 storj.io/storj/satellite/repair/repairer."segment_repair_count" IntVal
 storj.io/storj/satellite/repair/repairer."segment_time_until_repair" IntVal
 storj.io/storj/satellite/repair/repairer."time_for_repair" FloatVal
