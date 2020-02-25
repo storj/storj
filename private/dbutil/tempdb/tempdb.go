@@ -4,6 +4,7 @@
 package tempdb
 
 import (
+	"context"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -15,12 +16,12 @@ import (
 
 // OpenUnique opens a temporary, uniquely named database (or isolated database schema)
 // for scratch work. When closed, this database or schema will be cleaned up and destroyed.
-func OpenUnique(connURL string, namePrefix string) (*dbutil.TempDatabase, error) {
+func OpenUnique(ctx context.Context, connURL string, namePrefix string) (*dbutil.TempDatabase, error) {
 	if strings.HasPrefix(connURL, "postgres://") || strings.HasPrefix(connURL, "postgresql://") {
-		return pgutil.OpenUnique(connURL, namePrefix)
+		return pgutil.OpenUnique(ctx, connURL, namePrefix)
 	}
 	if strings.HasPrefix(connURL, "cockroach://") {
-		return cockroachutil.OpenUnique(connURL, namePrefix)
+		return cockroachutil.OpenUnique(ctx, connURL, namePrefix)
 	}
 	return nil, errs.New("OpenUnique does not yet support the db type for %q", connURL)
 }

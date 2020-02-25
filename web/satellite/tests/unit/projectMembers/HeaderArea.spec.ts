@@ -92,7 +92,7 @@ describe('Team HeaderArea', () => {
         expect(wrapper.findAll('.blur-search').length).toBe(0);
     });
 
-    it('renders correctly with 2 selected users and delete clicked once', () => {
+    it('renders correctly with 2 selected users and delete clicked once', async () => {
         store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
 
         const selectedUsersCount = 2;
@@ -106,7 +106,7 @@ describe('Team HeaderArea', () => {
             },
         });
 
-        wrapper.vm.onFirstDeleteClick();
+        await wrapper.vm.onFirstDeleteClick();
 
         expect(wrapper).toMatchSnapshot();
         expect(wrapper.vm.selectedProjectMembersCount).toBe(selectedUsersCount);
@@ -119,7 +119,7 @@ describe('Team HeaderArea', () => {
         expect(expectedSectionRendered.text()).toBe(`Are you sure you want to delete ${selectedUsersCount} users?`);
     });
 
-    it('renders correctly with 1 selected user and delete clicked once', () => {
+    it('renders correctly with 1 selected user and delete clicked once', async () => {
         store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
 
         const selectedUsersCount = 1;
@@ -133,7 +133,7 @@ describe('Team HeaderArea', () => {
             },
         });
 
-        wrapper.vm.onFirstDeleteClick();
+        await wrapper.vm.onFirstDeleteClick();
 
         expect(wrapper).toMatchSnapshot();
         expect(wrapper.vm.selectedProjectMembersCount).toBe(selectedUsersCount);

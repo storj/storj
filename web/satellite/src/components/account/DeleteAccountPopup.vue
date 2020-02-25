@@ -53,12 +53,9 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { validatePassword } from '@/utils/validation';
-
-import { LocalData } from '../../utils/localData';
 
 @Component({
     components: {
@@ -80,6 +77,9 @@ export default class DeleteAccountPopup extends Vue {
         this.passwordError = '';
     }
 
+    /**
+     * Validates password and if it is correct tries to delete account, close popup and redirect to login page.
+     */
     public async onDeleteAccountClick(): Promise<void> {
         if (this.isLoading) {
             return;
@@ -97,11 +97,10 @@ export default class DeleteAccountPopup extends Vue {
         try {
             await this.auth.delete(this.password);
             await this.$notify.success('Account was successfully deleted');
+
             this.$segment.track(SegmentEvent.USER_DELETED, {
                 email: this.$store.getters.user.email,
             });
-
-            AuthToken.remove();
 
             this.isLoading = false;
             await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
@@ -112,6 +111,9 @@ export default class DeleteAccountPopup extends Vue {
         }
     }
 
+    /**
+     * Closes popup.
+     */
     public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
     }

@@ -13,7 +13,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/storj"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type peerIdentities struct {
@@ -83,14 +83,15 @@ func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeID
 
 	// TODO: optimize using arrays like overlay
 
-	rows, err := idents.db.Query(idents.db.Rebind(`
-			SELECT chain FROM peer_identities WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)`), args...)
+	rows, err := idents.db.Query(ctx, idents.db.Rebind(`
+		SELECT chain
+		FROM peer_identities
+		WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)
+	`), args...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var peerChain []byte
@@ -104,5 +105,5 @@ func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeID
 		}
 		peerIdents = append(peerIdents, ident)
 	}
-	return peerIdents, nil
+	return peerIdents, Error.Wrap(rows.Err())
 }

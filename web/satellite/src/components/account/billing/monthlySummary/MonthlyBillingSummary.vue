@@ -64,7 +64,9 @@ export default class MonthlyBillingSummary extends Vue {
      */
     public usageCharges: ProjectCharge[] = this.$store.state.paymentsModule.charges;
 
-    // TODO: unused.
+    /**
+     * String representation of current billing period dates range.
+     */
     public get currentPeriod(): string {
         const months: string[] = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         const now: Date = new Date();

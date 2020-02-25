@@ -3,10 +3,10 @@
 exports[`NavigationArea snapshot not changed with project 1`] = `
 <div class="navigation-area">
   <div class="navigation-area__wrap">
-    <div class="navigation-area__logo">
+    <router-link-stub to="/project-overview" tag="a" event="click" class="navigation-area__logo">
       <logoicon-stub class="navigation-area__logo__img"></logoicon-stub>
       <logotexticon-stub class="navigation-area__logo__text"></logotexticon-stub>
-    </div>
+    </router-link-stub>
     <projectselectionarea-stub class="project-selection-area"></projectselectionarea-stub>
     <p class="navigation-area__project-title">PROJECT</p>
     <router-link-stub to="/project-overview" tag="a" event="click" aria-label="Overview" class="navigation-area__item-container">
@@ -52,7 +52,7 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
       <p class="navigation-area__resources-title__title">RESOURCES</p>
       <!---->
       <!---->
-    </div> <a href="https://github.com/storj/docs/blob/master/Vanguard-Release-Setup-Instructions.md" target="_blank" class="navigation-area__item-container">
+    </div> <a href="https://documentation.tardigrade.io/setup/buckets-objects" target="_blank" class="navigation-area__item-container">
       <div class="navigation-area__item-container__link-container">
         <docsicon-stub class="svg"></docsicon-stub>
         <h1 class="navigation-area__item-container__link-container__title docs-title">Docs</h1>
@@ -79,11 +79,6 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
           <h1 class="navigation-area__item-container__link-container__title account-item">Billing</h1>
         </div>
       </router-link-stub>
-      <router-link-stub to="/account/referral" tag="a" event="click" class="navigation-area__item-container account-item">
-        <div class="navigation-area__item-container__link-container">
-          <h1 class="navigation-area__item-container__link-container__title account-item">Referral</h1>
-        </div>
-      </router-link-stub>
     </div>
     <div class="divider custom-divider"></div>
   </div>
@@ -93,10 +88,10 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
 exports[`NavigationArea snapshot not changed without project 1`] = `
 <div class="navigation-area">
   <div class="navigation-area__wrap">
-    <div class="navigation-area__logo">
+    <router-link-stub to="/project-overview" tag="a" event="click" class="navigation-area__logo">
       <logoicon-stub class="navigation-area__logo__img"></logoicon-stub>
       <logotexticon-stub class="navigation-area__logo__text"></logotexticon-stub>
-    </div>
+    </router-link-stub>
     <projectselectionarea-stub class="project-selection-area"></projectselectionarea-stub>
     <p class="navigation-area__project-title">PROJECT</p>
     <router-link-stub to="/project-overview" tag="a" event="click" aria-label="Overview" class="navigation-area__item-container disabled">
@@ -142,7 +137,7 @@ exports[`NavigationArea snapshot not changed without project 1`] = `
       <p class="navigation-area__resources-title__title">RESOURCES</p>
       <!---->
       <!---->
-    </div> <a href="https://github.com/storj/docs/blob/master/Vanguard-Release-Setup-Instructions.md" target="_blank" class="navigation-area__item-container">
+    </div> <a href="https://documentation.tardigrade.io/setup/buckets-objects" target="_blank" class="navigation-area__item-container">
       <div class="navigation-area__item-container__link-container">
         <docsicon-stub class="svg"></docsicon-stub>
         <h1 class="navigation-area__item-container__link-container__title docs-title">Docs</h1>
@@ -167,11 +162,6 @@ exports[`NavigationArea snapshot not changed without project 1`] = `
       <router-link-stub to="/account/billing" tag="a" event="click" class="navigation-area__item-container account-item">
         <div class="navigation-area__item-container__link-container">
           <h1 class="navigation-area__item-container__link-container__title account-item">Billing</h1>
-        </div>
-      </router-link-stub>
-      <router-link-stub to="/account/referral" tag="a" event="click" class="navigation-area__item-container account-item">
-        <div class="navigation-area__item-container__link-container">
-          <h1 class="navigation-area__item-container__link-container__title account-item">Referral</h1>
         </div>
       </router-link-stub>
     </div>

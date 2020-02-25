@@ -23,7 +23,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/eestream"
+	"storj.io/uplink/private/eestream"
 )
 
 // millis for the transfer queue building ticker
@@ -180,11 +180,20 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	pending := NewPendingMap()
 
 	var group errgroup.Group
+	defer func() {
+		err2 := errs2.IgnoreCanceled(group.Wait())
+		if err2 != nil {
+			endpoint.log.Error("incompleteLoop gave error", zap.Error(err2))
+		}
+	}()
+
+	// we cancel this context in all situations where we want to exit the loop
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	group.Go(func() error {
 		incompleteLoop := sync2.NewCycle(endpoint.interval)
 
-		// we cancel this context in all situations where we want to exit the loop
-		ctx, cancel := context.WithCancel(ctx)
 		loopErr := incompleteLoop.Run(ctx, func(ctx context.Context) error {
 			if pending.Length() == 0 {
 				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
@@ -223,6 +232,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	for {
 		finishedPromise := pending.IsFinishedPromise()
 		finished, err := finishedPromise.Wait(ctx)
+		err = errs2.IgnoreCanceled(err)
 		if err != nil {
 			return rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
@@ -318,12 +328,6 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 		}
 	}
 
-	if err := group.Wait(); err != nil {
-		if !errs.Is(err, context.Canceled) {
-			return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
-		}
-	}
-
 	return nil
 }
 
@@ -392,7 +396,6 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	request := &overlay.FindStorageNodesRequest{
 		RequestedCount: 1,
 		FreeBandwidth:  pieceSize,
-		FreeDisk:       pieceSize,
 		ExcludedNodes:  excludedNodeIDs,
 	}
 
@@ -412,11 +415,11 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	pieceID := remote.RootPieceId.Derive(nodeID, incomplete.PieceNum)
 
 	parts := storj.SplitPath(storj.Path(incomplete.Path))
-	if len(parts) < 2 {
+	if len(parts) < 3 {
 		return Error.New("invalid path for node ID %v, piece ID %v", incomplete.NodeID, pieceID)
 	}
 
-	bucketID := []byte(storj.JoinPaths(parts[0], parts[1]))
+	bucketID := []byte(storj.JoinPaths(parts[0], parts[2]))
 	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, incomplete.PieceNum, remote.RootPieceId, int32(pieceSize))
 	if err != nil {
 		return Error.Wrap(err)

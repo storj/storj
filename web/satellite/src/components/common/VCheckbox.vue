@@ -19,6 +19,9 @@ export default class VCheckbox extends Vue {
 
     private checked: boolean = false;
 
+    /**
+     * Emits value to parent component.
+     */
     public onChange(): void {
         this.$emit('setData', this.checked);
     }

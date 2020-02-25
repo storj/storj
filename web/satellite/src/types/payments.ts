@@ -132,7 +132,9 @@ export class BillingHistoryItem {
     }
 }
 
-// BillingHistoryItemType indicates type of billing history item.
+/**
+ * BillingHistoryItemType indicates type of billing history item.
+  */
 export enum BillingHistoryItemType {
     // Invoice is a Stripe invoice billing item.
     Invoice = 0,
@@ -142,7 +144,9 @@ export enum BillingHistoryItemType {
     Charge = 2,
 }
 
-// TokenDeposit holds public information about token deposit
+/**
+ * TokenDeposit holds public information about token deposit.
+ */
 export class TokenDeposit {
     constructor(
         public amount: number,
@@ -151,7 +155,9 @@ export class TokenDeposit {
     ) {}
 }
 
-// Amount holds information for displaying billing item payment
+/**
+ * Amount holds information for displaying billing item payment.
+ */
 class Amount {
     public constructor(
         public currency: string = '',

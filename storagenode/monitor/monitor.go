@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -43,7 +43,7 @@ type Service struct {
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
 	allocatedBandwidth int64
-	Loop               sync2.Cycle
+	Loop               *sync2.Cycle
 	Config             Config
 }
 
@@ -58,7 +58,7 @@ func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, 
 		usageDB:            usageDB,
 		allocatedDiskSpace: allocatedDiskSpace,
 		allocatedBandwidth: allocatedBandwidth,
-		Loop:               *sync2.NewCycle(interval),
+		Loop:               sync2.NewCycle(interval),
 		Config:             config,
 	}
 }
@@ -171,7 +171,7 @@ func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
 
 func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usage, err := service.usageDB.MonthSummary(ctx)
+	usage, err := service.usageDB.MonthSummary(ctx, time.Now())
 	if err != nil {
 		return 0, err
 	}
@@ -186,13 +186,18 @@ func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error)
 		return 0, Error.Wrap(err)
 	}
 	allocatedSpace := service.allocatedDiskSpace
+
+	mon.IntVal("allocated_space").Observe(allocatedSpace)
+	mon.IntVal("used_space").Observe(usedSpace)
+	mon.IntVal("available_space").Observe(allocatedSpace - usedSpace)
+
 	return allocatedSpace - usedSpace, nil
 }
 
 // AvailableBandwidth returns available bandwidth for upload/download
 func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usage, err := service.usageDB.MonthSummary(ctx)
+	usage, err := service.usageDB.MonthSummary(ctx, time.Now())
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
@@ -200,6 +205,7 @@ func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err er
 
 	mon.IntVal("allocated_bandwidth").Observe(allocatedBandwidth) //locked
 	mon.IntVal("used_bandwidth").Observe(usage)                   //locked
+	mon.IntVal("available_bandwidth").Observe(allocatedBandwidth - usage)
 
 	return allocatedBandwidth - usage, nil
 }

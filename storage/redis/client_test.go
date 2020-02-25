@@ -6,22 +6,25 @@ package redis
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/testsuite"
 )
 
 func TestSuite(t *testing.T) {
-	addr, cleanup, err := redisserver.Start()
+	redis, err := redisserver.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cleanup()
+	defer func() { require.NoError(t, redis.Close()) }()
 
-	client, err := NewClient(addr, "", 1)
+	client, err := NewClient(redis.Addr(), "", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	client.SetLookupLimit(500)
 	testsuite.RunTests(t, client)
 }
 
@@ -33,13 +36,13 @@ func TestInvalidConnection(t *testing.T) {
 }
 
 func BenchmarkSuite(b *testing.B) {
-	addr, cleanup, err := redisserver.Start()
+	redis, err := redisserver.Start()
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer cleanup()
+	defer func() { require.NoError(b, redis.Close()) }()
 
-	client, err := NewClient(addr, "", 1)
+	client, err := NewClient(redis.Addr(), "", 1)
 	if err != nil {
 		b.Fatal(err)
 	}

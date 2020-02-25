@@ -47,7 +47,7 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 
 					project, err := service.GetProject(p.Context, *id)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return project, nil
@@ -58,7 +58,7 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					projects, err := service.GetUsersProjects(p.Context)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return projects, nil
@@ -76,7 +76,7 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 
 					offer, err := service.GetCurrentRewardByType(p.Context, rewards.OfferType(rewardType))
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return offer, nil
@@ -87,7 +87,7 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					usage, err := service.GetUserCreditUsage(p.Context)
 					if err != nil {
-						return nil, HandleError(err)
+						return nil, err
 					}
 
 					return usage, nil

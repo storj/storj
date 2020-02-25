@@ -3,10 +3,10 @@
 
 <div class="navigation-area">
     <div class="navigation-area__wrap">
-        <div class="navigation-area__logo" @click="onLogoClick">
+        <router-link :to="homePath" class="navigation-area__logo">
             <LogoIcon class="navigation-area__logo__img"/>
             <LogoTextIcon class="navigation-area__logo__text"/>
-        </div>
+        </router-link>
         <ProjectSelectionArea class="project-selection-area"/>
         <p class="navigation-area__project-title">PROJECT</p>
         <router-link :aria-label="navItem.name" class="navigation-area__item-container" :class="{disabled: isProjectNotSelected && navItem.path !== '/project-details'}" v-for="navItem in navigation" :key="navItem.name" :to="navItem.path">
@@ -20,7 +20,7 @@
             <p v-if="isResourcesDisplayingButtonShown" @click="toggleResourceItemsVisibility" class="navigation-area__resources-title__button">Show</p>
             <p v-if="isResourcesHidingButtonShown" @click="toggleResourceItemsVisibility" class="navigation-area__resources-title__button">Hide</p>
         </div>
-        <a v-if="areResourceItemsShown" class="navigation-area__item-container" href="https://github.com/storj/docs/blob/master/Vanguard-Release-Setup-Instructions.md" target="_blank">
+        <a v-if="areResourceItemsShown" class="navigation-area__item-container" href="https://documentation.tardigrade.io/setup/buckets-objects" target="_blank">
             <div class="navigation-area__item-container__link-container">
                 <DocsIcon class="svg"/>
                 <h1 class="navigation-area__item-container__link-container__title docs-title">Docs</h1>

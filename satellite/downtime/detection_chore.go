@@ -5,7 +5,6 @@ package downtime
 
 import (
 	"context"
-	"time"
 
 	"go.uber.org/zap"
 
@@ -18,22 +17,20 @@ import (
 // architecture: Chore
 type DetectionChore struct {
 	log     *zap.Logger
-	Loop    sync2.Cycle
+	Loop    *sync2.Cycle
 	config  Config
 	overlay *overlay.Service
 	service *Service
-	db      DB
 }
 
 // NewDetectionChore instantiates DetectionChore.
-func NewDetectionChore(log *zap.Logger, config Config, overlay *overlay.Service, service *Service, db DB) *DetectionChore {
+func NewDetectionChore(log *zap.Logger, config Config, overlay *overlay.Service, service *Service) *DetectionChore {
 	return &DetectionChore{
 		log:     log,
-		Loop:    *sync2.NewCycle(config.DetectionInterval),
+		Loop:    sync2.NewCycle(config.DetectionInterval),
 		config:  config,
 		overlay: overlay,
 		service: service,
-		db:      db,
 	}
 }
 
@@ -63,19 +60,6 @@ func (chore *DetectionChore) Run(ctx context.Context) (err error) {
 					zap.Error(err))
 
 				continue
-			}
-
-			if !success {
-				now := time.Now().UTC()
-				duration := now.Sub(nodeLastContact.LastContactSuccess) - chore.config.DetectionInterval
-
-				err = chore.db.Add(ctx, nodeLastContact.ID, now, duration)
-				if err != nil {
-					chore.log.Error("error adding node seconds offline information.",
-						zap.Stringer("node ID", nodeLastContact.ID),
-						zap.Stringer("duration", duration),
-						zap.Error(err))
-				}
 			}
 		}
 		return nil

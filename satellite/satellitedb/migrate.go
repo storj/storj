@@ -4,7 +4,9 @@
 package satellitedb
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
@@ -12,6 +14,7 @@ import (
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/private/tagsql"
 )
 
 var (
@@ -22,7 +25,7 @@ var (
 )
 
 // CreateTables is a method for creating all tables for database
-func (db *satelliteDB) CreateTables() error {
+func (db *satelliteDB) CreateTables(ctx context.Context) error {
 	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
 	// will need to create any schemas specified in the search path, and cockroach
 	// will need to create the database it was told to connect to. These things should
@@ -36,7 +39,7 @@ func (db *satelliteDB) CreateTables() error {
 		}
 
 		if schema != "" {
-			err = pgutil.CreateSchema(db, schema)
+			err = pgutil.CreateSchema(ctx, db, schema)
 			if err != nil {
 				return errs.New("error creating schema: %+v", err)
 			}
@@ -44,11 +47,11 @@ func (db *satelliteDB) CreateTables() error {
 
 	case dbutil.Cockroach:
 		var dbName string
-		if err := db.QueryRow(`SELECT current_database();`).Scan(&dbName); err != nil {
+		if err := db.QueryRow(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
 			return errs.New("error querying current database: %+v", err)
 		}
 
-		_, err := db.Exec(fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+		_, err := db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
 			pq.QuoteIdentifier(dbName)))
 		if err != nil {
 			return errs.Wrap(err)
@@ -61,7 +64,7 @@ func (db *satelliteDB) CreateTables() error {
 		// since we merged migration steps 0-69, the current db version should never be
 		// less than 69 unless the migration hasn't run yet
 		const minDBVersion = 69
-		dbVersion, err := migration.CurrentVersion(db.log, db.DB)
+		dbVersion, err := migration.CurrentVersion(ctx, db.log, db.DB)
 		if err != nil {
 			return errs.New("error current version: %+v", err)
 		}
@@ -71,22 +74,107 @@ func (db *satelliteDB) CreateTables() error {
 			)
 		}
 
-		return migration.Run(db.log.Named("migrate"))
+		return migration.Run(ctx, db.log.Named("migrate"))
 	default:
-		return migrate.Create("database", db.DB)
+		return migrate.Create(ctx, "database", db.DB)
+	}
+}
+
+// TestingCreateTables is a method for creating all tables for database for testing.
+func (db *satelliteDB) TestingCreateTables(ctx context.Context) error {
+	switch db.implementation {
+	case dbutil.Postgres:
+		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
+		if err != nil {
+			return ErrMigrateMinVersion.New("error parsing schema: %+v", err)
+		}
+
+		if schema != "" {
+			err = pgutil.CreateSchema(ctx, db, schema)
+			if err != nil {
+				return ErrMigrateMinVersion.New("error creating schema: %+v", err)
+			}
+		}
+
+	case dbutil.Cockroach:
+		var dbName string
+		if err := db.QueryRow(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+			return ErrMigrateMinVersion.New("error querying current database: %+v", err)
+		}
+
+		_, err := db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`, pq.QuoteIdentifier(dbName)))
+		if err != nil {
+			return ErrMigrateMinVersion.Wrap(err)
+		}
+	}
+
+	switch db.implementation {
+	case dbutil.Postgres, dbutil.Cockroach:
+		migration := db.PostgresMigration()
+
+		dbVersion, err := migration.CurrentVersion(ctx, db.log, db.DB)
+		if err != nil {
+			return ErrMigrateMinVersion.Wrap(err)
+		}
+		if dbVersion > -1 {
+			return ErrMigrateMinVersion.New("the database must be empty, got version %d", dbVersion)
+		}
+
+		flattened, err := flattenMigration(migration)
+		if err != nil {
+			return ErrMigrateMinVersion.Wrap(err)
+		}
+
+		return flattened.Run(ctx, db.log.Named("migrate"))
+	default:
+		return migrate.Create(ctx, "database", db.DB)
 	}
 }
 
 // CheckVersion confirms the database is at the desired version
-func (db *satelliteDB) CheckVersion() error {
+func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	switch db.implementation {
 	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
-		return migration.ValidateVersions(db.log)
+		return migration.ValidateVersions(ctx, db.log)
 
 	default:
 		return nil
 	}
+}
+
+func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
+	var db tagsql.DB
+	var version int
+	var statements migrate.SQL
+
+	for _, step := range m.Steps {
+		if db == nil {
+			db = step.DB
+		} else if db != step.DB {
+			return nil, errs.New("multiple databases not supported")
+		}
+
+		version = step.Version
+		sql, ok := step.Action.(migrate.SQL)
+		if !ok {
+			return nil, errs.New("unexpected action type %T", step.Action)
+		}
+
+		statements = append(statements, sql...)
+	}
+
+	return &migrate.Migration{
+		Table: "versions",
+		Steps: []*migrate.Step{
+			{
+				DB:          db,
+				Description: "Setup",
+				Version:     version,
+				Action:      migrate.SQL{strings.Join(statements, ";\n")},
+			},
+		},
+	}, nil
 }
 
 // PostgresMigration returns steps needed for migrating postgres database.
@@ -557,6 +645,140 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN allocated DROP NOT NULL;`,
 					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN allocated SET DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Drop coupon related tables",
+				Version:     75,
+				Action: migrate.SQL{
+					`DROP TABLE coupon_usages;`,
+					`DROP TABLE coupons;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Update coupon related tables",
+				Version:     76,
+				Action: migrate.SQL{
+					`CREATE TABLE coupons (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						description text NOT NULL,
+						type integer NOT NULL,
+						status integer NOT NULL,
+						duration bigint NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE TABLE coupon_usages (
+						coupon_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						status integer NOT NULL,
+						period timestamp with time zone NOT NULL,
+						PRIMARY KEY ( coupon_id, period )
+					);`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Create reported_serials table for faster order processing",
+				Version:     77,
+				Action: migrate.SQL{
+					`CREATE TABLE reported_serials (
+						expires_at timestamp with time zone NOT NULL,
+						storage_node_id bytea NOT NULL,
+						bucket_id bytea NOT NULL,
+						action integer NOT NULL,
+						serial_number bytea NOT NULL,
+						settled bigint NOT NULL,
+						observed_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
+					);`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Drop unused indexes",
+				Version:     78,
+				Action: migrate.SQL{
+					`DROP INDEX bucket_name_project_id_interval_start_interval_seconds;`,
+					`DROP INDEX storagenode_id_interval_start_interval_seconds_index;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Migrate transactions adding new status completed",
+				Version:     79,
+				Action: migrate.SQL{
+					// delete all pending apply balance intents
+					`DELETE FROM stripecoinpayments_apply_balance_intents WHERE state = 0`,
+					// create apply balance intents for all misinterpreted transaction
+					`INSERT INTO stripecoinpayments_apply_balance_intents
+						(SELECT id, 0, now() FROM coinpayments_transactions WHERE status = 100)`,
+					// update all received transactions with applied balance intent to be completed
+					`UPDATE coinpayments_transactions AS txs
+						SET status = 100
+						FROM stripecoinpayments_apply_balance_intents AS ints
+						WHERE ints.tx_id = txs.id
+						AND txs.status = 1
+						AND ints.state = 1
+					`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Add rate_limit column to projects table",
+				Version:     80,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN rate_limit integer;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Create Credits related tables",
+				Version:     81,
+				Action: migrate.SQL{
+					`CREATE TABLE credits (
+						user_id bytea NOT NULL,
+						transaction_id text NOT NULL,
+						amount bigint NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( transaction_id )
+					);`,
+					`CREATE TABLE credits_spendings (
+						id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						project_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						status int NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Create consumed serials tables",
+				Version:     82,
+				Action: migrate.SQL{
+					`CREATE TABLE consumed_serials (
+						storage_node_id bytea NOT NULL,
+						serial_number bytea NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( storage_node_id, serial_number )
+					);`,
+					`CREATE TABLE pending_serial_queue (
+						storage_node_id bytea NOT NULL,
+						bucket_id bytea NOT NULL,
+						serial_number bytea NOT NULL,
+						action integer NOT NULL,
+						settled bigint NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
+					);`,
 				},
 			},
 		},

@@ -4,6 +4,7 @@
 package pgutil
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -15,12 +16,19 @@ import (
 )
 
 // QuerySchema loads the schema from postgres database.
-func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
+func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, error) {
 	schema := &dbschema.Schema{}
+
+	// get version string to do efficient queries
+	var version string
+	row := db.QueryRowContext(ctx, `SELECT version()`)
+	if err := row.Scan(&version); err != nil {
+		return nil, errs.Wrap(err)
+	}
 
 	// find tables
 	err := func() error {
-		rows, err := db.Query(`
+		rows, err := db.QueryContext(ctx, `
 			SELECT table_name, column_name, is_nullable, data_type
 			FROM  information_schema.columns
 			WHERE table_schema = CURRENT_SCHEMA
@@ -53,7 +61,15 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 
 	// find constraints
 	err = func() error {
-		rows, err := db.Query(`
+		// cockroach has a .condef field and it's way faster than the function call
+		var definitionClause string
+		if strings.Contains(version, "CockroachDB") {
+			definitionClause = `pg_constraint.condef AS definition`
+		} else {
+			definitionClause = `pg_get_constraintdef(pg_constraint.oid) AS definition`
+		}
+
+		rows, err := db.QueryContext(ctx, `
 			SELECT
 				pg_class.relname      AS table_name,
 				pg_constraint.conname AS constraint_name,
@@ -66,8 +82,7 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 						JOIN UNNEST(pg_constraint.conkey) WITH ORDINALITY AS u(attnum, pos) ON u.attnum = pg_attribute.attnum
 					WHERE
 						pg_attribute.attrelid = pg_class.oid
-				) AS columns,
-				pg_get_constraintdef(pg_constraint.oid) AS definition
+				) AS columns, `+definitionClause+`
 			FROM
 				pg_constraint
 				JOIN pg_class ON pg_class.oid = pg_constraint.conrelid

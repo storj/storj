@@ -78,10 +78,16 @@ const {
 export default class BucketArea extends Vue {
     public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
 
+    /**
+     * Lifecycle hook after initial render where buckets list is fetched.
+     */
     public async mounted(): Promise<void> {
         await this.$store.dispatch(FETCH, 1);
     }
 
+    /**
+     * Lifecycle hook before component destruction where buckets search query is cleared.
+     */
     public async beforeDestroy(): Promise<void> {
         await this.$store.dispatch(SET_SEARCH, '');
     }
@@ -90,10 +96,16 @@ export default class BucketArea extends Vue {
         // this method is used to mock prop function of common List
     }
 
+    /**
+     * Returns buckets total page count.
+     */
     public get totalPageCount(): number {
         return this.$store.state.bucketUsageModule.page.pageCount;
     }
 
+    /**
+     * Returns buckets total count.
+     */
     public get totalCount(): number {
         return this.$store.getters.page.totalCount;
     }
@@ -102,10 +114,16 @@ export default class BucketArea extends Vue {
         return BucketItem;
     }
 
+    /**
+     * Returns buckets list of current page.
+     */
     public get buckets(): Bucket[] {
         return this.$store.getters.page.buckets;
     }
 
+    /**
+     * Returns buckets search query.
+     */
     public get search(): string {
         return this.$store.getters.cursor.search;
     }
@@ -122,6 +140,9 @@ export default class BucketArea extends Vue {
         return !!(!this.totalPageCount && this.search);
     }
 
+    /**
+     * Fetches buckets depends on search query.
+     */
     public async fetch(searchQuery: string): Promise<void> {
         await this.$store.dispatch(SET_SEARCH, searchQuery);
 
@@ -132,6 +153,9 @@ export default class BucketArea extends Vue {
         }
     }
 
+    /**
+     * Fetches buckets depends on page index.
+     */
     public async onPageClick(page: number): Promise<void> {
         try {
             await this.$store.dispatch(FETCH, page);

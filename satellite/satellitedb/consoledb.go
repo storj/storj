@@ -11,7 +11,7 @@ import (
 
 	"storj.io/storj/pkg/cache"
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensures that ConsoleDB implements console.DB.
@@ -37,7 +37,7 @@ func (db *ConsoleDB) Users() console.Users {
 
 // Projects is a getter for Projects repository.
 func (db *ConsoleDB) Projects() console.Projects {
-	return &projects{db.methods}
+	return &projects{db: db.methods, sdb: db.db}
 }
 
 // ProjectMembers is a getter for ProjectMembers repository.

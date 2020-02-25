@@ -19,11 +19,11 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
-	"storj.io/uplink/ecclient"
-	"storj.io/uplink/eestream"
-	"storj.io/uplink/metainfo/kvmetainfo"
-	"storj.io/uplink/storage/segments"
-	"storj.io/uplink/storage/streams"
+	"storj.io/uplink/private/ecclient"
+	"storj.io/uplink/private/eestream"
+	"storj.io/uplink/private/metainfo/kvmetainfo"
+	"storj.io/uplink/private/storage/segments"
+	"storj.io/uplink/private/storage/streams"
 )
 
 const (
@@ -31,10 +31,31 @@ const (
 	TestBucket = "test-bucket"
 )
 
+var (
+	defaultRS = storj.RedundancyScheme{
+		RequiredShares: 2,
+		RepairShares:   2,
+		OptimalShares:  3,
+		TotalShares:    4,
+		ShareSize:      256 * memory.B.Int32(),
+	}
+
+	defaultEP = storj.EncryptionParameters{
+		CipherSuite: storj.EncAESGCM,
+		BlockSize:   defaultRS.StripeSize(),
+	}
+
+	defaultBucket = storj.Bucket{
+		PathCipher:                  storj.EncAESGCM,
+		DefaultRedundancyScheme:     defaultRS,
+		DefaultEncryptionParameters: defaultEP,
+	}
+)
+
 func TestBucketsBasic(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		// Create new bucket
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestBucket, bucket.Name)
 		}
@@ -74,7 +95,7 @@ func TestBucketsBasic(t *testing.T) {
 func TestBucketsReadWrite(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		// Create new bucket
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestBucket, bucket.Name)
 		}
@@ -127,7 +148,11 @@ func TestErrNoBucket(t *testing.T) {
 func TestBucketCreateCipher(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		forAllCiphers(func(cipher storj.CipherSuite) {
-			bucket, err := db.CreateBucket(ctx, "test", &storj.Bucket{PathCipher: cipher})
+			bucket, err := db.CreateBucket(ctx, "test", &storj.Bucket{
+				PathCipher:                  cipher,
+				DefaultRedundancyScheme:     defaultRS,
+				DefaultEncryptionParameters: defaultEP,
+			})
 			if assert.NoError(t, err) {
 				assert.Equal(t, cipher, bucket.PathCipher)
 			}
@@ -158,7 +183,7 @@ func TestListBuckets(t *testing.T) {
 		bucketNames := []string{"a00", "aa0", "b00", "bb0", "c00"}
 
 		for _, name := range bucketNames {
-			_, err := db.CreateBucket(ctx, name, nil)
+			_, err := db.CreateBucket(ctx, name, &defaultBucket)
 			require.NoError(t, err)
 		}
 
@@ -213,10 +238,16 @@ func getBucketNames(bucketList storj.BucketList) []string {
 }
 
 func runTest(t *testing.T, test func(*testing.T, context.Context, *testplanet.Planet, *kvmetainfo.DB, streams.Store)) {
+	runTestWithPathCipher(t, storj.EncAESGCM, test)
+}
+
+func runTestWithPathCipher(t *testing.T, pathCipher storj.CipherSuite, test func(*testing.T, context.Context, *testplanet.Planet, *kvmetainfo.DB, streams.Store)) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		db, streams, err := newMetainfoParts(planet, newTestEncStore(TestEncKey))
+		encAccess := newTestEncStore(TestEncKey)
+		encAccess.SetDefaultPathCipher(pathCipher)
+		db, streams, err := newMetainfoParts(planet, encAccess)
 		require.NoError(t, err)
 
 		test(t, ctx, planet, db, streams)
@@ -277,7 +308,7 @@ func newMetainfoParts(planet *testplanet.Planet, encStore *encryption.Store) (*k
 		return nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(metainfo, ec, rs)
+	segments := segments.NewSegmentStore(metainfo, ec)
 
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()
@@ -286,7 +317,7 @@ func newMetainfoParts(planet *testplanet.Planet, encStore *encryption.Store) (*k
 	if err != nil {
 		return nil, nil, err
 	}
-	proj := kvmetainfo.NewProject(streams, int32(blockSize), rs, 64*memory.MiB.Int64(), *metainfo)
+	proj := kvmetainfo.NewProject(streams, int32(blockSize), 64*memory.MiB.Int64(), *metainfo)
 	return kvmetainfo.New(proj, metainfo, streams, segments, encStore), streams, nil
 }
 

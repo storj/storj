@@ -2,62 +2,50 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="title">
-        <div class="title__name">
-            <h1 class="title__name__title">Your Storage Node Stats</h1>
-            <p class="title__name__info">Current period: <b>{{currentMonth}}</b></p>
-        </div>
-        <div class="title__info">
-            <p class="title__info__status-title"><b>Node status</b></p>
-            <p class="title__info__online-status">{{info.status}}</p>
-            <VInfo
-                v-if="online"
-                bold-text="Last Pinged"
-                extra-bold-text="Uptime"
-                :green-text="lastPingedInMinutes"
-                :extra-green-text="uptime"
-                is-custom-position="true"
-            >
-                <div class="node-status-svg-container" @mouseenter.stop="refreshTime">
-                    <OnlineIcon
-                        class="check-if-online-svg"
-                        alt="online status image"
-                    />
-                </div>
-            </VInfo>
-            <OfflineIcon
-                class="check-if-offline-svg"
-                v-if="!online"
-                alt="offline status image"
-            />
-            <p class="title__info__version-title"><b>Node Version</b></p>
-            <p class="title__info__version-value">{{info.version}}</p>
+    <div class="title-area">
+        <h1 class="title-area__title">Your Storage Node Stats</h1>
+        <div class="title-area__info-container">
+            <div class="title-area__info-container__info-item">
+                <p class="title-area__info-container__info-item__title">STATUS</p>
+                <p v-if="online" class="title-area__info-container__info-item__content online-status">Online</p>
+                <p v-else class="title-area__info-container__info-item__content offline-status">Offline</p>
+            </div>
+            <div class="title-area-divider"></div>
+            <div class="title-area__info-container__info-item">
+                <p class="title-area__info-container__info-item__title">UPTIME</p>
+                <P class="title-area__info-container__info-item__content">{{uptime}}</P>
+            </div>
+            <div class="title-area-divider"></div>
+            <div class="title-area__info-container__info-item">
+                <p class="title-area__info-container__info-item__title">LAST CONTACT</p>
+                <P class="title-area__info-container__info-item__content">{{lastPinged}} ago</P>
+            </div>
+            <div class="title-area-divider"></div>
             <VInfo
                 v-if="info.isLastVersion"
                 text="Running the minimal allowed version:"
                 :bold-text="info.allowedVersion"
-                is-custom-position="true"
             >
-                <div class="version-svg-container">
-                    <VersionIcon
-                        class="version-svg"
-                        alt="version status image"
-                    />
+                <div class="title-area__info-container__info-item">
+                    <p class="title-area__info-container__info-item__title">VERSION</p>
+                    <P class="title-area__info-container__info-item__content">{{info.version}}</P>
                 </div>
             </VInfo>
             <VInfo
-                v-else
+                v-if="!info.isLastVersion"
                 text="Your node is outdated. Please update to:"
-                bold-text="v.0.0.0"
-                is-custom-position="true"
+                bold-text="v0.0.0"
             >
-                <div class="version-svg-container">
-                    <VersionIcon
-                        class="version-svg"
-                        alt="version status image"
-                    />
+                <div class="title-area__info-container__info-item">
+                    <p class="title-area__info-container__info-item__title">VERSION</p>
+                    <P class="title-area__info-container__info-item__content">{{info.version}}</P>
                 </div>
             </VInfo>
+            <div class="title-area-divider"></div>
+            <div class="title-area__info-container__info-item">
+                <p class="title-area__info-container__info-item__title">PERIOD</p>
+                <P class="title-area__info-container__info-item__content">{{currentMonth}}</P>
+            </div>
         </div>
     </div>
 </template>
@@ -67,12 +55,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VInfo from '@/app/components/VInfo.vue';
 
-import OfflineIcon from '@/../static/images/offline.svg';
-import OnlineIcon from '@/../static/images/online.svg';
-import VersionIcon from '@/../static/images/version.svg';
-
 import { StatusOnline } from '@/app/store/modules/node';
-import { datesDiffInHoursAndMinutes } from '@/app/utils/date';
+import { Duration, millisecondsInSecond, minutesInHour, secondsInHour, secondsInMinute } from '@/app/utils/duration';
 
 /**
  * NodeInfo class holds info for NodeInfo entity.
@@ -102,16 +86,15 @@ class NodeInfo {
 @Component ({
     components: {
         VInfo,
-        OnlineIcon,
-        OfflineIcon,
-        VersionIcon,
     },
 })
 export default class SNOContentTitle extends Vue {
-    private timeNow = new Date();
+    private timeNow: Date = new Date();
 
-    public refreshTime(): void {
-        this.timeNow = new Date();
+    public mounted(): void {
+        window.setInterval(() => {
+            this.timeNow = new Date();
+        }, 1000);
     }
 
     public get info(): NodeInfo {
@@ -125,17 +108,12 @@ export default class SNOContentTitle extends Vue {
         return this.$store.state.node.info.status === StatusOnline;
     }
 
-    public get lastPingedInMinutes(): string {
-        const storedLastPinged: Date = this.$store.state.node.info.lastPinged;
-        const shownLastPinged: string = datesDiffInHoursAndMinutes(this.timeNow, storedLastPinged);
-
-        return `${shownLastPinged} ago`;
+    public get lastPinged(): string {
+        return this.timePassed(this.$store.state.node.info.lastPinged);
     }
 
     public get uptime(): string {
-        const startedAt: Date = this.$store.state.node.info.startedAt;
-
-        return datesDiffInHoursAndMinutes(this.timeNow, startedAt);
+        return this.timePassed(this.$store.state.node.info.startedAt);
     }
 
     public get currentMonth(): string {
@@ -146,64 +124,88 @@ export default class SNOContentTitle extends Vue {
 
         return monthNames[date.getMonth()];
     }
+
+    private timePassed(date: Date): string {
+        const difference = Duration.difference(this.timeNow, date);
+
+        if (Math.floor(difference / millisecondsInSecond) > secondsInHour) {
+            const hours: string = Math.floor(difference / millisecondsInSecond / secondsInHour) + 'h';
+            const minutes: string = Math.floor((difference / millisecondsInSecond % secondsInHour) / minutesInHour) + 'm';
+
+            return `${hours} ${minutes}`;
+        }
+
+        return `${Math.floor(difference / millisecondsInSecond / secondsInMinute)}m`;
+    }
 }
 </script>
 
 <style scoped lang="scss">
-    .title {
-        display: flex;
-        width: 100%;
-        justify-content: space-between;
-        align-items: center;
-        color: #535f77;
+    .title-area {
+        font-family: 'font_regular', sans-serif;
+        margin-bottom: 9px;
 
-        &__name {
-            display: flex;
-            align-items: center;
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            margin: 0 0 21px 0;
+            font-size: 32px;
+            line-height: 57px;
+            color: #535f77;
             user-select: none;
-
-            &__title {
-                margin: 0;
-                font-size: 24px;
-                line-height: 57px;
-            }
-
-            &__info {
-                margin: 0 0 0 25px;
-                font-size: 12px;
-            }
         }
 
-        &__info {
+        &__info-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 12px;
-            position: relative;
-            user-select: none;
 
-            &__online-status {
-                margin: 0 5px 0 5px;
-            }
+            &__info-item {
+                padding: 15px 0;
 
-            &__version-title {
-                margin-left: 35px;
-            }
+                &__title {
+                    font-size: 12px;
+                    line-height: 20px;
+                    color: #9ca5b6;
+                    margin: 0 0 5px 0;
+                    user-select: none;
+                }
 
-            &__version-value {
-                margin: 0 5px 0 5px;
-            }
-
-            .version-svg-container,
-            .node-status-svg-container {
-                max-height: 18px;
-                height: 18px;
+                &__content {
+                    font-size: 18px;
+                    line-height: 20px;
+                    font-family: 'font_medium', sans-serif;
+                    color: #535f77;
+                }
             }
         }
     }
 
-    .version-svg:hover,
-    .check-if-online-svg:hover {
-        cursor: pointer;
+    .title-area-divider {
+        width: 1px;
+        height: 22px;
+        background-color: #dbdfe5;
+    }
+
+    .online-status {
+        color: #519e62;
+    }
+
+    .offline-status {
+        color: #ce0000;
+    }
+
+    /deep/ .info__message-box {
+        background-image: url('../../../static/images/MessageTitle.png');
+        bottom: 100%;
+        left: 220%;
+        padding: 20px 20px 25px 20px;
+
+        &__text {
+            align-items: flex-start;
+
+            &__regular-text {
+                margin-bottom: 5px;
+            }
+        }
     }
 </style>

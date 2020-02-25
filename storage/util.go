@@ -8,25 +8,25 @@ import (
 	"fmt"
 )
 
-// NextKey returns the successive key
+// NextKey returns the successive key.
 func NextKey(key Key) Key {
 	return append(CloneKey(key), 0)
 }
 
-// AfterPrefix returns the key after prefix
+// AfterPrefix returns the key after prefix.
 func AfterPrefix(key Key) Key {
 	after := CloneKey(key)
 	after[len(after)-1]++
 	return after
 }
 
-// CloneKey creates a copy of key
+// CloneKey creates a copy of key.
 func CloneKey(key Key) Key { return append(Key{}, key...) }
 
-// CloneValue creates a copy of value
+// CloneValue creates a copy of value.
 func CloneValue(value Value) Value { return append(Value{}, value...) }
 
-// CloneItem creates a deep copy of item
+// CloneItem creates a deep copy of item.
 func CloneItem(item ListItem) ListItem {
 	return ListItem{
 		Key:      CloneKey(item.Key),
@@ -35,7 +35,7 @@ func CloneItem(item ListItem) ListItem {
 	}
 }
 
-// CloneItems creates a deep copy of items
+// CloneItems creates a deep copy of items.
 func CloneItems(items Items) Items {
 	var result = make(Items, len(items))
 	for i, item := range items {
@@ -44,7 +44,7 @@ func CloneItems(items Items) Items {
 	return result
 }
 
-// PutAll adds multiple values to the store
+// PutAll adds multiple values to the store.
 func PutAll(ctx context.Context, store KeyValueStore, items ...ListItem) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

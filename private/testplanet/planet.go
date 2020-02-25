@@ -17,7 +17,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
@@ -111,43 +110,6 @@ func (peer *closablePeer) Close() error {
 	})
 
 	return peer.err
-}
-
-// New creates a new full system with the given number of nodes.
-func New(t zaptest.TestingT, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
-	var log *zap.Logger
-	if t == nil {
-		log = zap.NewNop()
-	} else {
-		log = zaptest.NewLogger(t)
-	}
-
-	return NewCustom(log, Config{
-		SatelliteCount:   satelliteCount,
-		StorageNodeCount: storageNodeCount,
-		UplinkCount:      uplinkCount,
-
-		Name: t.Name(),
-	})
-}
-
-// NewWithIdentityVersion creates a new full system with the given version for node identities and the given number of nodes.
-func NewWithIdentityVersion(t zaptest.TestingT, identityVersion *storj.IDVersion, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
-	var log *zap.Logger
-	if t == nil {
-		log = zap.NewNop()
-	} else {
-		log = zaptest.NewLogger(t)
-	}
-
-	return NewCustom(log, Config{
-		SatelliteCount:   satelliteCount,
-		StorageNodeCount: storageNodeCount,
-		UplinkCount:      uplinkCount,
-		IdentityVersion:  identityVersion,
-
-		Name: t.Name(),
-	})
 }
 
 // NewCustom creates a new full system with the specified configuration.
@@ -312,7 +274,8 @@ func (planet *Planet) Shutdown() error {
 		errlist.Add(peer.Close())
 	}
 
-	for _, db := range planet.databases {
+	for i := len(planet.databases) - 1; i >= 0; i-- {
+		db := planet.databases[i]
 		errlist.Add(db.Close())
 	}
 

@@ -29,6 +29,7 @@ const defaultSelectedProject = new Project('', '', '', '', '', true);
 export class ProjectsState {
     public projects: Project[] = [];
     public selectedProject: Project = defaultSelectedProject;
+    public currentLimits: ProjectLimits = new ProjectLimits();
 }
 
 const {
@@ -106,11 +107,12 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 }
             },
             [SET_LIMITS](state: ProjectsState, limits: ProjectLimits): void {
-                state.selectedProject.setLimits(limits);
+                state.currentLimits = limits;
             },
             [CLEAR_PROJECTS](state: ProjectsState): void {
                 state.projects = [];
                 state.selectedProject = defaultSelectedProject;
+                state.currentLimits = new ProjectLimits();
             },
         },
         actions: {

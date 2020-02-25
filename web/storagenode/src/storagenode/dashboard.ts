@@ -15,7 +15,8 @@ export class Dashboard {
         public startedAt: Date,
         public version: string,
         public allowedVersion: string,
-        public isUpToDate: boolean) {}
+        public isUpToDate: boolean,
+    ) {}
 }
 
 /**
@@ -37,7 +38,8 @@ export class DiskSpaceInfo {
 
     public constructor(
         public used: number,
-        public available: number) {
+        public available: number,
+    ) {
         this.remaining = available - used;
     }
 }
@@ -50,7 +52,8 @@ export class BandwidthInfo {
 
     public constructor(
         public used: number,
-        public available: number) {
+        public available: number,
+    ) {
         this.remaining = available - used;
     }
 }

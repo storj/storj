@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storagenode/storageusage"
 )
 
@@ -33,7 +34,7 @@ func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, interval_start)
 			VALUES(?,?,?)`
 
-	return withTx(ctx, db.GetDB(), func(tx *sql.Tx) error {
+	return withTx(ctx, db.GetDB(), func(tx tagsql.Tx) error {
 		for _, stamp := range stamps {
 			_, err = tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.IntervalStart.UTC())
 
@@ -64,10 +65,7 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	if err != nil {
 		return nil, err
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var stamps []storageusage.Stamp
 	for rows.Next() {
@@ -87,7 +85,7 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 		})
 	}
 
-	return stamps, nil
+	return stamps, rows.Err()
 }
 
 // GetDailyTotal returns daily storage usage stamps summed across all known satellites
@@ -105,7 +103,6 @@ func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 	if err != nil {
 		return nil, err
 	}
-
 	defer func() {
 		err = errs.Combine(err, rows.Close())
 	}()
@@ -126,7 +123,7 @@ func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 		})
 	}
 
-	return stamps, nil
+	return stamps, rows.Err()
 }
 
 // Summary returns aggregated storage usage across all satellites.

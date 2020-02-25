@@ -280,9 +280,8 @@ func TestBucketAttrs(t *testing.T) {
 			assert.Equal(t, bucketName, got.Name)
 			assert.Equal(t, inBucketConfig.PathCipher, got.PathCipher)
 			assert.Equal(t, inBucketConfig.EncryptionParameters, got.EncryptionParameters)
-			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, got.Volatile.RedundancyScheme)
 			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize, got.Volatile.SegmentsSize)
-			assert.Equal(t, inBucketConfig, got.BucketConfig)
+			// ignore RS values because satellite will override it
 
 			err = proj.DeleteBucket(ctx, bucketName)
 			require.NoError(t, err)
@@ -294,7 +293,6 @@ func TestBucketAttrs(t *testing.T) {
 // specific config, the specific config applies and not the bucket attrs.
 func TestBucketAttrsApply(t *testing.T) {
 	var (
-		access          = uplink.NewEncryptionAccessWithDefaultKey(storj.Key{0, 1, 2, 3, 4})
 		bucketName      = "dodecahedron"
 		objectPath1     = "vax/vex/vox"
 		objectContents  = "Willingham,Ray,Jaffe,Johnson,Riegel,O'Brien,Bailey,Mercer"
@@ -325,6 +323,8 @@ func TestBucketAttrsApply(t *testing.T) {
 		}
 		testConfig testConfig
 	)
+	access := uplink.NewEncryptionAccessWithDefaultKey(storj.Key{0, 1, 2, 3, 4})
+	access.SetDefaultPathCipher(storj.EncAESGCM)
 
 	// so our test object will not be inlined (otherwise it will lose its RS params)
 	testConfig.uplinkCfg.Volatile.MaxInlineSize = 1
@@ -350,7 +350,6 @@ func TestBucketAttrsApply(t *testing.T) {
 			defer ctx.Check(readBack.Close)
 
 			assert.Equal(t, inBucketConfig.EncryptionParameters, readBack.Meta.Volatile.EncryptionParameters)
-			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, readBack.Meta.Volatile.RedundancyScheme)
 			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize.Int64(), readBack.Meta.Volatile.SegmentsSize)
 
 			strm, err := readBack.DownloadRange(ctx, 0, -1)

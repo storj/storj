@@ -32,10 +32,16 @@ import { BillingHistoryItem } from '@/types/payments';
     },
 })
 export default class DepositAndBilling extends Vue {
+    /**
+     * Changes location to billing history route.
+     */
     public onViewAllClick(): void {
         this.$router.push(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
     }
 
+    /**
+     * Returns first 3 of billing history items.
+     */
     public get billingHistoryItems(): BillingHistoryItem[] {
         return this.$store.state.paymentsModule.billingHistory.slice(0, 3);
     }

@@ -22,7 +22,7 @@ import (
 // architecture: Chore
 type Chore struct {
 	log          *zap.Logger
-	Loop         sync2.Cycle
+	Loop         *sync2.Cycle
 	db           DB
 	config       Config
 	overlay      overlay.DB
@@ -33,7 +33,7 @@ type Chore struct {
 func NewChore(log *zap.Logger, db DB, overlay overlay.DB, metaLoop *metainfo.Loop, config Config) *Chore {
 	return &Chore{
 		log:          log,
-		Loop:         *sync2.NewCycle(config.ChoreInterval),
+		Loop:         sync2.NewCycle(config.ChoreInterval),
 		db:           db,
 		config:       config,
 		overlay:      overlay,
@@ -46,7 +46,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
-		chore.log.Debug("checking pending exits")
 
 		exitingNodes, err := chore.overlay.GetExitingNodes(ctx)
 		if err != nil {
@@ -55,10 +54,10 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		nodeCount := len(exitingNodes)
-		chore.log.Debug("graceful exit", zap.Int("exitingNodes", nodeCount))
 		if nodeCount == 0 {
 			return nil
 		}
+		chore.log.Debug("found exiting nodes", zap.Int("exitingNodes", nodeCount))
 
 		exitingNodesLoopIncomplete := make(storj.NodeIDList, 0, nodeCount)
 		for _, node := range exitingNodes {

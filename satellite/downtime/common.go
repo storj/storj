@@ -6,7 +6,7 @@ package downtime
 import (
 	"time"
 
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	"github.com/spacemonkeygo/monkit/v3"
 )
 
 var (

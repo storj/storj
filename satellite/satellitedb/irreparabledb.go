@@ -10,7 +10,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"storj.io/common/pb"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type irreparableDB struct {

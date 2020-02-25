@@ -64,8 +64,9 @@ func main() {
 	default:
 		log.Println("unknown client name ", *clientName, " defaulting to minio")
 		fallthrough
-	case "minio":
-		client, err = s3client.NewMinio(conf)
+	// TODO: reenable
+	// case "minio":
+	//	client, err = s3client.NewMinio(conf)
 	case "aws-cli":
 		client, err = s3client.NewAWSCLI(conf)
 	case "uplink":

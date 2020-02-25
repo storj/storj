@@ -61,20 +61,15 @@ func TestIterate(t *testing.T) {
 func TestUpdatePiecesCheckDuplicates(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(1, 1, 2, 2),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		uplinkPeer := planet.Uplinks[0]
 		path := "test/path"
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 1,
-			RepairShares:   1,
-			OptimalShares:  2,
-			TotalShares:    2,
-		}
-
-		err := uplinkPeer.UploadWithConfig(ctx, satellite, rs, "test1", path, testrand.Bytes(5*memory.KiB))
+		err := uplinkPeer.Upload(ctx, satellite, "test1", path, testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)

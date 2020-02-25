@@ -14,7 +14,6 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testblobs"
@@ -27,26 +26,21 @@ import (
 )
 
 func TestWorkerSuccess(t *testing.T) {
-	successThreshold := 4
+	const successThreshold = 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ul := planet.Uplinks[0]
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  int16(successThreshold),
-			TotalShares:    int16(successThreshold),
-		}
-
-		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		exitingNode, err := findNodeToExit(ctx, planet, 1)
@@ -101,7 +95,7 @@ func TestWorkerSuccess(t *testing.T) {
 }
 
 func TestWorkerTimeout(t *testing.T) {
-	successThreshold := 4
+	const successThreshold = 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 1,
@@ -110,6 +104,7 @@ func TestWorkerTimeout(t *testing.T) {
 			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
+			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -117,15 +112,7 @@ func TestWorkerTimeout(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  int16(successThreshold),
-			TotalShares:    int16(successThreshold),
-		}
-
-		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		exitingNode, err := findNodeToExit(ctx, planet, 1)
@@ -188,7 +175,7 @@ func TestWorkerTimeout(t *testing.T) {
 }
 
 func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
-	successThreshold := 4
+	const successThreshold = 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 5,
@@ -197,6 +184,11 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
 				// Set the required node age to 1 month.
 				config.GracefulExit.NodeMinAgeInMonths = 1
+
+				config.Metainfo.RS.MinThreshold = 2
+				config.Metainfo.RS.RepairThreshold = 3
+				config.Metainfo.RS.SuccessThreshold = successThreshold
+				config.Metainfo.RS.TotalThreshold = successThreshold
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -205,24 +197,16 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  int16(successThreshold),
-			TotalShares:    int16(successThreshold),
-		}
-
-		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		exitingNode, err := findNodeToExit(ctx, planet, 1)
 		require.NoError(t, err)
 		exitingNode.GracefulExit.Chore.Loop.Pause()
 
-		spaceUsed, err := exitingNode.Storage2.BlobsCache.SpaceUsedForPieces(ctx)
+		_, piecesContentSize, err := exitingNode.Storage2.BlobsCache.SpaceUsedForPieces(ctx)
 		require.NoError(t, err)
-		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), spaceUsed)
+		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), piecesContentSize)
 		require.NoError(t, err)
 
 		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(),

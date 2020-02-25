@@ -24,6 +24,9 @@
         </div>
         <div class="login-area-wrapper">
             <div class="login-area">
+                <div class="login-area__activation-banner" v-if="isActivatedBannerShown">
+                    <p class="login-area__activation-banner__message"><b>Success!</b> Account Verified.</p>
+                </div>
                 <div class="login-area__title-container">
                     <h1 class="login-area__title-container__title">Login to Storj</h1>
                 </div>

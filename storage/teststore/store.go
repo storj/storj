@@ -10,7 +10,7 @@ import (
 	"sort"
 	"sync"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/storj/storage"
 )
@@ -20,6 +20,8 @@ var mon = monkit.Package()
 
 // Client implements in-memory key value store
 type Client struct {
+	lookupLimit int
+
 	mu sync.Mutex
 
 	Items      []storage.ListItem
@@ -40,7 +42,13 @@ type Client struct {
 }
 
 // New creates a new in-memory key-value store
-func New() *Client { return &Client{} }
+func New() *Client { return &Client{lookupLimit: storage.DefaultLookupLimit} }
+
+// SetLookupLimit sets the lookup limit.
+func (store *Client) SetLookupLimit(v int) { store.lookupLimit = v }
+
+// LookupLimit returns the maximum limit that is allowed.
+func (store *Client) LookupLimit() int { return store.lookupLimit }
 
 // indexOf finds index of key or where it could be inserted
 func (store *Client) indexOf(key storage.Key) (int, bool) {
@@ -122,7 +130,7 @@ func (store *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.V
 	defer store.locked()()
 
 	store.CallCount.GetAll++
-	if len(keys) > storage.LookupLimit {
+	if len(keys) > store.lookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
 
@@ -167,6 +175,35 @@ func (store *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	return nil
 }
 
+// DeleteMultiple deletes keys ignoring missing keys
+func (store *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
+	defer mon.Task()(&ctx, len(keys))(&err)
+	defer store.locked()()
+
+	store.version++
+	store.CallCount.Delete++
+
+	if store.forcedError() {
+		return nil, errInternal
+	}
+
+	var items storage.Items
+	for _, key := range keys {
+		keyIndex, found := store.indexOf(key)
+		if !found {
+			continue
+		}
+		e := store.Items[keyIndex]
+		items = append(items, storage.ListItem{
+			Key:   e.Key,
+			Value: e.Value,
+		})
+		store.delete(keyIndex)
+	}
+
+	return items, nil
+}
+
 // List lists all keys starting from start and upto limit items
 func (store *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -194,12 +231,14 @@ func (store *Client) Close() error {
 // Iterate iterates over items based on opts
 func (store *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer store.locked()()
 
+	store.mu.Lock()
 	store.CallCount.Iterate++
 	if store.forcedError() {
+		store.mu.Unlock()
 		return errInternal
 	}
+	store.mu.Unlock()
 
 	var cursor advancer = &forward{newCursor(store)}
 
@@ -296,8 +335,10 @@ func (cursor *cursor) close() {
 // positionForward positions at key or the next item
 func (cursor *cursor) positionForward(key storage.Key) {
 	store := cursor.store
+	store.mu.Lock()
 	cursor.version = store.version
 	cursor.nextIndex, _ = store.indexOf(key)
+	store.mu.Unlock()
 	cursor.lastKey = storage.CloneKey(key)
 }
 
@@ -306,6 +347,7 @@ func (cursor *cursor) next() (*storage.ListItem, bool) {
 	if cursor.done {
 		return nil, false
 	}
+	defer store.locked()()
 
 	if cursor.version != store.version {
 		cursor.version = store.version

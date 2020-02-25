@@ -9,13 +9,19 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/storage"
-	"storj.io/uplink/storage/meta"
+	"storj.io/uplink/private/storage/meta"
+)
+
+var (
+	// ErrBucketNotEmpty is returned when bucket is required to be empty for an operation.
+	ErrBucketNotEmpty = errs.Class("bucket not empty")
 )
 
 // Service structure
@@ -46,6 +52,22 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 
 	// CompareAndSwap is used instead of Put to avoid overwriting existing pointers
 	err = s.db.CompareAndSwap(ctx, []byte(path), nil, pointerBytes)
+	return Error.Wrap(err)
+}
+
+// UnsynchronizedPut puts pointer to db under specific path without verifying for existing pointer under the same path.
+func (s *Service) UnsynchronizedPut(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Update the pointer with the creation date
+	pointer.CreationDate = time.Now()
+
+	pointerBytes, err := proto.Marshal(pointer)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.db.Put(ctx, []byte(path), pointerBytes)
 	return Error.Wrap(err)
 }
 
@@ -322,7 +344,30 @@ func (s *Service) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ stor
 // DeleteBucket deletes a bucket from the bucekts db
 func (s *Service) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	empty, err := s.IsBucketEmpty(ctx, projectID, bucketName)
+	if err != nil {
+		return err
+	}
+	if !empty {
+		return ErrBucketNotEmpty.New("")
+	}
+
 	return s.bucketsDB.DeleteBucket(ctx, bucketName, projectID)
+}
+
+// IsBucketEmpty returns whether bucket is empty.
+func (s *Service) IsBucketEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) (bool, error) {
+	prefix, err := CreatePath(ctx, projectID, -1, bucketName, []byte{})
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	items, _, err := s.List(ctx, prefix, "", true, 1, 0)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+	return len(items) == 0, nil
 }
 
 // ListBuckets returns a list of buckets for a project

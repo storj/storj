@@ -63,6 +63,8 @@ export default class HeaderedInput extends HeaderlessInput {
     @Prop({default: false})
     private readonly isMultiline: boolean;
 
+    public value: string;
+
     public constructor() {
         super();
 

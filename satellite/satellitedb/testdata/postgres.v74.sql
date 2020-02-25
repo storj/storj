@@ -189,16 +189,16 @@ CREATE TABLE storagenode_storage_tallies
     PRIMARY KEY (id)
 );
 CREATE TABLE users (
-    id bytea NOT NULL,
-    email text NOT NULL,
-    normalized_email text NOT NULL,
-    full_name text NOT NULL,
-    short_name text,
-    password_hash bytea NOT NULL,
-    status integer NOT NULL,
-    partner_id bytea,
-    created_at timestamp with time zone NOT NULL,
-    PRIMARY KEY ( id )
+                       id bytea NOT NULL,
+                       email text NOT NULL,
+                       normalized_email text NOT NULL,
+                       full_name text NOT NULL,
+                       short_name text,
+                       password_hash bytea NOT NULL,
+                       status integer NOT NULL,
+                       partner_id bytea,
+                       created_at timestamp with time zone NOT NULL,
+                       PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions
 (
@@ -374,10 +374,10 @@ CREATE TABLE coupon_usages
     PRIMARY KEY ( id )
 );
 CREATE TABLE nodes_offline_times (
-	node_id bytea NOT NULL,
-	tracked_at timestamp with time zone NOT NULL,
-	seconds integer NOT NULL,
-	PRIMARY KEY ( node_id, tracked_at )
+                                     node_id bytea NOT NULL,
+                                     tracked_at timestamp with time zone NOT NULL,
+                                     seconds integer NOT NULL,
+                                     PRIMARY KEY ( node_id, tracked_at )
 );
 
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );

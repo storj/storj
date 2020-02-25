@@ -7,7 +7,7 @@
             <div class="add-user__main">
                 <div class='add-user__info-panel-container'>
                     <h2 class='add-user__info-panel-container__main-label-text'>Add Team Member</h2>
-                    <AddMemberIcon/>
+                    <img src="@/../static/images/team/addMember.jpg" alt="add team member image">
                 </div>
                 <div class='add-user__form-container'>
                     <p class='add-user__form-container__common-label' v-if="!formError">Email Address</p>
@@ -79,7 +79,6 @@ import VButton from '@/components/common/VButton.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 import AddFieldIcon from '@/../static/images/team/addField.svg';
-import AddMemberIcon from '@/../static/images/team/addMember.svg';
 import AddMemberNotificationIcon from '@/../static/images/team/addMemberNotification.svg';
 import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 
@@ -92,7 +91,6 @@ import { validateEmail } from '@/utils/validation';
 @Component({
     components: {
         VButton,
-        AddMemberIcon,
         ErrorIcon,
         DeleteFieldIcon,
         AddFieldIcon,
@@ -101,12 +99,18 @@ import { validateEmail } from '@/utils/validation';
     },
 })
 export default class AddUserPopup extends Vue {
+    /**
+     * Initial empty inputs set.
+     */
     private inputs: EmailInput[] = [new EmailInput(), new EmailInput(), new EmailInput()];
     private formError: string = '';
     private isLoading: boolean = false;
 
     private FIRST_PAGE = 1;
 
+    /**
+     * Tries to add users related to entered emails list to current project.
+     */
     public async onAddUsersClick(): Promise<void> {
         if (this.isLoading) {
             return;
@@ -193,6 +197,9 @@ export default class AddUserPopup extends Vue {
         this.isLoading = false;
     }
 
+    /**
+     * Adds additional email input.
+     */
     public addInput(): void {
         const inputsLength = this.inputs.length;
         if (inputsLength < 10) {
@@ -200,6 +207,10 @@ export default class AddUserPopup extends Vue {
         }
     }
 
+    /**
+     * Deletes selected email input from list.
+     * @param index
+     */
     public deleteInput(index): void {
         if (this.inputs.length === 1) return;
 
@@ -208,14 +219,24 @@ export default class AddUserPopup extends Vue {
         this.$delete(this.inputs, index);
     }
 
+    /**
+     * Closes popup.
+     */
     public onClose(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
     }
 
+    /**
+     * Indicates if emails count reached maximum.
+     */
     public get isMaxInputsCount(): boolean {
         return this.inputs.length > 9;
     }
 
+    /**
+     * Indicates if add button is active.
+     * Active when no errors and at least one input is not empty.
+     */
     public get isButtonActive(): boolean {
         if (this.formError) return false;
 
@@ -236,15 +257,21 @@ export default class AddUserPopup extends Vue {
         return this.inputs.length > 4;
     }
 
+    /**
+     * Removes error for selected input.
+     */
     private resetFormErrors(index): void {
         this.inputs[index].setError(false);
-        if (!this.hasInputError()) {
+        if (!this.hasInputError) {
 
             this.formError = '';
         }
     }
 
-    private hasInputError(): boolean {
+    /**
+     * Indicates if at least one input has error.
+     */
+    private get hasInputError(): boolean {
         return this.inputs.some((element: EmailInput) => {
             return element.error;
         });
@@ -353,8 +380,8 @@ export default class AddUserPopup extends Vue {
             position: relative;
             justify-content: center;
             background-color: #fff;
-            padding: 80px 20px 80px 60px;
-            width: calc(100% - 80px);
+            padding: 80px 20px 80px 30px;
+            width: calc(100% - 50px);
         }
 
         &__info-panel-container {
@@ -362,22 +389,16 @@ export default class AddUserPopup extends Vue {
             flex-direction: column;
             justify-content: flex-start;
             align-items: center;
-            margin-right: 100px;
-            padding: 0 50px;
-
-            &__text {
-                font-size: 16px;
-                margin-top: 0;
-                margin-bottom: 50px;
-            }
+            margin-right: 150px;
 
             &__main-label-text {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 29px;
                 color: #384b65;
-                margin-top: 0;
-                width: 107%;
+                margin: 0 0 90px 0;
+                width: 130%;
+                text-align: end;
                 user-select: none;
             }
         }
@@ -407,8 +428,7 @@ export default class AddUserPopup extends Vue {
             &__inputs-group {
                 max-height: 35vh;
                 overflow-y: hidden;
-                padding-left: 50px;
-                padding-right: 50px;
+                padding: 0 50px;
 
                 &__item {
                     display: flex;
@@ -489,7 +509,6 @@ export default class AddUserPopup extends Vue {
     .notification-wrap {
         background-color: rgba(194, 214, 241, 1);
         height: 98px;
-        width: calc(100% - 100px);
         display: flex;
         justify-content: flex-start;
         padding: 0 50px;

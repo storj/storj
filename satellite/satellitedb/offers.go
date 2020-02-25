@@ -12,8 +12,9 @@ import (
 
 	"storj.io/storj/private/currency"
 	"storj.io/storj/private/dbutil/txutil"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite/rewards"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 var (
@@ -55,6 +56,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 	if err != nil {
 		return nil, rewards.ErrOfferNotExist.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var (
 		awardCreditInCents        int
@@ -64,7 +66,6 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 		redeemableCap             sql.NullInt64
 	)
 
-	defer func() { err = errs.Combine(err, rows.Close()) }()
 	results := rewards.Offers{}
 	for rows.Next() {
 		o := rewards.Offer{}
@@ -92,7 +93,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 	if len(results) < 1 {
 		return results, rewards.ErrOfferNotExist.New("offerType: %d", offerType)
 	}
-	return results, nil
+	return results, rows.Err()
 }
 
 // Create inserts a new offer into the db
@@ -108,7 +109,7 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 
 	var id int64
 
-	err := txutil.WithTx(ctx, db.db.DB.DB, nil, func(ctx context.Context, tx *sql.Tx) error {
+	err := txutil.WithTx(ctx, db.db.DB.DB, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		// If there's an existing current offer, update its status to Done and set its expires_at to be NOW()
 		switch o.Type {
 		case rewards.Partner:

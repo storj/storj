@@ -5,7 +5,6 @@ package testplanet
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -23,18 +22,18 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/storj/pkg/debug"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
-	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/version"
 	versionchecker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -54,8 +53,8 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/satellite/vouchers"
+	"storj.io/storj/storage/redis/redisserver"
 )
 
 // SatelliteSystem contains all the processes needed to run a full Satellite setup
@@ -63,6 +62,7 @@ type SatelliteSystem struct {
 	Core     *satellite.Core
 	API      *satellite.API
 	Repairer *satellite.Repairer
+	Admin    *satellite.Admin
 
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
@@ -97,8 +97,10 @@ type SatelliteSystem struct {
 	}
 
 	Orders struct {
+		DB       orders.DB
 		Endpoint *orders.Endpoint
 		Service  *orders.Service
+		Chore    *orders.Chore
 	}
 
 	Repair struct {
@@ -123,9 +125,10 @@ type SatelliteSystem struct {
 	}
 
 	Accounting struct {
-		Tally        *tally.Service
-		Rollup       *rollup.Service
-		ProjectUsage *accounting.Service
+		Tally          *tally.Service
+		Rollup         *rollup.Service
+		ProjectUsage   *accounting.Service
+		ReportedRollup *reportedrollup.Chore
 	}
 
 	LiveAccounting struct {
@@ -187,7 +190,12 @@ func (system *SatelliteSystem) URL() storj.NodeURL {
 
 // Close closes all the subsystems in the Satellite system
 func (system *SatelliteSystem) Close() error {
-	return errs.Combine(system.API.Close(), system.Core.Close(), system.Repairer.Close())
+	return errs.Combine(
+		system.API.Close(),
+		system.Core.Close(),
+		system.Repairer.Close(),
+		system.Admin.Close(),
+	)
 }
 
 // Run runs all the subsystems in the Satellite system
@@ -202,6 +210,9 @@ func (system *SatelliteSystem) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.Repairer.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.Admin.Run(ctx))
 	})
 	return group.Wait()
 }
@@ -236,33 +247,30 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if planet.config.Reconfigure.NewSatelliteDB != nil {
 			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
 		} else {
-			// TODO: This is analogous to the way we worked prior to the advent of OpenUnique,
-			// but it seems wrong. Tests that use planet.Start() instead of testplanet.Run()
-			// will not get run against both types of DB.
-			connStr := *pgtest.ConnStr
-			if *pgtest.CrdbConnStr != "" {
-				connStr = *pgtest.CrdbConnStr
-			}
-			var tempDB *dbutil.TempDatabase
-			tempDB, err = tempdb.OpenUnique(connStr, fmt.Sprintf("%s.%d", planet.id, i))
-			if err != nil {
-				return nil, err
-			}
-			db, err = satellitedbtest.CreateMasterDBOnTopOf(log.Named("db"), tempDB)
+			return nil, errs.New("NewSatelliteDB not defined")
 		}
 		if err != nil {
 			return nil, err
 		}
+		planet.databases = append(planet.databases, db)
 
 		var pointerDB metainfo.PointerDB
 		if planet.config.Reconfigure.NewSatellitePointerDB != nil {
 			pointerDB, err = planet.config.Reconfigure.NewSatellitePointerDB(log.Named("pointerdb"), i)
 		} else {
-			pointerDB, err = metainfo.NewStore(log.Named("pointerdb"), "bolt://"+filepath.Join(storageDir, "pointers.db"))
+			return nil, errs.New("NewSatellitePointerDB not defined")
 		}
 		if err != nil {
 			return nil, err
 		}
+		planet.databases = append(planet.databases, pointerDB)
+
+		redis, err := redisserver.Mini()
+		if err != nil {
+			return nil, err
+		}
+
+		planet.databases = append(planet.databases, redis)
 
 		config := satellite.Config{
 			Server: server.Config{
@@ -280,6 +288,12 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					},
 				},
 			},
+			Debug: debug.Config{
+				Address: "",
+			},
+			Admin: admin.Config{
+				Address: "127.0.0.1:0",
+			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
 					UptimeCount:       0,
@@ -287,6 +301,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					NewNodePercentage: 0,
 					OnlineWindow:      time.Minute,
 					DistinctIP:        false,
+					MinimumDiskSpace:  100 * memory.MB,
 
 					AuditReputationRepairWeight: 1,
 					AuditReputationUplinkWeight: 1,
@@ -305,12 +320,14 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				MaxCommitInterval:    1 * time.Hour,
 				Overlay:              true,
 				RS: metainfo.RSConfig{
-					MaxSegmentSize:    64 * memory.MiB,
-					MaxBufferMem:      memory.Size(256),
-					ErasureShareSize:  memory.Size(256),
-					MinThreshold:      (planet.config.StorageNodeCount * 1 / 5),
-					RepairThreshold:   (planet.config.StorageNodeCount * 2 / 5),
-					SuccessThreshold:  (planet.config.StorageNodeCount * 3 / 5),
+					MaxSegmentSize:   64 * memory.MiB,
+					MaxBufferMem:     memory.Size(256),
+					ErasureShareSize: memory.Size(256),
+					MinThreshold:     atLeastOne(planet.config.StorageNodeCount * 1 / 5),
+					RepairThreshold:  atLeastOne(planet.config.StorageNodeCount * 2 / 5),
+					SuccessThreshold: atLeastOne(planet.config.StorageNodeCount * 3 / 5),
+					TotalThreshold:   atLeastOne(planet.config.StorageNodeCount * 4 / 5),
+
 					MinTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
 					MaxTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
 					Validate:          false,
@@ -318,9 +335,23 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				Loop: metainfo.LoopConfig{
 					CoalesceDuration: 1 * time.Second,
 				},
+				RateLimiter: metainfo.RateLimiterConfig{
+					Enabled:         true,
+					Rate:            1000,
+					CacheCapacity:   100,
+					CacheExpiration: 10 * time.Second,
+				},
+				DeletePiecesService: metainfo.DeletePiecesServiceConfig{
+					MaxConcurrentConnection: 100,
+					NodeOperationTimeout:    2 * time.Second,
+				},
 			},
 			Orders: orders.Config{
-				Expiration: 7 * 24 * time.Hour,
+				Expiration:          7 * 24 * time.Hour,
+				SettlementBatchSize: 10,
+				FlushBatchSize:      10,
+				FlushInterval:       defaultInterval,
+				NodeStatusLogging:   true,
 			},
 			Checker: checker.Config{
 				Interval:                  defaultInterval,
@@ -332,6 +363,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				Interval:                      defaultInterval,
 				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
 				DownloadTimeout:               1 * time.Minute,
+				TotalTimeout:                  10 * time.Minute,
 				MaxBufferMem:                  4 * memory.MiB,
 				MaxExcessRateOptimalThreshold: 0.05,
 			},
@@ -363,6 +395,12 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				MaxAlphaUsage: 25 * memory.GB,
 				DeleteTallies: false,
 			},
+			ReportedRollup: reportedrollup.Config{
+				Interval: defaultInterval,
+			},
+			LiveAccounting: live.Config{
+				StorageBackend: "redis://" + redis.Addr() + "?db=0",
+			},
 			Mail: mailservice.Config{
 				SMTPServerAddress: "smtp.mail.test:587",
 				From:              "Labs <storj@mail.test>",
@@ -373,6 +411,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				Address:         "127.0.0.1:0",
 				StaticDir:       filepath.Join(developmentRoot, "web/satellite"),
 				PasswordCost:    console.TestPasswordCost,
+				AuthToken:       "very-secret-token",
 				AuthTokenSecret: "my-suppa-secret-key",
 			},
 			Marketing: marketingweb.Config{
@@ -427,22 +466,27 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 		if err != nil {
 			return xs, errs.Wrap(err)
 		}
-
 		planet.databases = append(planet.databases, liveAccounting)
 
-		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, versionInfo, &config)
+		rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
+		planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
+
+		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, versionInfo, &config)
 		if err != nil {
 			return xs, err
 		}
 
-		err = db.CreateTables()
+		err = db.TestingCreateTables(context.TODO())
 		if err != nil {
 			return nil, err
 		}
-		planet.databases = append(planet.databases, db)
-		planet.databases = append(planet.databases, pointerDB)
 
 		api, err := planet.newAPI(i, identity, db, pointerDB, config, versionInfo)
+		if err != nil {
+			return xs, err
+		}
+
+		adminPeer, err := planet.newAdmin(i, identity, db, pointerDB, config, versionInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -454,7 +498,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + api.Addr())
 
-		system := createNewSystem(log, peer, api, repairerPeer)
+		system := createNewSystem(log, peer, api, repairerPeer, adminPeer)
 		xs = append(xs, system)
 	}
 	return xs, nil
@@ -464,11 +508,12 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many prrocesses.
-func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer) *SatelliteSystem {
+func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin) *SatelliteSystem {
 	system := &SatelliteSystem{
 		Core:     peer,
 		API:      api,
 		Repairer: repairerPeer,
+		Admin:    adminPeer,
 	}
 	system.Log = log
 	system.Identity = peer.Identity
@@ -490,8 +535,10 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 
 	system.Inspector.Endpoint = api.Inspector.Endpoint
 
+	system.Orders.DB = api.Orders.DB
 	system.Orders.Endpoint = api.Orders.Endpoint
 	system.Orders.Service = peer.Orders.Service
+	system.Orders.Chore = api.Orders.Chore
 
 	system.Repair.Checker = peer.Repair.Checker
 	system.Repair.Repairer = repairerPeer.Repairer
@@ -510,6 +557,9 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.Accounting.Tally = peer.Accounting.Tally
 	system.Accounting.Rollup = peer.Accounting.Rollup
 	system.Accounting.ProjectUsage = peer.Accounting.ProjectUsage
+	system.Accounting.ReportedRollup = peer.Accounting.ReportedRollupChore
+
+	system.LiveAccounting = peer.LiveAccounting
 
 	system.Marketing.Listener = api.Marketing.Listener
 	system.Marketing.Endpoint = api.Marketing.Endpoint
@@ -543,11 +593,27 @@ func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db sate
 	}
 	planet.databases = append(planet.databases, liveAccounting)
 
-	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, &config, versionInfo)
+	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
+	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
+
+	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo)
 }
 
-func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config,
-	versionInfo version.Info) (*satellite.Repairer, error) {
+func (planet *Planet) newAdmin(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
+	prefix := "satellite-admin" + strconv.Itoa(count)
+	log := planet.log.Named(prefix)
+	var err error
+
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, revocationDB)
+
+	return satellite.NewAdmin(log, identity, db, pointerDB, revocationDB, versionInfo, &config)
+}
+
+func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
 	prefix := "satellite-repairer" + strconv.Itoa(count)
 	log := planet.log.Named(prefix)
 
@@ -555,6 +621,18 @@ func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+	planet.databases = append(planet.databases, revocationDB)
 
-	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Orders(), versionInfo, &config)
+	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
+	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
+
+	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Orders(), rollupsWriteCache, versionInfo, &config)
+}
+
+type rollupsWriteCacheCloser struct {
+	*orders.RollupsWriteCache
+}
+
+func (cache rollupsWriteCacheCloser) Close() error {
+	return cache.RollupsWriteCache.CloseAndFlush(context.TODO())
 }

@@ -4,6 +4,7 @@
 package storagenodedbtest_test
 
 import (
+	"context"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/errs2"
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/signing"
@@ -27,7 +29,14 @@ import (
 )
 
 func TestDatabase(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		// Ensure that database implementation handles context cancellation.
+		canceledCtx, cancel := context.WithCancel(ctx)
+		cancel()
+
+		serials := db.UsedSerials()
+		err := serials.Add(canceledCtx, testrand.NodeID(), testrand.SerialNumber(), time.Now().Add(time.Hour))
+		require.True(t, errs2.IsCanceled(err), err)
 	})
 }
 

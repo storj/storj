@@ -31,11 +31,21 @@ export default class ForgotPassword extends Vue {
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
+    /**
+     * Checks if page is inside iframe
+     */
+    public get isInsideIframe(): boolean {
+        return window.self !== window.top;
+    }
+
     public setEmail(value: string): void {
         this.email = value;
         this.emailError = '';
     }
 
+    /**
+     * Sends recovery password email.
+     */
     public async onSendConfigurations(): Promise<void> {
         const self = this;
 
@@ -51,6 +61,9 @@ export default class ForgotPassword extends Vue {
         }
     }
 
+    /**
+     * Changes location to Login route.
+     */
     public onBackToLoginClick(): void {
       this.$router.push(RouteConfig.Login.path);
     }

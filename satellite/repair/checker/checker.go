@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
@@ -57,8 +57,8 @@ type Checker struct {
 	metaLoop        *metainfo.Loop
 	nodestate       *ReliabilityCache
 	repairOverride  int32
-	Loop            sync2.Cycle
-	IrreparableLoop sync2.Cycle
+	Loop            *sync2.Cycle
+	IrreparableLoop *sync2.Cycle
 }
 
 // NewChecker creates a new instance of checker
@@ -73,8 +73,8 @@ func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irrepar
 		nodestate:      NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		repairOverride: int32(config.RepairOverride),
 
-		Loop:            *sync2.NewCycle(config.Interval),
-		IrreparableLoop: *sync2.NewCycle(config.IrreparableInterval),
+		Loop:            sync2.NewCycle(config.Interval),
+		IrreparableLoop: sync2.NewCycle(config.IrreparableInterval),
 	}
 }
 

@@ -87,6 +87,9 @@ export default class EditProfilePopup extends Vue {
         this.userInfo.setShortName(value);
     }
 
+    /**
+     * Validates name and tries to update user info and close popup.
+     */
     public async onUpdateClick(): Promise<void> {
         if (!this.userInfo.isValid()) {
             this.fullNameError = 'Full name expected';
@@ -107,10 +110,16 @@ export default class EditProfilePopup extends Vue {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
     }
 
+    /**
+     * Closes popup.
+     */
     public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
     }
 
+    /**
+     * Returns first letter of user name.
+     */
     public get avatarLetter(): string {
         return this.$store.getters.userName.slice(0, 1).toUpperCase();
     }

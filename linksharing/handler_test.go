@@ -125,10 +125,13 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	apiKey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize())
 	require.NoError(t, err)
 
+	encAccess := uplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
+	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+
 	access, err := (&uplink.Scope{
 		SatelliteAddr:    planet.Satellites[0].Addr(),
 		APIKey:           apiKey,
-		EncryptionAccess: uplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
+		EncryptionAccess: encAccess,
 	}).Serialize()
 	require.NoError(t, err)
 

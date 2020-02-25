@@ -3,7 +3,9 @@
 
 import { Size } from '@/utils/bytesSize';
 
-// ProjectUsage sums usage for given period.
+/**
+ * ProjectUsage sums usage for given period.
+ */
 export class ProjectUsage {
     public storage: Size;
     public egress: Size;
@@ -20,6 +22,9 @@ export class ProjectUsage {
     }
 }
 
+/**
+ * Holds start and end dates.
+ */
 export class DateRange {
     public startDate: Date = new Date();
     public endDate: Date = new Date();
@@ -31,11 +36,11 @@ export class DateRange {
 }
 
 /**
- * Exposes all project-usage-related functionality
+ * Exposes all project-usage-related functionality.
  */
 export interface UsageApi {
     /**
-     * Fetch usage
+     * Fetches usage.
      *
      * @returns ProjectUsage
      * @throws Error

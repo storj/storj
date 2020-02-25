@@ -10,6 +10,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+/**
+ * AccountArea is a container for all account related routes.
+ */
 @Component
 export default class AccountArea extends Vue {}
 </script>
@@ -32,7 +35,7 @@ export default class AccountArea extends Vue {}
 
     .account-area-container {
         padding: 0 65px;
-        height: 100%;
+        height: auto;
 
         &__navigation {
             position: absolute;

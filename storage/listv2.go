@@ -7,7 +7,7 @@ import (
 	"context"
 )
 
-// ListOptions are items that are optional for the LIST method
+// ListOptions are items that are optional for the LIST method.
 type ListOptions struct {
 	Prefix       Key
 	StartAfter   Key // StartAfter is relative to Prefix
@@ -16,8 +16,8 @@ type ListOptions struct {
 	Limit        int
 }
 
-// ListV2 lists all keys corresponding to ListOptions
-// limit is capped to LookupLimit
+// ListV2 lists all keys corresponding to ListOptions.
+// limit is capped to LookupLimit.
 //
 // more indicates if the result was truncated. If false
 // then the result []ListItem includes all requested keys.
@@ -27,8 +27,8 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 	defer mon.Task()(&ctx)(&err)
 
 	limit := opts.Limit
-	if limit <= 0 || limit > LookupLimit {
-		limit = LookupLimit
+	if limit <= 0 || limit > store.LookupLimit() {
+		limit = store.LookupLimit()
 	}
 
 	more = true
@@ -54,6 +54,7 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 				}
 			}
 
+			task := mon.TaskNamed("appending_to_results")(nil)
 			if opts.IncludeValue {
 				result = append(result, ListItem{
 					Key:      CloneKey(relativeKey),
@@ -66,6 +67,7 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 					IsPrefix: item.IsPrefix,
 				})
 			}
+			task(nil)
 		}
 
 		// we still need to consume one item for the more flag
@@ -81,6 +83,7 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 		Prefix:  opts.Prefix,
 		First:   firstFull,
 		Recurse: opts.Recursive,
+		Limit:   limit,
 	}, iterate)
 
 	return result, more, err

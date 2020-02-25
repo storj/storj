@@ -17,15 +17,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3/collect"
+	"github.com/spacemonkeygo/monkit/v3/present"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"github.com/zeebo/structs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-	"gopkg.in/spacemonkeygo/monkit.v2/collect"
-	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/private/version"
@@ -58,11 +58,16 @@ func Bind(cmd *cobra.Command, config interface{}, opts ...cfgstruct.BindOpt) {
 // Exec runs a Cobra command. If a "config-dir" flag is defined it will be parsed
 // and loaded using viper.
 func Exec(cmd *cobra.Command) {
-	ExecWithCustomConfig(cmd, LoadConfig)
+	ExecWithCustomConfig(cmd, true, LoadConfig)
+}
+
+// ExecCustomDebug runs default configuration except the default debug is disabled.
+func ExecCustomDebug(cmd *cobra.Command) {
+	ExecWithCustomConfig(cmd, false, LoadConfig)
 }
 
 // ExecWithCustomConfig runs a Cobra command. Custom configuration can be loaded.
-func ExecWithCustomConfig(cmd *cobra.Command, loadConfig func(cmd *cobra.Command, vip *viper.Viper) error) {
+func ExecWithCustomConfig(cmd *cobra.Command, debugEnabled bool, loadConfig func(cmd *cobra.Command, vip *viper.Viper) error) {
 	cmd.AddCommand(&cobra.Command{
 		Use:         "version",
 		Short:       "output the version's build information, if any",
@@ -75,7 +80,7 @@ func ExecWithCustomConfig(cmd *cobra.Command, loadConfig func(cmd *cobra.Command
 	}
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	cleanup(cmd, loadConfig)
+	cleanup(cmd, debugEnabled, loadConfig)
 	err = cmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -149,9 +154,10 @@ func LoadConfig(cmd *cobra.Command, vip *viper.Viper) error {
 	cfgFlag := cmd.Flags().Lookup("config-dir")
 	if cfgFlag != nil && cfgFlag.Value.String() != "" {
 		path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), DefaultCfgFilename)
-		if cmd.Annotations["type"] != "setup" || fileExists(path) {
+		if fileExists(path) {
+			setupCommand := cmd.Annotations["type"] == "setup"
 			vip.SetConfigFile(path)
-			if err := vip.ReadInConfig(); err != nil {
+			if err := vip.ReadInConfig(); err != nil && !setupCommand {
 				return err
 			}
 		}
@@ -161,9 +167,9 @@ func LoadConfig(cmd *cobra.Command, vip *viper.Viper) error {
 
 var traceOut = flag.String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
 
-func cleanup(cmd *cobra.Command, loadConfig func(cmd *cobra.Command, vip *viper.Viper) error) {
+func cleanup(cmd *cobra.Command, debugEnabled bool, loadConfig func(cmd *cobra.Command, vip *viper.Viper) error) {
 	for _, ccmd := range cmd.Commands() {
-		cleanup(ccmd, loadConfig)
+		cleanup(ccmd, debugEnabled, loadConfig)
 	}
 	if cmd.Run != nil {
 		panic("Please use cobra's RunE instead of Run")
@@ -277,10 +283,13 @@ func cleanup(cmd *cobra.Command, loadConfig func(cmd *cobra.Command, vip *viper.
 			logger.Sugar().Infof("Invalid configuration file value for key: %s", key)
 		}
 
-		err = initDebug(logger, monkit.Default)
-		if err != nil {
-			withoutStack := errors.New(err.Error())
-			logger.Debug("failed to start debug endpoints", zap.Error(withoutStack))
+		if debugEnabled {
+			err = initDebug(logger, monkit.Default)
+			if err != nil {
+				withoutStack := errors.New(err.Error())
+				logger.Debug("failed to start debug endpoints", zap.Error(withoutStack))
+				err = nil
+			}
 		}
 
 		var workErr error
@@ -318,8 +327,9 @@ func cleanup(cmd *cobra.Command, loadConfig func(cmd *cobra.Command, vip *viper.
 
 		err = workErr
 		if err != nil {
-			// This function call os.Exit(1)
-			logger.Fatal("Unrecoverable error", zap.Error(err))
+			logger.Debug("Unrecoverable error", zap.Error(err))
+			fmt.Println("Error:", err.Error())
+			os.Exit(1)
 		}
 
 		return nil

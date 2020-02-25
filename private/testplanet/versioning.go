@@ -64,7 +64,7 @@ func (planet *Planet) NewVersionInfo() version.Info {
 // NewVersionConfig returns the Version Config for this planet with tuned metrics.
 func (planet *Planet) NewVersionConfig() checker.Config {
 	config := checker.Config{
-		CheckInterval: time.Minute * 5,
+		CheckInterval: defaultInterval,
 	}
 
 	config.ServerAddress = fmt.Sprintf("http://%s/", planet.VersionControl.Addr())

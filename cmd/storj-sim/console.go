@@ -23,14 +23,16 @@ import (
 
 func newConsoleEndpoints(address string) *consoleEndpoints {
 	return &consoleEndpoints{
-		client: http.DefaultClient,
-		base:   "http://" + address,
+		client:     http.DefaultClient,
+		base:       "http://" + address,
+		cookieName: "_tokenKey",
 	}
 }
 
 type consoleEndpoints struct {
-	client *http.Client
-	base   string
+	client     *http.Client
+	base       string
+	cookieName string
 }
 
 func (ce *consoleEndpoints) appendPath(suffix string) string {
@@ -309,8 +311,12 @@ func (ce *consoleEndpoints) getProject(token string) (string, error) {
 	q.Add("query", `query {myProjects{id}}`)
 	request.URL.RawQuery = q.Encode()
 
+	request.AddCookie(&http.Cookie{
+		Name:  ce.cookieName,
+		Value: token,
+	})
+
 	request.Header.Add("Content-Type", "application/graphql")
-	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	var getProjects struct {
 		MyProjects []struct {
@@ -341,8 +347,12 @@ func (ce *consoleEndpoints) createProject(token string) (string, error) {
 		return "", errs.Wrap(err)
 	}
 
+	request.AddCookie(&http.Cookie{
+		Name:  ce.cookieName,
+		Value: token,
+	})
+
 	request.Header.Add("Content-Type", "application/graphql")
-	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	var createProject struct {
 		CreateProject struct {
@@ -370,8 +380,12 @@ func (ce *consoleEndpoints) createAPIKey(token, projectID string) (string, error
 		return "", errs.Wrap(err)
 	}
 
+	request.AddCookie(&http.Cookie{
+		Name:  ce.cookieName,
+		Value: token,
+	})
+
 	request.Header.Add("Content-Type", "application/graphql")
-	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	var createAPIKey struct {
 		CreateAPIKey struct {

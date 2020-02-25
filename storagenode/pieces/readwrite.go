@@ -11,6 +11,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/pkcrypto"
@@ -61,6 +62,7 @@ var BadFormatVersion = errs.Class("Incompatible storage format version")
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
 type Writer struct {
+	log       *zap.Logger
 	hash      hash.Hash
 	blob      storage.BlobWriter
 	pieceSize int64 // piece size only; i.e., not including piece header
@@ -71,8 +73,8 @@ type Writer struct {
 }
 
 // NewWriter creates a new writer for storage.BlobWriter.
-func NewWriter(blobWriter storage.BlobWriter, blobs storage.Blobs, satellite storj.NodeID) (*Writer, error) {
-	w := &Writer{}
+func NewWriter(log *zap.Logger, blobWriter storage.BlobWriter, blobs storage.Blobs, satellite storj.NodeID) (*Writer, error) {
+	w := &Writer{log: log}
 	if blobWriter.StorageFormatVersion() >= filestore.FormatV1 {
 		// We skip past the reserved header area for now- we want the header to be at the
 		// beginning of the file, to make it quick to seek there and also to make it easier
@@ -118,9 +120,7 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	if w.closed {
 		return Error.New("already closed")
 	}
-	if cache, ok := w.blobs.(*BlobsUsageCache); ok {
-		cache.Update(ctx, w.satellite, w.Size(), 0)
-	}
+
 	// point of no return: after this we definitely either commit or cancel
 	w.closed = true
 	defer func() {
@@ -130,6 +130,23 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 			err = Error.Wrap(w.blob.Commit(ctx))
 		}
 	}()
+
+	// if the blob store is a cache, update the cache, but only if we did not
+	// encounter an error
+	if cache, ok := w.blobs.(*BlobsUsageCache); ok {
+		defer func() {
+			if err == nil {
+				totalSize, sizeErr := w.blob.Size()
+				if sizeErr != nil {
+					w.log.Error("Failed to calculate piece size, cannot update the cache",
+						zap.Error(sizeErr), zap.Stringer("piece ID", pieceHeader.GetOrderLimit().PieceId),
+						zap.Stringer("satellite ID", w.satellite))
+					return
+				}
+				cache.Update(ctx, w.satellite, totalSize, w.Size(), 0)
+			}
+		}()
+	}
 
 	formatVer := w.blob.StorageFormatVersion()
 	if formatVer == filestore.FormatV0 {
@@ -164,12 +181,12 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	var framingBytes [v1PieceHeaderFramingSize]byte
 	binary.BigEndian.PutUint16(framingBytes[:], uint16(len(headerBytes)))
 	if _, err = w.blob.Write(framingBytes[:]); err != nil {
-		return Error.New("failed writing piece framing field at file start: %v", err)
+		return Error.New("failed writing piece framing field at file start: %w", err)
 	}
 
 	// Now write the serialized header bytes.
 	if _, err = w.blob.Write(headerBytes); err != nil {
-		return Error.New("failed writing piece header at file start: %v", err)
+		return Error.New("failed writing piece header at file start: %w", err)
 	}
 
 	// seek back to the end, as blob.Commit will truncate from the current file position.
@@ -267,7 +284,7 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 	// Deserialize and return.
 	header := &pb.PieceHeader{}
 	if err := proto.Unmarshal(pieceHeaderBytes, header); err != nil {
-		return nil, Error.New("piece header: %v", err)
+		return nil, Error.New("piece header: %w", err)
 	}
 	return header, nil
 }

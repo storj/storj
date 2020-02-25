@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/storage/redis/redisserver"
 )
 
 // discardSender discard sending of an actual email
@@ -43,10 +44,7 @@ func (*discardSender) FromAddress() post.Address {
 }
 
 func TestGrapqhlMutation(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		log := zaptest.NewLogger(t)
 
 		partnersService := rewards.NewPartnersService(
@@ -59,16 +57,21 @@ func TestGrapqhlMutation(t *testing.T) {
 			},
 		)
 
-		payments := stripecoinpayments.NewService(
+		payments, err := stripecoinpayments.NewService(
 			log.Named("payments"),
 			stripecoinpayments.Config{},
 			db.StripeCoinPayments(),
 			db.Console().Projects(),
 			db.ProjectAccounting(),
-			0, 0, 0,
+			"0", "0", "0", 10,
 		)
+		require.NoError(t, err)
 
-		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "memory"})
+		redis, err := redisserver.Mini()
+		require.NoError(t, err)
+		defer ctx.Check(redis.Close)
+
+		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
 		require.NoError(t, err)
 
 		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, 0)

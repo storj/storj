@@ -8,38 +8,41 @@ import (
 	"database/sql"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/private/dbutil/txutil"
+	"storj.io/storj/private/tagsql"
 )
 
 // Error is the default migrate errs class
 var Error = errs.Class("migrate")
 
 // Create with a previous schema check
-func Create(identifier string, db DBX) error {
+func Create(ctx context.Context, identifier string, db DBX) error {
 	// is this necessary? it's not immediately obvious why we roll back the transaction
 	// when the schemas match.
 	justRollbackPlease := errs.Class("only used to tell WithTx to do a rollback")
 
-	err := WithTx(context.Background(), db, func(ctx context.Context, tx *sql.Tx) (err error) {
+	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		schema := db.Schema()
 
-		_, err = tx.Exec(db.Rebind(`CREATE TABLE IF NOT EXISTS table_schemas (id text, schemaText text);`))
+		_, err = tx.ExecContext(ctx, db.Rebind(`CREATE TABLE IF NOT EXISTS table_schemas (id text, schemaText text);`))
 		if err != nil {
 			return err
 		}
 
-		row := tx.QueryRow(db.Rebind(`SELECT schemaText FROM table_schemas WHERE id = ?;`), identifier)
+		row := tx.QueryRow(ctx, db.Rebind(`SELECT schemaText FROM table_schemas WHERE id = ?;`), identifier)
 
 		var previousSchema string
 		err = row.Scan(&previousSchema)
 
 		// not created yet
 		if err == sql.ErrNoRows {
-			_, err := tx.Exec(schema)
+			_, err := tx.ExecContext(ctx, schema)
 			if err != nil {
 				return err
 			}
 
-			_, err = tx.Exec(db.Rebind(`INSERT INTO table_schemas(id, schemaText) VALUES (?, ?);`), identifier, schema)
+			_, err = tx.ExecContext(ctx, db.Rebind(`INSERT INTO table_schemas(id, schemaText) VALUES (?, ?);`), identifier, schema)
 			if err != nil {
 				return err
 			}

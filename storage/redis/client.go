@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storage"
 )
@@ -33,6 +33,8 @@ const defaultNodeExpiration = 0 * time.Minute
 type Client struct {
 	db  *redis.Client
 	TTL time.Duration
+
+	lookupLimit int
 }
 
 // NewClient returns a configured Client instance, verifying a successful connection to redis
@@ -43,7 +45,8 @@ func NewClient(address, password string, db int) (*Client, error) {
 			Password: password,
 			DB:       db,
 		}),
-		TTL: defaultNodeExpiration,
+		TTL:         defaultNodeExpiration,
+		lookupLimit: storage.DefaultLookupLimit,
 	}
 
 	// ping here to verify we are able to connect to redis with the initialized client.
@@ -74,6 +77,12 @@ func NewClientFrom(address string) (*Client, error) {
 
 	return NewClient(redisurl.Host, q.Get("password"), db)
 }
+
+// SetLookupLimit sets the lookup limit.
+func (client *Client) SetLookupLimit(v int) { client.lookupLimit = v }
+
+// LookupLimit returns the maximum limit that is allowed.
+func (client *Client) LookupLimit() int { return client.lookupLimit }
 
 // Get looks up the provided key from redis returning either an error or the result.
 func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
@@ -118,20 +127,26 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	return delete(ctx, client.db, key)
 }
 
+// DeleteMultiple deletes keys ignoring missing keys
+func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
+	defer mon.Task()(&ctx, len(keys))(&err)
+	return deleteMultiple(ctx, client.db, keys)
+}
+
 // Close closes a redis client
 func (client *Client) Close() error {
 	return client.db.Close()
 }
 
 // GetAll is the bulk method for gets from the redis data store.
-// The maximum keys returned will be storage.LookupLimit. If more than that
+// The maximum keys returned will be LookupLimit. If more than that
 // is requested, an error will be returned
 func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(keys) == 0 {
 		return nil, nil
 	}
-	if len(keys) > storage.LookupLimit {
+	if len(keys) > client.lookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
 
@@ -164,14 +179,21 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 // Iterate iterates over items based on opts
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	all, err := client.allPrefixedItems(opts.Prefix, opts.First, nil)
+
+	if opts.Limit <= 0 || opts.Limit > client.lookupLimit {
+		opts.Limit = client.lookupLimit
+	}
+
+	all, err := client.allPrefixedItems(opts.Prefix, opts.First, nil, opts.Limit)
 	if err != nil {
 		return err
 	}
+
 	if !opts.Recurse {
-		all = storage.SortAndCollapse(all, opts.Prefix)
+		all = sortAndCollapse(all, opts.Prefix)
 	}
-	return fn(ctx, &storage.StaticIterator{
+
+	return fn(ctx, &StaticIterator{
 		Items: all,
 	})
 }
@@ -182,7 +204,7 @@ func (client *Client) FlushDB() error {
 	return err
 }
 
-func (client *Client) allPrefixedItems(prefix, first, last storage.Key) (storage.Items, error) {
+func (client *Client) allPrefixedItems(prefix, first, last storage.Key, limit int) (storage.Items, error) {
 	var all storage.Items
 	seen := map[string]struct{}{}
 
@@ -297,4 +319,33 @@ func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err er
 		return Error.New("delete error: %v", err)
 	}
 	return errs.Wrap(err)
+}
+
+func deleteMultiple(ctx context.Context, cmdable redis.Cmdable, keys []storage.Key) (_ storage.Items, err error) {
+	defer mon.Task()(&ctx, len(keys))(&err)
+
+	var items storage.Items
+	for _, key := range keys {
+		value, err := get(ctx, cmdable, key)
+		if err != nil {
+			if errs.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
+				continue
+			}
+			return items, err
+		}
+
+		err = delete(ctx, cmdable, key)
+		if err != nil {
+			if errs.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
+				continue
+			}
+			return items, err
+		}
+		items = append(items, storage.ListItem{
+			Key:   key,
+			Value: value,
+		})
+	}
+
+	return items, nil
 }

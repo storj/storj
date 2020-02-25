@@ -644,7 +644,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		// delete the file
-		err = ul.Delete(ctx, satellite, "testbucket", "test/path")
+		err = ul.DeleteObject(ctx, satellite, "testbucket", "test/path")
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)
@@ -740,6 +740,11 @@ func TestVerifierSlowDownload(t *testing.T) {
 				// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
 				config.Audit.MinBytesPerSecond = 100 * memory.KiB
 				config.Audit.MinDownloadTimeout = 500 * time.Millisecond
+
+				config.Metainfo.RS.MinThreshold = 2
+				config.Metainfo.RS.RepairThreshold = 2
+				config.Metainfo.RS.SuccessThreshold = 4
+				config.Metainfo.RS.TotalThreshold = 4
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -752,13 +757,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   2,
-			OptimalShares:  4,
-			TotalShares:    4,
-		}, "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -800,6 +799,7 @@ func TestVerifierUnknownError(t *testing.T) {
 			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewBadDB(log.Named("baddb"), db), nil
 			},
+			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -811,13 +811,7 @@ func TestVerifierUnknownError(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   2,
-			OptimalShares:  4,
-			TotalShares:    4,
-		}, "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()

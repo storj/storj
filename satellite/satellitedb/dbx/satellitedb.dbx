@@ -278,6 +278,7 @@ model project (
     field name           text
     field description    text      ( updatable )
     field usage_limit    int64     ( updatable )
+    field rate_limit     int       ( nullable, updatable )
     field partner_id     blob      ( nullable  )
     field owner_id       blob
 
@@ -458,14 +459,65 @@ delete serial_number (
 // for preventing duplicate serial numbers
 create used_serial ( noreturn )
 
+//
+// DEPRECATED! vvvvvvvvvvvvvvvvvvvvvvvvvvv
+//
+
+model reported_serial (
+	key expires_at storage_node_id bucket_id action serial_number
+
+	field expires_at      timestamp // ceil'd to the next day
+	field storage_node_id blob      // involved node id
+	field bucket_id       blob      // involved project id and bucket name
+	field action          uint      // action (get, put, audit, etc. see protobuf)
+	field serial_number   blob      // identifies order (required for uniqueness)
+
+	field settled     uint64
+	field observed_at timestamp
+)
+
+//
+// DEPRECATED! ^^^^^^^^^^^^^^^^^^^^^^^^^^
+//
+
+model pending_serial_queue (
+	table pending_serial_queue
+
+	key   storage_node_id bucket_id serial_number
+	field storage_node_id blob
+	field bucket_id       blob
+	field serial_number   blob
+
+	field action     uint
+	field settled    uint64
+	field expires_at timestamp
+)
+
+create pending_serial_queue ( noreturn, replace )
+read paged ( select pending_serial_queue )
+
+model consumed_serial (
+	key storage_node_id serial_number
+	index ( fields expires_at )
+
+	field storage_node_id blob
+	field serial_number   blob
+	field expires_at      timestamp
+)
+
+create consumed_serial ( noreturn )
+delete consumed_serial ( where consumed_serial.expires_at <= ? )
+
+read has (
+	select consumed_serial
+	where consumed_serial.storage_node_id = ?
+	where consumed_serial.serial_number   = ?
+)
+
 // --- bucket accounting tables --- //
 
 model bucket_bandwidth_rollup (
 	key    bucket_name project_id interval_start action
-	index (
-	    name bucket_name_project_id_interval_start_interval_seconds
-	    fields bucket_name project_id interval_start interval_seconds
-	)
 
 	field bucket_name       blob
 	field project_id        blob
@@ -530,17 +582,13 @@ read all (
 
 model storagenode_bandwidth_rollup (
 	key    storagenode_id interval_start action
-	index (
-	    name storagenode_id_interval_start_interval_seconds
-	    fields storagenode_id interval_start interval_seconds
-	)
 
 	field storagenode_id   blob
 	field interval_start   utimestamp
 	field interval_seconds uint
 	field action           uint
 
-	field allocated uint64 ( updatable )
+	field allocated uint64 ( updatable, nullable, default 0 )
 	field settled   uint64 ( updatable )
 )
 
@@ -1019,13 +1067,13 @@ read one (
 
 model coupon (
     key id
-    unique project_id
 
     field id               blob
     field project_id       blob
     field user_id          blob
     field amount           int64
     field description      text
+    field type             int
     field status           int   ( updatable )
     field duration         int64
 
@@ -1039,9 +1087,25 @@ update coupon (
 delete coupon (
     where coupon.id = ?
 )
+read one (
+    select coupon
+    where coupon.id = ?
+)
+read all (
+    select coupon
+    where coupon.project_id = ?
+    where coupon.status = 0
+    orderby desc coupon.created_at
+)
 read all (
     select coupon
     where coupon.user_id = ?
+    orderby desc coupon.created_at
+)
+read all (
+    select coupon
+    where coupon.user_id = ?
+    where coupon.status = ?
     orderby desc coupon.created_at
 )
 read all (
@@ -1056,11 +1120,82 @@ read limitoffset (
     orderby desc coupon.created_at
 )
 model coupon_usage (
-    key id
+    key coupon_id period
 
-    field id             blob
-    field coupon_id      blob
-    field amount         int64
-    field interval_end   timestamp
+    field coupon_id  blob
+    field amount     int64
+    field status     int       ( updatable )
+    field period     timestamp
 )
 create coupon_usage ()
+read limitoffset (
+    select coupon_usage
+    where coupon_usage.period <= ?
+    where coupon_usage.status = 0
+    orderby desc coupon_usage.period
+)
+update coupon_usage (
+    where coupon_usage.coupon_id = ?
+    where coupon_usage.period = ?
+)
+
+model credit (
+	key transaction_id
+
+	field user_id        blob
+	field transaction_id text
+	field amount         int64
+
+	field created_at timestamp ( autoinsert )
+)
+
+create credit ( )
+
+read one (
+	select credit
+	where credit.transaction_id = ?
+)
+
+read all (
+	select credit
+	where credit.user_id = ?
+	orderby desc credit.created_at
+)
+
+read limitoffset (
+	select credit
+	where credit.user_id    =  ?
+	where credit.created_at <= ?
+	orderby desc credit.created_at
+)
+
+model credits_spending (
+	key id
+
+	field id         blob
+	field user_id    blob
+	field project_id blob
+	field amount     int64
+	field status     int   ( updatable )
+
+	field created_at timestamp ( autoinsert )
+)
+
+create credits_spending ( )
+
+update credits_spending (
+	where credits_spending.id = ?
+)
+
+read all (
+	select credits_spending
+	where credits_spending.user_id = ?
+	orderby desc credits_spending.created_at
+)
+
+read limitoffset (
+	select credits_spending
+	where credits_spending.created_at <= ?
+	where credits_spending.status     =  ?
+	orderby desc credits_spending.created_at
+)

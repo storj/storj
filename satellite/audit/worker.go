@@ -37,8 +37,8 @@ type Worker struct {
 	queue    *Queue
 	verifier *Verifier
 	reporter *Reporter
-	Loop     sync2.Cycle
-	limiter  sync2.Limiter
+	Loop     *sync2.Cycle
+	limiter  *sync2.Limiter
 }
 
 // NewWorker instantiates Worker.
@@ -49,8 +49,8 @@ func NewWorker(log *zap.Logger, queue *Queue, verifier *Verifier, reporter *Repo
 		queue:    queue,
 		verifier: verifier,
 		reporter: reporter,
-		Loop:     *sync2.NewCycle(config.QueueInterval),
-		limiter:  *sync2.NewLimiter(config.WorkerConcurrency),
+		Loop:     sync2.NewCycle(config.QueueInterval),
+		limiter:  sync2.NewLimiter(config.WorkerConcurrency),
 	}, nil
 }
 

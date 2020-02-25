@@ -10,6 +10,8 @@ import (
 )
 
 // CreditCards exposes all needed functionality to manage account credit cards.
+//
+// architecture: Service
 type CreditCards interface {
 	// List returns a list of credit cards for a given payment account.
 	List(ctx context.Context, userID uuid.UUID) ([]CreditCard, error)

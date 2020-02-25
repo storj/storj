@@ -12,7 +12,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 /**
  * Custom button component with label.
@@ -38,7 +38,6 @@ export default class VButton extends Vue {
         return { width: this.width, height: this.height };
     }
 
-    @Watch('isDisabled')
     public get containerClassName(): string {
         if (this.isDisabled) return 'container disabled';
 
@@ -88,7 +87,7 @@ export default class VButton extends Vue {
         }
 
         &:hover {
-            box-shadow: 0 4px 20px rgba(35, 121, 236, 0.4);
+            background-color: #0059d0;
 
             &.white {
                 box-shadow: none !important;

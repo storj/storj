@@ -8,10 +8,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/zeebo/admission/admmonkit"
-	"github.com/zeebo/admission/admproto"
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/admission/v2/admmonkit"
+	"github.com/zeebo/admission/v2/admproto"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 const (

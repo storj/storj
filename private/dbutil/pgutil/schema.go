@@ -5,9 +5,10 @@
 package pgutil
 
 import (
+	"context"
+	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
-	"math/rand"
 	"net/url"
 	"strings"
 
@@ -17,9 +18,10 @@ import (
 // CreateRandomTestingSchemaName creates a random schema name string.
 func CreateRandomTestingSchemaName(n int) string {
 	data := make([]byte, n)
-
-	// math/rand.Read() always returns a nil error so there's no need to handle the error.
-	_, _ = rand.Read(data)
+	_, err := rand.Read(data)
+	if err != nil {
+		panic(err)
+	}
 	return hex.EncodeToString(data)
 }
 
@@ -63,13 +65,13 @@ func QuoteSchema(schema string) string {
 
 // Execer is for executing sql
 type Execer interface {
-	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
 // CreateSchema creates a schema if it doesn't exist.
-func CreateSchema(db Execer, schema string) (err error) {
+func CreateSchema(ctx context.Context, db Execer, schema string) (err error) {
 	for try := 0; try < 5; try++ {
-		_, err = db.Exec(`create schema if not exists ` + QuoteSchema(schema) + `;`)
+		_, err = db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS `+QuoteSchema(schema)+`;`)
 
 		// Postgres `CREATE SCHEMA IF NOT EXISTS` may return "duplicate key value violates unique constraint".
 		// In that case, we will retry rather than doing anything more complicated.
@@ -85,7 +87,7 @@ func CreateSchema(db Execer, schema string) (err error) {
 }
 
 // DropSchema drops the named schema
-func DropSchema(db Execer, schema string) error {
-	_, err := db.Exec(`drop schema ` + QuoteSchema(schema) + ` cascade;`)
+func DropSchema(ctx context.Context, db Execer, schema string) error {
+	_, err := db.ExecContext(ctx, `DROP SCHEMA `+QuoteSchema(schema)+` CASCADE;`)
 	return err
 }

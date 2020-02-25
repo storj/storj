@@ -13,6 +13,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
 )
 
@@ -52,6 +53,8 @@ func CreateEncryptionKeyExampleByAdmin1(ctx context.Context,
 
 	// Make an encryption context
 	access := uplink.NewEncryptionAccessWithDefaultKey(*encKey)
+	access.SetDefaultPathCipher(storj.EncAESGCM)
+
 	// serialize it
 	serializedAccess, err = access.Serialize()
 	if err != nil {

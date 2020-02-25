@@ -14,16 +14,13 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
 )
 
 func TestUntilEmpty(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repairQueue := db.RepairQueue()
 
 		// insert a bunch of segments
@@ -53,10 +50,7 @@ func TestUntilEmpty(t *testing.T) {
 }
 
 func TestOrder(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repairQueue := db.RepairQueue()
 
 		nullPath := []byte("/path/null")
@@ -120,10 +114,7 @@ func TestOrder(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repairQueue := db.RepairQueue()
 
 		// insert a bunch of segments

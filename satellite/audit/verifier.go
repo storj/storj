@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
@@ -27,8 +27,8 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/eestream"
-	"storj.io/uplink/piecestore"
+	"storj.io/uplink/private/eestream"
+	"storj.io/uplink/private/piecestore"
 )
 
 var (

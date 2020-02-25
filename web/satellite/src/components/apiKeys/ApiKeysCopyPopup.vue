@@ -3,15 +3,26 @@
 
 <template>
     <div class="save-api-popup" v-if="isPopupShown">
-        <h2 class="save-api-popup__title">Save Your API Key! It Will Appear Only Once.</h2>
+        <h2 class="save-api-popup__title">Save Your Secret API Key! It Will Appear Only Once.</h2>
         <div class="save-api-popup__copy-area">
             <div class="save-api-popup__copy-area__key-area">
-                <p class="save-api-popup__copy-area__key-area__key">{{apiKeySecret}}</p>
+                <p class="save-api-popup__copy-area__key-area__key">{{ apiKeySecret }}</p>
             </div>
-            <div class="copy-button" v-clipboard="apiKeySecret" @click="onCopyClick">
+            <div class="copy-button" @click="onCopyClick">
                 <CopyButtonLabelIcon/>
                 <p class="copy-button__label">Copy</p>
             </div>
+        </div>
+        <div class="save-api-popup__link-container">
+            <a
+                class="save-api-popup__link-container__link"
+                href="https://documentation.tardigrade.io/api-reference/uplink-cli"
+                target="_blank"
+                v-if="isLinkVisible"
+                @click.self.stop="segmentTrack"
+            >
+                Create a Bucket & Upload an Object ->
+            </a>
         </div>
         <div class="save-api-popup__close-cross-container" @click="onCloseClick">
             <CloseCrossIcon/>
@@ -28,6 +39,8 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import CopyButtonLabelIcon from '@/../static/images/apiKeys/copyButtonLabel.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
+
 @Component({
     components: {
         HeaderlessInput,
@@ -36,24 +49,44 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
     },
 })
 export default class ApiKeysCopyPopup extends Vue {
+    /**
+     * Indicates if component should be rendered.
+     */
     @Prop({default: false})
     private readonly isPopupShown: boolean;
     @Prop({default: ''})
     private readonly apiKeySecret: string;
 
+    /**
+     * Indicates if link to doc should appear after api key secret copy.
+     */
+    public isLinkVisible: boolean = false;
+
     public onCloseClick(): void {
         this.$emit('closePopup');
+        this.isLinkVisible = false;
     }
 
-    public async onCopyClick(): Promise<void> {
-        await this.$notify.success('Key saved to clipboard');
+    /**
+     * Copies api key secret to buffer.
+     */
+    public onCopyClick(): void {
+        this.isLinkVisible = true;
+        this.$copyText(this.apiKeySecret);
+        this.$notify.success('Key saved to clipboard');
+    }
+
+    public segmentTrack(): void {
+        this.$segment.track(SegmentEvent.CLI_DOCS_VIEWED, {
+            email: this.$store.getters.user.email,
+        });
     }
 }
 </script>
 
 <style scoped lang="scss">
     .save-api-popup {
-        padding: 32px 40px 60px 40px;
+        padding: 32px 40px;
         background-color: #fff;
         border-radius: 24px;
         margin-top: 29px;
@@ -78,6 +111,7 @@ export default class ApiKeysCopyPopup extends Vue {
             padding: 29px 32px 29px 24px;
             border-radius: 12px;
             position: relative;
+            margin-bottom: 20px;
 
             &__key-area {
 
@@ -87,6 +121,21 @@ export default class ApiKeysCopyPopup extends Vue {
                     line-height: 21px;
                     word-break: break-all;
                 }
+            }
+        }
+
+        &__link-container {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            width: 100%;
+            height: 21px;
+
+            &__link {
+                font-size: 16px;
+                line-height: 21px;
+                text-decoration: underline;
+                color: #2683ff;
             }
         }
 
@@ -112,7 +161,7 @@ export default class ApiKeysCopyPopup extends Vue {
             left: 0;
             background-color: #f5f6fa;
             width: 100%;
-            height: 70vh;
+            height: 70.5vh;
             z-index: 100;
             opacity: 0.3;
         }

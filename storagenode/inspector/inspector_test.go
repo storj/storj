@@ -12,7 +12,6 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -20,8 +19,12 @@ import (
 )
 
 func TestInspectorStats(t *testing.T) {
+	const requiredShares = 2
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(requiredShares, 3, 4, 5),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var availableBandwidth int64
 		var availableSpace int64
@@ -43,15 +46,7 @@ func TestInspectorStats(t *testing.T) {
 
 		expectedData := testrand.Bytes(100 * memory.KiB)
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  4,
-			TotalShares:    5,
-		}
-
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], rs, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
@@ -94,7 +89,7 @@ func TestInspectorStats(t *testing.T) {
 				assert.Equal(t, availableSpace, response.AvailableSpace)
 			}
 		}
-		assert.True(t, downloaded >= int(rs.RequiredShares), "downloaded=%v, rs.RequiredShares=%v", downloaded, rs.RequiredShares)
+		assert.True(t, downloaded >= int(requiredShares), "downloaded=%v, rs.RequiredShares=%v", downloaded, requiredShares)
 	})
 }
 

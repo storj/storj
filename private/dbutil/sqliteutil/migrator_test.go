@@ -4,7 +4,7 @@
 package sqliteutil_test
 
 import (
-	"database/sql"
+	"context"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/sqliteutil"
+	"storj.io/storj/private/tagsql"
 )
 
 func TestMigrateTablesToDatabase(t *testing.T) {
@@ -28,20 +29,20 @@ func TestMigrateTablesToDatabase(t *testing.T) {
 		INSERT INTO bobby_jones VALUES (1);
 	`
 
-	execSQL(t, srcDB, query)
+	execSQL(ctx, t, srcDB, query)
 	// This table should be removed after migration
-	execSQL(t, srcDB, "CREATE TABLE what(I Int);")
+	execSQL(ctx, t, srcDB, "CREATE TABLE what(I Int);")
 
 	err := sqliteutil.MigrateTablesToDatabase(ctx, srcDB, destDB, "bobby_jones")
 	require.NoError(t, err)
 
-	destSchema, err := sqliteutil.QuerySchema(destDB)
+	destSchema, err := sqliteutil.QuerySchema(ctx, destDB)
 	require.NoError(t, err)
 
-	destData, err := sqliteutil.QueryData(destDB, destSchema)
+	destData, err := sqliteutil.QueryData(ctx, destDB, destSchema)
 	require.NoError(t, err)
 
-	snapshot, err := sqliteutil.LoadSnapshotFromSQL(query)
+	snapshot, err := sqliteutil.LoadSnapshotFromSQL(ctx, query)
 	require.NoError(t, err)
 
 	require.Equal(t, snapshot.Schema, destSchema)
@@ -65,32 +66,32 @@ func TestKeepTables(t *testing.T) {
 		INSERT INTO table_two VALUES(2);
 	`
 
-	execSQL(t, db, table1SQL)
-	execSQL(t, db, table2SQL)
+	execSQL(ctx, t, db, table1SQL)
+	execSQL(ctx, t, db, table2SQL)
 
 	err := sqliteutil.KeepTables(ctx, db, "table_one")
 	require.NoError(t, err)
 
-	schema, err := sqliteutil.QuerySchema(db)
+	schema, err := sqliteutil.QuerySchema(ctx, db)
 	require.NoError(t, err)
 
-	data, err := sqliteutil.QueryData(db, schema)
+	data, err := sqliteutil.QueryData(ctx, db, schema)
 	require.NoError(t, err)
 
-	snapshot, err := sqliteutil.LoadSnapshotFromSQL(table1SQL)
+	snapshot, err := sqliteutil.LoadSnapshotFromSQL(ctx, table1SQL)
 	require.NoError(t, err)
 
 	require.Equal(t, snapshot.Schema, schema)
 	require.Equal(t, snapshot.Data, data)
 }
 
-func execSQL(t *testing.T, db *sql.DB, query string, args ...interface{}) {
-	_, err := db.Exec(query, args...)
+func execSQL(ctx context.Context, t *testing.T, db tagsql.DB, query string, args ...interface{}) {
+	_, err := db.ExecContext(ctx, query, args...)
 	require.NoError(t, err)
 }
 
-func newMemDB(t *testing.T) *sql.DB {
-	db, err := sql.Open("sqlite3", ":memory:")
+func newMemDB(t *testing.T) tagsql.DB {
+	db, err := tagsql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 	return db
 }

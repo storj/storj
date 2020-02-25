@@ -22,26 +22,21 @@ import (
 )
 
 func TestChore(t *testing.T) {
-	successThreshold := 4
+	const successThreshold = 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: successThreshold + 2,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite1 := planet.Satellites[0]
 		uplinkPeer := planet.Uplinks[0]
 
 		satellite1.GracefulExit.Chore.Loop.Pause()
 
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  int16(successThreshold),
-			TotalShares:    int16(successThreshold),
-		}
-
-		err := uplinkPeer.UploadWithConfig(ctx, satellite1, rs, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		err := uplinkPeer.Upload(ctx, satellite1, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		exitingNode, err := findNodeToExit(ctx, planet, 1)
@@ -79,9 +74,9 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	satellite1 := planet.Satellites[0]
 	exitingNode.GracefulExit.Chore.Loop.Pause()
 
-	startingDiskUsage, err := exitingNode.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite1.ID())
+	_, piecesContentSize, err := exitingNode.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite1.ID())
 	require.NoError(t, err)
-	require.NotZero(t, startingDiskUsage)
+	require.NotZero(t, piecesContentSize)
 
 	exitStatus := overlay.ExitStatusRequest{
 		NodeID:          exitingNode.ID(),
@@ -91,7 +86,7 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	_, err = satellite1.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
 	require.NoError(t, err)
 
-	err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), startingDiskUsage)
+	err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), piecesContentSize)
 	require.NoError(t, err)
 
 	// check that the storage node is exiting

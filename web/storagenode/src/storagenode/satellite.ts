@@ -16,7 +16,8 @@ export class Satellite {
         public egressSummary: number,
         public ingressSummary: number,
         public audit: Metric,
-        public uptime: Metric) {}
+        public uptime: Metric,
+    ) {}
 }
 
 /**
@@ -38,7 +39,8 @@ export class Stamp {
      */
     public static emptyWithDate(date: number): Stamp {
         const now = new Date();
-        now.setDate(date);
+        now.setUTCDate(date);
+        now.setUTCHours(0, 0, 0, 0);
 
         return new Stamp(0, now);
     }
@@ -53,7 +55,8 @@ export class Metric {
         public successCount: number,
         public alpha: number,
         public beta: number,
-        public score: number) {}
+        public score: number,
+    ) {}
 }
 
 /**
@@ -63,7 +66,8 @@ export class Egress {
     public constructor(
         public audit: number,
         public repair: number,
-        public usage: number) {}
+        public usage: number,
+    ) {}
 }
 
 /**
@@ -72,7 +76,8 @@ export class Egress {
 export class Ingress {
     public constructor(
         public repair: number,
-        public usage: number) {}
+        public usage: number,
+    ) {}
 }
 
 /**
@@ -82,7 +87,8 @@ export class BandwidthUsed {
     public constructor(
         public egress: Egress,
         public ingress: Ingress,
-        public intervalStart: Date) {}
+        public intervalStart: Date,
+    ) {}
 
     /**
      * Used to summarize all bandwidth usage data
@@ -100,7 +106,8 @@ export class BandwidthUsed {
      */
     public static emptyWithDate(date: number): BandwidthUsed {
         const now = new Date();
-        now.setDate(date);
+        now.setUTCDate(date);
+        now.setUTCHours(0, 0, 0, 0);
 
         return new BandwidthUsed(new Egress(0, 0, 0), new Ingress(0, 0), now);
     }
@@ -129,7 +136,8 @@ export class EgressUsed {
      */
     public static emptyWithDate(date: number): EgressUsed {
         const now = new Date();
-        now.setDate(date);
+        now.setUTCDate(date);
+        now.setUTCHours(0, 0, 0, 0);
 
         return new EgressUsed(new Egress(0, 0, 0), now);
     }
@@ -158,7 +166,8 @@ export class IngressUsed {
      */
     public static emptyWithDate(date: number): IngressUsed {
         const now = new Date();
-        now.setDate(date);
+        now.setUTCDate(date);
+        now.setUTCHours(0, 0, 0, 0);
 
         return new IngressUsed(new Ingress(0, 0), now);
     }

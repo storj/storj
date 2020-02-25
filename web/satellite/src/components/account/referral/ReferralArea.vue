@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="referral-container">
+    <div class="referral-container" :class="{ collapsed: isBannerShown }">
         <div class="referral-container__title-container">
             <p class="referral-container__title-container__text">Refer A Friend And Help Build The</p>
             <p class="referral-container__title-container__text">Decentralized Future</p>
@@ -15,7 +15,7 @@
                 :key="link.url"
             >
                 <p class="referral-container__copy-and-share-container__link-holder__link">{{ link.url }}</p>
-                <div class="copy-button" v-clipboard="link.url" @click="copyLink">Copy</div>
+                <div class="copy-button" v-clipboard:copy="link.url" @click="copyLink">Copy</div>
             </div>
         </div>
         <div class="referral-container__not-available" v-else>
@@ -26,15 +26,12 @@
 </template>
 
 <script lang="ts">
-import VueClipboards from 'vue-clipboards';
 import { Component, Vue } from 'vue-property-decorator';
 
 import NoLinksIcon from '@/../static/images/referral/NoLinks.svg';
 
 import { REFERRAL_ACTIONS } from '@/store/modules/referral';
 import { ReferralLink } from '@/types/referral';
-
-Vue.use(VueClipboards);
 
 @Component({
     components: {
@@ -44,6 +41,10 @@ Vue.use(VueClipboards);
 export default class ReferralArea extends Vue {
     public copyLink(): void {
         this.$notify.success('Link saved to clipboard');
+    }
+
+    public get isBannerShown(): boolean {
+        return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
     public get isAvailableLinks(): boolean {
@@ -156,5 +157,9 @@ export default class ReferralArea extends Vue {
                 color: #384b65;
             }
         }
+    }
+
+    .collapsed {
+        height: auto !important;
     }
 </style>

@@ -30,7 +30,7 @@ type HTTPSource struct {
 func NewHTTPSource(httpURL string) (*HTTPSource, error) {
 	u, err := url.Parse(httpURL)
 	if err != nil {
-		return nil, ErrHTTPSource.New("%q: not a URL: %v", httpURL, err)
+		return nil, ErrHTTPSource.New("%q: not a URL: %w", httpURL, err)
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return nil, ErrHTTPSource.New("%q: scheme is not supported", httpURL)
@@ -73,7 +73,7 @@ func (source *HTTPSource) FetchEntries(ctx context.Context) (_ []Entry, err erro
 
 	urls, err := ParseSatelliteURLList(ctx, resp.Body)
 	if err != nil {
-		return nil, ErrHTTPSource.New("cannot parse list at %q: %v", source.url, err)
+		return nil, ErrHTTPSource.New("cannot parse list at %q: %w", source.url, err)
 	}
 
 	var entries []Entry

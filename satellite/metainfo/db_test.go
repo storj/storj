@@ -41,10 +41,7 @@ func newTestBucket(name string, projectID uuid.UUID) storj.Bucket {
 }
 
 func TestBasicBucketOperations(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		consoleDB := db.Console()
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)
@@ -89,10 +86,7 @@ func TestListBucketsAllAllowed(t *testing.T) {
 		{"non matching cursor, more", "ccc", 3, 3, true},
 		{"first bucket cursor, more", "0test", 5, 5, true},
 	}
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		consoleDB := db.Console()
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)
@@ -152,10 +146,7 @@ func TestListBucketsNotAllowed(t *testing.T) {
 		{"last bucket cursor, allow all", "zzz", 2, 1, false, true, map[string]struct{}{"zzz": {}}, []string{"zzz"}},
 		{"empty string cursor, allow all, more", "", 5, 5, true, true, map[string]struct{}{"": {}}, []string{"123", "0test", "999", "aaa", "bbb"}},
 	}
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		consoleDB := db.Console()
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)

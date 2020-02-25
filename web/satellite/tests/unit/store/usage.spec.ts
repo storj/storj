@@ -47,8 +47,6 @@ describe('mutations', () => {
         expect(state.projectUsage.storage.label).toBe('KB');
         expect(state.projectUsage.egress.label).toBe('KB');
         expect(state.projectUsage.objectCount).toBe(4);
-        expect(state.startDate.toDateString()).toBe(now.toDateString());
-        expect(state.endDate.toDateString()).toBe(now.toDateString());
     });
 
     it('set dates', () => {
@@ -69,8 +67,6 @@ describe('mutations', () => {
         expect(state.projectUsage.storage.label).toBe('Bytes');
         expect(state.projectUsage.egress.label).toBe('Bytes');
         expect(state.projectUsage.objectCount).toBe(0);
-        expect(state.startDate.toDateString()).toBe(now.toDateString());
-        expect(state.endDate.toDateString()).toBe(now.toDateString());
     });
 });
 
@@ -107,8 +103,6 @@ describe('actions', () => {
             Promise.resolve(testUsage),
         );
 
-        const firstDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-
         await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
 
         expect(state.projectUsage.storage.bytes).toBe(2);
@@ -118,22 +112,12 @@ describe('actions', () => {
         expect(state.projectUsage.storage.label).toBe('KB');
         expect(state.projectUsage.egress.label).toBe('KB');
         expect(state.projectUsage.objectCount).toBe(4);
-        expect(state.startDate.toDateString()).toBe(firstDate.toDateString());
-
-        expect(state.endDate.getUTCFullYear()).toBe(now.getUTCFullYear());
-        expect(state.endDate.getUTCMonth()).toBe(now.getUTCMonth());
-        expect(state.endDate.getUTCDate()).toBe(now.getUTCDate());
-        expect(state.endDate.getUTCHours()).toBe(now.getUTCHours());
-        expect(state.endDate.getUTCMinutes()).toBe(now.getUTCMinutes());
     });
 
     it('success fetch previous project usage', async () => {
         jest.spyOn(projectUsageApi, 'get').mockReturnValue(
             Promise.resolve(testUsage),
         );
-
-        const firstDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-        const secondDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59));
 
         await store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
 
@@ -144,8 +128,6 @@ describe('actions', () => {
         expect(state.projectUsage.storage.label).toBe('KB');
         expect(state.projectUsage.egress.label).toBe('KB');
         expect(state.projectUsage.objectCount).toBe(4);
-        expect(state.startDate.toDateString()).toBe(firstDate.toDateString());
-        expect(state.endDate.toDateString()).toBe(secondDate.toDateString());
     });
 
     it('success clear usage', async () => {
@@ -158,8 +140,6 @@ describe('actions', () => {
         expect(state.projectUsage.storage.label).toBe('Bytes');
         expect(state.projectUsage.egress.label).toBe('Bytes');
         expect(state.projectUsage.objectCount).toBe(0);
-        expect(state.startDate.toDateString()).toBe(now.toDateString());
-        expect(state.endDate.toDateString()).toBe(now.toDateString());
     });
 
     it('create throws an error when create api call fails', async () => {
@@ -177,8 +157,6 @@ describe('actions', () => {
             expect(state.projectUsage.storage.label).toBe('Bytes');
             expect(state.projectUsage.egress.label).toBe('Bytes');
             expect(state.projectUsage.objectCount).toBe(0);
-            expect(state.startDate.toDateString()).toBe(now.toDateString());
-            expect(state.endDate.toDateString()).toBe(now.toDateString());
         }
     });
 });

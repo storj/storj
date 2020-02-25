@@ -1,6 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// This is disabled for the time-being to allow removing minio dependencies from
+// storj.io/storj package.
+
+// +build ignore
+
 package s3client
 
 import (

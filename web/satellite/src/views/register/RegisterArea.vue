@@ -7,6 +7,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
@@ -21,7 +22,6 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { LocalData } from '@/utils/localData';
 import { validateEmail, validatePassword } from '@/utils/validation';
-import PasswordStrength from '@/views/register/passwordStrength/PasswordStrength.vue';
 
 @Component({
     components: {
@@ -59,6 +59,10 @@ export default class RegisterArea extends Vue {
 
     public isPasswordStrengthShown: boolean = false;
 
+    /**
+     * Lifecycle hook after initial render.
+     * Sets up variables from route params.
+     */
     async mounted(): Promise<void> {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
@@ -85,6 +89,13 @@ export default class RegisterArea extends Vue {
         }
     }
 
+    /**
+     * Checks if page is inside iframe
+     */
+    public get isInsideIframe(): boolean {
+        return window.self !== window.top;
+    }
+
     public showPasswordStrength(): void {
         this.isPasswordStrengthShown = true;
     }
@@ -93,6 +104,9 @@ export default class RegisterArea extends Vue {
         this.isPasswordStrengthShown = false;
     }
 
+    /**
+     * Register user.
+     */
     public async onCreateClick(): Promise<void> {
         if (this.isLoading) {
             return;
@@ -114,25 +128,37 @@ export default class RegisterArea extends Vue {
 
         this.isLoading = false;
     }
+
+    /**
+     * Reloads page.
+     */
     public onLogoClick(): void {
         location.reload();
     }
+
+    /**
+     * Changes location to login route.
+     */
     public onLoginClick(): void {
         this.$router.push(RouteConfig.Login.path);
     }
+
     public setEmail(value: string): void {
         this.user.email = value.trim();
         this.emailError = '';
     }
+
     public setFullName(value: string): void {
         this.user.fullName = value.trim();
         this.fullNameError = '';
     }
+
     public setPassword(value: string): void {
         this.user.password = value.trim();
         this.password = value;
         this.passwordError = '';
     }
+
     public setRepeatedPassword(value: string): void {
         this.repeatedPassword = value;
         this.repeatedPasswordError = '';

@@ -12,6 +12,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -20,15 +21,18 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	snorders "storj.io/storj/storagenode/orders"
 )
 
 func TestSendingReceivingOrders(t *testing.T) {
 	// test happy path
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		for _, storageNode := range planet.StorageNodes {
@@ -37,8 +41,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
-		redundancy := noLongTailRedundancy(planet)
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		sumBeforeSend := 0
@@ -69,71 +72,13 @@ func TestSendingReceivingOrders(t *testing.T) {
 	})
 }
 
-func TestSendingReceivingDuplicateOrders(t *testing.T) {
-	// test happy path
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Audit.Worker.Loop.Pause()
-		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Orders.Sender.Pause()
-		}
-
-		expectedData := testrand.Bytes(50 * memory.KiB)
-
-		redundancy := noLongTailRedundancy(planet)
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
-		require.NoError(t, err)
-
-		sumBeforeSend := 0
-		usedOne := false
-		for _, storageNode := range planet.StorageNodes {
-			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
-			require.NoError(t, err)
-			sumBeforeSend += len(infos)
-
-			if len(infos) > 0 && !usedOne {
-				_, err := planet.Satellites[0].DB.Orders().UseSerialNumber(ctx, infos[0].Order.SerialNumber, infos[0].Limit.StorageNodeId)
-				require.NoError(t, err)
-				usedOne = true
-			}
-
-		}
-		require.NotZero(t, sumBeforeSend)
-
-		sumUnsent := 0
-		rejected := 0
-		accepted := 0
-
-		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Orders.Sender.TriggerWait()
-
-			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
-			require.NoError(t, err)
-			sumUnsent += len(infos)
-
-			archivedInfos, err := storageNode.DB.Orders().ListArchived(ctx, sumBeforeSend)
-			require.NoError(t, err)
-
-			for _, archived := range archivedInfos {
-				if archived.Status == snorders.StatusRejected {
-					rejected++
-				} else if archived.Status == snorders.StatusAccepted {
-					accepted++
-				}
-			}
-		}
-
-		require.Zero(t, sumUnsent)
-		require.Equal(t, 1, rejected)
-		require.Equal(t, sumBeforeSend-1, accepted)
-	})
-}
-
 func TestUnableToSendOrders(t *testing.T) {
 	// test sending when satellite is unavailable
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		for _, storageNode := range planet.StorageNodes {
@@ -142,8 +87,7 @@ func TestUnableToSendOrders(t *testing.T) {
 
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
-		redundancy := noLongTailRedundancy(planet)
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		sumBeforeSend := 0
@@ -179,8 +123,15 @@ func TestUnableToSendOrders(t *testing.T) {
 func TestUploadDownloadBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		hourBeforeTest := time.Now().UTC().Add(-time.Hour)
+		now := time.Now()
+		beforeRollup := now.Add(-time.Hour - time.Second)
+		afterRollup := now.Add(time.Hour + time.Second)
+		bucketName := "testbucket"
+
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 
 		for _, storageNode := range planet.StorageNodes {
@@ -189,11 +140,10 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
-		redundancy := noLongTailRedundancy(planet)
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "test/path", expectedData)
 		require.NoError(t, err)
 
-		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
+		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, "test/path")
 		require.NoError(t, err)
 		require.Equal(t, expectedData, data)
 
@@ -217,27 +167,89 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 			storageNode.Storage2.Orders.Sender.TriggerWait()
 		}
 
+		reportedRollupChore := planet.Satellites[0].Core.Accounting.ReportedRollupChore
+		require.NoError(t, reportedRollupChore.RunOnce(ctx, now))
+
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
 		ordersDB := planet.Satellites[0].DB.Orders()
 
-		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, projects[0].ID, []byte("testbucket"), hourBeforeTest, time.Now().UTC())
+		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, projects[0].ID, []byte(bucketName), beforeRollup, afterRollup)
 		require.NoError(t, err)
 		require.Equal(t, expectedBucketBandwidth, bucketBandwidth)
 
 		for _, storageNode := range planet.StorageNodes {
-			nodeBandwidth, err := ordersDB.GetStorageNodeBandwidth(ctx, storageNode.ID(), hourBeforeTest, time.Now().UTC())
+			nodeBandwidth, err := ordersDB.GetStorageNodeBandwidth(ctx, storageNode.ID(), beforeRollup, afterRollup)
 			require.NoError(t, err)
 			require.Equal(t, expectedStorageBandwidth[storageNode.ID()], nodeBandwidth)
 		}
 	})
 }
 
-func noLongTailRedundancy(planet *testplanet.Planet) storj.RedundancyScheme {
-	redundancy := planet.Uplinks[0].GetConfig(planet.Satellites[0]).GetRedundancyScheme()
-	redundancy.OptimalShares = redundancy.TotalShares
-	return redundancy
+func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		now := time.Now()
+		beforeRollup := now.Add(-time.Hour - time.Second)
+		afterRollup := now.Add(time.Hour + time.Second)
+
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
+
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.Sender.Pause()
+		}
+
+		// Upload some data to two different projects in different buckets.
+		firstExpectedData := testrand.Bytes(50 * memory.KiB)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket0", "test/path", firstExpectedData)
+		require.NoError(t, err)
+		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket0", "test/path")
+		require.NoError(t, err)
+		require.Equal(t, firstExpectedData, data)
+
+		secondExpectedData := testrand.Bytes(100 * memory.KiB)
+		err = planet.Uplinks[1].Upload(ctx, planet.Satellites[0], "testbucket1", "test/path", secondExpectedData)
+		require.NoError(t, err)
+		data, err = planet.Uplinks[1].Download(ctx, planet.Satellites[0], "testbucket1", "test/path")
+		require.NoError(t, err)
+		require.Equal(t, secondExpectedData, data)
+
+		//HACKFIX: We need enough time to pass after the download ends for storagenodes to save orders
+		time.Sleep(200 * time.Millisecond)
+
+		// Have the nodes send up the orders.
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.Sender.TriggerWait()
+		}
+
+		// Run the chore as if we were far in the future so that the orders are expired.
+		reportedRollupChore := planet.Satellites[0].Core.Accounting.ReportedRollupChore
+		require.NoError(t, reportedRollupChore.RunOnce(ctx, now))
+
+		// Query and ensure that there's no data recorded for the bucket from the other project
+		ordersDB := planet.Satellites[0].DB.Orders()
+		uplink0Project := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
+		uplink1Project := planet.Uplinks[1].ProjectID[planet.Satellites[0].ID()]
+
+		wrongBucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, uplink0Project, []byte("testbucket1"), beforeRollup, afterRollup)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), wrongBucketBandwidth)
+		rightBucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, uplink0Project, []byte("testbucket0"), beforeRollup, afterRollup)
+		require.NoError(t, err)
+		require.Greater(t, rightBucketBandwidth, int64(0))
+
+		wrongBucketBandwidth, err = ordersDB.GetBucketBandwidth(ctx, uplink1Project, []byte("testbucket0"), beforeRollup, afterRollup)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), wrongBucketBandwidth)
+		rightBucketBandwidth, err = ordersDB.GetBucketBandwidth(ctx, uplink1Project, []byte("testbucket1"), beforeRollup, afterRollup)
+		require.NoError(t, err)
+		require.Greater(t, rightBucketBandwidth, int64(0))
+	})
 }
 
 func TestSplitBucketIDInvalid(t *testing.T) {
@@ -337,4 +349,240 @@ func buildBenchmarkData(ctx context.Context, b *testing.B, db satellite.DB, stor
 			OrderLimit: orderLimit})
 	}
 	return requests
+}
+
+func TestProcessOrders(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		ordersDB := db.Orders()
+		chore := reportedrollup.NewChore(zaptest.NewLogger(t), ordersDB, reportedrollup.Config{})
+		invalidSerial := storj.SerialNumber{1}
+		serialNum := storj.SerialNumber{2}
+		serialNum2 := storj.SerialNumber{3}
+		projectID, _ := uuid.New()
+		now := time.Now()
+		beforeRollup := now.Add(-time.Hour - time.Second)
+		afterRollup := now.Add(time.Hour + time.Second)
+
+		// assertion helpers
+		checkBucketBandwidth := func(bucket string, amount int64) {
+			settled, err := ordersDB.GetBucketBandwidth(ctx, *projectID, []byte(bucket), beforeRollup, afterRollup)
+			require.NoError(t, err)
+			require.Equal(t, amount, settled)
+		}
+		checkStoragenodeBandwidth := func(node storj.NodeID, amount int64) {
+			settled, err := ordersDB.GetStorageNodeBandwidth(ctx, node, beforeRollup, afterRollup)
+			require.NoError(t, err)
+			require.Equal(t, amount, settled)
+		}
+
+		// setup: create serial number records
+		err := ordersDB.CreateSerialInfo(ctx, serialNum, []byte(projectID.String()+"/b"), now.AddDate(0, 0, 1))
+		require.NoError(t, err)
+		err = ordersDB.CreateSerialInfo(ctx, serialNum2, []byte(projectID.String()+"/c"), now.AddDate(0, 0, 1))
+		require.NoError(t, err)
+
+		var requests []*orders.ProcessOrderRequest
+
+		// process one order and confirm we get the correct response
+		{
+			requests = append(requests, &orders.ProcessOrderRequest{
+				Order: &pb.Order{
+					SerialNumber: serialNum,
+					Amount:       100,
+				},
+				OrderLimit: &pb.OrderLimit{
+					SerialNumber:    serialNum,
+					StorageNodeId:   storj.NodeID{1},
+					Action:          pb.PieceAction_DELETE,
+					OrderExpiration: now.AddDate(0, 0, 3),
+				},
+			})
+			actualResponses, err := ordersDB.ProcessOrders(ctx, requests)
+			require.NoError(t, err)
+			expectedResponses := []*orders.ProcessOrderResponse{
+				{
+					SerialNumber: serialNum,
+					Status:       pb.SettlementResponse_ACCEPTED,
+				},
+			}
+			assert.Equal(t, expectedResponses, actualResponses)
+		}
+
+		// process two orders from different storagenodes and confirm there is an error
+		{
+			requests = append(requests, &orders.ProcessOrderRequest{
+				Order: &pb.Order{
+					SerialNumber: serialNum2,
+					Amount:       200,
+				},
+				OrderLimit: &pb.OrderLimit{
+					SerialNumber:    serialNum2,
+					StorageNodeId:   storj.NodeID{2},
+					Action:          pb.PieceAction_PUT,
+					OrderExpiration: now.AddDate(0, 0, 1)},
+			})
+			_, err = ordersDB.ProcessOrders(ctx, requests)
+			require.Error(t, err, "different storage nodes")
+		}
+
+		// process two orders from same storagenodes and confirm we get two responses
+		{
+			requests[0].OrderLimit.StorageNodeId = storj.NodeID{2}
+			actualResponses, err := ordersDB.ProcessOrders(ctx, requests)
+			require.NoError(t, err)
+			assert.Equal(t, 2, len(actualResponses))
+		}
+
+		// confirm the correct data from processing orders was written and consumed
+		{
+			require.NoError(t, chore.RunOnce(ctx, now))
+
+			checkBucketBandwidth("b", 200)
+			checkBucketBandwidth("c", 200)
+			checkStoragenodeBandwidth(storj.NodeID{1}, 100)
+			checkStoragenodeBandwidth(storj.NodeID{2}, 300)
+		}
+
+		// confirm invalid order at index 0 does not result in a SQL error
+		{
+			requests := []*orders.ProcessOrderRequest{
+				{
+					Order: &pb.Order{
+						SerialNumber: invalidSerial,
+						Amount:       200,
+					},
+					OrderLimit: &pb.OrderLimit{
+						SerialNumber:    invalidSerial,
+						StorageNodeId:   storj.NodeID{1},
+						Action:          pb.PieceAction_PUT,
+						OrderExpiration: now.AddDate(0, 0, 1),
+					},
+				},
+				{
+					Order: &pb.Order{
+						SerialNumber: serialNum,
+						Amount:       200,
+					},
+					OrderLimit: &pb.OrderLimit{
+						SerialNumber:    serialNum,
+						StorageNodeId:   storj.NodeID{1},
+						Action:          pb.PieceAction_PUT,
+						OrderExpiration: now.AddDate(0, 0, 1),
+					},
+				},
+			}
+			responses, err := ordersDB.ProcessOrders(ctx, requests)
+			require.NoError(t, err)
+			assert.Equal(t, pb.SettlementResponse_REJECTED, responses[0].Status)
+		}
+
+		// in case of conflicting ProcessOrderRequests, what has been recorded already wins
+		{
+			// unique nodeID so the other tests here don't interfere
+			nodeID := testrand.NodeID()
+			requests := []*orders.ProcessOrderRequest{
+				{
+					Order: &pb.Order{
+						SerialNumber: serialNum,
+						Amount:       100,
+					},
+					OrderLimit: &pb.OrderLimit{
+						SerialNumber:    serialNum,
+						StorageNodeId:   nodeID,
+						Action:          pb.PieceAction_GET,
+						OrderExpiration: now.AddDate(0, 0, 1),
+					},
+				},
+				{
+					Order: &pb.Order{
+						SerialNumber: serialNum2,
+						Amount:       200,
+					},
+					OrderLimit: &pb.OrderLimit{
+						SerialNumber:    serialNum2,
+						StorageNodeId:   nodeID,
+						Action:          pb.PieceAction_GET,
+						OrderExpiration: now.AddDate(0, 0, 1),
+					},
+				},
+			}
+			responses, err := ordersDB.ProcessOrders(ctx, requests)
+			require.NoError(t, err)
+			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[0].Status)
+			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[1].Status)
+
+			requests = []*orders.ProcessOrderRequest{
+				{
+					Order: &pb.Order{
+						SerialNumber: serialNum,
+						Amount:       1,
+					},
+					OrderLimit: &pb.OrderLimit{
+						SerialNumber:    serialNum,
+						StorageNodeId:   nodeID,
+						Action:          pb.PieceAction_GET,
+						OrderExpiration: now.AddDate(0, 0, 1),
+					},
+				},
+				{
+					Order: &pb.Order{
+						SerialNumber: serialNum2,
+						Amount:       500,
+					},
+					OrderLimit: &pb.OrderLimit{
+						SerialNumber:    serialNum2,
+						StorageNodeId:   nodeID,
+						Action:          pb.PieceAction_GET,
+						OrderExpiration: now.AddDate(0, 0, 1),
+					},
+				},
+			}
+			responses, err = ordersDB.ProcessOrders(ctx, requests)
+			require.NoError(t, err)
+			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[0].Status)
+			require.Equal(t, pb.SettlementResponse_ACCEPTED, responses[1].Status)
+
+			require.NoError(t, chore.RunOnce(ctx, now))
+
+			checkBucketBandwidth("b", 201)
+			checkBucketBandwidth("c", 700)
+			checkStoragenodeBandwidth(storj.NodeID{1}, 100)
+			checkStoragenodeBandwidth(storj.NodeID{2}, 300)
+			checkStoragenodeBandwidth(nodeID, 501)
+		}
+	})
+}
+
+func TestRandomSampleLimits(t *testing.T) {
+	orderlimits := []*pb.AddressedOrderLimit{{}, {}, {}, {}}
+
+	s := orders.NewService(nil, nil, nil, nil, 0, nil, 0, false)
+	t.Run("sample size is less than the number of order limits", func(t *testing.T) {
+		var nilCount int
+		sampleSize := 2
+		limits, err := s.RandomSampleOfOrderLimits(orderlimits, sampleSize)
+		assert.NoError(t, err)
+		assert.Equal(t, len(orderlimits), len(limits))
+
+		for _, limit := range limits {
+			if limit == nil {
+				nilCount++
+			}
+		}
+		assert.Equal(t, len(orderlimits)-sampleSize, nilCount)
+	})
+
+	t.Run("sample size is greater than the number of order limits", func(t *testing.T) {
+		var nilCount int
+		sampleSize := 6
+		limits, err := s.RandomSampleOfOrderLimits(orderlimits, sampleSize)
+		assert.NoError(t, err)
+		assert.Equal(t, len(orderlimits), len(limits))
+		for _, limit := range limits {
+			if limit == nil {
+				nilCount++
+			}
+		}
+		assert.Equal(t, 0, nilCount)
+	})
 }

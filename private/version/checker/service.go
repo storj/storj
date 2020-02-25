@@ -167,7 +167,7 @@ func (server *DebugHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write(append(j, '\n'))
 	if err != nil {
-		server.log.Sugar().Errorf("error writing data to client %v", err)
+		server.log.Sugar().Errorf("error writing data to client: %w", err)
 	}
 }
 

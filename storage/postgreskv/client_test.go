@@ -5,15 +5,16 @@ package postgreskv
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 	"testing"
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/txutil"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )
@@ -41,14 +42,19 @@ func TestSuite(t *testing.T) {
 
 	// zap := zaptest.NewLogger(t)
 	// loggedStore := storelogger.New(zap, store)
+	store.SetLookupLimit(500)
 	testsuite.RunTests(t, store)
 }
 
 func TestThatMigrationActuallyHappened(t *testing.T) {
+	t.Skip()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	store, cleanup := newTestPostgres(t)
 	defer cleanup()
 
-	rows, err := store.pgConn.Query(`
+	rows, err := store.db.Query(ctx, `
 		SELECT prosrc
 		  FROM pg_catalog.pg_proc p,
 		       pg_catalog.pg_namespace n
@@ -89,9 +95,9 @@ func BenchmarkSuite(b *testing.B) {
 	testsuite.RunBenchmarks(b, store)
 }
 
-func bulkImport(ctx context.Context, db *sql.DB, iter storage.Iterator) error {
-	return txutil.WithTx(ctx, db, nil, func(ctx context.Context, txn *sql.Tx) (err error) {
-		stmt, err := txn.Prepare(pq.CopyIn("pathdata", "bucket", "fullpath", "metadata"))
+func bulkImport(ctx context.Context, db tagsql.DB, iter storage.Iterator) error {
+	return txutil.WithTx(ctx, db, nil, func(ctx context.Context, txn tagsql.Tx) (err error) {
+		stmt, err := txn.Prepare(ctx, pq.CopyIn("pathdata", "fullpath", "metadata"))
 		if err != nil {
 			return errs.New("Failed to initialize COPY FROM: %v", err)
 		}
@@ -104,19 +110,19 @@ func bulkImport(ctx context.Context, db *sql.DB, iter storage.Iterator) error {
 
 		var item storage.ListItem
 		for iter.Next(ctx, &item) {
-			if _, err := stmt.Exec([]byte(""), []byte(item.Key), []byte(item.Value)); err != nil {
+			if _, err := stmt.Exec(ctx, []byte(item.Key), []byte(item.Value)); err != nil {
 				return err
 			}
 		}
-		if _, err = stmt.Exec(); err != nil {
+		if _, err = stmt.Exec(ctx); err != nil {
 			return errs.New("Failed to complete COPY FROM: %v", err)
 		}
 		return nil
 	})
 }
 
-func bulkDeleteAll(db *sql.DB) error {
-	_, err := db.Exec("TRUNCATE pathdata")
+func bulkDeleteAll(ctx context.Context, db tagsql.DB) error {
+	_, err := db.Exec(ctx, "TRUNCATE pathdata")
 	if err != nil {
 		return errs.New("Failed to TRUNCATE pathdata table: %v", err)
 	}
@@ -128,11 +134,11 @@ type pgLongBenchmarkStore struct {
 }
 
 func (store *pgLongBenchmarkStore) BulkImport(ctx context.Context, iter storage.Iterator) error {
-	return bulkImport(ctx, store.pgConn, iter)
+	return bulkImport(ctx, store.db, iter)
 }
 
-func (store *pgLongBenchmarkStore) BulkDeleteAll() error {
-	return bulkDeleteAll(store.pgConn)
+func (store *pgLongBenchmarkStore) BulkDeleteAll(ctx context.Context) error {
+	return bulkDeleteAll(ctx, store.db)
 }
 
 func BenchmarkSuiteLong(b *testing.B) {

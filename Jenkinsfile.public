@@ -3,14 +3,14 @@ pipeline {
         docker {
             label 'main'
             image docker.build("storj-ci", "--pull https://github.com/storj/ci.git").id
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/tmp/npm'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
         }
     }
     options {
           timeout(time: 26, unit: 'MINUTES')
     }
     environment {
-        NPM_CONFIG_CACHE = '/tmp/npm/cache'
+        NPM_CONFIG_CACHE = '/npm/cache'
     }
     stages {
         stage('Build') {
@@ -27,10 +27,10 @@ pipeline {
 
                 sh 'service postgresql start'
 
-                sh 'make -j3 build-packages'
+                sh 'make -j4 build-packages'
                 sh 'make install-sim'
 
-                sh 'cockroach start-single-node --insecure --store=\'/tmp/crdb\' --listen-addr=localhost:26257 --http-addr=localhost:8080 --cache 512MiB --max-sql-memory 512MiB --background'
+                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8080 --cache 512MiB --max-sql-memory 512MiB --background'
             }
         }
 
@@ -129,6 +129,21 @@ pipeline {
                     }
                 }
 
+
+                stage('Cockroach Backwards Compatibility') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.5'
+                        STORJ_NETWORK_HOST6 = '127.0.0.5'
+
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
+                        sh 'make test-sim-backwards-compatible'
+                    }
+                }
+
                stage('Build [gomobile]') {
                     steps {
                         // just to verify its building with recent changes
@@ -136,12 +151,22 @@ pipeline {
                     }
                 }
 
-                stage('npm') {
+                stage('satellite npm') {
                     steps {
                         dir("web/satellite") {
                             sh 'npm run build'
                             sh 'npm run lint'
-                            // TODO: reenable with vue4
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('storagenode npm') {
+                    steps {
+                        dir("web/storagenode") {
+                            sh 'npm run build'
+                            sh 'npm run lint'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }

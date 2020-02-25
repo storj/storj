@@ -22,10 +22,7 @@ import (
 )
 
 func TestDB(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		ordersdb := db.Orders()
 
 		storagenode := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
@@ -189,10 +186,7 @@ func TestDB(t *testing.T) {
 }
 
 func TestDB_Trivial(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		satelliteID, serial := testrand.NodeID(), testrand.SerialNumber()
 
 		{ // Ensure Enqueue works at all

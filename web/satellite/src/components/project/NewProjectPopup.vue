@@ -5,8 +5,8 @@
     <div class="new-project-popup-container" @keyup.enter="createProjectClick" @keyup.esc="onCloseClick">
         <div class="new-project-popup" id="newProjectPopup" >
             <div class="new-project-popup__info-panel-container">
-                <h2 class="new-project-popup__info-panel-container__main-label-text">Create a Project</h2>
-                <CreateProjectIcon alt="Create project illustration"/>
+                <h2 class="new-project-popup__info-panel-container__main-label-text">Create New Project</h2>
+                <img src="@/../static/images/project/createProject.jpg" alt="create project image">
             </div>
             <div class="new-project-popup__form-container">
                 <HeaderedInput
@@ -59,9 +59,9 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-import CreateProjectIcon from '@/../static/images/project/createProject.svg';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { CreateProjectModel, Project } from '@/types/projects';
@@ -76,7 +76,6 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
     components: {
         HeaderedInput,
         VButton,
-        CreateProjectIcon,
         CloseCrossIcon,
     },
 })
@@ -87,20 +86,23 @@ export default class NewProjectPopup extends Vue {
     private createdProjectId: string = '';
     private isLoading: boolean = false;
 
-    public setProjectName (value: string): void {
+    public setProjectName(value: string): void {
         this.projectName = value;
         this.nameError = '';
     }
 
-    public setProjectDescription (value: string): void {
+    public setProjectDescription(value: string): void {
         this.description = value;
     }
 
-    public onCloseClick (): void {
+    public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
     }
 
-    public async createProjectClick (): Promise<void> {
+    /**
+     * Creates project.
+     */
+    public async createProjectClick(): Promise<void> {
         if (this.isLoading) {
             return;
         }
@@ -119,9 +121,9 @@ export default class NewProjectPopup extends Vue {
             this.$segment.track(SegmentEvent.PROJECT_CREATED, {
                 project_id: this.createdProjectId,
             });
-        } catch (e) {
+        } catch (error) {
             this.isLoading = false;
-            await this.$notify.error(e.message);
+            await this.$notify.error(error.message);
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
             return;
@@ -131,8 +133,15 @@ export default class NewProjectPopup extends Vue {
 
         try {
             await this.fetchProjectMembers();
-        } catch (e) {
-            await this.$notify.error(e.message);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        try {
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
+        } catch (error) {
+            await this.$notify.error(error.message);
         }
 
         this.clearApiKeys();
@@ -176,6 +185,8 @@ export default class NewProjectPopup extends Vue {
 
     private selectCreatedProject(): void {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
+
+        this.$emit('hideNewProjectButton');
 
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
     }

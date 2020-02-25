@@ -19,7 +19,6 @@ import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
-import { AuthToken } from '@/utils/authToken';
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
 const LoginArea = () => import('@/views/login/LoginArea.vue');
@@ -48,7 +47,8 @@ export abstract class RouteConfig {
     public static Profile = new NavigationLink('profile', 'Profile');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
-    public static Referral = new NavigationLink('referral', 'Referral');
+    // TODO: disabled until implementation
+    // public static Referral = new NavigationLink('referral', 'Referral');
 
     // not in project yet
     // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
@@ -60,7 +60,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
     RouteConfig.Profile.name,
-    RouteConfig.Referral.name,
+    // RouteConfig.Referral.name,
 ];
 
 export const router = new Router({
@@ -108,11 +108,11 @@ export const router = new Router({
                             name: RouteConfig.BillingHistory.name,
                             component: BillingHistory,
                         },
-                        {
-                            path: RouteConfig.Referral.path,
-                            name: RouteConfig.Referral.name,
-                            component: ReferralArea,
-                        },
+                        // {
+                        //     path: RouteConfig.Referral.path,
+                        //     name: RouteConfig.Referral.name,
+                        //     component: ReferralArea,
+                        // },
                     ],
                 },
                 {
@@ -163,14 +163,6 @@ export const router = new Router({
 });
 
 router.beforeEach((to, from, next) => {
-    if (to.matched.some(route => route.meta.requiresAuth)) {
-        if (!AuthToken.get()) {
-            next(RouteConfig.Login.path);
-
-            return;
-        }
-    }
-
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Profile).path);
 

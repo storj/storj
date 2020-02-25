@@ -4,15 +4,20 @@
 package satellite
 
 import (
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	"context"
+
+	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/common/identity"
+	"storj.io/storj/pkg/debug"
 	"storj.io/storj/pkg/server"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
@@ -45,11 +50,14 @@ var mon = monkit.Package()
 // architecture: Master Database
 type DB interface {
 	// CreateTables initializes the database
-	CreateTables() error
+	CreateTables(ctx context.Context) error
 	// CheckVersion checks the database is the correct version
-	CheckVersion() error
+	CheckVersion(ctx context.Context) error
 	// Close closes the database
 	Close() error
+
+	// TestingCreateTables initializes the database for testplanet.
+	TestingCreateTables(ctx context.Context) error
 
 	// PeerIdentities returns a storage for peer identities
 	PeerIdentities() overlay.PeerIdentities
@@ -87,6 +95,9 @@ type DB interface {
 type Config struct {
 	Identity identity.Config
 	Server   server.Config
+	Debug    debug.Config
+
+	Admin admin.Config
 
 	Contact contact.Config
 	Overlay overlay.Config
@@ -105,6 +116,7 @@ type Config struct {
 	Tally          tally.Config
 	Rollup         rollup.Config
 	LiveAccounting live.Config
+	ReportedRollup reportedrollup.Config
 
 	Mail mailservice.Config
 

@@ -12,10 +12,13 @@ import (
 )
 
 func main() {
-	process.ExecWithCustomConfig(cmd.RootCmd, func(cmd *cobra.Command, vip *viper.Viper) error {
+	process.ExecWithCustomConfig(cmd.RootCmd, true, func(cmd *cobra.Command, vip *viper.Viper) error {
 		accessFlag := cmd.Flags().Lookup("access")
-		if accessFlag == nil || accessFlag.Value.String() == "" {
-			return process.LoadConfig(cmd, vip)
+		// try to load configuration because we may still need 'accesses' (for named access)
+		// field but error only if 'access' flag is not set
+		err := process.LoadConfig(cmd, vip)
+		if err != nil && (accessFlag == nil || accessFlag.Value.String() == "") {
+			return err
 		}
 		return nil
 	})

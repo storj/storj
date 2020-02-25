@@ -22,8 +22,14 @@ import { BillingHistoryItemType } from '@/types/payments';
 
 @Component
 export default class BillingHistoryDate extends Vue {
+    /**
+     * expiration date.
+     */
     @Prop({default: () => new Date()})
     private readonly expiration: Date;
+    /**
+     * creation date.
+     */
     @Prop({default: () => new Date()})
     private readonly start: Date;
     @Prop({default: 0})
@@ -33,6 +39,9 @@ export default class BillingHistoryDate extends Vue {
     private nowInSeconds = Math.trunc(new Date().getTime() / 1000);
     private intervalID: number;
 
+    /**
+     * indicates if billing item is expired.
+     */
     public isExpired: boolean;
 
     public constructor() {
@@ -44,26 +53,44 @@ export default class BillingHistoryDate extends Vue {
         this.ready();
     }
 
+    /**
+     * String representation of creation and expiration dates range.
+     */
     public get date(): string {
+        const start = this.start.toLocaleString('default', { month: 'long', day: '2-digit', year: 'numeric' });
+        const expiration = this.expiration.toLocaleString('default', { month: 'long', day: '2-digit', year: 'numeric' });
+
         if (this.type === BillingHistoryItemType.Invoice) {
-            return `${this.start.toLocaleDateString()} - ${this.expiration.toLocaleDateString()}`;
+            return `${start} - ${expiration}`;
         }
 
-        return this.start.toLocaleDateString();
+        return start;
     }
 
+    /**
+     * Seconds count for expiration timer.
+     */
     public get seconds(): number {
         return (this.expirationTimeInSeconds - this.nowInSeconds) % 60;
     }
 
+    /**
+     * Minutes count for expiration timer.
+     */
     public get minutes(): number {
         return Math.trunc((this.expirationTimeInSeconds - this.nowInSeconds) / 60) % 60;
     }
 
+    /**
+     * Hours count for expiration timer.
+     */
     public get hours(): number {
         return Math.trunc((this.expirationTimeInSeconds - this.nowInSeconds) / 3600) % 24;
     }
 
+    /**
+     * Starts expiration timer if item is not expired.
+     */
     private ready(): void {
         this.intervalID = window.setInterval(() => {
             if ((this.expirationTimeInSeconds - this.nowInSeconds) < 0) {

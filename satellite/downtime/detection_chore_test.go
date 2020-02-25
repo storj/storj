@@ -45,19 +45,19 @@ func TestDetectionChore(t *testing.T) {
 			nodeLastContacts, err := satellite.DB.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Hour)
 			require.NoError(t, err)
 			require.Len(t, nodeLastContacts, 1)
-			require.Equal(t, oldCheckinTime.Truncate(time.Second), nodeLastContacts[0].LastContactSuccess.Truncate(time.Second)) // truncate to avoid flakiness
+			require.WithinDuration(t, oldCheckinTime, nodeLastContacts[0].LastContactSuccess, time.Second)
 
 			// run detection chore
 			satellite.DowntimeTracking.DetectionChore.Loop.TriggerWait()
 
+			// node should not be in "offline" list or "successful, not checked in" list
 			nodeLastContacts, err = satellite.DB.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Hour)
 			require.NoError(t, err)
 			require.Len(t, nodeLastContacts, 0)
 
-			// downtime duration should be 0 for the node
-			downtime, err := satellite.DB.DowntimeTracking().GetOfflineTime(ctx, node.ID(), time.Now().Add(-time.Hour), time.Now().Add(time.Hour))
+			nodesOffline, err := satellite.DB.OverlayCache().GetOfflineNodesLimited(ctx, 10)
 			require.NoError(t, err)
-			require.EqualValues(t, 0, downtime)
+			require.Len(t, nodesOffline, 0)
 		}
 
 		{ // test node ping back failure
@@ -74,15 +74,19 @@ func TestDetectionChore(t *testing.T) {
 			nodeLastContacts, err := satellite.DB.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Hour)
 			require.NoError(t, err)
 			require.Len(t, nodeLastContacts, 1)
-			require.Equal(t, oldCheckinTime.Truncate(time.Second), nodeLastContacts[0].LastContactSuccess.Truncate(time.Second)) // truncate to avoid flakiness
+			require.WithinDuration(t, oldCheckinTime, nodeLastContacts[0].LastContactSuccess, time.Second)
 
 			// run detection chore - again
 			satellite.DowntimeTracking.DetectionChore.Loop.TriggerWait()
 
-			// downtime duration should be > 1hr
-			downtime, err := satellite.DB.DowntimeTracking().GetOfflineTime(ctx, node.ID(), time.Now().Add(-time.Hour), time.Now().Add(time.Hour))
+			// node should be in "offline" list but not in "successful, not checked in" list
+			nodeLastContacts, err = satellite.DB.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Hour)
 			require.NoError(t, err)
-			require.EqualValues(t, time.Hour, downtime.Truncate(time.Hour)) // truncate to avoid flakiness
+			require.Len(t, nodeLastContacts, 0)
+
+			nodesOffline, err := satellite.DB.OverlayCache().GetOfflineNodesLimited(ctx, 10)
+			require.NoError(t, err)
+			require.Len(t, nodesOffline, 1)
 		}
 	})
 }

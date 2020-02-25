@@ -23,9 +23,9 @@ create_test_files(){
         output=$2
 	    head -c $size </dev/urandom > $output
     }
-    random_bytes_file "2048" "$test_files_dir/small-upload-testfile" # create 2kb file of random bytes (inline)
-    random_bytes_file "5242880" "$test_files_dir/big-upload-testfile" # create 5mb file of random bytes (remote)
-    random_bytes_file "134217728" "$test_files_dir/multisegment-upload-testfile" # create 128mb file of random bytes (remote)
+    random_bytes_file "2048"   "$test_files_dir/small-upload-testfile"          # create 2kb file of random bytes (inline)
+    random_bytes_file "5120" "$test_files_dir/big-upload-testfile"              # create 5kb file of random bytes (remote)
+    random_bytes_file "131072" "$test_files_dir/multisegment-upload-testfile"   # create 128kb file of random bytes (remote)
 
     echo "created test files"
 }

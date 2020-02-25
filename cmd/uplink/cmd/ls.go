@@ -23,12 +23,15 @@ var (
 
 func init() {
 	lsCmd := addCmd(&cobra.Command{
-		Use:   "ls",
+		Use:   "ls [sj://BUCKET[/PREFIX]]",
 		Short: "List objects and prefixes or all buckets",
 		RunE:  list,
+		Args:  cobra.MaximumNArgs(1),
 	}, RootCmd)
 	lsRecursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
 	lsEncryptedFlag = lsCmd.Flags().Bool("encrypted", false, "if true, show paths as base64-encoded encrypted paths")
+
+	setBasicFlags(lsCmd.Flags(), "recursive", "encrypted")
 }
 
 func list(cmd *cobra.Command, args []string) error {

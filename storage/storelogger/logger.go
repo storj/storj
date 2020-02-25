@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storage"
 )
@@ -30,6 +30,9 @@ func New(log *zap.Logger, store storage.KeyValueStore) *Logger {
 	name := strconv.Itoa(int(loggerid))
 	return &Logger{log.Named(name), store}
 }
+
+// LookupLimit returns the maximum limit that is allowed.
+func (store *Logger) LookupLimit() int { return store.store.LookupLimit() }
 
 // Put adds a value to store
 func (store *Logger) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
@@ -57,6 +60,13 @@ func (store *Logger) Delete(ctx context.Context, key storage.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("Delete", zap.ByteString("key", key))
 	return store.store.Delete(ctx, key)
+}
+
+// DeleteMultiple deletes keys ignoring missing keys
+func (store *Logger) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
+	defer mon.Task()(&ctx, len(keys))(&err)
+	store.log.Debug("DeleteMultiple", zap.Any("keys", keys))
+	return store.store.DeleteMultiple(ctx, keys)
 }
 
 // List lists all keys starting from first and upto limit items

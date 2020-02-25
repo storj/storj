@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"mime"
 	"net/http"
-	"strings"
 
 	"github.com/zeebo/errs"
 
@@ -36,20 +35,6 @@ type graphqlJSON struct {
 	Query         string
 	OperationName string
 	Variables     map[string]interface{}
-}
-
-// getToken retrieves token from request
-func getToken(req *http.Request) string {
-	value := req.Header.Get(authorization)
-	if value == "" {
-		return ""
-	}
-
-	if !strings.HasPrefix(value, authorizationBearer) {
-		return ""
-	}
-
-	return value[len(authorizationBearer):]
 }
 
 // getQuery retrieves graphql query from request

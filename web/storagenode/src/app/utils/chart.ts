@@ -4,12 +4,14 @@
 import { GB, KB, MB, PB, TB } from '@/app/utils/converter';
 import { BandwidthUsed, Stamp } from '@/storagenode/satellite';
 
+const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+
 /**
- * Used to display correct and convenient data on chart
+ * Used to display correct and convenient data on chart.
  */
 export class ChartUtils {
     /**
-     * Brings chart data to a more compact form
+     * Brings chart data to a more compact form.
      * @param data - holds array of chart data in numeric form
      * @returns data - numeric array of normalized data
      */
@@ -36,14 +38,14 @@ export class ChartUtils {
     }
 
     /**
-     * gets chart data dimension depending on data size
+     * gets chart data dimension depending on data size.
      * @param data - holds array of chart data in numeric form
      * @returns dataDimension - string of data dimension
      */
     public static getChartDataDimension(data: number[]): string {
         const maxBytes = Math.ceil(Math.max(...data));
 
-        let dataDimension: string = '';
+        let dataDimension: string;
         switch (true) {
             case maxBytes < MB:
                 dataDimension = 'KB';
@@ -65,18 +67,16 @@ export class ChartUtils {
     }
 
     /**
-     * Used to display correct number of days on chart's labels
+     * Used to display correct number of days on chart's labels.
      *
      * @returns daysDisplayed - array of days converted to a string by using the current or specified locale
      */
     public static daysDisplayedOnChart(): string[] {
-        const daysDisplayed = Array<string>(new Date().getDate());
+        const daysDisplayed = Array<string>(new Date().getUTCDate());
+        const currentMonth = shortMonthNames[new Date().getUTCMonth()].toUpperCase();
 
         for (let i = 0; i < daysDisplayed.length; i++) {
-            const date = new Date();
-            date.setDate(i + 1);
-
-            daysDisplayed[i] = date.toLocaleDateString('en-US', {month: 'short', day: 'numeric'}).toUpperCase();
+            daysDisplayed[i] = `${currentMonth} ${i + 1}`;
         }
 
         if (daysDisplayed.length === 1) {
@@ -87,13 +87,13 @@ export class ChartUtils {
     }
 
     /**
-     * Adds missing bandwidth usage for bandwidth chart data for each day of month
+     * Adds missing bandwidth usage for bandwidth chart data for each day of month.
      * @param fetchedData - array of data that is spread over missing bandwidth usage for each day of the month
      * @returns bandwidthChartData - array of filled data
      */
     public static populateEmptyBandwidth(fetchedData: BandwidthUsed[]): BandwidthUsed[] {
-        const bandwidthChartData: BandwidthUsed[] = new Array(new Date().getDate());
-        const data: BandwidthUsed[] = fetchedData ? fetchedData : [];
+        const bandwidthChartData: BandwidthUsed[] = new Array(new Date().getUTCDate());
+        const data: BandwidthUsed[] = fetchedData || [];
 
         if (data.length === 0) {
             return bandwidthChartData;
@@ -104,7 +104,7 @@ export class ChartUtils {
             const date = i + 1;
 
             for (let j = 0; j < data.length; j++) {
-                if (data[j].intervalStart.getDate() === date) {
+                if (data[j].intervalStart.getUTCDate() === date) {
                     bandwidthChartData[i] = data[j];
                     continue outer;
                 }
@@ -122,13 +122,13 @@ export class ChartUtils {
     }
 
     /**
-     * Adds missing stamps for storage chart data for each day of month
+     * Adds missing stamps for storage chart data for each day of month.
      * @param fetchedData - array of data that is spread over missing stamps for each day of the month
      * @returns storageChartData - array of filled data
      */
     public static populateEmptyStamps(fetchedData: Stamp[]): Stamp[] {
-        const storageChartData: Stamp[] = new Array(new Date().getDate());
-        const data: Stamp[] = fetchedData ? fetchedData : [];
+        const storageChartData: Stamp[] = new Array(new Date().getUTCDate());
+        const data: Stamp[] = fetchedData || [];
 
         if (data.length === 0) {
             return storageChartData;
@@ -139,7 +139,7 @@ export class ChartUtils {
             const date = i + 1;
 
             for (let j = 0; j < data.length; j++) {
-                if (data[j].intervalStart.getDate() === date) {
+                if (data[j].intervalStart.getUTCDate() === date) {
                     storageChartData[i] = data[j];
                     continue outer;
                 }

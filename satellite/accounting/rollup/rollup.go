@@ -19,7 +19,7 @@ import (
 // Config contains configurable values for rollup
 type Config struct {
 	Interval      time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s"`
-	MaxAlphaUsage memory.Size   `help:"the bandwidth and storage usage limit for the alpha release" default:"25GB"`
+	MaxAlphaUsage memory.Size   `help:"the bandwidth and storage usage limit for the alpha release" releaseDefault:"0GB" devDefault:"25GB"`
 	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
 }
 
@@ -28,7 +28,7 @@ type Config struct {
 // architecture: Chore
 type Service struct {
 	logger        *zap.Logger
-	Loop          sync2.Cycle
+	Loop          *sync2.Cycle
 	sdb           accounting.StoragenodeAccounting
 	deleteTallies bool
 }
@@ -37,7 +37,7 @@ type Service struct {
 func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time.Duration, deleteTallies bool) *Service {
 	return &Service{
 		logger:        logger,
-		Loop:          *sync2.NewCycle(interval),
+		Loop:          sync2.NewCycle(interval),
 		sdb:           sdb,
 		deleteTallies: deleteTallies,
 	}

@@ -40,6 +40,10 @@ import {
 export default class ProjectSelectionDropdown extends Vue {
     private FIRST_PAGE = 1;
 
+    /**
+     * Fetches all project related information.
+     * @param projectID
+     */
     public async onProjectSelected(projectID: string): Promise<void> {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
@@ -76,6 +80,9 @@ export default class ProjectSelectionDropdown extends Vue {
         }
     }
 
+    /**
+     * Returns projects list from store.
+     */
     public get projects(): Project[] {
         return this.$store.getters.projects;
     }
@@ -91,13 +98,14 @@ export default class ProjectSelectionDropdown extends Vue {
 
     .project-selection-choice-container {
         position: absolute;
-        top: 9vh;
+        top: 75px;
         left: -5px;
         border-radius: 4px;
         padding: 10px 0 10px 0;
         box-shadow: 0 4px rgba(231, 232, 238, 0.6);
         background-color: #fff;
         z-index: 1120;
+        border-top: 1px solid rgba(169, 181, 193, 0.3);
     }
 
     .project-selection-overflow-container {

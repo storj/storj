@@ -29,25 +29,25 @@ import { Dimensions, Size } from '@/utils/bytesSize';
 @Component
 export default class ProjectLimitsArea extends Vue {
     public get bandwidthUsed(): string {
-        const bandwidthUsed = new Size(this.$store.getters.selectedProject.limits.bandwidthUsed);
+        const bandwidthUsed = new Size(this.$store.state.projectsModule.currentLimits.bandwidthUsed);
 
         return this.getFormattedLimit(bandwidthUsed);
     }
 
     public get bandwidthLimit(): string {
-        const bandwidthLimit = new Size(this.$store.getters.selectedProject.limits.bandwidthLimit);
+        const bandwidthLimit = new Size(this.$store.state.projectsModule.currentLimits.bandwidthLimit);
 
         return this.getFormattedLimit(bandwidthLimit);
     }
 
     public get storageUsed(): string {
-        const storageUsed = new Size(this.$store.getters.selectedProject.limits.storageUsed);
+        const storageUsed = new Size(this.$store.state.projectsModule.currentLimits.storageUsed);
 
         return this.getFormattedLimit(storageUsed);
     }
 
     public get storageLimit(): string {
-        const storageLimit = new Size(this.$store.getters.selectedProject.limits.storageLimit);
+        const storageLimit = new Size(this.$store.state.projectsModule.currentLimits.storageLimit);
 
         return this.getFormattedLimit(storageLimit);
     }

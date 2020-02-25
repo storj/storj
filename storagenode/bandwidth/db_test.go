@@ -56,16 +56,13 @@ var (
 )
 
 func TestBandwidthDB(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
 
-		now := time.Now()
+		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
 
 		expectedUsage := &bandwidth.Usage{}
 		expectedUsageTotal := &bandwidth.Usage{}
@@ -88,7 +85,7 @@ func TestBandwidthDB(t *testing.T) {
 		}
 
 		// test summarizing
-		t.Run("test total summary", func(t *testing.T) {
+		{
 			usage, err := bandwidthdb.Summary(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageTotal, usage)
@@ -97,9 +94,9 @@ func TestBandwidthDB(t *testing.T) {
 			usage, err = bandwidthdb.Summary(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedUsage, usage)
-		})
+		}
 
-		t.Run("test summary by satellite", func(t *testing.T) {
+		{
 			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageBySatellite, usageBySatellite)
@@ -112,9 +109,9 @@ func TestBandwidthDB(t *testing.T) {
 			usageBySatellite, err = bandwidthdb.SummaryBySatellite(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageBySatellite, usageBySatellite)
-		})
+		}
 
-		t.Run("test satellite summary", func(t *testing.T) {
+		{
 			usage, err := bandwidthdb.SatelliteSummary(ctx, satellite0, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageBySatellite[satellite0], usage)
@@ -122,27 +119,24 @@ func TestBandwidthDB(t *testing.T) {
 			usage, err = bandwidthdb.SatelliteSummary(ctx, satellite1, time.Time{}, now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageBySatellite[satellite1], usage)
-		})
+		}
 
-		t.Run("test cached bandwidth usage", func(t *testing.T) {
-			cachedBandwidthUsage, err := bandwidthdb.MonthSummary(ctx)
+		{
+			cachedBandwidthUsage, err := bandwidthdb.MonthSummary(ctx, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageTotal.Total(), cachedBandwidthUsage)
-		})
+		}
 	})
 }
 
 func TestEgressSummary(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
 
-		now := time.Now()
+		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
 
 		expectedEgressUsage := &bandwidth.Usage{}
 		expectedEgressUsageTotal := &bandwidth.Usage{}
@@ -165,7 +159,7 @@ func TestEgressSummary(t *testing.T) {
 		}
 
 		// test egress summarizing.
-		t.Run("test egress summary", func(t *testing.T) {
+		{
 			usage, err := bandwidthdb.EgressSummary(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsageTotal, usage)
@@ -174,9 +168,9 @@ func TestEgressSummary(t *testing.T) {
 			usage, err = bandwidthdb.EgressSummary(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsage, usage)
-		})
+		}
 
-		t.Run("test egress summary by satellite", func(t *testing.T) {
+		{
 			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsageBySatellite, usageBySatellite)
@@ -189,9 +183,9 @@ func TestEgressSummary(t *testing.T) {
 			usageBySatellite, err = bandwidthdb.SummaryBySatellite(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsageBySatellite, usageBySatellite)
-		})
+		}
 
-		t.Run("test satellite egress summary", func(t *testing.T) {
+		{
 			usage, err := bandwidthdb.SatelliteEgressSummary(ctx, satellite0, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsageBySatellite[satellite0], usage)
@@ -199,21 +193,18 @@ func TestEgressSummary(t *testing.T) {
 			usage, err = bandwidthdb.SatelliteEgressSummary(ctx, satellite1, time.Time{}, now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedEgressUsageBySatellite[satellite1], usage)
-		})
+		}
 	})
 }
 
 func TestIngressSummary(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion()).ID
 
-		now := time.Now()
+		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
 
 		expectedIngressUsage := &bandwidth.Usage{}
 		expectedIngressUsageTotal := &bandwidth.Usage{}
@@ -236,7 +227,7 @@ func TestIngressSummary(t *testing.T) {
 		}
 
 		// test ingress summarizing.
-		t.Run("test ingress summary", func(t *testing.T) {
+		{
 			usage, err := bandwidthdb.IngressSummary(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsageTotal, usage)
@@ -245,9 +236,9 @@ func TestIngressSummary(t *testing.T) {
 			usage, err = bandwidthdb.IngressSummary(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsage, usage)
-		})
+		}
 
-		t.Run("test ingress summary by satellite", func(t *testing.T) {
+		{
 			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now.Add(-10*time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsageBySatellite, usageBySatellite)
@@ -260,9 +251,9 @@ func TestIngressSummary(t *testing.T) {
 			usageBySatellite, err = bandwidthdb.SummaryBySatellite(ctx, now.Add(time.Hour), now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedUsageBySatellite, usageBySatellite)
-		})
+		}
 
-		t.Run("test satellite ingress summary", func(t *testing.T) {
+		{
 			usage, err := bandwidthdb.SatelliteIngressSummary(ctx, satellite0, time.Time{}, now)
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsageBySatellite[satellite0], usage)
@@ -270,63 +261,57 @@ func TestIngressSummary(t *testing.T) {
 			usage, err = bandwidthdb.SatelliteIngressSummary(ctx, satellite1, time.Time{}, now.Add(10*time.Hour))
 			require.NoError(t, err)
 			require.Equal(t, expectedIngressUsageBySatellite[satellite1], usage)
-		})
+		}
 	})
 }
 
 func TestEmptyBandwidthDB(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
-		now := time.Now()
+		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
 
-		t.Run("test total summary", func(t *testing.T) {
+		{
 			usage, err := bandwidthdb.Summary(ctx, now, now)
 			require.NoError(t, err)
 			require.Equal(t, &bandwidth.Usage{}, usage)
-		})
+		}
 
-		t.Run("test summary by satellite", func(t *testing.T) {
+		{
 			usageBySatellite, err := bandwidthdb.SummaryBySatellite(ctx, now, now)
 			require.NoError(t, err)
 			require.Equal(t, map[storj.NodeID]*bandwidth.Usage{}, usageBySatellite)
-		})
+		}
 
-		t.Run("test satellite summary", func(t *testing.T) {
+		{
 			usage, err := bandwidthdb.SatelliteSummary(ctx, storj.NodeID{}, now, now)
 			require.NoError(t, err)
 			require.Equal(t, &bandwidth.Usage{}, usage)
-		})
+		}
 
-		t.Run("test get daily rollups", func(t *testing.T) {
+		{
 			rollups, err := bandwidthdb.GetDailyRollups(ctx, now, now)
 			require.NoError(t, err)
 			require.Equal(t, []bandwidth.UsageRollup(nil), rollups)
-		})
+		}
 
-		t.Run("test get satellite daily rollups", func(t *testing.T) {
+		{
 			rollups, err := bandwidthdb.GetDailySatelliteRollups(ctx, storj.NodeID{}, now, now)
 			require.NoError(t, err)
 			require.Equal(t, []bandwidth.UsageRollup(nil), rollups)
-		})
+		}
 	})
 }
 
 func TestBandwidthDailyRollups(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		const (
 			numSatellites = 5
 			days          = 30
 			hours         = 12
 		)
 
-		now := time.Now().UTC()
+		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
 		startDate := time.Date(now.Year(), now.Month(), now.Day()-days, 0, 0, 0, 0, now.Location())
 
 		bandwidthDB := db.Bandwidth()
@@ -421,7 +406,7 @@ func TestBandwidthDailyRollups(t *testing.T) {
 			usageRollups[satellite][day] = usageRollup
 		}
 
-		t.Run("test satellite daily usage rollups", func(t *testing.T) {
+		{
 			rolls, err := bandwidthDB.GetDailySatelliteRollups(ctx, satelliteID, time.Time{}, now)
 
 			assert.NoError(t, err)
@@ -432,9 +417,9 @@ func TestBandwidthDailyRollups(t *testing.T) {
 				expected := *usageRollups[satelliteID][rollup.IntervalStart]
 				assert.Equal(t, expected, rollup)
 			}
-		})
+		}
 
-		t.Run("test daily usage rollups", func(t *testing.T) {
+		{
 			rolls, err := bandwidthDB.GetDailyRollups(ctx, time.Time{}, now)
 
 			assert.NoError(t, err)
@@ -444,22 +429,20 @@ func TestBandwidthDailyRollups(t *testing.T) {
 			for _, rollup := range rolls {
 				assert.Equal(t, *totalUsageRollups[rollup.IntervalStart], rollup)
 			}
-		})
+		}
 	})
 }
 
 func TestCachedBandwidthMonthRollover(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		bandwidthdb := db.Bandwidth()
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 
-		y, m, _ := time.Now().UTC().Date()
-		// Last second of the previous month
-		previousMonth := time.Date(y, m, 0, 23, 59, 59, 0, time.Now().UTC().Location())
+		// Compute times that will be used for the test
+		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
+		previousMonth := time.Date(2010, 3, 31, 23, 59, 59, 0, time.UTC)
+		thisMonth := previousMonth.Add(time.Second)
 
 		// Add data for the previous month.
 		for _, action := range actions {
@@ -467,12 +450,10 @@ func TestCachedBandwidthMonthRollover(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		cached, err := bandwidthdb.MonthSummary(ctx)
-		require.NoError(t, err)
 		// Cached bandwidth for this month should still be 0 since CachedBandwidthUsed only looks up by the current month
+		cached, err := bandwidthdb.MonthSummary(ctx, now)
+		require.NoError(t, err)
 		require.Equal(t, int64(0), cached)
-
-		thisMonth := previousMonth.Add(time.Second + 1)
 
 		var totalAmount int64
 		for _, action := range actions {
@@ -480,17 +461,15 @@ func TestCachedBandwidthMonthRollover(t *testing.T) {
 			err := bandwidthdb.Add(ctx, satellite0, action, int64(action), thisMonth)
 			require.NoError(t, err)
 		}
-		cached, err = bandwidthdb.MonthSummary(ctx)
+
+		cached, err = bandwidthdb.MonthSummary(ctx, now)
 		require.NoError(t, err)
 		require.Equal(t, totalAmount, cached)
 	})
 }
 
 func TestBandwidthRollup(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		err := db.CreateTables(ctx)
 		if err != nil {
 			t.Fatal(err)
@@ -499,7 +478,7 @@ func TestBandwidthRollup(t *testing.T) {
 		testID2 := storj.NodeID{2}
 		testID3 := storj.NodeID{3}
 
-		now := time.Now()
+		now := time.Date(2010, 4, 7, 12, 30, 00, 0, time.UTC)
 
 		// Create data for 48 hours ago
 		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_PUT, 1, now.Add(time.Hour*-48))
@@ -593,17 +572,14 @@ func TestBandwidthRollup(t *testing.T) {
 }
 
 func TestDB_Trivial(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		{ // Ensure Add works at all
 			err := db.Bandwidth().Add(ctx, testrand.NodeID(), pb.PieceAction_GET, 0, time.Now())
 			require.NoError(t, err)
 		}
 
 		{ // Ensure MonthSummary works at all
-			_, err := db.Bandwidth().MonthSummary(ctx)
+			_, err := db.Bandwidth().MonthSummary(ctx, time.Now())
 			require.NoError(t, err)
 		}
 

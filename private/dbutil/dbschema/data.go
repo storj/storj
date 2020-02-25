@@ -4,6 +4,7 @@
 package dbschema
 
 import (
+	"context"
 	"sort"
 	"strings"
 
@@ -65,7 +66,7 @@ func (row RowData) Clone() RowData {
 }
 
 // QueryData loads all data from tables
-func QueryData(db Queryer, schema *Schema, quoteColumn func(string) string) (*Data, error) {
+func QueryData(ctx context.Context, db Queryer, schema *Schema, quoteColumn func(string) string) (*Data, error) {
 	data := &Data{}
 
 	for _, tableSchema := range schema.Tables {
@@ -86,7 +87,7 @@ func QueryData(db Queryer, schema *Schema, quoteColumn func(string) string) (*Da
 		query := `SELECT ` + strings.Join(quotedColumns, ", ") + ` FROM ` + table.Name
 
 		err := func() (err error) {
-			rows, err := db.Query(query)
+			rows, err := db.QueryContext(ctx, query)
 			if err != nil {
 				return err
 			}

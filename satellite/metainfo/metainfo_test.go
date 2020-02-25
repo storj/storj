@@ -26,7 +26,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/uplink/metainfo"
+	"storj.io/uplink/private/metainfo"
 )
 
 func TestInvalidAPIKey(t *testing.T) {
@@ -494,11 +494,11 @@ func TestBeginCommitListSegment(t *testing.T) {
 			EncryptionParameters: storj.EncryptionParameters{},
 			ExpiresAt:            time.Now().UTC().Add(24 * time.Hour),
 		}
-		streamID, err := metainfoClient.BeginObject(ctx, params)
+		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
 
 		segmentID, limits, _, err := metainfoClient.BeginSegment(ctx, metainfo.BeginSegmentParams{
-			StreamID: streamID,
+			StreamID: beginObjectResponse.StreamID,
 			Position: storj.SegmentPosition{
 				Index: 0,
 			},
@@ -548,7 +548,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID:          streamID,
+			StreamID:          beginObjectResponse.StreamID,
 			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
@@ -689,7 +689,7 @@ func TestInlineSegment(t *testing.T) {
 			EncryptionParameters: storj.EncryptionParameters{},
 			ExpiresAt:            time.Now().UTC().Add(24 * time.Hour),
 		}
-		streamID, err := metainfoClient.BeginObject(ctx, params)
+		beginObjectResp, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
 
 		segments := []int32{0, 1, 2, 3, 4, 5, 6}
@@ -697,7 +697,7 @@ func TestInlineSegment(t *testing.T) {
 		for i, segment := range segments {
 			segmentsData[i] = testrand.Bytes(memory.KiB)
 			err = metainfoClient.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
-				StreamID: streamID,
+				StreamID: beginObjectResp.StreamID,
 				Position: storj.SegmentPosition{
 					Index: segment,
 				},
@@ -711,7 +711,7 @@ func TestInlineSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
-			StreamID:          streamID,
+			StreamID:          beginObjectResp.StreamID,
 			EncryptedMetadata: metadata,
 		})
 		require.NoError(t, err)
@@ -778,7 +778,7 @@ func TestInlineSegment(t *testing.T) {
 		}
 
 		{ // test deleting segments
-			streamID, err = metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+			streamID, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
 				Bucket:        params.Bucket,
 				EncryptedPath: params.EncryptedPath,
 			})
@@ -1073,7 +1073,7 @@ func TestBatch(t *testing.T) {
 			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "third-test-bucket")
 			require.NoError(t, err)
 
-			streamID, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+			beginObjectResp, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
 				Bucket:        []byte("third-test-bucket"),
 				EncryptedPath: []byte("encrypted-path"),
 			})
@@ -1086,7 +1086,7 @@ func TestBatch(t *testing.T) {
 				expectedData[i] = testrand.Bytes(memory.KiB)
 
 				requests = append(requests, &metainfo.MakeInlineSegmentParams{
-					StreamID: streamID,
+					StreamID: beginObjectResp.StreamID,
 					Position: storj.SegmentPosition{
 						Index: int32(i),
 					},
@@ -1099,7 +1099,7 @@ func TestBatch(t *testing.T) {
 			})
 			require.NoError(t, err)
 			requests = append(requests, &metainfo.CommitObjectParams{
-				StreamID:          streamID,
+				StreamID:          beginObjectResp.StreamID,
 				EncryptedMetadata: metadata,
 			})
 
@@ -1110,45 +1110,223 @@ func TestBatch(t *testing.T) {
 	})
 }
 
-func TestValidateRS(t *testing.T) {
+func TestRateLimit(t *testing.T) {
+	rateLimit := 2
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.RS.MinTotalThreshold = 4
-				config.Metainfo.RS.MaxTotalThreshold = 5
-				config.Metainfo.RS.Validate = true
+				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 
-		testData := testrand.Bytes(8 * memory.KiB)
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 1,
-			RepairShares:   2,
-			OptimalShares:  3,
-			TotalShares:    3,
+		var group errs2.Group
+		for i := 0; i <= rateLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
 		}
-		// test below permitted total value
-		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/below", testData)
-		require.Error(t, err)
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 1)
+	})
+}
 
-		// test above permitted total value
-		rs.TotalShares = 6
-		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/above", testData)
-		require.Error(t, err)
+func TestRateLimit_Disabled(t *testing.T) {
+	rateLimit := 2
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Enabled = false
+				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
 
-		// test minimum permitted total value
-		rs.TotalShares = 4
-		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/min", testData)
+		var group errs2.Group
+		for i := 0; i <= rateLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 0)
+	})
+}
+
+func TestRateLimit_ProjectRateLimitOverride(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = 2
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		rateLimit := 3
+		projects[0].RateLimit = &rateLimit
+
+		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
 		require.NoError(t, err)
 
-		// test maximum permitted total value
-		rs.TotalShares = 5
-		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path/max", testData)
+		var group errs2.Group
+		for i := 0; i <= rateLimit; i++ {
+			group.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		groupErrs := group.Wait()
+		require.Len(t, groupErrs, 1)
+	})
+}
+
+func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = 2
+				config.Metainfo.RateLimiter.CacheExpiration = 100 * time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		rateLimit := 3
+		projects[0].RateLimit = &rateLimit
+
+		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
+		require.NoError(t, err)
+
+		var group1 errs2.Group
+
+		for i := 0; i <= rateLimit; i++ {
+			group1.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		group1Errs := group1.Wait()
+		require.Len(t, group1Errs, 1)
+
+		rateLimit = 1
+		projects[0].RateLimit = &rateLimit
+
+		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
+		require.NoError(t, err)
+
+		time.Sleep(200 * time.Millisecond)
+
+		var group2 errs2.Group
+
+		for i := 0; i <= rateLimit; i++ {
+			group2.Go(func() error {
+				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+			})
+		}
+		group2Errs := group2.Wait()
+		require.Len(t, group2Errs, 1)
+	})
+}
+
+func TestOverwriteZombieSegments(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+		config := uplink.GetConfig(planet.Satellites[0])
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		var testCases = []struct {
+			deletedSegments []int32
+			objectSize      memory.Size
+			segmentSize     memory.Size
+			label           string
+		}{
+			{label: "inline", deletedSegments: []int32{0, -1}, objectSize: 5 * memory.KiB, segmentSize: 1 * memory.KiB},
+			{label: "remote", deletedSegments: []int32{0, -1}, objectSize: 23 * memory.KiB, segmentSize: 5 * memory.KiB},
+		}
+
+		for i, tc := range testCases {
+			i := i
+			tc := tc
+			t.Run(tc.label, func(t *testing.T) {
+				data := testrand.Bytes(tc.objectSize)
+				config.Client.SegmentSize = tc.segmentSize
+				bucket := "testbucket" + strconv.Itoa(i)
+				objectKey := "test-path" + strconv.Itoa(i)
+				err := uplink.UploadWithClientConfig(ctx, planet.Satellites[0], config, bucket, objectKey, data)
+				require.NoError(t, err)
+
+				items, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+					Bucket: []byte(bucket),
+					Limit:  1,
+				})
+				require.NoError(t, err)
+
+				object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+					Bucket:        []byte(bucket),
+					EncryptedPath: items[0].EncryptedPath,
+				})
+				require.NoError(t, err)
+
+				// delete some segments to leave only zombie segments
+				for _, segment := range tc.deletedSegments {
+					_, _, _, err = metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
+						StreamID: object.StreamID,
+						Position: storj.SegmentPosition{
+							Index: segment,
+						},
+					})
+					require.NoError(t, err)
+				}
+
+				err = uplink.UploadWithClientConfig(ctx, planet.Satellites[0], config, bucket, objectKey, data)
+				require.NoError(t, err)
+			})
+
+		}
+	})
+}
+
+func TestBucketEmptinessBeforeDelete(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		for i := 0; i < 10; i++ {
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket", "object-key"+strconv.Itoa(i), testrand.Bytes(memory.KiB))
+			require.NoError(t, err)
+		}
+
+		for i := 0; i < 10; i++ {
+			err := planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "test-bucket")
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
+
+			err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "test-bucket", "object-key"+strconv.Itoa(i))
+			require.NoError(t, err)
+		}
+
+		err := planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 	})
 }

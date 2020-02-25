@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
     char *_err = "";
     char **err = &_err;
 
-    char *scopeStr = "1ZYMge4erhJ7hSTf4UCUvtcT2e7rHBNrQvVMgxVDPgFwndj2f2tUnoqmQhaQapEvkifiu9Dwi53C8a3QKB8xMYPZkKS3yCLKbhaccpRg91iDGJuUBS7m7FKW2AmvQYNm5EM56AJrCsb95CL4jTd686sJmuGMnpQhd6NqE7bYAsQTCyADUS15kDJ2zBzt43k689TwW";
+    char *scopeStr = "17jgVrPRktsquJQFzpsFZvzCqoQLuFwjKKvn3mStMzV1pYwt2zcQjbfga85pfpYGE4jLZTwMF7oxy4iE24d5gJ9A2zY1mMrKxQNRtQFycnKybCVXhPvx89kknnh1jF5v1FY1DnsXaXbQ1UptBjX6KXnsY7oNeERTgj5ZBMuK8dJ96gvnWab8x";
     {
         ScopeRef scope = parse_scope(scopeStr, err);
         require_noerror(*err);
@@ -66,17 +66,28 @@ int main(int argc, char *argv[])
             {"bucket2",
              "path2"}};
 
-        // invalid restrictionsLen
-        ScopeRef restrictedScope = restrict_scope(scope, caveat, &restrictions[0], -1, err);
-        require_error(*err);
-        *err = "";
+        {
+            // invalid restrictionsLen
+            ScopeRef restrictedScope = restrict_scope(scope, caveat, &restrictions[0], -1, err);
+            require_error(*err);
+            *err = "";
+        }
 
-        restrictedScope = restrict_scope(scope, caveat, &restrictions[0], 2, err);
-        require_noerror(*err);
-        requiref(restrictedScope._handle != 0, "got empty scope\n");
+        {
+            ScopeRef restrictedScope = restrict_scope(scope, caveat, &restrictions[0], 2, err);
+            require_noerror(*err);
+            requiref(restrictedScope._handle != 0, "got empty scope\n");
+            free_scope(restrictedScope);
+        }
+
+        {
+            ScopeRef restrictedScope = restrict_scope(scope, caveat, NULL, 0, err);
+            require_noerror(*err);
+            requiref(restrictedScope._handle != 0, "got empty scope\n");
+            free_scope(restrictedScope);
+        }
 
         free_scope(scope);
-        free_scope(restrictedScope);
     }
 
     requiref(internal_UniverseIsEmpty(), "universe is not empty\n");

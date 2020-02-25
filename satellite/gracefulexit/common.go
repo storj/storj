@@ -6,8 +6,8 @@ package gracefulexit
 import (
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (
@@ -30,12 +30,12 @@ type Config struct {
 	ChoreBatchSize int           `help:"size of the buffer used to batch inserts into the transfer queue." default:"500"`
 	ChoreInterval  time.Duration `help:"how often to run the transfer queue chore." releaseDefault:"30s" devDefault:"10s"`
 
-	EndpointBatchSize int `help:"size of the buffer used to batch transfer queue reads and sends to the storage node." default:"100"`
+	EndpointBatchSize int `help:"size of the buffer used to batch transfer queue reads and sends to the storage node." default:"300"`
 
-	MaxFailuresPerPiece          int           `help:"maximum number of transfer failures per piece." default:"3"`
+	MaxFailuresPerPiece          int           `help:"maximum number of transfer failures per piece." default:"5"`
 	OverallMaxFailuresPercentage int           `help:"maximum percentage of transfer failures per node." default:"10"`
 	MaxInactiveTimeFrame         time.Duration `help:"maximum inactive time frame of transfer activities per node." default:"168h"`
 	RecvTimeout                  time.Duration `help:"the minimum duration for receiving a stream from a storage node before timing out" default:"10m"`
-	MaxOrderLimitSendCount       int           `help:"maximum number of order limits a satellite sends to a node before marking piece transfer failed" default:"5"`
+	MaxOrderLimitSendCount       int           `help:"maximum number of order limits a satellite sends to a node before marking piece transfer failed" default:"10"`
 	NodeMinAgeInMonths           int           `help:"minimum age for a node on the network in order to initiate graceful exit" default:"6"`
 }

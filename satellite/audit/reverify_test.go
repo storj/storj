@@ -485,6 +485,9 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 func TestReverifyDeletedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// - uploads random data to all nodes
 		// - gets a path from the audit queue
@@ -503,15 +506,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 1,
-			RepairShares:   2,
-			OptimalShares:  4,
-			TotalShares:    4,
-		}
-
-		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -540,7 +535,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		// delete the file
-		err = ul.Delete(ctx, satellite, "testbucket", "test/path1")
+		err = ul.DeleteObject(ctx, satellite, "testbucket", "test/path1")
 		require.NoError(t, err)
 
 		// call reverify on the deleted file and expect a segment deleted error
@@ -554,7 +549,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 
 		// upload a new file to call reverify on
 		testData2 := testrand.Bytes(8 * memory.KiB)
-		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path2", testData2)
+		err = ul.Upload(ctx, satellite, "testbucket", "test/path2", testData2)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -577,6 +572,9 @@ func TestReverifyDeletedSegment(t *testing.T) {
 func TestReverifyModifiedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// - uploads random data to a file on all nodes
 		// - creates a pending audit for a particular node in that file
@@ -592,14 +590,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 1,
-			RepairShares:   2,
-			OptimalShares:  4,
-			TotalShares:    4,
-		}
-		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -634,7 +625,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 
 		// upload another file to call reverify on
 		testData2 := testrand.Bytes(8 * memory.KiB)
-		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path2", testData2)
+		err = ul.Upload(ctx, satellite, "testbucket", "test/path2", testData2)
 		require.NoError(t, err)
 
 		// select the encrypted path that was not used for the pending audit
@@ -664,6 +655,10 @@ func TestReverifyModifiedSegment(t *testing.T) {
 func TestReverifyDifferentShare(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			// upload to three nodes so there is definitely at least one node overlap between the two files
+			Satellite: testplanet.ReconfigureRS(1, 2, 3, 3),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// - uploads random data to two files
 		// - get a random stripe to audit from file 1
@@ -683,18 +678,11 @@ func TestReverifyDifferentShare(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		testData2 := testrand.Bytes(8 * memory.KiB)
-		// upload to three nodes so there is definitely at least one node overlap between the two files
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 1,
-			RepairShares:   2,
-			OptimalShares:  3,
-			TotalShares:    3,
-		}
-		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
 
-		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path2", testData2)
+		err = ul.Upload(ctx, satellite, "testbucket", "test/path2", testData2)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -834,6 +822,10 @@ func TestReverifyExpired1(t *testing.T) {
 func TestReverifyExpired2(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			// upload to three nodes so there is definitely at least one node overlap between the two files
+			Satellite: testplanet.ReconfigureRS(1, 2, 3, 3),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
@@ -844,18 +836,11 @@ func TestReverifyExpired2(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		testData2 := testrand.Bytes(8 * memory.KiB)
-		// upload to three nodes so there is definitely at least one node overlap between the two files
-		rs := &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 1,
-			RepairShares:   2,
-			OptimalShares:  3,
-			TotalShares:    3,
-		}
-		err := ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path1", testData1)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
 
-		err = ul.UploadWithConfig(ctx, satellite, rs, "testbucket", "test/path2", testData2)
+		err = ul.Upload(ctx, satellite, "testbucket", "test/path2", testData2)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -968,6 +953,11 @@ func TestReverifySlowDownload(t *testing.T) {
 				// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
 				config.Audit.MinBytesPerSecond = 100 * memory.KiB
 				config.Audit.MinDownloadTimeout = 500 * time.Millisecond
+
+				config.Metainfo.RS.MinThreshold = 2
+				config.Metainfo.RS.RepairThreshold = 2
+				config.Metainfo.RS.SuccessThreshold = 4
+				config.Metainfo.RS.TotalThreshold = 4
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -979,14 +969,7 @@ func TestReverifySlowDownload(t *testing.T) {
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
-
-		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   2,
-			OptimalShares:  4,
-			TotalShares:    4,
-		}, "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
@@ -1062,6 +1045,7 @@ func TestReverifyUnknownError(t *testing.T) {
 			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewBadDB(log.Named("baddb"), db), nil
 			},
+			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -1072,14 +1056,7 @@ func TestReverifyUnknownError(t *testing.T) {
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
-
-		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   2,
-			OptimalShares:  4,
-			TotalShares:    4,
-		}, "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()

@@ -12,7 +12,7 @@ import (
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensures that projectMembers implements console.ProjectMembers.
@@ -139,6 +139,9 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 		pm.MemberID = memberID
 
 		projectMembers = append(projectMembers, pm)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	page.ProjectMembers = projectMembers

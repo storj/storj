@@ -4,7 +4,6 @@
 package sqliteutil_test
 
 import (
-	"database/sql"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -15,22 +14,23 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/sqliteutil"
+	"storj.io/storj/private/tagsql"
 )
 
 func TestQuery(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := tagsql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
 
 	defer ctx.Check(db.Close)
 
-	emptySchema, err := sqliteutil.QuerySchema(db)
+	emptySchema, err := sqliteutil.QuerySchema(ctx, db)
 	assert.NoError(t, err)
 	assert.Equal(t, &dbschema.Schema{}, emptySchema)
 
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		CREATE TABLE users (
 			a integer NOT NULL,
 			b integer NOT NULL,
@@ -52,7 +52,7 @@ func TestQuery(t *testing.T) {
 
 	require.NoError(t, err)
 
-	schema, err := sqliteutil.QuerySchema(db)
+	schema, err := sqliteutil.QuerySchema(ctx, db)
 	assert.NoError(t, err)
 
 	expected := &dbschema.Schema{

@@ -8,12 +8,13 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 
-	hw "github.com/jtolds/monkit-hw"
-	"github.com/zeebo/admission/admproto"
+	hw "github.com/jtolds/monkit-hw/v2"
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3/environment"
+	"github.com/zeebo/admission/v2/admproto"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-	"gopkg.in/spacemonkeygo/monkit.v2/environment"
 
 	"storj.io/common/identity"
 	"storj.io/storj/pkg/cfgstruct"
@@ -43,14 +44,19 @@ func flagDefault(dev, release string) string {
 // InitMetrics initializes telemetry reporting. Makes a telemetry.Client and calls
 // its Run() method in a goroutine.
 func InitMetrics(ctx context.Context, log *zap.Logger, r *monkit.Registry, instanceID string) (err error) {
+	if r == nil {
+		r = monkit.Default
+	}
+	environment.Register(r)
+	hw.Register(r)
+	r.ScopeNamed("env").Chain(monkit.StatSourceFunc(version.Build.Stats))
+
 	log = log.Named("telemetry")
 	if *metricCollector == "" || *metricInterval == 0 {
 		log.Info("disabled")
 		return nil
 	}
-	if r == nil {
-		r = monkit.Default
-	}
+
 	if instanceID == "" {
 		instanceID = telemetry.DefaultInstanceID()
 	}
@@ -68,9 +74,6 @@ func InitMetrics(ctx context.Context, log *zap.Logger, r *monkit.Registry, insta
 	if err != nil {
 		return err
 	}
-	environment.Register(r)
-	hw.Register(r)
-	r.ScopeNamed("env").Chain("version", monkit.StatSourceFunc(version.Build.Stats))
 	go c.Run(ctx)
 	return nil
 }
@@ -85,6 +88,19 @@ func InitMetricsWithCertPath(ctx context.Context, log *zap.Logger, r *monkit.Reg
 		metricsID = "" // InitMetrics() will fill in a default value
 	} else {
 		metricsID = nodeID.String()
+	}
+	return InitMetrics(ctx, log, r, metricsID)
+}
+
+// InitMetricsWithHostname initializes telemetry reporting, using the hostname as the telemetry instance ID.
+func InitMetricsWithHostname(ctx context.Context, log *zap.Logger, r *monkit.Registry) error {
+	var metricsID string
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Sugar().Errorf("Could not read hostname for telemetry setup: %v", err)
+		metricsID = "" // InitMetrics() will fill in a default value
+	} else {
+		metricsID = strings.ReplaceAll(hostname, ".", "_")
 	}
 	return InitMetrics(ctx, log, r, metricsID)
 }

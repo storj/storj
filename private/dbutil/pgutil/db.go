@@ -4,15 +4,16 @@
 package pgutil
 
 import (
-	"database/sql"
+	"context"
 	"strings"
 
 	"github.com/lib/pq"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/dbschema"
+	"storj.io/storj/private/tagsql"
 )
 
 var (
@@ -22,7 +23,7 @@ var (
 // OpenUnique opens a postgres database with a temporary unique schema, which will be cleaned up
 // when closed. It is expected that this should normally be used by way of
 // "storj.io/storj/private/dbutil/tempdb".OpenUnique() instead of calling it directly.
-func OpenUnique(connstr string, schemaPrefix string) (*dbutil.TempDatabase, error) {
+func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbutil.TempDatabase, error) {
 	// sanity check, because you get an unhelpful error message when this happens
 	if strings.HasPrefix(connstr, "cockroach://") {
 		return nil, errs.New("can't connect to cockroach using pgutil.OpenUnique()! connstr=%q. try tempdb.OpenUnique() instead?", connstr)
@@ -31,23 +32,23 @@ func OpenUnique(connstr string, schemaPrefix string) (*dbutil.TempDatabase, erro
 	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
 	connStrWithSchema := ConnstrWithSchema(connstr, schemaName)
 
-	db, err := sql.Open("postgres", connStrWithSchema)
+	db, err := tagsql.Open("postgres", connStrWithSchema)
 	if err == nil {
 		// check that connection actually worked before trying CreateSchema, to make
 		// troubleshooting (lots) easier
-		err = db.Ping()
+		err = db.PingContext(ctx)
 	}
 	if err != nil {
-		return nil, errs.New("failed to connect to %q with driver postgres: %v", connStrWithSchema, err)
+		return nil, errs.New("failed to connect to %q with driver postgres: %w", connStrWithSchema, err)
 	}
 
-	err = CreateSchema(db, schemaName)
+	err = CreateSchema(ctx, db, schemaName)
 	if err != nil {
 		return nil, errs.Combine(err, db.Close())
 	}
 
-	cleanup := func(cleanupDB *sql.DB) error {
-		return DropSchema(cleanupDB, schemaName)
+	cleanup := func(cleanupDB tagsql.DB) error {
+		return DropSchema(ctx, cleanupDB, schemaName)
 	}
 
 	dbutil.Configure(db, mon)
@@ -62,13 +63,13 @@ func OpenUnique(connstr string, schemaPrefix string) (*dbutil.TempDatabase, erro
 }
 
 // QuerySnapshot loads snapshot from database
-func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
-	schema, err := QuerySchema(db)
+func QuerySnapshot(ctx context.Context, db dbschema.Queryer) (*dbschema.Snapshot, error) {
+	schema, err := QuerySchema(ctx, db)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := QueryData(db, schema)
+	data, err := QueryData(ctx, db, schema)
 	if err != nil {
 		return nil, err
 	}

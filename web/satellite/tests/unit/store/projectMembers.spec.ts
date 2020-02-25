@@ -121,7 +121,7 @@ describe('mutations', () => {
     });
 });
 
-describe('actions', async () => {
+describe('actions', () => {
     beforeEach(() => {
         jest.resetAllMocks();
     });

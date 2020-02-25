@@ -18,6 +18,7 @@ import (
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
+	"storj.io/storj/pkg/debug"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/storagenode"
@@ -30,6 +31,7 @@ import (
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/trust"
@@ -83,6 +85,12 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					},
 				},
 			},
+			Debug: debug.Config{
+				Address: "",
+			},
+			Preflight: preflight.Config{
+				LocalTimeCheck: false,
+			},
 			Operator: storagenode.OperatorConfig{
 				Email:  prefix + "@mail.test",
 				Wallet: "0x" + strings.Repeat("00", 20),
@@ -106,10 +114,12 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				StaticDir: filepath.Join(developmentRoot, "web/storagenode/"),
 			},
 			Storage2: piecestore.Config{
-				CacheSyncInterval:     defaultInterval,
-				ExpirationGracePeriod: 0,
-				MaxConcurrentRequests: 100,
-				OrderLimitGracePeriod: time.Hour,
+				CacheSyncInterval:       defaultInterval,
+				ExpirationGracePeriod:   0,
+				MaxConcurrentRequests:   100,
+				OrderLimitGracePeriod:   time.Hour,
+				StreamOperationTimeout:  time.Hour,
+				ReportCapacityThreshold: 100 * memory.MB,
 				Orders: orders.Config{
 					SenderInterval:  defaultInterval,
 					SenderTimeout:   10 * time.Minute,
@@ -128,6 +138,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				},
 			},
 			Retain: retain.Config{
+				MaxTimeSkew: 10 * time.Second,
 				Status:      retain.Enabled,
 				Concurrency: 5,
 			},

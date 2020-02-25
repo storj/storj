@@ -26,11 +26,11 @@ import { Component, Vue } from 'vue-property-decorator';
 import AccountSettingsIcon from '@/../static/images/header/accountSettings.svg';
 import LogoutIcon from '@/../static/images/header/logout.svg';
 
+import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
-import { AuthToken } from '@/utils/authToken';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
@@ -46,17 +46,34 @@ import { LocalData } from '@/utils/localData';
     },
 })
 export default class AccountDropdown extends Vue {
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    /**
+     * Closes account dropdown.
+     */
     public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
     }
 
+    /**
+     * Changes location to account root route.
+     */
     public onAccountSettingsClick(): void {
         this.$router.push(RouteConfig.Account.with(RouteConfig.Profile).path);
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
     }
 
-    public onLogoutClick(): void {
-        AuthToken.remove();
+    /**
+     * Performs logout on backend than clears all user information from store and local storage.
+     */
+    public async onLogoutClick(): Promise<void> {
+        try {
+            await this.auth.logout();
+        } catch (error) {
+            await this.$notify.error(error.message);
+
+            return;
+        }
 
         this.$router.push(RouteConfig.Login.path);
         this.$store.dispatch(PM_ACTIONS.CLEAR);
@@ -65,6 +82,7 @@ export default class AccountDropdown extends Vue {
         this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
         this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
         this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
 
         LocalData.removeUserId();
     }
@@ -74,13 +92,14 @@ export default class AccountDropdown extends Vue {
 <style scoped lang="scss">
     .account-dropdown-choice-container {
         position: absolute;
-        top: 9vh;
+        top: 75px;
         right: 0;
         border-radius: 4px;
-        padding: 10px 0 10px 0;
+        padding: 10px 0;
         box-shadow: 0 4px rgba(231, 232, 238, 0.6);
         background-color: #fff;
         z-index: 1120;
+        border-top: 1px solid rgba(169, 181, 193, 0.3);
     }
 
     .account-dropdown-overflow-container {

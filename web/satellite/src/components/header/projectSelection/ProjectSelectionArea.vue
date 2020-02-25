@@ -5,6 +5,7 @@
     <div class="project-selection-container" id="projectDropdownButton">
         <p class="project-selection-container__no-projects-text" v-if="!hasProjects">You have no projects</p>
         <div class="project-selection-toggle-container" @click="toggleSelection" v-if="hasProjects">
+            <p class="project-selection-toggle-container__common">Project:</p>
             <h1 class="project-selection-toggle-container__name">{{name}}</h1>
             <div class="project-selection-toggle-container__expander-area">
                 <ExpandIcon
@@ -41,27 +42,47 @@ import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
     },
 })
 export default class ProjectSelectionArea extends Vue {
+    private isLoading: boolean = false;
+
+    /**
+     * Fetches projects related information and than toggles selection popup.
+     */
     public async toggleSelection(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
             await this.$notify.error(error.message);
+            this.isLoading = false;
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
+        this.isLoading = false;
     }
 
+    /**
+     * Return selected project name if it is, if not returns default label.
+     */
     public get name(): string {
         const selectedProject: Project = this.$store.state.projectsModule.selectedProject;
 
         return selectedProject.id ? selectedProject.name : 'Choose project';
     }
 
+    /**
+     * Indicates if project selection dropdown should be rendered.
+     */
     public get isDropdownShown(): boolean {
         return this.$store.state.appStateModule.appState.isProjectsDropdownShown;
     }
 
+    /**
+     * Indicates if user has projects.
+     */
     public get hasProjects(): boolean {
         return !!this.$store.state.projectsModule.projects.length;
     }
@@ -92,6 +113,17 @@ export default class ProjectSelectionArea extends Vue {
         width: 100%;
         height: 50px;
 
+        &__common {
+            font-family: 'font_medium', sans-serif;
+            font-size: 16px;
+            line-height: 23px;
+            color: rgba(56, 75, 101, 0.4);
+            opacity: 0.7;
+            cursor: pointer;
+            user-select: none;
+            margin-right: 5px;
+        }
+
         &__name {
             font-family: 'font_medium', sans-serif;
             font-size: 16px;
@@ -120,6 +152,10 @@ export default class ProjectSelectionArea extends Vue {
         .project-selection-toggle-container {
             justify-content: space-between;
             margin-left: 10px;
+
+            &__common {
+                display: none;
+            }
         }
     }
 </style>

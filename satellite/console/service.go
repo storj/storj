@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -52,17 +53,22 @@ const (
 	projLimitVanguardErrMsg    = "Sorry, during the Vanguard release you have a limited number of projects"
 )
 
-// Error describes internal console error.
-var Error = errs.Class("service error")
+var (
+	// Error describes internal console error.
+	Error = errs.Class("service error")
 
-// ErrNoMembership is error type of not belonging to a specific project.
-var ErrNoMembership = errs.Class("no membership error")
+	// ErrNoMembership is error type of not belonging to a specific project.
+	ErrNoMembership = errs.Class("no membership error")
 
-// ErrTokenExpiration is error type of token reached expiration time.
-var ErrTokenExpiration = errs.Class("token expiration error")
+	// ErrTokenExpiration is error type of token reached expiration time.
+	ErrTokenExpiration = errs.Class("token expiration error")
 
-// ErrProjLimit is error type of project limit.
-var ErrProjLimit = errs.Class("project limit error")
+	// ErrProjLimit is error type of project limit.
+	ErrProjLimit = errs.Class("project limit error")
+
+	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
+	ErrEmailUsed = errs.Class("email used")
+)
 
 // Service is handling accounts related logic
 //
@@ -114,13 +120,13 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 	}, nil
 }
 
-// Payments separates all payment related functionality
+// Payments separates all payment related functionality.
 func (s *Service) Payments() PaymentsService {
 	return PaymentsService{service: s}
 }
 
 // SetupAccount creates payment account for authorized user.
-func (payments PaymentsService) SetupAccount(ctx context.Context) (err error) {
+func (paymentService PaymentsService) SetupAccount(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -128,11 +134,11 @@ func (payments PaymentsService) SetupAccount(ctx context.Context) (err error) {
 		return err
 	}
 
-	return payments.service.accounts.Setup(ctx, auth.User.ID, auth.User.Email)
+	return paymentService.service.accounts.Setup(ctx, auth.User.ID, auth.User.Email)
 }
 
 // AccountBalance return account balance.
-func (payments PaymentsService) AccountBalance(ctx context.Context) (balance int64, err error) {
+func (paymentService PaymentsService) AccountBalance(ctx context.Context) (balance int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -140,23 +146,33 @@ func (payments PaymentsService) AccountBalance(ctx context.Context) (balance int
 		return 0, err
 	}
 
-	return payments.service.accounts.Balance(ctx, auth.User.ID)
+	return paymentService.service.accounts.Balance(ctx, auth.User.ID)
 }
 
 // AddCreditCard is used to save new credit card and attach it to payment account.
-func (payments PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
+func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
 	defer mon.Task()(&ctx, creditCardToken)(&err)
 
 	auth, err := GetAuth(ctx)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
-	return payments.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
+	err = Error.Wrap(paymentService.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = paymentService.AddPromotionalCoupon(ctx, auth.User.ID, 2, 5500, memory.TB)
+	if err != nil {
+		paymentService.service.log.Debug(fmt.Sprintf("could not add promotional coupon sof user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+	}
+
+	return nil
 }
 
 // MakeCreditCardDefault makes a credit card default payment method.
-func (payments PaymentsService) MakeCreditCardDefault(ctx context.Context, cardID string) (err error) {
+func (paymentService PaymentsService) MakeCreditCardDefault(ctx context.Context, cardID string) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -164,11 +180,11 @@ func (payments PaymentsService) MakeCreditCardDefault(ctx context.Context, cardI
 		return err
 	}
 
-	return payments.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, cardID)
+	return paymentService.service.accounts.CreditCards().MakeDefault(ctx, auth.User.ID, cardID)
 }
 
 // ProjectsCharges returns how much money current user will be charged for each project which he owns.
-func (payments PaymentsService) ProjectsCharges(ctx context.Context) (_ []payments.ProjectCharge, err error) {
+func (paymentService PaymentsService) ProjectsCharges(ctx context.Context) (_ []payments.ProjectCharge, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -176,11 +192,11 @@ func (payments PaymentsService) ProjectsCharges(ctx context.Context) (_ []paymen
 		return nil, err
 	}
 
-	return payments.service.accounts.ProjectCharges(ctx, auth.User.ID)
+	return paymentService.service.accounts.ProjectCharges(ctx, auth.User.ID)
 }
 
 // ListCreditCards returns a list of credit cards for a given payment account.
-func (payments PaymentsService) ListCreditCards(ctx context.Context) (_ []payments.CreditCard, err error) {
+func (paymentService PaymentsService) ListCreditCards(ctx context.Context) (_ []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -188,11 +204,11 @@ func (payments PaymentsService) ListCreditCards(ctx context.Context) (_ []paymen
 		return nil, err
 	}
 
-	return payments.service.accounts.CreditCards().List(ctx, auth.User.ID)
+	return paymentService.service.accounts.CreditCards().List(ctx, auth.User.ID)
 }
 
 // RemoveCreditCard is used to detach a credit card from payment account.
-func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID string) (err error) {
+func (paymentService PaymentsService) RemoveCreditCard(ctx context.Context, cardID string) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -200,11 +216,11 @@ func (payments PaymentsService) RemoveCreditCard(ctx context.Context, cardID str
 		return err
 	}
 
-	return payments.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
+	return paymentService.service.accounts.CreditCards().Remove(ctx, auth.User.ID, cardID)
 }
 
-// BillingHistory returns a list of invoices, transactions and all others billing history items for payment account.
-func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
+// BillingHistory returns a list of billing history items for payment account.
+func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -212,12 +228,11 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		return nil, err
 	}
 
-	invoices, err := payments.service.accounts.Invoices().List(ctx, auth.User.ID)
+	invoices, err := paymentService.service.accounts.Invoices().List(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	// TODO: add transactions, etc in future
 	for _, invoice := range invoices {
 		billingHistory = append(billingHistory, &BillingHistoryItem{
 			ID:          invoice.ID,
@@ -231,7 +246,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		})
 	}
 
-	txsInfos, err := payments.service.accounts.StorjTokens().ListTransactionInfos(ctx, auth.User.ID)
+	txsInfos, err := paymentService.service.accounts.StorjTokens().ListTransactionInfos(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -250,7 +265,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		})
 	}
 
-	charges, err := payments.service.accounts.Charges(ctx, auth.User.ID)
+	charges, err := paymentService.service.accounts.Charges(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -267,6 +282,42 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 		})
 	}
 
+	coupons, err := paymentService.service.accounts.Coupons().ListByUserID(ctx, auth.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, coupon := range coupons {
+		billingHistory = append(billingHistory,
+			&BillingHistoryItem{
+				ID:          coupon.ID.String(),
+				Description: coupon.Description,
+				Amount:      coupon.Amount,
+				Status:      "Added to balance",
+				Link:        "",
+				Start:       coupon.Created,
+				Type:        Coupon,
+			},
+		)
+	}
+
+	credits, err := paymentService.service.accounts.Credits().ListByUserID(ctx, auth.User.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, credit := range credits {
+		billingHistory = append(billingHistory,
+			&BillingHistoryItem{
+				Description: "10% bonus for deposit made in STORJ",
+				Amount:      credit.Amount,
+				Status:      "Added to balance",
+				Start:       credit.Created,
+				Type:        Credits,
+			},
+		)
+	}
+
 	sort.SliceStable(billingHistory,
 		func(i, j int) bool {
 			return billingHistory[i].Start.After(billingHistory[j].Start)
@@ -277,7 +328,7 @@ func (payments PaymentsService) BillingHistory(ctx context.Context) (billingHist
 }
 
 // TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
-func (payments PaymentsService) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
+func (paymentService PaymentsService) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -285,8 +336,32 @@ func (payments PaymentsService) TokenDeposit(ctx context.Context, amount int64) 
 		return nil, err
 	}
 
-	tx, err := payments.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
+	tx, err := paymentService.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
 	return tx, errs.Wrap(err)
+}
+
+// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
+// a project, payment method and do not have a promotional coupon yet.
+// And updates project limits to selected size.
+func (paymentService PaymentsService) PopulatePromotionalCoupons(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return Error.Wrap(paymentService.service.accounts.Coupons().PopulatePromotionalCoupons(ctx, 2, 5500, memory.TB))
+}
+
+// AddPromotionalCoupon creates new coupon for specified user.
+func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID, duration int, amount int64, limit memory.Size) (err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	cards, err := paymentService.ListCreditCards(ctx)
+	if err != nil {
+		return err
+	}
+	if len(cards) == 0 {
+		return errs.New("user don't have a payment method")
+	}
+
+	return paymentService.service.accounts.Coupons().AddPromotionalCoupon(ctx, userID, duration, amount, limit)
 }
 
 // CreateUser gets password hash value and creates new inactive User
@@ -317,25 +392,14 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	// TODO: remove after vanguard release
-	// when user uses an open source partner referral link, there won't be a registration token in the link.
-	// therefore, we need to create one so we can still control the project limit on the account level
-	var registrationToken *RegistrationToken
-	if user.PartnerID != "" {
-		// set the project limit to be 1 for open source partner invitees
-		registrationToken, err = s.store.RegistrationTokens().Create(ctx, 1)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-	} else {
-		registrationToken, err = s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
-		if err != nil {
-			return nil, ErrUnauthorized.Wrap(err)
-		}
-		// if a registration token is already associated with an user ID, that means the token is already used
-		// we should terminate the account creation process and return an error
-		if registrationToken.OwnerID != nil {
-			return nil, errs.New(usedRegTokenVanguardErrMsg)
-		}
+	registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+	// if a registration token is already associated with an user ID, that means the token is already used
+	// we should terminate the account creation process and return an error
+	if registrationToken.OwnerID != nil {
+		return nil, errs.New(usedRegTokenVanguardErrMsg)
 	}
 
 	u, err = s.store.Users().GetByEmail(ctx, user.Email)
@@ -361,6 +425,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			FullName:     user.FullName,
 			ShortName:    user.ShortName,
 			PasswordHash: hash,
+			Status:       Inactive,
 		}
 		if user.PartnerID != "" {
 			partnerID, err := uuid.Parse(user.PartnerID)
@@ -462,7 +527,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	_, err = s.store.Users().GetByEmail(ctx, claims.Email)
 	if err == nil {
-		return errs.New(emailUsedErrMsg)
+		return ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
 	user, err := s.store.Users().Get(ctx, claims.ID)
@@ -471,10 +536,6 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	}
 
 	now := time.Now()
-
-	if user.Status == Active {
-		return errs.New("account is already active")
-	}
 
 	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
 		return ErrTokenExpiration.Wrap(err)
@@ -798,6 +859,20 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 	if err != nil {
 		return nil, err
+	}
+
+	cards, err := s.accounts.CreditCards().List(ctx, auth.User.ID)
+	if err != nil {
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+		return p, nil
+	}
+	if len(cards) == 0 {
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s - no payment methods", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+		return p, nil
+	}
+	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID, 2, 5500, memory.TB)
+	if err != nil {
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 	}
 
 	return p, nil
@@ -1233,11 +1308,7 @@ func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 
 	user, err := s.authorize(ctx, claims)
 	if err != nil {
-		if ErrUnauthorized.Has(err) {
-			return Authorization{}, ErrUnauthorized.Wrap(err)
-		}
-
-		return Authorization{}, ErrTokenExpiration.Wrap(err)
+		return Authorization{}, ErrUnauthorized.Wrap(err)
 	}
 
 	return Authorization{
@@ -1320,7 +1391,7 @@ func (s *Service) authenticate(ctx context.Context, token consoleauth.Token) (_ 
 func (s *Service) authorize(ctx context.Context, claims *consoleauth.Claims) (_ *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !claims.Expiration.IsZero() && claims.Expiration.Before(time.Now()) {
-		return nil, errs.New("token is outdated")
+		return nil, ErrTokenExpiration.New("")
 	}
 
 	user, err := s.store.Users().Get(ctx, claims.ID)

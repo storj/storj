@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/bloomfilter"
 	"storj.io/common/pb"
@@ -18,7 +18,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/piecestore"
+	"storj.io/uplink/private/piecestore"
 )
 
 var (
@@ -29,8 +29,9 @@ var (
 
 // Config contains configurable values for garbage collection
 type Config struct {
-	Interval time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m"`
-	Enabled  bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
+	Interval  time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m"`
+	Enabled   bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
+	SkipFirst bool          `help:"if true, skip the first run of GC" releaseDefault:"true" devDefault:"false"`
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int           `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate float64       `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
@@ -44,7 +45,7 @@ type Config struct {
 type Service struct {
 	log    *zap.Logger
 	config Config
-	Loop   sync2.Cycle
+	Loop   *sync2.Cycle
 
 	dialer       rpc.Dialer
 	overlay      overlay.DB
@@ -61,10 +62,9 @@ type RetainInfo struct {
 // NewService creates a new instance of the gc service
 func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overlay.DB, loop *metainfo.Loop) *Service {
 	return &Service{
-		log:    log,
-		config: config,
-		Loop:   *sync2.NewCycle(config.Interval),
-
+		log:          log,
+		config:       config,
+		Loop:         sync2.NewCycle(config.Interval),
 		dialer:       dialer,
 		overlay:      overlay,
 		metainfoLoop: loop,
@@ -77,6 +77,14 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	if !service.config.Enabled {
 		return nil
+	}
+
+	if service.config.SkipFirst {
+		// make sure the metainfo loop runs once
+		err = service.metainfoLoop.Join(ctx, metainfo.NullObserver{})
+		if err != nil {
+			return err
+		}
 	}
 
 	// load last piece counts from overlay db

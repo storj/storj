@@ -5,6 +5,7 @@ package consoleweb
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"html/template"
 	"mime"
@@ -20,25 +21,24 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
+	"github.com/graphql-go/graphql/gqlerrors"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/referrals"
 )
 
 const (
-	authorization = "Authorization"
-	contentType   = "Content-Type"
-
-	authorizationBearer = "Bearer "
+	contentType = "Content-Type"
 
 	applicationJSON    = "application/json"
 	applicationGraphql = "application/graphql"
@@ -84,8 +84,9 @@ type Server struct {
 	mailService      *mailservice.Service
 	referralsService *referrals.Service
 
-	listener net.Listener
-	server   http.Server
+	listener   net.Listener
+	server     http.Server
+	cookieAuth *consolewebauth.CookieAuth
 
 	stripePublicKey string
 
@@ -115,6 +116,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
 
+	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
+		Name: "_tokenKey",
+		Path: "/",
+	})
+
 	if server.config.ExternalAddress != "" {
 		if !strings.HasSuffix(server.config.ExternalAddress, "/") {
 			server.config.ExternalAddress += "/"
@@ -126,9 +132,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router := mux.NewRouter()
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
-	router.HandleFunc("/api/v0/graphql", server.grapqlHandler)
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
+	router.HandleFunc("/populate-promotional-coupons", server.populatePromotionalCoupons).Methods(http.MethodPost)
 	router.HandleFunc("/robots.txt", server.seoHandler)
+
+	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.grapqlHandler)))
 
 	router.Handle(
 		"/api/v0/projects/{id}/usage-limits",
@@ -140,12 +148,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	referralsRouter.Handle("/tokens", server.withAuth(http.HandlerFunc(referralsController.GetTokens))).Methods(http.MethodGet)
 	referralsRouter.HandleFunc("/register", referralsController.Register).Methods(http.MethodPost)
 
-	authController := consoleapi.NewAuth(logger, service, mailService, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
 	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
 	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
+	authRouter.HandleFunc("/logout", authController.Logout).Methods(http.MethodPost)
 	authRouter.HandleFunc("/token", authController.Token).Methods(http.MethodPost)
 	authRouter.HandleFunc("/register", authController.Register).Methods(http.MethodPost)
 	authRouter.HandleFunc("/forgot-password/{email}", authController.ForgotPassword).Methods(http.MethodPost)
@@ -181,7 +190,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	return &server
 }
 
-// Run starts the server that host webapp and api endpoint
+// Run starts the server that host webapp and api endpoint.
 func (server *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -252,36 +261,46 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 // authMiddlewareHandler performs initial authorization before every request.
 func (server *Server) withAuth(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
 		var err error
-		defer mon.Task()(&ctx)(&err)
-		token := getToken(r)
+		var ctx context.Context
 
-		ctx = auth.WithAPIKey(ctx, []byte(token))
-		auth, err := server.service.Authorize(ctx)
-		if err != nil {
-			ctx = console.WithAuthFailure(ctx, err)
-		} else {
-			ctx = console.WithAuth(ctx, auth)
+		defer mon.Task()(&ctx)(&err)
+
+		ctxWithAuth := func(ctx context.Context) context.Context {
+			token, err := server.cookieAuth.GetToken(r)
+			if err != nil {
+				return console.WithAuthFailure(ctx, err)
+			}
+
+			ctx = auth.WithAPIKey(ctx, []byte(token))
+
+			auth, err := server.service.Authorize(ctx)
+			if err != nil {
+				return console.WithAuthFailure(ctx, err)
+			}
+
+			return console.WithAuth(ctx, auth)
 		}
+
+		ctx = ctxWithAuth(r.Context())
 
 		handler.ServeHTTP(w, r.Clone(ctx))
 	})
 }
 
-// bucketUsageReportHandler generate bucket usage report page for project
+// bucketUsageReportHandler generate bucket usage report page for project.
 func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	tokenCookie, err := r.Cookie("_tokenKey")
+	token, err := server.cookieAuth.GetToken(r)
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return
 	}
 
-	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
+	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return
@@ -326,7 +345,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
-// accountActivationHandler is web app http handler function
+// createRegistrationTokenHandler is web app http handler function.
 func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -344,8 +363,11 @@ func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *h
 		}
 	}()
 
-	authToken := r.Header.Get("Authorization")
-	if authToken != server.config.AuthToken {
+	equality := subtle.ConstantTimeCompare(
+		[]byte(r.Header.Get("Authorization")),
+		[]byte(server.config.AuthToken),
+	)
+	if equality != 1 {
 		w.WriteHeader(401)
 		response.Error = "unauthorized"
 		return
@@ -368,6 +390,45 @@ func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *h
 	response.Secret = token.Secret.String()
 }
 
+// populatePromotionalCoupons is web app http handler function for populating promotional coupons.
+func (server *Server) populatePromotionalCoupons(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var ctx context.Context
+
+	defer mon.Task()(&ctx)(&err)
+
+	handleError := func(status int, err error) {
+		w.WriteHeader(status)
+		w.Header().Set(contentType, applicationJSON)
+
+		var response struct {
+			Error string `json:"error"`
+		}
+
+		response.Error = err.Error()
+
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
+		}
+	}
+
+	ctx = r.Context()
+
+	equality := subtle.ConstantTimeCompare(
+		[]byte(r.Header.Get("Authorization")),
+		[]byte(server.config.AuthToken),
+	)
+	if equality != 1 {
+		handleError(http.StatusUnauthorized, errs.New("unauthorized"))
+		return
+	}
+
+	if err = server.service.Payments().PopulatePromotionalCoupons(ctx); err != nil {
+		handleError(http.StatusInternalServerError, err)
+		return
+	}
+}
+
 // accountActivationHandler is web app http handler function
 func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -380,15 +441,21 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 			zap.String("token", activationToken),
 			zap.Error(err))
 
-		// TODO: when new error pages will be created - change http.StatusNotFound on appropriate one
+		if console.ErrEmailUsed.Has(err) {
+			server.serveError(w, http.StatusConflict)
+			return
+		}
+
+		if console.Error.Has(err) {
+			server.serveError(w, http.StatusInternalServerError)
+			return
+		}
+
 		server.serveError(w, http.StatusNotFound)
 		return
 	}
 
-	if err = server.templates.activated.Execute(w, nil); err != nil {
-		server.log.Error("account activated template could not be executed", zap.Error(Error.Wrap(err)))
-		return
-	}
+	http.Redirect(w, r, server.config.ExternalAddress+"login?activated=true", http.StatusTemporaryRedirect)
 }
 
 func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
@@ -400,6 +467,12 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 		server.serveError(w, http.StatusNotFound)
 		return
 	}
+
+	var data struct {
+		SatelliteName string
+	}
+
+	data.SatelliteName = server.config.SatelliteName
 
 	switch r.Method {
 	case http.MethodPost:
@@ -422,12 +495,12 @@ func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		if err := server.templates.success.Execute(w, nil); err != nil {
+		if err := server.templates.success.Execute(w, data); err != nil {
 			server.log.Error("success reset password template could not be executed", zap.Error(Error.Wrap(err)))
 			return
 		}
 	case http.MethodGet:
-		if err := server.templates.resetPassword.Execute(w, nil); err != nil {
+		if err := server.templates.resetPassword.Execute(w, data); err != nil {
 			server.log.Error("reset password template could not be executed", zap.Error(Error.Wrap(err)))
 			return
 		}
@@ -468,7 +541,7 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 
 		jsonError.Error = err.Error()
 
-		if err := json.NewEncoder(w).Encode(err); err != nil {
+		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
 			server.log.Error("error encoding project usage limits error", zap.Error(err))
 		}
 	}
@@ -481,6 +554,8 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 			handleError(http.StatusInternalServerError, err)
 		}
 	}
+
+	w.Header().Set("Content-Type", "application/json")
 
 	if idParam, ok = mux.Vars(r)["id"]; !ok {
 		handleError(http.StatusBadRequest, errs.New("missing project id route param"))
@@ -509,21 +584,27 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	w.Header().Set(contentType, applicationJSON)
 
-	token := getToken(r)
-	query, err := getQuery(w, r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	handleError := func(code int, err error) {
+		w.WriteHeader(code)
+
+		var jsonError struct {
+			Error string `json:"error"`
+		}
+
+		jsonError.Error = err.Error()
+
+		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
+			server.log.Error("error graphql error", zap.Error(err))
+		}
 	}
 
-	ctx = auth.WithAPIKey(ctx, []byte(token))
-	auth, err := server.service.Authorize(ctx)
+	w.Header().Set(contentType, applicationJSON)
+
+	query, err := getQuery(w, r)
 	if err != nil {
-		ctx = console.WithAuthFailure(ctx, err)
-	} else {
-		ctx = console.WithAuth(ctx, auth)
+		handleError(http.StatusBadRequest, err)
+		return
 	}
 
 	rootObject := make(map[string]interface{})
@@ -546,14 +627,70 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 		RootObject:     rootObject,
 	})
 
-	err = json.NewEncoder(w).Encode(result)
-	if err != nil {
-		server.log.Error(err.Error())
+	getGqlError := func(err gqlerrors.FormattedError) error {
+		if gerr, ok := err.OriginalError().(*gqlerrors.Error); ok {
+			return gerr.OriginalError
+		}
+
+		return nil
+	}
+
+	parseConsoleError := func(err error) (int, error) {
+		switch {
+		case console.ErrUnauthorized.Has(err):
+			return http.StatusUnauthorized, err
+		case console.Error.Has(err):
+			return http.StatusInternalServerError, err
+		}
+
+		return 0, nil
+	}
+
+	handleErrors := func(code int, errors gqlerrors.FormattedErrors) {
+		w.WriteHeader(code)
+
+		var jsonError struct {
+			Errors []string `json:"errors"`
+		}
+
+		for _, err := range errors {
+			jsonError.Errors = append(jsonError.Errors, err.Message)
+		}
+
+		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
+			server.log.Error("error graphql error", zap.Error(err))
+		}
+	}
+
+	handleGraphqlErrors := func() {
+		for _, err := range result.Errors {
+			gqlErr := getGqlError(err)
+			if gqlErr == nil {
+				continue
+			}
+
+			code, err := parseConsoleError(gqlErr)
+			if err != nil {
+				handleError(code, err)
+				return
+			}
+		}
+
+		handleErrors(http.StatusOK, result.Errors)
+	}
+
+	if result.HasErrors() {
+		handleGraphqlErrors()
 		return
 	}
 
-	sugar := server.log.Sugar()
-	sugar.Debug(result)
+	err = json.NewEncoder(w).Encode(result)
+	if err != nil {
+		server.log.Error("error encoding grapql result", zap.Error(err))
+		return
+	}
+
+	server.log.Sugar().Debug(result)
 }
 
 // serveError serves error static pages.
@@ -566,10 +703,15 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 		if err != nil {
 			server.log.Error("cannot parse internalServerError template", zap.Error(Error.Wrap(err)))
 		}
-	default:
+	case http.StatusNotFound:
 		err := server.templates.notFound.Execute(w, nil)
 		if err != nil {
 			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
+		}
+	case http.StatusConflict:
+		err := server.templates.activated.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse already activated template", zap.Error(Error.Wrap(err)))
 		}
 	}
 }

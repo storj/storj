@@ -1,7 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// ProjectMember stores needed info about user info to show it on UI
+/**
+ * ProjectMember stores needed info about user info to show it on UI.
+ */
 import { SortDirection } from '@/types/common';
 import { User } from '@/types/users';
 
@@ -61,7 +63,9 @@ export interface ProjectMembersApi {
     get(projectId: string, cursor: ProjectMemberCursor): Promise<ProjectMembersPage>;
 }
 
-// ProjectMemberCursor is a type, used for paged project members request
+/**
+ * ProjectMemberCursor is a type, used for paged project members request.
+ */
 export class ProjectMemberCursor {
     public constructor(
         public search: string = '',
@@ -72,7 +76,9 @@ export class ProjectMemberCursor {
     }
 }
 
-// ProjectMembersPage is a type, used to describe paged project members list
+/**
+ * ProjectMembersPage is a type, used to describe paged project members list.
+ */
 export class ProjectMembersPage {
     public constructor(
         public projectMembers: ProjectMember[] = [],
@@ -86,7 +92,9 @@ export class ProjectMembersPage {
     }
 }
 
-// ProjectMember is a type, used to describe project member
+/**
+ * ProjectMember is a type, used to describe project member.
+ */
 export class ProjectMember {
     public user: User;
 

@@ -15,14 +15,14 @@ export class AuthHttpApi {
     private readonly REFERRAL_PATH: string = '/api/v0/referrals';
 
     /**
-     * Used to resend an registration confirmation email
+     * Used to resend an registration confirmation email.
      *
      * @param userId - id of newly created user
      * @throws Error
      */
     public async resendEmail(userId: string): Promise<void> {
         const path = `${this.ROOT_PATH}/resend-email/${userId}`;
-        const response = await this.http.post(path, userId, false);
+        const response = await this.http.post(path, userId);
         if (response.ok) {
             return;
         }
@@ -31,7 +31,7 @@ export class AuthHttpApi {
     }
 
     /**
-     * Used to get authentication token
+     * Used to get authentication token.
      *
      * @param email - email of the user
      * @param password - password of the user
@@ -43,7 +43,7 @@ export class AuthHttpApi {
             email: email,
             password: password,
         };
-        const response = await this.http.post(path, JSON.stringify(body), false);
+        const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             return await response.json();
         }
@@ -56,23 +56,38 @@ export class AuthHttpApi {
     }
 
     /**
-     * Used to restore password
+     * Used to logout user and delete auth cookie.
+     *
+     * @throws Error
+     */
+    public async logout(): Promise<void> {
+        const path = `${this.ROOT_PATH}/logout`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return;
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not logout. Please try again later');
+    }
+
+    /**
+     * Used to restore password.
      *
      * @param email - email of the user
      * @throws Error
      */
     public async forgotPassword(email: string): Promise<void> {
         const path = `${this.ROOT_PATH}/forgot-password/${email}`;
-        const response = await this.http.post(path, email, false);
-        if (response.ok) {
-            return;
-        }
-
-        throw new Error('can not resend password');
+        await this.http.post(path, email);
     }
 
     /**
-     * Used to update user full and short name
+     * Used to update user full and short name.
      *
      * @param userInfo - full name and short name of the user
      * @throws Error
@@ -83,7 +98,7 @@ export class AuthHttpApi {
             fullName: userInfo.fullName,
             shortName: userInfo.shortName,
         };
-        const response = await this.http.patch(path, JSON.stringify(body), true);
+        const response = await this.http.patch(path, JSON.stringify(body));
         if (response.ok) {
             return;
         }
@@ -92,22 +107,26 @@ export class AuthHttpApi {
     }
 
     /**
-     * Used to get user data
+     * Used to get user data.
      *
      * @throws Error
      */
     public async get(): Promise<User> {
         const path = `${this.ROOT_PATH}/account`;
-        const response = await this.http.get(path, true);
+        const response = await this.http.get(path);
         if (response.ok) {
             return await response.json();
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
         }
 
         throw new Error('can not get user data');
     }
 
     /**
-     * Used to change password
+     * Used to change password.
      *
      * @param password - old password of the user
      * @param newPassword - new password of the user
@@ -119,7 +138,7 @@ export class AuthHttpApi {
             password: password,
             newPassword: newPassword,
         };
-        const response = await this.http.post(path, JSON.stringify(body), true);
+        const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             return;
         }
@@ -135,7 +154,7 @@ export class AuthHttpApi {
     }
 
     /**
-     * Used to delete account
+     * Used to delete account.
      *
      * @param password - password of the user
      * @throws Error
@@ -145,7 +164,7 @@ export class AuthHttpApi {
         const body = {
             password: password,
         };
-        const response = await this.http.post(path, JSON.stringify(body), true);
+        const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             return;
         }
@@ -159,7 +178,7 @@ export class AuthHttpApi {
 
     // TODO: remove secret after Vanguard release
     /**
-     * Used to register account
+     * Used to register account.
      *
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release
@@ -179,7 +198,7 @@ export class AuthHttpApi {
             partnerId: user.partnerId ? user.partnerId : '',
         };
 
-        const response = await this.http.post(path, JSON.stringify(body), false);
+        const response = await this.http.post(path, JSON.stringify(body));
         if (!response.ok) {
             if (response.status === 401) {
                 throw new ErrorUnauthorized('we are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
@@ -192,7 +211,7 @@ export class AuthHttpApi {
     }
 
     /**
-     * Used to register account by referral link
+     * Used to register account by referral link.
      *
      * @param user - stores user information
      * @param referralToken - referral registration token
@@ -209,7 +228,7 @@ export class AuthHttpApi {
             email: user.email,
         };
 
-        const response = await this.http.post(path, JSON.stringify(body), false);
+        const response = await this.http.post(path, JSON.stringify(body));
         if (!response.ok) {
             if (response.status === 400) {
                 throw new Error('we are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');

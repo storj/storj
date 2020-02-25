@@ -32,6 +32,9 @@ import (
 func TestAuditPathCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(3, 4, 5, 5),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		satellite.Audit.Worker.Loop.Pause()
@@ -42,13 +45,7 @@ func TestAuditPathCollector(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			testData := testrand.Bytes(8 * memory.KiB)
 			path := "/some/remote/path/" + string(i)
-			err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-				Algorithm:      storj.ReedSolomon,
-				RequiredShares: 3,
-				RepairShares:   4,
-				OptimalShares:  5,
-				TotalShares:    5,
-			}, "testbucket", path, testData)
+			err := ul.Upload(ctx, satellite, "testbucket", path, testData)
 			require.NoError(t, err)
 		}
 

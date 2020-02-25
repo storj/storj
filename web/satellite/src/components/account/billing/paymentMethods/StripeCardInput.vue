@@ -23,12 +23,19 @@ export default class StripeCardInput extends Vue {
     @Prop({default: () => console.error('onStripeResponse is not reinitialized')})
     private readonly onStripeResponseCallback: (result: any) => void;
 
-    // Stripe elements is using to create 'Add Card' form
+    /**
+     * Stripe elements is using to create 'Add Card' form.
+     */
     private cardElement: any;
 
-    // Stripe library
+    /**
+     * Stripe library.
+     */
     private stripe: any;
 
+    /**
+     * Stripe initialization after initial render.
+     */
     public async mounted(): Promise<void> {
         if (!window['Stripe']) {
             await this.$notify.error('Stripe library not loaded');
@@ -73,6 +80,12 @@ export default class StripeCardInput extends Vue {
         });
     }
 
+    /**
+     * Event after card adding.
+     * Returns token to callback and clears card input
+     *
+     * @param result stripe response
+     */
     public async onStripeResponse(result: any): Promise<void> {
         if (result.error) {
             return;
@@ -88,10 +101,16 @@ export default class StripeCardInput extends Vue {
         this.cardElement.clear();
     }
 
+    /**
+     * Clears listeners.
+     */
     public beforeDestroy() {
         this.cardElement.removeEventListener('change');
     }
 
+    /**
+     * Fires stripe event after all inputs are filled.
+     */
     public async onSubmit(): Promise<void> {
         await this.stripe.createToken(this.cardElement).then(this.onStripeResponse);
     }

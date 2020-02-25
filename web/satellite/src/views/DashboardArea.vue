@@ -43,7 +43,6 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { Project } from '@/types/projects';
-import { AuthToken } from '@/utils/authToken';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
@@ -69,15 +68,21 @@ const {
 export default class DashboardArea extends Vue {
     private readonly billingPath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
 
+    /**
+     * Lifecycle hook after initial render.
+     * Pre fetches user`s and project information.
+     */
     public async mounted(): Promise<void> {
         // TODO: combine all project related requests in one
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-            await this.$notify.error(error.message);
-            AuthToken.remove();
-            await this.$router.push(RouteConfig.Login.path);
+            if (!(error instanceof ErrorUnauthorized)) {
+                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+                await this.$notify.error(error.message);
+            }
+
+            setTimeout(async () => await this.$router.push(RouteConfig.Login.path), 1000);
 
             return;
         }
@@ -89,13 +94,6 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(GET_BILLING_HISTORY);
             await this.$store.dispatch(GET_PROJECT_CHARGES);
         } catch (error) {
-            if (error instanceof ErrorUnauthorized) {
-                AuthToken.remove();
-                await this.$router.push(RouteConfig.Login.path);
-
-                return;
-            }
-
             await this.$notify.error(error.message);
         }
 
@@ -159,16 +157,22 @@ export default class DashboardArea extends Vue {
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
     }
 
+    /**
+     * Indicates if bonus banner should be rendered.
+     */
     public get isBannerShown(): boolean {
         return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
+    /**
+     * Indicates if loading screen is active.
+     */
     public get isLoading(): boolean {
         return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
     }
 
     /**
-     * This method checks if current route is available when user has no created projects
+     * This method checks if current route is available when user has no created projects.
      */
     private isRouteAccessibleWithoutProject(): boolean {
         const availableRoutes = [
@@ -207,7 +211,7 @@ export default class DashboardArea extends Vue {
             position: relative;
             width: 100%;
             height: calc(100vh - 50px);
-            overflow-y: auto;
+            overflow-y: scroll;
             display: flex;
             flex-direction: column;
 

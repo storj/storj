@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (

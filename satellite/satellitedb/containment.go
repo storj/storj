@@ -11,7 +11,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/audit"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type containment struct {

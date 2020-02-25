@@ -1,25 +1,22 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package dbx
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
-
-	"storj.io/storj/private/dbutil/txutil"
 
 	// load our cockroach sql driver for anywhere that uses this dbx.Open
 	_ "storj.io/storj/private/dbutil/cockroachutil"
+	"storj.io/storj/private/dbutil/txutil"
+	"storj.io/storj/private/tagsql"
 )
 
-//go:generate dbx schema -d postgres -d cockroach satellitedb.dbx .
-//go:generate dbx golang -d postgres -d cockroach -t templates satellitedb.dbx .
-//go:generate bash -c "( echo '//lint:file-ignore * generated file'; cat satellitedb.dbx.go ) > satellitedb.dbx.go.tmp && mv satellitedb.dbx.go{.tmp,}"
-//go:generate perl -p0i -e "s,^(\\s*\"github.com/lib/pq\")\\n\\n\\1,\\1,gm" satellitedb.dbx.go
+//go:generate sh gen.sh
 
 var mon = monkit.Package()
 
@@ -61,11 +58,10 @@ func (err *constraintError) Error() string {
 
 // WithTx wraps DB code in a transaction
 func (db *DB) WithTx(ctx context.Context, fn func(context.Context, *Tx) error) (err error) {
-	tx, err := db.Open(ctx)
-	if err != nil {
-		return err
-	}
-	return txutil.ExecuteInTx(ctx, db.Driver(), tx.Tx, func() error {
-		return fn(ctx, tx)
+	return txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		return fn(ctx, &Tx{
+			Tx:        tx,
+			txMethods: db.wrapTx(tx),
+		})
 	})
 }

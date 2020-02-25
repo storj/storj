@@ -150,10 +150,13 @@ func restrict_scope(scopeRef C.ScopeRef, caveat C.Caveat, restrictions **C.Encry
 		}
 	}
 
-	apiKeyRestricted, encAccessRestricted, err := scope.EncryptionAccess.Restrict(apiKeyRestricted, restrictionsGo...)
-	if err != nil {
-		*cerr = C.CString(fmt.Sprintf("%+v", err))
-		return C.ScopeRef{}
+	var encAccessRestricted *libuplink.EncryptionAccess
+	if len(restrictionsGo) > 0 {
+		apiKeyRestricted, encAccessRestricted, err = scope.EncryptionAccess.Restrict(apiKeyRestricted, restrictionsGo...)
+		if err != nil {
+			*cerr = C.CString(fmt.Sprintf("%+v", err))
+			return C.ScopeRef{}
+		}
 	}
 
 	scopeRestricted := &libuplink.Scope{

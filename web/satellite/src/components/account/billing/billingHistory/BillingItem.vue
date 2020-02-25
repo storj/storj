@@ -9,20 +9,20 @@
             :expiration="billingItem.end"
             :type="billingItem.type"
         />
-        <p class="container__item description">{{billingItem.description}}</p>
-        <p class="container__item status">{{billingItem.formattedStatus}}</p>
+        <p class="container__item description">{{ billingItem.description }}</p>
+        <p class="container__item status">{{ billingItem.formattedStatus }}</p>
         <p class="container__item amount">
             <b>
-                {{billingItem.quantity.currency}}
+                {{ billingItem.quantity.currency }}
                 <span v-if="billingItem.type === 1">
-                    {{billingItem.quantity.received}}
+                    {{ billingItem.quantity.received }}
                 </span>
                 <span v-else>
-                    {{billingItem.quantity.total}}
+                    {{ billingItem.quantity.total }}
                 </span>
             </b>
             <span v-if="billingItem.type === 1">
-                 of {{billingItem.quantity.total}}
+                 of {{ billingItem.quantity.total }}
             </span>
         </p>
         <p class="container__item download" v-html="billingItem.downloadLinkHtml()"></p>
@@ -65,7 +65,7 @@ export default class BillingItem extends Vue {
         border-top: 1px solid rgba(169, 181, 193, 0.3);
 
         &__item {
-            width: 20%;
+            min-width: 25%;
             font-family: 'font_medium', sans-serif;
             font-size: 16px;
             text-align: left;
@@ -74,15 +74,15 @@ export default class BillingItem extends Vue {
     }
 
     .description {
-        width: 31%;
+        min-width: 31%;
     }
 
     .status {
-        width: 12%;
+        min-width: 12%;
     }
 
     .amount {
-        width: 27%;
+        min-width: 22%;
         margin: 0;
     }
 

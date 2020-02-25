@@ -17,6 +17,7 @@
             <BillingItem
                 v-for="item in billingHistoryItems"
                 :billing-item="item"
+                :key="item.id"
             />
         </div>
 <!--        <VPagination-->
@@ -47,6 +48,9 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
     },
 })
 export default class BillingHistory extends Vue {
+    /**
+     * Lifecycle hook after initial render.
+     */
     public mounted(): void {
         this.$segment.track(SegmentEvent.BILLING_HISTORY_VIEWED, {
             project_id: this.$store.getters.selectedProject.id,
@@ -54,20 +58,18 @@ export default class BillingHistory extends Vue {
         });
     }
 
+    /**
+     * Returns list of billing history listings.
+     */
     public get billingHistoryItems(): BillingHistoryItem[] {
         return this.$store.state.paymentsModule.billingHistory;
     }
 
+    /**
+     * Replaces location to root billing route.
+     */
     public onBackToAccountClick(): void {
         this.$router.push(RouteConfig.Billing.path);
-    }
-
-    public get totalPageCount(): number {
-        return 1;
-    }
-
-    public onPageClick(index: number): void {
-        return;
     }
 }
 </script>
@@ -80,6 +82,7 @@ export default class BillingHistory extends Vue {
 
     .billing-history-area {
         margin-top: 83px;
+        padding: 0 0 80px 0;
         background-color: #f5f6fa;
         font-family: 'font_regular', sans-serif;
 

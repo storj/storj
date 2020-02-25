@@ -21,16 +21,16 @@ import (
 )
 
 var shareCfg struct {
-	DisallowReads     bool     `default:"false" help:"if true, disallow reads"`
-	DisallowWrites    bool     `default:"false" help:"if true, disallow writes"`
-	DisallowLists     bool     `default:"false" help:"if true, disallow lists"`
-	DisallowDeletes   bool     `default:"false" help:"if true, disallow deletes"`
-	Readonly          bool     `default:"false" help:"implies disallow_writes and disallow_deletes"`
-	Writeonly         bool     `default:"false" help:"implies disallow_reads and disallow_lists"`
-	NotBefore         string   `help:"disallow access before this time"`
-	NotAfter          string   `help:"disallow access after this time"`
+	DisallowReads     bool     `default:"false" help:"if true, disallow reads" basic-help:"true"`
+	DisallowWrites    bool     `default:"false" help:"if true, disallow writes" basic-help:"true"`
+	DisallowLists     bool     `default:"false" help:"if true, disallow lists" basic-help:"true"`
+	DisallowDeletes   bool     `default:"false" help:"if true, disallow deletes" basic-help:"true"`
+	Readonly          bool     `default:"false" help:"implies disallow_writes and disallow_deletes" basic-help:"true"`
+	Writeonly         bool     `default:"false" help:"implies disallow_reads and disallow_lists" basic-help:"true"`
+	NotBefore         string   `help:"disallow access before this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
+	NotAfter          string   `help:"disallow access after this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
 	AllowedPathPrefix []string `help:"whitelist of path prefixes to require, overrides the [allowed-path-prefix] arguments"`
-	ExportTo          string   `default:"" help:"path to export the shared access to"`
+	ExportTo          string   `default:"" help:"path to export the shared access to" basic-help:"true"`
 
 	// Share requires information about the current access
 	AccessConfig
@@ -41,7 +41,7 @@ func init() {
 	// above, and addCmd adds a whole lot more than we want.
 
 	shareCmd := &cobra.Command{
-		Use:   "share [allowed-path-prefix]...",
+		Use:   "share [ALLOWED_PATH_PREFIX]...",
 		Short: "Shares restricted access to objects.",
 		RunE:  shareMain,
 	}
@@ -49,8 +49,6 @@ func init() {
 
 	process.Bind(shareCmd, &shareCfg, defaults, cfgstruct.ConfDir(getConfDir()))
 }
-
-const shareISO8601 = "2006-01-02T15:04:05-0700"
 
 func parseHumanDate(date string, now time.Time) (*time.Time, error) {
 	switch {
@@ -67,7 +65,7 @@ func parseHumanDate(date string, now time.Time) (*time.Time, error) {
 		t := now.Add(-d)
 		return &t, errs.Wrap(err)
 	default:
-		t, err := time.Parse(shareISO8601, date)
+		t, err := time.Parse(time.RFC3339, date)
 		return &t, errs.Wrap(err)
 	}
 }
@@ -139,11 +137,6 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	accessData, err := access.Serialize()
-	if err != nil {
-		return err
-	}
-
 	newAccess := &libuplink.Scope{
 		SatelliteAddr:    access.SatelliteAddr,
 		APIKey:           key,
@@ -155,11 +148,8 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	fmt.Println("=========== INTERNAL SCOPE INFO =========================================================")
-	fmt.Println("Satellite :", access.SatelliteAddr)
-	fmt.Println("API Key   :", key.Serialize())
-	fmt.Println("Enc Access:", accessData)
-	fmt.Println("=========== SHARE RESTRICTIONS ==========================================================")
+	fmt.Println("Sharing access to satellite", access.SatelliteAddr)
+	fmt.Println("=========== ACCESS RESTRICTIONS ==========================================================")
 	fmt.Println("Reads     :", formatPermission(!caveat.GetDisallowReads()))
 	fmt.Println("Writes    :", formatPermission(!caveat.GetDisallowWrites()))
 	fmt.Println("Lists     :", formatPermission(!caveat.GetDisallowLists()))
@@ -167,8 +157,8 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println("Not Before:", formatTimeRestriction(caveat.NotBefore))
 	fmt.Println("Not After :", formatTimeRestriction(caveat.NotAfter))
 	fmt.Println("Paths     :", formatPaths(restrictions))
-	fmt.Println("=========== SERIALIZED SCOPE WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========")
-	fmt.Println("Scope     :", newAccessData)
+	fmt.Println("=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========")
+	fmt.Println("Access    :", newAccessData)
 
 	if shareCfg.ExportTo != "" {
 		// convert to an absolute path, mostly for output purposes.

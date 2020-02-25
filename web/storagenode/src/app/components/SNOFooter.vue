@@ -38,7 +38,7 @@ export default class SNOFooter extends Vue {
         height: 89px;
         display: flex;
         justify-content: center;
-        background-color: #f8f9fb;
+        background-color: #fff;
         align-items: center;
         user-select: none;
 

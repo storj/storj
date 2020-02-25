@@ -21,7 +21,7 @@ type Projects interface {
 	// GetByUserID is a method for querying all projects from the database by userID.
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// GetOwn is a method for querying all projects created by current user from the database.
-	GetOwn(ctx context.Context, userID uuid.UUID) (_ []Project, err error)
+	GetOwn(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// Get is a method for querying project from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
 	// Insert is a method for inserting project into the database.
@@ -32,6 +32,9 @@ type Projects interface {
 	Update(ctx context.Context, project *Project) error
 	// List returns paginated projects, created before provided timestamp.
 	List(ctx context.Context, offset int64, limit int, before time.Time) (ProjectsPage, error)
+
+	// UpdateRateLimit is a method for updating projects rate limit.
+	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit int) error
 }
 
 // Project is a database object that describes Project entity
@@ -42,6 +45,7 @@ type Project struct {
 	Description string    `json:"description"`
 	PartnerID   uuid.UUID `json:"partnerId"`
 	OwnerID     uuid.UUID `json:"ownerId"`
+	RateLimit   *int      `json:"rateLimit"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

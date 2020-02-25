@@ -6,8 +6,9 @@ package dbutil
 import (
 	"database/sql"
 	"flag"
+	"time"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"github.com/spacemonkeygo/monkit/v3"
 )
 
 var (
@@ -16,8 +17,16 @@ var (
 	connMaxLifetime = flag.Duration("db.conn_max_lifetime", -1, "Maximum Database Connection Lifetime, -1ns means the stdlib default")
 )
 
+// ConfigurableDB contains methods for configuring a database.
+type ConfigurableDB interface {
+	SetMaxIdleConns(int)
+	SetMaxOpenConns(int)
+	SetConnMaxLifetime(time.Duration)
+	Stats() sql.DBStats
+}
+
 // Configure Sets Connection Boundaries and adds db_stats monitoring to monkit
-func Configure(db *sql.DB, mon *monkit.Scope) {
+func Configure(db ConfigurableDB, mon *monkit.Scope) {
 	if *maxIdleConns >= 0 {
 		db.SetMaxIdleConns(*maxIdleConns)
 	}
@@ -27,8 +36,8 @@ func Configure(db *sql.DB, mon *monkit.Scope) {
 	if *connMaxLifetime >= 0 {
 		db.SetConnMaxLifetime(*connMaxLifetime)
 	}
-	mon.Chain("db_stats", monkit.StatSourceFunc(
-		func(cb func(name string, val float64)) {
-			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
+	mon.Chain(monkit.StatSourceFunc(
+		func(cb func(key monkit.SeriesKey, field string, val float64)) {
+			monkit.StatSourceFromStruct(monkit.NewSeriesKey("db_stats"), db.Stats()).Stats(cb)
 		}))
 }

@@ -1,3 +1,6 @@
+# admin peer http listening address
+# admin.address: ""
+
 # how often to run the reservoir chore
 # audit.chore-interval: 24h0m0s
 
@@ -100,6 +103,9 @@ contact.external-address: ""
 # address to listen on for debug endpoints
 # debug.addr: 127.0.0.1:0
 
+# expose control panel
+# debug.control: false
+
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
@@ -130,6 +136,9 @@ contact.external-address: ""
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s
 
+# if true, skip the first run of GC
+# garbage-collection.skip-first: true
+
 # size of the buffer used to batch inserts into the transfer queue.
 # graceful-exit.chore-batch-size: 500
 
@@ -140,16 +149,16 @@ contact.external-address: ""
 # graceful-exit.enabled: true
 
 # size of the buffer used to batch transfer queue reads and sends to the storage node.
-# graceful-exit.endpoint-batch-size: 100
+# graceful-exit.endpoint-batch-size: 300
 
 # maximum number of transfer failures per piece.
-# graceful-exit.max-failures-per-piece: 3
+# graceful-exit.max-failures-per-piece: 5
 
 # maximum inactive time frame of transfer activities per node.
 # graceful-exit.max-inactive-time-frame: 168h0m0s
 
 # maximum number of order limits a satellite sends to a node before marking piece transfer failed
-# graceful-exit.max-order-limit-send-count: 5
+# graceful-exit.max-order-limit-send-count: 10
 
 # minimum age for a node on the network in order to initiate graceful exit
 # graceful-exit.node-min-age-in-months: 6
@@ -167,7 +176,7 @@ identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # what to use for storing real-time accounting data
-# live-accounting.storage-backend: memory
+# live-accounting.storage-backend: ""
 
 # if true, log function filename and line number
 # log.caller: false
@@ -229,6 +238,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the database connection string to use
 # metainfo.database-url: postgres://
 
+# maximum number of concurrent connection for the entire service.
+# metainfo.delete-pieces-service.max-concurrent-connection: 100
+
+# how long to wait for a node to complete a delete request.
+# metainfo.delete-pieces-service.node-operation-timeout: 5m0s
+
 # how long to wait for new observers before starting iteration
 # metainfo.loop.coalesce-duration: 5s
 
@@ -246,6 +261,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
+
+# number of projects to cache.
+# metainfo.rate-limiter.cache-capacity: 10000
+
+# how long to cache the projects limiter.
+# metainfo.rate-limiter.cache-expiration: 10m0s
+
+# whether rate limiting is enabled.
+# metainfo.rate-limiter.enabled: true
+
+# request rate per project per second.
+# metainfo.rate-limiter.rate: 1000
 
 # the size of each new erasure share in bytes
 # metainfo.rs.erasure-share-size: 256 B
@@ -270,6 +297,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the desired total pieces for a segment. o.
 # metainfo.rs.success-threshold: 80
+
+# the largest amount of pieces to encode to. n.
+# metainfo.rs.total-threshold: 110
 
 # validate redundancy scheme configuration
 # metainfo.rs.validate: true
@@ -296,7 +326,19 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # monkit.hw.oomlog: /var/log/kern.log
 
 # how long until an order expires
-# orders.expiration: 168h0m0s
+# orders.expiration: 48h0m0s
+
+# how many items in the rollups write cache before they are flushed to the database
+# orders.flush-batch-size: 10000
+
+# how often to flush the rollups write cache to the database
+# orders.flush-interval: 1m0s
+
+# log the offline/disqualification status of nodes
+# orders.node-status-logging: false
+
+# how many records to read in a single transaction when calculating billable bandwidth
+# orders.reported-rollups-read-batch-size: 1000
 
 # how many orders to batch per transaction
 # orders.settlement-batch-size: 250
@@ -328,6 +370,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # require distinct IPs when choosing nodes for upload
 # overlay.node.distinct-ip: true
 
+# how much disk space a node at minimum must have to be selected for upload
+# overlay.node.minimum-disk-space: 100.0 MB
+
 # the minimum node software version for node selection queries
 # overlay.node.minimum-version: ""
 
@@ -343,14 +388,20 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 
-# price in cents user should pay for each TB of egress
-# payments.egress-price: 0
+# amount of percents that user will earn as bonus credits by depositing in STORJ tokens
+# payments.bonus-rate: 10
 
-# price in cents user should pay for each object storing in network
-# payments.per-object-price: 0
+# price user should pay for each TB of egress
+# payments.egress-tb-price: "45"
+
+# price user should pay for each object stored in network per month
+# payments.object-price: "0.0000022"
 
 # payments provider to use
 # payments.provider: ""
+
+# price user should pay for storing TB per month
+# payments.storage-tb-price: "10"
 
 # amount of time we wait before running next account balance update loop
 # payments.stripe-coin-payments.account-balance-update-interval: 1h30m0s
@@ -373,9 +424,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of time we wait before running next transaction update loop
 # payments.stripe-coin-payments.transaction-update-interval: 30m0s
 
-# price in cents user should pay for storing each TB per hour
-# payments.tbh-price: 0
-
 # referrals.referral-manager-url: ""
 
 # time limit for downloading pieces from a node for repair
@@ -396,6 +444,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # time limit for uploading repaired pieces to new storage nodes
 # repairer.timeout: 5m0s
 
+# time limit for an entire repair job, from queue pop to upload completion
+# repairer.total-timeout: 45m0s
+
+# how often to flush the reported serial rollups to the database
+# reported-rollup.interval: 5m0s
+
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true
 
@@ -403,7 +457,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # rollup.interval: 24h0m0s
 
 # the bandwidth and storage usage limit for the alpha release
-# rollup.max-alpha-usage: 25.0 GB
+# rollup.max-alpha-usage: 0 B
 
 # public address to listen on
 server.address: :7777

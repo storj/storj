@@ -309,10 +309,7 @@ func TestTrashAndRestore(t *testing.T) {
 		},
 	}
 
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		dir, err := filestore.NewDir(ctx.Dir("store"))
 		require.NoError(t, err)
 
@@ -422,9 +419,9 @@ func TestTrashAndRestore(t *testing.T) {
 		// Empty trash by running the chore once
 		trashDur := 4 * 24 * time.Hour
 		chore := pieces.NewTrashChore(zaptest.NewLogger(t), 24*time.Hour, trashDur, trust, store)
-		go func() {
-			require.NoError(t, chore.Run(ctx))
-		}()
+		ctx.Go(func() error {
+			return chore.Run(ctx)
+		})
 		chore.TriggerWait(ctx)
 		require.NoError(t, chore.Close())
 
@@ -517,11 +514,8 @@ func verifyPieceData(ctx context.Context, t testing.TB, store *pieces.Store, sat
 }
 
 func TestPieceVersionMigrate(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		const pieceSize = 1024
-
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
 
 		var (
 			data        = testrand.Bytes(pieceSize)
@@ -691,10 +685,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 }
 
 func TestGetExpired(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		v0PieceInfo, ok := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
 		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
 		expirationInfo := db.PieceExpirationDB()
@@ -761,10 +752,7 @@ func TestGetExpired(t *testing.T) {
 }
 
 func TestOverwriteV0WithV1(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		v0PieceInfo, ok := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
 		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
 		expirationInfo := db.PieceExpirationDB()

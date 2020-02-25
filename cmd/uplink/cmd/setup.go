@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/fpath"
+	"storj.io/common/storj"
 	"storj.io/storj/cmd/internal/wizard"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
@@ -26,6 +26,7 @@ var (
 		Short:       "Create an uplink config file",
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
+		Args:        cobra.NoArgs,
 	}
 	setupCfg UplinkFlags
 )
@@ -33,61 +34,22 @@ var (
 func init() {
 	RootCmd.AddCommand(setupCmd)
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
+
+	// NB: access is not supported by `setup` or `import`
+	cfgstruct.SetBoolAnnotation(setupCmd.Flags(), "access", cfgstruct.BasicHelpAnnotationName, false)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	if cmd.Flag("access").Changed {
+		return ErrAccessFlag
+	}
+
 	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
 	}
-
-	valid, _ := fpath.IsValidSetupDir(setupDir)
-	if !valid {
-		return fmt.Errorf("uplink configuration already exists (%v)", setupDir)
-	}
-
-	err = os.MkdirAll(setupDir, 0700)
-	if err != nil {
-		return err
-	}
-
-	if setupCfg.NonInteractive {
-		return cmdSetupNonInteractive(cmd, setupDir)
-	}
-	return cmdSetupInteractive(cmd, setupDir)
-}
-
-// cmdSetupNonInteractive sets up uplink non-interactively.
-func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string) error {
-	// ensure we're using the access for the setup
-	access, err := setupCfg.GetAccess()
-	if err != nil {
-		return err
-	}
-
-	// apply helpful default host and port to the address
-	vip, err := process.Viper(cmd)
-	if err != nil {
-		return err
-	}
-	access.SatelliteAddr, err = ApplyDefaultHostAndPortToAddr(
-		access.SatelliteAddr, vip.GetString("satellite-addr"))
-	if err != nil {
-		return err
-	}
-
-	accessData, err := access.Serialize()
-	if err != nil {
-		return err
-	}
-	return Error.Wrap(process.SaveConfig(cmd, filepath.Join(setupDir, process.DefaultCfgFilename),
-		process.SaveConfigWithOverride("access", accessData),
-		process.SaveConfigRemovingDeprecated()))
-}
-
-// cmdSetupInteractive sets up uplink interactively.
-func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
-	ctx, _ := process.Ctx(cmd)
 
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
@@ -103,6 +65,27 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 		satelliteAddress, vip.GetString("satellite-addr"))
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	var (
+		accessName                    string
+		defaultSerializedAccessExists bool
+	)
+
+	setupCfg.AccessConfig = setupCfg.AccessConfig.normalize()
+	defaultSerializedAccessExists = IsSerializedAccess(setupCfg.Access)
+
+	accessName, err = wizard.PromptForAccessName()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if accessName == "default" && defaultSerializedAccessExists {
+		return Error.New("a default access already exists")
+	}
+
+	if access, err := setupCfg.GetNamedAccess(accessName); err == nil && access != nil {
+		return Error.New("an access with the name %q already exists", accessName)
 	}
 
 	apiKeyString, err := wizard.PromptForAPIKey()
@@ -137,18 +120,39 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 		return Error.Wrap(err)
 	}
 
+	encAccess := libuplink.NewEncryptionAccessWithDefaultKey(*key)
+	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+
 	accessData, err := (&libuplink.Scope{
 		SatelliteAddr:    satelliteAddress,
 		APIKey:           apiKey,
-		EncryptionAccess: libuplink.NewEncryptionAccessWithDefaultKey(*key),
+		EncryptionAccess: encAccess,
 	}).Serialize()
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
-		process.SaveConfigWithOverride("access", accessData),
-		process.SaveConfigRemovingDeprecated())
+	// NB: accesses should always be `map[string]interface{}` for "conventional"
+	// config serialization/flattening.
+	accesses := toStringMapE(setupCfg.Accesses)
+	accesses[accessName] = accessData
+
+	saveCfgOpts := []process.SaveConfigOption{
+		process.SaveConfigWithOverride("accesses", accesses),
+		process.SaveConfigRemovingDeprecated(),
+	}
+
+	if setupCfg.Access == "" {
+		saveCfgOpts = append(saveCfgOpts, process.SaveConfigWithOverride("access", accessName))
+	}
+
+	err = os.MkdirAll(setupDir, 0700)
+	if err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(setupDir, process.DefaultCfgFilename)
+	err = process.SaveConfig(cmd, configPath, saveCfgOpts...)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -160,7 +164,7 @@ Your Uplink CLI is configured and ready to use!
 
 Some things to try next:
 
-* See http://documentation.tardigrade.io/api-reference/uplink-cli for some example commands`)
+* See https://documentation.tardigrade.io/api-reference/uplink-cli for some example commands`)
 
 	return nil
 }

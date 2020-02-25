@@ -1,23 +1,25 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+//go:generate sh -c "go run schemagen.go > schema.go.tmp && mv schema.go.tmp schema.go"
+
 package storagenodedb
 
 import (
 	"context"
-	"database/sql"
-	"database/sql/driver"
 	"os"
 	"path/filepath"
 
+	"github.com/google/go-cmp/cmp"
 	_ "github.com/mattn/go-sqlite3" // used indirectly.
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/sqliteutil"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
@@ -41,39 +43,21 @@ var (
 	ErrDatabase = errs.Class("storage node database error")
 	// ErrNoRows represents database error if rows weren't affected.
 	ErrNoRows = errs.New("no rows affected")
+	// ErrPreflight represents an error during the preflight check.
+	ErrPreflight = errs.Class("storage node preflight database error")
 )
 
 var _ storagenode.DB = (*DB)(nil)
 
-// SQLDB is an abstract database so that we can mock out what database
-// implementation we're using.
-type SQLDB interface {
-	Close() error
-
-	Begin() (*sql.Tx, error)
-	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
-
-	Conn(ctx context.Context) (*sql.Conn, error)
-	Driver() driver.Driver
-
-	Exec(query string, args ...interface{}) (sql.Result, error)
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
-}
-
 // DBContainer defines an interface to allow accessing and setting a SQLDB
 type DBContainer interface {
-	Configure(sqlDB SQLDB)
-	GetDB() SQLDB
+	Configure(sqlDB tagsql.DB)
+	GetDB() tagsql.DB
 }
 
 // withTx is a helper method which executes callback in transaction scope
-func withTx(ctx context.Context, db SQLDB, cb func(tx *sql.Tx) error) error {
-	tx, err := db.Begin()
+func withTx(ctx context.Context, db tagsql.DB, cb func(tx tagsql.Tx) error) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -247,7 +231,7 @@ func (db *DB) openDatabases() error {
 	return nil
 }
 
-func (db *DB) rawDatabaseFromName(dbName string) SQLDB {
+func (db *DB) rawDatabaseFromName(dbName string) tagsql.DB {
 	return db.SQLDBs[dbName].GetDB()
 }
 
@@ -263,7 +247,7 @@ func (db *DB) openDatabase(dbName string) error {
 		driver = "sqlite3"
 	}
 
-	sqlDB, err := sql.Open(driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	sqlDB, err := tagsql.Open(driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
@@ -288,7 +272,82 @@ func (db *DB) filepathFromDBName(dbName string) string {
 // CreateTables creates any necessary tables.
 func (db *DB) CreateTables(ctx context.Context) error {
 	migration := db.Migration(ctx)
-	return migration.Run(db.log.Named("migration"))
+	return migration.Run(ctx, db.log.Named("migration"))
+}
+
+// Preflight conducts a pre-flight check to ensure correct schemas and minimal read+write functionality of the database tables.
+func (db *DB) Preflight(ctx context.Context) (err error) {
+	for dbName, dbContainer := range db.SQLDBs {
+		nextDB := dbContainer.GetDB()
+		// Preflight stage 1: test schema correctness
+		schema, err := sqliteutil.QuerySchema(ctx, nextDB)
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+		// we don't care about changes in versions table
+		schema.DropTable("versions")
+		// If tables and indexes of the schema are empty, set to nil
+		// to help with comparison to the snapshot.
+		if len(schema.Tables) == 0 {
+			schema.Tables = nil
+		}
+		if len(schema.Indexes) == 0 {
+			schema.Indexes = nil
+		}
+
+		// get expected schema and expect it to match actual schema
+		expectedSchema := Schema()[dbName]
+		if diff := cmp.Diff(expectedSchema, schema); diff != "" {
+			return ErrPreflight.New("%s: expected schema does not match actual: %s", dbName, diff)
+		}
+
+		// Preflight stage 2: test basic read/write access
+		// for each database, create a new table, insert a row into that table, retrieve and validate that row, and drop the table.
+
+		// drop test table in case the last preflight check failed before table could be dropped
+		_, err = nextDB.ExecContext(ctx, "DROP TABLE IF EXISTS test_table")
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+		_, err = nextDB.ExecContext(ctx, "CREATE TABLE test_table(id int NOT NULL, name varchar(30), PRIMARY KEY (id))")
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+
+		var expectedID, actualID int
+		var expectedName, actualName string
+		expectedID = 1
+		expectedName = "TEST"
+		_, err = nextDB.ExecContext(ctx, "INSERT INTO test_table VALUES ( ?, ? )", expectedID, expectedName)
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+
+		rows, err := nextDB.QueryContext(ctx, "SELECT id, name FROM test_table")
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+		defer func() { err = errs.Combine(err, rows.Close()) }()
+		if !rows.Next() {
+			return ErrPreflight.New("%s: no rows in test_table", dbName)
+		}
+		err = rows.Scan(&actualID, &actualName)
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+		if expectedID != actualID || expectedName != actualName {
+			return ErrPreflight.New("%s: expected: (%d, '%s'), actual: (%d, '%s')", dbName, expectedID, expectedName, actualID, actualName)
+		}
+		if rows.Next() {
+			return ErrPreflight.New("%s: more than one row in test_table", dbName)
+		}
+
+		_, err = nextDB.ExecContext(ctx, "DROP TABLE test_table")
+		if err != nil {
+			return ErrPreflight.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // Close closes any resources.
@@ -399,7 +458,10 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		return ErrDatabase.Wrap(err)
 	}
 
-	err = sqliteutil.MigrateTablesToDatabase(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), db.rawDatabaseFromName(dbName), tablesToKeep...)
+	err = sqliteutil.MigrateTablesToDatabase(ctx,
+		db.rawDatabaseFromName(DeprecatedInfoDBName),
+		db.rawDatabaseFromName(dbName),
+		tablesToKeep...)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
@@ -666,7 +728,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
-				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
 						log.Sugar().Debug(err)
@@ -691,7 +753,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
-				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "tmp"))
 					if err != nil {
 						log.Sugar().Debug(err)
@@ -832,8 +894,8 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Vacuum info db",
 				Version:     22,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
-					_, err := db.deprecatedInfoDB.GetDB().Exec("VACUUM;")
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
+					_, err := db.deprecatedInfoDB.GetDB().ExecContext(ctx, "VACUUM;")
 					return err
 				}),
 			},
@@ -841,7 +903,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Split into multiple sqlite databases",
 				Version:     23,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					// Migrate all the tables to new database files.
 					if err := db.migrateToDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
@@ -878,7 +940,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				DB:          db.deprecatedInfoDB,
 				Description: "Drop unneeded tables in deprecatedInfoDB",
 				Version:     24,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					// We drop the migrated tables from the deprecated database and VACUUM SQLite3
 					// in migration step 23 because if we were to keep that as part of step 22
 					// and an error occurred it would replay the entire migration but some tables
@@ -886,16 +948,6 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					// This way if step 22 completes it never gets replayed even if a drop table or
 					// VACUUM call fails.
 					if err := sqliteutil.KeepTables(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), VersionTable); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
-					// Close the deprecated db in order to free up unused
-					// disk space
-					if err := db.closeDatabase(DeprecatedInfoDBName); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
-					if err := db.openDatabase(DeprecatedInfoDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -954,6 +1006,41 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 						created_at TIMESTAMP NOT NULL,
 						PRIMARY KEY (id)
 					);`,
+				},
+			},
+			{
+				DB:          db.pieceSpaceUsedDB,
+				Description: "Migrate piece_space_used to add total column",
+				Version:     29,
+				Action: migrate.SQL{
+					`ALTER TABLE piece_space_used RENAME TO _piece_space_used_old`,
+					`CREATE TABLE piece_space_used (
+						total INTEGER NOT NULL DEFAULT 0,
+						content_size INTEGER NOT NULL,
+						satellite_id BLOB
+					)`,
+					`INSERT INTO piece_space_used (content_size, satellite_id)
+						SELECT total, satellite_id
+						FROM _piece_space_used_old`,
+					`DROP TABLE _piece_space_used_old`,
+					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
+				},
+			},
+			{
+				DB:          db.pieceSpaceUsedDB,
+				Description: "Initialize piece_space_used total column to content_size",
+				Version:     30,
+				Action: migrate.SQL{
+					`UPDATE piece_space_used SET total = content_size`,
+				},
+			},
+			{
+				DB:          db.pieceSpaceUsedDB,
+				Description: "Remove all 0 values from piece_space_used",
+				Version:     31,
+				Action: migrate.SQL{
+					`UPDATE piece_space_used SET total = 0 WHERE total < 0`,
+					`UPDATE piece_space_used SET content_size = 0 WHERE content_size < 0`,
 				},
 			},
 		},

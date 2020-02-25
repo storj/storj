@@ -21,11 +21,11 @@
             </div>
         </div>
         <VPagination
-                v-if="totalPageCount > 1"
-                class="pagination-area"
-                ref="pagination"
-                :total-page-count="totalPageCount"
-                :on-page-click-callback="onPageClick"
+            v-if="totalPageCount > 1"
+            class="pagination-area"
+            ref="pagination"
+            :total-page-count="totalPageCount"
+            :on-page-click-callback="onPageClick"
         />
         <div class="team-area__empty-search-result-area" v-if="isEmptySearchResultShown">
             <h1 class="team-area__empty-search-result-area__title">No results found</h1>
@@ -55,7 +55,6 @@ const {
     DELETE,
     TOGGLE_SELECTION,
     CLEAR,
-    CLEAR_SELECTION,
     SET_SEARCH_QUERY,
     SET_SORT_BY,
     SET_SORT_DIRECTION,
@@ -81,6 +80,10 @@ export default class ProjectMembersArea extends Vue {
         pagination: HTMLElement & ResetPagination;
     };
 
+    /**
+     * Lifecycle hook after initial render.
+     * Fetches first page of team members list of current project.
+     */
     public async mounted(): Promise<void> {
         await this.$store.dispatch(FETCH, 1);
         this.$segment.track(SegmentEvent.TEAM_VIEWED, {
@@ -89,12 +92,19 @@ export default class ProjectMembersArea extends Vue {
         });
     }
 
+    /**
+     * Selects team member if this user has no owner status.
+     * @param member
+     */
     public onMemberClick(member: ProjectMember): void {
         if (this.$store.getters.selectedProject.ownerId !== member.user.id) {
             this.$store.dispatch(TOGGLE_SELECTION, member);
         }
     }
 
+    /**
+     * Returns team members of current page from store.
+     */
     public get projectMembers(): ProjectMember[] {
         return this.$store.state.projectMembersModule.page.projectMembers;
     }
@@ -103,10 +113,16 @@ export default class ProjectMembersArea extends Vue {
         return ProjectMemberListItem;
     }
 
+    /**
+     * Returns team members total page count from store.
+     */
     public get projectMembersTotalCount(): number {
         return this.$store.state.projectMembersModule.page.totalCount;
     }
 
+    /**
+     * Returns team members count of current page from store.
+     */
     public get projectMembersCount(): number {
         return this.$store.state.projectMembersModule.page.projectMembers.length;
     }
@@ -120,11 +136,7 @@ export default class ProjectMembersArea extends Vue {
     }
 
     public get headerState(): number {
-        if (this.selectedProjectMembersLength > 0) {
-            return ProjectMemberHeaderState.ON_SELECT;
-        }
-
-        return ProjectMemberHeaderState.DEFAULT;
+        return this.selectedProjectMembersLength > 0 ? ProjectMemberHeaderState.ON_SELECT : ProjectMemberHeaderState.DEFAULT;
     }
 
     public get isTeamAreaShown(): boolean {
@@ -135,6 +147,10 @@ export default class ProjectMembersArea extends Vue {
         return this.projectMembersCount === 0 && this.projectMembersTotalCount === 0;
     }
 
+    /**
+     * Fetches team member of selected page.
+     * @param index
+     */
     public async onPageClick(index: number): Promise<void> {
         try {
             await this.$store.dispatch(FETCH, index);
@@ -143,6 +159,11 @@ export default class ProjectMembersArea extends Vue {
         }
     }
 
+    /**
+     * Changes sorting parameters and fetches team members.
+     * @param sortBy
+     * @param sortDirection
+     */
     public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<void> {
         await this.$store.dispatch(SET_SORT_BY, sortBy);
         await this.$store.dispatch(SET_SORT_DIRECTION, sortDirection);

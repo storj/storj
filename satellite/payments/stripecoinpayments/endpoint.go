@@ -44,18 +44,16 @@ func (endpoint *Endpoint) ApplyInvoiceRecords(ctx context.Context, req *pb.Apply
 	return &pb.ApplyInvoiceRecordsResponse{}, nil
 }
 
-// PrepareInvoiceCoupons creates coupon usage for all satellite projects.
-func (endpoint *Endpoint) PrepareInvoiceCoupons(ctx context.Context, req *pb.PrepareInvoiceCouponsRequest) (_ *pb.PrepareInvoiceCouponsResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return &pb.PrepareInvoiceCouponsResponse{}, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
-}
-
 // ApplyInvoiceCoupons creates stripe line items for all unapplied coupons.
 func (endpoint *Endpoint) ApplyInvoiceCoupons(ctx context.Context, req *pb.ApplyInvoiceCouponsRequest) (_ *pb.ApplyInvoiceCouponsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return &pb.ApplyInvoiceCouponsResponse{}, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
+	err = endpoint.service.InvoiceApplyCoupons(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.ApplyInvoiceCouponsResponse{}, nil
 }
 
 // CreateInvoices creates invoice for all user accounts on the satellite.
@@ -68,4 +66,16 @@ func (endpoint *Endpoint) CreateInvoices(ctx context.Context, req *pb.CreateInvo
 	}
 
 	return &pb.CreateInvoicesResponse{}, nil
+}
+
+// ApplyInvoiceCredits creates stripe line items for all credits.
+func (endpoint *Endpoint) ApplyInvoiceCredits(ctx context.Context, req *pb.ApplyInvoiceCreditsRequest) (_ *pb.ApplyInvoiceCreditsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.service.InvoiceApplyCredits(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.ApplyInvoiceCreditsResponse{}, nil
 }

@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"storj.io/common/storj"
-	"storj.io/uplink/metainfo/kvmetainfo"
-	"storj.io/uplink/storage/streams"
-	"storj.io/uplink/stream"
+	"storj.io/uplink/private/metainfo/kvmetainfo"
+	"storj.io/uplink/private/storage/streams"
+	"storj.io/uplink/private/stream"
 )
 
 // ObjectMeta contains metadata about a specific Object.

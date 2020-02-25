@@ -28,10 +28,7 @@ import (
 func TestCache_Database(t *testing.T) {
 	t.Parallel()
 
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		testCache(ctx, t, db.OverlayCache())
 	})
 }
@@ -174,10 +171,7 @@ func TestRandomizedSelection(t *testing.T) {
 	numNodesToSelect := 100
 	minSelectCount := 3 // TODO: compute this limit better
 
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
 		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
@@ -347,11 +341,7 @@ func TestKnownReliable(t *testing.T) {
 }
 
 func TestUpdateCheckIn(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		// setup
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // setup
 		nodeID := storj.NodeID{1, 2, 3}
 		expectedEmail := "test@email.com"
 		expectedAddress := "1.2.4.4"
@@ -499,10 +489,7 @@ func TestUpdateCheckIn(t *testing.T) {
 }
 
 func TestCache_DowntimeTracking(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
 		defaults := overlay.NodeSelectionConfig{
 			AuditReputationAlpha0: 1,
@@ -559,11 +546,7 @@ func TestCache_DowntimeTracking(t *testing.T) {
 }
 
 func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		// setup
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // setup
 		info1 := getNodeInfo(testrand.NodeID())
 		info2 := getNodeInfo(testrand.NodeID())
 
@@ -583,7 +566,7 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 			nodeLastContacts, err := db.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Duration(0))
 			require.NoError(t, err)
 			require.Len(t, nodeLastContacts, 1)
-			require.Equal(t, twoHoursAgo.Truncate(time.Second), nodeLastContacts[0].LastContactSuccess.Truncate(time.Second))
+			require.WithinDuration(t, twoHoursAgo, nodeLastContacts[0].LastContactSuccess, time.Second)
 			require.True(t, nodeLastContacts[0].LastContactFailure.IsZero())
 		}
 

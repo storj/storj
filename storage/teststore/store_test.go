@@ -9,5 +9,11 @@ import (
 	"storj.io/storj/storage/testsuite"
 )
 
-func TestSuite(t *testing.T)      { testsuite.RunTests(t, New()) }
-func BenchmarkSuite(b *testing.B) { testsuite.RunBenchmarks(b, New()) }
+func TestSuite(t *testing.T) {
+	store := New()
+	store.SetLookupLimit(500)
+	testsuite.RunTests(t, store)
+}
+func BenchmarkSuite(b *testing.B) {
+	testsuite.RunBenchmarks(b, New())
+}

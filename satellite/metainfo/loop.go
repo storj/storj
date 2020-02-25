@@ -10,7 +10,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
-
 	"golang.org/x/time/rate"
 
 	"storj.io/common/pb"
@@ -32,6 +31,25 @@ type Observer interface {
 	Object(context.Context, ScopedPath, *pb.Pointer) error
 	RemoteSegment(context.Context, ScopedPath, *pb.Pointer) error
 	InlineSegment(context.Context, ScopedPath, *pb.Pointer) error
+}
+
+// NullObserver is an observer that does nothing. This is useful for joining
+// and ensuring the metainfo loop runs once before you use a real observer
+type NullObserver struct{}
+
+// Object implements the Observer interface
+func (NullObserver) Object(context.Context, ScopedPath, *pb.Pointer) error {
+	return nil
+}
+
+// RemoteSegment implements the Observer interface
+func (NullObserver) RemoteSegment(context.Context, ScopedPath, *pb.Pointer) error {
+	return nil
+}
+
+// InlineSegment implements the Observer interface
+func (NullObserver) InlineSegment(context.Context, ScopedPath, *pb.Pointer) error {
+	return nil
 }
 
 // ScopedPath contains full expanded information about the path.

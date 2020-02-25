@@ -15,7 +15,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/gracefulexit"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type gracefulexitDB struct {
@@ -178,14 +178,11 @@ func (db *gracefulexitDB) GetIncomplete(ctx context.Context, nodeID storj.NodeID
 			WHERE node_id = ? 
 			AND finished_at is NULL 
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
-	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
+	rows, err := db.db.Query(ctx, db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	transferQueueItemRows, err := scanRows(rows)
 	if err != nil {
@@ -204,14 +201,11 @@ func (db *gracefulexitDB) GetIncompleteNotFailed(ctx context.Context, nodeID sto
 			AND finished_at is NULL
 			AND last_failed_at is NULL
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
-	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
+	rows, err := db.db.Query(ctx, db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	transferQueueItemRows, err := scanRows(rows)
 	if err != nil {
@@ -231,14 +225,11 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 			AND last_failed_at is not NULL
 			AND failed_count < ?
 			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
-	rows, err := db.db.Query(db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)
+	rows, err := db.db.Query(ctx, db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	transferQueueItemRows, err := scanRows(rows)
 	if err != nil {
@@ -259,11 +250,7 @@ func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, node
 		AND piece_num = ?`,
 	)
 	_, err = db.db.ExecContext(ctx, sql, nodeID, path, pieceNum)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
+	return Error.Wrap(err)
 }
 
 func scanRows(rows *sql.Rows) (transferQueueItemRows []*gracefulexit.TransferQueueItem, err error) {
@@ -285,7 +272,7 @@ func scanRows(rows *sql.Rows) (transferQueueItemRows []*gracefulexit.TransferQue
 
 		transferQueueItemRows = append(transferQueueItemRows, transferQueueItem)
 	}
-	return transferQueueItemRows, nil
+	return transferQueueItemRows, Error.Wrap(rows.Err())
 }
 
 func dbxToTransferQueueItem(dbxTransferQueue *dbx.GracefulExitTransferQueue) (item *gracefulexit.TransferQueueItem, err error) {

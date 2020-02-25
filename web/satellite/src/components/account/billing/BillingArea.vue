@@ -21,7 +21,7 @@
         </div>
         <AccountBalance/>
         <MonthlyBillingSummary/>
-        <PaymentMethods />
+        <PaymentMethods/>
         <DepositAndBilling/>
     </div>
 </template>
@@ -34,12 +34,6 @@ import DepositAndBilling from '@/components/account/billing/billingHistory/Depos
 import MonthlyBillingSummary from '@/components/account/billing/monthlySummary/MonthlyBillingSummary.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-
-const {
-    CLEAR_PAYMENT_INFO,
-} = PAYMENTS_ACTIONS;
-
 @Component({
     components: {
         AccountBalance,
@@ -49,18 +43,29 @@ const {
     },
 })
 export default class BillingArea extends Vue {
-    // CRITICAL_AMOUNT hold minimum safe balance in cents.
-    // If balance is lower - yellow notification should appear.
+    /**
+     * Holds minimum safe balance in cents.
+     * If balance is lower - yellow notification should appear.
+     */
     private readonly CRITICAL_AMOUNT: number = 1000;
 
+    /**
+     * Indicates if no credit cards attached to account.
+     */
     public get hasNoCreditCard(): boolean {
         return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
+    /**
+     * Indicates balance is below zero.
+     */
     public get isBalanceNegative(): boolean {
         return this.$store.state.paymentsModule.balance < 0;
     }
 
+    /**
+     * Indicates balance is not below zero but lower then CRITICAL_AMOUNT.
+     */
     public get isBalanceLow(): boolean {
         return this.$store.state.paymentsModule.balance > 0 && this.$store.state.paymentsModule.balance < this.CRITICAL_AMOUNT;
     }
@@ -69,7 +74,7 @@ export default class BillingArea extends Vue {
 
 <style scoped lang="scss">
     .account-billing-area {
-        padding-bottom: 35px;
+        padding-bottom: 55px;
 
         &__notification-container {
             margin-top: 35px;

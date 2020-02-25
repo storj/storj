@@ -19,7 +19,6 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/macaroon"
-	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -28,8 +27,8 @@ import (
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/satellite/console"
-	"storj.io/uplink/metainfo"
-	"storj.io/uplink/piecestore"
+	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/piecestore"
 )
 
 // Uplink is a general purpose
@@ -165,36 +164,8 @@ func (client *Uplink) Upload(ctx context.Context, satellite *SatelliteSystem, bu
 }
 
 // UploadWithExpiration data to specific satellite and expiration time
-func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *SatelliteSystem, bucket string, path storj.Path, data []byte, expiration time.Time) error {
-	return client.UploadWithExpirationAndConfig(ctx, satellite, nil, bucket, path, data, expiration)
-}
-
-// UploadWithConfig uploads data to specific satellite with configured values
-func (client *Uplink) UploadWithConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *storj.RedundancyScheme, bucket string, path storj.Path, data []byte) error {
-	return client.UploadWithExpirationAndConfig(ctx, satellite, redundancy, bucket, path, data, time.Time{})
-}
-
-// UploadWithExpirationAndConfig uploads data to specific satellite with configured values and expiration time
-func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *SatelliteSystem, redundancy *storj.RedundancyScheme, bucketName string, path storj.Path, data []byte, expiration time.Time) (err error) {
+func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *SatelliteSystem, bucketName string, path storj.Path, data []byte, expiration time.Time) error {
 	config := client.GetConfig(satellite)
-	if redundancy != nil {
-		if redundancy.RequiredShares > 0 {
-			config.RS.MinThreshold = int(redundancy.RequiredShares)
-		}
-		if redundancy.RepairShares > 0 {
-			config.RS.RepairThreshold = int(redundancy.RepairShares)
-		}
-		if redundancy.OptimalShares > 0 {
-			config.RS.SuccessThreshold = int(redundancy.OptimalShares)
-		}
-		if redundancy.TotalShares > 0 {
-			config.RS.MaxThreshold = int(redundancy.TotalShares)
-		}
-		if redundancy.ShareSize > 0 {
-			config.RS.ErasureShareSize = memory.Size(redundancy.ShareSize)
-		}
-	}
-
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, config)
 	if err != nil {
 		return err
@@ -298,8 +269,8 @@ func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satell
 	return downloader, cleanup, err
 }
 
-// Delete deletes an object at the path in a bucket
-func (client *Uplink) Delete(ctx context.Context, satellite *SatelliteSystem, bucketName string, path storj.Path) error {
+// DeleteObject deletes an object at the path in a bucket
+func (client *Uplink) DeleteObject(ctx context.Context, satellite *SatelliteSystem, bucketName string, path storj.Path) error {
 	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
 	if err != nil {
 		return err
@@ -335,6 +306,21 @@ func (client *Uplink) CreateBucket(ctx context.Context, satellite *SatelliteSyst
 	return nil
 }
 
+// DeleteBucket deletes a bucket.
+func (client *Uplink) DeleteBucket(ctx context.Context, satellite *SatelliteSystem, bucketName string) error {
+	project, err := client.GetProject(ctx, satellite)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	err = project.DeleteBucket(ctx, bucketName)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetConfig returns a default config for a given satellite.
 func (client *Uplink) GetConfig(satellite *SatelliteSystem) cmd.Config {
 	config := getDefaultConfig()
@@ -348,6 +334,7 @@ func (client *Uplink) GetConfig(satellite *SatelliteSystem) cmd.Config {
 
 	encAccess := libuplink.NewEncryptionAccess()
 	encAccess.SetDefaultKey(storj.Key{})
+	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
 
 	accessData, err := (&libuplink.Scope{
 		SatelliteAddr:    satellite.Addr(),

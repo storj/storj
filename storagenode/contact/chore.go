@@ -179,6 +179,20 @@ func (chore *Chore) Pause(ctx context.Context) {
 	}
 }
 
+// Trigger ensures that each cycle is done at least once.
+// If the cycle is currently running it waits for the previous to complete and then runs.
+func (chore *Chore) Trigger(ctx context.Context) {
+	chore.started.Wait(ctx)
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+	for _, cycle := range chore.cycles {
+		cycle := cycle
+		go func() {
+			cycle.Trigger()
+		}()
+	}
+}
+
 // TriggerWait ensures that each cycle is done at least once and waits for completion.
 // If the cycle is currently running it waits for the previous to complete and then runs.
 func (chore *Chore) TriggerWait(ctx context.Context) {

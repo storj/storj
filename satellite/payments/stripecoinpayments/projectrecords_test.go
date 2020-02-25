@@ -18,10 +18,7 @@ import (
 )
 
 func TestProjectRecords(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		utc := time.Now().UTC()
 
 		prjID, err := uuid.New()
@@ -42,6 +39,8 @@ func TestProjectRecords(t *testing.T) {
 						Objects:   3,
 					},
 				},
+				[]stripecoinpayments.CouponUsage{},
+				[]stripecoinpayments.CreditsSpending{},
 				start, end,
 			)
 			require.NoError(t, err)
@@ -69,10 +68,7 @@ func TestProjectRecords(t *testing.T) {
 }
 
 func TestProjectRecordsList(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		utc := time.Now().UTC()
 
 		start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -80,7 +76,8 @@ func TestProjectRecordsList(t *testing.T) {
 
 		projectRecordsDB := db.StripeCoinPayments().ProjectRecords()
 
-		const recordsLen = 5
+		const limit = 5
+		const recordsLen = limit * 4
 
 		var createProjectRecords []stripecoinpayments.CreateProjectRecord
 		for i := 0; i < recordsLen; i++ {
@@ -92,18 +89,27 @@ func TestProjectRecordsList(t *testing.T) {
 					ProjectID: *projID,
 					Storage:   float64(i) + 1,
 					Egress:    int64(i) + 2,
-					Objects:   int64(i) + 3,
+					Objects:   float64(i) + 3,
 				},
 			)
 		}
 
-		err := projectRecordsDB.Create(ctx, createProjectRecords, start, end)
+		err := projectRecordsDB.Create(ctx, createProjectRecords, []stripecoinpayments.CouponUsage{}, []stripecoinpayments.CreditsSpending{}, start, end)
 		require.NoError(t, err)
 
-		page, err := projectRecordsDB.ListUnapplied(ctx, 0, recordsLen, time.Now())
+		page, err := projectRecordsDB.ListUnapplied(ctx, 0, limit, time.Now())
 		require.NoError(t, err)
-		require.Equal(t, recordsLen, len(page.Records))
 
+		records := page.Records
+
+		for page.Next {
+			page, err = projectRecordsDB.ListUnapplied(ctx, page.NextOffset, limit, time.Now())
+			require.NoError(t, err)
+
+			records = append(records, page.Records...)
+		}
+
+		require.Equal(t, recordsLen, len(records))
 		assert.False(t, page.Next)
 		assert.Equal(t, int64(0), page.NextOffset)
 

@@ -5,11 +5,11 @@ import { BaseGql } from '@/api/baseGql';
 import { ProjectUsage, UsageApi } from '@/types/usage';
 
 /**
- * Exposes all project-usage-related functionality
+ * Exposes all project-usage-related functionality.
  */
 export class ProjectUsageApiGql extends BaseGql implements UsageApi {
     /**
-     * Fetch usage
+     * Fetch project usage.
      *
      * @returns ProjectUsage
      * @throws Error
@@ -39,6 +39,11 @@ export class ProjectUsageApiGql extends BaseGql implements UsageApi {
         return this.fromJson(response);
     }
 
+    /**
+     * Method for mapping project usage from json to ProjectUsage type.
+     *
+     * @param response anonymous object from json
+     */
     private fromJson(response: any): ProjectUsage {
         const usage = response.data.project.usage;
 

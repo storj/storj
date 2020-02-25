@@ -8,12 +8,13 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/accounting"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // StoragenodeAccounting implements the accounting/db StoragenodeAccounting interface
@@ -27,15 +28,25 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 	if len(nodeData) == 0 {
 		return Error.New("In SaveTallies with empty nodeData")
 	}
+	var nodeIDs []storj.NodeID
+	var totals []float64
+	for id, total := range nodeData {
+		nodeIDs = append(nodeIDs, id)
+		totals = append(totals, total)
+	}
+
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		for k, v := range nodeData {
-			nID := dbx.StoragenodeStorageTally_NodeId(k.Bytes())
-			end := dbx.StoragenodeStorageTally_IntervalEndTime(latestTally)
-			total := dbx.StoragenodeStorageTally_DataTotal(v)
-			err := tx.CreateNoReturn_StoragenodeStorageTally(ctx, nID, end, total)
-			if err != nil {
-				return err
-			}
+		_, err = tx.Tx.ExecContext(ctx, db.db.Rebind(`
+			INSERT INTO storagenode_storage_tallies (
+				interval_end_time,
+				node_id, data_total)
+			SELECT
+				$1,
+				unnest($2::bytea[]), unnest($3::float8[])`),
+			latestTally,
+			postgresNodeIDList(nodeIDs), pq.Array(totals))
+		if err != nil {
+			return err
 		}
 		return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
 			dbx.AccountingTimestamps_Name(accounting.LastAtRestTally),
@@ -175,11 +186,13 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		) r
 		LEFT JOIN nodes n ON n.id = r.node_id
 	    ORDER BY n.id`
+
 	rows, err := db.db.DB.QueryContext(ctx, db.db.Rebind(sqlStmt), start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	csv := []*accounting.CSVRow{}
 	for rows.Next() {
 		var nodeID []byte
@@ -202,7 +215,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		r.Disqualified = disqualified
 		csv = append(csv, r)
 	}
-	return csv, nil
+	return csv, rows.Err()
 }
 
 // QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
@@ -242,14 +255,10 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query),
 		nodeID, start, end, accounting.LastRollup,
 	)
-
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var nodeStorageUsages []accounting.StorageNodeUsage
 	for rows.Next() {
@@ -268,7 +277,7 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 		})
 	}
 
-	return nodeStorageUsages, nil
+	return nodeStorageUsages, rows.Err()
 }
 
 // DeleteTalliesBefore deletes all raw tallies prior to some time

@@ -6,9 +6,9 @@ package live
 import (
 	"strings"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/accounting"
 )
@@ -21,7 +21,7 @@ var (
 
 // Config contains configurable values for the live accounting service.
 type Config struct {
-	StorageBackend string `help:"what to use for storing real-time accounting data" default:"memory"`
+	StorageBackend string `help:"what to use for storing real-time accounting data"`
 }
 
 // NewCache creates a new accounting.Cache instance using the type specified backend in
@@ -30,16 +30,14 @@ func NewCache(log *zap.Logger, config Config) (accounting.Cache, error) {
 	parts := strings.SplitN(config.StorageBackend, ":", 2)
 	var backendType string
 	if len(parts) == 0 || parts[0] == "" {
-		backendType = "memory"
-	} else {
-		backendType = parts[0]
+		return nil, Error.New("please specify a backend for live accounting")
 	}
+
+	backendType = parts[0]
 	switch backendType {
-	case "memory":
-		return newMemoryLiveAccounting(log)
 	case "redis":
 		return newRedisLiveAccounting(log, config.StorageBackend)
 	default:
-		return nil, Error.New("unrecognized live accounting backend specifier %q", backendType)
+		return nil, Error.New("unrecognized live accounting backend specifier %q. Currently only redis is supported", backendType)
 	}
 }

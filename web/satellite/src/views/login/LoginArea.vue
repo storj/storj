@@ -14,7 +14,6 @@ import LoadingLogoIcon from '@/../static/images/LogoWhite.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { AuthToken } from '@/utils/authToken';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AppState } from '@/utils/constants/appStateEnum';
@@ -43,6 +42,24 @@ export default class Login extends Vue {
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
+    public isActivatedBannerShown: boolean = false;
+
+    public mounted(): void {
+        if (this.$route.query.activated === 'true') {
+            this.isActivatedBannerShown = true;
+        }
+    }
+
+    /**
+     * Checks if page is inside iframe
+     */
+    public get isInsideIframe(): boolean {
+        return window.self !== window.top;
+    }
+
+    /**
+     * Reloads page.
+     */
     public onLogoClick(): void {
         location.reload();
     }
@@ -57,10 +74,17 @@ export default class Login extends Vue {
         this.passwordError = '';
     }
 
+    /**
+     * Changes location to register route.
+     */
     public onSignUpClick(): void {
         this.$router.push(RouteConfig.Register.path);
     }
 
+    /**
+     * Performs login action.
+     * Than change location to project overview.
+     */
     public async onLogin(): Promise<void> {
         if (this.isLoading) {
             return;
@@ -78,7 +102,6 @@ export default class Login extends Vue {
 
         try {
             this.authToken = await this.auth.token(this.email, this.password);
-            AuthToken.set(this.authToken);
             this.$segment.track(SegmentEvent.USER_LOGGED_IN, {
                 email: this.email,
             });
@@ -96,7 +119,6 @@ export default class Login extends Vue {
         this.activateLoadingOverlay();
 
         setTimeout(() => {
-            AuthToken.set(this.authToken);
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
             this.isLoading = false;
             this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
@@ -119,6 +141,9 @@ export default class Login extends Vue {
         return isNoErrors;
     }
 
+    /**
+     * Starts loading animation.
+     */
     private activateLoadingOverlay(): void {
         this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
         this.loadingLogoClassName = LOADING_CLASSES.LOADING_LOGO_ACTIVE;

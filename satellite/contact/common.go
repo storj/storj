@@ -4,8 +4,8 @@
 package contact
 
 import (
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 // Error is the default error class for contact package.

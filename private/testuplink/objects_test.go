@@ -22,9 +22,9 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/uplink/metainfo/kvmetainfo"
-	"storj.io/uplink/storage/streams"
-	"storj.io/uplink/stream"
+	"storj.io/uplink/private/metainfo/kvmetainfo"
+	"storj.io/uplink/private/storage/streams"
+	"storj.io/uplink/private/stream"
 )
 
 const TestFile = "test-file"
@@ -46,7 +46,7 @@ func TestCreateObject(t *testing.T) {
 	}
 
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		require.NoError(t, err)
 
 		for i, tt := range []struct {
@@ -94,7 +94,7 @@ func TestCreateObject(t *testing.T) {
 
 func TestGetObject(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		require.NoError(t, err)
 		upload(ctx, t, db, streams, bucket, TestFile, nil)
 
@@ -127,7 +127,7 @@ func TestGetObjectStream(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		data := testrand.Bytes(32 * memory.KiB)
 
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		require.NoError(t, err)
 
 		emptyFile := upload(ctx, t, db, streams, bucket, "empty-file", nil)
@@ -268,16 +268,17 @@ func TestDeleteObject(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		encStore := newTestEncStore(TestEncKey)
+		encStore.SetDefaultPathCipher(storj.EncAESGCM)
 		db, streams, err := newMetainfoParts(planet, encStore)
 		require.NoError(t, err)
 
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		if !assert.NoError(t, err) {
 			return
 		}
 
 		unencryptedPath := paths.NewUnencrypted(TestFile)
-		encryptedPath, err := encryption.EncryptPath(bucket.Name, unencryptedPath, storj.EncAESGCM, encStore)
+		encryptedPath, err := encryption.EncryptPathWithStoreCipher(bucket.Name, unencryptedPath, encStore)
 		require.NoError(t, err)
 
 		for i, path := range []string{unencryptedPath.String(), encryptedPath.String()} {
@@ -306,15 +307,6 @@ func TestDeleteObject(t *testing.T) {
 			err = db.DeleteObject(ctx, bucket, "non-existing-file")
 			assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-			{
-				invalidPathCipherBucket := storj.Bucket{
-					Name:       bucket.Name,
-					PathCipher: bucket.PathCipher + 1,
-				}
-				err = db.DeleteObject(ctx, invalidPathCipherBucket, TestFile)
-				assert.True(t, storj.ErrObjectNotFound.Has(err))
-			}
-
 			err = db.DeleteObject(ctx, bucket, path)
 			assert.NoError(t, err)
 		}
@@ -323,7 +315,7 @@ func TestDeleteObject(t *testing.T) {
 
 func TestListObjectsEmpty(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		testBucketInfo, err := db.CreateBucket(ctx, TestBucket, nil)
+		testBucketInfo, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		require.NoError(t, err)
 
 		_, err = db.ListObjects(ctx, storj.Bucket{}, storj.ListOptions{})
@@ -351,10 +343,11 @@ func TestListObjects_EncryptionBypass(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		encStore := newTestEncStore(TestEncKey)
+		encStore.SetDefaultPathCipher(storj.EncAESGCM)
 		db, streams, err := newMetainfoParts(planet, encStore)
 		require.NoError(t, err)
 
-		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncAESGCM})
+		bucket, err := db.CreateBucket(ctx, TestBucket, &defaultBucket)
 		require.NoError(t, err)
 
 		filePaths := []string{
@@ -392,7 +385,7 @@ func TestListObjects_EncryptionBypass(t *testing.T) {
 			decoded = strings.TrimRight(decoded, "/")
 			encryptedPath := paths.NewEncrypted(decoded)
 
-			decryptedPath, err := encryption.DecryptPath(bucket.Name, encryptedPath, storj.EncAESGCM, encStore)
+			decryptedPath, err := encryption.DecryptPathWithStoreCipher(bucket.Name, encryptedPath, encStore)
 			require.NoError(t, err)
 
 			// NB: require decrypted path is a member of `filePaths`.
@@ -411,8 +404,12 @@ func TestListObjects_EncryptionBypass(t *testing.T) {
 }
 
 func TestListObjects(t *testing.T) {
-	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncNull})
+	runTestWithPathCipher(t, storj.EncNull, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{
+			PathCipher:                  storj.EncNull,
+			DefaultRedundancyScheme:     defaultRS,
+			DefaultEncryptionParameters: defaultEP,
+		})
 		require.NoError(t, err)
 
 		filePaths := []string{
@@ -425,7 +422,7 @@ func TestListObjects(t *testing.T) {
 			upload(ctx, t, db, streams, bucket, path, nil)
 		}
 
-		otherBucket, err := db.CreateBucket(ctx, "otherbucket", nil)
+		otherBucket, err := db.CreateBucket(ctx, "otherbucket", &defaultBucket)
 		require.NoError(t, err)
 
 		upload(ctx, t, db, streams, otherBucket, "file-in-other-bucket", nil)

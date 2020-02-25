@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/orders"
@@ -34,7 +34,7 @@ type Chore struct {
 	log    *zap.Logger
 	orders orders.DB
 
-	Serials sync2.Cycle
+	Serials *sync2.Cycle
 }
 
 // NewChore creates new chore for deleting DB entries.
@@ -43,7 +43,7 @@ func NewChore(log *zap.Logger, orders orders.DB, config Config) *Chore {
 		log:    log,
 		orders: orders,
 
-		Serials: *sync2.NewCycle(config.SerialsInterval),
+		Serials: sync2.NewCycle(config.SerialsInterval),
 	}
 }
 
@@ -57,13 +57,22 @@ func (chore *Chore) deleteExpiredSerials(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	chore.log.Debug("deleting expired serial numbers")
 
-	deleted, err := chore.orders.DeleteExpiredSerials(ctx, time.Now().UTC())
+	now := time.Now()
+
+	deleted, err := chore.orders.DeleteExpiredSerials(ctx, now)
 	if err != nil {
 		chore.log.Error("deleting expired serial numbers", zap.Error(err))
-		return nil
+	} else {
+		chore.log.Debug("expired serials deleted", zap.Int("items deleted", deleted))
 	}
 
-	chore.log.Debug("expired serials deleted", zap.Int("items deleted", deleted))
+	deleted, err = chore.orders.DeleteExpiredConsumedSerials(ctx, now)
+	if err != nil {
+		chore.log.Error("deleting expired serial numbers", zap.Error(err))
+	} else {
+		chore.log.Debug("expired serials deleted", zap.Int("items deleted", deleted))
+	}
+
 	return nil
 }
 

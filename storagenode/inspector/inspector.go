@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
@@ -51,7 +52,7 @@ func NewEndpoint(
 	pingStats *contact.PingStats,
 	usageDB bandwidth.DB,
 	pieceStoreConfig piecestore.OldConfig,
-	dashbaordAddress net.Addr,
+	dashboardAddress net.Addr,
 	externalAddress string) *Endpoint {
 
 	return &Endpoint{
@@ -61,23 +62,29 @@ func NewEndpoint(
 		pingStats:        pingStats,
 		usageDB:          usageDB,
 		pieceStoreConfig: pieceStoreConfig,
-		dashboardAddress: dashbaordAddress,
+		dashboardAddress: dashboardAddress,
 		startTime:        time.Now(),
 		externalAddress:  externalAddress,
 	}
+}
+
+// Stats returns current statistics about the storage node
+func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out *pb.StatSummaryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return inspector.retrieveStats(ctx)
 }
 
 func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummaryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Space Usage
-	totalUsedSpace, err := inspector.pieceStore.SpaceUsedForPieces(ctx)
+	_, piecesContentSize, err := inspector.pieceStore.SpaceUsedForPieces(ctx)
 	if err != nil {
-		return nil, err
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	usage, err := bandwidth.TotalMonthlySummary(ctx, inspector.usageDB)
 	if err != nil {
-		return nil, err
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	ingress := usage.Put + usage.PutRepair
 	egress := usage.Get + usage.GetAudit + usage.GetRepair
@@ -85,8 +92,8 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	totalUsedBandwidth := usage.Total()
 
 	return &pb.StatSummaryResponse{
-		UsedSpace:          totalUsedSpace,
-		AvailableSpace:     inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - totalUsedSpace,
+		UsedSpace:          piecesContentSize,
+		AvailableSpace:     inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - piecesContentSize,
 		UsedIngress:        ingress,
 		UsedEgress:         egress,
 		UsedBandwidth:      totalUsedBandwidth,
@@ -94,16 +101,10 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	}, nil
 }
 
-// Stats returns current statistics about the storage node
-func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out *pb.StatSummaryResponse, err error) {
+// Dashboard returns dashboard information
+func (inspector *Endpoint) Dashboard(ctx context.Context, in *pb.DashboardRequest) (out *pb.DashboardResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	statsSummary, err := inspector.retrieveStats(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return statsSummary, nil
+	return inspector.getDashboardData(ctx)
 }
 
 func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.DashboardResponse, err error) {
@@ -111,7 +112,7 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 
 	statsSummary, err := inspector.retrieveStats(ctx)
 	if err != nil {
-		return &pb.DashboardResponse{}, Error.Wrap(err)
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	lastPingedAt := inspector.pingStats.WhenLastPinged()
@@ -125,16 +126,4 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
 		Stats:            statsSummary,
 	}, nil
-}
-
-// Dashboard returns dashboard information
-func (inspector *Endpoint) Dashboard(ctx context.Context, in *pb.DashboardRequest) (out *pb.DashboardResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	data, err := inspector.getDashboardData(ctx)
-	if err != nil {
-		inspector.log.Warn("unable to get dashboard information")
-		return nil, err
-	}
-	return data, nil
 }

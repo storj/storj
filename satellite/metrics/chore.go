@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metainfo"
@@ -32,7 +32,7 @@ type Config struct {
 type Chore struct {
 	log          *zap.Logger
 	config       Config
-	Loop         sync2.Cycle
+	Loop         *sync2.Cycle
 	metainfoLoop *metainfo.Loop
 	Counter      *Counter
 }
@@ -42,7 +42,7 @@ func NewChore(log *zap.Logger, config Config, loop *metainfo.Loop) *Chore {
 	return &Chore{
 		log:          log,
 		config:       config,
-		Loop:         *sync2.NewCycle(config.ChoreInterval),
+		Loop:         sync2.NewCycle(config.ChoreInterval),
 		metainfoLoop: loop,
 	}
 }

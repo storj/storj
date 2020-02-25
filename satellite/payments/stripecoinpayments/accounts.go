@@ -10,7 +10,6 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
-	"storj.io/common/memory"
 	"storj.io/storj/private/date"
 	"storj.io/storj/satellite/payments"
 )
@@ -19,6 +18,8 @@ import (
 var _ payments.Accounts = (*accounts)(nil)
 
 // accounts is an implementation of payments.Accounts.
+//
+// architecture: Service
 type accounts struct {
 	service *Service
 }
@@ -71,17 +72,27 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 	}
 
 	// add all active coupons amount to balance.
-	coupons, err := accounts.service.db.Coupons().ListByUserID(ctx, userID)
+	coupons, err := accounts.service.db.Coupons().ListByUserIDAndStatus(ctx, userID, payments.CouponActive)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
 
-	var couponAmount int64 = 0
+	var couponsAmount int64 = 0
 	for _, coupon := range coupons {
-		couponAmount += coupon.Amount
+		alreadyUsed, err := accounts.service.db.Coupons().TotalUsage(ctx, coupon.ID)
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
+
+		couponsAmount += coupon.Amount - alreadyUsed
 	}
 
-	return c.Balance + couponAmount, nil
+	creditBalance, err := accounts.service.db.Credits().Balance(ctx, userID)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	return -c.Balance + couponsAmount + creditBalance, nil
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.
@@ -105,12 +116,13 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 			return charges, Error.Wrap(err)
 		}
 
+		projectPrice := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount)
+
 		charges = append(charges, payments.ProjectCharge{
-			ProjectID: project.ID,
-			// TODO: check precision
-			Egress:       usage.Egress * accounts.service.EgressPrice / int64(memory.TB),
-			ObjectCount:  int64(usage.ObjectCount * float64(accounts.service.PerObjectPrice)),
-			StorageGbHrs: int64(usage.Storage*float64(accounts.service.TBhPrice)) / int64(memory.TB),
+			ProjectID:    project.ID,
+			Egress:       projectPrice.Egress.IntPart(),
+			ObjectCount:  projectPrice.Objects.IntPart(),
+			StorageGbHrs: projectPrice.Storage.IntPart(),
 		})
 	}
 
@@ -164,16 +176,18 @@ func (accounts *accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []pa
 	return charges, nil
 }
 
-// Coupons return list of all coupons of specified payment account.
-func (accounts *accounts) Coupons(ctx context.Context, userID uuid.UUID) (coupons []payments.Coupon, err error) {
-	defer mon.Task()(&ctx, userID)(&err)
-
-	coupons, err = accounts.service.db.Coupons().ListByUserID(ctx, userID)
-
-	return coupons, Error.Wrap(err)
-}
-
 // StorjTokens exposes all storj token related functionality.
 func (accounts *accounts) StorjTokens() payments.StorjTokens {
 	return &storjTokens{service: accounts.service}
+}
+
+// Coupons exposes all needed functionality to manage coupons.
+func (accounts *accounts) Coupons() payments.Coupons {
+	return &coupons{service: accounts.service}
+}
+
+// Credits exposes all needed functionality to manage credits.
+func (accounts *accounts) Credits() payments.Credits {
+
+	return &credits{service: accounts.service}
 }

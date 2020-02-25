@@ -12,15 +12,16 @@ import (
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensures that projects implements console.Projects.
 var _ console.Projects = (*projects)(nil)
 
-// implementation of Projects interface repository using spacemonkeygo/dbx orm
+// implementation of Projects interface repository using spacemonkeygo/dbx orm.
 type projects struct {
-	db dbx.Methods
+	db  dbx.Methods
+	sdb *satelliteDB
 }
 
 // GetAll is a method for querying all projects from the database.
@@ -95,6 +96,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	if !project.PartnerID.IsZero() {
 		createFields.PartnerId = dbx.Project_PartnerId(project.PartnerID[:])
 	}
+	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
@@ -127,11 +129,30 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 
 	updateFields := dbx.Project_Update_Fields{
 		Description: dbx.Project_Description(project.Description),
+		RateLimit:   dbx.Project_RateLimit_Raw(project.RateLimit),
 	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(project.ID[:]),
 		updateFields)
+
+	return err
+}
+
+// UpdateRateLimit is a method for updating projects rate limit.
+func (projects *projects) UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rateLimit := &newLimit
+	if newLimit == 0 {
+		rateLimit = nil
+	}
+
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			RateLimit: dbx.Project_RateLimit_Raw(rateLimit),
+		})
 
 	return err
 }
@@ -153,7 +174,7 @@ func (projects *projects) List(ctx context.Context, offset int64, limit int, bef
 
 	if len(dbxProjects) == limit+1 {
 		page.Next = true
-		page.NextOffset = offset + int64(limit) + 1
+		page.NextOffset = offset + int64(limit)
 
 		dbxProjects = dbxProjects[:len(dbxProjects)-1]
 	}
@@ -199,6 +220,7 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		Description: project.Description,
 		PartnerID:   partnerID,
 		OwnerID:     ownerID,
+		RateLimit:   project.RateLimit,
 		CreatedAt:   project.CreatedAt,
 	}, nil
 }

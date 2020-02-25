@@ -7,9 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -34,7 +35,7 @@ type Config struct {
 // architecture: Chore
 type Service struct {
 	log  *zap.Logger
-	Loop sync2.Cycle
+	Loop *sync2.Cycle
 
 	metainfoLoop            *metainfo.Loop
 	liveAccounting          accounting.Cache
@@ -46,7 +47,7 @@ type Service struct {
 func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
 	return &Service{
 		log:  log,
-		Loop: *sync2.NewCycle(interval),
+		Loop: sync2.NewCycle(interval),
 
 		metainfoLoop:            metainfoLoop,
 		liveAccounting:          liveAccounting,
@@ -78,18 +79,10 @@ func (service *Service) Close() error {
 func (service *Service) Tally(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// The live accounting store will only keep a delta to space used relative
-	// to the latest tally. Since a new tally is beginning, we will zero it out
-	// now. There is a window between this call and the point where the tally DB
-	// transaction starts, during which some changes in space usage may be
-	// double-counted (counted in the tally and also counted as a delta to
-	// the tally). If that happens, it will be fixed at the time of the next
-	// tally run.
-	err = service.liveAccounting.ResetTotals(ctx)
+	initialLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
 	// Fetch when the last tally happened so we can roughly calculate the byte-hours.
 	lastTime, err := service.storagenodeAccountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
@@ -123,9 +116,37 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	if len(observer.Bucket) > 0 {
+		// record bucket tallies to DB
 		err = service.projectAccountingDB.SaveTallies(ctx, finishTime, observer.Bucket)
 		if err != nil {
 			errAtRest = errs.New("ProjectAccounting.SaveTallies failed: %v", err)
+		}
+
+		// update live accounting totals
+		tallyProjectTotals := projectTotalsFromBuckets(observer.Bucket)
+		latestLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		// empty projects are not returned by the metainfo observer. If a project exists
+		// in live accounting, but not in tally projects, we would not update it in live accounting.
+		// Thus, we add them and set the total to 0.
+		for projectID := range latestLiveTotals {
+			if _, ok := tallyProjectTotals[projectID]; !ok {
+				tallyProjectTotals[projectID] = 0
+			}
+		}
+
+		for projectID, tallyTotal := range tallyProjectTotals {
+			delta := latestLiveTotals[projectID] - initialLiveTotals[projectID]
+			if delta < 0 {
+				delta = 0
+			}
+			err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID]+tallyTotal+(delta/2))
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
 	}
 
@@ -232,6 +253,14 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.Scope
 		observer.Node[piece.NodeId] += pieceSize
 	}
 	return nil
+}
+
+func projectTotalsFromBuckets(buckets map[string]*accounting.BucketTally) map[uuid.UUID]int64 {
+	projectTallyTotals := make(map[uuid.UUID]int64)
+	for _, bucket := range buckets {
+		projectTallyTotals[bucket.ProjectID] += (bucket.InlineBytes + bucket.RemoteBytes)
+	}
+	return projectTallyTotals
 }
 
 // using custom name to avoid breaking monitoring

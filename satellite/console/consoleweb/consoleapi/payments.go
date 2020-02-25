@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/console"
 )

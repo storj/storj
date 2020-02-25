@@ -30,14 +30,17 @@ var (
 
 func init() {
 	cpCmd := addCmd(&cobra.Command{
-		Use:   "cp",
+		Use:   "cp SOURCE DESTINATION",
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
+		Args:  cobra.ExactArgs(2),
 	}, RootCmd)
 
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
 	metadata = cpCmd.Flags().String("metadata", "", "optional metadata for the object. Please use a single level JSON object of string to string only")
+
+	setBasicFlags(cpCmd.Flags(), "progress", "expires", "metadata")
 }
 
 // upload transfers src from local machine to s3 compatible object dst
@@ -290,7 +293,7 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	// if both local
 	if src.IsLocal() && dst.IsLocal() {
-		return errors.New("at least one of the source or the desination must be a Storj URL")
+		return errors.New("at least one of the source or the destination must be a Storj URL")
 	}
 
 	// if uploading

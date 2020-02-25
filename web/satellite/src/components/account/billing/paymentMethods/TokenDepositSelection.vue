@@ -22,7 +22,7 @@
                 @input="onCustomAmountChange"
             >
             <p class="label__sign" v-if="customAmount">$</p>
-            <div class="input-svg" @click.self.stop="closeCustomAmountSelection">
+            <div class="input-svg" @click.stop="closeCustomAmountSelection">
                 <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
                 </svg>
@@ -31,6 +31,7 @@
         <div
             id="paymentSelect"
             class="options-container"
+            :class="{ 'top-expand': isExpandingTop }"
             v-if="isSelectionShown"
             v-click-outside="close"
         >
@@ -56,6 +57,7 @@
                 Custom Amount
             </div>
         </div>
+        <div class="payment-selection-blur" v-if="isSelectionShown"/>
     </div>
 </template>
 
@@ -68,7 +70,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 @Component
 export default class TokenDepositSelection extends Vue {
     /**
-     * Set of default payment options
+     * Set of default payment options.
      */
     public paymentOptions: PaymentAmountOption[] = [
         new PaymentAmountOption(20, `USD $20`),
@@ -78,48 +80,67 @@ export default class TokenDepositSelection extends Vue {
         new PaymentAmountOption(1000, `USD $1000`),
     ];
 
+    /**
+     * current selected payment option from default ones.
+     */
     public current: PaymentAmountOption = this.paymentOptions[0];
     public customAmount: string = '';
+    /**
+     * Indicates if custom amount selection state is active.
+     */
     public isCustomAmount = false;
 
+    /**
+     * Indicates if concrete payment option is currently selected.
+     */
     public isOptionSelected(option: PaymentAmountOption): boolean {
-        return option.value === this.current.value && !this.isCustomAmount;
+        return (option.value === this.current.value) && !this.isCustomAmount;
+    }
+
+    public get isExpandingTop(): boolean {
+        return this.$store.state.paymentsModule.billingHistory.length === 0;
     }
 
     /**
-     * isSelectionShown flag that indicate is token amount selection shown
+     * isSelectionShown flag that indicate is token amount selection shown.
      */
     public get isSelectionShown(): boolean {
         return this.$store.state.appStateModule.appState.isPaymentSelectionShown;
     }
 
     /**
-     * opens token amount selection
+     * opens token amount selection.
      */
     public open(): void {
         setTimeout(() => this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION, true), 0);
     }
 
     /**
-     * closes token amount selection
+     * closes token amount selection.
      */
     public close(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION, false);
     }
 
     /**
-     * onCustomAmountChange input event handle that emits value to parent component
+     * onCustomAmountChange input event handle that emits value to parent component.
      */
     public onCustomAmountChange(): void {
         this.$emit('onChangeTokenValue', parseInt(this.customAmount, 10));
     }
 
+    /**
+     * Sets view state to custom amount selection.
+     */
     public openCustomAmountSelection(): void {
         this.isCustomAmount = true;
         this.close();
         this.$emit('onChangeTokenValue', 0);
     }
 
+    /**
+     * Sets view state to default.
+     */
     public closeCustomAmountSelection(): void {
         this.open();
         this.$emit('onChangeTokenValue', this.current.value);
@@ -234,7 +255,6 @@ export default class TokenDepositSelection extends Vue {
         color: #354049;
         background-color: white;
         z-index: 102;
-        margin-right: 10px;
         border-radius: 12px;
         top: 50px;
         box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
@@ -281,5 +301,18 @@ export default class TokenDepositSelection extends Vue {
                 background-color: red;
             }
         }
+    }
+
+    .payment-selection-blur {
+        width: 258px;
+        height: 50px;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    .top-expand {
+        top: -290px;
+        box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.25);
     }
 </style>

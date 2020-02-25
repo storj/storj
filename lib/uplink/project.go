@@ -7,18 +7,16 @@ import (
 	"context"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/vivint/infectious"
 
 	"storj.io/common/encryption"
 	"storj.io/common/memory"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/uplink/ecclient"
-	"storj.io/uplink/eestream"
-	"storj.io/uplink/metainfo"
-	"storj.io/uplink/metainfo/kvmetainfo"
-	"storj.io/uplink/storage/segments"
-	"storj.io/uplink/storage/streams"
+	"storj.io/uplink/private/ecclient"
+	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/metainfo/kvmetainfo"
+	"storj.io/uplink/private/storage/segments"
+	"storj.io/uplink/private/storage/streams"
 )
 
 // Project represents a specific project access session.
@@ -176,24 +174,13 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	encryptionParameters := cfg.EncryptionParameters
 
 	ec := ecclient.NewClient(p.uplinkCfg.Volatile.Log.Named("ecclient"), p.dialer, p.uplinkCfg.Volatile.MaxMemory.Int())
-	fc, err := infectious.NewFEC(int(cfg.Volatile.RedundancyScheme.RequiredShares), int(cfg.Volatile.RedundancyScheme.TotalShares))
-	if err != nil {
-		return nil, err
-	}
-	rs, err := eestream.NewRedundancyStrategy(
-		eestream.NewRSScheme(fc, int(cfg.Volatile.RedundancyScheme.ShareSize)),
-		int(cfg.Volatile.RedundancyScheme.RepairShares),
-		int(cfg.Volatile.RedundancyScheme.OptimalShares))
-	if err != nil {
-		return nil, err
-	}
 
 	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(cfg.Volatile.SegmentsSize.Int64(),
 		cfg.EncryptionParameters)
 	if err != nil {
 		return nil, err
 	}
-	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs)
+	segmentStore := segments.NewSegmentStore(p.metainfo, ec)
 
 	streamStore, err := streams.NewStreamStore(p.metainfo, segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.uplinkCfg.Volatile.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 	if err != nil {

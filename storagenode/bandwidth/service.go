@@ -8,8 +8,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/common/sync2"
 )
@@ -27,7 +27,7 @@ type Config struct {
 type Service struct {
 	log  *zap.Logger
 	db   DB
-	Loop sync2.Cycle
+	Loop *sync2.Cycle
 }
 
 // NewService creates a new bandwidth service.
@@ -35,7 +35,7 @@ func NewService(log *zap.Logger, db DB, config Config) *Service {
 	return &Service{
 		log:  log,
 		db:   db,
-		Loop: *sync2.NewCycle(config.Interval),
+		Loop: sync2.NewCycle(config.Interval),
 	}
 }
 

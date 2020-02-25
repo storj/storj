@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import Vue, { VNode } from 'vue';
+import VueClipboard from 'vue-clipboard2';
 import { DirectiveBinding } from 'vue/types/options';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
@@ -20,9 +21,13 @@ const segment = new SegmentioPlugin();
 
 Vue.use(notificator);
 Vue.use(segment);
+Vue.use(VueClipboard);
 
 let clickOutsideEvent: EventListener;
 
+/**
+ * Binds closing action to outside popups area.
+ */
 Vue.directive('click-outside', {
     bind: function (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) {
         clickOutsideEvent = function(event: Event): void {
@@ -43,7 +48,7 @@ Vue.directive('click-outside', {
 });
 
 /**
- * number directive allow user to type only numbers in input
+ * number directive allow user to type only numbers in input.
  */
 Vue.directive('number', {
     bind (el: HTMLElement) {
@@ -60,7 +65,7 @@ Vue.directive('number', {
 });
 
 /**
- * leadingZero adds zero to the start of single digit number
+ * leadingZero adds zero to the start of single digit number.
  */
 Vue.filter('leadingZero', function (value: number): string {
     if (value <= 9) {

@@ -13,13 +13,13 @@ export class ReferralHttpApi {
     private readonly ROOT_PATH: string = '/api/v0/referrals';
 
     /**
-     * Used to get referral tokens
+     * Used to get referral tokens.
      *
      * @throws Error
      */
     public async getTokens(): Promise<string[]> {
         const path = `${this.ROOT_PATH}/tokens`;
-        const response = await this.http.get(path, true);
+        const response = await this.http.get(path);
 
         if (response.ok) {
             return await response.json();

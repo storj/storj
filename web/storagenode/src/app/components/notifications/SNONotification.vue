@@ -2,26 +2,26 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="notification-item">
+    <div class="notification-item" @mouseenter="read">
         <div class="row">
             <div class="notification-item__new-indicator-container">
-                <span class="notification-item__new-indicator-container__circle"></span>
+                <span v-if="!notification.isRead" class="notification-item__new-indicator-container__circle" />
             </div>
             <div class="notification-item__icon-container">
-                <div class="icon" v-html="icon"></div>
+                <div class="icon" v-html="notification.icon"></div>
             </div>
             <div class="notification-item__text-container">
                 <p
                     class="notification-item__text-container__message"
                     :class="{'small-font-size': isSmall}"
                 >
-                    Software Update Required: Your node software version 0.12.1 is out of date.
+                    <b class="notification-item__text-container__message__bold">{{ notification.title }}:</b> {{ notification.message }}
                 </p>
-                <p class="notification-item__text-container__date" v-if="isSmall">1 hour ago</p>
+                <p class="notification-item__text-container__date" v-if="isSmall">{{ notification.dateLabel }}</p>
             </div>
         </div>
         <div class="notification-item__date-container" v-if="!isSmall">
-            <p class="notification-item__date-container__date">1 hour ago</p>
+            <p class="notification-item__date-container__date">{{ notification.dateLabel }}</p>
         </div>
     </div>
 </template>
@@ -29,28 +29,34 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { NotificationIcon } from '@/app/utils/notificationIcons';
+import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
+import { Notification } from '@/app/types/notifications';
 
 @Component
 export default class SNONotification extends Vue {
-    @Prop({default: () => ({})})
-    public notification: any;
-    @Prop({default: false})
-    public isSmall: boolean;
+    @Prop({default: () => new Notification()})
+    public readonly notification: Notification;
 
-    // TODO: move to notification entity.
-    public get icon(): string {
-        // switch (this.notification.type) {
-        //     case 1:
-        //         return NotificationIcon.FAIL;
-        //     case 2:
-        //         return NotificationIcon.DISQUALIFIED;
-        //     case 3:
-        //         return NotificationIcon.SOFTWARE_UPDATE;
-        //     default:
-        //         return NotificationIcon.INFO;
-        // }
-        return NotificationIcon.INFO;
+    /**
+     * isSmall props indicates if component used in popup.
+     */
+    @Prop({default: false})
+    public readonly isSmall: boolean;
+
+    /**
+     * Fires on hover on notification. If notification is new, marks it as read.
+     */
+    public read(): void {
+        if (this.notification.isRead) {
+            return;
+        }
+
+        try {
+            this.$store.dispatch(NOTIFICATIONS_ACTIONS.MARK_AS_READ, this.notification.id);
+        } catch (error) {
+            // TODO: implement UI notification system.
+            console.error(error.message);
+        }
     }
 }
 </script>
@@ -103,6 +109,11 @@ export default class SNONotification extends Vue {
                 font-size: 15px;
                 color: #535f77;
                 text-align: left;
+                word-break: break-word;
+
+                &__bold {
+                    font-family: 'font_bold', sans-serif;
+                }
             }
 
             &__date {
@@ -115,7 +126,7 @@ export default class SNONotification extends Vue {
 
         &__date-container {
             margin-left: 20px;
-            min-width: 60px;
+            min-width: 100px;
 
             &__date {
                 font-size: 12px;

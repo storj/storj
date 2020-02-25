@@ -40,7 +40,7 @@ export class SNOApi {
     public async dashboard(): Promise<Dashboard> {
         const json = (await (await httpGet('/api/dashboard')).json() as any).data;
 
-        const satellitesJson = json.satellites ? json.satellites : [];
+        const satellitesJson = json.satellites || [];
 
         const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => {
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
@@ -49,7 +49,6 @@ export class SNOApi {
         });
 
         const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available);
-
         const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used, json.bandwidth.available);
 
         return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
@@ -61,35 +60,11 @@ export class SNOApi {
      * @returns satellite - new satellite instance filled with data from json
      */
     public async satellite(id: string): Promise<Satellite> {
-        const url = '/api/satellite/' + id;
+        const url = `/api/satellite/${id}`;
 
         const json = (await (await httpGet(url)).json() as any).data;
 
-        const storageDailyJson = json.storageDaily ? json.storageDaily : [];
-        const bandwidthDailyJson = json.bandwidthDaily ? json.bandwidthDaily : [];
-
-        const storageDaily: Stamp[] = storageDailyJson.map((stamp: any) => {
-            return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
-        });
-
-        const bandwidthDaily: BandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
-            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
-            const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
-
-            return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
-        });
-
-        const egressDaily: EgressUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
-            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
-
-            return new EgressUsed(egress, new Date(bandwidth.intervalStart));
-        });
-
-        const ingressDaily: IngressUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
-            const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
-
-            return new IngressUsed(ingress, new Date(bandwidth.intervalStart));
-        });
+        const satelliteByDayInfo = new SatelliteByDayInfo(json);
 
         const audit: Metric = new Metric(json.audit.totalCount, json.audit.successCount, json.audit.alpha,
             json.audit.beta, json.audit.score);
@@ -97,9 +72,19 @@ export class SNOApi {
         const uptime: Metric = new Metric(json.uptime.totalCount, json.uptime.successCount, json.uptime.alpha,
             json.uptime.beta, json.uptime.score);
 
-        return new Satellite(json.id, storageDaily, bandwidthDaily, egressDaily, ingressDaily,
-            json.storageSummary, json.bandwidthSummary, json.egressSummary, json.ingressSummary,
-            audit, uptime);
+        return new Satellite(
+            json.id,
+            satelliteByDayInfo.storageDaily,
+            satelliteByDayInfo.bandwidthDaily,
+            satelliteByDayInfo.egressDaily,
+            satelliteByDayInfo.ingressDaily,
+            json.storageSummary,
+            json.bandwidthSummary,
+            json.egressSummary,
+            json.ingressSummary,
+            audit,
+            uptime
+        );
     }
 
     /**
@@ -109,33 +94,55 @@ export class SNOApi {
     public async satellites(): Promise<Satellites> {
         const json = (await (await httpGet('/api/satellites')).json() as any).data;
 
-        const storageDailyJson = json.storageDaily ? json.storageDaily : [];
-        const bandwidthDailyJson = json.bandwidthDaily ? json.bandwidthDaily : [];
+        const satelliteByDayInfo = new SatelliteByDayInfo(json);
 
-        const storageDaily: Stamp[] = storageDailyJson.map((stamp: any) => {
+        return new Satellites(
+            satelliteByDayInfo.storageDaily,
+            satelliteByDayInfo.bandwidthDaily,
+            satelliteByDayInfo.egressDaily,
+            satelliteByDayInfo.ingressDaily,
+            json.storageSummary,
+            json.bandwidthSummary,
+            json.egressSummary,
+            json.ingressSummary
+        );
+    }
+}
+
+/**
+ * SatelliteByDayInfo holds by day bandwidth metrics.
+ */
+class SatelliteByDayInfo {
+    public storageDaily: Stamp[];
+    public bandwidthDaily: BandwidthUsed[];
+    public egressDaily: EgressUsed[];
+    public ingressDaily: IngressUsed[];
+
+    public constructor(json) {
+        const storageDailyJson = json.storageDaily || [];
+        const bandwidthDailyJson = json.bandwidthDaily || [];
+
+        this.storageDaily = storageDailyJson.map((stamp: any) => {
             return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
         });
 
-        const bandwidthDaily: BandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
+        this.bandwidthDaily = bandwidthDailyJson.map((bandwidth: any) => {
             const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
             const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
 
             return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
         });
 
-        const egressDaily: EgressUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
+        this.egressDaily = bandwidthDailyJson.map((bandwidth: any) => {
             const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
 
             return new EgressUsed(egress, new Date(bandwidth.intervalStart));
         });
 
-        const ingressDaily: IngressUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
+        this.ingressDaily = bandwidthDailyJson.map((bandwidth: any) => {
             const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
 
             return new IngressUsed(ingress, new Date(bandwidth.intervalStart));
         });
-
-        return new Satellites(storageDaily, bandwidthDaily, egressDaily, ingressDaily,
-            json.storageSummary, json.bandwidthSummary, json.egressSummary, json.ingressSummary);
     }
 }

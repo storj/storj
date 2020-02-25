@@ -18,9 +18,12 @@
                     <b class="header__content-holder__right-area__node-id-container__title">Node ID:</b>
                     <p class="header__content-holder__right-area__node-id-container__id">{{this.nodeId}}</p>
                 </div>
-                <div class="header__content-holder__right-area__bell-area" @click.stop="openNotificationPopup">
+                <div class="header__content-holder__right-area__bell-area" @click.stop="toggleNotificationsPopup">
                     <BellIcon />
-                    <span class="header__content-holder__right-area__bell-area__new-circle"></span>
+                    <span
+                        class="header__content-holder__right-area__bell-area__new-circle"
+                        v-if="hasNewNotifications"
+                    />
                 </div>
             </div>
             <NotificationsPopup
@@ -41,7 +44,10 @@ import BellIcon from '@/../static/images/notifications/bell.svg';
 import RefreshIcon from '@/../static/images/refresh.svg';
 import StorjIcon from '@/../static/images/storjIcon.svg';
 
+import { RouteConfig } from '@/app/router';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
+import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
+import { NotificationsCursor } from '@/app/types/notifications';
 
 const {
     GET_NODE_INFO,
@@ -59,10 +65,44 @@ const {
 export default class SNOHeader extends Vue {
     public isNotificationPopupShown: boolean = false;
 
-    public openNotificationPopup(): void {
-        this.isNotificationPopupShown = true;
+    /**
+     * Lifecycle hook before render.
+     * Fetches first page of notifications.
+     */
+    public beforeMount(): void {
+        try {
+            this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
+            this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+        } catch (error) {
+            console.error(error.message);
+        }
     }
 
+    public get nodeId(): string {
+        return this.$store.state.node.info.id;
+    }
+
+    public get hasNewNotifications(): boolean {
+        return this.$store.state.notificationsModule.unreadCount > 0;
+    }
+
+    /**
+     * toggleNotificationPopup toggles NotificationPopup visibility.
+     */
+    public toggleNotificationsPopup(): void {
+        /**
+         * Blocks opening popup in current route is /notifications.
+         */
+        if (this.$route.name === RouteConfig.Notifications.name) {
+            return;
+        }
+
+        this.isNotificationPopupShown = !this.isNotificationPopupShown;
+    }
+
+    /**
+     * closeNotificationPopup when clicking outside popup.
+     */
     public closeNotificationPopup(): void {
         this.isNotificationPopupShown = false;
     }
@@ -76,10 +116,6 @@ export default class SNOHeader extends Vue {
         } catch (error) {
             console.error(`${error.message} satellite data.`);
         }
-    }
-
-    public get nodeId(): string {
-        return this.$store.state.node.info.id;
     }
 }
 </script>
@@ -172,7 +208,6 @@ export default class SNOHeader extends Vue {
                         position: absolute;
                         top: 105px;
                         right: 0;
-                        z-index: 100;
                     }
                 }
             }

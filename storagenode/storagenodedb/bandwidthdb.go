@@ -36,7 +36,7 @@ type bandwidthDB struct {
 // Add adds bandwidth usage to the table
 func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		INSERT INTO
 			bandwidth_usage(satellite_id, action, amount, created_at)
 		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created.UTC())
@@ -48,7 +48,7 @@ func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action
 		if beginningOfMonth.Equal(db.usedSince) {
 			db.usedSpace += amount
 		} else if beginningOfMonth.After(db.usedSince) {
-			usage, err := db.Summary(ctx, beginningOfMonth, time.Now().UTC())
+			usage, err := db.Summary(ctx, beginningOfMonth, time.Now())
 			if err != nil {
 				return err
 			}
@@ -60,17 +60,18 @@ func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action
 }
 
 // MonthSummary returns summary of the current months bandwidth usages
-func (db *bandwidthDB) MonthSummary(ctx context.Context) (_ int64, err error) {
+func (db *bandwidthDB) MonthSummary(ctx context.Context, now time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	db.usedMu.RLock()
-	beginningOfMonth := getBeginningOfMonth(time.Now().UTC())
+	beginningOfMonth := getBeginningOfMonth(now)
 	if beginningOfMonth.Equal(db.usedSince) {
 		defer db.usedMu.RUnlock()
 		return db.usedSpace, nil
 	}
 	db.usedMu.RUnlock()
 
-	usage, err := db.Summary(ctx, beginningOfMonth, time.Now())
+	usage, err := db.Summary(ctx, beginningOfMonth, now)
 	if err != nil {
 		return 0, err
 	}
@@ -133,7 +134,7 @@ func (db *bandwidthDB) getSummary(ctx context.Context, from, to time.Time, filte
 
 	from = from.UTC()
 	to = to.UTC()
-	rows, err := db.Query(`
+	rows, err := db.QueryContext(ctx, `
 		SELECT action, sum(a) amount from(
 				SELECT action, sum(amount) a
 				FROM bandwidth_usage
@@ -214,7 +215,6 @@ func (db *bandwidthDB) getSatelliteSummary(ctx context.Context, satelliteID stor
 	if err != nil {
 		return nil, ErrBandwidth.Wrap(err)
 	}
-
 	defer func() {
 		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
 	}()
@@ -232,7 +232,7 @@ func (db *bandwidthDB) getSatelliteSummary(ctx context.Context, satelliteID stor
 		filter(action, amount, usage)
 	}
 
-	return usage, nil
+	return usage, ErrBandwidth.Wrap(rows.Err())
 }
 
 // SummaryBySatellite returns summary of bandwidth usage grouping by satellite.
@@ -243,7 +243,7 @@ func (db *bandwidthDB) SummaryBySatellite(ctx context.Context, from, to time.Tim
 
 	from = from.UTC()
 	to = to.UTC()
-	rows, err := db.Query(`
+	rows, err := db.QueryContext(ctx, `
 	SELECT satellite_id, action, sum(a) amount from(
 			SELECT satellite_id, action, sum(amount) a
 			FROM bandwidth_usage
@@ -295,7 +295,7 @@ func (db *bandwidthDB) Rollup(ctx context.Context) (err error) {
 	// Go back an hour to give us room for late persists
 	hour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location()).Add(-time.Hour)
 
-	tx, err := db.Begin()
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return ErrBandwidth.Wrap(err)
 	}
@@ -308,7 +308,7 @@ func (db *bandwidthDB) Rollup(ctx context.Context) (err error) {
 		}
 	}()
 
-	result, err := tx.Exec(`
+	result, err := tx.ExecContext(ctx, `
 		INSERT INTO bandwidth_usage_rollups (interval_start, satellite_id,  action, amount)
 		SELECT datetime(strftime('%Y-%m-%dT%H:00:00', created_at)) created_hr, satellite_id, action, SUM(amount)
 			FROM bandwidth_usage
@@ -382,7 +382,6 @@ func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, ar
 	if err != nil {
 		return nil, ErrBandwidth.Wrap(err)
 	}
-
 	defer func() {
 		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
 	}()
@@ -433,10 +432,10 @@ func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, ar
 		usageRollups = append(usageRollups, *usageRollupsByDate[d])
 	}
 
-	return usageRollups, nil
+	return usageRollups, ErrBandwidth.Wrap(rows.Err())
 }
 
 func getBeginningOfMonth(now time.Time) time.Time {
-	y, m, _ := now.Date()
-	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().UTC().Location())
+	y, m, _ := now.UTC().Date()
+	return time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
 }

@@ -16,8 +16,6 @@ type TypeCreator struct {
 	query    *graphql.Object
 	mutation *graphql.Object
 
-	token *graphql.Object
-
 	user              *graphql.Object
 	reward            *graphql.Object
 	creditUsage       *graphql.Object
@@ -124,11 +122,6 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.project = graphqlProject(service, c)
 	if err := c.project.Error(); err != nil {
-		return err
-	}
-
-	c.token = graphqlToken(service, c)
-	if err := c.user.Error(); err != nil {
 		return err
 	}
 

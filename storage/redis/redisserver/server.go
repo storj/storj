@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alicebob/miniredis"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/go-redis/redis"
 
 	"storj.io/storj/private/processgroup"
@@ -29,6 +29,12 @@ const (
 	fallbackAddr = "localhost:6379"
 	fallbackPort = 6379
 )
+
+// Server represents a redis server.
+type Server interface {
+	Addr() string
+	Close() error
+}
 
 func freeport() (addr string, port int) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -45,25 +51,24 @@ func freeport() (addr string, port int) {
 }
 
 // Start starts a redis-server when available, otherwise falls back to miniredis
-func Start() (addr string, cleanup func(), err error) {
-	addr, cleanup, err = Process()
+func Start() (Server, error) {
+	server, err := Process()
 	if err != nil {
 		log.Println("failed to start redis-server: ", err)
 		return Mini()
 	}
-	return addr, cleanup, err
+	return server, err
 }
 
 // Process starts a redis-server test process
-func Process() (addr string, cleanup func(), err error) {
+func Process() (Server, error) {
 	tmpdir, err := ioutil.TempDir("", "storj-redis")
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	// find a suitable port for listening
-	var port int
-	addr, port = freeport()
+	addr, port := freeport()
 
 	// write a configuration file, because redis doesn't support flags
 	confpath := filepath.Join(tmpdir, "test.conf")
@@ -80,7 +85,7 @@ func Process() (addr string, cleanup func(), err error) {
 	conf := strings.Join(arguments, "\n") + "\n"
 	err = ioutil.WriteFile(confpath, []byte(conf), 0755)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	// start the process
@@ -89,15 +94,15 @@ func Process() (addr string, cleanup func(), err error) {
 
 	read, write, err := os.Pipe()
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	cmd.Stdout = write
 	if err := cmd.Start(); err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
-	cleanup = func() {
+	cleanup := func() {
 		processgroup.Kill(cmd)
 		_ = os.RemoveAll(tmpdir)
 	}
@@ -123,21 +128,29 @@ func Process() (addr string, cleanup func(), err error) {
 	case err := <-waitForReady:
 		if err != nil {
 			cleanup()
-			return "", nil, err
+			return nil, err
 		}
 	case <-time.After(3 * time.Second):
 		cleanup()
-		return "", nil, errors.New("redis timeout")
+		return nil, errors.New("redis timeout")
 	}
 
 	// test whether we can actually connect
 	if err := pingServer(addr); err != nil {
 		cleanup()
-		return "", nil, fmt.Errorf("unable to ping: %v", err)
+		return nil, fmt.Errorf("unable to ping: %v", err)
 	}
 
-	return addr, cleanup, nil
+	return &process{addr, cleanup}, nil
 }
+
+type process struct {
+	addr  string
+	close func()
+}
+
+func (process *process) Addr() string { return process.addr }
+func (process *process) Close() error { process.close(); return nil }
 
 func pingServer(addr string) error {
 	client := redis.NewClient(&redis.Options{Addr: addr, DB: 1})
@@ -146,13 +159,21 @@ func pingServer(addr string) error {
 }
 
 // Mini starts miniredis server
-func Mini() (addr string, cleanup func(), err error) {
+func Mini() (Server, error) {
 	server, err := miniredis.Run()
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
-	return server.Addr(), func() {
-		server.Close()
-	}, nil
+	return &miniserver{server}, nil
+}
+
+type miniserver struct {
+	*miniredis.Miniredis
+}
+
+// Close closes the underlying miniredis server
+func (s *miniserver) Close() error {
+	s.Miniredis.Close()
+	return nil
 }

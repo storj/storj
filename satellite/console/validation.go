@@ -17,8 +17,8 @@ var ErrValidation = errs.Class("validation error")
 // validationError is slice of ErrValidation class errors
 type validationErrors []error
 
-// Add new ErrValidation err
-func (validation *validationErrors) Add(format string, args ...interface{}) {
+// Addf adds a new ErrValidation error to validation.
+func (validation *validationErrors) Addf(format string, args ...interface{}) {
 	*validation = append(*validation, ErrValidation.New(format, args...))
 }
 
@@ -37,7 +37,7 @@ func ValidatePassword(pass string) error {
 	var errs validationErrors
 
 	if len(pass) < passMinLength {
-		errs.Add(passwordIncorrectErrMsg, passMinLength)
+		errs.Addf(passwordIncorrectErrMsg, passMinLength)
 	}
 
 	return errs.Combine()

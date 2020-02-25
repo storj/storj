@@ -1,6 +1,11 @@
 /* Copyright (C) 2019 Storj Labs, Inc. */
-
 /* See LICENSE for copying information. */
+
+@font-face {
+    font-family: 'font_regular';
+    font-display: swap;
+    src: url('../fonts/font_regular.ttf') format('truetype')
+}
 
 .container {
     position: fixed;

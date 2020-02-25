@@ -6,11 +6,11 @@ import gql from 'graphql-tag';
 import { apollo } from '@/utils/apollo';
 
 /**
- * BaseGql is a graphql utility which allows to perform queries and mutations
+ * BaseGql is a graphql utility which allows to perform queries and mutations.
  */
 export class BaseGql {
     /**
-     * performs qraphql query
+     * performs qraphql query.
      *
      * @param query - qraphql query
      * @param variables - variables to bind in query. null by default.
@@ -34,7 +34,7 @@ export class BaseGql {
     }
 
     /**
-     * performs qraphql mutation
+     * performs qraphql mutation.
      *
      * @param query - qraphql query
      * @param variables - variables to bind in query. null by default.
@@ -58,6 +58,6 @@ export class BaseGql {
     }
 
     private combineErrors(gqlError: any): string {
-        return gqlError.map(err => err.message).join('\n');
+        return gqlError.map(err => err).join('\n');
     }
 }

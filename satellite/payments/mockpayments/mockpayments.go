@@ -7,9 +7,10 @@ import (
 	"context"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/common/memory"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -23,22 +24,46 @@ var (
 var _ payments.Accounts = (*accounts)(nil)
 
 // accounts is a mock implementation of payments.Accounts.
+//
+// architecture: Service
 type accounts struct{}
 
 var _ payments.CreditCards = (*creditCards)(nil)
 
 // creditCards is a mock implementation of payments.CreditCards.
+//
+// architecture: Service
 type creditCards struct{}
 
 var _ payments.Invoices = (*invoices)(nil)
 
 // invoices is a mock implementation of payments.Invoices.
+//
+// architecture: Service
 type invoices struct{}
 
 var _ payments.StorjTokens = (*storjTokens)(nil)
 
 // storjTokens is a mock implementation of payments.StorjTokens.
+//
+// architecture: Service
 type storjTokens struct{}
+
+// ensures that coupons implements payments.Coupons.
+var _ payments.Coupons = (*coupons)(nil)
+
+// coupons is an implementation of payments.Coupons.
+//
+// architecture: Service
+type coupons struct{}
+
+// ensures that credits implements payments.Credits.
+var _ payments.Credits = (*credits)(nil)
+
+// credits is an implementation of payments.Credits.
+//
+// architecture: Service
+type credits struct{}
 
 // Accounts exposes all needed functionality to manage payment accounts.
 func Accounts() payments.Accounts {
@@ -58,6 +83,16 @@ func (accounts *accounts) Invoices() payments.Invoices {
 // StorjTokens exposes all storj token related functionality.
 func (accounts *accounts) StorjTokens() payments.StorjTokens {
 	return &storjTokens{}
+}
+
+// Coupons exposes all needed functionality to manage coupons.
+func (accounts *accounts) Coupons() payments.Coupons {
+	return &coupons{}
+}
+
+// Credits exposes all needed functionality to manage coupons.
+func (accounts *accounts) Credits() payments.Credits {
+	return &credits{}
 }
 
 // Setup creates a payment account for the user.
@@ -86,13 +121,6 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 func (accounts accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []payments.Charge, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 	return []payments.Charge{}, nil
-}
-
-// Coupons return list of all coupons of specified payment account.
-func (accounts *accounts) Coupons(ctx context.Context, userID uuid.UUID) (coupons []payments.Coupon, err error) {
-	defer mon.Task()(&ctx, userID)(&err)
-
-	return coupons, nil
 }
 
 // List returns a list of credit cards for a given payment account.
@@ -141,4 +169,50 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 func (tokens *storjTokens) ListTransactionInfos(ctx context.Context, userID uuid.UUID) (_ []payments.TransactionInfo, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 	return ([]payments.TransactionInfo)(nil), nil
+}
+
+// Create attaches a coupon for payment account.
+func (coupons *coupons) Create(ctx context.Context, coupon payments.Coupon) (err error) {
+	defer mon.Task()(&ctx, coupon)(&err)
+
+	return nil
+}
+
+// ListByUserID return list of all coupons of specified payment account.
+func (coupons *coupons) ListByUserID(ctx context.Context, userID uuid.UUID) (_ []payments.Coupon, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	return ([]payments.Coupon)(nil), Error.Wrap(err)
+}
+
+// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
+// a project, payment method and do not have a promotional coupon yet.
+// And updates project limits to selected size.
+func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration int, amount int64, projectLimit memory.Size) (err error) {
+	defer mon.Task()(&ctx, duration, amount, projectLimit)(&err)
+
+	return nil
+}
+
+// AddPromotionalCoupon is used to add a promotional coupon for specified users who already have
+// a project and do not have a promotional coupon yet.
+// And updates project limits to selected size.
+func (coupons *coupons) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID, duration int, amount int64, projectLimit memory.Size) (err error) {
+	defer mon.Task()(&ctx, userID, duration, amount, projectLimit)(&err)
+
+	return nil
+}
+
+// Create attaches a credit for payment account.
+func (credits *credits) Create(ctx context.Context, credit payments.Credit) (err error) {
+	defer mon.Task()(&ctx, credit)(&err)
+
+	return nil
+}
+
+// ListByUserID return list of all credits of specified payment account.
+func (credits *credits) ListByUserID(ctx context.Context, userID uuid.UUID) (_ []payments.Credit, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	return ([]payments.Credit)(nil), Error.Wrap(err)
 }

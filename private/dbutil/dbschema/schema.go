@@ -5,14 +5,18 @@
 package dbschema
 
 import (
+	"context"
 	"database/sql"
 	"sort"
 )
 
 // Queryer is a representation for something that can query.
 type Queryer interface {
-	// Query executes a query that returns rows, typically a SELECT.
-	Query(query string, args ...interface{}) (*sql.Rows, error)
+	// QueryContext executes a query that returns rows, typically a SELECT.
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+
+	// QueryRowContext executes a query that returns a single row.
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
 // Schema is the database structure.

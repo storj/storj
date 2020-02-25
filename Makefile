@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.13.5
+GO_VERSION ?= 1.13.8
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -61,13 +61,15 @@ goimports-st: ## Applies goimports to every go file in `git status` (ignores unt
 	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
 
 .PHONY: build-packages
-build-packages: build-packages-race build-packages-normal build-npm ## Test docker images locally
+build-packages: build-packages-race build-packages-normal build-satellite-npm build-storagenode-npm ## Test docker images locally
 build-packages-race:
 	go build -v ./...
 build-packages-normal:
 	go build -v -race ./...
-build-npm:
+build-satellite-npm:
 	cd web/satellite && npm ci
+build-storagenode-npm:
+	cd web/storagenode && npm ci
 
 ##@ Simulator
 
@@ -80,9 +82,9 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/storj-sim \
 		storj.io/storj/cmd/versioncontrol \
 		storj.io/storj/cmd/uplink \
-		storj.io/storj/cmd/gateway \
 		storj.io/storj/cmd/identity \
 		storj.io/storj/cmd/certificates
+	cd cmd/gateway && go install -race -v storj.io/storj/cmd/gateway
 
 ##@ Test
 
@@ -226,13 +228,14 @@ binary:
 	[ "${GOOS}" = "windows" ] && [ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
 	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
 	-description "${COMPONENT} program for Storj" \
-	-product-ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
-	        -ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
-	-product-ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
-	        -ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
-	-product-ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}')" \
-	        -ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}')" \
-	-product-version "$(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" || echo "dev" )" \
+        -product-ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
+                -ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
+        -product-ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
+                -ver-minor "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$2} END {print v}')" \
+        -product-ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}' | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}')" \
+                -ver-patch "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {v=$$3} END {print v}' | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}')" \
+        -product-version "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}' || echo "dev" )" \
+        -special-build "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$2} END {print v}' )" \
 	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
@@ -329,7 +332,18 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
-	cd "release/${TAG}"; for f in *; do zip $${f}.zip $${f}; done
+	cd "release/${TAG}"; for f in *; do \
+		c="$${f%%_*}" \
+		&& if [ "$${f##*.}" != "$${f}" ]; then \
+			ln -s "$${f}" "$${f%%_*}.$${f##*.}" \
+			&& zip "$${f}.zip" "$${f%%_*}.$${f##*.}" \
+			&& rm "$${f%%_*}.$${f##*.}" \
+		; else \
+			ln -sf "$${f}" "$${f%%_*}" \
+			&& zip "$${f}.zip" "$${f%%_*}" \
+			&& rm "$${f%%_*}" \
+		; fi \
+	; done
 	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
 
 ##@ Clean
@@ -358,11 +372,17 @@ test-docker-clean: ## Clean up Docker environment used in test-docker target
 
 .PHONY: diagrams
 diagrams:
+	archview -root "storj.io/storj/satellite.Core"     -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ ./satellite/... | dot -T svg -o satellite-core.svg
+	archview -root "storj.io/storj/satellite.API"      -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ ./satellite/... | dot -T svg -o satellite-api.svg
+	archview -root "storj.io/storj/satellite.Repairer" -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ ./satellite/... | dot -T svg -o satellite-repair.svg
 	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/   ./satellite/...   | dot -T svg -o satellite.svg
 	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/storagenode/ ./storagenode/... | dot -T svg -o storage-node.svg
 
 .PHONY: diagrams-graphml
 diagrams-graphml:
+	archview -root "storj.io/storj/satellite.Core"     -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ -out satellite-core.graphml   ./satellite/...
+	archview -root "storj.io/storj/satellite.API"      -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ -out satellite-api.graphml    ./satellite/...
+	archview -root "storj.io/storj/satellite.Repairer" -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ -out satellite-repair.graphml ./satellite/...
 	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/   -out satellite.graphml    ./satellite/...
 	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/storagenode/ -out storage-node.graphml ./storagenode/...
 

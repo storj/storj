@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensure that coinpaymentsTransactions implements stripecoinpayments.TransactionsDB.
@@ -116,12 +116,34 @@ func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripe
 func (db *coinPaymentsTransactions) Consume(ctx context.Context, id coinpayments.TransactionID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.db.Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx,
-		dbx.StripecoinpaymentsApplyBalanceIntent_TxId(id.String()),
-		dbx.StripecoinpaymentsApplyBalanceIntent_Update_Fields{
-			State: dbx.StripecoinpaymentsApplyBalanceIntent_State(applyBalanceIntentStateConsumed.Int()),
-		},
-	)
+	query := db.db.Rebind(` 
+		WITH intent AS (
+			SELECT tx_id, state FROM stripecoinpayments_apply_balance_intents WHERE tx_id = ? 
+		), updated AS (
+			UPDATE stripecoinpayments_apply_balance_intents AS ints
+				SET 
+					state = ? 
+				FROM intent
+				WHERE intent.tx_id = ints.tx_id  AND ints.state = ?
+			RETURNING 1
+		)
+		SELECT EXISTS(SELECT 1 FROM intent) AS intent_exists, EXISTS(SELECT 1 FROM updated) AS intent_consumed;
+	`)
+
+	row := db.db.QueryRowContext(ctx, query, id, applyBalanceIntentStateConsumed, applyBalanceIntentStateUnapplied)
+
+	var exists, consumed bool
+	if err = row.Scan(&exists, &consumed); err != nil {
+		return err
+	}
+
+	if !exists {
+		return errs.New("can not consume transaction without apply balance intent")
+	}
+	if !consumed {
+		return stripecoinpayments.ErrTransactionConsumed
+	}
+
 	return err
 }
 
@@ -188,62 +210,22 @@ func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid
 func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.TransactionsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var page stripecoinpayments.TransactionsPage
-
-	dbxTXs, err := db.db.Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(
-		ctx,
-		dbx.CoinpaymentsTransaction_CreatedAt(before.UTC()),
-		dbx.CoinpaymentsTransaction_Status(coinpayments.StatusPending.Int()),
-		limit+1,
-		offset,
-	)
-	if err != nil {
-		return stripecoinpayments.TransactionsPage{}, err
-	}
-
-	if len(dbxTXs) == limit+1 {
-		page.Next = true
-		page.NextOffset = offset + int64(limit) + 1
-
-		dbxTXs = dbxTXs[:len(dbxTXs)-1]
-	}
-
-	var txs []stripecoinpayments.Transaction
-	for _, dbxTX := range dbxTXs {
-		tx, err := fromDBXCoinpaymentsTransaction(dbxTX)
-		if err != nil {
-			return stripecoinpayments.TransactionsPage{}, err
-		}
-
-		txs = append(txs, *tx)
-	}
-
-	page.Transactions = txs
-	return page, nil
-}
-
-// List Unapplied returns TransactionsPage with transactions completed transaction that should be applied to account balance.
-func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.TransactionsPage, err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	query := db.db.Rebind(`SELECT 
-				txs.id,
-				txs.user_id,
-				txs.address,
-				txs.amount,
-				txs.received,
-				txs.key,
-				txs.created_at
-			FROM coinpayments_transactions as txs 
-			INNER JOIN stripecoinpayments_apply_balance_intents as ints
-			ON txs.id = ints.tx_id
-			WHERE txs.status = ?
-			AND txs.created_at <= ?
-			AND ints.state = ?
-			ORDER by txs.created_at DESC
+				id,
+				user_id,
+				address,
+				amount,
+				received,
+				status,
+				key,
+				created_at
+			FROM coinpayments_transactions 
+			WHERE status IN (?,?)
+			AND created_at <= ?
+			ORDER by created_at DESC
 			LIMIT ? OFFSET ?`)
 
-	rows, err := db.db.QueryContext(ctx, query, coinpayments.StatusReceived, before, applyBalanceIntentStateUnapplied, limit+1, offset)
+	rows, err := db.db.QueryContext(ctx, query, coinpayments.StatusPending, coinpayments.StatusReceived, before, limit+1, offset)
 	if err != nil {
 		return stripecoinpayments.TransactionsPage{}, err
 	}
@@ -258,10 +240,11 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 		var id, address string
 		var userIDB []byte
 		var amountB, receivedB []byte
+		var status int
 		var key string
 		var createdAt time.Time
 
-		err := rows.Scan(&id, &userIDB, &address, &amountB, &receivedB, &key, &createdAt)
+		err := rows.Scan(&id, &userIDB, &address, &amountB, &receivedB, &status, &key, &createdAt)
 		if err != nil {
 			return stripecoinpayments.TransactionsPage{}, err
 		}
@@ -286,7 +269,7 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 				Address:   address,
 				Amount:    amount,
 				Received:  received,
-				Status:    coinpayments.StatusReceived,
+				Status:    coinpayments.Status(status),
 				Key:       key,
 				CreatedAt: createdAt,
 			},
@@ -299,7 +282,90 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 
 	if len(page.Transactions) == limit+1 {
 		page.Next = true
-		page.NextOffset = offset + int64(limit) + 1
+		page.NextOffset = offset + int64(limit)
+		page.Transactions = page.Transactions[:len(page.Transactions)-1]
+	}
+
+	return page, nil
+}
+
+// List Unapplied returns TransactionsPage with transactions completed transaction that should be applied to account balance.
+func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.TransactionsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := db.db.Rebind(`SELECT 
+				txs.id,
+				txs.user_id,
+				txs.address,
+				txs.amount,
+				txs.received,
+				txs.status,
+				txs.key,
+				txs.created_at
+			FROM coinpayments_transactions as txs 
+			INNER JOIN stripecoinpayments_apply_balance_intents as ints
+			ON txs.id = ints.tx_id
+			WHERE txs.status = ?
+			AND txs.created_at <= ?
+			AND ints.state = ?
+			ORDER by txs.created_at DESC
+			LIMIT ? OFFSET ?`)
+
+	rows, err := db.db.QueryContext(ctx, query, coinpayments.StatusCompleted, before, applyBalanceIntentStateUnapplied, limit+1, offset)
+	if err != nil {
+		return stripecoinpayments.TransactionsPage{}, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var page stripecoinpayments.TransactionsPage
+
+	for rows.Next() {
+		var id, address string
+		var userIDB []byte
+		var amountB, receivedB []byte
+		var status int
+		var key string
+		var createdAt time.Time
+
+		err := rows.Scan(&id, &userIDB, &address, &amountB, &receivedB, &status, &key, &createdAt)
+		if err != nil {
+			return stripecoinpayments.TransactionsPage{}, err
+		}
+
+		userID, err := dbutil.BytesToUUID(userIDB)
+		if err != nil {
+			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
+		}
+
+		var amount, received big.Float
+		if err := amount.GobDecode(amountB); err != nil {
+			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
+		}
+		if err := received.GobDecode(receivedB); err != nil {
+			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
+		}
+
+		page.Transactions = append(page.Transactions,
+			stripecoinpayments.Transaction{
+				ID:        coinpayments.TransactionID(id),
+				AccountID: userID,
+				Address:   address,
+				Amount:    amount,
+				Received:  received,
+				Status:    coinpayments.Status(status),
+				Key:       key,
+				CreatedAt: createdAt,
+			},
+		)
+	}
+
+	if err = rows.Err(); err != nil {
+		return stripecoinpayments.TransactionsPage{}, err
+	}
+
+	if len(page.Transactions) == limit+1 {
+		page.Next = true
+		page.NextOffset = offset + int64(limit)
 		page.Transactions = page.Transactions[:len(page.Transactions)-1]
 	}
 

@@ -52,23 +52,45 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE consumed_serials (
+	storage_node_id bytea NOT NULL,
+	serial_number bytea NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( storage_node_id, serial_number )
+);
 CREATE TABLE coupons (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	amount bigint NOT NULL,
 	description text NOT NULL,
+	type integer NOT NULL,
 	status integer NOT NULL,
 	duration bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( project_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE coupon_usages (
-	id bytea NOT NULL,
 	coupon_id bytea NOT NULL,
 	amount bigint NOT NULL,
-	interval_end timestamp with time zone NOT NULL,
+	status integer NOT NULL,
+	period timestamp with time zone NOT NULL,
+	PRIMARY KEY ( coupon_id, period )
+);
+CREATE TABLE credits (
+	user_id bytea NOT NULL,
+	transaction_id text NOT NULL,
+	amount bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( transaction_id )
+);
+CREATE TABLE credits_spendings (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	status integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE graceful_exit_progress (
@@ -184,11 +206,21 @@ CREATE TABLE pending_audits (
 	path bytea NOT NULL,
 	PRIMARY KEY ( node_id )
 );
+CREATE TABLE pending_serial_queue (
+	storage_node_id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	serial_number bytea NOT NULL,
+	action integer NOT NULL,
+	settled bigint NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
+);
 CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
 	usage_limit bigint NOT NULL,
+	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -201,6 +233,16 @@ CREATE TABLE registration_tokens (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
+);
+CREATE TABLE reported_serials (
+	expires_at timestamp with time zone NOT NULL,
+	storage_node_id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	action integer NOT NULL,
+	serial_number bytea NOT NULL,
+	settled bigint NOT NULL,
+	observed_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
 );
 CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
@@ -347,11 +389,10 @@ CREATE TABLE user_credits (
 	PRIMARY KEY ( id ),
 	UNIQUE ( id, offer_id )
 );
-CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
+CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );

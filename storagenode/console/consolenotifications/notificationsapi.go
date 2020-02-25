@@ -10,9 +10,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storagenode/notifications"
 )
@@ -34,6 +34,16 @@ type Notifications struct {
 	service *notifications.Service
 
 	log *zap.Logger
+}
+
+// Page contains notifications and related information.
+type Page struct {
+	Notifications []notifications.Notification `json:"notifications"`
+
+	Offset      uint64 `json:"offset"`
+	Limit       uint   `json:"limit"`
+	CurrentPage uint   `json:"currentPage"`
+	PageCount   uint   `json:"pageCount"`
 }
 
 // jsonOutput defines json structure of api response data.
@@ -124,12 +134,18 @@ func (notification *Notifications) ListNotifications(w http.ResponseWriter, r *h
 	}
 
 	var result struct {
-		NotificationList notifications.Page
-		UnreadCount      int
+		Page        Page `json:"page"`
+		UnreadCount int  `json:"unreadCount"`
+		TotalCount  int  `json:"totalCount"`
 	}
 
-	result.NotificationList = notificationList
+	result.Page.Notifications = notificationList.Notifications
+	result.Page.Limit = notificationList.Limit
+	result.Page.CurrentPage = notificationList.CurrentPage
+	result.Page.Offset = notificationList.Offset
+	result.Page.PageCount = notificationList.PageCount
 	result.UnreadCount = unreadCount
+	result.TotalCount = int(notificationList.TotalCount)
 
 	notification.writeData(w, result)
 }

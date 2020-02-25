@@ -8,20 +8,16 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/cockroachdb/cockroach-go/crdb"
 	"github.com/lib/pq"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/dbutil/txutil"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/cockroachkv/schema"
-)
-
-const (
-	defaultBatchSize          = 128
-	defaultRecursiveBatchSize = 10000
 )
 
 var (
@@ -30,21 +26,24 @@ var (
 
 // Client is the entrypoint into a cockroachkv data store
 type Client struct {
-	db *sql.DB
+	db tagsql.DB
+
+	lookupLimit int
 }
 
 // New instantiates a new cockroachkv client given db URL
 func New(dbURL string) (*Client, error) {
 	dbURL = pgutil.CheckApplicationName(dbURL)
 
-	db, err := sql.Open("cockroach", dbURL)
+	db, err := tagsql.Open("cockroach", dbURL)
 	if err != nil {
 		return nil, err
 	}
 
 	dbutil.Configure(db, mon)
 
-	err = schema.PrepareDB(db)
+	// TODO: new shouldn't be taking ctx as argument
+	err = schema.PrepareDB(context.TODO(), db)
 	if err != nil {
 		return nil, err
 	}
@@ -52,10 +51,16 @@ func New(dbURL string) (*Client, error) {
 	return NewWith(db), nil
 }
 
-// NewWith instantiates a new postgreskv client given db.
-func NewWith(db *sql.DB) *Client {
-	return &Client{db: db}
+// NewWith instantiates a new cockroachkv client given db.
+func NewWith(db tagsql.DB) *Client {
+	return &Client{db: db, lookupLimit: storage.DefaultLookupLimit}
 }
+
+// SetLookupLimit sets the lookup limit.
+func (client *Client) SetLookupLimit(v int) { client.lookupLimit = v }
+
+// LookupLimit returns the maximum limit that is allowed.
+func (client *Client) LookupLimit() int { return client.lookupLimit }
 
 // Close closes the client
 func (client *Client) Close() error {
@@ -76,7 +81,7 @@ func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Va
 			ON CONFLICT (fullpath) DO UPDATE SET metadata = EXCLUDED.metadata
 	`
 
-	_, err = client.db.Exec(q, []byte(key), []byte(value))
+	_, err = client.db.ExecContext(ctx, q, []byte(key), []byte(value))
 	return Error.Wrap(err)
 }
 
@@ -89,7 +94,7 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 	}
 
 	q := "SELECT metadata FROM pathdata WHERE fullpath = $1:::BYTEA"
-	row := client.db.QueryRow(q, []byte(key))
+	row := client.db.QueryRowContext(ctx, q, []byte(key))
 
 	var val []byte
 	err = row.Scan(&val)
@@ -100,12 +105,12 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 	return val, Error.Wrap(err)
 }
 
-// GetAll finds all values for the provided keys (up to storage.LookupLimit).
+// GetAll finds all values for the provided keys (up to LookupLimit).
 // If more keys are provided than the maximum, an error will be returned.
 func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(keys) > storage.LookupLimit {
+	if len(keys) > client.lookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
 
@@ -117,7 +122,7 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 			ON (pd.fullpath = pk.request)
 		ORDER BY pk.ord
 	`
-	rows, err := client.db.Query(q, pq.ByteaArray(keys.ByteSlices()))
+	rows, err := client.db.QueryContext(ctx, q, pq.ByteaArray(keys.ByteSlices()))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -144,7 +149,7 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	}
 
 	q := "DELETE FROM pathdata WHERE fullpath = $1:::BYTEA"
-	result, err := client.db.Exec(q, []byte(key))
+	result, err := client.db.ExecContext(ctx, q, []byte(key))
 	if err != nil {
 		return err
 	}
@@ -159,6 +164,38 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	return nil
 }
 
+// DeleteMultiple deletes keys ignoring missing keys
+func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
+	defer mon.Task()(&ctx, len(keys))(&err)
+
+	rows, err := client.db.QueryContext(ctx, `
+		DELETE FROM pathdata
+		WHERE fullpath = any($1::BYTEA[])
+		RETURNING fullpath, metadata`,
+		pq.ByteaArray(storage.Keys(keys).ByteSlices()))
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	var items storage.Items
+	for rows.Next() {
+		var key, value []byte
+		err := rows.Scan(&key, &value)
+		if err != nil {
+			return items, err
+		}
+		items = append(items, storage.ListItem{
+			Key:   key,
+			Value: value,
+		})
+	}
+
+	return items, rows.Err()
+}
+
 // List returns either a list of known keys, in order, or an error.
 func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -169,12 +206,11 @@ func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	batchSize := defaultBatchSize
-	if opts.Recurse {
-		batchSize = defaultRecursiveBatchSize
+	if opts.Limit <= 0 || opts.Limit > client.lookupLimit {
+		opts.Limit = client.lookupLimit
 	}
 
-	opi, err := newOrderedCockroachIterator(ctx, client, opts, batchSize)
+	opi, err := newOrderedCockroachIterator(ctx, client, opts)
 	if err != nil {
 		return err
 	}
@@ -195,7 +231,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 
 	if oldValue == nil && newValue == nil {
 		q := "SELECT metadata FROM pathdata WHERE fullpath = $1:::BYTEA"
-		row := client.db.QueryRow(q, []byte(key))
+		row := client.db.QueryRowContext(ctx, q, []byte(key))
 
 		var val []byte
 		err = row.Scan(&val)
@@ -215,7 +251,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 			ON CONFLICT DO NOTHING
 			RETURNING 1
 		`
-		row := client.db.QueryRow(q, []byte(key), []byte(newValue))
+		row := client.db.QueryRowContext(ctx, q, []byte(key), []byte(newValue))
 
 		var val []byte
 		err = row.Scan(&val)
@@ -225,7 +261,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 		return Error.Wrap(err)
 	}
 
-	return crdb.ExecuteTx(ctx, client.db, nil, func(txn *sql.Tx) error {
+	return txutil.WithTx(ctx, client.db, nil, func(ctx context.Context, txn tagsql.Tx) error {
 		q := "SELECT metadata FROM pathdata WHERE fullpath = $1:::BYTEA;"
 		row := txn.QueryRowContext(ctx, q, []byte(key))
 

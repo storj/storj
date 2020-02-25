@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
@@ -26,7 +26,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/metainfo"
+	"storj.io/uplink/private/metainfo"
 )
 
 func TestUplinksParallel(t *testing.T) {
@@ -73,6 +73,9 @@ func TestUplinksParallel(t *testing.T) {
 func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 5),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
@@ -80,13 +83,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 		testData := testrand.Bytes(memory.MiB)
 
-		err := ul.UploadWithConfig(ctx, satellite, &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  4,
-			TotalShares:    5,
-		}, "testbucket", "test/path", testData)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		// get a remote segment from pointerdb
@@ -177,10 +174,6 @@ func (mock *piecestoreMock) Delete(ctx context.Context, delete *pb.PieceDeleteRe
 	return nil, nil
 }
 
-func (mock *piecestoreMock) DeletePiece(ctx context.Context, delete *pb.PieceDeletePieceRequest) (_ *pb.PieceDeletePieceResponse, err error) {
-	return nil, nil
-}
-
 func (mock *piecestoreMock) DeletePieces(ctx context.Context, delete *pb.DeletePiecesRequest) (_ *pb.DeletePiecesResponse, err error) {
 	return nil, nil
 }
@@ -195,16 +188,13 @@ func (mock *piecestoreMock) RestoreTrash(context.Context, *pb.RestoreTrashReques
 func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 5),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		expectedData := testrand.Bytes(memory.MiB)
 
-		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			RequiredShares: 2,
-			RepairShares:   3,
-			OptimalShares:  4,
-			TotalShares:    5,
-		}, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		// get a remote segment from pointerdb
@@ -234,7 +224,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 				wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
 				require.NoError(t, err)
 				tlscfg := tlsopts.Config{
-					RevocationDBURL:     "bolt://" + filepath.Join(ctx.Dir("fakestoragenode"), "revocation.db"),
+					RevocationDBURL:     "bolt://" + ctx.File("fakestoragenode", "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: wl,
 					PeerIDVersions:      "*",
@@ -253,14 +243,17 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 				server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Addr(), storageNode.PrivateAddr(), nil)
 				require.NoError(t, err)
 				pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
-				go func() {
-					// TODO: get goroutine under control
-					err := server.Run(ctx)
-					require.NoError(t, err)
 
-					err = revocationDB.Close()
-					require.NoError(t, err)
-				}()
+				defer ctx.Check(server.Close)
+
+				ctx.Go(func() error {
+					if err := server.Run(ctx); err != nil {
+						return errs.Wrap(err)
+					}
+
+					return errs.Wrap(revocationDB.Close())
+				})
+
 				stopped = true
 				break
 			}
@@ -290,7 +283,7 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		err = planet.Uplinks[0].Delete(ctx, planet.Satellites[0], "test-bucket", "test-file")
+		err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "test-bucket", "test-file")
 		require.NoError(t, err)
 
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "test-bucket", "test-file")

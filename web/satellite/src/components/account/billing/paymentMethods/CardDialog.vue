@@ -25,10 +25,16 @@ export default class CardDialog extends Vue {
     @Prop({default: ''})
     private readonly cardId: string;
 
+    /**
+     * Closes card selection dialog.
+     */
     public closeCardsDialog(): void {
         this.$store.dispatch(CLEAR_CARDS_SELECTION);
     }
 
+    /**
+     * Selects card as default.
+     */
     public async onMakeDefaultClick(): Promise<void> {
         try {
             await this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
@@ -37,6 +43,9 @@ export default class CardDialog extends Vue {
         }
     }
 
+    /**
+     * Removes card from list.
+     */
     public async onRemoveClick(): Promise<void> {
         try {
             await this.$store.dispatch(REMOVE_CARD, this.cardId);

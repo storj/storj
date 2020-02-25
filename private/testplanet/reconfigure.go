@@ -48,3 +48,13 @@ var ShortenOnlineWindow = Reconfigure{
 		config.Overlay.Node.OnlineWindow = 1 * time.Second
 	},
 }
+
+// ReconfigureRS returns function to change satellite redundancy scheme values
+var ReconfigureRS = func(minThreshold, repairThreshold, successThreshold, totalThreshold int) func(log *zap.Logger, index int, config *satellite.Config) {
+	return func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Metainfo.RS.MinThreshold = minThreshold
+		config.Metainfo.RS.RepairThreshold = repairThreshold
+		config.Metainfo.RS.SuccessThreshold = successThreshold
+		config.Metainfo.RS.TotalThreshold = totalThreshold
+	}
+}

@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"math"
+	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -14,10 +16,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
+	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/eestream"
+	"storj.io/uplink/private/eestream"
 )
 
 // ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces
@@ -25,8 +28,12 @@ var ErrDownloadFailedNotEnoughPieces = errs.Class("not enough pieces for downloa
 
 // Config is a configuration struct for orders Service.
 type Config struct {
-	Expiration          time.Duration `help:"how long until an order expires" default:"168h"` // 7 days
-	SettlementBatchSize int           `help:"how many orders to batch per transaction" default:"250"`
+	Expiration                   time.Duration `help:"how long until an order expires" default:"48h"` // 2 days
+	SettlementBatchSize          int           `help:"how many orders to batch per transaction" default:"250"`
+	FlushBatchSize               int           `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
+	FlushInterval                time.Duration `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
+	ReportedRollupsReadBatchSize int           `help:"how many records to read in a single transaction when calculating billable bandwidth" default:"1000"`
+	NodeStatusLogging            bool          `help:"log the offline/disqualification status of nodes" default:"false"`
 }
 
 // Service for creating order limits.
@@ -40,13 +47,16 @@ type Service struct {
 	satelliteAddress                    *pb.NodeAddress
 	orderExpiration                     time.Duration
 	repairMaxExcessRateOptimalThreshold float64
+	nodeStatusLogging                   bool
+	rngMu                               sync.Mutex
+	rng                                 *rand.Rand
 }
 
 // NewService creates new service for creating order limits.
 func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
 	orders DB, orderExpiration time.Duration, satelliteAddress *pb.NodeAddress,
-	repairMaxExcessRateOptimalThreshold float64,
+	repairMaxExcessRateOptimalThreshold float64, nodeStatusLogging bool,
 ) *Service {
 	return &Service{
 		log:                                 log,
@@ -56,6 +66,8 @@ func NewService(
 		satelliteAddress:                    satelliteAddress,
 		orderExpiration:                     orderExpiration,
 		repairMaxExcessRateOptimalThreshold: repairMaxExcessRateOptimalThreshold,
+		nodeStatusLogging:                   nodeStatusLogging,
+		rng:                                 rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -67,11 +79,11 @@ func (service *Service) VerifyOrderLimitSignature(ctx context.Context, signed *p
 
 func (service *Service) createSerial(ctx context.Context) (_ storj.SerialNumber, err error) {
 	defer mon.Task()(&ctx)(&err)
-	uuid, err := uuid.New()
+	id, err := uuid.New()
 	if err != nil {
 		return storj.SerialNumber{}, Error.Wrap(err)
 	}
-	return storj.SerialNumber(*uuid), nil
+	return storj.SerialNumber(*id), nil
 }
 
 func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, expiresAt time.Time) (err error) {
@@ -90,7 +102,7 @@ func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID
 	var bucketAllocation int64
 
 	for _, addressedOrderLimit := range addressedOrderLimits {
-		if addressedOrderLimit != nil {
+		if addressedOrderLimit != nil && addressedOrderLimit.Limit != nil {
 			orderLimit := addressedOrderLimit.Limit
 			action = orderLimit.Action
 			bucketAllocation += orderLimit.Limit
@@ -106,6 +118,102 @@ func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID
 	}
 
 	return nil
+}
+
+// CreateGetOrderLimitsOld creates the order limits for downloading the pieces of pointer for backwards compatibility
+func (service *Service) CreateGetOrderLimitsOld(ctx context.Context, bucketID []byte, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rootPieceID := pointer.GetRemote().RootPieceId
+	pieceExpiration := pointer.ExpirationDate
+	orderExpiration := time.Now().Add(service.orderExpiration)
+
+	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	serialNumber, err := service.createSerial(ctx)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+
+	var combinedErrs error
+	var limits []*pb.AddressedOrderLimit
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		node, err := service.overlay.Get(ctx, piece.NodeId)
+		if err != nil {
+			service.log.Debug("error getting node from overlay", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
+		}
+
+		if node.Disqualified != nil {
+			if service.nodeStatusLogging {
+				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			}
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
+			continue
+		}
+
+		if !service.overlay.IsOnline(node) {
+			if service.nodeStatusLogging {
+				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			}
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
+			continue
+		}
+
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
+			SerialNumber:     serialNumber,
+			SatelliteId:      service.satellite.ID(),
+			SatelliteAddress: service.satelliteAddress,
+			UplinkPublicKey:  piecePublicKey,
+			StorageNodeId:    piece.NodeId,
+			PieceId:          rootPieceID.Derive(piece.NodeId, piece.PieceNum),
+			Action:           pb.PieceAction_GET,
+			Limit:            pieceSize,
+			PieceExpiration:  pieceExpiration,
+			OrderCreation:    time.Now(),
+			OrderExpiration:  orderExpiration,
+		})
+		if err != nil {
+			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+		}
+
+		limits = append(limits, &pb.AddressedOrderLimit{
+			Limit:              orderLimit,
+			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+		})
+	}
+
+	if len(limits) < redundancy.RequiredCount() {
+		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //locked
+		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
+		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, combinedErrs))
+	}
+
+	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	return limits, piecePrivateKey, nil
 }
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of pointer.
@@ -144,18 +252,22 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 		}
 
 		if node.Disqualified != nil {
-			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
-			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
+		orderLimit := &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
@@ -167,14 +279,11 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 			PieceExpiration:  pieceExpiration,
 			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
-		})
-		if err != nil {
-			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}
 
 		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
+			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
 		})
 	}
 
@@ -189,6 +298,28 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
+	neededLimits := pb.NewRedundancySchemeToStorj(pointer.GetRemote().GetRedundancy()).DownloadNodes()
+	if int(neededLimits) < redundancy.RequiredCount() {
+		err = Error.New("not enough needed node orderlimits: got %d, required %d", neededLimits, redundancy.RequiredCount())
+		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, combinedErrs))
+	}
+	// an orderLimit was created for each piece, but lets only use
+	// the number of orderLimits actually needed to do the download
+	limits, err = service.RandomSampleOfOrderLimits(limits, int(neededLimits))
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	for i, limit := range limits {
+		if limit == nil {
+			continue
+		}
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, limit.Limit)
+		if err != nil {
+			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+		}
+		limits[i].Limit = orderLimit
+	}
 	projectID, bucketName, err := SplitBucketID(bucketID)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
@@ -198,6 +329,27 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 	}
 
 	return limits, piecePrivateKey, nil
+}
+
+// RandomSampleOfOrderLimits returns a random sample of the order limits
+func (service *Service) RandomSampleOfOrderLimits(limits []*pb.AddressedOrderLimit, sampleSize int) ([]*pb.AddressedOrderLimit, error) {
+	service.rngMu.Lock()
+	perm := service.rng.Perm(len(limits))
+	service.rngMu.Unlock()
+
+	// the sample slice is the same size as the limits slice since that represents all
+	// of the pieces of a pointer in the correct order and we want to maintain the order
+	var sample = make([]*pb.AddressedOrderLimit, len(limits))
+	for _, i := range perm {
+		limit := limits[i]
+		sample[i] = limit
+
+		sampleSize--
+		if sampleSize <= 0 {
+			break
+		}
+	}
+	return sample, nil
 }
 
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
@@ -239,7 +391,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byt
 
 		limits[pieceNum] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
+			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
 		}
 		pieceNum++
 	}
@@ -289,13 +441,17 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 		}
 
 		if node.Disqualified != nil {
-			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
-			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}
@@ -319,7 +475,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 
 		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
+			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
 		})
 	}
 
@@ -373,13 +529,17 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 		}
 
 		if node.Disqualified != nil {
-			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
-			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}
@@ -403,7 +563,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 
 		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
+			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
 		}
 		limitsCount++
 	}
@@ -477,7 +637,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 
 	limit = &pb.AddressedOrderLimit{
 		Limit:              orderLimit,
-		StorageNodeAddress: node.Address,
+		StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -538,13 +698,17 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 		}
 
 		if node.Disqualified != nil {
-			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
 			continue
 		}
 
 		if !service.overlay.IsOnline(node) {
-			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			if service.nodeStatusLogging {
+				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			}
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
 			continue
 		}
@@ -568,7 +732,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 
 		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
+			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
 		}
 		limitsCount++
 	}
@@ -669,7 +833,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 
 			limits[pieceNum] = &pb.AddressedOrderLimit{
 				Limit:              orderLimit,
-				StorageNodeAddress: node.Address,
+				StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
 			}
 			pieceNum++
 			totalPiecesToRepair--
@@ -725,6 +889,15 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeOffline.New("%v", nodeID)
 	}
 
+	// TODO: we're using `PUT_REPAIR` here even though `PUT_GRACEFUL_EXIT` exists and
+	// seems like the perfect thing because we're in a pickle. we can't use `PUT`
+	// because we don't want to charge bucket owners for graceful exit bandwidth, and
+	// we can't use `PUT_GRACEFUL_EXIT` because storagenode will only accept upload
+	// orders with `PUT` or `PUT_REPAIR` as the action. we also don't have a bunch of
+	// supporting code/tables to aggregate `PUT_GRACEFUL_EXIT` bandwidth into our rollups
+	// and stuff. so, for now, we just use `PUT_REPAIR` because it's the least bad of
+	// our options. this should be fixed.
+
 	orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 		SerialNumber:     serialNumber,
 		SatelliteId:      service.satellite.ID(),
@@ -732,7 +905,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		UplinkPublicKey:  piecePublicKey,
 		StorageNodeId:    nodeID,
 		PieceId:          rootPieceID.Derive(nodeID, pieceNum),
-		Action:           pb.PieceAction_PUT,
+		Action:           pb.PieceAction_PUT_REPAIR,
 		Limit:            int64(shareSize),
 		OrderCreation:    time.Now().UTC(),
 		OrderExpiration:  orderExpiration,
@@ -743,7 +916,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 
 	limit = &pb.AddressedOrderLimit{
 		Limit:              orderLimit,
-		StorageNodeAddress: node.Address,
+		StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -791,4 +964,11 @@ func SplitBucketID(bucketID []byte) (projectID *uuid.UUID, bucketName []byte, er
 		return nil, nil, err
 	}
 	return projectID, bucketName, nil
+}
+
+// lookupNodeAddress tries to resolve node address to an IP to avoid DNS lookups on the uplink side.
+func lookupNodeAddress(ctx context.Context, address *pb.NodeAddress) *pb.NodeAddress {
+	new := *address
+	new.Address = rpc.LookupNodeAddress(ctx, address.Address)
+	return &new
 }

@@ -20,11 +20,13 @@ var (
 
 func init() {
 	rmCmd := addCmd(&cobra.Command{
-		Use:   "rm",
+		Use:   "rm sj://BUCKET/KEY",
 		Short: "Delete an object",
 		RunE:  deleteObject,
+		Args:  cobra.ExactArgs(1),
 	}, RootCmd)
 	rmEncryptedFlag = rmCmd.Flags().Bool("encrypted", false, "if true, treat paths as base64-encoded encrypted paths")
+	setBasicFlags(rmCmd.Flags(), "encrypted")
 }
 
 func deleteObject(cmd *cobra.Command, args []string) error {

@@ -18,10 +18,7 @@ import (
 )
 
 func TestReputationDBGetInsert(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		timestamp := time.Now().UTC()
 		reputationDB := db.Reputation()
 
@@ -65,10 +62,7 @@ func TestReputationDBGetInsert(t *testing.T) {
 }
 
 func TestReputationDBGetAll(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		reputationDB := db.Reputation()
 
 		var stats []reputation.Stats

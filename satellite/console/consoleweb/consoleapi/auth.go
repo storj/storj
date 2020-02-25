@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -24,24 +25,26 @@ var ErrAuthAPI = errs.Class("console auth api error")
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
 	log                   *zap.Logger
-	service               *console.Service
-	mailService           *mailservice.Service
 	ExternalAddress       string
 	LetUsKnowURL          string
 	TermsAndConditionsURL string
 	ContactInfoURL        string
+	service               *console.Service
+	mailService           *mailservice.Service
+	cookieAuth            *consolewebauth.CookieAuth
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
 	return &Auth{
 		log:                   log,
-		service:               service,
-		mailService:           mailService,
 		ExternalAddress:       externalAddress,
 		LetUsKnowURL:          letUsKnowURL,
 		TermsAndConditionsURL: termsAndConditionsURL,
 		ContactInfoURL:        contactInfoURL,
+		service:               service,
+		mailService:           mailService,
+		cookieAuth:            cookieAuth,
 	}
 }
 
@@ -68,12 +71,24 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	a.cookieAuth.SetTokenCookie(w, token)
+
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(token)
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
+}
+
+// Logout removes auth cookie.
+func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	a.cookieAuth.RemoveTokenCookie(w)
+
+	w.Header().Set("Content-Type", "application/json")
 }
 
 // Register creates new user, sends activation e-mail.
@@ -138,6 +153,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		&consoleql.AccountActivationEmail{
 			ActivationLink: link,
 			Origin:         a.ExternalAddress,
+			UserName:       userName,
 		},
 	)
 
@@ -351,6 +367,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 			ActivationLink:        link,
 			TermsAndConditionsURL: termsAndConditionsURL,
 			ContactInfoURL:        contactInfoURL,
+			UserName:              userName,
 		},
 	)
 }

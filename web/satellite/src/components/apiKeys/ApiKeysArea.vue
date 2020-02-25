@@ -3,7 +3,7 @@
 
 <template>
     <div class="api-keys-area">
-        <h1 class="api-keys-area__title">API Keys</h1>
+        <h1 class="api-keys-area__title" v-if="isTitleShown">API Keys</h1>
         <div class="api-keys-area__container">
             <ApiKeysCreationPopup
                 @closePopup="closeNewApiKeyPopup"
@@ -87,13 +87,13 @@
                     :total-page-count="totalPageCount"
                     :on-page-click-callback="onPageClick"
                 />
-                <p class="api-keys-items__additional-info">Want to give limited access? <b>Use API Keys.</b></p>
             </div>
             <div class="empty-search-result-area" v-if="isEmptySearchResultShown">
                 <h1 class="empty-search-result-area__title">No results found</h1>
                 <EmptySearchResultIcon class="empty-search-result-area__image"/>
             </div>
             <EmptyState
+                :class="{collapsed: isBannerShown}"
                 :on-button-click="onCreateApiKeyClick"
                 v-if="isEmptyStateShown"
                 main-title="Let's create your first API Key"
@@ -107,7 +107,6 @@
 </template>
 
 <script lang="ts">
-import VueClipboards from 'vue-clipboards';
 import { Component, Vue } from 'vue-property-decorator';
 
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
@@ -128,8 +127,6 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
 import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
-
-Vue.use(VueClipboards);
 
 // header state depends on api key selection state
 enum HeaderState {
@@ -169,8 +166,18 @@ declare interface ResetPagination {
 export default class ApiKeysArea extends Vue {
     public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
     private FIRST_PAGE = 1;
+    /**
+     * Indicates if delete confirmation state should appear.
+     */
     private isDeleteClicked: boolean = false;
+    /**
+     * Indicates if api key name input state should appear.
+     */
     private isNewApiKeyPopupShown: boolean = false;
+    /**
+     * Indicates if copy api key state should appear.
+     * Should only appear once
+     */
     private isCopyApiKeyPopupShown: boolean = false;
     private apiKeySecret: string = '';
 
@@ -178,6 +185,9 @@ export default class ApiKeysArea extends Vue {
         pagination: HTMLElement & ResetPagination;
     };
 
+    /**
+     * Lifecycle hook after initial render where list of existing api keys is fetched.
+     */
     public async mounted(): Promise<void> {
         await this.$store.dispatch(FETCH, 1);
         this.$segment.track(SegmentEvent.API_KEYS_VIEWED, {
@@ -186,11 +196,19 @@ export default class ApiKeysArea extends Vue {
         });
     }
 
+    /**
+     * Lifecycle hook before component destruction.
+     * Clears existing api keys selection and search.
+     */
     public async beforeDestroy(): Promise<void> {
         this.onClearSelection();
         await this.$store.dispatch(SET_SEARCH_QUERY, '');
     }
 
+    /**
+     * toggles api key selection.
+     * @param apiKey
+     */
     public async toggleSelection(apiKey: ApiKey): Promise<void> {
         await this.$store.dispatch(TOGGLE_SELECTION, apiKey);
     }
@@ -221,6 +239,9 @@ export default class ApiKeysArea extends Vue {
         this.isCopyApiKeyPopupShown = false;
     }
 
+    /**
+     * Deletes selected api keys, fetches updated list and changes area state to default.
+     */
     public async onDelete(): Promise<void> {
         try {
             await this.$store.dispatch(DELETE);
@@ -249,24 +270,46 @@ export default class ApiKeysArea extends Vue {
         return ApiKeysItem;
     }
 
+    /**
+     * Returns api keys from store.
+     */
     public get apiKeyList(): ApiKey[] {
         return this.$store.getters.apiKeys;
     }
 
+    /**
+     * Returns api keys pages count from store.
+     */
     public get totalPageCount(): number {
         return this.$store.state.apiKeysModule.page.pageCount;
     }
 
+    /**
+     * Returns api keys label depends on api keys count.
+     */
     public get apiKeyCountTitle(): string {
-        if (this.selectedAPIKeysCount === 1) {
-            return 'api key';
-        }
-
-        return 'api keys';
+        return this.selectedAPIKeysCount === 1 ? 'api key' : 'api keys';
     }
 
+    /**
+     * Indicates if no api keys in store.
+     */
     public get isEmpty(): boolean {
         return this.$store.getters.apiKeys.length === 0;
+    }
+
+    /**
+     * Indicates if bonus banner should appear if no credit cards is attached to account.
+     */
+    public get isBannerShown(): boolean {
+        return this.$store.state.paymentsModule.creditCards.length === 0;
+    }
+
+    /**
+     * Indicates if "Account" title is shown.
+     */
+    public get isTitleShown(): boolean {
+        return !(this.isBannerShown && this.isEmpty);
     }
 
     public get hasSearchQuery(): boolean {
@@ -278,11 +321,7 @@ export default class ApiKeysArea extends Vue {
     }
 
     public get headerState(): number {
-        if (this.selectedAPIKeysCount > 0) {
-            return HeaderState.ON_SELECT;
-        }
-
-        return HeaderState.DEFAULT;
+        return this.selectedAPIKeysCount > 0 ? HeaderState.ON_SELECT : HeaderState.DEFAULT;
     }
 
     public get isHeaderShown(): boolean {
@@ -290,15 +329,15 @@ export default class ApiKeysArea extends Vue {
     }
 
     public get isDefaultHeaderState(): boolean {
-        return this.headerState === 0;
+        return this.headerState === HeaderState.DEFAULT;
     }
 
     public get areApiKeysSelected(): boolean {
-        return this.headerState === 1 && !this.isDeleteClicked;
+        return this.headerState === HeaderState.ON_SELECT && !this.isDeleteClicked;
     }
 
     public get areSelectedApiKeysBeingDeleted(): boolean {
-        return this.headerState === 1 && this.isDeleteClicked;
+        return this.headerState === HeaderState.ON_SELECT && this.isDeleteClicked;
     }
 
     public get isEmptySearchResultShown(): boolean {
@@ -309,6 +348,10 @@ export default class ApiKeysArea extends Vue {
         return this.isEmpty && !this.isNewApiKeyPopupShown && !this.hasSearchQuery;
     }
 
+    /**
+     * Fetches api keys page by clicked index.
+     * @param index
+     */
     public async onPageClick(index: number): Promise<void> {
         try {
             await this.$store.dispatch(FETCH, index);
@@ -317,6 +360,11 @@ export default class ApiKeysArea extends Vue {
         }
     }
 
+    /**
+     * Used for sorting.
+     * @param sortBy
+     * @param sortDirection
+     */
     public async onHeaderSectionClickCallback(sortBy: ApiKeyOrderBy, sortDirection: SortDirection): Promise<void> {
         await this.$store.dispatch(SET_SORT_BY, sortBy);
         await this.$store.dispatch(SET_SORT_DIRECTION, sortDirection);
@@ -331,6 +379,10 @@ export default class ApiKeysArea extends Vue {
         }
     }
 
+    /**
+     * Sets api keys search query and then fetches depends on it.
+     * @param query
+     */
     public async onSearchQueryCallback(query: string): Promise<void> {
         await this.$store.dispatch(SET_SEARCH_QUERY, query);
         try {
@@ -344,6 +396,10 @@ export default class ApiKeysArea extends Vue {
         }
     }
 
+    /**
+     * Fires UI notification with message.
+     * @param error
+     */
     public async notifyFetchError(error: Error): Promise<void> {
         await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
     }
@@ -401,11 +457,6 @@ export default class ApiKeysArea extends Vue {
                 width: 100%;
                 justify-content: flex-start;
             }
-
-            &__additional-info {
-                font-size: 16px;
-                color: #afb7c1;
-            }
         }
     }
 
@@ -429,6 +480,7 @@ export default class ApiKeysArea extends Vue {
 
     .pagination-area {
         margin-left: -25px;
+        padding-bottom: 15px;
     }
 
     .header-default-state,
@@ -485,6 +537,10 @@ export default class ApiKeysArea extends Vue {
             background-color: #de3e3d;
             box-shadow: none;
         }
+    }
+
+    .collapsed {
+        margin-top: 0 !important;
     }
 
     ::-webkit-scrollbar,

@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/pkg/cache"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensures that apikeys implements console.APIKeys.
@@ -86,13 +86,10 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		page.Limit,
 		page.Offset)
 
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-
 	if err != nil {
 		return nil, err
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var apiKeys []console.APIKeyInfo
 	for rows.Next() {

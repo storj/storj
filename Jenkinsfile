@@ -1,15 +1,18 @@
+def lastStage = ''
 node('node') {
   properties([disableConcurrentBuilds()])
   try {
     currentBuild.result = "SUCCESS"
 
     stage('Checkout') {
+      lastStage = env.STAGE_NAME
       checkout scm
 
       echo "Current build result: ${currentBuild.result}"
     }
     if (env.BRANCH_NAME == "master") {
         stage('Run Versions Test') {
+            lastStage = env.STAGE_NAME
             try {
               echo "Running Versions test"
 
@@ -18,7 +21,7 @@ node('node') {
 
               echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
               echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
-              sh 'docker run --rm -d --name postgres-$BUILD_NUMBER postgres:9.6'
+              sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-$BUILD_NUMBER postgres:9.6'
               sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
 
               sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
@@ -29,7 +32,7 @@ node('node') {
               sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
               // fetch the remote master branch
               sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/master:refs/remotes/origin/master'
-              sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/testversions/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.5'
+              sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/testversions/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.8'
             }
             catch(err){
                 throw err
@@ -44,6 +47,7 @@ node('node') {
     }
 
     stage('Run Rolling Upgrade Test') {
+        lastStage = env.STAGE_NAME
         try {
           echo "Running Rolling Upgrade test"
 
@@ -52,7 +56,7 @@ node('node') {
 
           echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
           echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
-          sh 'docker run --rm -d --name postgres-$BUILD_NUMBER postgres:9.6'
+          sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-$BUILD_NUMBER postgres:9.6'
           sh 'docker run --rm -d --name redis-$BUILD_NUMBER redis:latest'
 
           sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
@@ -63,7 +67,7 @@ node('node') {
           sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
           // fetch the remote master branch
           sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/master:refs/remotes/origin/master'
-          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/rollingupgrade/test-sim-rolling-upgrade.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.5'
+          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/rollingupgrade/test-sim-rolling-upgrade.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.13.8'
         }
         catch(err){
             throw err
@@ -77,6 +81,7 @@ node('node') {
     }
 
     stage('Build Binaries') {
+      lastStage = env.STAGE_NAME
       sh 'make binaries'
 
       stash name: "storagenode-binaries", includes: "release/**/storagenode*.exe"
@@ -85,6 +90,7 @@ node('node') {
     }
 
     stage('Build Windows Installer') {
+      lastStage = env.STAGE_NAME
       node('windows') {
         checkout scm
 
@@ -99,6 +105,7 @@ node('node') {
     }
 
     stage('Sign Windows Installer') {
+      lastStage = env.STAGE_NAME
       unstash "storagenode-installer"
 
       sh 'make sign-windows-installer'
@@ -107,19 +114,23 @@ node('node') {
     }
 
     stage('Build Images') {
+      lastStage = env.STAGE_NAME
       sh 'make images'
 
       echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Push Images') {
-      echo 'Push to Repo'
+      lastStage = env.STAGE_NAME
       sh 'make push-images'
+
       echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Upload') {
+      lastStage = env.STAGE_NAME
       sh 'make binaries-upload'
+
       echo "Current build result: ${currentBuild.result}"
     }
 
@@ -129,7 +140,7 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
-    slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${env.STAGE_NAME} ${env.BUILD_URL}"
+    slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
 
     mail from: 'builds@storj.io',
       replyTo: 'builds@storj.io',

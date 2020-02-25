@@ -24,10 +24,7 @@ import (
 )
 
 func TestSaveBucketTallies(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		// Setup: create bucket storage tallies
 		projectID := testrand.UUID()
 
@@ -50,10 +47,7 @@ func TestSaveBucketTallies(t *testing.T) {
 }
 
 func TestStorageNodeUsage(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		const days = 30
 
 		now := time.Now().UTC()
@@ -141,10 +135,7 @@ func TestStorageNodeUsage(t *testing.T) {
 }
 
 func TestProjectLimits(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		proj, err := db.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})
 		require.NoError(t, err)
 

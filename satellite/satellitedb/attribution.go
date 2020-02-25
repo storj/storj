@@ -13,7 +13,7 @@ import (
 
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/attribution"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 const (
@@ -155,8 +155,8 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	results := []*attribution.CSVRow{}
 	for rows.Next() {
 		r := &attribution.CSVRow{}
@@ -166,7 +166,7 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 		}
 		results = append(results, r)
 	}
-	return results, nil
+	return results, Error.Wrap(rows.Err())
 }
 
 func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {

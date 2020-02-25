@@ -1,7 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// LocalData exposes methods to manage local storage
+/**
+ * LocalData exposes methods to manage local storage.
+ */
 export class LocalData {
     private static userId: string = 'userId';
     private static selectedProjectId: string = 'selectedProjectId';

@@ -26,6 +26,7 @@ type AccountActivationEmail struct {
 	ActivationLink        string
 	ContactInfoURL        string
 	TermsAndConditionsURL string
+	UserName              string
 }
 
 // Template returns email template name

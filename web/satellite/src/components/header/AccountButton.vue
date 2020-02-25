@@ -40,14 +40,23 @@ import AccountDropdown from './AccountDropdown.vue';
     },
 })
 export default class AccountButton extends Vue {
+    /**
+     * Toggles account dropdown.
+     */
     public toggleSelection(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
     }
 
+    /**
+     * Returns first letter of user`s name.
+     */
     public get avatarLetter(): string {
         return this.$store.getters.userName.slice(0, 1).toUpperCase();
     }
 
+    /**
+     * Indicates if account dropdown should render.
+     */
     public get isDropdownShown(): boolean {
         return this.$store.state.appStateModule.appState.isAccountDropdownShown;
     }

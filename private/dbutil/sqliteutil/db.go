@@ -4,45 +4,46 @@
 package sqliteutil
 
 import (
-	"database/sql"
+	"context"
 	"strconv"
 
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/dbutil/dbschema"
+	"storj.io/storj/private/tagsql"
 )
 
 // LoadSchemaFromSQL inserts script into connstr and loads schema.
-func LoadSchemaFromSQL(script string) (_ *dbschema.Schema, err error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+func LoadSchemaFromSQL(ctx context.Context, script string) (_ *dbschema.Schema, err error) {
+	db, err := tagsql.Open("sqlite3", ":memory:")
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	_, err = db.Exec(script)
+	_, err = db.ExecContext(ctx, script)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	return QuerySchema(db)
+	return QuerySchema(ctx, db)
 }
 
 // LoadSnapshotFromSQL inserts script into connstr and loads schema.
-func LoadSnapshotFromSQL(script string) (_ *dbschema.Snapshot, err error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+func LoadSnapshotFromSQL(ctx context.Context, script string) (_ *dbschema.Snapshot, err error) {
+	db, err := tagsql.Open("sqlite3", ":memory:")
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	_, err = db.Exec(script)
+	_, err = db.ExecContext(ctx, script)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	snapshot, err := QuerySnapshot(db)
+	snapshot, err := QuerySnapshot(ctx, db)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -52,13 +53,13 @@ func LoadSnapshotFromSQL(script string) (_ *dbschema.Snapshot, err error) {
 }
 
 // QuerySnapshot loads snapshot from database
-func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
-	schema, err := QuerySchema(db)
+func QuerySnapshot(ctx context.Context, db dbschema.Queryer) (*dbschema.Snapshot, error) {
+	schema, err := QuerySchema(ctx, db)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	data, err := QueryData(db, schema)
+	data, err := QueryData(ctx, db, schema)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -71,8 +72,8 @@ func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
 }
 
 // QueryData loads all data from tables
-func QueryData(db dbschema.Queryer, schema *dbschema.Schema) (*dbschema.Data, error) {
-	return dbschema.QueryData(db, schema, func(columnName string) string {
+func QueryData(ctx context.Context, db dbschema.Queryer, schema *dbschema.Schema) (*dbschema.Data, error) {
+	return dbschema.QueryData(ctx, db, schema, func(columnName string) string {
 		quoted := strconv.Quote(columnName)
 		return `quote(` + quoted + `) as ` + quoted
 	})

@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/stripe/stripe-go"
 
+	"storj.io/common/memory"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -20,25 +22,173 @@ type CouponsDB interface {
 	Insert(ctx context.Context, coupon payments.Coupon) error
 	// Update updates coupon in database.
 	Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) error
+	// Get returns coupon by ID.
+	Get(ctx context.Context, couponID uuid.UUID) (payments.Coupon, error)
 	// List returns all coupons with specified status.
-	List(ctx context.Context, status payments.CouponStatus) (_ []payments.Coupon, err error)
-	// List returns all coupons of specified user.
+	List(ctx context.Context, status payments.CouponStatus) ([]payments.Coupon, error)
+	// ListByUserID returns all coupons of specified user.
 	ListByUserID(ctx context.Context, userID uuid.UUID) ([]payments.Coupon, error)
+	// ListByUserIDAndStatus returns all coupons of specified user and status.
+	ListByUserIDAndStatus(ctx context.Context, userID uuid.UUID, status payments.CouponStatus) ([]payments.Coupon, error)
+	// ListByProjectID returns all active coupons for specified project.
+	ListByProjectID(ctx context.Context, projectID uuid.UUID) ([]payments.Coupon, error)
 	// ListPending returns paginated list of coupons with specified status.
 	ListPaged(ctx context.Context, offset int64, limit int, before time.Time, status payments.CouponStatus) (payments.CouponsPage, error)
 
 	// AddUsage creates new coupon usage record in database.
 	AddUsage(ctx context.Context, usage CouponUsage) error
 	// TotalUsage gets sum of all usage records for specified coupon.
-	TotalUsage(ctx context.Context, couponID uuid.UUID) (_ int64, err error)
+	TotalUsage(ctx context.Context, couponID uuid.UUID) (int64, error)
 	// GetLatest return period_end of latest coupon charge.
 	GetLatest(ctx context.Context, couponID uuid.UUID) (time.Time, error)
+	// ListUnapplied returns coupon usage page with unapplied coupon usages.
+	ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (CouponUsagePage, error)
+	// ApplyUsage applies coupon usage and updates its status.
+	ApplyUsage(ctx context.Context, couponID uuid.UUID, period time.Time) error
+
+	// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have a project
+	// and do not have a promotional coupon yet. And updates project limits to selected size.
+	PopulatePromotionalCoupons(ctx context.Context, users []uuid.UUID, duration int, amount int64, projectLimit memory.Size) error
 }
 
-// CouponUsage stores amount of money that should be charged from coupon for some period.
+// CouponUsage stores amount of money that should be charged from coupon for billing period.
 type CouponUsage struct {
-	ID       uuid.UUID
 	CouponID uuid.UUID
 	Amount   int64
-	End      time.Time
+	Status   CouponUsageStatus
+	Period   time.Time
+}
+
+// CouponUsageStatus indicates the state of the coupon usage.
+type CouponUsageStatus int
+
+const (
+	// CouponUsageStatusUnapplied is a default coupon usage state.
+	CouponUsageStatusUnapplied CouponUsageStatus = 0
+	// CouponUsageStatusApplied status indicates that coupon usage was used.
+	CouponUsageStatusApplied CouponUsageStatus = 1
+)
+
+// CouponUsagePage holds coupons usages and
+// indicates if there is more data available
+// and provides next offset.
+type CouponUsagePage struct {
+	Usages     []CouponUsage
+	Next       bool
+	NextOffset int64
+}
+
+// ensures that coupons implements payments.Coupons.
+var _ payments.Coupons = (*coupons)(nil)
+
+// coupons is an implementation of payments.Coupons.
+//
+// architecture: Service
+type coupons struct {
+	service *Service
+}
+
+// Create attaches a coupon for payment account.
+func (coupons *coupons) Create(ctx context.Context, coupon payments.Coupon) (err error) {
+	defer mon.Task()(&ctx, coupon)(&err)
+
+	return Error.Wrap(coupons.service.db.Coupons().Insert(ctx, coupon))
+}
+
+// ListByUserID return list of all coupons of specified payment account.
+func (coupons *coupons) ListByUserID(ctx context.Context, userID uuid.UUID) (_ []payments.Coupon, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	couponList, err := coupons.service.db.Coupons().ListByUserID(ctx, userID)
+
+	return couponList, Error.Wrap(err)
+}
+
+// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
+// a project, payment method and do not have a promotional coupon yet.
+// And updates project limits to selected size.
+func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration int, amount int64, projectLimit memory.Size) (err error) {
+	defer mon.Task()(&ctx, duration, amount, projectLimit)(&err)
+
+	const limit = 50
+	before := time.Now()
+
+	cusPage, err := coupons.service.db.Customers().List(ctx, 0, limit, before)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// taking only users that attached a payment method.
+	var usersIDs []uuid.UUID
+	for _, cus := range cusPage.Customers {
+		params := &stripe.PaymentMethodListParams{
+			Type:     stripe.String(string(stripe.PaymentMethodTypeCard)),
+			Customer: stripe.String(cus.ID),
+		}
+
+		paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods.List(params)
+		for paymentMethodsIterator.Next() {
+			// if user has at least 1 payment method - break a loop.
+			usersIDs = append(usersIDs, cus.UserID)
+			break
+		}
+
+		if err = paymentMethodsIterator.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	err = coupons.service.db.Coupons().PopulatePromotionalCoupons(ctx, usersIDs, duration, amount, projectLimit)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	for cusPage.Next {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		cusPage, err = coupons.service.db.Customers().List(ctx, cusPage.NextOffset, limit, before)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		// we have to wait before each iteration because
+		// Stripe has rate limits - 100 read and 100 write operations per second per secret key.
+		time.Sleep(time.Second)
+
+		var usersIDs []uuid.UUID
+		for _, cus := range cusPage.Customers {
+			params := &stripe.PaymentMethodListParams{
+				Type:     stripe.String(string(stripe.PaymentMethodTypeCard)),
+				Customer: stripe.String(cus.ID),
+			}
+
+			paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods.List(params)
+			for paymentMethodsIterator.Next() {
+				usersIDs = append(usersIDs, cus.UserID)
+				break
+			}
+
+			if err = paymentMethodsIterator.Err(); err != nil {
+				return Error.Wrap(err)
+			}
+		}
+
+		err = coupons.service.db.Coupons().PopulatePromotionalCoupons(ctx, usersIDs, duration, amount, projectLimit)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// AddPromotionalCoupon is used to add a promotional coupon for specified users who already have
+// a project and do not have a promotional coupon yet.
+// And updates project limits to selected size.
+func (coupons *coupons) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID, duration int, amount int64, projectLimit memory.Size) (err error) {
+	defer mon.Task()(&ctx, userID, duration, amount, projectLimit)(&err)
+
+	return Error.Wrap(coupons.service.db.Coupons().PopulatePromotionalCoupons(ctx, []uuid.UUID{userID}, duration, amount, projectLimit))
 }

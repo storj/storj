@@ -26,10 +26,17 @@ import { NavigationLink } from '@/types/navigation';
     },
 })
 export default class NavigationArea extends Vue {
+    /**
+     * Indicates if resource related navigation links appears.
+     */
     public areResourceItemsShown: boolean = true;
     public isResourceButtonShown: boolean = false;
+    /**
+     * Indicates if account related navigation links appears.
+     */
     public areAccountItemsShown: boolean = true;
     public isAccountButtonShown: boolean = false;
+    public homePath: string = RouteConfig.ProjectOverview.path;
 
     public toggleResourceItemsVisibility(): void {
         this.areResourceItemsShown = !this.areResourceItemsShown;
@@ -77,12 +84,9 @@ export default class NavigationArea extends Vue {
     public readonly accountNavigation: NavigationLink[] = [
         RouteConfig.Account.with(RouteConfig.Profile),
         RouteConfig.Account.with(RouteConfig.Billing),
-        RouteConfig.Account.with(RouteConfig.Referral),
+        // TODO: disabled until implementation
+        // RouteConfig.Account.with(RouteConfig.Referral),
     ];
-
-    public onLogoClick(): void {
-        this.$router.push(RouteConfig.ProjectOverview.path);
-    }
 
     public get isProjectNotSelected(): boolean {
         return this.$store.state.projectsModule.selectedProject.id === '';

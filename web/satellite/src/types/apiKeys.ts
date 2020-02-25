@@ -6,7 +6,7 @@ import { SortDirection } from '@/types/common';
 export type OnHeaderClickCallback = (sortBy: ApiKeyOrderBy, sortDirection: SortDirection) => Promise<void>;
 
 /**
- * Exposes all apiKey-related functionality
+ * Exposes all apiKey-related functionality.
  */
 export interface ApiKeysApi {
     /**
@@ -34,12 +34,17 @@ export interface ApiKeysApi {
     delete(ids: string[]): Promise<void>;
 }
 
+/**
+ * Holds api keys sorting parameters.
+ */
 export enum ApiKeyOrderBy {
     NAME = 1,
     CREATED_AT,
 }
 
-// ApiKeyCursor is a type, used to describe paged api keys list
+/**
+ * ApiKeyCursor is a type, used to describe paged api keys list.
+  */
 export class ApiKeyCursor {
     public constructor(
         public search: string = '',
@@ -50,7 +55,9 @@ export class ApiKeyCursor {
     }
 }
 
-// ApiKeysPage is a type, used to describe paged api keys list
+/**
+ * ApiKeysPage is a type, used to describe paged api keys list.
+ */
 export class ApiKeysPage {
     public constructor(
         public apiKeys: ApiKey[] = [],

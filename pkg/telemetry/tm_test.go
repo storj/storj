@@ -8,9 +8,9 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zaptest"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (
@@ -44,7 +44,7 @@ func TestMetrics(t *testing.T) {
 			func(application, instance string, key []byte, val float64) {
 				assert.Equal(t, application, "testapp")
 				assert.Equal(t, instance, "testinst")
-				if string(key) == "testpkg.testint.recent" {
+				if string(key) == "testint,scope=testpkg recent" {
 					assert.Equal(t, val, float64(3))
 					errs <- nil
 				}

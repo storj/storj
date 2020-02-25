@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storagenode/orders"
 )
 
@@ -41,7 +42,7 @@ func (db *ordersDB) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 	}
 
 	// TODO: remove uplink_cert_id
-	_, err = db.Exec(`
+	_, err = db.ExecContext(ctx, `
 		INSERT INTO unsent_order(
 			satellite_id, serial_number,
 			order_limit_serialized, order_serialized, order_limit_expiration,
@@ -63,7 +64,7 @@ func (db *ordersDB) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := db.Query(`
+	rows, err := db.QueryContext(ctx, `
 		SELECT order_limit_serialized, order_serialized
 		FROM unsent_order
 		LIMIT ?
@@ -123,7 +124,7 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 	defer mon.Task()(&ctx)(&err)
 	// TODO: add some limiting
 
-	rows, err := db.Query(`
+	rows, err := db.QueryContext(ctx, `
 		SELECT order_limit_serialized, order_serialized
 		FROM unsent_order
 	`)
@@ -178,7 +179,7 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests ...orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	txn, err := db.Begin()
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return ErrOrders.Wrap(err)
 	}
@@ -186,7 +187,7 @@ func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests 
 	var notFoundErrs errs.Group
 	defer func() {
 		if err == nil {
-			err = txn.Commit()
+			err = tx.Commit()
 			if err == nil {
 				if len(notFoundErrs) > 0 {
 					// Return a class error to allow to the caler to identify this case
@@ -194,12 +195,12 @@ func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests 
 				}
 			}
 		} else {
-			err = errs.Combine(err, txn.Rollback())
+			err = errs.Combine(err, tx.Rollback())
 		}
 	}()
 
 	for _, req := range requests {
-		err := db.archiveOne(ctx, txn, archivedAt, req)
+		err := db.archiveOne(ctx, tx, archivedAt, req)
 		if err != nil {
 			if orders.OrderNotFoundError.Has(err) {
 				notFoundErrs.Add(err)
@@ -214,10 +215,10 @@ func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests 
 }
 
 // archiveOne marks order as being handled.
-func (db *ordersDB) archiveOne(ctx context.Context, txn *sql.Tx, archivedAt time.Time, req orders.ArchiveRequest) (err error) {
+func (db *ordersDB) archiveOne(ctx context.Context, tx tagsql.Tx, archivedAt time.Time, req orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	result, err := txn.Exec(`
+	result, err := tx.ExecContext(ctx, `
 		INSERT INTO order_archive_ (
 			satellite_id, serial_number,
 			order_limit_serialized, order_serialized,
@@ -255,7 +256,7 @@ func (db *ordersDB) archiveOne(ctx context.Context, txn *sql.Tx, archivedAt time
 func (db *ordersDB) ListArchived(ctx context.Context, limit int) (_ []*orders.ArchivedInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := db.Query(`
+	rows, err := db.QueryContext(ctx, `
 		SELECT order_limit_serialized, order_serialized, status, archived_at
 		FROM order_archive_
 		LIMIT ?
@@ -309,7 +310,7 @@ func (db *ordersDB) CleanArchive(ctx context.Context, ttl time.Duration) (_ int,
 	defer mon.Task()(&ctx)(&err)
 
 	deleteBefore := time.Now().UTC().Add(-1 * ttl)
-	result, err := db.Exec(`
+	result, err := db.ExecContext(ctx, `
 		DELETE FROM order_archive_
 		WHERE archived_at <= ?
 	`, deleteBefore)
