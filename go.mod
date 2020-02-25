@@ -2,8 +2,6 @@ module storj.io/storj
 
 go 1.13
 
-require github.com/graphql-go/graphql v0.7.9-0.20190403165646-199d20bbfed7
-
 replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190918084400-1c4561bf5127
 
 require (
@@ -24,6 +22,7 @@ require (
 	github.com/google/go-cmp v0.3.0
 	github.com/gorilla/mux v1.7.1
 	github.com/gorilla/schema v1.1.0
+	github.com/graphql-go/graphql v0.7.9
 	github.com/jackc/pgx v3.2.0+incompatible
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
