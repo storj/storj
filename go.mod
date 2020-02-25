@@ -24,7 +24,6 @@ require (
 	github.com/google/go-cmp v0.3.0
 	github.com/gorilla/mux v1.7.1
 	github.com/gorilla/schema v1.1.0
-	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c // indirect
 	github.com/jackc/pgx v3.2.0+incompatible
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
@@ -36,7 +35,6 @@ require (
 	github.com/mattn/go-sqlite3 v2.0.2+incompatible
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
-	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
 	github.com/spacemonkeygo/monkit/v3 v3.0.1

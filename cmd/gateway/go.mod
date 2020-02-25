@@ -27,6 +27,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.3 // indirect
 	github.com/hashicorp/raft v1.0.0 // indirect
+	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c // indirect
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect

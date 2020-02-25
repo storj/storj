@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	prompt "github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -23,6 +22,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/private/prompt"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -434,7 +434,11 @@ func getSegments(cmd *cobra.Command, args []string) error {
 
 		length := int32(len(res.Segments))
 		if length >= irreparableLimit {
-			if !prompt.Confirm("\nNext page? (y/n)") {
+			confirmed, err := prompt.Confirm("\nNext page? [y/n]")
+			if err != nil {
+				return err
+			}
+			if !confirmed {
 				break
 			}
 		}
