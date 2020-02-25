@@ -292,6 +292,11 @@ func cleanup(cmd *cobra.Command, debugEnabled bool, loadConfig func(cmd *cobra.C
 			}
 		}
 
+		if err = initProfiler(logger); err != nil {
+			logger.Debug("failed to init debug profiler", zap.Error(err))
+			err = nil
+		}
+
 		var workErr error
 		work := func(ctx context.Context) {
 			commandMtx.Lock()

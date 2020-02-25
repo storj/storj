@@ -106,6 +106,9 @@ contact.external-address: ""
 # expose control panel
 # debug.control: false
 
+# provide the name of the peer to enable continuous cpu/mem profiling for
+# debug.profilername: ""
+
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
