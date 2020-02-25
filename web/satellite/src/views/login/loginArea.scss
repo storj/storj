@@ -250,49 +250,6 @@
     .st9 { fill: #dedefc; }
 }
 
-.loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 100vh;
-    width: 0;
-    z-index: 100;
-    background-color: #2683ff;
-    visibility: hidden;
-    opacity: 0;
-    -webkit-transition: all 0.5s linear;
-    -moz-transition: all 0.5s linear;
-    -o-transition: all 0.5s linear;
-    transition: all 0.5s linear;
-
-    &__logo {
-        position: fixed;
-        left: 50%;
-        top: calc(50% - 60px);
-        transform: translate(-50%);
-        display: block;
-        z-index: 200;
-        visibility: hidden;
-        opacity: 0;
-        -webkit-transition: visibility 0.5s linear, opacity 0.5s linear;
-        -moz-transition: visibility 0.5s linear, opacity 0.5s linear;
-        -o-transition: visibility 0.5s linear, opacity 0.5s linear;
-        transition: visibility 0.5s linear, opacity 0.5s linear;
-    }
-}
-
-.loading-overlay.active {
-    width: 100vw;
-    visibility: visible;
-    opacity: 1;
-}
-
-.loading-overlay__logo.active {
-    visibility: visible;
-    opacity: 1;
-}
-
 @media screen and (max-width: 1500px) {
 
     .login-container {
