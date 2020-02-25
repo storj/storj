@@ -13,9 +13,10 @@ require (
 
 exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869
 
-replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190918084400-1c4561bf5127
+replace google.golang.org/grpc => github.com/storj/grpc-go v1.27.2-0.20200225082019-bd19b647a81c
 
 require (
+	cloud.google.com/go v0.52.0
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
 	github.com/alessio/shellescape v0.0.0-20190409004728-b115ca0f9053
@@ -37,7 +38,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.7.0
 	github.com/golang/protobuf v1.3.2
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
-	github.com/google/go-cmp v0.3.0
+	github.com/google/go-cmp v0.4.0
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
 	github.com/gorilla/handlers v1.4.0 // indirect
 	github.com/gorilla/mux v1.7.1
@@ -100,10 +101,9 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200107144601-ef85f5a75ddf
+	golang.org/x/sys v0.0.0-20200113162924-86b910548bc1
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
-	google.golang.org/appengine v1.6.0 // indirect
-	google.golang.org/grpc v1.23.1
+	google.golang.org/grpc v1.26.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/ini.v1 v1.38.2 // indirect
