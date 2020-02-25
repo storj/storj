@@ -177,5 +177,5 @@ We are thinking of using native packaging for the following reasons:
 - Adapt the reprepro Dockerfile to commit to a git repository the content of the apt repository.
 ## Wrapup
 - As a first step and as part of the PoC, the git repository and the debian package skeleton will be created.
-- The PoC will contain an already customized `config.yaml`, will create the user and the directories, download a binary (will not check for the latest) and install a basic storagenode systemD service.
+- The PoC will create the user and the directories, download a binary (will not check for the latest) and install a basic storagenode systemD service.
 - The PoC will also contain first Dockerfile for the reprepro repository.
