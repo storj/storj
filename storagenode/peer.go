@@ -441,6 +441,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		// TODO remove this once workgroup is removed from piecestore endpoint
+		peer.Services.Add(lifecycle.Item{
+			Name:  "piecestore",
+			Close: peer.Storage2.Endpoint.Close,
+		})
+
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 		pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint.DRPC())
 

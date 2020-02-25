@@ -40,6 +40,7 @@ func TestProjectRecords(t *testing.T) {
 					},
 				},
 				[]stripecoinpayments.CouponUsage{},
+				[]stripecoinpayments.CreditsSpending{},
 				start, end,
 			)
 			require.NoError(t, err)
@@ -93,7 +94,7 @@ func TestProjectRecordsList(t *testing.T) {
 			)
 		}
 
-		err := projectRecordsDB.Create(ctx, createProjectRecords, []stripecoinpayments.CouponUsage{}, start, end)
+		err := projectRecordsDB.Create(ctx, createProjectRecords, []stripecoinpayments.CouponUsage{}, []stripecoinpayments.CreditsSpending{}, start, end)
 		require.NoError(t, err)
 
 		page, err := projectRecordsDB.ListUnapplied(ctx, 0, limit, time.Now())

@@ -28,7 +28,7 @@ require (
 	github.com/jackc/pgx v3.2.0+incompatible
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
-	github.com/jtolds/tracetagger/v2 v2.0.0-rc2
+	github.com/jtolds/tracetagger/v2 v2.0.0-rc3
 	github.com/lib/pq v1.3.0
 	github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271

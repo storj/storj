@@ -53,17 +53,22 @@ const (
 	projLimitVanguardErrMsg    = "Sorry, during the Vanguard release you have a limited number of projects"
 )
 
-// Error describes internal console error.
-var Error = errs.Class("service error")
+var (
+	// Error describes internal console error.
+	Error = errs.Class("service error")
 
-// ErrNoMembership is error type of not belonging to a specific project.
-var ErrNoMembership = errs.Class("no membership error")
+	// ErrNoMembership is error type of not belonging to a specific project.
+	ErrNoMembership = errs.Class("no membership error")
 
-// ErrTokenExpiration is error type of token reached expiration time.
-var ErrTokenExpiration = errs.Class("token expiration error")
+	// ErrTokenExpiration is error type of token reached expiration time.
+	ErrTokenExpiration = errs.Class("token expiration error")
 
-// ErrProjLimit is error type of project limit.
-var ErrProjLimit = errs.Class("project limit error")
+	// ErrProjLimit is error type of project limit.
+	ErrProjLimit = errs.Class("project limit error")
+
+	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
+	ErrEmailUsed = errs.Class("email used")
+)
 
 // Service is handling accounts related logic
 //
@@ -522,7 +527,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	_, err = s.store.Users().GetByEmail(ctx, claims.Email)
 	if err == nil {
-		return errs.New(emailUsedErrMsg)
+		return ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
 	user, err := s.store.Users().Get(ctx, claims.ID)
@@ -531,10 +536,6 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	}
 
 	now := time.Now()
-
-	if user.Status == Active {
-		return errs.New("account is already active")
-	}
 
 	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
 		return ErrTokenExpiration.Wrap(err)
@@ -1390,7 +1391,7 @@ func (s *Service) authenticate(ctx context.Context, token consoleauth.Token) (_ 
 func (s *Service) authorize(ctx context.Context, claims *consoleauth.Claims) (_ *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !claims.Expiration.IsZero() && claims.Expiration.Before(time.Now()) {
-		return nil, ErrTokenExpiration.Wrap(err)
+		return nil, ErrTokenExpiration.New("")
 	}
 
 	user, err := s.store.Users().Get(ctx, claims.ID)

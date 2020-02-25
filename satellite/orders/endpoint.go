@@ -34,8 +34,10 @@ type DB interface {
 	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
 	// UnuseSerialNumber removes pair serial number -> storage node id from database
 	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
-	// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
+	// DeleteExpiredSerials deletes all expired serials in serial_number, used_serials, and consumed_serials table.
 	DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error)
+	// DeleteExpiredConsumedSerials deletes all expired serials in the consumed_serials table.
+	DeleteExpiredConsumedSerials(ctx context.Context, now time.Time) (_ int, err error)
 
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
@@ -53,23 +55,51 @@ type DB interface {
 	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
 
 	// ProcessOrders takes a list of order requests and processes them in a batch
-	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest, observedAt time.Time) (responses []*ProcessOrderResponse, err error)
-
-	// GetBillableBandwidth gets total billable (expired reported serial) bandwidth for nodes and buckets for all actions.
-	GetBillableBandwidth(ctx context.Context, now time.Time) (bucketRollups []BucketBandwidthRollup, storagenodeRollups []StoragenodeBandwidthRollup, err error)
+	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest) (responses []*ProcessOrderResponse, err error)
 
 	// WithTransaction runs the callback and provides it with a Transaction.
 	WithTransaction(ctx context.Context, cb func(ctx context.Context, tx Transaction) error) error
+	// WithQueue TODO: DOCS
+	WithQueue(ctx context.Context, cb func(ctx context.Context, queue Queue) error) error
 }
 
 // Transaction represents a database transaction but with higher level actions.
 type Transaction interface {
 	// UpdateBucketBandwidthBatch updates all the bandwidth rollups in the database
 	UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []BucketBandwidthRollup) error
+
 	// UpdateStoragenodeBandwidthBatch updates all the bandwidth rollups in the database
 	UpdateStoragenodeBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []StoragenodeBandwidthRollup) error
-	// DeleteExpiredReportedSerials deletes any expired reported serials as of now.
-	DeleteExpiredReportedSerials(ctx context.Context, now time.Time) (err error)
+
+	// CreateConsumedSerialsBatch TODO: DOCS
+	CreateConsumedSerialsBatch(ctx context.Context, consumedSerials []ConsumedSerial) (err error)
+
+	// HasConsumedSerial TODO: DOCS
+	HasConsumedSerial(ctx context.Context, nodeID storj.NodeID, serialNumber storj.SerialNumber) (bool, error)
+}
+
+// Queue TODO: DOCS
+type Queue interface {
+	// GetPendingSerialsBatch TODO: DOCS
+	GetPendingSerialsBatch(ctx context.Context, size int) ([]PendingSerial, error)
+}
+
+// ConsumedSerial TODO: DOCS
+type ConsumedSerial struct {
+	NodeID       storj.NodeID
+	SerialNumber storj.SerialNumber
+	ExpiresAt    time.Time
+}
+
+// PendingSerial is a serial number reported by a storagenode waiting to be
+// settled
+type PendingSerial struct {
+	NodeID       storj.NodeID
+	BucketID     []byte
+	Action       uint
+	SerialNumber storj.SerialNumber
+	ExpiresAt    time.Time
+	Settled      uint64
 }
 
 var (
@@ -316,7 +346,7 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 func (endpoint *Endpoint) processOrders(ctx context.Context, stream settlementStream, requests []*ProcessOrderRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	responses, err := endpoint.DB.ProcessOrders(ctx, requests, time.Now())
+	responses, err := endpoint.DB.ProcessOrders(ctx, requests)
 	if err != nil {
 		return err
 	}

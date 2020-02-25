@@ -19,9 +19,6 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
-// ErrFailureToStart is returned when waiting for chore to start and context is canceled
-var ErrFailureToStart = errs.New("Context canceled. Contact chore never started")
-
 // Chore is the contact chore for nodes announcing themselves to their trusted satellites
 //
 // architecture: Chore
@@ -173,24 +170,19 @@ func (chore *Chore) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err
 }
 
 // Pause stops all the cycles in the contact chore.
-func (chore *Chore) Pause(ctx context.Context) error {
-	if !chore.started.Wait(ctx) {
-		return ErrFailureToStart
-	}
+func (chore *Chore) Pause(ctx context.Context) {
+	chore.started.Wait(ctx)
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 	for _, cycle := range chore.cycles {
 		cycle.Pause()
 	}
-	return nil
 }
 
 // Trigger ensures that each cycle is done at least once.
 // If the cycle is currently running it waits for the previous to complete and then runs.
-func (chore *Chore) Trigger(ctx context.Context) error {
-	if !chore.started.Wait(ctx) {
-		return ErrFailureToStart
-	}
+func (chore *Chore) Trigger(ctx context.Context) {
+	chore.started.Wait(ctx)
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 	for _, cycle := range chore.cycles {
@@ -199,15 +191,12 @@ func (chore *Chore) Trigger(ctx context.Context) error {
 			cycle.Trigger()
 		}()
 	}
-	return nil
 }
 
 // TriggerWait ensures that each cycle is done at least once and waits for completion.
 // If the cycle is currently running it waits for the previous to complete and then runs.
-func (chore *Chore) TriggerWait(ctx context.Context) error {
-	if !chore.started.Wait(ctx) {
-		return ErrFailureToStart
-	}
+func (chore *Chore) TriggerWait(ctx context.Context) {
+	chore.started.Wait(ctx)
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 	var group errgroup.Group
@@ -218,7 +207,7 @@ func (chore *Chore) TriggerWait(ctx context.Context) error {
 			return nil
 		})
 	}
-	return group.Wait()
+	_ = group.Wait() // goroutines aren't returning any errors
 }
 
 // Close stops all the cycles in the contact chore.

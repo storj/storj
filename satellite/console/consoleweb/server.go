@@ -154,7 +154,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
 	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
 	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
-	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost)
+	authRouter.HandleFunc("/logout", authController.Logout).Methods(http.MethodPost)
 	authRouter.HandleFunc("/token", authController.Token).Methods(http.MethodPost)
 	authRouter.HandleFunc("/register", authController.Register).Methods(http.MethodPost)
 	authRouter.HandleFunc("/forgot-password/{email}", authController.ForgotPassword).Methods(http.MethodPost)
@@ -441,15 +441,21 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 			zap.String("token", activationToken),
 			zap.Error(err))
 
-		// TODO: when new error pages will be created - change http.StatusNotFound on appropriate one
+		if console.ErrEmailUsed.Has(err) {
+			server.serveError(w, http.StatusConflict)
+			return
+		}
+
+		if console.Error.Has(err) {
+			server.serveError(w, http.StatusInternalServerError)
+			return
+		}
+
 		server.serveError(w, http.StatusNotFound)
 		return
 	}
 
-	if err = server.templates.activated.Execute(w, nil); err != nil {
-		server.log.Error("account activated template could not be executed", zap.Error(Error.Wrap(err)))
-		return
-	}
+	http.Redirect(w, r, server.config.ExternalAddress+"login?activated=true", http.StatusTemporaryRedirect)
 }
 
 func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
@@ -633,8 +639,6 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case console.ErrUnauthorized.Has(err):
 			return http.StatusUnauthorized, err
-		case console.ErrValidation.Has(err):
-			return http.StatusBadRequest, err
 		case console.Error.Has(err):
 			return http.StatusInternalServerError, err
 		}
@@ -672,7 +676,7 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		handleErrors(http.StatusBadRequest, result.Errors)
+		handleErrors(http.StatusOK, result.Errors)
 	}
 
 	if result.HasErrors() {
@@ -699,10 +703,15 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 		if err != nil {
 			server.log.Error("cannot parse internalServerError template", zap.Error(Error.Wrap(err)))
 		}
-	default:
+	case http.StatusNotFound:
 		err := server.templates.notFound.Execute(w, nil)
 		if err != nil {
 			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
+		}
+	case http.StatusConflict:
+		err := server.templates.activated.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse already activated template", zap.Error(Error.Wrap(err)))
 		}
 	}
 }

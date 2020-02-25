@@ -88,7 +88,9 @@ type Endpoint struct {
 	usage       bandwidth.DB
 	usedSerials UsedSerials
 
-	reportCapacity func(context.Context) error
+	group sync2.WorkGroup // temporary fix for uncontrolled goroutine at end of doUpload
+
+	reportCapacity func(context.Context)
 
 	// liveRequests tracks the total number of incoming rpc requests. For gRPC
 	// requests only, this number is compared to config.MaxConcurrentRequests
@@ -104,7 +106,7 @@ type drpcEndpoint struct{ *Endpoint }
 func (endpoint *Endpoint) DRPC() pb.DRPCPiecestoreServer { return &drpcEndpoint{Endpoint: endpoint} }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, reportCapacity func(context.Context) error, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, reportCapacity func(context.Context), config Config) (*Endpoint, error) {
 	// If config.MaxConcurrentRequests is set we want to repsect it for grpc.
 	// However, if it is 0 (unlimited) we force a limit.
 	grpcReqLimit := config.MaxConcurrentRequests
@@ -285,12 +287,11 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 	// if availableSpace has fallen below ReportCapacityThreshold, report capacity to satellites
 	defer func() {
 		if availableSpace < endpoint.config.ReportCapacityThreshold.Int64() {
-			go func() {
+			// workgroup is a temporary fix to clean up goroutine when peer shuts down
+			endpoint.group.Go(func() {
 				endpoint.monitor.Loop.TriggerWait()
-				if err := endpoint.reportCapacity(ctx); err != nil {
-					endpoint.log.Error("error reporting capacity", zap.Error(err))
-				}
-			}()
+				endpoint.reportCapacity(ctx)
+			})
 		}
 	}()
 
@@ -824,4 +825,10 @@ func min(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+// Close is a temporary fix to clean up uncontrolled goroutine in doUpload
+func (endpoint *Endpoint) Close() error {
+	endpoint.group.Close()
+	return nil
 }

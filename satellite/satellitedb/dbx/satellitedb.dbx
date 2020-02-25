@@ -459,14 +459,11 @@ delete serial_number (
 // for preventing duplicate serial numbers
 create used_serial ( noreturn )
 
-model reported_serial (
-	// all of our access patterns care about if the serial is expired or not so we
-	// should put expires_at first in the primary key to get efficient scans. but,
-	// we also want to have rocksdb prefix compression to apply as much as possible
-	// to reduce data size for numerous benefits. so, we ceil the expires_at field
-	// to the next day so that we only have to store each storage node id only once
-	// per day. the other fields follow the same logic.
+//
+// DEPRECATED! vvvvvvvvvvvvvvvvvvvvvvvvvvv
+//
 
+model reported_serial (
 	key expires_at storage_node_id bucket_id action serial_number
 
 	field expires_at      timestamp // ceil'd to the next day
@@ -479,9 +476,43 @@ model reported_serial (
 	field observed_at timestamp
 )
 
-create reported_serial ( noreturn, replace )
-read paged ( select reported_serial, where reported_serial.expires_at <= ? )
-delete reported_serial ( where reported_serial.expires_at <= ? )
+//
+// DEPRECATED! ^^^^^^^^^^^^^^^^^^^^^^^^^^
+//
+
+model pending_serial_queue (
+	table pending_serial_queue
+
+	key   storage_node_id bucket_id serial_number
+	field storage_node_id blob
+	field bucket_id       blob
+	field serial_number   blob
+
+	field action     uint
+	field settled    uint64
+	field expires_at timestamp
+)
+
+create pending_serial_queue ( noreturn, replace )
+read paged ( select pending_serial_queue )
+
+model consumed_serial (
+	key storage_node_id serial_number
+	index ( fields expires_at )
+
+	field storage_node_id blob
+	field serial_number   blob
+	field expires_at      timestamp
+)
+
+create consumed_serial ( noreturn )
+delete consumed_serial ( where consumed_serial.expires_at <= ? )
+
+read has (
+	select consumed_serial
+	where consumed_serial.storage_node_id = ?
+	where consumed_serial.serial_number   = ?
+)
 
 // --- bucket accounting tables --- //
 
