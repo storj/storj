@@ -84,7 +84,7 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/uplink \
 		storj.io/storj/cmd/identity \
 		storj.io/storj/cmd/certificates
-	cd cmd/gateway && go install -race -v storj.io/storj/cmd/gateway
+	cd cmd/gateway && go install -race -v .
 
 ##@ Test
 

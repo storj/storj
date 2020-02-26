@@ -17,6 +17,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -352,7 +353,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		})
 
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
-		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+		pbgrpc.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 		pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint)
 
 	}
@@ -447,7 +448,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Close: peer.Storage2.Endpoint.Close,
 		})
 
-		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
+		pbgrpc.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 		pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint.DRPC())
 
 		// TODO workaround for custom timeout for order sending request (read/write)
@@ -563,7 +564,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Console.Listener.Addr(),
 			config.Contact.ExternalAddress,
 		)
-		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
+		pbgrpc.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 		pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector)
 	}
 
@@ -574,7 +575,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Satellites(),
 			peer.Storage2.BlobsCache,
 		)
-		pb.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
+		pbgrpc.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
 		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
 
 		peer.GracefulExit.Chore = gracefulexit.NewChore(

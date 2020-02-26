@@ -55,7 +55,7 @@ require (
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.26.0
 	gopkg.in/yaml.v2 v2.2.4
-	storj.io/common v0.0.0-20200226144507-3fe9f7839df5
+	storj.io/common v0.0.0-20200226185531-a823b4a45116
 	storj.io/drpc v0.0.8
 	storj.io/uplink v1.0.0-rc.2
 )
