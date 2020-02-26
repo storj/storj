@@ -8,6 +8,7 @@
                 <StorjIcon
                     class="header__content-holder__icon"
                     alt="storj icon"
+                    @click="onHeaderLogoClick"
                 />
                 <div class="header__content-holder__logo-area__refresh-button" @click="onRefresh">
                     <RefreshIcon alt="refresh image"/>
@@ -107,6 +108,19 @@ export default class SNOHeader extends Vue {
         this.isNotificationPopupShown = false;
     }
 
+    /**
+     * Refreshes page when on home page or relocates to home page from other location.
+     */
+    public async onHeaderLogoClick(): Promise<void> {
+        const isCurrentLocationIsHomePage = this.$route.name === RouteConfig.Root.name;
+
+        if (isCurrentLocationIsHomePage) {
+            location.reload();
+        }
+
+        await this.$router.replace('/');
+    }
+
     public async onRefresh(): Promise<void> {
         const selectedSatellite = this.$store.state.node.selectedSatellite.id;
 
@@ -155,6 +169,10 @@ export default class SNOHeader extends Vue {
                         }
                     }
                 }
+            }
+
+            &__icon {
+                cursor: pointer;
             }
 
             &__right-area {
