@@ -4,22 +4,33 @@
 package contact
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/storagenode/trust"
 )
 
-// Error is the default error class for contact package
-var Error = errs.Class("contact")
+var (
+	mon = monkit.Package()
 
-var mon = monkit.Package()
+	// Error is the default error class for contact package
+	Error = errs.Class("contact")
+
+	errPingSatellite = errs.Class("ping satellite error")
+)
+
+const initialBackOff = time.Second
 
 // Config contains configurable values for contact service
 type Config struct {
@@ -31,20 +42,94 @@ type Config struct {
 
 // Service is the contact service between storage nodes and satellites
 type Service struct {
-	log *zap.Logger
+	log    *zap.Logger
+	dialer rpc.Dialer
 
 	mu   sync.Mutex
 	self *overlay.NodeDossier
+
+	trust *trust.Pool
 
 	initialized sync2.Fence
 }
 
 // NewService creates a new contact service
-func NewService(log *zap.Logger, self *overlay.NodeDossier) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, self *overlay.NodeDossier, trust *trust.Pool) *Service {
 	return &Service{
-		log:  log,
-		self: self,
+		log:    log,
+		dialer: dialer,
+		trust:  trust,
+		self:   self,
 	}
+}
+
+// PingSatellites attempts to ping all satellites in trusted list until backoff reaches maxInterval
+func (service *Service) PingSatellites(ctx context.Context, maxInterval time.Duration) error {
+	defer mon.Task()(&ctx)
+	satellites := service.trust.GetSatellites(ctx)
+	var group errgroup.Group
+	for _, satellite := range satellites {
+		satellite := satellite
+		group.Go(func() error {
+			return service.pingSatellite(ctx, satellite, maxInterval)
+		})
+	}
+	return group.Wait()
+}
+
+func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeID, maxInterval time.Duration) error {
+	interval := initialBackOff
+	attempts := 0
+	for {
+
+		mon.Meter("satellite_contact_request").Mark(1) //locked
+
+		err := service.pingSatelliteOnce(ctx, satellite)
+		attempts++
+		if err == nil {
+			return nil
+		}
+		service.log.Error("ping satellite failed ", zap.Stringer("Satellite ID", satellite), zap.Int("attempts", attempts), zap.Error(err))
+
+		// Sleeps until interval times out, then continue. Returns if context is cancelled.
+		if !sync2.Sleep(ctx, interval) {
+			service.log.Info("context cancelled", zap.Stringer("Satellite ID", satellite))
+			return nil
+		}
+		interval *= 2
+		if interval >= maxInterval {
+			service.log.Info("retries timed out for this cycle", zap.Stringer("Satellite ID", satellite))
+			return nil
+		}
+	}
+
+}
+
+func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err error) {
+	defer mon.Task()(&ctx, id)(&err)
+
+	self := service.Local()
+	address, err := service.trust.GetAddress(ctx, id)
+	if err != nil {
+		return errPingSatellite.Wrap(err)
+	}
+
+	conn, err := service.dialer.DialAddressID(ctx, address, id)
+	if err != nil {
+		return errPingSatellite.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, conn.Close()) }()
+
+	_, err = pb.NewDRPCNodeClient(conn.Raw()).CheckIn(ctx, &pb.CheckInRequest{
+		Address:  self.Address.GetAddress(),
+		Version:  &self.Version,
+		Capacity: &self.Capacity,
+		Operator: &self.Operator,
+	})
+	if err != nil {
+		return errPingSatellite.Wrap(err)
+	}
+	return nil
 }
 
 // Local returns the storagenode node-dossier

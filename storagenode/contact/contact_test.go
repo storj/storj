@@ -76,6 +76,35 @@ func TestNodeInfoUpdated(t *testing.T) {
 	})
 }
 
+func TestServicePingSatellites(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		newCapacity := pb.NodeCapacity{
+			FreeBandwidth: 0,
+			FreeDisk:      0,
+		}
+		for _, satellite := range planet.Satellites {
+			info, err := satellite.Overlay.Service.Get(ctx, node.ID())
+			require.NoError(t, err)
+			require.NotEqual(t, newCapacity, info.Capacity)
+		}
+
+		node.Contact.Service.UpdateSelf(&newCapacity)
+		err := node.Contact.Service.PingSatellites(ctx, 10*time.Second)
+		require.NoError(t, err)
+
+		for _, satellite := range planet.Satellites {
+			info, err := satellite.Overlay.Service.Get(ctx, node.ID())
+			require.NoError(t, err)
+			require.Equal(t, newCapacity, info.Capacity)
+		}
+	})
+}
+
 func TestLocalAndUpdateSelf(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,

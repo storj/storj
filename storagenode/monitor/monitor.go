@@ -10,6 +10,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -28,9 +29,10 @@ var (
 
 // Config defines parameters for storage node disk and bandwidth usage monitoring.
 type Config struct {
-	Interval         time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
-	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"500GB"`
-	MinimumBandwidth memory.Size   `help:"how much bandwidth a node at minimum has to advertise" default:"500GB"`
+	Interval              time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	MinimumDiskSpace      memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"500GB"`
+	MinimumBandwidth      memory.Size   `help:"how much bandwidth a node at minimum has to advertise" default:"500GB"`
+	NotifyLowDiskCooldown time.Duration `help:"minimum length of time between capacity reports" default:"10m" hidden:"true"`
 }
 
 // Service which monitors disk usage
@@ -43,6 +45,7 @@ type Service struct {
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
 	allocatedBandwidth int64
+	cooldown           *sync2.Cooldown
 	Loop               *sync2.Cycle
 	Config             Config
 }
@@ -50,7 +53,7 @@ type Service struct {
 // TODO: should it be responsible for monitoring actual bandwidth as well?
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
+func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, reportCapacity func(context.Context), config Config) *Service {
 	return &Service{
 		log:                log,
 		store:              store,
@@ -58,6 +61,7 @@ func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, 
 		usageDB:            usageDB,
 		allocatedDiskSpace: allocatedDiskSpace,
 		allocatedBandwidth: allocatedBandwidth,
+		cooldown:           sync2.NewCooldown(config.NotifyLowDiskCooldown),
 		Loop:               sync2.NewCycle(interval),
 		Config:             config,
 	}
@@ -124,18 +128,42 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return Error.New("bandwidth requirement not met")
 	}
 
-	return service.Loop.Run(ctx, func(ctx context.Context) error {
+	var group errgroup.Group
+	group.Go(func() error {
+		return service.Loop.Run(ctx, func(ctx context.Context) error {
+			err := service.updateNodeInformation(ctx)
+			if err != nil {
+				service.log.Error("error during updating node information: ", zap.Error(err))
+			}
+			return nil
+		})
+	})
+	service.cooldown.Start(ctx, &group, func(ctx context.Context) error {
 		err := service.updateNodeInformation(ctx)
 		if err != nil {
 			service.log.Error("error during updating node information: ", zap.Error(err))
+			return nil
 		}
-		return err
+
+		err = service.contact.PingSatellites(ctx, service.Config.NotifyLowDiskCooldown)
+		if err != nil {
+			service.log.Error("error notifying satellites: ", zap.Error(err))
+		}
+		return nil
 	})
+
+	return group.Wait()
+}
+
+// NotifyLowDisk reports disk space to satellites if cooldown timer has expired
+func (service *Service) NotifyLowDisk() {
+	service.cooldown.Trigger()
 }
 
 // Close stops the monitor service.
 func (service *Service) Close() (err error) {
 	service.Loop.Close()
+	service.cooldown.Close()
 	return nil
 }
 
