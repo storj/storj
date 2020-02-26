@@ -22,7 +22,7 @@ func TestNewExcluderFailure(t *testing.T) {
 		{
 			name:   "not a valid URL",
 			config: "://",
-			err:    "exclusion: node URL error: parse ://: missing protocol scheme",
+			err:    "exclusion: node URL error: parse \"://\": missing protocol scheme",
 		},
 		{
 			name:   "host exclusion must not include a port",

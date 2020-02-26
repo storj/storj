@@ -25,7 +25,7 @@ func TestHTTPSourceNew(t *testing.T) {
 		{
 			name:    "not a valid URL",
 			httpURL: "://",
-			err:     `HTTP source: "://": not a URL: parse ://: missing protocol scheme`,
+			err:     `HTTP source: "://": not a URL: parse "://": missing protocol scheme`,
 		},
 		{
 			name:    "not an HTTP or HTTPS URL",

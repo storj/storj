@@ -49,7 +49,7 @@ func TestParseSatelliteURL(t *testing.T) {
 		{
 			name: "not a valid URL",
 			url:  "://",
-			err:  `invalid satellite URL: node URL error: parse ://: missing protocol scheme`,
+			err:  `invalid satellite URL: node URL error: parse "://": missing protocol scheme`,
 		},
 		{
 			name: "missing ID",
