@@ -578,8 +578,12 @@ rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8
 storj.io/common v0.0.0-20200214070817-cfd197b055d7/go.mod h1:MlYmhIuKHfD15puGH7Su5lv0bt4ojZ7IfrPnAmR4NeI=
 storj.io/common v0.0.0-20200221161141-79b008e3eff0 h1:lN5HVfeSa7uwbVYQ1CyQZ3I5nUeZzgejrGJZVjRsktg=
 storj.io/common v0.0.0-20200221161141-79b008e3eff0/go.mod h1:lCc2baFO7GQlKsPTri8xwCsCPO2LsEUUiAGeRQuXY48=
+storj.io/common v0.0.0-20200226144507-3fe9f7839df5 h1:PbXUP30pEdk+HiRPwLfBD9wA+CY1Eu788BwJPecpFBM=
+storj.io/common v0.0.0-20200226144507-3fe9f7839df5/go.mod h1:lCc2baFO7GQlKsPTri8xwCsCPO2LsEUUiAGeRQuXY48=
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2/go.mod h1:/ascUDbzNAv0A3Jj7wUIKFBH2JdJ2uJIBO/b9+2yHgQ=
 storj.io/drpc v0.0.8 h1:wu68cMmtoT0vSWIAZz29RpJkWdi4o0S8BIrLslpH5FQ=
 storj.io/drpc v0.0.8/go.mod h1:v39uWro/EbXXk+gNnrM9FQuVVS2zUBWBfeduydgeXUA=
 storj.io/uplink v0.0.0-20200221171743-26268cdd3552 h1:yXojx6mQXtJfwh5qdUEakWvh+EXkJbTV4qWE1aPJzTU=
 storj.io/uplink v0.0.0-20200221171743-26268cdd3552/go.mod h1:SAetpjpLjDx0bH/TgfMaD2O/S283bn/Kcz8f/juI03I=
+storj.io/uplink v1.0.0-rc.2 h1:IykgqbqwXDRJAaDXO0+t1CCfntetRvdWK9mUQsWtz/8=
+storj.io/uplink v1.0.0-rc.2/go.mod h1:WUQYQZFI7iUxqarO1zhUwlVgiHxv4PGZlsQFh8XE8yg=

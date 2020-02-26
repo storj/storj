@@ -120,11 +120,9 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 
 	var opts *uplink.UploadOptions
 	if cOpts != nil {
-		var metadata map[string]string
-
 		opts = &uplink.UploadOptions{
 			ContentType: C.GoString(cOpts.content_type),
-			Metadata:    metadata,
+			Metadata:    map[string]string{},
 			Expires:     time.Unix(int64(cOpts.expires), 0),
 		}
 	}
