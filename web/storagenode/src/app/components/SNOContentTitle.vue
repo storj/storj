@@ -151,7 +151,6 @@ export default class SNOContentTitle extends Vue {
             font-size: 32px;
             line-height: 57px;
             color: #535f77;
-            user-select: none;
         }
 
         &__info-container {
@@ -167,7 +166,6 @@ export default class SNOContentTitle extends Vue {
                     line-height: 20px;
                     color: #9ca5b6;
                     margin: 0 0 5px 0;
-                    user-select: none;
                 }
 
                 &__content {

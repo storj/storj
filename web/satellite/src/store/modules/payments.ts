@@ -117,10 +117,12 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             },
         },
         actions: {
-            [GET_BALANCE]: async function({commit}: any): Promise<void> {
+            [GET_BALANCE]: async function({commit}: any): Promise<number> {
                 const balance = await api.getBalance();
 
                 commit(SET_BALANCE, balance);
+
+                return balance;
             },
             [SETUP_ACCOUNT]: async function(): Promise<void> {
                 await api.setupAccount();

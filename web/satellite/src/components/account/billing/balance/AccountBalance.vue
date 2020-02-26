@@ -34,11 +34,6 @@ import { Component, Vue } from 'vue-property-decorator';
 import VInfo from '@/components/common/VInfo.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-
-const {
-    GET_BALANCE,
-} = PAYMENTS_ACTIONS;
 
 @Component({
     components: {
@@ -51,9 +46,9 @@ export default class AccountBalance extends Vue {
      */
     public mounted() {
         try {
-            this.$store.dispatch(GET_BALANCE);
+            this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            this.$notify.error(error.message);
         }
     }
 
@@ -99,7 +94,6 @@ export default class AccountBalance extends Vue {
                 font-size: 32px;
                 line-height: 48px;
                 margin-right: 13px;
-                user-select: none;
             }
 
             &__info-button {

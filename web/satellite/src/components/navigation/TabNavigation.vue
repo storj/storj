@@ -30,7 +30,6 @@ export default class TabNavigation extends Vue {
         width: auto;
         display: flex;
         border-bottom: 1px solid #afb7c1;
-        user-select: none;
 
         &__item {
             width: 150px;

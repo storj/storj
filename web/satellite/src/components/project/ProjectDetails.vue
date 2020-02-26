@@ -197,7 +197,6 @@ export default class ProjectDetailsArea extends Vue {
             font-size: 32px;
             line-height: 39px;
             color: #263549;
-            user-select: none;
             margin: 0;
         }
 
@@ -242,7 +241,6 @@ export default class ProjectDetailsArea extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: rgba(56, 75, 101, 0.4);
-                user-select: none;
             }
 
             &__project-name {
@@ -282,7 +280,6 @@ export default class ProjectDetailsArea extends Vue {
                     font-size: 16px;
                     line-height: 21px;
                     color: rgba(56, 75, 101, 0.4);
-                    user-select: none;
                 }
 
                 &__project-description {

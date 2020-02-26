@@ -47,7 +47,7 @@ populate_sno_versions(){
 # in stage 1: satellite, uplink, and storagenode use latest release version
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are split into half on latest release version and half on master. Uplink uses the latest release version plus master
 git fetch --tags
-current_release_version=$(git describe --tags `git rev-list --tags --max-count=1`)
+current_release_version=$(git tag -l --sort -version:refname | grep -v "rc" | sort -n -k2,2 -t'.' --unique | tail -n 1)
 stage1_sat_version=$current_release_version
 stage1_uplink_version=$current_release_version
 stage1_storagenode_versions=$(populate_sno_versions $current_release_version 10)
@@ -99,7 +99,7 @@ install_sim(){
     go install -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    cd ${scriptdir}/../../../cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+    cd ./cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
 
@@ -220,10 +220,10 @@ for version in ${unique_versions}; do
         mkdir -p ${bin_dir}
         # uncomment for Jenkins testing:
         go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-        cd ${scriptdir}/../../../cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+        cd ./cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
         # uncomment for local testing:
         # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink > /dev/null 2>&1
-        # GOBIN=${bin_dir} cd ${scriptdir}/../../../cmd/gateway && go install -race -v storj.io/storj/cmd/gateway > /dev/null 2>&1
+        # GOBIN=${bin_dir} cd ./cmd/gateway && go install -race -v storj.io/storj/cmd/gateway > /dev/null 2>&1
         popd
         echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
         echo "Binary shasums:"
@@ -251,6 +251,14 @@ PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-d
 echo -e "\nSetting up stage 2 in ${test_dir}"
 setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}" "2"
 echo -e "\nRunning stage 2."
+
+# update gateway access to contain satellite id in satellite address
+if [[ -f "$test_dir"/scripts/update-access.go ]]
+then
+    PATH=$test_dir/bin:$PATH old_access=$(storj-sim network env --config-dir=${test_dir}/local-network/ GATEWAY_0_ACCESS)
+    PATH=$test_dir/bin:$PATH new_access=$(go run "$test_dir"/scripts/update-access.go $(storj-sim network env --config-dir=${test_dir}/local-network/ SATELLITE_0_DIR) $(storj-sim network env --config-dir=${test_dir}/local-network/ GATEWAY_0_ACCESS))
+    replace_in_file "$old_access" "$new_access" "${test_dir}/local-network/gateway/config.yaml"
+fi
 
 # Starting old satellite api in the background
 old_api_cmd="${test_dir}/local-network/satellite/0/old_satellite run api --config-dir ${test_dir}/local-network/satellite/0/ --debug.addr 127.0.0.1:30009 --server.address 127.0.0.1:30000 --server.private-address 127.0.0.1:30001 --console.address 127.0.0.1:30002 --marketing.address 127.0.0.1:30003"

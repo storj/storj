@@ -40,7 +40,6 @@ export default class SNOFooter extends Vue {
         justify-content: center;
         background-color: #fff;
         align-items: center;
-        user-select: none;
 
         &__content-holder {
             width: 822px;

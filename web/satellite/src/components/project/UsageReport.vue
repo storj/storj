@@ -324,7 +324,6 @@ export default class UsageReport extends Vue {
                 line-height: 39px;
                 color: #263549;
                 margin: 0;
-                user-select: none;
             }
         }
 
@@ -354,7 +353,6 @@ export default class UsageReport extends Vue {
                     font-size: 16px;
                     line-height: 23px;
                     color: #354049;
-                    user-select: none;
                 }
 
                 &__image {
@@ -414,7 +412,6 @@ export default class UsageReport extends Vue {
                         color: #354049;
                         margin-block-start: 0;
                         margin-block-end: 0;
-                        user-select: none;
                     }
 
                     &__amount {
@@ -465,7 +462,6 @@ export default class UsageReport extends Vue {
                         line-height: 21px;
                         color: #354049;
                         margin-right: 30px;
-                        user-select: none;
                     }
 
                     &__image {

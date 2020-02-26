@@ -54,9 +54,9 @@ import { Component, Vue } from 'vue-property-decorator';
 import VButton from '@/components/common/VButton.vue';
 
 import DotsIcon from '@/../static/images/buckets/noBucketState/dots.svg';
-import FirstStepIcon from '@/../static/images/buckets/noBucketState/one.svg';
-import ThirdStepIcon from '@/../static/images/buckets/noBucketState/three.svg';
-import SecondStepIcon from '@/../static/images/buckets/noBucketState/two.svg';
+import FirstStepIcon from '@/../static/images/common/one.svg';
+import ThirdStepIcon from '@/../static/images/common/three.svg';
+import SecondStepIcon from '@/../static/images/common/two.svg';
 
 @Component({
     components: {

@@ -77,7 +77,6 @@ export default class VButton extends Vue {
         background-color: #2683ff;
         border-radius: 6px;
         cursor: pointer;
-        user-select: none;
 
         .label {
             font-family: 'font_medium', sans-serif;

@@ -1,0 +1,34 @@
+<!--Copyright (C) 2019 Storj Labs, Inc.-->
+<!--See LICENSE for copying information.-->
+
+<div class="overview-area">
+    <h1 class="overview-area__title">Welcome to Storj</h1>
+    <p class="overview-area__sub-title">
+        To get started, let’s add a payment method.<br/>We’ll provide you with a $55 credit right away!
+    </p>
+    <router-link class="overview-area__button" :to="billingPath" >Add Payment Info & Get $55</router-link>
+    <span class="overview-area__charge-info">You will not be charged unless $55 is used</span>
+    <div class="overview-area__steps-area">
+        <div class="overview-area__steps-area__numbers">
+            <FirstStepIcon class="overview-area__steps-area__numbers__icon"/>
+            <div class="overview-area-divider"></div>
+            <SecondStepIcon class="overview-area__steps-area__numbers__icon"/>
+            <div class="overview-area-divider"></div>
+            <ThirdStepIcon class="overview-area__steps-area__numbers__icon"/>
+        </div>
+        <div class="overview-area__steps-area__items">
+            <div class="overview-area__steps-area__items__add-payment-info">
+                <h2 class="overview-area__steps-area__items__add-payment-info__title">Add Payment Info</h2>
+                <img class="overview-area-image" src="@/../static/images/overview/payment.jpg" alt="payment image">
+            </div>
+            <div class="overview-area__steps-area__items__create-project">
+                <h2 class="overview-area__steps-area__items__create-project__title">Create a Project</h2>
+                <img class="overview-area-image" src="@/../static/images/overview/project.jpg" alt="project image">
+            </div>
+            <div class="overview-area__steps-area__items__create-api-key">
+                <h2 class="overview-area__steps-area__items__create-api-key__title">Create an API Key</h2>
+                <img class="overview-area-image" src="@/../static/images/overview/apikey.jpg" alt="api key image">
+            </div>
+        </div>
+    </div>
+</div>

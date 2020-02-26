@@ -11,7 +11,7 @@ require storj.io/gateway v0.0.0-20200221161528-36f00ab51fa7
 
 exclude gopkg.in/olivere/elastic.v5 v5.0.72 // buggy import, see https://github.com/olivere/elastic/pull/869
 
-replace google.golang.org/grpc => github.com/storj/grpc-go v1.23.1-0.20190918084400-1c4561bf5127
+replace google.golang.org/grpc => github.com/storj/grpc-go v1.27.2-0.20200225082019-bd19b647a81c
 
 require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
@@ -27,6 +27,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.3 // indirect
 	github.com/hashicorp/raft v1.0.0 // indirect
+	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c // indirect
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
@@ -49,7 +50,6 @@ require (
 	github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864 // indirect
 	github.com/tidwall/gjson v1.1.3 // indirect
 	github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1 // indirect
-	google.golang.org/appengine v1.6.0 // indirect
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/ini.v1 v1.52.0 // indirect

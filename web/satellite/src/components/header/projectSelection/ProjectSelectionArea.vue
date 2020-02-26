@@ -120,7 +120,6 @@ export default class ProjectSelectionArea extends Vue {
             color: rgba(56, 75, 101, 0.4);
             opacity: 0.7;
             cursor: pointer;
-            user-select: none;
             margin-right: 5px;
         }
 

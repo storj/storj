@@ -24,8 +24,8 @@ populate_sno_versions(){
 # in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are split into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
 git fetch --tags
-current_release_version=$(git describe --tags `git rev-list --tags --max-count=1`)
-major_release_tags=$(git tag -l --sort -version:refname | sort -n -k2,2 -t'.' --unique | awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 {print $0}')
+major_release_tags=$(git tag -l --sort -version:refname | grep -v "rc" | sort -n -k2,2 -t'.' --unique | awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 {print $0}')
+current_release_version=$(echo $major_release_tags | xargs -n 1 | tail -1)
 stage1_sat_version=$current_release_version
 stage1_uplink_versions=$major_release_tags
 stage1_storagenode_versions=$(populate_sno_versions $current_release_version 10)
@@ -74,10 +74,9 @@ install_sim(){
     go install -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    cd ${scriptdir}/../../../cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+    cd ./cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
-
 }
 
 setup_stage(){
@@ -97,6 +96,8 @@ setup_stage(){
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
+
+
 
     counter=0
     for sn_version in ${stage_sn_versions}; do
@@ -176,19 +177,16 @@ for version in ${unique_versions}; do
             shasum ${bin_dir}/uplink
             shasum ${bin_dir}/gateway
         else
-            echo "Installing uplink and gateway for ${version} in ${dir}."
+            echo "Installing uplink for ${version} in ${dir}."
             pushd ${dir}
             mkdir -p ${bin_dir}
             go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-            cd ${scriptdir}/../../../cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
             # uncomment for local testing
             # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink >/dev/null 2>&1
-            # GOBIN=${bin_dir} cd ${scriptdir}/../../../cmd/gateway && go install -race -v storj.io/storj/cmd/gateway >/dev/null 2>&1
             popd
             echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
             echo "Binary shasums:"
             shasum ${bin_dir}/uplink
-            shasum ${bin_dir}/gateway
         fi
     ) &
 done
@@ -224,6 +222,14 @@ rm -rf "${test_dir}/local-network/uplink"
 echo -e "\nSetting up stage 2 in ${test_dir}"
 setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}"
 echo -e "\nRunning stage 2."
+
+# update gateway access to contain satellite id in satellite address
+if [[ -f "$test_dir"/scripts/update-access.go ]]
+then
+    PATH=$test_dir/bin:$PATH old_access=$(storj-sim network env --config-dir=${test_dir}/local-network/ GATEWAY_0_ACCESS)
+    PATH=$test_dir/bin:$PATH new_access=$(go run "$test_dir"/scripts/update-access.go $(storj-sim network env --config-dir=${test_dir}/local-network/ SATELLITE_0_DIR) $(storj-sim network env --config-dir=${test_dir}/local-network/ GATEWAY_0_ACCESS))
+    replace_in_file "$old_access" "$new_access" "${test_dir}/local-network/gateway/config.yaml"
+fi
 
 # Downloading every file uploaded in stage 1 from the network using the latest commit from master branch for each uplink version
 for ul_version in ${stage2_uplink_versions}; do
