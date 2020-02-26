@@ -23,6 +23,7 @@ import BillingItem from '@/components/account/billing/billingHistory/BillingItem
 import SortingHeader from '@/components/account/billing/billingHistory/SortingHeader.vue';
 
 import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { BillingHistoryItem } from '@/types/payments';
 
 @Component({
@@ -32,6 +33,17 @@ import { BillingHistoryItem } from '@/types/payments';
     },
 })
 export default class DepositAndBilling extends Vue {
+    /**
+     * Lifecycle hook after initial render where billing history is fetched.
+     */
+    public mounted(): void {
+        try {
+            this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
+        } catch (error) {
+            this.$notify.error(error.message);
+        }
+    }
+
     /**
      * Changes location to billing history route.
      */
