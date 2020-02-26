@@ -220,6 +220,8 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			zap.Error(share.Error))
 	}
 
+	mon.IntVal("verify_shares_downloaded_successfully").Observe(int64(len(sharesToAudit))) //locked
+
 	required := int(pointer.Remote.Redundancy.GetMinReq())
 	total := int(pointer.Remote.Redundancy.GetTotal())
 
