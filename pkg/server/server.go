@@ -19,6 +19,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/drpc/drpcserver"
 	"storj.io/storj/pkg/listenmux"
+	"storj.io/storj/private/grpctlsopts"
 )
 
 // Service represents a specific gRPC method collection to be registered
@@ -84,7 +85,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
-			tlsOptions.ServerOption(),
+			grpctlsopts.ServerOption(tlsOptions),
 		),
 	}
 
