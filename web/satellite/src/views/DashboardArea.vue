@@ -207,10 +207,11 @@ export default class DashboardArea extends Vue {
      * Indicates if bonus banner should be rendered.
      */
     public get isBannerShown(): boolean {
-        const isNotOverviewPage = this.$route.name === RouteConfig.Overview.name;
+        const isOverviewPage = this.$route.name === RouteConfig.Overview.name;
+        const isBillingPage = this.$route.name === RouteConfig.Billing.name;
         const hasCreditCards = this.$store.state.paymentsModule.creditCards.length > 0;
 
-        return !(isNotOverviewPage || hasCreditCards);
+        return !(isOverviewPage || isBillingPage || hasCreditCards);
     }
 
     /**
@@ -381,10 +382,24 @@ export default class DashboardArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 1024px) {
+    @media screen and (max-width: 1280px) {
 
         .regular-navigation {
             display: none;
+        }
+
+        .dashboard-container {
+
+            &__blur-area {
+
+                &__button {
+                    right: 123px;
+                }
+
+                &__message-box {
+                    right: 76px;
+                }
+            }
         }
     }
 

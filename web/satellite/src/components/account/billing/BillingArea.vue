@@ -3,6 +3,7 @@
 
 <template>
     <div class="account-billing-area">
+        <h1 class="account-billing-area__title">Billing</h1>
         <div class="account-billing-area__notification-container" v-if="hasNoCreditCard">
             <div class="account-billing-area__notification-container__negative-balance" v-if="isBalanceNegative">
                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -19,8 +20,10 @@
                 <p class="account-billing-area__notification-container__low-balance__text">Your account balance is running low. Please add STORJ Tokens or a debit/credit card to prevent data loss.</p>
             </div>
         </div>
-        <AccountBalance/>
-        <MonthlyBillingSummary/>
+        <div v-if="areBalanceAndSummaryVisible">
+            <AccountBalance/>
+            <MonthlyBillingSummary/>
+        </div>
         <PaymentMethods/>
         <DepositAndBilling/>
     </div>
@@ -33,6 +36,9 @@ import AccountBalance from '@/components/account/billing/balance/AccountBalance.
 import DepositAndBilling from '@/components/account/billing/billingHistory/DepositAndBilling.vue';
 import MonthlyBillingSummary from '@/components/account/billing/monthlySummary/MonthlyBillingSummary.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
+
+import { Project } from '@/types/projects';
+import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
     components: {
@@ -48,6 +54,15 @@ export default class BillingArea extends Vue {
      * If balance is lower - yellow notification should appear.
      */
     private readonly CRITICAL_AMOUNT: number = 1000;
+
+    /**
+     * Indicates if balance and summary components are visible.
+     */
+    public get areBalanceAndSummaryVisible(): boolean {
+        const isBalancePositive: boolean = this.$store.state.paymentsModule.balance > 0;
+
+        return isBalancePositive || ProjectOwning.userHasOwnProject();
+    }
 
     /**
      * Indicates if no credit cards attached to account.
@@ -75,6 +90,14 @@ export default class BillingArea extends Vue {
 <style scoped lang="scss">
     .account-billing-area {
         padding-bottom: 55px;
+
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 32px;
+            line-height: 39px;
+            color: #384b65;
+            margin: 45px 0 35px 0;
+        }
 
         &__notification-container {
             margin-top: 35px;
