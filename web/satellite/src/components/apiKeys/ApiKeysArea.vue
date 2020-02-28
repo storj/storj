@@ -93,7 +93,7 @@
                 <EmptySearchResultIcon class="empty-search-result-area__image"/>
             </div>
             <NoApiKeysArea
-                :class="{collapsed: isBannerShown}"
+                :class="{ collapsed: isBannerShown }"
                 :on-button-click="onCreateApiKeyClick"
                 v-if="isEmptyStateShown"
             />

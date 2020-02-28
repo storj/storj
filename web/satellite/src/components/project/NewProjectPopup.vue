@@ -180,6 +180,7 @@ export default class NewProjectPopup extends Vue {
         const project: CreateProjectModel = {
             name: this.projectName,
             description: this.description,
+            ownerId: this.$store.getters.user.id,
         };
 
         return await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
@@ -188,14 +189,14 @@ export default class NewProjectPopup extends Vue {
     private selectCreatedProject(): void {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
 
-        this.$emit('hideNewProjectButton');
+        this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
     }
 
     /**
      * Indicates if user created his first project.
      */
     private checkIfUsersFirstProject(): void {
-        const usersProjects: Project[] = this.$store.state.projectsModule.projects.filter((project: Project) => project.ownerId === this.$store.getters.user.id);
+        const usersProjects: Project[] = this.$store.getters.projects.filter((project: Project) => project.ownerId === this.$store.getters.user.id);
         const isUsersFirstProject = usersProjects.length === 1;
 
         isUsersFirstProject

@@ -24,6 +24,23 @@
                     </div>
                 </div>
             </div>
+            <div
+                v-if="isBlurShown"
+                class="dashboard-container__blur-area"
+            >
+                <div class="dashboard-container__blur-area__button" @click="onCreateButtonClick">
+                    <span class="dashboard-container__blur-area__button__label">+ Create Project</span>
+                </div>
+                <div class="dashboard-container__blur-area__message-box">
+                    <div class="dashboard-container__blur-area__message-box__left-area">
+                        <AddImage/>
+                        <span class="dashboard-container__blur-area__message-box__left-area__message">
+                            Create your first project
+                        </span>
+                    </div>
+                    <CloseCrossIcon class="dashboard-container__blur-area__message-box__close-cross-container" @click="onCloseClick"/>
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -34,6 +51,9 @@ import { Component, Vue } from 'vue-property-decorator';
 import VBanner from '@/components/common/VBanner.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
+
+import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import AddImage from '@/../static/images/dashboard/Add.svg';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
@@ -64,10 +84,12 @@ const {
         NavigationArea,
         DashboardHeader,
         VBanner,
+        AddImage,
+        CloseCrossIcon,
     },
 })
 export default class DashboardArea extends Vue {
-    private readonly billingPath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
+    public readonly billingPath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
 
     /**
      * Lifecycle hook after initial render.
@@ -126,9 +148,13 @@ export default class DashboardArea extends Vue {
         if (!projects.length) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
+            if (this.$store.getters.isBonusCouponApplied) {
+                await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CONTENT_BLUR);
+            }
+
             if (!this.isRouteAccessibleWithoutProject()) {
                 try {
-                    await this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+                    await this.$router.push(RouteConfig.Account.with(RouteConfig.Profile).path);
                 } catch (error) {
                     return;
                 }
@@ -170,6 +196,10 @@ export default class DashboardArea extends Vue {
             await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
         }
 
+        if (this.$store.getters.isBonusCouponApplied && !this.userHasHisOwnProject) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CONTENT_BLUR);
+        }
+
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
     }
 
@@ -191,17 +221,45 @@ export default class DashboardArea extends Vue {
     }
 
     /**
+     * Indicates if content blur shown.
+     */
+    public get isBlurShown(): boolean {
+        return this.$store.state.appStateModule.appState.isContentBlurShown;
+    }
+
+    /**
+     * Toggles create project popup showing.
+     */
+    public onCreateButtonClick(): void {
+        this.onCloseClick();
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+    }
+
+    /**
+     * Hides blur.
+     */
+    public onCloseClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CONTENT_BLUR);
+    }
+
+    /**
      * This method checks if current route is available when user has no created projects.
      */
     private isRouteAccessibleWithoutProject(): boolean {
         const availableRoutes = [
             RouteConfig.Account.with(RouteConfig.Billing).path,
             RouteConfig.Account.with(RouteConfig.Profile).path,
-            RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path,
             RouteConfig.Overview.path,
         ];
 
         return availableRoutes.includes(this.$router.currentRoute.path.toLowerCase());
+    }
+
+    /**
+     * Indicates if user has his own project.
+     */
+    private get userHasHisOwnProject(): boolean {
+        return this.$store.state.projectsModule.projects.some((project: Project) => project.ownerId === this.$store.getters.user.id);
     }
 }
 </script>
@@ -241,6 +299,84 @@ export default class DashboardArea extends Vue {
 
             &__content {
                 flex: 1 1 auto;
+            }
+        }
+
+        &__blur-area {
+            position: fixed;
+            max-width: 100%;
+            width: 100%;
+            height: 100%;
+            left: 0;
+            top: 0;
+            background-color: rgba(12, 37, 70, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 20;
+
+            &__button {
+                position: fixed;
+                top: 30px;
+                right: 148px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 156px;
+                height: 40px;
+                background-color: #fff;
+                border: 1px solid #2683ff;
+                border-radius: 6px;
+                cursor: pointer;
+                z-index: 21;
+
+                &__label {
+                    font-family: 'font_medium', sans-serif;
+                    font-size: 15px;
+                    line-height: 22px;
+                    color: #2683ff;
+                }
+            }
+
+            &__message-box {
+                background-image: url('../../static/images/dashboard/message.png');
+                background-size: 100% 100%;
+                height: auto;
+                width: auto;
+                position: fixed;
+                top: 80px;
+                right: 100px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                z-index: 21;
+                padding: 30px 30px 20px 20px;
+
+                &__left-area {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+
+                    &__message {
+                        font-family: 'font_regular', sans-serif;
+                        font-size: 14px;
+                        line-height: 19px;
+                        color: #373737;
+                        margin-left: 15px;
+                    }
+                }
+
+                &__close-cross-container {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 17px;
+                    width: 17px;
+                    cursor: pointer;
+                    margin-left: 50px;
+
+                    &:hover .close-cross-svg-path {
+                        fill: #2683ff;
+                    }
+                }
             }
         }
     }

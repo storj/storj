@@ -37,7 +37,7 @@
         >
             <div
                 class="options-container__item"
-                v-for="option in paymentOptions"
+                v-for="option in options"
                 :key="option.label"
                 @click.prevent.stop="select(option)"
             >
@@ -65,7 +65,9 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { PaymentAmountOption } from '@/types/payments';
+import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component
 export default class TokenDepositSelection extends Vue {
@@ -73,10 +75,22 @@ export default class TokenDepositSelection extends Vue {
      * Set of default payment options.
      */
     public paymentOptions: PaymentAmountOption[] = [
-        new PaymentAmountOption(20, `USD $20`),
+        new PaymentAmountOption(50, `USD $50`),
         new PaymentAmountOption(5, `USD $5`),
         new PaymentAmountOption(10, `USD $10`),
+        new PaymentAmountOption(20, `USD $20`),
         new PaymentAmountOption(100, `USD $100`),
+        new PaymentAmountOption(1000, `USD $1000`),
+    ];
+
+    /**
+     * Set of payment options for the first ever transaction.
+     */
+    public initialPaymentOptions: PaymentAmountOption[] = [
+        new PaymentAmountOption(50, `USD $50`),
+        new PaymentAmountOption(100, `USD $100`),
+        new PaymentAmountOption(200, `USD $200`),
+        new PaymentAmountOption(500, `USD $500`),
         new PaymentAmountOption(1000, `USD $1000`),
     ];
 
@@ -97,8 +111,22 @@ export default class TokenDepositSelection extends Vue {
         return (option.value === this.current.value) && !this.isCustomAmount;
     }
 
+    /**
+     * Indicates if dropdown expands top.
+     */
     public get isExpandingTop(): boolean {
         return this.$store.state.paymentsModule.billingHistory.length === 0;
+    }
+
+    /**
+     * Returns payment options depending on user having his own project.
+     */
+    public get options(): PaymentAmountOption[] {
+        if (!ProjectOwning.userHasOwnProject()) {
+            return this.initialPaymentOptions;
+        }
+
+        return this.paymentOptions;
     }
 
     /**

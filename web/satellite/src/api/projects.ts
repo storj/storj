@@ -34,7 +34,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
 
         const response = await this.mutate(query, variables);
 
-        return new Project(response.data.createProject.id, variables.name, variables.description, '');
+        return new Project(response.data.createProject.id, variables.name, variables.description, '', createProjectModel.ownerId);
     }
 
     /**

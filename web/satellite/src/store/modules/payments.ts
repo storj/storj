@@ -3,10 +3,18 @@
 
 import { StoreModule } from '@/store';
 import { UsageState } from '@/store/modules/usage';
-import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
+import {
+    BillingHistoryItem,
+    BillingHistoryItemStatus,
+    BillingHistoryItemType,
+    CreditCard,
+    PaymentsApi,
+    ProjectCharge,
+    TokenDeposit,
+} from '@/types/payments';
 import { DateRange } from '@/types/usage';
 
-const PAYMENTS_MUTATIONS = {
+export const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',
     SET_CREDIT_CARDS: 'SET_CREDIT_CARDS',
     SET_DATE: 'SET_DATE',
@@ -213,6 +221,14 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
 
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
                 commit(SET_PROJECT_CHARGES, charges);
+            },
+        },
+        getters: {
+            isBonusCouponApplied: (state: PaymentsState): boolean => {
+                return state.billingHistory.some((billingItem: BillingHistoryItem) => {
+                    return billingItem.amount >= 50 && billingItem.type === BillingHistoryItemType.Transaction
+                        && billingItem.status === BillingHistoryItemStatus.Completed;
+                }) || state.creditCards.length > 0;
             },
         },
     };

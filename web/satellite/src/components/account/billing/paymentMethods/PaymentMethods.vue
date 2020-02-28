@@ -102,8 +102,10 @@ import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
+import { ProjectOwning } from '@/utils/projectOwning';
 
 const {
     ADD_CREDIT_CARD,
@@ -128,8 +130,8 @@ interface StripeForm {
 })
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
-    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 20;
-    private readonly MAX_TOKEN_AMOUNT_IN_DOLLARS = 1000000;
+    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 50; // in dollars.
+    private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
     public isLoading: boolean = false;
@@ -234,7 +236,16 @@ export default class PaymentMethods extends Vue {
 
         this.isLoading = true;
 
-        if (this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT_IN_DOLLARS || this.tokenDepositValue === 0) {
+        if (this.tokenDepositValue < 50 && !ProjectOwning.userHasOwnProject()) {
+            await this.$notify.error('First deposit amount must be more than 50 and less than 1000000');
+            this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+            this.areaState = PaymentMethodsBlockState.DEFAULT;
+            this.isLoading = false;
+
+            return;
+        }
+
+        if (this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT || this.tokenDepositValue === 0) {
             await this.$notify.error('Deposit amount must be more than 0 and less than 1000000');
             this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
             this.areaState = PaymentMethodsBlockState.DEFAULT;
@@ -321,6 +332,11 @@ export default class PaymentMethods extends Vue {
         }
 
         this.areaState = PaymentMethodsBlockState.DEFAULT;
+
+        if (!ProjectOwning.userHasOwnProject()) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CONTENT_BLUR);
+        }
 
         this.isLoading = false;
     }

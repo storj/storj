@@ -145,6 +145,16 @@ export enum BillingHistoryItemType {
 }
 
 /**
+ * BillingHistoryStatusType indicates status of billing history item.
+ */
+export enum BillingHistoryItemStatus {
+    /**
+     * Status showed if transaction successfully completed.
+     */
+    Completed = 'completed',
+}
+
+/**
  * TokenDeposit holds public information about token deposit.
  */
 export class TokenDeposit {

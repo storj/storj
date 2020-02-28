@@ -88,8 +88,8 @@ export default class NavigationArea extends Vue {
         // RouteConfig.Account.with(RouteConfig.Referral),
     ];
 
-    public isLinkDisabled(navItem: NavigationLink): boolean {
-        return this.$store.state.projectsModule.selectedProject.id === '' && navItem.path !== this.homePath;
+    public get isLinkDisabled(): boolean {
+        return this.$store.state.projectsModule.selectedProject.id === '';
     }
 
     public get isResourcesDisplayingButtonShown(): boolean {
