@@ -6,6 +6,7 @@ module storj.io/storj/cmd/gateway
 go 1.13
 
 require storj.io/gateway v1.0.0-rc.2
+
 // keep this in sync with storj.io/gateway
 require storj.io/storj v0.12.1-0.20200224220226-50a21de9dc71
 
