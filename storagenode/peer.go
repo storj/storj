@@ -78,6 +78,8 @@ type DB interface {
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
 	Notifications() notifications.DB
+
+	Preflight(ctx context.Context) error
 }
 
 // Config is all the configuration parameters for a Storage Node
