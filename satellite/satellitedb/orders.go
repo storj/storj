@@ -492,7 +492,7 @@ func (tx *ordersDBTx) UpdateStoragenodeBandwidthBatch(ctx context.Context, inter
 	return err
 }
 
-// CreateConsumedSerialsBatch TODO: DOCS
+// CreateConsumedSerialsBatch creates a batch of consumed serial entries.
 func (tx *ordersDBTx) CreateConsumedSerialsBatch(ctx context.Context, consumedSerials []orders.ConsumedSerial) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -553,11 +553,16 @@ func (tx *ordersDBTx) HasConsumedSerial(ctx context.Context, nodeID storj.NodeID
 // transaction/batch methods
 //
 
+type rawPendingSerial struct {
+	nodeID       []byte
+	bucketID     []byte
+	serialNumber []byte
+}
+
 type ordersDBQueue struct {
 	db       *satelliteDB
 	log      *zap.Logger
-	produced []orders.PendingSerial
-	cont     *dbx.Paged_PendingSerialQueue_Continuation
+	produced []rawPendingSerial
 }
 
 func (db *ordersDB) WithQueue(ctx context.Context, cb func(ctx context.Context, queue orders.Queue) error) (err error) {
@@ -573,17 +578,11 @@ func (db *ordersDB) WithQueue(ctx context.Context, cb func(ctx context.Context, 
 		return errs.Wrap(err)
 	}
 
-	var (
-		storageNodeSlice  [][]byte
-		bucketIDSlice     [][]byte
-		serialNumberSlice [][]byte
-	)
-
-	for _, reportedSerial := range queue.produced {
-		reportedSerial := reportedSerial
-		storageNodeSlice = append(storageNodeSlice, reportedSerial.NodeID.Bytes())
-		bucketIDSlice = append(bucketIDSlice, reportedSerial.BucketID)
-		serialNumberSlice = append(serialNumberSlice, reportedSerial.SerialNumber.Bytes())
+	var nodeIDs, bucketIDs, serialNumbers [][]byte
+	for _, pending := range queue.produced {
+		nodeIDs = append(nodeIDs, pending.nodeID)
+		bucketIDs = append(bucketIDs, pending.bucketID)
+		serialNumbers = append(serialNumbers, pending.serialNumber)
 	}
 
 	_, err = db.db.ExecContext(ctx, `
@@ -596,50 +595,94 @@ func (db *ordersDB) WithQueue(ctx context.Context, cb func(ctx context.Context, 
 					unnest($3::bytea[])
 			)
 		`,
-		pq.ByteaArray(storageNodeSlice),
-		pq.ByteaArray(bucketIDSlice),
-		pq.ByteaArray(serialNumberSlice))
+		pq.ByteaArray(nodeIDs),
+		pq.ByteaArray(bucketIDs),
+		pq.ByteaArray(serialNumbers))
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
-	return Error.Wrap(err)
+	return nil
 }
 
-func (queue *ordersDBQueue) GetPendingSerialsBatch(ctx context.Context, size int) (pendingSerials []orders.PendingSerial, err error) {
+func (queue *ordersDBQueue) GetPendingSerialsBatch(ctx context.Context, size int) (pendingSerials []orders.PendingSerial, done bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, cont, err := queue.db.Paged_PendingSerialQueue(ctx, size, queue.cont)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	var cont rawPendingSerial
+	if len(queue.produced) > 0 {
+		cont = queue.produced[len(queue.produced)-1]
 	}
 
-	pendingSerials = make([]orders.PendingSerial, 0, len(rows))
-	for _, row := range rows {
-		nodeID, err := storj.NodeIDFromBytes(row.StorageNodeId)
+	// TODO: this might end up being WORSE on cockroach because it does a hash-join after a
+	// full scan of the consumed_serials table, but it's massively better on postgres because
+	// it does an indexed anti-join. hopefully we can get rid of the entire serials system
+	// before it matters.
+
+	rows, err := queue.db.Query(ctx, `
+		SELECT storage_node_id, bucket_id, serial_number, action, settled, expires_at,
+			coalesce((
+				SELECT 1
+				FROM consumed_serials
+				WHERE
+					consumed_serials.storage_node_id = pending_serial_queue.storage_node_id
+					AND consumed_serials.serial_number = pending_serial_queue.serial_number
+			), 0) as consumed
+		FROM pending_serial_queue
+		WHERE (storage_node_id, bucket_id, serial_number) > ($1, $2, $3)
+		ORDER BY storage_node_id, bucket_id, serial_number
+		LIMIT $4
+	`, cont.nodeID, cont.bucketID, cont.serialNumber, size)
+	if err != nil {
+		return nil, false, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, Error.Wrap(rows.Close())) }()
+
+	for rows.Next() {
+		var consumed int
+		var rawPending rawPendingSerial
+		var pendingSerial orders.PendingSerial
+
+		err := rows.Scan(
+			&rawPending.nodeID,
+			&rawPending.bucketID,
+			&rawPending.serialNumber,
+			&pendingSerial.Action,
+			&pendingSerial.Settled,
+			&pendingSerial.ExpiresAt,
+			&consumed,
+		)
+		if err != nil {
+			return nil, false, Error.Wrap(err)
+		}
+
+		queue.produced = append(queue.produced, rawPending)
+		size--
+
+		if consumed != 0 {
+			continue
+		}
+
+		pendingSerial.NodeID, err = storj.NodeIDFromBytes(rawPending.nodeID)
 		if err != nil {
 			queue.log.Error("Invalid storage node id in pending serials queue",
-				zap.Binary("id", row.StorageNodeId),
+				zap.Binary("id", rawPending.nodeID),
 				zap.Error(errs.Wrap(err)))
 			continue
 		}
-		serialNumber, err := storj.SerialNumberFromBytes(row.SerialNumber)
+		pendingSerial.BucketID = rawPending.bucketID
+		pendingSerial.SerialNumber, err = storj.SerialNumberFromBytes(rawPending.serialNumber)
 		if err != nil {
 			queue.log.Error("Invalid serial number in pending serials queue",
-				zap.Binary("id", row.SerialNumber),
+				zap.Binary("id", rawPending.serialNumber),
 				zap.Error(errs.Wrap(err)))
 			continue
 		}
 
-		pendingSerials = append(pendingSerials, orders.PendingSerial{
-			ExpiresAt:    row.ExpiresAt,
-			NodeID:       nodeID,
-			BucketID:     row.BucketId,
-			Action:       row.Action,
-			SerialNumber: serialNumber,
-			Settled:      row.Settled,
-		})
+		pendingSerials = append(pendingSerials, pendingSerial)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, false, Error.Wrap(err)
 	}
 
-	queue.produced = append(queue.produced, pendingSerials...)
-	queue.cont = cont
-
-	return pendingSerials, nil
+	return pendingSerials, size > 0, nil
 }

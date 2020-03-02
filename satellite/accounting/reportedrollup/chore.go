@@ -83,12 +83,12 @@ func (chore *Chore) RunOnce(ctx context.Context, now time.Time) (err error) {
 
 // TODO: jeeze make configurable
 const (
-	defaultQueueBatchSize           = 1000
+	defaultQueueBatchSize           = 10000
 	defaultRollupBatchSize          = 1000
 	defaultConsumedSerialsBatchSize = 10000
 )
 
-func (chore *Chore) readWork(ctx context.Context, now time.Time, tx orders.Transaction, queue orders.Queue) (
+func (chore *Chore) readWork(ctx context.Context, now time.Time, queue orders.Queue) (
 	bucketRollups []orders.BucketBandwidthRollup,
 	storagenodeRollups []orders.StoragenodeBandwidthRollup,
 	consumedSerials []orders.ConsumedSerial,
@@ -124,7 +124,7 @@ func (chore *Chore) readWork(ctx context.Context, now time.Time, tx orders.Trans
 		len(seenConsumedSerials) < defaultConsumedSerialsBatchSize {
 
 		// Get a batch of pending serials from the queue.
-		pendingSerials, err := queue.GetPendingSerialsBatch(ctx, defaultQueueBatchSize)
+		pendingSerials, queueDone, err := queue.GetPendingSerialsBatch(ctx, defaultQueueBatchSize)
 		if err != nil {
 			return nil, nil, nil, false, errs.Wrap(err)
 		}
@@ -142,16 +142,6 @@ func (chore *Chore) readWork(ctx context.Context, now time.Time, tx orders.Trans
 				continue
 			}
 			seenConsumedSerials[key] = struct{}{}
-
-			// If the serial already exists in the database already, don't count
-			// it again.
-			exists, err := tx.HasConsumedSerial(ctx, row.NodeID, row.SerialNumber)
-			if err != nil {
-				return nil, nil, nil, false, errs.Wrap(err)
-			}
-			if exists {
-				continue
-			}
 
 			// Parse the node id, project id, and bucket name from the reported serial.
 			projectID, bucketName, err := orders.SplitBucketID(row.BucketID)
@@ -186,7 +176,7 @@ func (chore *Chore) readWork(ctx context.Context, now time.Time, tx orders.Trans
 
 		// If we didn't get a full batch, the queue must have run out. We should signal
 		// this fact to our caller so that they can stop looping.
-		if len(pendingSerials) != defaultQueueBatchSize {
+		if queueDone {
 			done = true
 			break
 		}
@@ -215,6 +205,7 @@ func (chore *Chore) readWork(ctx context.Context, now time.Time, tx orders.Trans
 		zap.Int("bucket_rollups", len(bucketRollups)),
 		zap.Int("storagenode_rollups", len(storagenodeRollups)),
 		zap.Int("consumed_serials", len(consumedSerials)),
+		zap.Bool("done", done),
 	)
 
 	return bucketRollups, storagenodeRollups, consumedSerials, done, nil
@@ -230,11 +221,8 @@ func (chore *Chore) runOnceHelper(ctx context.Context, now time.Time) (done bool
 			consumedSerials    []orders.ConsumedSerial
 		)
 
-		// Read the work we should insert in its own transaction.
-		err := chore.db.WithTransaction(ctx, func(ctx context.Context, tx orders.Transaction) error {
-			bucketRollups, storagenodeRollups, consumedSerials, done, err = chore.readWork(ctx, now, tx, queue)
-			return errs.Wrap(err)
-		})
+		// Read the work we should insert.
+		bucketRollups, storagenodeRollups, consumedSerials, done, err = chore.readWork(ctx, now, queue)
 		if err != nil {
 			return errs.Wrap(err)
 		}
