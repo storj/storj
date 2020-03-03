@@ -54,6 +54,11 @@ function exec_aws_upload() {
 function exec_aws_download() {
     /usr/bin/time -p aws s3 cp s3://$BUCKET/$FILENAME $DOWNLOAD_FILE 2>&1 | tail -n 3
 }
+function exec_aws_delete() {
+    aws s3 cp $FILE s3://$BUCKET 2>&1
+    /usr/bin/time aws s3 rm $FILE s3://$BUCKET 2>&1 | tail -n 3
+}
+
 
 function exec_storj_create_bucket() {
     /usr/bin/time -p uplink --log.level error --log.output /tmp/storj.log mb sj://$BUCKET 2>&1
@@ -65,6 +70,10 @@ function exec_storj_upload() {
 }
 function exec_storj_download() {
     /usr/bin/time -p uplink --log.level error --log.output /tmp/storj.log cp sj://$BUCKET/$FILENAME $DOWNLOAD_FILE 2>&1 | tail -n 3
+}
+function exec_storj_delete() {
+    $UPLINK_COMMAND --log.level debug --log.output /tmp/storj.log cp $FILE sj://$BUCKET/$FILENAME 2>&1
+    /usr/bin/time -p $UPLINK_COMMAND --log.level error --log.output /tmp/storj.log rm sj://$BUCKET/$FILENAME 2>&1 | tail -n 3
 }
 
 
@@ -87,7 +96,9 @@ echo "========================================"
 if [ "$COMMAND" == "download" ]; then
     echo "Uploading file for download benchmark..."
     exec_storj_create_bucket
-    $UPLOAD_COMMAND  
+    $UPLOAD_COMMAND
+elif [ "$COMMAND" == "delete" ]; then
+    exec_storj_create_bucket
 fi
 
 # Benchmark.
