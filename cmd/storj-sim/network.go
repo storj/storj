@@ -26,11 +26,11 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
+	"storj.io/common/processgroup"
 	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/processgroup"
 )
 
 const (
