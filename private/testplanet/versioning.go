@@ -25,6 +25,11 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 		return nil, err
 	}
 
+	defaultProcessConfig := versioncontrol.ProcessConfig{
+		Rollout: versioncontrol.RolloutConfig{
+			Seed: "0000000000000000000000000000000000000000000000000000000000000001",
+		},
+	}
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
 		Versions: versioncontrol.OldVersionConfig{
@@ -33,6 +38,14 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 			Uplink:      "v0.0.1",
 			Gateway:     "v0.0.1",
 			Identity:    "v0.0.1",
+		},
+		Binary: versioncontrol.ProcessesConfig{
+			Satellite:          defaultProcessConfig,
+			Storagenode:        defaultProcessConfig,
+			StoragenodeUpdater: defaultProcessConfig,
+			Uplink:             defaultProcessConfig,
+			Gateway:            defaultProcessConfig,
+			Identity:           defaultProcessConfig,
 		},
 	}
 	peer, err = versioncontrol.New(log, config)
