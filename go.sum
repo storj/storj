@@ -235,8 +235,8 @@ github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0 h1:UyVaeqfY1fLPMt1i
 github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0/go.mod h1:OtVLEpPHGJkn8jgGrHlYELCA3uXLU0YSfNN0faeDM2M=
 github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3 h1:dITCBge70U9RDyZUL/Thn/yAT/ct4Rz40mNUX51dFCk=
 github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3/go.mod h1:eo5po8nCwRcvZIIR8eGi7PKthzXuunpXzUmXzxCBfBc=
-github.com/jtolds/tracetagger/v2 v2.0.0-rc3 h1:I7OKb1wBTqhyKe135DoumYG5TiuHZR0Ab554R1/8sAQ=
-github.com/jtolds/tracetagger/v2 v2.0.0-rc3/go.mod h1:EeqZ0b80feEwRK+FutrQ/GJxruNqamJBKOezZVfzSxA=
+github.com/jtolds/tracetagger/v2 v2.0.0-rc5 h1:SriMFVtftPsQmG+0xaABotz9HnoKoo1QM/oggqfpGh8=
+github.com/jtolds/tracetagger/v2 v2.0.0-rc5/go.mod h1:61Fh+XhbBONy+RsqkA+xTtmaFbEVL040m9FAF/hTrjQ=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0/go.mod h1:1NbS8ALrpOvjt0rHPNLyCIeMtbizbir8U//inJ+zuB8=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
@@ -349,6 +349,8 @@ github.com/spacemonkeygo/monkit/v3 v3.0.1 h1:mSZQU+LOFuN5KSUvE1EiU1lxlFcOz/r0N5T
 github.com/spacemonkeygo/monkit/v3 v3.0.1/go.mod h1:JcK1pCbReQsOsMKF/POFSZCq7drXFybgGmbc27tuwes=
 github.com/spacemonkeygo/monkit/v3 v3.0.2 h1:g7fi1RLOAIOcMkip5D9DHY/BQWpYbrvUO3SNBW5CazQ=
 github.com/spacemonkeygo/monkit/v3 v3.0.2/go.mod h1:JcK1pCbReQsOsMKF/POFSZCq7drXFybgGmbc27tuwes=
+github.com/spacemonkeygo/monkit/v3 v3.0.4 h1:Ay+PZirv+qfd4sqcT+X/U3BnC7AcIaqp/IXh0oV36k8=
+github.com/spacemonkeygo/monkit/v3 v3.0.4/go.mod h1:JcK1pCbReQsOsMKF/POFSZCq7drXFybgGmbc27tuwes=
 github.com/spacemonkeygo/monotime v0.0.0-20180824235756-e3f48a95f98a h1:8+cCjxhToanKmxLIbuyBNe2EnpgwhiivsIaRJstDRFA=
 github.com/spacemonkeygo/monotime v0.0.0-20180824235756-e3f48a95f98a/go.mod h1:ul4bvvnCOPZgq8w0nTkSmWVg/hauVpFS97Am1YM1XXo=
 github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 h1:RC6RW7j+1+HkWaX/Yh71Ee5ZHaHYt7ZP4sQgUrm6cDU=
@@ -613,10 +615,6 @@ honnef.co/go/tools v0.0.1-2019.2.3 h1:3JgtbtFHMiCmsznwGVTUWbgGov+pVqnlf1dEJTNAXe
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 storj.io/common v0.0.0-20200226144507-3fe9f7839df5/go.mod h1:lCc2baFO7GQlKsPTri8xwCsCPO2LsEUUiAGeRQuXY48=
-storj.io/common v0.0.0-20200226185531-a823b4a45116 h1:lyAJ2vNPzmE+5b5mUjOid6ZhXTCvcCyjbScR+EG7F8A=
-storj.io/common v0.0.0-20200226185531-a823b4a45116/go.mod h1:lCc2baFO7GQlKsPTri8xwCsCPO2LsEUUiAGeRQuXY48=
-storj.io/common v0.0.0-20200228160146-7414c4db24c1 h1:C0MjiumuQ2f1yWYTH/csYGKfONFv7WKwjr3syN2R7ys=
-storj.io/common v0.0.0-20200228160146-7414c4db24c1/go.mod h1:c9228xUKEg/sqWSOiVLoKQ3DiUqm1WrUAd9autjYfQc=
 storj.io/common v0.0.0-20200303092706-429875361e5d h1:TNUV5+Nc77VV0nRpDWXsGEnxopsyOBknO6vMtrUiRbU=
 storj.io/common v0.0.0-20200303092706-429875361e5d/go.mod h1:c9228xUKEg/sqWSOiVLoKQ3DiUqm1WrUAd9autjYfQc=
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2/go.mod h1:/ascUDbzNAv0A3Jj7wUIKFBH2JdJ2uJIBO/b9+2yHgQ=

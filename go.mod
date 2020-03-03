@@ -25,7 +25,7 @@ require (
 	github.com/jackc/pgx v3.2.0+incompatible
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
-	github.com/jtolds/tracetagger/v2 v2.0.0-rc3
+	github.com/jtolds/tracetagger/v2 v2.0.0-rc5
 	github.com/lib/pq v1.3.0
 	github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
@@ -35,7 +35,7 @@ require (
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
-	github.com/spacemonkeygo/monkit/v3 v3.0.2
+	github.com/spacemonkeygo/monkit/v3 v3.0.4
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
