@@ -17,6 +17,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -49,6 +50,7 @@ import (
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
+	version2 "storj.io/storj/storagenode/version"
 )
 
 var (
@@ -163,7 +165,10 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *checker.Service
+	Version struct {
+		Chore   *version2.Chore
+		Service *checker.Service
+	}
 
 	Debug struct {
 		Listener net.Listener
@@ -235,6 +240,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		Services: lifecycle.NewGroup(log.Named("services")),
 	}
 
+	{ // setup notification service.
+		peer.Notifications.Service = notifications.NewService(peer.Log, peer.DB.Notifications())
+	}
+
 	{ // setup debug
 		var err error
 		if config.Debug.Address != "" {
@@ -262,11 +271,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 
+		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
+		versionCheckInterval := 24 * time.Hour
+		peer.Version.Chore = version2.NewChore(peer.Version.Service, peer.Notifications.Service, peer.Identity.ID, versionCheckInterval)
 		peer.Services.Add(lifecycle.Item{
 			Name: "version",
-			Run:  peer.Version.Run,
+			Run:  peer.Version.Chore.Run,
 		})
 	}
 
@@ -312,10 +323,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Preflight.LocalTime = preflight.NewLocalTime(peer.Log.Named("preflight:localtime"), config.Preflight, peer.Storage2.Trust, peer.Dialer)
 	}
 
-	{ // setup notification service.
-		peer.Notifications.Service = notifications.NewService(peer.Log, peer.DB.Notifications())
-	}
-
 	{ // setup contact service
 		c := config.Contact
 		if c.ExternalAddress == "" {
@@ -352,7 +359,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		})
 
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
-		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+		pbgrpc.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 		pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint)
 
 	}
@@ -447,7 +454,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Close: peer.Storage2.Endpoint.Close,
 		})
 
-		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
+		pbgrpc.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 		pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint.DRPC())
 
 		// TODO workaround for custom timeout for order sending request (read/write)
@@ -512,7 +519,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Named("console:service"),
 			peer.DB.Bandwidth(),
 			peer.Storage2.Store,
-			peer.Version,
+			peer.Version.Service,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
 			config.Operator.Wallet,
@@ -563,7 +570,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Console.Listener.Addr(),
 			config.Contact.ExternalAddress,
 		)
-		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
+		pbgrpc.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 		pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector)
 	}
 
@@ -574,7 +581,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Satellites(),
 			peer.Storage2.BlobsCache,
 		)
-		pb.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
+		pbgrpc.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
 		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
 
 		peer.GracefulExit.Chore = gracefulexit.NewChore(

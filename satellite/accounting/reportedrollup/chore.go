@@ -153,14 +153,6 @@ func (chore *Chore) readWork(ctx context.Context, now time.Time, tx orders.Trans
 				continue
 			}
 
-			// If the order is expired, don't consume it. It may have already made its
-			// way into consumed_serials and some process deleted it, allowing a double
-			// spend. This does mean we have to be careful to keep up with the queue or
-			// risk only getting to serials after they are expired.
-			if row.ExpiresAt.Before(now) {
-				continue
-			}
-
 			// Parse the node id, project id, and bucket name from the reported serial.
 			projectID, bucketName, err := orders.SplitBucketID(row.BucketID)
 			if err != nil {

@@ -58,7 +58,10 @@ type Core struct {
 
 	Dialer rpc.Dialer
 
-	Version *version_checker.Service
+	Version struct {
+		Chore   *version_checker.Chore
+		Service *version_checker.Service
+	}
 
 	Debug struct {
 		Listener net.Listener
@@ -178,11 +181,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "version",
-			Run:  peer.Version.Run,
+			Run:  peer.Version.Chore.Run,
 		})
 	}
 

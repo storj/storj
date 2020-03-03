@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -29,7 +30,7 @@ import (
 
 type mockServer struct {
 	localTime time.Time
-	pb.NodeServer
+	pbgrpc.NodeServer
 }
 
 func TestLocalTime_InSync(t *testing.T) {

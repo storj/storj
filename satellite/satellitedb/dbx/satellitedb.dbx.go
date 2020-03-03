@@ -392,6 +392,7 @@ CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp,
+	num_healthy_pieces integer DEFAULT 52 NOT NULL,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -539,6 +540,40 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
+CREATE TABLE storagenode_payments (
+	id bigserial NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	node_id bytea NOT NULL,
+	period text,
+	amount bigint NOT NULL,
+	receipt text,
+	notes text,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE storagenode_paystubs (
+	period text NOT NULL,
+	node_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	codes text NOT NULL,
+	usage_at_rest double precision NOT NULL,
+	usage_get bigint NOT NULL,
+	usage_put bigint NOT NULL,
+	usage_get_repair bigint NOT NULL,
+	usage_put_repair bigint NOT NULL,
+	usage_get_audit bigint NOT NULL,
+	comp_at_rest bigint NOT NULL,
+	comp_get bigint NOT NULL,
+	comp_put bigint NOT NULL,
+	comp_get_repair bigint NOT NULL,
+	comp_put_repair bigint NOT NULL,
+	comp_get_audit bigint NOT NULL,
+	surge_percent bigint NOT NULL,
+	held bigint NOT NULL,
+	owed bigint NOT NULL,
+	disposed bigint NOT NULL,
+	paid bigint NOT NULL,
+	PRIMARY KEY ( period, node_id )
+);
 CREATE TABLE storagenode_storage_tallies (
 	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
@@ -661,12 +696,16 @@ CREATE TABLE user_credits (
 	PRIMARY KEY ( id ),
 	UNIQUE ( id, offer_id )
 );
+CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
+CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
+CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );`
 }
 
@@ -851,6 +890,7 @@ CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp,
+	num_healthy_pieces integer DEFAULT 52 NOT NULL,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -998,6 +1038,40 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
+CREATE TABLE storagenode_payments (
+	id bigserial NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	node_id bytea NOT NULL,
+	period text,
+	amount bigint NOT NULL,
+	receipt text,
+	notes text,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE storagenode_paystubs (
+	period text NOT NULL,
+	node_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	codes text NOT NULL,
+	usage_at_rest double precision NOT NULL,
+	usage_get bigint NOT NULL,
+	usage_put bigint NOT NULL,
+	usage_get_repair bigint NOT NULL,
+	usage_put_repair bigint NOT NULL,
+	usage_get_audit bigint NOT NULL,
+	comp_at_rest bigint NOT NULL,
+	comp_get bigint NOT NULL,
+	comp_put bigint NOT NULL,
+	comp_get_repair bigint NOT NULL,
+	comp_put_repair bigint NOT NULL,
+	comp_get_audit bigint NOT NULL,
+	surge_percent bigint NOT NULL,
+	held bigint NOT NULL,
+	owed bigint NOT NULL,
+	disposed bigint NOT NULL,
+	paid bigint NOT NULL,
+	PRIMARY KEY ( period, node_id )
+);
 CREATE TABLE storagenode_storage_tallies (
 	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
@@ -1120,12 +1194,16 @@ CREATE TABLE user_credits (
 	PRIMARY KEY ( id ),
 	UNIQUE ( id, offer_id )
 );
+CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
+CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
+CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );`
 }
 
@@ -3013,15 +3091,17 @@ func (GracefulExitTransferQueue_OrderLimitSendCount_Field) _Column() string {
 }
 
 type Injuredsegment struct {
-	Path      []byte
-	Data      []byte
-	Attempted *time.Time
+	Path             []byte
+	Data             []byte
+	Attempted        *time.Time
+	NumHealthyPieces int
 }
 
 func (Injuredsegment) _Table() string { return "injuredsegments" }
 
 type Injuredsegment_Create_Fields struct {
-	Attempted Injuredsegment_Attempted_Field
+	Attempted        Injuredsegment_Attempted_Field
+	NumHealthyPieces Injuredsegment_NumHealthyPieces_Field
 }
 
 type Injuredsegment_Update_Fields struct {
@@ -3098,6 +3178,25 @@ func (f Injuredsegment_Attempted_Field) value() interface{} {
 }
 
 func (Injuredsegment_Attempted_Field) _Column() string { return "attempted" }
+
+type Injuredsegment_NumHealthyPieces_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Injuredsegment_NumHealthyPieces(v int) Injuredsegment_NumHealthyPieces_Field {
+	return Injuredsegment_NumHealthyPieces_Field{_set: true, _value: v}
+}
+
+func (f Injuredsegment_NumHealthyPieces_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Injuredsegment_NumHealthyPieces_Field) _Column() string { return "num_healthy_pieces" }
 
 type Irreparabledb struct {
 	Segmentpath        []byte
@@ -5518,6 +5617,627 @@ func (f StoragenodeBandwidthRollup_Settled_Field) value() interface{} {
 }
 
 func (StoragenodeBandwidthRollup_Settled_Field) _Column() string { return "settled" }
+
+type StoragenodePayment struct {
+	Id        int64
+	CreatedAt time.Time
+	NodeId    []byte
+	Period    *string
+	Amount    int64
+	Receipt   *string
+	Notes     *string
+}
+
+func (StoragenodePayment) _Table() string { return "storagenode_payments" }
+
+type StoragenodePayment_Create_Fields struct {
+	Period  StoragenodePayment_Period_Field
+	Receipt StoragenodePayment_Receipt_Field
+	Notes   StoragenodePayment_Notes_Field
+}
+
+type StoragenodePayment_Update_Fields struct {
+}
+
+type StoragenodePayment_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePayment_Id(v int64) StoragenodePayment_Id_Field {
+	return StoragenodePayment_Id_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePayment_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePayment_Id_Field) _Column() string { return "id" }
+
+type StoragenodePayment_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StoragenodePayment_CreatedAt(v time.Time) StoragenodePayment_CreatedAt_Field {
+	return StoragenodePayment_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePayment_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePayment_CreatedAt_Field) _Column() string { return "created_at" }
+
+type StoragenodePayment_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StoragenodePayment_NodeId(v []byte) StoragenodePayment_NodeId_Field {
+	return StoragenodePayment_NodeId_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePayment_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePayment_NodeId_Field) _Column() string { return "node_id" }
+
+type StoragenodePayment_Period_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func StoragenodePayment_Period(v string) StoragenodePayment_Period_Field {
+	return StoragenodePayment_Period_Field{_set: true, _value: &v}
+}
+
+func StoragenodePayment_Period_Raw(v *string) StoragenodePayment_Period_Field {
+	if v == nil {
+		return StoragenodePayment_Period_Null()
+	}
+	return StoragenodePayment_Period(*v)
+}
+
+func StoragenodePayment_Period_Null() StoragenodePayment_Period_Field {
+	return StoragenodePayment_Period_Field{_set: true, _null: true}
+}
+
+func (f StoragenodePayment_Period_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f StoragenodePayment_Period_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePayment_Period_Field) _Column() string { return "period" }
+
+type StoragenodePayment_Amount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePayment_Amount(v int64) StoragenodePayment_Amount_Field {
+	return StoragenodePayment_Amount_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePayment_Amount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePayment_Amount_Field) _Column() string { return "amount" }
+
+type StoragenodePayment_Receipt_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func StoragenodePayment_Receipt(v string) StoragenodePayment_Receipt_Field {
+	return StoragenodePayment_Receipt_Field{_set: true, _value: &v}
+}
+
+func StoragenodePayment_Receipt_Raw(v *string) StoragenodePayment_Receipt_Field {
+	if v == nil {
+		return StoragenodePayment_Receipt_Null()
+	}
+	return StoragenodePayment_Receipt(*v)
+}
+
+func StoragenodePayment_Receipt_Null() StoragenodePayment_Receipt_Field {
+	return StoragenodePayment_Receipt_Field{_set: true, _null: true}
+}
+
+func (f StoragenodePayment_Receipt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f StoragenodePayment_Receipt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePayment_Receipt_Field) _Column() string { return "receipt" }
+
+type StoragenodePayment_Notes_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func StoragenodePayment_Notes(v string) StoragenodePayment_Notes_Field {
+	return StoragenodePayment_Notes_Field{_set: true, _value: &v}
+}
+
+func StoragenodePayment_Notes_Raw(v *string) StoragenodePayment_Notes_Field {
+	if v == nil {
+		return StoragenodePayment_Notes_Null()
+	}
+	return StoragenodePayment_Notes(*v)
+}
+
+func StoragenodePayment_Notes_Null() StoragenodePayment_Notes_Field {
+	return StoragenodePayment_Notes_Field{_set: true, _null: true}
+}
+
+func (f StoragenodePayment_Notes_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f StoragenodePayment_Notes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePayment_Notes_Field) _Column() string { return "notes" }
+
+type StoragenodePaystub struct {
+	Period         string
+	NodeId         []byte
+	CreatedAt      time.Time
+	Codes          string
+	UsageAtRest    float64
+	UsageGet       int64
+	UsagePut       int64
+	UsageGetRepair int64
+	UsagePutRepair int64
+	UsageGetAudit  int64
+	CompAtRest     int64
+	CompGet        int64
+	CompPut        int64
+	CompGetRepair  int64
+	CompPutRepair  int64
+	CompGetAudit   int64
+	SurgePercent   int64
+	Held           int64
+	Owed           int64
+	Disposed       int64
+	Paid           int64
+}
+
+func (StoragenodePaystub) _Table() string { return "storagenode_paystubs" }
+
+type StoragenodePaystub_Update_Fields struct {
+}
+
+type StoragenodePaystub_Period_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StoragenodePaystub_Period(v string) StoragenodePaystub_Period_Field {
+	return StoragenodePaystub_Period_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_Period_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_Period_Field) _Column() string { return "period" }
+
+type StoragenodePaystub_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StoragenodePaystub_NodeId(v []byte) StoragenodePaystub_NodeId_Field {
+	return StoragenodePaystub_NodeId_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_NodeId_Field) _Column() string { return "node_id" }
+
+type StoragenodePaystub_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StoragenodePaystub_CreatedAt(v time.Time) StoragenodePaystub_CreatedAt_Field {
+	return StoragenodePaystub_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_CreatedAt_Field) _Column() string { return "created_at" }
+
+type StoragenodePaystub_Codes_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func StoragenodePaystub_Codes(v string) StoragenodePaystub_Codes_Field {
+	return StoragenodePaystub_Codes_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_Codes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_Codes_Field) _Column() string { return "codes" }
+
+type StoragenodePaystub_UsageAtRest_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func StoragenodePaystub_UsageAtRest(v float64) StoragenodePaystub_UsageAtRest_Field {
+	return StoragenodePaystub_UsageAtRest_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_UsageAtRest_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_UsageAtRest_Field) _Column() string { return "usage_at_rest" }
+
+type StoragenodePaystub_UsageGet_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_UsageGet(v int64) StoragenodePaystub_UsageGet_Field {
+	return StoragenodePaystub_UsageGet_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_UsageGet_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_UsageGet_Field) _Column() string { return "usage_get" }
+
+type StoragenodePaystub_UsagePut_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_UsagePut(v int64) StoragenodePaystub_UsagePut_Field {
+	return StoragenodePaystub_UsagePut_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_UsagePut_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_UsagePut_Field) _Column() string { return "usage_put" }
+
+type StoragenodePaystub_UsageGetRepair_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_UsageGetRepair(v int64) StoragenodePaystub_UsageGetRepair_Field {
+	return StoragenodePaystub_UsageGetRepair_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_UsageGetRepair_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_UsageGetRepair_Field) _Column() string { return "usage_get_repair" }
+
+type StoragenodePaystub_UsagePutRepair_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_UsagePutRepair(v int64) StoragenodePaystub_UsagePutRepair_Field {
+	return StoragenodePaystub_UsagePutRepair_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_UsagePutRepair_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_UsagePutRepair_Field) _Column() string { return "usage_put_repair" }
+
+type StoragenodePaystub_UsageGetAudit_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_UsageGetAudit(v int64) StoragenodePaystub_UsageGetAudit_Field {
+	return StoragenodePaystub_UsageGetAudit_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_UsageGetAudit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_UsageGetAudit_Field) _Column() string { return "usage_get_audit" }
+
+type StoragenodePaystub_CompAtRest_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_CompAtRest(v int64) StoragenodePaystub_CompAtRest_Field {
+	return StoragenodePaystub_CompAtRest_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_CompAtRest_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_CompAtRest_Field) _Column() string { return "comp_at_rest" }
+
+type StoragenodePaystub_CompGet_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_CompGet(v int64) StoragenodePaystub_CompGet_Field {
+	return StoragenodePaystub_CompGet_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_CompGet_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_CompGet_Field) _Column() string { return "comp_get" }
+
+type StoragenodePaystub_CompPut_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_CompPut(v int64) StoragenodePaystub_CompPut_Field {
+	return StoragenodePaystub_CompPut_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_CompPut_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_CompPut_Field) _Column() string { return "comp_put" }
+
+type StoragenodePaystub_CompGetRepair_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_CompGetRepair(v int64) StoragenodePaystub_CompGetRepair_Field {
+	return StoragenodePaystub_CompGetRepair_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_CompGetRepair_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_CompGetRepair_Field) _Column() string { return "comp_get_repair" }
+
+type StoragenodePaystub_CompPutRepair_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_CompPutRepair(v int64) StoragenodePaystub_CompPutRepair_Field {
+	return StoragenodePaystub_CompPutRepair_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_CompPutRepair_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_CompPutRepair_Field) _Column() string { return "comp_put_repair" }
+
+type StoragenodePaystub_CompGetAudit_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_CompGetAudit(v int64) StoragenodePaystub_CompGetAudit_Field {
+	return StoragenodePaystub_CompGetAudit_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_CompGetAudit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_CompGetAudit_Field) _Column() string { return "comp_get_audit" }
+
+type StoragenodePaystub_SurgePercent_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_SurgePercent(v int64) StoragenodePaystub_SurgePercent_Field {
+	return StoragenodePaystub_SurgePercent_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_SurgePercent_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_SurgePercent_Field) _Column() string { return "surge_percent" }
+
+type StoragenodePaystub_Held_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_Held(v int64) StoragenodePaystub_Held_Field {
+	return StoragenodePaystub_Held_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_Held_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_Held_Field) _Column() string { return "held" }
+
+type StoragenodePaystub_Owed_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_Owed(v int64) StoragenodePaystub_Owed_Field {
+	return StoragenodePaystub_Owed_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_Owed_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_Owed_Field) _Column() string { return "owed" }
+
+type StoragenodePaystub_Disposed_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_Disposed(v int64) StoragenodePaystub_Disposed_Field {
+	return StoragenodePaystub_Disposed_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_Disposed_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_Disposed_Field) _Column() string { return "disposed" }
+
+type StoragenodePaystub_Paid_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_Paid(v int64) StoragenodePaystub_Paid_Field {
+	return StoragenodePaystub_Paid_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_Paid_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_Paid_Field) _Column() string { return "paid" }
 
 type StoragenodeStorageTally struct {
 	Id              int64
@@ -8196,6 +8916,100 @@ func (obj *postgresImpl) CreateNoReturn_StoragenodeStorageTally(ctx context.Cont
 
 	var __values []interface{}
 	__values = append(__values, __node_id_val, __interval_end_time_val, __data_total_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *postgresImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
+	storagenode_paystub_period StoragenodePaystub_Period_Field,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
+	storagenode_paystub_codes StoragenodePaystub_Codes_Field,
+	storagenode_paystub_usage_at_rest StoragenodePaystub_UsageAtRest_Field,
+	storagenode_paystub_usage_get StoragenodePaystub_UsageGet_Field,
+	storagenode_paystub_usage_put StoragenodePaystub_UsagePut_Field,
+	storagenode_paystub_usage_get_repair StoragenodePaystub_UsageGetRepair_Field,
+	storagenode_paystub_usage_put_repair StoragenodePaystub_UsagePutRepair_Field,
+	storagenode_paystub_usage_get_audit StoragenodePaystub_UsageGetAudit_Field,
+	storagenode_paystub_comp_at_rest StoragenodePaystub_CompAtRest_Field,
+	storagenode_paystub_comp_get StoragenodePaystub_CompGet_Field,
+	storagenode_paystub_comp_put StoragenodePaystub_CompPut_Field,
+	storagenode_paystub_comp_get_repair StoragenodePaystub_CompGetRepair_Field,
+	storagenode_paystub_comp_put_repair StoragenodePaystub_CompPutRepair_Field,
+	storagenode_paystub_comp_get_audit StoragenodePaystub_CompGetAudit_Field,
+	storagenode_paystub_surge_percent StoragenodePaystub_SurgePercent_Field,
+	storagenode_paystub_held StoragenodePaystub_Held_Field,
+	storagenode_paystub_owed StoragenodePaystub_Owed_Field,
+	storagenode_paystub_disposed StoragenodePaystub_Disposed_Field,
+	storagenode_paystub_paid StoragenodePaystub_Paid_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__period_val := storagenode_paystub_period.value()
+	__node_id_val := storagenode_paystub_node_id.value()
+	__created_at_val := __now
+	__codes_val := storagenode_paystub_codes.value()
+	__usage_at_rest_val := storagenode_paystub_usage_at_rest.value()
+	__usage_get_val := storagenode_paystub_usage_get.value()
+	__usage_put_val := storagenode_paystub_usage_put.value()
+	__usage_get_repair_val := storagenode_paystub_usage_get_repair.value()
+	__usage_put_repair_val := storagenode_paystub_usage_put_repair.value()
+	__usage_get_audit_val := storagenode_paystub_usage_get_audit.value()
+	__comp_at_rest_val := storagenode_paystub_comp_at_rest.value()
+	__comp_get_val := storagenode_paystub_comp_get.value()
+	__comp_put_val := storagenode_paystub_comp_put.value()
+	__comp_get_repair_val := storagenode_paystub_comp_get_repair.value()
+	__comp_put_repair_val := storagenode_paystub_comp_put_repair.value()
+	__comp_get_audit_val := storagenode_paystub_comp_get_audit.value()
+	__surge_percent_val := storagenode_paystub_surge_percent.value()
+	__held_val := storagenode_paystub_held.value()
+	__owed_val := storagenode_paystub_owed.value()
+	__disposed_val := storagenode_paystub_disposed.value()
+	__paid_val := storagenode_paystub_paid.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_paystubs ( period, node_id, created_at, codes, usage_at_rest, usage_get, usage_put, usage_get_repair, usage_put_repair, usage_get_audit, comp_at_rest, comp_get, comp_put, comp_get_repair, comp_put_repair, comp_get_audit, surge_percent, held, owed, disposed, paid ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __period_val, __node_id_val, __created_at_val, __codes_val, __usage_at_rest_val, __usage_get_val, __usage_put_val, __usage_get_repair_val, __usage_put_repair_val, __usage_get_audit_val, __comp_at_rest_val, __comp_get_val, __comp_put_val, __comp_get_repair_val, __comp_put_repair_val, __comp_get_audit_val, __surge_percent_val, __held_val, __owed_val, __disposed_val, __paid_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *postgresImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_amount StoragenodePayment_Amount_Field,
+	optional StoragenodePayment_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__created_at_val := __now
+	__node_id_val := storagenode_payment_node_id.value()
+	__period_val := optional.Period.value()
+	__amount_val := storagenode_payment_amount.value()
+	__receipt_val := optional.Receipt.value()
+	__notes_val := optional.Notes.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_payments ( created_at, node_id, period, amount, receipt, notes ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __created_at_val, __node_id_val, __period_val, __amount_val, __receipt_val, __notes_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -13221,6 +14035,26 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_paystubs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_payments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -14057,6 +14891,100 @@ func (obj *cockroachImpl) CreateNoReturn_StoragenodeStorageTally(ctx context.Con
 
 	var __values []interface{}
 	__values = append(__values, __node_id_val, __interval_end_time_val, __data_total_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *cockroachImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
+	storagenode_paystub_period StoragenodePaystub_Period_Field,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
+	storagenode_paystub_codes StoragenodePaystub_Codes_Field,
+	storagenode_paystub_usage_at_rest StoragenodePaystub_UsageAtRest_Field,
+	storagenode_paystub_usage_get StoragenodePaystub_UsageGet_Field,
+	storagenode_paystub_usage_put StoragenodePaystub_UsagePut_Field,
+	storagenode_paystub_usage_get_repair StoragenodePaystub_UsageGetRepair_Field,
+	storagenode_paystub_usage_put_repair StoragenodePaystub_UsagePutRepair_Field,
+	storagenode_paystub_usage_get_audit StoragenodePaystub_UsageGetAudit_Field,
+	storagenode_paystub_comp_at_rest StoragenodePaystub_CompAtRest_Field,
+	storagenode_paystub_comp_get StoragenodePaystub_CompGet_Field,
+	storagenode_paystub_comp_put StoragenodePaystub_CompPut_Field,
+	storagenode_paystub_comp_get_repair StoragenodePaystub_CompGetRepair_Field,
+	storagenode_paystub_comp_put_repair StoragenodePaystub_CompPutRepair_Field,
+	storagenode_paystub_comp_get_audit StoragenodePaystub_CompGetAudit_Field,
+	storagenode_paystub_surge_percent StoragenodePaystub_SurgePercent_Field,
+	storagenode_paystub_held StoragenodePaystub_Held_Field,
+	storagenode_paystub_owed StoragenodePaystub_Owed_Field,
+	storagenode_paystub_disposed StoragenodePaystub_Disposed_Field,
+	storagenode_paystub_paid StoragenodePaystub_Paid_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__period_val := storagenode_paystub_period.value()
+	__node_id_val := storagenode_paystub_node_id.value()
+	__created_at_val := __now
+	__codes_val := storagenode_paystub_codes.value()
+	__usage_at_rest_val := storagenode_paystub_usage_at_rest.value()
+	__usage_get_val := storagenode_paystub_usage_get.value()
+	__usage_put_val := storagenode_paystub_usage_put.value()
+	__usage_get_repair_val := storagenode_paystub_usage_get_repair.value()
+	__usage_put_repair_val := storagenode_paystub_usage_put_repair.value()
+	__usage_get_audit_val := storagenode_paystub_usage_get_audit.value()
+	__comp_at_rest_val := storagenode_paystub_comp_at_rest.value()
+	__comp_get_val := storagenode_paystub_comp_get.value()
+	__comp_put_val := storagenode_paystub_comp_put.value()
+	__comp_get_repair_val := storagenode_paystub_comp_get_repair.value()
+	__comp_put_repair_val := storagenode_paystub_comp_put_repair.value()
+	__comp_get_audit_val := storagenode_paystub_comp_get_audit.value()
+	__surge_percent_val := storagenode_paystub_surge_percent.value()
+	__held_val := storagenode_paystub_held.value()
+	__owed_val := storagenode_paystub_owed.value()
+	__disposed_val := storagenode_paystub_disposed.value()
+	__paid_val := storagenode_paystub_paid.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_paystubs ( period, node_id, created_at, codes, usage_at_rest, usage_get, usage_put, usage_get_repair, usage_put_repair, usage_get_audit, comp_at_rest, comp_get, comp_put, comp_get_repair, comp_put_repair, comp_get_audit, surge_percent, held, owed, disposed, paid ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __period_val, __node_id_val, __created_at_val, __codes_val, __usage_at_rest_val, __usage_get_val, __usage_put_val, __usage_get_repair_val, __usage_put_repair_val, __usage_get_audit_val, __comp_at_rest_val, __comp_get_val, __comp_put_val, __comp_get_repair_val, __comp_put_repair_val, __comp_get_audit_val, __surge_percent_val, __held_val, __owed_val, __disposed_val, __paid_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *cockroachImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_amount StoragenodePayment_Amount_Field,
+	optional StoragenodePayment_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__created_at_val := __now
+	__node_id_val := storagenode_payment_node_id.value()
+	__period_val := optional.Period.value()
+	__amount_val := storagenode_payment_amount.value()
+	__receipt_val := optional.Receipt.value()
+	__notes_val := optional.Notes.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_payments ( created_at, node_id, period, amount, receipt, notes ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __created_at_val, __node_id_val, __period_val, __amount_val, __receipt_val, __notes_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -19082,6 +20010,26 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_paystubs;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_payments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -19827,6 +20775,49 @@ func (rx *Rx) CreateNoReturn_SerialNumber(ctx context.Context,
 		return
 	}
 	return tx.CreateNoReturn_SerialNumber(ctx, serial_number_serial_number, serial_number_bucket_id, serial_number_expires_at)
+
+}
+
+func (rx *Rx) CreateNoReturn_StoragenodePayment(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_amount StoragenodePayment_Amount_Field,
+	optional StoragenodePayment_Create_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_StoragenodePayment(ctx, storagenode_payment_node_id, storagenode_payment_amount, optional)
+
+}
+
+func (rx *Rx) CreateNoReturn_StoragenodePaystub(ctx context.Context,
+	storagenode_paystub_period StoragenodePaystub_Period_Field,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
+	storagenode_paystub_codes StoragenodePaystub_Codes_Field,
+	storagenode_paystub_usage_at_rest StoragenodePaystub_UsageAtRest_Field,
+	storagenode_paystub_usage_get StoragenodePaystub_UsageGet_Field,
+	storagenode_paystub_usage_put StoragenodePaystub_UsagePut_Field,
+	storagenode_paystub_usage_get_repair StoragenodePaystub_UsageGetRepair_Field,
+	storagenode_paystub_usage_put_repair StoragenodePaystub_UsagePutRepair_Field,
+	storagenode_paystub_usage_get_audit StoragenodePaystub_UsageGetAudit_Field,
+	storagenode_paystub_comp_at_rest StoragenodePaystub_CompAtRest_Field,
+	storagenode_paystub_comp_get StoragenodePaystub_CompGet_Field,
+	storagenode_paystub_comp_put StoragenodePaystub_CompPut_Field,
+	storagenode_paystub_comp_get_repair StoragenodePaystub_CompGetRepair_Field,
+	storagenode_paystub_comp_put_repair StoragenodePaystub_CompPutRepair_Field,
+	storagenode_paystub_comp_get_audit StoragenodePaystub_CompGetAudit_Field,
+	storagenode_paystub_surge_percent StoragenodePaystub_SurgePercent_Field,
+	storagenode_paystub_held StoragenodePaystub_Held_Field,
+	storagenode_paystub_owed StoragenodePaystub_Owed_Field,
+	storagenode_paystub_disposed StoragenodePaystub_Disposed_Field,
+	storagenode_paystub_paid StoragenodePaystub_Paid_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_StoragenodePaystub(ctx, storagenode_paystub_period, storagenode_paystub_node_id, storagenode_paystub_codes, storagenode_paystub_usage_at_rest, storagenode_paystub_usage_get, storagenode_paystub_usage_put, storagenode_paystub_usage_get_repair, storagenode_paystub_usage_put_repair, storagenode_paystub_usage_get_audit, storagenode_paystub_comp_at_rest, storagenode_paystub_comp_get, storagenode_paystub_comp_put, storagenode_paystub_comp_get_repair, storagenode_paystub_comp_put_repair, storagenode_paystub_comp_get_audit, storagenode_paystub_surge_percent, storagenode_paystub_held, storagenode_paystub_owed, storagenode_paystub_disposed, storagenode_paystub_paid)
 
 }
 
@@ -21400,6 +22391,35 @@ type Methods interface {
 		serial_number_serial_number SerialNumber_SerialNumber_Field,
 		serial_number_bucket_id SerialNumber_BucketId_Field,
 		serial_number_expires_at SerialNumber_ExpiresAt_Field) (
+		err error)
+
+	CreateNoReturn_StoragenodePayment(ctx context.Context,
+		storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+		storagenode_payment_amount StoragenodePayment_Amount_Field,
+		optional StoragenodePayment_Create_Fields) (
+		err error)
+
+	CreateNoReturn_StoragenodePaystub(ctx context.Context,
+		storagenode_paystub_period StoragenodePaystub_Period_Field,
+		storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
+		storagenode_paystub_codes StoragenodePaystub_Codes_Field,
+		storagenode_paystub_usage_at_rest StoragenodePaystub_UsageAtRest_Field,
+		storagenode_paystub_usage_get StoragenodePaystub_UsageGet_Field,
+		storagenode_paystub_usage_put StoragenodePaystub_UsagePut_Field,
+		storagenode_paystub_usage_get_repair StoragenodePaystub_UsageGetRepair_Field,
+		storagenode_paystub_usage_put_repair StoragenodePaystub_UsagePutRepair_Field,
+		storagenode_paystub_usage_get_audit StoragenodePaystub_UsageGetAudit_Field,
+		storagenode_paystub_comp_at_rest StoragenodePaystub_CompAtRest_Field,
+		storagenode_paystub_comp_get StoragenodePaystub_CompGet_Field,
+		storagenode_paystub_comp_put StoragenodePaystub_CompPut_Field,
+		storagenode_paystub_comp_get_repair StoragenodePaystub_CompGetRepair_Field,
+		storagenode_paystub_comp_put_repair StoragenodePaystub_CompPutRepair_Field,
+		storagenode_paystub_comp_get_audit StoragenodePaystub_CompGetAudit_Field,
+		storagenode_paystub_surge_percent StoragenodePaystub_SurgePercent_Field,
+		storagenode_paystub_held StoragenodePaystub_Held_Field,
+		storagenode_paystub_owed StoragenodePaystub_Owed_Field,
+		storagenode_paystub_disposed StoragenodePaystub_Disposed_Field,
+		storagenode_paystub_paid StoragenodePaystub_Paid_Field) (
 		err error)
 
 	CreateNoReturn_StoragenodeStorageTally(ctx context.Context,

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -23,7 +24,7 @@ func TestServiceSuccess(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
+			ReferralManagerServer: func(logger *zap.Logger) pbgrpc.ReferralManagerServer {
 				endpoint := &endpointHappyPath{}
 				endpoint.SetTokenCount(tokenCount)
 				return endpoint
@@ -58,7 +59,7 @@ func TestServiceRedeemFailure(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			ReferralManagerServer: func(logger *zap.Logger) pb.ReferralManagerServer {
+			ReferralManagerServer: func(logger *zap.Logger) pbgrpc.ReferralManagerServer {
 				endpoint := &endpointFailedPath{}
 				endpoint.SetTokenCount(2)
 				return endpoint

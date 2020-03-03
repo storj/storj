@@ -52,7 +52,8 @@ type Config struct {
 	IdentityVersion *storj.IDVersion
 	Reconfigure     Reconfigure
 
-	Name string
+	Name        string
+	NonParallel bool
 }
 
 // Planet is a full storj system setup.

@@ -120,6 +120,7 @@ func (client *Client) Process(ctx context.Context, processName string) (process 
 	if !ok {
 		return version.Process{}, processNameErr
 	}
+
 	return process, nil
 }
 

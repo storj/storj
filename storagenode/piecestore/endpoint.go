@@ -20,6 +20,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/rpc/rpctimeout"
 	"storj.io/common/signing"
@@ -38,7 +39,7 @@ var (
 	mon = monkit.Package()
 )
 
-var _ pb.PiecestoreServer = (*Endpoint)(nil)
+var _ pbgrpc.PiecestoreServer = (*Endpoint)(nil)
 
 // OldConfig contains everything necessary for a server
 type OldConfig struct {
@@ -211,7 +212,7 @@ func (endpoint *Endpoint) DeletePieces(
 }
 
 // Upload handles uploading a piece on piece store.
-func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
+func (endpoint *Endpoint) Upload(stream pbgrpc.Piecestore_UploadServer) (err error) {
 	return endpoint.doUpload(stream, endpoint.grpcReqLimit)
 }
 
@@ -476,7 +477,7 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 }
 
 // Download handles Downloading a piece on piece store.
-func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
+func (endpoint *Endpoint) Download(stream pbgrpc.Piecestore_DownloadServer) (err error) {
 	return endpoint.doDownload(stream)
 }
 

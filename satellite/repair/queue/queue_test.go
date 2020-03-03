@@ -26,7 +26,7 @@ func TestInsertSelect(t *testing.T) {
 			Path:       []byte("abc"),
 			LostPieces: []int32{int32(1), int32(3)},
 		}
-		err := q.Insert(ctx, seg)
+		err := q.Insert(ctx, seg, 10)
 		require.NoError(t, err)
 		s, err := q.Select(ctx)
 		require.NoError(t, err)
@@ -44,9 +44,9 @@ func TestInsertDuplicate(t *testing.T) {
 			Path:       []byte("abc"),
 			LostPieces: []int32{int32(1), int32(3)},
 		}
-		err := q.Insert(ctx, seg)
+		err := q.Insert(ctx, seg, 10)
 		require.NoError(t, err)
-		err = q.Insert(ctx, seg)
+		err = q.Insert(ctx, seg, 10)
 		require.NoError(t, err)
 	})
 }
@@ -72,7 +72,7 @@ func TestSequential(t *testing.T) {
 				Path:       []byte(strconv.Itoa(i)),
 				LostPieces: []int32{int32(i)},
 			}
-			err := q.Insert(ctx, seg)
+			err := q.Insert(ctx, seg, 10)
 			require.NoError(t, err)
 			addSegs = append(addSegs, seg)
 		}
@@ -113,7 +113,7 @@ func TestParallel(t *testing.T) {
 				return q.Insert(ctx, &pb.InjuredSegment{
 					Path:       []byte(strconv.Itoa(i)),
 					LostPieces: []int32{int32(i)},
-				})
+				}, 10)
 			})
 		}
 		require.Empty(t, inserts.Wait(), "unexpected queue.Insert errors")
