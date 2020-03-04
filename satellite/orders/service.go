@@ -968,6 +968,7 @@ func SplitBucketID(bucketID []byte) (projectID *uuid.UUID, bucketName []byte, er
 
 // lookupNodeAddress tries to resolve node address to an IP to avoid DNS lookups on the uplink side.
 func lookupNodeAddress(ctx context.Context, address *pb.NodeAddress) *pb.NodeAddress {
+	defer mon.Task()(&ctx)(nil)
 	new := *address
 	new.Address = rpc.LookupNodeAddress(ctx, address.Address)
 	return &new
