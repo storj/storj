@@ -93,6 +93,7 @@
     <Property Id="WIXUI_INSTALLDIR">INSTALLFOLDER</Property>
     <Property Id="STORJ_STORAGEDIR">STORAGEDIR</Property>
     <Property Id="STORJ_STORAGE">1.0</Property>
+    <Property Id="STORJ_MIN_STORAGE">0.5TB</Property>
     <Property Id="STORJ_BANDWIDTH">2.0</Property>
     <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
     <Property Id="STORJ_DEFAULTIDENTITYDIR">
@@ -121,7 +122,7 @@
     <Binary Id="StorjDLL" SourceFile="$(var.Storj.TargetDir)Storj.CA.dll" />
 
     <CustomAction Id='StoragenodeSetup' Directory='INSTALLFOLDER' Execute='deferred' Impersonate='no' 
-                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --operator.email &quot;[STORJ_EMAIL]&quot; --operator.wallet &quot;[STORJ_WALLET]&quot; --contact.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_BANDWIDTH] TB&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot; --log.output &quot;winfile:///[INSTALLFOLDER]\storagenode.log&quot;" />
+                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --operator.email &quot;[STORJ_EMAIL]&quot; --operator.wallet &quot;[STORJ_WALLET]&quot; --contact.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-bandwidth &quot;[STORJ_BANDWIDTH] TB&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot; --storage2.monitor.minimum-disk-space &quot;[STORJ_MIN_STORAGE]&quot; --log.output &quot;winfile:///[INSTALLFOLDER]\storagenode.log&quot;" />
 
     <CustomAction Id="DeleteConfigFile" Directory='INSTALLFOLDER'
                   ExeCommand="cmd /C &quot;del config.yaml&quot;" Execute="deferred" Return="ignore" Impersonate="no" />
@@ -135,7 +136,7 @@
     <InstallExecuteSequence>
       <Custom Action='StoragenodeSetup' Before='InstallServices'>NOT Installed AND NOT WIX_UPGRADE_DETECTED</Custom>
       <Custom Action='DeleteConfigFile' After='RemoveFiles'>(REMOVE="ALL") AND NOT WIX_UPGRADE_DETECTED</Custom>
-      <!-- legacy: save config file as old versions of the installer will remove it -->
+      <!-- legacy: save config file as old versions of the installer as old installer versions will remove it -->
       <Custom Action='ExtractInstallDir' Before='SetInstallFolder'>WIX_UPGRADE_DETECTED</Custom>
       <Custom Action='BackupConfigFile' Before='InstallExecute'>WIX_UPGRADE_DETECTED</Custom>
       <Custom Action='RestoreConfigFile' After='RemoveExistingProducts'>WIX_UPGRADE_DETECTED</Custom>
