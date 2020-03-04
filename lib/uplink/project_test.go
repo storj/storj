@@ -4,16 +4,21 @@
 package uplink_test
 
 import (
+	"bytes"
+	"io"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/private/testplanet"
+	newuplink "storj.io/uplink"
 )
 
 func TestProjectListBuckets(t *testing.T) {
@@ -88,4 +93,62 @@ func TestProjectListBuckets(t *testing.T) {
 			require.Equal(t, "test1", result.Items[1].Name)
 			require.False(t, result.More)
 		})
+}
+
+func TestProjectOpenNewBucket(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		apiKey := planet.Uplinks[0].APIKey[satellite.ID()]
+		uplinkConfig := newuplink.Config{}
+		access, err := uplinkConfig.RequestAccessWithPassphrase(ctx, satellite.URL().String(), apiKey.Serialize(), "mypassphrase")
+		require.NoError(t, err)
+
+		project, err := uplinkConfig.OpenProject(ctx, access)
+		require.NoError(t, err)
+
+		// create bucket and upload a file with new libuplink
+		bucketName := "a-bucket"
+		bucket, err := project.CreateBucket(ctx, bucketName)
+		require.NoError(t, err)
+		require.NotNil(t, bucket)
+
+		upload, err := project.UploadObject(ctx, bucketName, "test-file.dat", nil)
+		require.NoError(t, err)
+
+		expectedData := testrand.Bytes(1 * memory.KiB)
+		_, err = io.Copy(upload, bytes.NewBuffer(expectedData))
+		require.NoError(t, err)
+
+		err = upload.Commit()
+		require.NoError(t, err)
+
+		serializedAccess, err := access.Serialize()
+		require.NoError(t, err)
+
+		// download uploaded file with old libuplink
+		oldUplink, err := planet.Uplinks[0].NewLibuplink(ctx)
+		require.NoError(t, err)
+
+		scope, err := uplink.ParseScope(serializedAccess)
+		require.NoError(t, err)
+
+		oldProject, err := oldUplink.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+		require.NoError(t, err)
+		defer ctx.Check(oldProject.Close)
+
+		oldBucket, err := oldProject.OpenBucket(ctx, bucketName, scope.EncryptionAccess)
+		require.NoError(t, err)
+		defer ctx.Check(oldBucket.Close)
+
+		rc, err := oldBucket.Download(ctx, "test-file.dat")
+		require.NoError(t, err)
+
+		var downloaded bytes.Buffer
+		_, err = io.Copy(&downloaded, rc)
+		require.NoError(t, err)
+
+		require.Equal(t, expectedData, downloaded.Bytes())
+	})
 }

@@ -1046,18 +1046,31 @@ func convertBucketToProto(ctx context.Context, bucket storj.Bucket, rs *pb.Redun
 	if err != nil {
 		return pbBucket, rpcstatus.Error(rpcstatus.Internal, "UUID marshal error")
 	}
-	return &pb.Bucket{
+
+	pbBucket = &pb.Bucket{
 		Name:                    []byte(bucket.Name),
-		PathCipher:              pb.CipherSuite(int(bucket.PathCipher)),
+		PathCipher:              pb.CipherSuite(bucket.PathCipher),
 		PartnerId:               partnerID,
 		CreatedAt:               bucket.Created,
 		DefaultSegmentSize:      bucket.DefaultSegmentsSize,
 		DefaultRedundancyScheme: rs,
 		DefaultEncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
+			CipherSuite: pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite),
 			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
 		},
-	}, nil
+	}
+
+	// this part is to provide default ciphers (path and encryption) for old uplinks
+	// new uplinks are using ciphers from encryption access
+	if pbBucket.PathCipher == pb.CipherSuite_ENC_UNSPECIFIED {
+		pbBucket.PathCipher = pb.CipherSuite_ENC_AESGCM
+	}
+	if pbBucket.DefaultEncryptionParameters.CipherSuite == pb.CipherSuite_ENC_UNSPECIFIED {
+		pbBucket.DefaultEncryptionParameters.CipherSuite = pb.CipherSuite_ENC_AESGCM
+		pbBucket.DefaultEncryptionParameters.BlockSize = int64(rs.ErasureShareSize * rs.MinReq)
+	}
+
+	return pbBucket, nil
 }
 
 // BeginObject begins object
