@@ -128,8 +128,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					MaxSleep:        0,
 				},
 				Monitor: monitor.Config{
-					MinimumBandwidth: 100 * memory.MB,
-					MinimumDiskSpace: 100 * memory.MB,
+					MinimumBandwidth:      100 * memory.MB,
+					MinimumDiskSpace:      100 * memory.MB,
+					NotifyLowDiskCooldown: defaultInterval,
 				},
 				Trust: trust.Config{
 					Sources:         sources,

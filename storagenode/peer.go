@@ -342,9 +342,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Version: *pbVersion,
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), peer.Dialer, self, peer.Storage2.Trust)
 
-		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Storage2.Trust, peer.Dialer, peer.Contact.Service)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Contact.Service)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "contact:chore",
 			Run:   peer.Contact.Chore.Run,
@@ -403,6 +403,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.Storage.AllocatedBandwidth.Int64(),
 			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
+			peer.Contact.Chore.Trigger,
 			config.Storage2.Monitor,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -435,17 +436,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
 			peer.DB.UsedSerials(),
-			peer.Contact.Chore.Trigger,
 			config.Storage2,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-		// TODO remove this once workgroup is removed from piecestore endpoint
-		peer.Services.Add(lifecycle.Item{
-			Name:  "piecestore",
-			Close: peer.Storage2.Endpoint.Close,
-		})
 
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 		pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint.DRPC())
