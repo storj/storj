@@ -152,7 +152,7 @@ export default class NewProjectPopup extends Vue {
 
         await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
-        this.checkIfsFirstProject();
+        this.checkIfUsersFirstProject();
 
         this.isLoading = false;
     }
@@ -191,10 +191,14 @@ export default class NewProjectPopup extends Vue {
         this.$emit('hideNewProjectButton');
     }
 
-    private checkIfsFirstProject(): void {
-        const isFirstProject = this.$store.state.projectsModule.projects.length === 1;
+    /**
+     * Indicates if user created his first project.
+     */
+    private checkIfUsersFirstProject(): void {
+        const usersProjects: Project[] = this.$store.state.projectsModule.projects.filter((project: Project) => project.ownerId === this.$store.getters.user.id);
+        const isUsersFirstProject = usersProjects.length === 1;
 
-        isFirstProject
+        isUsersFirstProject
             ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
             : this.notifySuccess('Project created successfully!');
     }

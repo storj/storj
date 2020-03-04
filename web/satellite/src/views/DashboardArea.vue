@@ -56,7 +56,7 @@ const {
     GET_BALANCE,
     GET_CREDIT_CARDS,
     GET_BILLING_HISTORY,
-    GET_PROJECT_CHARGES,
+    GET_PROJECT_CHARGES_CURRENT_ROLLUP,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -96,7 +96,7 @@ export default class DashboardArea extends Vue {
             balance = await this.$store.dispatch(GET_BALANCE);
             creditCards = await this.$store.dispatch(GET_CREDIT_CARDS);
             await this.$store.dispatch(GET_BILLING_HISTORY);
-            await this.$store.dispatch(GET_PROJECT_CHARGES);
+            await this.$store.dispatch(GET_PROJECT_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(error.message);
         }

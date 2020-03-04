@@ -184,7 +184,7 @@ func (paymentService PaymentsService) MakeCreditCardDefault(ctx context.Context,
 }
 
 // ProjectsCharges returns how much money current user will be charged for each project which he owns.
-func (paymentService PaymentsService) ProjectsCharges(ctx context.Context) (_ []payments.ProjectCharge, err error) {
+func (paymentService PaymentsService) ProjectsCharges(ctx context.Context, since, before time.Time) (_ []payments.ProjectCharge, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -192,7 +192,7 @@ func (paymentService PaymentsService) ProjectsCharges(ctx context.Context) (_ []
 		return nil, err
 	}
 
-	return paymentService.service.accounts.ProjectCharges(ctx, auth.User.ID)
+	return paymentService.service.accounts.ProjectCharges(ctx, auth.User.ID, since, before)
 }
 
 // ListCreditCards returns a list of credit cards for a given payment account.
