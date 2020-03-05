@@ -220,7 +220,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 
 		// wait for all requests to finish to ensure that the upload usage has been
 		// accounted for.
-		waitForEndpointRequestsToDrain(t, planet)
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
 		for _, tt := range []struct {
 			satellite       *identity.FullIdentity
@@ -299,27 +299,4 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 		err = storageNode.Storage2.CacheService.Init(ctx)
 		require.NoError(t, err)
 	}
-}
-
-func waitForEndpointRequestsToDrain(t *testing.T, planet *testplanet.Planet) {
-	timeout := time.NewTimer(time.Minute)
-	defer timeout.Stop()
-	for {
-		if endpointRequestCount(planet) == 0 {
-			return
-		}
-		select {
-		case <-time.After(50 * time.Millisecond):
-		case <-timeout.C:
-			require.FailNow(t, "timed out waiting for endpoint requests to drain")
-		}
-	}
-}
-
-func endpointRequestCount(planet *testplanet.Planet) int {
-	total := 0
-	for _, storageNode := range planet.StorageNodes {
-		total += int(storageNode.Storage2.Endpoint.TestLiveRequestCount())
-	}
-	return total
 }
