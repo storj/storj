@@ -337,7 +337,7 @@ func (client *Uplink) GetConfig(satellite *SatelliteSystem) cmd.Config {
 	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
 
 	accessData, err := (&libuplink.Scope{
-		SatelliteAddr:    satellite.Addr(),
+		SatelliteAddr:    satellite.URL().String(),
 		APIKey:           apiKey,
 		EncryptionAccess: encAccess,
 	}).Serialize()

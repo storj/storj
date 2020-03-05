@@ -15,6 +15,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
 	libuplink "storj.io/storj/lib/uplink"
+	"storj.io/uplink"
 )
 
 var mon = monkit.Package()
@@ -162,6 +163,27 @@ func (a AccessConfig) GetAccess() (_ *libuplink.Scope, err error) {
 		SatelliteAddr:    satelliteAddr,
 		EncryptionAccess: encAccess,
 	}, nil
+}
+
+// GetNewAccess returns the appropriate access for the config.
+func (a AccessConfig) GetNewAccess() (_ *uplink.Access, err error) {
+	defer mon.Task()(nil)(&err)
+
+	oldAccess, err := a.GetAccess()
+	if err != nil {
+		return nil, err
+	}
+
+	serializedOldAccess, err := oldAccess.Serialize()
+	if err != nil {
+		return nil, err
+	}
+
+	access, err := uplink.ParseAccess(serializedOldAccess)
+	if err != nil {
+		return nil, err
+	}
+	return access, nil
 }
 
 // GetNamedAccess returns named access if exists.
