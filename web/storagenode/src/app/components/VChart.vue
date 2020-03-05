@@ -61,11 +61,9 @@ export default class VChart extends Vue {
         return {
             responsive: false,
             maintainAspectRatios: false,
-
             legend: {
                 display: false,
             },
-
             elements: {
                 point: {
                     radius: 0,
@@ -73,7 +71,6 @@ export default class VChart extends Vue {
                     hitRadius: 500,
                 }
             },
-
             scales: {
                 yAxes: [{
                     display: true,
@@ -100,13 +97,11 @@ export default class VChart extends Vue {
                     },
                 }],
             },
-
             layout: {
                 padding: {
                     left: 25,
                 }
             },
-
             tooltips: {
                 enabled: false,
 

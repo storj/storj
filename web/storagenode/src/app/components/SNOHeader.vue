@@ -6,10 +6,15 @@
         <div class="header__content-holder">
             <div class="header__content-holder__logo-area">
                 <StorjIcon
-                    class="header__content-holder__icon"
-                    alt="storj icon"
+                    class="header__content-holder__logo"
+                    alt="storj logo"
                     @click="onHeaderLogoClick"
                 />
+                <img
+                    src="@/../static/images/LogoWithoutText.png"
+                    alt="storj logo"
+                    class="header__content-holder__logo--small"
+                >
                 <div class="header__content-holder__logo-area__refresh-button" @click="onRefresh">
                     <RefreshIcon alt="refresh image"/>
                 </div>
@@ -136,11 +141,15 @@ export default class SNOHeader extends Vue {
 
 <style scoped lang="scss">
     .header {
-        width: 100%;
+        padding: 0 36px;
+        width: calc(100% - 72px);
         height: 89px;
         display: flex;
         justify-content: center;
         background-color: #fff;
+        position: fixed;
+        top: 0;
+        z-index: 9999;
 
         &__content-holder {
             width: 822px;
@@ -171,8 +180,12 @@ export default class SNOHeader extends Vue {
                 }
             }
 
-            &__icon {
+            &__logo {
                 cursor: pointer;
+
+                &--small {
+                    display: none;
+                }
             }
 
             &__right-area {
@@ -228,6 +241,62 @@ export default class SNOHeader extends Vue {
                     }
                 }
             }
+        }
+    }
+
+    @media screen and (max-width: 780px) {
+
+        .header__content-holder {
+
+            &__logo {
+                order: 2;
+            }
+
+            &__logo-area {
+                width: calc(50% + 63px);
+                justify-content: space-between;
+
+                &__refresh-button {
+                    order: 1;
+                    margin-left: 0;
+                }
+            }
+
+            &__right-area {
+
+                &__node-id-container {
+                    display: none;
+                }
+            }
+        }
+    }
+
+    @media screen and (max-width: 600px) {
+
+        .header__content-holder {
+
+            &__logo-area {
+                width: calc(50% + 20px);
+            }
+
+            &__logo {
+                display: none;
+
+                &--small {
+                    display: block;
+                    order: 2;
+                }
+            }
+        }
+    }
+
+    @media screen and (max-width: 600px) {
+
+        .header__content-holder__right-area__bell-area__popup {
+            position: fixed;
+            top: 89px;
+            right: 0;
+            left: 0;
         }
     }
 </style>

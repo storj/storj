@@ -135,4 +135,11 @@ export default class VInfo extends Vue {
     .customPosition {
         left: 40%;
     }
+
+    @media screen and (max-width: 500px) {
+
+        .info__message-box {
+            display: none;
+        }
+    }
 </style>

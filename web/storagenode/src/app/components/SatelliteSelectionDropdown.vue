@@ -81,7 +81,7 @@ export default class SatelliteSelectionDropdown extends Vue {
         padding: 7px 0 7px 0;
         box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
         background-color: #fff;
-        z-index: 1120;
+        z-index: 103;
     }
 
     .satellite-selection-overflow-container {
