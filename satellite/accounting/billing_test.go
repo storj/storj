@@ -61,8 +61,6 @@ func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		t.Skip("test sometimes fails in the last assertion")
-
 		const (
 			bucketName = "a-bucket"
 			objectKey  = "object-filename"
@@ -108,6 +106,9 @@ func getTotalProjectBandwidth(
 	projectID uuid.UUID, since time.Time,
 ) int64 {
 	t.Helper()
+
+	// Wait for the SNs endpoints to finish thir work
+	require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
 	// Calculate the bandwidth used for upload
 	for _, sn := range planet.StorageNodes {
