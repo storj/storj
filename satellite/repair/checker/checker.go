@@ -174,10 +174,15 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	numHealthy := int32(len(pieces) - len(missingPieces))
 	redundancy := pointer.Remote.Redundancy
 
+	repairThreshold := redundancy.RepairThreshold
+	if checker.repairOverride != 0 {
+		repairThreshold = checker.repairOverride
+	}
+
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
 	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
+	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
 		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
 			Path:         []byte(path),
 			LostPieces:   missingPieces,
@@ -192,7 +197,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 		if err != nil {
 			checker.logger.Error("error deleting entry from irreparable db: ", zap.Error(err))
 		}
-	} else if numHealthy < redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
+	} else if numHealthy < redundancy.MinReq && numHealthy < repairThreshold {
 
 		// make an entry into the irreparable table
 		segmentInfo := &pb.IrreparableSegment{
@@ -278,7 +283,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 			obs.log.Error("error deleting entry from irreparable db", zap.Error(err))
 			return nil
 		}
-	} else if numHealthy < redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
+	} else if numHealthy < redundancy.MinReq && numHealthy < repairThreshold {
 		// TODO: see whether this can be handled with metainfo.ScopedPath
 		pathElements := storj.SplitPath(path.Raw)
 
@@ -319,11 +324,11 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 			obs.log.Error("error handling irreparable segment to queue", zap.Error(err))
 			return nil
 		}
-	} else if numHealthy > redundancy.RepairThreshold && numHealthy <= (redundancy.RepairThreshold+int32(len(obs.monStats.remoteSegmentsOverThreshold))) {
+	} else if numHealthy > repairThreshold && numHealthy <= (repairThreshold+int32(len(obs.monStats.remoteSegmentsOverThreshold))) {
 		// record metrics for segments right above repair threshold
 		// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
 		for i := range obs.monStats.remoteSegmentsOverThreshold {
-			if numHealthy == (redundancy.RepairThreshold + int32(i) + 1) {
+			if numHealthy == (repairThreshold + int32(i) + 1) {
 				obs.monStats.remoteSegmentsOverThreshold[i]++
 				break
 			}
