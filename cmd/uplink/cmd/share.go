@@ -30,6 +30,7 @@ var shareCfg struct {
 	NotAfter          string   `help:"disallow access after this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
 	AllowedPathPrefix []string `help:"whitelist of path prefixes to require, overrides the [allowed-path-prefix] arguments"`
 	ExportTo          string   `default:"" help:"path to export the shared access to" basic-help:"true"`
+	BaseURL           string   `default:"https://link.tardigradeshare.io" help:"the base url for link sharing"`
 
 	// Share requires information about the current access
 	AccessConfig
@@ -141,6 +142,18 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println("Paths     :", formatPaths(sharePrefixes))
 	fmt.Println("=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========")
 	fmt.Println("Access    :", newAccessData)
+
+	if len(shareCfg.AllowedPathPrefix) == 1 {
+		fmt.Println("=========== BROWSER URL ==================================================================")
+		p, err := fpath.New(shareCfg.AllowedPathPrefix[0])
+		if err != nil {
+			return err
+		}
+		fmt.Println("URL       :", fmt.Sprintf("%s/%s/%s/%s", shareCfg.BaseURL, newAccessData, p.Bucket(), p.Path()))
+	} else {
+		fmt.Println("=========== BROWSER URL PREFIX ===========================================================")
+		fmt.Println("URL       :", fmt.Sprintf("%s/%s", shareCfg.BaseURL, newAccessData))
+	}
 
 	if shareCfg.ExportTo != "" {
 		// convert to an absolute path, mostly for output purposes.
