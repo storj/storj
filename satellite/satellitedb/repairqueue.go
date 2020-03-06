@@ -46,16 +46,16 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 	switch r.db.implementation {
 	case dbutil.Cockroach:
 		err = r.db.QueryRowContext(ctx, `
-				UPDATE injuredsegments SET attempted = now() AT TIME ZONE 'UTC' WHERE path = (
+				UPDATE injuredsegments SET attempted = now() WHERE path = (
 					SELECT path FROM injuredsegments
-					WHERE attempted IS NULL OR attempted < now() AT TIME ZONE 'UTC' - interval '6 hours'
+					WHERE attempted IS NULL OR attempted < now() - interval '6 hours'
 					ORDER BY num_healthy_pieces ASC, attempted LIMIT 1
 				) RETURNING data`).Scan(&seg)
 	case dbutil.Postgres:
 		err = r.db.QueryRowContext(ctx, `
-				UPDATE injuredsegments SET attempted = now() AT TIME ZONE 'UTC' WHERE path = (
+				UPDATE injuredsegments SET attempted = now() WHERE path = (
 					SELECT path FROM injuredsegments
-					WHERE attempted IS NULL OR attempted < now() AT TIME ZONE 'UTC' - interval '6 hours'
+					WHERE attempted IS NULL OR attempted < now() - interval '6 hours'
 					ORDER BY num_healthy_pieces ASC, attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
 				) RETURNING data`).Scan(&seg)
 	default:
