@@ -903,6 +903,11 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );`,
 				},
 			},
+			{
+				DB: db.DB, Description: "Add column last_ip_port to nodes table", Version: 96, Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN last_ip_port text`,
+				},
+			},
 		},
 	}
 }

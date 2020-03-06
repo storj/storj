@@ -42,8 +42,10 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 				AuditReputationAlpha0: tt.auditAlpha,
 				AuditReputationBeta0:  tt.auditBeta,
 			}
+			n := pb.Node{Id: tt.nodeID}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
 
-			err := cache.UpdateAddress(ctx, &pb.Node{Id: tt.nodeID}, startingRep)
+			err := cache.UpdateAddress(ctx, &d, startingRep)
 			require.NoError(t, err)
 
 			// update stats so node disqualification is triggered
@@ -73,7 +75,10 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 	{ // TestUpdateOperator
 		nodeID := storj.NodeID{10}
-		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID}, overlay.NodeSelectionConfig{})
+		n := pb.Node{Id: nodeID}
+		d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+
+		err := cache.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		update, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{

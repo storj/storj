@@ -564,13 +564,13 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *storagenode.Peer, isUp bool, timestamp time.Time) error {
 	local := node.Local()
 	checkInInfo := overlay.NodeCheckInInfo{
-		NodeID:   node.ID(),
-		Address:  local.Address,
-		LastIP:   local.LastIp,
-		IsUp:     isUp,
-		Operator: &local.Operator,
-		Capacity: &local.Capacity,
-		Version:  &local.Version,
+		NodeID:     node.ID(),
+		Address:    local.Address,
+		LastIPPort: local.LastIPPort,
+		IsUp:       isUp,
+		Operator:   &local.Operator,
+		Capacity:   &local.Capacity,
+		Version:    &local.Version,
 	}
 	return overlayDB.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-24*time.Hour), overlay.NodeSelectionConfig{})
 }

@@ -134,8 +134,11 @@ model node (
 	)
 
 	field id             blob
+	// address is how to contact the node, this can be a hostname or IP and it contains the port
 	field address        text  ( updatable ) // TODO: use compressed format
+	// last_net is the /24 subnet of the IP
 	field last_net       text  ( updatable )
+	field last_ip_port   text  ( updatable, nullable )
 	field protocol       int   ( updatable )
 	field type           int   ( updatable )
 	field email          text  ( updatable )
@@ -209,7 +212,7 @@ read limitoffset (
 )
 
 read limitoffset (
-	select node.id node.last_net node.address node.protocol
+	select node.id node.last_net node.last_ip_port node.address node.protocol
 	where  node.id >= ?
 	where  node.disqualified = null
 	orderby asc node.id
@@ -221,14 +224,14 @@ read all (
 )
 
 read limitoffset (
-	select node.id node.address node.last_contact_success node.last_contact_failure
+	select node.id node.address node.last_ip_port node.last_contact_success node.last_contact_failure
     where node.last_contact_success < node.last_contact_failure
 	where  node.disqualified = null
 	orderby asc node.last_contact_failure
 )
 
 read all (
-	select node.id node.address node.last_contact_success node.last_contact_failure
+	select node.id node.address node.last_ip_port node.last_contact_success node.last_contact_failure
 	where node.last_contact_success < ?
 	where node.last_contact_success > node.last_contact_failure
 	where  node.disqualified = null
