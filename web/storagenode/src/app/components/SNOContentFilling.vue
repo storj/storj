@@ -48,13 +48,6 @@
         <div>
             <div class="info-area__remaining-space-area">
                 <BarInfo
-                    label="Bandwidth Remaining"
-                    :amount="bandwidth.remaining"
-                    info-text="of bandwidth left"
-                    :current-bar-amount="bandwidth.used"
-                    :max-bar-amount="bandwidth.available"
-                />
-                <BarInfo
                     label="Disk Space Remaining"
                     :amount="diskSpace.remaining"
                     info-text="of disk space left"
@@ -225,8 +218,8 @@ export default class SNOContentFilling extends Vue {
     }
 
     /**
-     * bandwidth - remaining amount of bandwidth from store.
-     * @return BandwidthInfo - remaining amount of bandwidth
+     * bandwidth - used amount of bandwidth from store.
+     * @return BandwidthInfo - used amount of bandwidth
      */
     public get bandwidth(): BandwidthInfo {
         return this.$store.state.node.utilization.bandwidth;
