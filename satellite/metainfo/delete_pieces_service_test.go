@@ -19,7 +19,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/cmd/uplink/cmd"
 	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -89,8 +88,8 @@ func TestDeletePiecesService_DeletePieces_AllNodesUp(t *testing.T) {
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-				Client: cmd.ClientConfig{
+			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
+				Client: testplanet.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
 				},
 			},
@@ -162,8 +161,8 @@ func TestDeletePiecesService_DeletePieces_SomeNodesDown(t *testing.T) {
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-				Client: cmd.ClientConfig{
+			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
+				Client: testplanet.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
 				},
 			},
@@ -228,8 +227,8 @@ func TestDeletePiecesService_DeletePieces_AllNodesDown(t *testing.T) {
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-				Client: cmd.ClientConfig{
+			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
+				Client: testplanet.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
 				},
 			},
@@ -297,8 +296,8 @@ func TestDeletePiecesService_DeletePieces_InvalidDialer(t *testing.T) {
 			data := testrand.Bytes(10 * memory.KiB)
 			// Use RSConfig for ensuring that we don't have long-tail cancellations
 			// and the upload doesn't leave garbage in the SNs
-			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-				Client: cmd.ClientConfig{
+			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
+				Client: testplanet.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
 				},
 			},
@@ -414,8 +413,8 @@ func TestDeletePiecesService_DeletePieces_Timeout(t *testing.T) {
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-				Client: cmd.ClientConfig{
+			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
+				Client: testplanet.ClientConfig{
 					SegmentSize: 10 * memory.KiB,
 				},
 			},
