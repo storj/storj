@@ -207,7 +207,7 @@ type satelliteDB interface {
 }
 
 func migrateTest(t *testing.T, connStr string) {
-	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
+	ctx := testcontext.NewWithTimeout(t, 8*time.Minute)
 	defer ctx.Cleanup()
 
 	log := zaptest.NewLogger(t)
