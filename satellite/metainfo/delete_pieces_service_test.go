@@ -391,7 +391,6 @@ func TestDeletePiecesService_DeletePieces_Invalid(t *testing.T) {
 }
 
 func TestDeletePiecesService_DeletePieces_Timeout(t *testing.T) {
-	deletePiecesServiceConfig := metainfo.DeletePiecesServiceConfig{}
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -404,7 +403,6 @@ func TestDeletePiecesService_DeletePieces_Timeout(t *testing.T) {
 				config.Metainfo.RS.RepairThreshold = 2
 				config.Metainfo.RS.SuccessThreshold = 4
 				config.Metainfo.RS.TotalThreshold = 4
-				deletePiecesServiceConfig = config.Metainfo.DeletePiecesService
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -453,13 +451,16 @@ func TestDeletePiecesService_DeletePieces_Timeout(t *testing.T) {
 
 			// make delete operation on storage nodes slow
 			storageNodeDB := sn.DB.(*testblobs.SlowDB)
-			delay := 200 * time.Millisecond
+			delay := 500 * time.Millisecond
 			storageNodeDB.SetLatency(delay)
 		}
 
 		core, recorded := observer.New(zapcore.DebugLevel)
 		log := zap.New(core)
-		service, err := metainfo.NewDeletePiecesService(log, satelliteSys.Dialer, deletePiecesServiceConfig)
+		service, err := metainfo.NewDeletePiecesService(log, satelliteSys.Dialer, metainfo.DeletePiecesServiceConfig{
+			MaxConcurrentConnection: 100,
+			NodeOperationTimeout:    1 * time.Second,
+		})
 		require.NoError(t, err)
 
 		err = service.DeletePieces(ctx, nodesPieces, 0.75)
