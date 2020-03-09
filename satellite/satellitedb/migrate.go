@@ -894,6 +894,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE value_attributions ALTER COLUMN last_updated TYPE TIMESTAMP WITH TIME ZONE USING last_updated AT TIME ZONE 'UTC';`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Add index to num_healthy_pieces column in injuredsegments table",
+				Version:     95,
+				Action: migrate.SQL{
+					`TRUNCATE injuredsegments;`,
+					`CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );`,
+				},
+			},
 		},
 	}
 }
