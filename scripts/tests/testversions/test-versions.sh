@@ -5,6 +5,7 @@ set -ueo pipefail
 main_cfg_dir=$1
 command=$2
 uplink_version=$3
+update_access_script_path=$4
 
 bucket="bucket-123"
 test_files_dir="${main_cfg_dir}/testfiles"
@@ -57,7 +58,8 @@ if [ ! -d ${main_cfg_dir}/uplink ]; then
     should_use_access=$(echo $uplink_version | awk 'BEGIN{FS="[v.]"} $3 >= 30 || $2 >= 1 {print $0}')
     if [[ ${#should_use_access} -gt 0 ]]; then
         access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
-        uplink import --config-dir="${main_cfg_dir}/uplink" "${access}" --client.segment-size="64.0 KiB"
+        new_access=$(go run $update_access_script_path $(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_DIR) $access)
+        uplink import --config-dir="${main_cfg_dir}/uplink" "${new_access}" --client.segment-size="64.0 KiB"
     else
         uplink setup --config-dir="${main_cfg_dir}/uplink" --non-interactive --api-key="$api_key" --satellite-addr="$sat_addr" --enc.encryption-key="test" --client.segment-size="64.0 KiB"
     fi
@@ -76,8 +78,8 @@ then
 
     # super hack:
     access=$(head -n 1 ${main_cfg_dir}/uplink/access.txt)
-    echo "import for uplink $access"
-    uplink import --config-dir="${main_cfg_dir}/uplink" "${access}"
+    new_access=$(go run $update_access_script_path $(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_DIR) $access)
+    uplink import --config-dir="${main_cfg_dir}/uplink" "${new_access}"
     rm -rf ${main_cfg_dir}/uplink/access.txt
 fi
 
