@@ -145,7 +145,7 @@ if [[ "$command" == "upload" ]]; then
 fi
 
 if [[ "$command" == "download" ]]; then
-    existing_bucket_name_suffixes=$4
+    existing_bucket_name_suffixes=$5
 
     # download all uploaded files from stage 1 with currently selected uplink
     for suffix in ${existing_bucket_name_suffixes}; do

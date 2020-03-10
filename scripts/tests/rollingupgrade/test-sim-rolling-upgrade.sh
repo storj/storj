@@ -272,4 +272,4 @@ for ul_version in ${stage2_uplink_versions}; do
 done
 
 echo -e "\nCleaning up."
-PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${test_versions_path}" "${test_dir}/local-network" "cleanup" "${stage1_uplink_version}"
+PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${test_versions_path}" "${test_dir}/local-network" "cleanup" "${stage1_uplink_version}" ""
