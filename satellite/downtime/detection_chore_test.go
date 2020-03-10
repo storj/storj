@@ -37,7 +37,7 @@ func TestDetectionChore(t *testing.T) {
 		sixtyOneMinutes := 61 * time.Minute
 		{ // test node ping back success
 			// check-in 1 hours, 1 minute ago for that node
-			oldCheckinTime := time.Now().UTC().Add(-sixtyOneMinutes)
+			oldCheckinTime := time.Now().Add(-sixtyOneMinutes)
 			err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, info, oldCheckinTime, overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
@@ -62,7 +62,7 @@ func TestDetectionChore(t *testing.T) {
 
 		{ // test node ping back failure
 			// check-in 1 hour, 1 minute ago for that node - again
-			oldCheckinTime := time.Now().UTC().Add(-sixtyOneMinutes)
+			oldCheckinTime := time.Now().Add(-sixtyOneMinutes)
 			err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, info, oldCheckinTime, overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 

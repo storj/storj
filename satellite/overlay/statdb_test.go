@@ -182,14 +182,14 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			},
 		}
 		// update check-in when node is offline
-		err = cache.UpdateCheckIn(ctx, info, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		err = cache.UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		_, err = cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 
 		info.IsUp = true
 		// update check-in when node is online
-		err = cache.UpdateCheckIn(ctx, info, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		err = cache.UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		_, err = cache.Get(ctx, nodeID)
 		require.NoError(t, err)

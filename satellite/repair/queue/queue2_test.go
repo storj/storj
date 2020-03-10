@@ -160,7 +160,7 @@ func TestOrderHealthyPieces(t *testing.T) {
 
 			// next, if applicable, update the "attempted at" timestamp
 			if !item.attempted.IsZero() {
-				res, err := dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = ? AT TIME ZONE 'UTC' WHERE path = ?`), item.attempted, item.path)
+				res, err := dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = ? WHERE path = ?`), item.attempted, item.path)
 				require.NoError(t, err)
 				count, err := res.RowsAffected()
 				require.NoError(t, err)

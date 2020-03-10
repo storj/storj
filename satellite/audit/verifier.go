@@ -95,7 +95,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		}
 		return Report{}, err
 	}
-	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now().UTC()) {
+	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
 		errDelete := verifier.metainfo.Delete(ctx, path, pointerBytes)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
@@ -378,7 +378,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		}
 		return Report{}, err
 	}
-	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now().UTC()) {
+	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
 		errDelete := verifier.metainfo.Delete(ctx, path, pointerBytes)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)

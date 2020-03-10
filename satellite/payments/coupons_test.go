@@ -12,7 +12,7 @@ import (
 
 func TestCouponIsExpired(t *testing.T) {
 	duration := 2
-	now := time.Now().UTC()
+	now := time.Now()
 
 	testCases := [...]struct {
 		created  time.Time
