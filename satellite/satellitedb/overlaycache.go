@@ -226,7 +226,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	return nodes, Error.Wrap(rows.Err())
 }
 
-func (cache *overlaycache) queryNodesDistinct(ctx context.Context, ExcludedIDs []storj.NodeID, excludedNodeNetworks []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*overlay.NodeDossier, err error) {
+func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedIDs []storj.NodeID, excludedNodeNetworks []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if count == 0 {
@@ -234,9 +234,9 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, ExcludedIDs [
 	}
 
 	safeExcludeNodes := ""
-	if len(ExcludedIDs) > 0 {
-		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(ExcludedIDs)-1) + `)`
-		for _, id := range ExcludedIDs {
+	if len(excludedIDs) > 0 {
+		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excludedIDs)-1) + `)`
+		for _, id := range excludedIDs {
 			args = append(args, id.Bytes())
 		}
 	}
@@ -253,7 +253,7 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, ExcludedIDs [
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT *
 		FROM (
-			SELECT DISTINCT ON (last_net) last_net,    -- choose at max 1 node from this network
+			SELECT DISTINCT ON (last_net) last_net,    -- choose at most 1 node from this network
 			id, type, address, last_ip_port, free_disk, total_audit_count,
 			audit_success_count, total_uptime_count, uptime_success_count,
 			audit_reputation_alpha, audit_reputation_beta

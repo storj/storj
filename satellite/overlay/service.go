@@ -270,11 +270,11 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		reputableNodeCount = req.RequestedCount
 	}
 
-	ExcludedIDs := req.ExcludedIDs
+	excludedIDs := req.ExcludedIDs
 	// get and exclude IPs associated with excluded nodes if distinctIP is enabled
 	var excludedNetworks []string
-	if preferences.DistinctIP && len(ExcludedIDs) > 0 {
-		excludedNetworks, err = service.db.GetNodesNetwork(ctx, ExcludedIDs)
+	if preferences.DistinctIP && len(excludedIDs) > 0 {
+		excludedNetworks, err = service.db.GetNodesNetwork(ctx, excludedIDs)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -290,7 +290,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		newNodes, err = service.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
 			FreeDisk:         preferences.MinimumDiskSpace.Int64(),
 			AuditCount:       preferences.AuditCount,
-			ExcludedIDs:      ExcludedIDs,
+			ExcludedIDs:      excludedIDs,
 			MinimumVersion:   preferences.MinimumVersion,
 			OnlineWindow:     preferences.OnlineWindow,
 			DistinctIP:       preferences.DistinctIP,
@@ -303,7 +303,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	// add selected new nodes and their IPs to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
-		ExcludedIDs = append(ExcludedIDs, newNode.Id)
+		excludedIDs = append(excludedIDs, newNode.Id)
 		if preferences.DistinctIP {
 			excludedNetworks = append(excludedNetworks, newNode.LastNet)
 		}
@@ -313,7 +313,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		FreeDisk:         preferences.MinimumDiskSpace.Int64(),
 		AuditCount:       preferences.AuditCount,
 		UptimeCount:      preferences.UptimeCount,
-		ExcludedIDs:      ExcludedIDs,
+		ExcludedIDs:      excludedIDs,
 		ExcludedNetworks: excludedNetworks,
 		MinimumVersion:   preferences.MinimumVersion,
 		OnlineWindow:     preferences.OnlineWindow,
