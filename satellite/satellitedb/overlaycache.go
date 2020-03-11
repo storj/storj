@@ -27,11 +27,6 @@ var (
 	mon = monkit.Package()
 )
 
-const (
-	// OverlayPaginateLimit defines how many nodes can be paginated at the same time.
-	OverlayPaginateLimit = 1000
-)
-
 var _ overlay.DB = (*overlaycache)(nil)
 
 type overlaycache struct {
@@ -45,6 +40,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 
 	safeQuery := `
 		WHERE disqualified IS NULL
+		AND suspended IS NULL
 		AND exit_initiated_at IS NULL
 		AND type = ?
 		AND free_disk >= ?
@@ -99,6 +95,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 
 	safeQuery := `
 		WHERE disqualified IS NULL
+		AND suspended IS NULL
 		AND exit_initiated_at IS NULL
 		AND type = ?
 		AND free_disk >= ?
@@ -190,8 +187,8 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	var rows *sql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`SELECT id, type, address, last_net, last_ip_port,
 		free_disk, total_audit_count, audit_success_count,
-		total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
-		audit_reputation_beta
+		total_uptime_count, uptime_success_count, disqualified, suspended,
+		audit_reputation_alpha, audit_reputation_beta
 		FROM nodes
 		`+safeQuery+safeExcludeNodes+`
 		ORDER BY RANDOM()
@@ -207,8 +204,8 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.Id, &dbNode.Type, &dbNode.Address, &dbNode.LastNet, &dbNode.LastIpPort,
 			&dbNode.FreeDisk, &dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
-			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified, &dbNode.AuditReputationAlpha,
-			&dbNode.AuditReputationBeta,
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified, &dbNode.Suspended,
+			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
 		)
 		if err != nil {
 			return nil, err
@@ -400,6 +397,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
+			AND suspended IS NULL
 			AND last_contact_success > $2
 		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
@@ -439,6 +437,7 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 			FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
+			AND suspended IS NULL
 			AND last_contact_success > $2
 		`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow),
 	)
@@ -448,16 +447,16 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		row := &dbx.Id_LastNet_LastIpPort_Address_Protocol_Row{}
+		row := &dbx.Node{}
 		err = rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort, &row.Address, &row.Protocol)
 		if err != nil {
 			return nil, err
 		}
-		node, err := convertDBNodeToPBNode(ctx, row)
+		node, err := convertDBNode(ctx, row)
 		if err != nil {
 			return nil, err
 		}
-		nodes = append(nodes, node)
+		nodes = append(nodes, &node.Node)
 	}
 	return nodes, Error.Wrap(rows.Err())
 }
@@ -468,6 +467,7 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE disqualified IS NULL
+		AND suspended IS NULL
 		AND last_contact_success > ?
 	`), time.Now().Add(-criteria.OnlineWindow))
 	if err != nil {
@@ -486,69 +486,6 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 		nodes = append(nodes, id)
 	}
 	return nodes, Error.Wrap(rows.Err())
-}
-
-// Paginate will run through
-func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) (_ []*overlay.NodeDossier, _ bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	cursor := storj.NodeID{}
-
-	// more represents end of table. If there are more rows in the database, more will be true.
-	more := true
-
-	if limit <= 0 || limit > OverlayPaginateLimit {
-		limit = OverlayPaginateLimit
-	}
-
-	dbxInfos, err := cache.db.Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, offset)
-	if err != nil {
-		return nil, false, err
-	}
-
-	if len(dbxInfos) < limit {
-		more = false
-	}
-
-	infos := make([]*overlay.NodeDossier, len(dbxInfos))
-	for i, dbxInfo := range dbxInfos {
-		infos[i], err = convertDBNode(ctx, dbxInfo)
-		if err != nil {
-			return nil, false, err
-		}
-	}
-	return infos, more, nil
-}
-
-// PaginateQualified will retrieve all qualified nodes
-func (cache *overlaycache) PaginateQualified(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	cursor := storj.NodeID{}
-
-	// more represents end of table. If there are more rows in the database, more will be true.
-	more := true
-
-	if limit <= 0 || limit > OverlayPaginateLimit {
-		limit = OverlayPaginateLimit
-	}
-
-	dbxInfos, err := cache.db.Limited_Node_Id_Node_LastNet_Node_LastIpPort_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, offset)
-	if err != nil {
-		return nil, false, err
-	}
-	if len(dbxInfos) < limit {
-		more = false
-	}
-
-	infos := make([]*pb.Node, len(dbxInfos))
-	for i, dbxInfo := range dbxInfos {
-		infos[i], err = convertDBNodeToPBNode(ctx, dbxInfo)
-		if err != nil {
-			return nil, false, err
-		}
-	}
-	return infos, more, nil
 }
 
 // Update updates node address
@@ -1218,25 +1155,6 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	return node, nil
 }
 
-func convertDBNodeToPBNode(ctx context.Context, info *dbx.Id_LastNet_LastIpPort_Address_Protocol_Row) (_ *pb.Node, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if info == nil {
-		return nil, Error.New("missing info")
-	}
-
-	id, err := storj.NodeIDFromBytes(info.Id)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.Node{
-		Id: id,
-		Address: &pb.NodeAddress{
-			Address:   info.Address,
-			Transport: pb.NodeTransport(info.Protocol),
-		},
-	}, nil
-}
-
 func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
 		Latency90:                   dbNode.Latency90,
@@ -1313,7 +1231,11 @@ func buildUpdateStatement(update updateNodeStats) string {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("suspended = '%v'", update.Suspended.value.Format(time.RFC3339Nano))
+		if update.Suspended.isNil {
+			sql += fmt.Sprintf("suspended = NULL")
+		} else {
+			sql += fmt.Sprintf("suspended = '%v'", update.Suspended.value.Format(time.RFC3339Nano))
+		}
 	}
 	if update.UptimeSuccessCount.set {
 		if atLeastOne {
@@ -1412,10 +1334,12 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 	unknownAuditBeta := dbNode.UnknownAuditReputationBeta
 	totalAuditCount := dbNode.TotalAuditCount
 
+	var updatedTotalAuditCount int64
+
 	switch updateReq.AuditOutcome {
 	case overlay.AuditSuccess:
 		// for a successful audit, increase reputation for normal *and* unknown audits
-		auditAlpha, auditBeta, totalAuditCount = updateReputation(
+		auditAlpha, auditBeta, updatedTotalAuditCount = updateReputation(
 			true,
 			auditAlpha,
 			auditBeta,
@@ -1423,17 +1347,18 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 			updateReq.AuditWeight,
 			totalAuditCount,
 		)
-		unknownAuditAlpha, unknownAuditBeta, totalAuditCount = updateReputation(
+		// we will use updatedTotalAuditCount from the updateReputation call above
+		unknownAuditAlpha, unknownAuditBeta, _ = updateReputation(
 			true,
 			unknownAuditAlpha,
 			unknownAuditBeta,
 			updateReq.AuditLambda,
 			updateReq.AuditWeight,
-			totalAuditCount-1, // subtract one because this is still a single audit
+			totalAuditCount,
 		)
 	case overlay.AuditFailure:
 		// for audit failure, only update normal alpha/beta
-		auditAlpha, auditBeta, totalAuditCount = updateReputation(
+		auditAlpha, auditBeta, updatedTotalAuditCount = updateReputation(
 			false,
 			auditAlpha,
 			auditBeta,
@@ -1443,7 +1368,7 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 		)
 	case overlay.AuditUnknown:
 		// for audit unknown, only update unknown alpha/beta
-		unknownAuditAlpha, unknownAuditBeta, totalAuditCount = updateReputation(
+		unknownAuditAlpha, unknownAuditBeta, updatedTotalAuditCount = updateReputation(
 			false,
 			unknownAuditAlpha,
 			unknownAuditBeta,
@@ -1465,7 +1390,7 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 
 	updateFields := updateNodeStats{
 		NodeID:                      updateReq.NodeID,
-		TotalAuditCount:             int64Field{set: true, value: totalAuditCount},
+		TotalAuditCount:             int64Field{set: true, value: updatedTotalAuditCount},
 		TotalUptimeCount:            int64Field{set: true, value: totalUptimeCount},
 		AuditReputationAlpha:        float64Field{set: true, value: auditAlpha},
 		AuditReputationBeta:         float64Field{set: true, value: auditBeta},

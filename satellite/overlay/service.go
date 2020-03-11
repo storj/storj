@@ -53,10 +53,6 @@ type DB interface {
 	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
-	// Paginate will page through the database nodes
-	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
-	// PaginateQualified will page through the qualified nodes
-	PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *NodeDossier, defaults NodeSelectionConfig) error
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
@@ -248,18 +244,6 @@ func (service *Service) Inspect(ctx context.Context) (_ storage.Keys, err error)
 	defer mon.Task()(&ctx)(&err)
 	// TODO: implement inspection tools
 	return nil, errors.New("not implemented")
-}
-
-// Paginate returns a list of `limit` nodes starting from `start` offset.
-func (service *Service) Paginate(ctx context.Context, offset int64, limit int) (_ []*NodeDossier, _ bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return service.db.Paginate(ctx, offset, limit)
-}
-
-// PaginateQualified returns a list of `limit` qualified nodes starting from `start` offset.
-func (service *Service) PaginateQualified(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return service.db.PaginateQualified(ctx, offset, limit)
 }
 
 // Get looks up the provided nodeID from the overlay.

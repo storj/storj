@@ -31,16 +31,19 @@ func TestStatDB(t *testing.T) {
 func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 	{ // TestKnownUnreliableOrOffline
 		for _, tt := range []struct {
-			nodeID     storj.NodeID
-			auditAlpha float64
-			auditBeta  float64
+			nodeID       storj.NodeID
+			suspended    bool
+			disqualified bool
+			offline      bool
 		}{
-			{storj.NodeID{1}, 20, 0}, // good reputations => good
-			{storj.NodeID{2}, 0, 20}, // bad audit rep
+			{storj.NodeID{1}, false, false, false}, // good
+			{storj.NodeID{2}, false, true, false},  // disqualified
+			{storj.NodeID{3}, true, false, false},  // suspended
+			{storj.NodeID{4}, false, false, true},  // offline
 		} {
 			startingRep := overlay.NodeSelectionConfig{
-				AuditReputationAlpha0: tt.auditAlpha,
-				AuditReputationBeta0:  tt.auditBeta,
+				AuditReputationAlpha0: 1,
+				AuditReputationBeta0:  0,
 			}
 			n := pb.Node{Id: tt.nodeID}
 			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
@@ -48,29 +51,36 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			err := cache.UpdateAddress(ctx, &d, startingRep)
 			require.NoError(t, err)
 
-			// update stats so node disqualification is triggered
-			_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
-				NodeID:       tt.nodeID,
-				AuditOutcome: overlay.AuditSuccess,
-				IsUp:         true,
-				AuditLambda:  1, AuditWeight: 1,
-				AuditDQ: 0.9,
-			})
-			require.NoError(t, err)
+			if tt.suspended {
+				err = cache.SuspendNode(ctx, tt.nodeID, time.Now())
+				require.NoError(t, err)
+			}
+			if tt.disqualified {
+				err = cache.DisqualifyNode(ctx, tt.nodeID)
+				require.NoError(t, err)
+			}
+			if tt.offline {
+				checkInInfo := getNodeInfo(tt.nodeID)
+				err = cache.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-2*time.Hour), overlay.NodeSelectionConfig{})
+				require.NoError(t, err)
+			}
 		}
 
 		nodeIds := storj.NodeIDList{
 			storj.NodeID{1}, storj.NodeID{2},
-			storj.NodeID{3},
+			storj.NodeID{3}, storj.NodeID{4},
+			storj.NodeID{5},
 		}
 		criteria := &overlay.NodeCriteria{OnlineWindow: time.Hour}
 
 		invalid, err := cache.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 		require.NoError(t, err)
 
-		require.Contains(t, invalid, storj.NodeID{2}) // bad audit
-		require.Contains(t, invalid, storj.NodeID{3}) // not in db
-		require.Len(t, invalid, 2)
+		require.Contains(t, invalid, storj.NodeID{2}) // disqualified
+		require.Contains(t, invalid, storj.NodeID{3}) // suspended
+		require.Contains(t, invalid, storj.NodeID{4}) // offline
+		require.Contains(t, invalid, storj.NodeID{5}) // not in db
+		require.Len(t, invalid, 4)
 	}
 
 	{ // TestUpdateOperator

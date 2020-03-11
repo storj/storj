@@ -211,13 +211,6 @@ read limitoffset (
 	orderby asc node.id
 )
 
-read limitoffset (
-	select node.id node.last_net node.last_ip_port node.address node.protocol
-	where  node.id >= ?
-	where  node.disqualified = null
-	orderby asc node.id
-)
-
 read all (
     select node.id node.piece_count
     where node.piece_count != 0
