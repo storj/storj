@@ -215,7 +215,8 @@ func TestProjectBandwidthTotal(t *testing.T) {
 		require.NoError(t, err)
 
 		// Execute test: get project bandwidth total
-		from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
+		year, month, _ := time.Now().Date()
+		from := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, projectID, from)
 		require.NoError(t, err)
 		require.Equal(t, actualBandwidthTotal, expectedTotal)
