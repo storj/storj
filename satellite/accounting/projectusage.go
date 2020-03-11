@@ -20,9 +20,6 @@ var mon = monkit.Package()
 const (
 	// AverageDaysInMonth is how many days in a month
 	AverageDaysInMonth = 30
-	// ExpansionFactor is the expansion for redundancy, based on the default
-	// redundancy scheme for the uplink.
-	ExpansionFactor = 3
 )
 
 var (
@@ -75,8 +72,7 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 		return false, 0, ErrProjectUsage.Wrap(err)
 	}
 
-	maxUsage := limit.Int64() * int64(ExpansionFactor)
-	if bandwidthGetTotal >= maxUsage {
+	if bandwidthGetTotal >= limit.Int64() {
 		return true, limit, nil
 	}
 
