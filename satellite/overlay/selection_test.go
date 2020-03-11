@@ -250,7 +250,7 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 
 		response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
 			RequestedCount: tt.RequestCount,
-			ExcludedNodes:  excludedNodes,
+			ExcludedIDs:    excludedNodes,
 		}, &tt.Preferences)
 
 		t.Log(len(response), err)
@@ -402,7 +402,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		req := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 2,
 			RequestedCount:       2,
-			ExcludedNodes:        excludedNodes,
+			ExcludedIDs:          excludedNodes,
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.NoError(t, err)
@@ -414,7 +414,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		req = overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 3,
 			RequestedCount:       3,
-			ExcludedNodes:        excludedNodes,
+			ExcludedIDs:          excludedNodes,
 		}
 		_, err = satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.Error(t, err)
@@ -458,7 +458,7 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 		req := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 2,
 			RequestedCount:       2,
-			ExcludedNodes:        excludedNodes,
+			ExcludedIDs:          excludedNodes,
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.NoError(t, err)

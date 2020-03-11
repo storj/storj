@@ -112,20 +112,20 @@ type NodeCheckInInfo struct {
 type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
-	ExcludedNodes        []storj.NodeID
+	ExcludedIDs          []storj.NodeID
 	MinimumVersion       string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
-	FreeDisk       int64
-	AuditCount     int64
-	UptimeCount    int64
-	ExcludedNodes  []storj.NodeID
-	ExcludedIPs    []string
-	MinimumVersion string // semver or empty
-	OnlineWindow   time.Duration
-	DistinctIP     bool
+	FreeDisk         int64
+	AuditCount       int64
+	UptimeCount      int64
+	ExcludedIDs      []storj.NodeID
+	ExcludedNetworks []string
+	MinimumVersion   string // semver or empty
+	OnlineWindow     time.Duration
+	DistinctIP       bool
 }
 
 // UpdateRequest is used to update a node status.
@@ -270,11 +270,11 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		reputableNodeCount = req.RequestedCount
 	}
 
-	excludedNodes := req.ExcludedNodes
+	ExcludedIDs := req.ExcludedIDs
 	// get and exclude IPs associated with excluded nodes if distinctIP is enabled
-	var excludedIPs []string
-	if preferences.DistinctIP && len(excludedNodes) > 0 {
-		excludedIPs, err = service.db.GetNodesNetwork(ctx, excludedNodes)
+	var excludedNetworks []string
+	if preferences.DistinctIP && len(ExcludedIDs) > 0 {
+		excludedNetworks, err = service.db.GetNodesNetwork(ctx, ExcludedIDs)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -288,13 +288,13 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	var newNodes []*NodeDossier
 	if newNodeCount > 0 {
 		newNodes, err = service.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
-			FreeDisk:       preferences.MinimumDiskSpace.Int64(),
-			AuditCount:     preferences.AuditCount,
-			ExcludedNodes:  excludedNodes,
-			MinimumVersion: preferences.MinimumVersion,
-			OnlineWindow:   preferences.OnlineWindow,
-			DistinctIP:     preferences.DistinctIP,
-			ExcludedIPs:    excludedIPs,
+			FreeDisk:         preferences.MinimumDiskSpace.Int64(),
+			AuditCount:       preferences.AuditCount,
+			ExcludedIDs:      ExcludedIDs,
+			MinimumVersion:   preferences.MinimumVersion,
+			OnlineWindow:     preferences.OnlineWindow,
+			DistinctIP:       preferences.DistinctIP,
+			ExcludedNetworks: excludedNetworks,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -303,21 +303,21 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	// add selected new nodes and their IPs to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
-		excludedNodes = append(excludedNodes, newNode.Id)
+		ExcludedIDs = append(ExcludedIDs, newNode.Id)
 		if preferences.DistinctIP {
-			excludedIPs = append(excludedIPs, newNode.LastNet)
+			excludedNetworks = append(excludedNetworks, newNode.LastNet)
 		}
 	}
 
 	criteria := NodeCriteria{
-		FreeDisk:       preferences.MinimumDiskSpace.Int64(),
-		AuditCount:     preferences.AuditCount,
-		UptimeCount:    preferences.UptimeCount,
-		ExcludedNodes:  excludedNodes,
-		ExcludedIPs:    excludedIPs,
-		MinimumVersion: preferences.MinimumVersion,
-		OnlineWindow:   preferences.OnlineWindow,
-		DistinctIP:     preferences.DistinctIP,
+		FreeDisk:         preferences.MinimumDiskSpace.Int64(),
+		AuditCount:       preferences.AuditCount,
+		UptimeCount:      preferences.UptimeCount,
+		ExcludedIDs:      ExcludedIDs,
+		ExcludedNetworks: excludedNetworks,
+		MinimumVersion:   preferences.MinimumVersion,
+		OnlineWindow:     preferences.OnlineWindow,
+		DistinctIP:       preferences.DistinctIP,
 	}
 	reputableNodes, err := service.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {

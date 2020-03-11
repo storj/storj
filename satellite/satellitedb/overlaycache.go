@@ -67,7 +67,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 	}
 
 	if !criteria.DistinctIP {
-		nodes, err = cache.queryNodes(ctx, criteria.ExcludedNodes, count, safeQuery, args...)
+		nodes, err = cache.queryNodes(ctx, criteria.ExcludedIDs, count, safeQuery, args...)
 		if err != nil {
 			return nil, err
 		}
@@ -76,14 +76,14 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 
 	// query for distinct IPs
 	for i := 0; i < 3; i++ {
-		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
+		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedIDs, criteria.ExcludedNetworks, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
 		if err != nil {
 			return nil, err
 		}
 		for _, n := range moreNodes {
 			nodes = append(nodes, n)
-			criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
-			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastNet)
+			criteria.ExcludedIDs = append(criteria.ExcludedIDs, n.Id)
+			criteria.ExcludedNetworks = append(criteria.ExcludedNetworks, n.LastNet)
 		}
 		if len(nodes) == count {
 			break
@@ -120,7 +120,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	}
 
 	if !criteria.DistinctIP {
-		nodes, err = cache.queryNodes(ctx, criteria.ExcludedNodes, count, safeQuery, args...)
+		nodes, err = cache.queryNodes(ctx, criteria.ExcludedIDs, count, safeQuery, args...)
 		if err != nil {
 			return nil, err
 		}
@@ -129,14 +129,14 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 
 	// query for distinct IPs
 	for i := 0; i < 3; i++ {
-		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedNodes, criteria.ExcludedIPs, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
+		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedIDs, criteria.ExcludedNetworks, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
 		if err != nil {
 			return nil, err
 		}
 		for _, n := range moreNodes {
 			nodes = append(nodes, n)
-			criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
-			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastNet)
+			criteria.ExcludedIDs = append(criteria.ExcludedIDs, n.Id)
+			criteria.ExcludedNetworks = append(criteria.ExcludedNetworks, n.LastNet)
 		}
 		if len(nodes) == count {
 			break
@@ -226,7 +226,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	return nodes, Error.Wrap(rows.Err())
 }
 
-func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*overlay.NodeDossier, err error) {
+func (cache *overlaycache) queryNodesDistinct(ctx context.Context, ExcludedIDs []storj.NodeID, excludedNodeNetworks []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if count == 0 {
@@ -234,17 +234,17 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 	}
 
 	safeExcludeNodes := ""
-	if len(excludedNodes) > 0 {
-		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excludedNodes)-1) + `)`
-		for _, id := range excludedNodes {
+	if len(ExcludedIDs) > 0 {
+		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(ExcludedIDs)-1) + `)`
+		for _, id := range ExcludedIDs {
 			args = append(args, id.Bytes())
 		}
 	}
 
-	safeExcludeIPs := ""
-	if len(excludedIPs) > 0 {
-		safeExcludeIPs = ` AND last_net NOT IN (?` + strings.Repeat(", ?", len(excludedIPs)-1) + `)`
-		for _, ip := range excludedIPs {
+	safeExcludeNetworks := ""
+	if len(excludedNodeNetworks) > 0 {
+		safeExcludeNetworks = ` AND last_net NOT IN (?` + strings.Repeat(", ?", len(excludedNodeNetworks)-1) + `)`
+		for _, ip := range excludedNodeNetworks {
 			args = append(args, ip)
 		}
 	}
@@ -253,12 +253,12 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT *
 		FROM (
-			SELECT DISTINCT ON (last_net) last_net,    -- choose at max 1 node from this IP or network
+			SELECT DISTINCT ON (last_net) last_net,    -- choose at max 1 node from this network
 			id, type, address, last_ip_port, free_disk, total_audit_count,
 			audit_success_count, total_uptime_count, uptime_success_count,
 			audit_reputation_alpha, audit_reputation_beta
 			FROM nodes
-			`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
+			`+safeQuery+safeExcludeNodes+safeExcludeNetworks+`
 			AND last_net <> ''                         -- don't try to IP-filter nodes with no known IP yet
 			ORDER BY last_net, RANDOM()                -- equal chance of choosing any qualified node at this IP or network
 		) filteredcandidates

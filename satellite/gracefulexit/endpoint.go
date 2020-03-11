@@ -388,15 +388,15 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	// populate excluded node IDs
 	remote := pointer.GetRemote()
 	pieces := remote.RemotePieces
-	excludedNodeIDs := make([]storj.NodeID, len(pieces))
+	ExcludedIDs := make([]storj.NodeID, len(pieces))
 	for i, piece := range pieces {
-		excludedNodeIDs[i] = piece.NodeId
+		ExcludedIDs[i] = piece.NodeId
 	}
 
 	// get replacement node
 	request := &overlay.FindStorageNodesRequest{
 		RequestedCount: 1,
-		ExcludedNodes:  excludedNodeIDs,
+		ExcludedIDs:    ExcludedIDs,
 	}
 
 	newNodes, err := endpoint.overlay.FindStorageNodes(ctx, *request)
