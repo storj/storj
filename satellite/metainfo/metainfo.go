@@ -458,7 +458,7 @@ func (endpoint *Endpoint) ListSegmentsOld(ctx context.Context, req *pb.ListSegme
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
-	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.Bucket, req.Prefix)
+	prefix, err := CreatePath(ctx, keyInfo.ProjectID, lastSegment, req.Bucket, req.Prefix)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
@@ -678,11 +678,11 @@ func (endpoint *Endpoint) mapNodesFor(ctx context.Context, pieces []*pb.RemotePi
 // CreatePath creates a Segment path.
 func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (_ storj.Path, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if segmentIndex < -1 {
+	if segmentIndex < lastSegment { // lastSegment = -1
 		return "", errors.New("invalid segment index")
 	}
 	segment := "l"
-	if segmentIndex > -1 {
+	if segmentIndex > lastSegment { // lastSegment = -1
 		segment = "s" + strconv.FormatInt(segmentIndex, 10)
 	}
 
@@ -812,10 +812,12 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	now := time.Now()
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionDelete,
 		Bucket: req.Name,
-		Time:   time.Now(),
+		Time:   now,
 	})
 	if err != nil {
 		return nil, err
@@ -826,8 +828,38 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionRead,
+		Bucket: req.Name,
+		Time:   now,
+	})
+	canRead := err == nil
+
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionList,
+		Bucket: req.Name,
+		Time:   now,
+	})
+	canList := err == nil
+
+	var bucket storj.Bucket
+	if canRead || canList {
+		// Info about deleted bucket is returned only if either Read, or List permission is granted
+		bucket, err = endpoint.metainfo.GetBucket(ctx, req.Name, keyInfo.ProjectID)
+		if err != nil {
+			if storj.ErrBucketNotFound.Has(err) {
+				return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+			}
+			return nil, err
+		}
+	}
+
 	err = endpoint.metainfo.DeleteBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
+		if !canRead && !canList {
+			// No error info is returned if neither Read, nor List permission is granted
+			return nil, nil
+		}
 		if ErrBucketNotEmpty.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 		} else if storj.ErrBucketNotFound.Has(err) {
@@ -836,13 +868,20 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	return &pb.BucketDeleteResponse{}, nil
+	convBucket, err := convertBucketToProto(ctx, bucket, endpoint.redundancyScheme())
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
 }
 
 // ListBuckets returns buckets in a project where the bucket name matches the request cursor
 func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	action := macaroon.Action{
+		// TODO: This has to be ActionList, but it seems to be set to
+		// ActionRead as a hacky workaround to make bucket listing possible.
 		Op:   macaroon.ActionRead,
 		Time: time.Now(),
 	}
@@ -1042,6 +1081,10 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 }
 
 func convertBucketToProto(ctx context.Context, bucket storj.Bucket, rs *pb.RedundancyScheme) (pbBucket *pb.Bucket, err error) {
+	if bucket == (storj.Bucket{}) {
+		return nil, nil
+	}
+
 	partnerID, err := bucket.PartnerID.MarshalJSON()
 	if err != nil {
 		return pbBucket, rpcstatus.Error(rpcstatus.Internal, "UUID marshal error")
@@ -1231,7 +1274,21 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, -1, req.Bucket, req.EncryptedPath)
+	object, err := endpoint.getObject(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath, req.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint.log.Info("Object Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
+	mon.Meter("req_get_object").Mark(1)
+
+	return &pb.ObjectGetResponse{
+		Object: object,
+	}, nil
+}
+
+func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte, version int32) (*pb.Object, error) {
+	pointer, _, err := endpoint.getPointer(ctx, projectID, lastSegment, bucket, encryptedPath)
 	if err != nil {
 		return nil, err
 	}
@@ -1243,9 +1300,9 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	}
 
 	streamID, err := endpoint.packStreamID(ctx, &pb.SatStreamID{
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedPath,
-		Version:       req.Version,
+		Bucket:        bucket,
+		EncryptedPath: encryptedPath,
+		Version:       version,
 		CreationDate:  time.Now(),
 	})
 	if err != nil {
@@ -1253,8 +1310,8 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	}
 
 	object := &pb.Object{
-		Bucket:            req.Bucket,
-		EncryptedPath:     req.EncryptedPath,
+		Bucket:            bucket,
+		EncryptedPath:     encryptedPath,
 		Version:           -1,
 		StreamId:          streamID,
 		ExpiresAt:         pointer.ExpirationDate,
@@ -1281,7 +1338,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 		index := int64(0)
 		for {
-			path, err := CreatePath(ctx, keyInfo.ProjectID, index, req.Bucket, req.EncryptedPath)
+			path, err := CreatePath(ctx, projectID, index, bucket, encryptedPath)
 			if err != nil {
 				endpoint.log.Error("unable to get pointer path", zap.Error(err))
 				return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get object")
@@ -1303,12 +1360,8 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 			index++
 		}
 	}
-	endpoint.log.Info("Object Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
-	mon.Meter("req_get_object").Mark(1)
 
-	return &pb.ObjectGetResponse{
-		Object: object,
-	}, nil
+	return object, nil
 }
 
 // ListObjects list objects according to specific parameters
@@ -1330,7 +1383,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.Bucket, req.EncryptedPrefix)
+	prefix, err := CreatePath(ctx, keyInfo.ProjectID, lastSegment, req.Bucket, req.EncryptedPrefix)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
@@ -1366,11 +1419,13 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	now := time.Now()
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
-		Time:          time.Now(),
+		Time:          now,
 	})
 	if err != nil {
 		return nil, err
@@ -1385,7 +1440,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
 		Version:       req.Version,
-		CreationDate:  time.Now(),
+		CreationDate:  now,
 	}
 
 	satStreamID, err = signing.SignStreamID(ctx, endpoint.satellite, satStreamID)
@@ -1403,8 +1458,37 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionRead,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedPath,
+		Time:          now,
+	})
+	canRead := err == nil
+
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedPath,
+		Time:          now,
+	})
+	canList := err == nil
+
+	var object *pb.Object
+	if canRead || canList {
+		// Info about deleted object is returned only if either Read, or List permission is granted
+		object, err = endpoint.getObject(ctx, keyInfo.ProjectID, satStreamID.Bucket, satStreamID.EncryptedPath, satStreamID.Version)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, satStreamID.Bucket, satStreamID.EncryptedPath)
 	if err != nil {
+		if !canRead && !canList {
+			// No error info is returned if neither Read, nor List permission is granted
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -1413,6 +1497,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	return &pb.ObjectBeginDeleteResponse{
 		StreamId: streamID,
+		Object:   object,
 	}, nil
 }
 
@@ -2330,7 +2415,7 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 
 			// There no last segment and any continuous segment so we return the
 			// NotFound error handled in this conditional block
-			if prevLastSegmentIndex == -1 {
+			if prevLastSegmentIndex == lastSegment {
 				return err
 			}
 
@@ -2492,14 +2577,14 @@ func (endpoint *Endpoint) findIndexPreviousLastSegmentWhenNotKnowingNumSegments(
 ) (index int64, err error) {
 	defer mon.Task()(&ctx, projectID, bucket, encryptedPath)(&err)
 
-	lastIdxFound := int64(-1)
+	lastIdxFound := int64(lastSegment)
 	for {
 		_, _, err := endpoint.getPointer(ctx, projectID, lastIdxFound+1, bucket, encryptedPath)
 		if err != nil {
 			if errs2.IsRPC(err, rpcstatus.NotFound) {
 				break
 			}
-			return -1, err
+			return lastSegment, err
 		}
 
 		lastIdxFound++
