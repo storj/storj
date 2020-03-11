@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
-	"storj.io/storj/pkg/process"
 )
 
 var (
@@ -28,7 +27,7 @@ func init() {
 }
 
 func deleteObject(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	if len(args) == 0 {
 		return fmt.Errorf("no object specified for deletion")

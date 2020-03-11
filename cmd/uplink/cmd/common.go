@@ -4,8 +4,14 @@
 package cmd
 
 import (
+	"context"
+
+	"github.com/spf13/cobra"
+
 	"storj.io/common/fpath"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/process"
+	"storj.io/uplink/telemetry"
 )
 
 func getConfDir() string {
@@ -13,4 +19,9 @@ func getConfDir() string {
 		return param
 	}
 	return fpath.ApplicationDir("storj", "uplink")
+}
+
+func withTelemetry(cmd *cobra.Command) (context.Context, context.CancelFunc) {
+	ctx, _ := process.Ctx(cmd)
+	return telemetry.Enable(ctx)
 }
