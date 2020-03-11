@@ -10,7 +10,7 @@ import (
 	"net/mail"
 	"net/smtp"
 
-	"github.com/spacemonkeygo/monkit/v3"
+	monkit "github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -568,7 +568,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Rewards(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
-			consoleConfig.PasswordCost,
+			consoleConfig.Config,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

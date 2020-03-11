@@ -23,7 +23,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/gqlerrors"
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/spacemonkeygo/monkit/v3"
+	monkit "github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -61,8 +61,6 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
-
 	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
 	FrameAncestors        string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
 	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
@@ -71,6 +69,8 @@ type Config struct {
 	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
 	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
 	SegmentIOPublicKey    string `help:"used to initialize segment.io at web satellite console" default:""`
+
+	console.Config
 }
 
 // Server represents console web server

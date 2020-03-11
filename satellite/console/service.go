@@ -86,7 +86,13 @@ type Service struct {
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
 
-	passwordCost int
+	config Config
+}
+
+// Config keeps track of core console service configuration parameters
+type Config struct {
+	PasswordCost            int  `help:"password hashing cost (0=automatic)" internal:"true" default:"0"`
+	OpenRegistrationEnabled bool `help:"enable open registration" default:"false"`
 }
 
 // PaymentsService separates all payment related functionality
@@ -95,7 +101,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, config Config) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -105,8 +111,8 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
-	if passwordCost == 0 {
-		passwordCost = bcrypt.DefaultCost
+	if config.PasswordCost == 0 {
+		config.PasswordCost = bcrypt.DefaultCost
 	}
 
 	return &Service{
@@ -118,7 +124,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 		rewards:           rewards,
 		partners:          partners,
 		accounts:          accounts,
-		passwordCost:      passwordCost,
+		config:            config,
 	}, nil
 }
 
@@ -366,6 +372,28 @@ func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, 
 	return paymentService.service.accounts.Coupons().AddPromotionalCoupon(ctx, userID, duration, amount, limit)
 }
 
+// checkRegistrationSecret returns a RegistrationToken if applicable (nil if not), and an error
+// if and only if the registration shouldn't proceed.
+func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret RegistrationSecret) (*RegistrationToken, error) {
+	if s.config.OpenRegistrationEnabled && tokenSecret.IsZero() {
+		// in this case we're going to let the registration happen without a token
+		return nil, nil
+	}
+
+	// in all other cases, require a registration token
+	registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+	// if a registration token is already associated with an user ID, that means the token is already used
+	// we should terminate the account creation process and return an error
+	if registrationToken.OwnerID != nil {
+		return nil, errs.New(usedRegTokenErrMsg)
+	}
+
+	return registrationToken, nil
+}
+
 // CreateUser gets password hash value and creates new inactive User
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -393,23 +421,20 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, Error.Wrap(err)
 	}
 
-	// TODO: remove after vanguard release
-	registrationToken, err := s.store.RegistrationTokens().GetBySecret(ctx, tokenSecret)
+	registrationToken, err := s.checkRegistrationSecret(ctx, tokenSecret)
 	if err != nil {
-		return nil, ErrUnauthorized.Wrap(err)
-	}
-	// if a registration token is already associated with an user ID, that means the token is already used
-	// we should terminate the account creation process and return an error
-	if registrationToken.OwnerID != nil {
-		return nil, errs.New(usedRegTokenErrMsg)
+		return nil, err
 	}
 
 	u, err = s.store.Users().GetByEmail(ctx, user.Email)
 	if err == nil {
 		return nil, errs.New(emailUsedErrMsg)
 	}
+	if err != sql.ErrNoRows {
+		return nil, Error.Wrap(err)
+	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.config.PasswordCost)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -444,9 +469,11 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return Error.Wrap(err)
 		}
 
-		err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
-		if err != nil {
-			return Error.Wrap(err)
+		if registrationToken != nil {
+			err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
 
 		if currentReward != nil {
@@ -583,7 +610,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return errs.New(passwordRecoveryTokenIsExpiredErrMsg)
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.passwordCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.config.PasswordCost)
 	if err != nil {
 		return err
 	}
@@ -719,7 +746,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		return err
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), s.passwordCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), s.config.PasswordCost)
 	if err != nil {
 		return Error.Wrap(err)
 	}

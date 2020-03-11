@@ -4,6 +4,7 @@
 package console
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -58,6 +59,14 @@ func NewRegistrationSecret() (RegistrationSecret, error) {
 // String implements Stringer
 func (secret RegistrationSecret) String() string {
 	return base64.URLEncoding.EncodeToString(secret[:])
+}
+
+// IsZero returns if the RegistrationSecret is not set
+func (secret RegistrationSecret) IsZero() bool {
+	var zero RegistrationSecret
+	// this doesn't need to be constant-time, because we're explicitly testing
+	// against a hardcoded, well-known value
+	return bytes.Equal(secret[:], zero[:])
 }
 
 // RegistrationSecretFromBase64 creates new registration secret from base64 string

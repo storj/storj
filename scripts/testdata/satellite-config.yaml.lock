@@ -58,6 +58,9 @@
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
+# enable open registration
+# console.open-registration-enabled: false
+
 # used to display at web satellite console
 # console.satellite-name: Storj
 
