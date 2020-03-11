@@ -176,7 +176,8 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 	satellite := planet.Satellites[0]
 	// ensure all storagenodes are in overlay
 	for _, storageNode := range planet.StorageNodes {
-		err := satellite.Overlay.Service.Put(ctx, storageNode.ID(), storageNode.Local().Node)
+		nodeDossier := storageNode.Local()
+		err := satellite.Overlay.DB.UpdateCheckIn(ctx, nodeDossier, time.Now().UTC(), overlay.NodeSelectionConfig{})
 		assert.NoError(t, err)
 	}
 

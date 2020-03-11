@@ -73,18 +73,21 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeID, req.Address, err)
 		return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 	}
-	nodeInfo := overlay.NodeCheckInInfo{
-		NodeID: peerID.ID,
-		Address: &pb.NodeAddress{
-			Address:   req.Address,
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
+
+	nodeInfo := overlay.NodeDossier{
+		Node: pb.Node{
+			Id: peerID.ID,
+			Address: &pb.NodeAddress{
+				Address:   req.Address,
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			},
 		},
 		LastNet:    resolvedNetwork,
 		LastIPPort: resolvedIPPort,
 		IsUp:       pingNodeSuccess,
-		Capacity:   req.Capacity,
-		Operator:   req.Operator,
-		Version:    req.Version,
+		Capacity:   *req.Capacity,
+		Operator:   *req.Operator,
+		Version:    *req.Version,
 	}
 	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
 	if err != nil {

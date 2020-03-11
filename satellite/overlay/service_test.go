@@ -344,20 +344,22 @@ func TestUpdateCheckIn(t *testing.T) {
 		nodeID := storj.NodeID{1, 2, 3}
 		expectedEmail := "test@email.com"
 		expectedAddress := "1.2.4.4:8080"
-		info := overlay.NodeCheckInInfo{
-			NodeID: nodeID,
-			Address: &pb.NodeAddress{
-				Address: expectedAddress,
+		info := overlay.NodeDossier{
+			Node: pb.Node{
+				Id: nodeID,
+				Address: &pb.NodeAddress{
+					Address: expectedAddress,
+				},
 			},
 			IsUp: true,
-			Capacity: &pb.NodeCapacity{
+			Capacity: pb.NodeCapacity{
 				FreeDisk: int64(5678),
 			},
-			Operator: &pb.NodeOperator{
+			Operator: pb.NodeOperator{
 				Email:  expectedEmail,
 				Wallet: "0x123",
 			},
-			Version: &pb.NodeVersion{
+			Version: pb.NodeVersion{
 				Version:    "v0.0.0",
 				CommitHash: "",
 				Timestamp:  time.Time{},
@@ -428,13 +430,15 @@ func TestUpdateCheckIn(t *testing.T) {
 		// confirm that we can update the address field
 		startOfUpdateTest := time.Now().UTC()
 		expectedAddress = "9.8.7.6"
-		updatedInfo := overlay.NodeCheckInInfo{
-			NodeID: nodeID,
-			Address: &pb.NodeAddress{
-				Address: expectedAddress,
+		updatedInfo := overlay.NodeDossier{
+			Node: pb.Node{
+				Id: nodeID,
+				Address: &pb.NodeAddress{
+					Address: expectedAddress,
+				},
 			},
 			IsUp: true,
-			Version: &pb.NodeVersion{
+			Version: pb.NodeVersion{
 				Version:    "v0.1.0",
 				CommitHash: "abc123",
 				Timestamp:  time.Now().UTC(),
@@ -460,13 +464,15 @@ func TestUpdateCheckIn(t *testing.T) {
 
 		// confirm we can update IsUp field
 		startOfUpdateTest2 := time.Now().UTC()
-		updatedInfo2 := overlay.NodeCheckInInfo{
-			NodeID: nodeID,
-			Address: &pb.NodeAddress{
-				Address: "9.8.7.6",
+		updatedInfo2 := overlay.NodeDossier{
+			Node: pb.Node{
+				Id: nodeID,
+				Address: &pb.NodeAddress{
+					Address: "9.8.7.6",
+				},
 			},
 			IsUp: false,
-			Version: &pb.NodeVersion{
+			Version: pb.NodeVersion{
 				Version:    "v0.0.0",
 				CommitHash: "",
 				Timestamp:  time.Time{},
@@ -577,18 +583,20 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 	})
 }
 
-func getNodeInfo(nodeID storj.NodeID) overlay.NodeCheckInInfo {
-	return overlay.NodeCheckInInfo{
-		NodeID: nodeID,
-		IsUp:   true,
-		Address: &pb.NodeAddress{
-			Address: "1.2.3.4",
+func getNodeInfo(nodeID storj.NodeID) overlay.NodeDossier {
+	return overlay.NodeDossier{
+		Node: pb.Node{
+			Id: nodeID,
+			Address: &pb.NodeAddress{
+				Address: "1.2.3.4",
+			},
 		},
-		Operator: &pb.NodeOperator{
+		IsUp: true,
+		Operator: pb.NodeOperator{
 			Email:  "test@email.com",
 			Wallet: "0x123",
 		},
-		Version: &pb.NodeVersion{
+		Version: pb.NodeVersion{
 			Version:    "v0.0.0",
 			CommitHash: "",
 			Timestamp:  time.Time{},

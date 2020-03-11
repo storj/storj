@@ -137,20 +137,21 @@ func BenchmarkOverlay(b *testing.B) {
 			now := time.Now()
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				err := overlaydb.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
-					NodeID: id,
-					Address: &pb.NodeAddress{
-						Address: "1.2.4.4",
+				err := overlaydb.UpdateCheckIn(ctx, overlay.NodeDossier{
+					Node: pb.Node{Id: id,
+						Address: &pb.NodeAddress{
+							Address: "1.2.4.4",
+						},
 					},
 					IsUp: true,
-					Capacity: &pb.NodeCapacity{
+					Capacity: pb.NodeCapacity{
 						FreeDisk: int64(i),
 					},
-					Operator: &pb.NodeOperator{
+					Operator: pb.NodeOperator{
 						Email:  "a@mail.test",
 						Wallet: "0x0123456789012345678901234567890123456789",
 					},
-					Version: &pb.NodeVersion{
+					Version: pb.NodeVersion{
 						Version:    "1.0.0",
 						CommitHash: "0",
 						Timestamp:  now,

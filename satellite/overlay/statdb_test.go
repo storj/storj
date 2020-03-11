@@ -24,7 +24,7 @@ func TestStatDB(t *testing.T) {
 		testDatabase(ctx, t, db.OverlayCache())
 	})
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testDatabase(ctx, t, overlay.NewCombinedCache(db.OverlayCache()))
+		testDatabase(ctx, t, db.OverlayCache())
 	})
 }
 
@@ -168,13 +168,15 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		_, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		info := overlay.NodeCheckInInfo{
-			NodeID: nodeID,
-			Address: &pb.NodeAddress{
-				Address: "1.2.3.4",
+		info := overlay.NodeDossier{
+			Node: pb.Node{
+				Id: nodeID,
+				Address: &pb.NodeAddress{
+					Address: "1.2.3.4",
+				},
 			},
 			IsUp: false,
-			Version: &pb.NodeVersion{
+			Version: pb.NodeVersion{
 				Version:    "v0.0.0",
 				CommitHash: "",
 				Timestamp:  time.Time{},

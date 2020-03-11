@@ -55,8 +55,6 @@ type DB interface {
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// PaginateQualified will page through the qualified nodes
 	PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
-	// Update updates node address
-	UpdateAddress(ctx context.Context, value *NodeDossier, defaults NodeSelectionConfig) error
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
 	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
@@ -66,7 +64,7 @@ type DB interface {
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
-	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
+	UpdateCheckIn(ctx context.Context, node NodeDossier, timestamp time.Time, config NodeSelectionConfig) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
@@ -94,18 +92,6 @@ type DB interface {
 
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
-}
-
-// NodeCheckInInfo contains all the info that will be updated when a node checkins
-type NodeCheckInInfo struct {
-	NodeID     storj.NodeID
-	Address    *pb.NodeAddress
-	LastNet    string
-	LastIPPort string
-	IsUp       bool
-	Operator   *pb.NodeOperator
-	Capacity   *pb.NodeCapacity
-	Version    *pb.NodeVersion
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -174,6 +160,7 @@ type NodeDossier struct {
 	CreatedAt    time.Time
 	LastNet      string
 	LastIPPort   string
+	IsUp         bool
 }
 
 // NodeStats contains statistics about a node.
@@ -367,37 +354,6 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 	return service.db.Reliable(ctx, criteria)
 }
 
-// Put adds a node id and proto definition into the overlay.
-func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// If we get a Node without an ID
-	// we don't want to add to the database
-	if nodeID.IsZero() {
-		return nil
-	}
-	if nodeID != value.Id {
-		return errors.New("invalid request")
-	}
-	if value.Address == nil {
-		return errors.New("node has no address")
-	}
-
-	// Resolve the IP and the subnet from the address that is sent
-	resolvedIPPort, resolvedNetwork, err := GetNetwork(ctx, value.Address.Address)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	n := NodeDossier{
-		Node:       value,
-		LastNet:    resolvedNetwork,
-		LastIPPort: resolvedIPPort,
-	}
-
-	return service.db.UpdateAddress(ctx, &n, service.config.Node)
-}
-
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
 func (service *Service) BatchUpdateStats(ctx context.Context, requests []*UpdateRequest) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -434,7 +390,7 @@ func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, i
 }
 
 // UpdateCheckIn updates a single storagenode's check-in info.
-func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
+func (service *Service) UpdateCheckIn(ctx context.Context, node NodeDossier, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 }

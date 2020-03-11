@@ -206,13 +206,15 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		err := satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode.ID())
 		require.NoError(t, err)
 
-		info := overlay.NodeCheckInInfo{
-			NodeID: disqualifiedNode.ID(),
-			IsUp:   true,
-			Address: &pb.NodeAddress{
-				Address: "1.2.3.4",
+		info := overlay.NodeDossier{
+			Node: pb.Node{
+				Id: disqualifiedNode.ID(),
+				Address: &pb.NodeAddress{
+					Address: "1.2.3.4",
+				},
 			},
-			Version: &pb.NodeVersion{
+			IsUp: true,
+			Version: pb.NodeVersion{
 				Version:    "v0.0.0",
 				CommitHash: "",
 				Timestamp:  time.Time{},

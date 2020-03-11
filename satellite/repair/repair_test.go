@@ -563,14 +563,16 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 
 func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *storagenode.Peer, isUp bool, timestamp time.Time) error {
 	local := node.Local()
-	checkInInfo := overlay.NodeCheckInInfo{
-		NodeID:     node.ID(),
-		Address:    local.Address,
+	checkInInfo := overlay.NodeDossier{
+		Node: pb.Node{
+			Id:      node.ID(),
+			Address: local.Address,
+		},
 		LastIPPort: local.LastIPPort,
 		IsUp:       isUp,
-		Operator:   &local.Operator,
-		Capacity:   &local.Capacity,
-		Version:    &local.Version,
+		Operator:   local.Operator,
+		Capacity:   local.Capacity,
+		Version:    local.Version,
 	}
 	return overlayDB.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-24*time.Hour), overlay.NodeSelectionConfig{})
 }
@@ -1131,13 +1133,15 @@ func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, 
 			require.NoError(t, err)
 
 			for _, satellite := range planet.Satellites {
-				err = satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
-					NodeID: node.ID(),
-					Address: &pb.NodeAddress{
-						Address: node.Addr(),
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeDossier{
+					Node: pb.Node{
+						Id: node.ID(),
+						Address: &pb.NodeAddress{
+							Address: node.Addr(),
+						},
 					},
 					IsUp: true,
-					Version: &pb.NodeVersion{
+					Version: pb.NodeVersion{
 						Version:    "v0.0.0",
 						CommitHash: "",
 						Timestamp:  time.Time{},
