@@ -183,8 +183,9 @@ func TestRandomizedSelection(t *testing.T) {
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
 			newID := testrand.NodeID()
-
-			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID}, defaults)
+			n := pb.Node{Id: newID}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+			err := cache.UpdateAddress(ctx, &d, defaults)
 			require.NoError(t, err)
 			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
 				Type:     pb.NodeType_STORAGE,
@@ -210,7 +211,7 @@ func TestRandomizedSelection(t *testing.T) {
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			var nodes []*pb.Node
+			var nodes []*overlay.NodeDossier
 			var err error
 
 			if i%2 == 0 {
@@ -334,7 +335,6 @@ func TestKnownReliable(t *testing.T) {
 		for i, node := range result {
 			assert.Equal(t, expectedReliable[i].Id, node.Id)
 			assert.Equal(t, expectedReliable[i].Address, node.Address)
-			assert.NotNil(t, node.LastIp)
 		}
 	})
 }
@@ -343,7 +343,7 @@ func TestUpdateCheckIn(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // setup
 		nodeID := storj.NodeID{1, 2, 3}
 		expectedEmail := "test@email.com"
-		expectedAddress := "1.2.4.4"
+		expectedAddress := "1.2.4.4:8080"
 		info := overlay.NodeCheckInInfo{
 			NodeID: nodeID,
 			Address: &pb.NodeAddress{
@@ -363,11 +363,12 @@ func TestUpdateCheckIn(t *testing.T) {
 				Timestamp:  time.Time{},
 				Release:    false,
 			},
+			LastIPPort: expectedAddress,
+			LastNet:    "1.2.4",
 		}
 		expectedNode := &overlay.NodeDossier{
 			Node: pb.Node{
-				Id:     nodeID,
-				LastIp: info.LastIP,
+				Id: nodeID,
 				Address: &pb.NodeAddress{
 					Address:   info.Address.GetAddress(),
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
@@ -395,6 +396,8 @@ func TestUpdateCheckIn(t *testing.T) {
 			Disqualified: nil,
 			PieceCount:   0,
 			ExitStatus:   overlay.ExitStatus{NodeID: nodeID},
+			LastIPPort:   expectedAddress,
+			LastNet:      "1.2.4",
 		}
 
 		// confirm the node doesn't exist in nodes table yet
@@ -437,6 +440,8 @@ func TestUpdateCheckIn(t *testing.T) {
 				Timestamp:  time.Now().UTC(),
 				Release:    true,
 			},
+			LastIPPort: expectedAddress,
+			LastNet:    "9.8.7",
 		}
 		// confirm that the updated node is in the nodes table with the
 		// correct updated fields set
@@ -453,7 +458,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.Equal(t, updatedInfo.Version.GetRelease(), updatedNode.Version.GetRelease())
 		require.True(t, updatedNode.Version.GetTimestamp().After(info.Version.GetTimestamp()))
 
-		// confirm we can udpate IsUp field
+		// confirm we can update IsUp field
 		startOfUpdateTest2 := time.Now().UTC()
 		updatedInfo2 := overlay.NodeCheckInInfo{
 			NodeID: nodeID,
@@ -491,8 +496,9 @@ func TestCache_DowntimeTracking(t *testing.T) {
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
 			newID := testrand.NodeID()
-
-			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID}, defaults)
+			n := pb.Node{Id: newID}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+			err := cache.UpdateAddress(ctx, &d, defaults)
 			require.NoError(t, err)
 			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
 				Type:     pb.NodeType_STORAGE,

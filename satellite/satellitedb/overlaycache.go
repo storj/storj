@@ -38,7 +38,7 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
-func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
+func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeType := int(pb.NodeType_STORAGE)
@@ -83,7 +83,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		for _, n := range moreNodes {
 			nodes = append(nodes, n)
 			criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
-			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
+			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastNet)
 		}
 		if len(nodes) == count {
 			break
@@ -93,7 +93,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 	return nodes, nil
 }
 
-func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
+func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeType := int(pb.NodeType_STORAGE)
@@ -136,7 +136,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		for _, n := range moreNodes {
 			nodes = append(nodes, n)
 			criteria.ExcludedNodes = append(criteria.ExcludedNodes, n.Id)
-			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastIp)
+			criteria.ExcludedIPs = append(criteria.ExcludedIPs, n.LastNet)
 		}
 		if len(nodes) == count {
 			break
@@ -146,8 +146,8 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	return nodes, nil
 }
 
-// GetNodeIPs returns a list of node IP addresses. Warning: these node IP addresses might be returned out of order.
-func (cache *overlaycache) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error) {
+// GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
+func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows *sql.Rows
@@ -167,12 +167,12 @@ func (cache *overlaycache) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeI
 		if err != nil {
 			return nil, err
 		}
-		nodeIPs = append(nodeIPs, ip)
+		nodeNets = append(nodeNets, ip)
 	}
-	return nodeIPs, Error.Wrap(rows.Err())
+	return nodeNets, Error.Wrap(rows.Err())
 }
 
-func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
+func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if count == 0 {
@@ -190,7 +190,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	args = append(args, count)
 
 	var rows *sql.Rows
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(`SELECT id, type, address, last_net,
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`SELECT id, type, address, last_net, last_ip_port,
 		free_disk, total_audit_count, audit_success_count,
 		total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
 		audit_reputation_beta
@@ -204,14 +204,13 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var nodes []*pb.Node
+	var nodes []*overlay.NodeDossier
 	for rows.Next() {
 		dbNode := &dbx.Node{}
-		err = rows.Scan(&dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeDisk,
-			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
-			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
-			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
+		err = rows.Scan(&dbNode.Id, &dbNode.Type, &dbNode.Address, &dbNode.LastNet, &dbNode.LastIpPort,
+			&dbNode.FreeDisk, &dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified, &dbNode.AuditReputationAlpha,
+			&dbNode.AuditReputationBeta,
 		)
 		if err != nil {
 			return nil, err
@@ -221,13 +220,13 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 		if err != nil {
 			return nil, err
 		}
-		nodes = append(nodes, &dossier.Node)
+		nodes = append(nodes, dossier)
 	}
 
 	return nodes, Error.Wrap(rows.Err())
 }
 
-func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if count == 0 {
@@ -255,7 +254,7 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 		SELECT *
 		FROM (
 			SELECT DISTINCT ON (last_net) last_net,    -- choose at max 1 node from this IP or network
-			id, type, address, free_disk, total_audit_count,
+			id, type, address, last_ip_port, free_disk, total_audit_count,
 			audit_success_count, total_uptime_count, uptime_success_count,
 			audit_reputation_alpha, audit_reputation_beta
 			FROM nodes
@@ -270,13 +269,12 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var nodes []*pb.Node
+	var nodes []*overlay.NodeDossier
 	for rows.Next() {
 		dbNode := &dbx.Node{}
-		err = rows.Scan(&dbNode.LastNet, &dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.FreeDisk,
-			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
-			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
+		err = rows.Scan(&dbNode.LastNet,
+			&dbNode.Id, &dbNode.Type, &dbNode.Address, &dbNode.LastIpPort, &dbNode.FreeDisk, &dbNode.TotalAuditCount,
+			&dbNode.AuditSuccessCount, &dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
 			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
 		)
 		if err != nil {
@@ -286,7 +284,7 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 		if err != nil {
 			return nil, err
 		}
-		nodes = append(nodes, &dossier.Node)
+		nodes = append(nodes, dossier)
 	}
 
 	return nodes, Error.Wrap(rows.Err())
@@ -392,7 +390,8 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 
 	// get online nodes
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id, last_net, address, protocol FROM nodes
+		SELECT id, last_net, last_ip_port, address, protocol
+			FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND last_contact_success > $2
@@ -404,8 +403,8 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		row := &dbx.Id_LastNet_Address_Protocol_Row{}
-		err = rows.Scan(&row.Id, &row.LastNet, &row.Address, &row.Protocol)
+		row := &dbx.Id_LastNet_LastIpPort_Address_Protocol_Row{}
+		err = rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort, &row.Address, &row.Protocol)
 		if err != nil {
 			return nil, err
 		}
@@ -489,7 +488,7 @@ func (cache *overlaycache) PaginateQualified(ctx context.Context, offset int64, 
 		limit = OverlayPaginateLimit
 	}
 
-	dbxInfos, err := cache.db.Limited_Node_Id_Node_LastNet_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, offset)
+	dbxInfos, err := cache.db.Limited_Node_Id_Node_LastNet_Node_LastIpPort_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, offset)
 	if err != nil {
 		return nil, false, err
 	}
@@ -508,7 +507,7 @@ func (cache *overlaycache) PaginateQualified(ctx context.Context, offset int64, 
 }
 
 // Update updates node address
-func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, defaults overlay.NodeSelectionConfig) (err error) {
+func (cache *overlaycache) UpdateAddress(ctx context.Context, info *overlay.NodeDossier, defaults overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if info == nil || info.Id.IsZero() {
@@ -528,7 +527,8 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 				last_contact_success,
 				last_contact_failure,
 				audit_reputation_alpha, audit_reputation_beta,
-				major, minor, patch, hash, timestamp, release
+				major, minor, patch, hash, timestamp, release,
+				last_ip_port
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
@@ -537,22 +537,26 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 				$8::timestamptz,
 				'0001-01-01 00:00:00+00'::timestamptz,
 				$6, $7,
-				0, 0, 0, '', '0001-01-01 00:00:00+00'::timestamptz, false
+				0, 0, 0, '', '0001-01-01 00:00:00+00'::timestamptz, false,
+				$9
 			)
 			ON CONFLICT (id)
 			DO UPDATE
 			SET
 				address=$2,
 				last_net=$3,
-				protocol=$4
+				protocol=$4,
+				last_ip_port=$9
 			`
 	_, err = cache.db.ExecContext(ctx, query,
 		// args $1 - $5
-		info.Id.Bytes(), address.Address, info.LastIp, int(address.Transport), int(pb.NodeType_INVALID),
+		info.Id.Bytes(), address.Address, info.LastNet, int(address.Transport), int(pb.NodeType_INVALID),
 		// args $6 - $7
 		defaults.AuditReputationAlpha0, defaults.AuditReputationBeta0,
 		// args $8
 		time.Now(),
+		// args $9
+		info.LastIPPort,
 	)
 	return Error.Wrap(err)
 }
@@ -1003,7 +1007,7 @@ func (cache *overlaycache) GetSuccesfulNodesNotCheckedInSince(ctx context.Contex
 	// get successful nodes that have not checked-in with the hour
 	defer mon.Task()(&ctx)(&err)
 
-	dbxNodes, err := cache.db.DB.All_Node_Id_Node_Address_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_And_LastContactSuccess_Greater_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactSuccess(
+	dbxNodes, err := cache.db.DB.All_Node_Id_Node_Address_Node_LastIpPort_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_And_LastContactSuccess_Greater_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactSuccess(
 		ctx, dbx.Node_LastContactSuccess(time.Now().UTC().Add(-duration)))
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -1020,6 +1024,9 @@ func (cache *overlaycache) GetSuccesfulNodesNotCheckedInSince(ctx context.Contex
 			Address:            node.Address,
 			LastContactSuccess: node.LastContactSuccess.UTC(),
 			LastContactFailure: node.LastContactFailure.UTC(),
+		}
+		if node.LastIpPort != nil {
+			nodeLastContact.LastIPPort = *node.LastIpPort
 		}
 
 		nodeLastContacts = append(nodeLastContacts, nodeLastContact)
@@ -1049,7 +1056,7 @@ func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fi
 func (cache *overlaycache) GetOfflineNodesLimited(ctx context.Context, limit int) (nodeLastContacts []overlay.NodeLastContact, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxNodes, err := cache.db.DB.Limited_Node_Id_Node_Address_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactFailure(
+	dbxNodes, err := cache.db.DB.Limited_Node_Id_Node_Address_Node_LastIpPort_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactFailure(
 		ctx, limit, 0)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -1065,6 +1072,9 @@ func (cache *overlaycache) GetOfflineNodesLimited(ctx context.Context, limit int
 			Address:            node.Address,
 			LastContactSuccess: node.LastContactSuccess.UTC(),
 			LastContactFailure: node.LastContactFailure.UTC(),
+		}
+		if node.LastIpPort != nil {
+			nodeLastContact.LastIPPort = *node.LastIpPort
 		}
 
 		nodeLastContacts = append(nodeLastContacts, nodeLastContact)
@@ -1095,8 +1105,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
-			Id:     id,
-			LastIp: info.LastNet,
+			Id: id,
 			Address: &pb.NodeAddress{
 				Address:   info.Address,
 				Transport: pb.NodeTransport(info.Protocol),
@@ -1122,12 +1131,16 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		PieceCount:   info.PieceCount,
 		ExitStatus:   exitStatus,
 		CreatedAt:    info.CreatedAt,
+		LastNet:      info.LastNet,
+	}
+	if info.LastIpPort != nil {
+		node.LastIPPort = *info.LastIpPort
 	}
 
 	return node, nil
 }
 
-func convertDBNodeToPBNode(ctx context.Context, info *dbx.Id_LastNet_Address_Protocol_Row) (_ *pb.Node, err error) {
+func convertDBNodeToPBNode(ctx context.Context, info *dbx.Id_LastNet_LastIpPort_Address_Protocol_Row) (_ *pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if info == nil {
 		return nil, Error.New("missing info")
@@ -1138,8 +1151,7 @@ func convertDBNodeToPBNode(ctx context.Context, info *dbx.Id_LastNet_Address_Pro
 		return nil, err
 	}
 	return &pb.Node{
-		Id:     id,
-		LastIp: info.LastNet,
+		Id: id,
 		Address: &pb.NodeAddress{
 			Address:   info.Address,
 			Transport: pb.NodeTransport(info.Protocol),
@@ -1407,7 +1419,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				last_contact_failure,
 				audit_reputation_alpha, audit_reputation_beta,
 				unknown_audit_reputation_alpha, unknown_audit_reputation_beta,
-				major, minor, patch, hash, timestamp, release
+				major, minor, patch, hash, timestamp, release,
+				last_ip_port
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
@@ -1421,7 +1434,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				END,
 				$10, $11,
 				$10, $11,
-				$12, $13, $14, $15, $16, $17
+				$12, $13, $14, $15, $16, $17,
+				$19
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1431,7 +1445,6 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				protocol=$4,
 				email=$6,
 				wallet=$7,
-
 				free_disk=$8,
 				major=$12, minor=$13, patch=$14, hash=$15, timestamp=$16, release=$17,
 				total_uptime_count=nodes.total_uptime_count+1,
@@ -1443,11 +1456,12 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				last_contact_failure = CASE WHEN $9::bool IS FALSE
 					THEN $18::timestamptz
 					ELSE nodes.last_contact_failure
-				END;
+				END,
+				last_ip_port=$19;
 			`
 	_, err = cache.db.ExecContext(ctx, query,
 		// args $1 - $5
-		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastIP, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
 		// args $6 - $8
 		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
 		// args $9
@@ -1458,6 +1472,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
 		// args $18
 		timestamp,
+		// args $19
+		node.LastIPPort,
 	)
 	if err != nil {
 		return Error.Wrap(err)

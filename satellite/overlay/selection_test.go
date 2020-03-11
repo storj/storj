@@ -366,7 +366,7 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 	})
 }
 
-func TestFindStorageNodesDistinctIPs(t *testing.T) {
+func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		t.Skip("Test does not work with macOS")
 	}
@@ -397,7 +397,7 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 		require.Len(t, excludedNodes, 1)
 		res, err := satellite.Overlay.Service.Get(ctx, excludedNodes[0])
 		require.NoError(t, err)
-		excludedNodeAddr = res.LastIp
+		excludedNodeAddr = res.LastIPPort
 
 		req := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 2,
@@ -407,9 +407,9 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
-		require.NotEqual(t, nodes[0].LastIp, nodes[1].LastIp)
-		require.NotEqual(t, nodes[0].LastIp, excludedNodeAddr)
-		require.NotEqual(t, nodes[1].LastIp, excludedNodeAddr)
+		require.NotEqual(t, nodes[0].LastIPPort, nodes[1].LastIPPort)
+		require.NotEqual(t, nodes[0].LastIPPort, excludedNodeAddr)
+		require.NotEqual(t, nodes[1].LastIPPort, excludedNodeAddr)
 
 		req = overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 3,
@@ -453,7 +453,7 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 		require.Len(t, excludedNodes, 1)
 		res, err := satellite.Overlay.Service.Get(ctx, excludedNodes[0])
 		require.NoError(t, err)
-		excludedNodeAddr = res.LastIp
+		excludedNodeAddr = res.LastIPPort
 
 		req := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 2,
@@ -463,9 +463,9 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
-		require.NotEqual(t, nodes[0].LastIp, nodes[1].LastIp)
-		require.NotEqual(t, nodes[0].LastIp, excludedNodeAddr)
-		require.NotEqual(t, nodes[1].LastIp, excludedNodeAddr)
+		require.NotEqual(t, nodes[0].LastIPPort, nodes[1].LastIPPort)
+		require.NotEqual(t, nodes[0].LastIPPort, excludedNodeAddr)
+		require.NotEqual(t, nodes[1].LastIPPort, excludedNodeAddr)
 	})
 }
 
@@ -566,8 +566,8 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 		if tt.preferences.DistinctIP {
 			ips := make(map[string]bool)
 			for _, n := range response {
-				assert.False(t, ips[n.LastIp])
-				ips[n.LastIp] = true
+				assert.False(t, ips[n.LastIPPort])
+				ips[n.LastIPPort] = true
 			}
 		}
 
@@ -580,12 +580,14 @@ func TestAddrtoNetwork_Conversion(t *testing.T) {
 	defer ctx.Cleanup()
 
 	ip := "8.8.8.8:28967"
-	network, err := overlay.GetNetwork(ctx, ip)
+	resolvedIPPort, network, err := overlay.GetNetwork(ctx, ip)
 	require.Equal(t, "8.8.8.0", network)
+	require.Equal(t, ip, resolvedIPPort)
 	require.NoError(t, err)
 
 	ipv6 := "[fc00::1:200]:28967"
-	network, err = overlay.GetNetwork(ctx, ipv6)
+	resolvedIPPort, network, err = overlay.GetNetwork(ctx, ipv6)
 	require.Equal(t, "fc00::", network)
+	require.Equal(t, ipv6, resolvedIPPort)
 	require.NoError(t, err)
 }

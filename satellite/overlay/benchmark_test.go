@@ -40,7 +40,9 @@ func BenchmarkOverlay(b *testing.B) {
 		}
 
 		for _, id := range all {
-			err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id}, overlay.NodeSelectionConfig{})
+			n := pb.Node{Id: id}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+			err := overlaydb.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
 			require.NoError(b, err)
 		}
 
@@ -65,7 +67,9 @@ func BenchmarkOverlay(b *testing.B) {
 		b.Run("UpdateAddress", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id}, overlay.NodeSelectionConfig{})
+				n := pb.Node{Id: id}
+				d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+				err := overlaydb.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
 				require.NoError(b, err)
 			}
 		})

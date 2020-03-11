@@ -135,6 +135,7 @@ CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL,
 	last_net text NOT NULL,
+	last_ip_port text,
 	protocol integer NOT NULL,
 	type integer NOT NULL,
 	email text NOT NULL,
