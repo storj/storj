@@ -20,6 +20,55 @@ import (
 	"storj.io/storj/satellite/accounting"
 )
 
+func TestBilling_InlineFiles(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Orders.FlushBatchSize = 1
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			bucketName = "testbucket"
+			firstPath  = "path"
+			secondPath = "another_path"
+		)
+
+		var (
+			satelliteSys = planet.Satellites[0]
+			uplink       = planet.Uplinks[0]
+			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			since        = time.Now()
+		)
+
+		satelliteSys.Accounting.Tally.Loop.Pause()
+
+		// Prepare two inline segments for the Uplink to upload
+		firstSegment := testrand.Bytes(2 * memory.KiB)
+		secondSegment := testrand.Bytes(3 * memory.KiB)
+
+		err := uplink.Upload(ctx, satelliteSys, bucketName, firstPath, firstSegment)
+		require.NoError(t, err)
+		err = uplink.Upload(ctx, satelliteSys, bucketName, secondPath, secondSegment)
+		require.NoError(t, err)
+
+		_, err = uplink.Download(ctx, satelliteSys, bucketName, firstPath)
+		require.NoError(t, err)
+
+		// We need to call tally twice, it calculates the estimated time
+		// using the difference in the generation time of the two tallies
+		satelliteSys.Accounting.Tally.Loop.TriggerWait()
+
+		usage := getProjectTotal(ctx, t, planet, 0, projectID, since)
+
+		// Usage should be > 0
+		require.NotZero(t, usage.ObjectCount)
+		require.NotZero(t, usage.Storage)
+		require.NotZero(t, usage.Egress)
+	})
+}
+
 func TestBilling_FilesAfterDeletion(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
