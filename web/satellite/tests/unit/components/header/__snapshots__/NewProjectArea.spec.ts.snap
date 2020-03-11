@@ -1,14 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`NewProjectArea renders correctly with projects and with payment method 1`] = `
-<div class="new-project-container">
-  <!---->
-  <!---->
-  <!---->
-</div>
-`;
-
-exports[`NewProjectArea renders correctly without projects and with payment method 1`] = `
+exports[`NewProjectArea renders correctly without projects and with credit card 1`] = `
 <div class="new-project-container">
   <!---->
   <div id="newProjectButton" class="new-project-button-container">
@@ -18,7 +10,7 @@ exports[`NewProjectArea renders correctly without projects and with payment meth
 </div>
 `;
 
-exports[`NewProjectArea renders correctly without projects and with payment method 2`] = `
+exports[`NewProjectArea renders correctly without projects and with credit card 2`] = `
 <div class="new-project-container">
   <!---->
   <div id="newProjectButton" class="new-project-button-container">
