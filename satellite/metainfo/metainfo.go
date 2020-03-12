@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
@@ -74,7 +75,7 @@ type Revocations interface {
 type Endpoint struct {
 	log               *zap.Logger
 	metainfo          *Service
-	deletePieces      *DeletePiecesService
+	deletePieces      *piecedeletion.Service
 	orders            *orders.Service
 	overlay           *overlay.Service
 	attributions      attribution.DB
@@ -92,7 +93,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
-func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *DeletePiecesService,
+func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion.Service,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB,
 	partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
@@ -2556,15 +2557,15 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		return nil
 	}
 
-	var nodesPiecesList NodesPieces
+	var requests []piecedeletion.Request
 	for _, node := range nodes {
-		nodesPiecesList = append(nodesPiecesList, NodePieces{
+		requests = append(requests, piecedeletion.Request{
 			Node:   node,
 			Pieces: nodesPieces[node.Id],
 		})
 	}
 
-	return endpoint.deletePieces.DeletePieces(ctx, nodesPiecesList, deleteObjectPiecesSuccessThreshold)
+	return endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold)
 }
 
 // deletePointer deletes a pointer returning the deleted pointer.

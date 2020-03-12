@@ -244,12 +244,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the database connection string to use
 # metainfo.database-url: postgres://
 
-# maximum number of concurrent connection for the entire service.
-# metainfo.delete-pieces-service.max-concurrent-connection: 100
-
-# how long to wait for a node to complete a delete request.
-# metainfo.delete-pieces-service.node-operation-timeout: 5m0s
-
 # how long to wait for new observers before starting iteration
 # metainfo.loop.coalesce-duration: 5s
 
@@ -267,6 +261,24 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
+
+# timeout for dialing nodes (0 means satellite default)
+# metainfo.piece-deletion.dial-timeout: 0s
+
+# threshold for retrying a failed node
+# metainfo.piece-deletion.fail-threshold: 5m0s
+
+# maximum number of concurrent requests to storage nodes
+# metainfo.piece-deletion.max-concurrency: 100
+
+# maximum number of pieces per batch
+# metainfo.piece-deletion.max-pieces-per-batch: 5000
+
+# maximum number pieces per single request
+# metainfo.piece-deletion.max-pieces-per-request: 1000
+
+# timeout for a single delete request
+# metainfo.piece-deletion.request-timeout: 1m0s
 
 # number of projects to cache.
 # metainfo.rate-limiter.cache-capacity: 10000

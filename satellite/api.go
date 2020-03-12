@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -102,10 +103,10 @@ type API struct {
 	}
 
 	Metainfo struct {
-		Database            metainfo.PointerDB
-		Service             *metainfo.Service
-		DeletePiecesService *metainfo.DeletePiecesService
-		Endpoint2           *metainfo.Endpoint
+		Database      metainfo.PointerDB
+		Service       *metainfo.Service
+		PieceDeletion *piecedeletion.Service
+		Endpoint2     *metainfo.Endpoint
 	}
 
 	Inspector struct {
@@ -387,23 +388,24 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Buckets(),
 		)
 
-		peer.Metainfo.DeletePiecesService, err = metainfo.NewDeletePiecesService(
-			peer.Log.Named("metainfo:delete-pieces"),
+		peer.Metainfo.PieceDeletion, err = piecedeletion.NewService(
+			peer.Log.Named("metainfo:piecedeletion"),
 			peer.Dialer,
-			config.Metainfo.DeletePiecesService,
+			config.Metainfo.PieceDeletion,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 		peer.Services.Add(lifecycle.Item{
-			Name:  "metainfo:delete-pieces",
-			Close: peer.Metainfo.DeletePiecesService.Close,
+			Name:  "metainfo:piecedeletion",
+			Run:   peer.Metainfo.PieceDeletion.Run,
+			Close: peer.Metainfo.PieceDeletion.Close,
 		})
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
-			peer.Metainfo.DeletePiecesService,
+			peer.Metainfo.PieceDeletion,
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Attribution(),

@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
@@ -341,9 +342,15 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					CacheCapacity:   100,
 					CacheExpiration: 10 * time.Second,
 				},
-				DeletePiecesService: metainfo.DeletePiecesServiceConfig{
-					MaxConcurrentConnection: 100,
-					NodeOperationTimeout:    2 * time.Second,
+				PieceDeletion: piecedeletion.Config{
+					MaxConcurrency: 100,
+
+					MaxPiecesPerBatch:   4000,
+					MaxPiecesPerRequest: 2000,
+
+					DialTimeout:    2 * time.Second,
+					RequestTimeout: 2 * time.Second,
+					FailThreshold:  2 * time.Second,
 				},
 			},
 			Orders: orders.Config{
