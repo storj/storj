@@ -44,7 +44,7 @@ export default class NewProjectArea extends Vue {
      * Life cycle hook after initial render.
      * Toggles new project button visibility depending on user having his own project or payment method.
      */
-    public mounted(): void {
+    public beforeMount(): void {
         if (ProjectOwning.userHasOwnProject() || !this.$store.getters.isBonusCouponApplied) {
             this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
 

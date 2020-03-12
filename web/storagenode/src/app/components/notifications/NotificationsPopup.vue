@@ -72,7 +72,7 @@ export default class NotificationsPopup extends Vue {
         border-radius: 12px;
         padding: 27px 0 10px 0;
         box-shadow: 0 7px 17px #e7ebee;
-        z-index: 1130;
+        z-index: 104;
 
         &__header {
             display: flex;
@@ -119,5 +119,13 @@ export default class NotificationsPopup extends Vue {
 
     .collapsed {
         height: auto !important;
+    }
+
+    @media screen and (max-width: 460px) {
+
+        .notification-popup-container {
+            width: 100%;
+            max-height: 350px;
+        }
     }
 </style>

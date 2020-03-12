@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
-	"storj.io/storj/pkg/process"
 )
 
 func init() {
@@ -22,7 +21,7 @@ func init() {
 }
 
 func makeBucket(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	if len(args) == 0 {
 		return fmt.Errorf("no bucket specified for creation")
