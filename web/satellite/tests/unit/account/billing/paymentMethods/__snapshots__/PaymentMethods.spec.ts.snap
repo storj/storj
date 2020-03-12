@@ -70,7 +70,7 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 2`] =
       <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="button container" style="width: 123px; height: 48px;">
+          <div class="button container blue-white" style="width: 123px; height: 48px;">
             <h1 class="label">Add STORJ</h1>
           </div>
         </div>
@@ -142,7 +142,7 @@ exports[`PaymentMethods renders correctly after add card and cancel click 2`] = 
       <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <vbutton-stub label="Add STORJ" width="123px" height="48px" onpress="function () { [native code] }" class="button"></vbutton-stub>
+          <vbutton-stub label="Add STORJ" width="123px" height="48px" isbluewhite="true" onpress="function () { [native code] }" class="button"></vbutton-stub>
         </div>
       </div>
     </div>
@@ -166,7 +166,7 @@ exports[`PaymentMethods renders correctly after continue To Coin Payments click 
       <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="button container" style="width: 123px; height: 48px;">
+          <div class="button container blue-white" style="width: 123px; height: 48px;">
             <h1 class="label">Add STORJ</h1>
           </div>
         </div>
@@ -206,7 +206,7 @@ exports[`PaymentMethods renders correctly with card 1`] = `
       <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="button container" style="width: 123px; height: 48px;">
+          <div class="button container blue-white" style="width: 123px; height: 48px;">
             <h1 class="label">Add STORJ</h1>
           </div>
         </div>
@@ -276,7 +276,7 @@ exports[`PaymentMethods renders correctly without card 1`] = `
       <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="button container" style="width: 123px; height: 48px;">
+          <div class="button container blue-white" style="width: 123px; height: 48px;">
             <h1 class="label">Add STORJ</h1>
           </div>
         </div>

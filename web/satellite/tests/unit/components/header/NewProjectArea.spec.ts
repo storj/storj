@@ -39,7 +39,7 @@ describe('NewProjectArea', () => {
         });
 
         expect(wrapper).toMatchSnapshot();
-        expect(wrapper.findAll('.new-project-button-container').length).toBe(0);
+        expect(wrapper.findAll('.new-project-button-container').length).toBe(0); // user is unable to create project.
     });
 
     it('renders correctly without projects and without payment methods with info tooltip', async () => {
@@ -89,10 +89,8 @@ describe('NewProjectArea', () => {
         const user = new User('ownerId', 'test', 'test', 'test@test.test', 'test', 'test');
         const project = new Project('id', 'test', 'test', 'test', 'ownerId', true);
         store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_PROJECT_POPUP);
-        store.commit(PAYMENTS_MUTATIONS.SET_BILLING_HISTORY, []);
         store.commit(USER_MUTATIONS.SET_USER, user);
         store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, [project]);
-        store.commit(APP_STATE_MUTATIONS.HIDE_CREATE_PROJECT_BUTTON);
 
         const wrapper = mount(NewProjectArea, {
             store,

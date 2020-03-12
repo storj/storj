@@ -37,7 +37,7 @@ import DepositAndBilling from '@/components/account/billing/billingHistory/Depos
 import MonthlyBillingSummary from '@/components/account/billing/monthlySummary/MonthlyBillingSummary.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 
-import { Project } from '@/types/projects';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
@@ -50,6 +50,22 @@ import { ProjectOwning } from '@/utils/projectOwning';
 })
 export default class BillingArea extends Vue {
     /**
+     * Mounted lifecycle hook after initial render.
+     * Fetches project limits.
+     */
+    public async mounted(): Promise<void> {
+        if (!this.$store.getters.selectedProject.id) {
+            return;
+        }
+
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+    }
+
+    /**
      * Holds minimum safe balance in cents.
      * If balance is lower - yellow notification should appear.
      */
@@ -61,7 +77,7 @@ export default class BillingArea extends Vue {
     public get areBalanceAndSummaryVisible(): boolean {
         const isBalancePositive: boolean = this.$store.state.paymentsModule.balance > 0;
 
-        return isBalancePositive || ProjectOwning.userHasOwnProject();
+        return isBalancePositive || new ProjectOwning(this.$store).userHasOwnProject();
     }
 
     /**
@@ -96,7 +112,7 @@ export default class BillingArea extends Vue {
             font-size: 32px;
             line-height: 39px;
             color: #384b65;
-            margin: 45px 0 35px 0;
+            margin: 60px 0 0 0;
         }
 
         &__notification-container {

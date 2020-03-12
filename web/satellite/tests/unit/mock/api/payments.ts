@@ -7,8 +7,6 @@ import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposi
  * Mock for PaymentsApi
  */
 export class PaymentsMock implements PaymentsApi {
-    private tokenDeposit: TokenDeposit;
-
     setupAccount(): Promise<void> {
         throw new Error('Method not implemented');
     }
@@ -42,6 +40,6 @@ export class PaymentsMock implements PaymentsApi {
     }
 
     makeTokenDeposit(amount: number): Promise<TokenDeposit> {
-        return Promise.resolve(this.tokenDeposit);
+        return Promise.resolve(new TokenDeposit(amount, 'testAddress', 'testLink'));
     }
 }

@@ -54,7 +54,7 @@ export default class AccountBalance extends Vue {
             this.$notify.error(error.message);
         }
 
-        if (this.balance > 0 && !ProjectOwning.userHasOwnProject()) {
+        if (this.balance > 0 && !new ProjectOwning(this.$store).userHasOwnProject()) {
             this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
         }
     }
@@ -87,7 +87,7 @@ export default class AccountBalance extends Vue {
         align-items: center;
         justify-content: space-between;
         padding: 40px;
-        margin: 55px 0 32px 0;
+        margin: 32px 0;
         background-color: #fff;
         border-radius: 8px;
         font-family: 'font_regular', sans-serif;
