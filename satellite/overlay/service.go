@@ -122,7 +122,7 @@ type NodeCriteria struct {
 	AuditCount       int64
 	UptimeCount      int64
 	ExcludedIDs      []storj.NodeID
-	ExcludedNetworks []string // the /24 subnet of node IP
+	ExcludedNetworks []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
 	MinimumVersion   string   // semver or empty
 	OnlineWindow     time.Duration
 	DistinctIP       bool
@@ -481,7 +481,7 @@ func (service *Service) GetOfflineNodesLimited(ctx context.Context, limit int) (
 	return service.db.GetOfflineNodesLimited(ctx, limit)
 }
 
-// ResolveIPAndNetwork resolves the target address and determines its IP and /24 Subnet
+// ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6
 func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
