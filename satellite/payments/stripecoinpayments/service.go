@@ -43,6 +43,7 @@ type Config struct {
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
+	AutoAdvance                  bool          `help:"toogle autoadvance feature for invoice creation" default:"false"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -61,6 +62,9 @@ type Service struct {
 	ObjectHourCents decimal.Decimal
 	// BonusRate amount of percents
 	BonusRate int64
+
+	//Stripe Extended Features
+	AutoAdvance bool
 
 	mu       sync.Mutex
 	rates    coinpayments.CurrencyRateInfos
@@ -127,6 +131,7 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 		EgressByteCents: egressByteCents,
 		ObjectHourCents: objectHourCents,
 		BonusRate:       bonusRate,
+		AutoAdvance:     config.AutoAdvance,
 	}, nil
 }
 
@@ -840,7 +845,7 @@ func (service *Service) createInvoice(ctx context.Context, cusID string) (err er
 	_, err = service.stripeClient.Invoices.New(
 		&stripe.InvoiceParams{
 			Customer:    stripe.String(cusID),
-			AutoAdvance: stripe.Bool(true),
+			AutoAdvance: stripe.Bool(service.AutoAdvance),
 		},
 	)
 
