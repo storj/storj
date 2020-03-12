@@ -26,11 +26,11 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
+	"storj.io/common/processgroup"
 	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/processgroup"
 )
 
 const (
@@ -568,7 +568,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--operator.wallet", "0x0123456789012345678901234567890123456789",
 
 				"--storage2.monitor.minimum-disk-space", "0",
-				"--storage2.monitor.minimum-bandwidth", "0",
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",

@@ -44,43 +44,43 @@ func TestInvalidAPIKey(t *testing.T) {
 			client.SetRawAPIKey([]byte(invalidAPIKey))
 
 			_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, _, err = client.ListObjects(ctx, metainfo.ListObjectsParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			err = client.CommitObject(ctx, metainfo.CommitObjectParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.CreateBucket(ctx, metainfo.CreateBucketParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			err = client.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.GetObject(ctx, metainfo.GetObjectParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			err = client.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.GetProjectInfo(ctx)
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			// these methods needs StreamID to do authentication
 
@@ -98,19 +98,19 @@ func TestInvalidAPIKey(t *testing.T) {
 			require.NoError(t, err)
 
 			_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: streamID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, _, _, err = client.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{StreamID: streamID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			err = client.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{StreamID: streamID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, _, err = client.ListSegments(ctx, metainfo.ListSegmentsParams{StreamID: streamID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, _, err = client.DownloadSegment(ctx, metainfo.DownloadSegmentParams{StreamID: streamID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			// these methods needs SegmentID
 
@@ -127,18 +127,18 @@ func TestInvalidAPIKey(t *testing.T) {
 			require.NoError(t, err)
 
 			err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{SegmentID: segmentID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 		}
 	})
 }
 
-func assertUnauthenticated(t *testing.T, err error, allowed bool) {
+func assertInvalidArgument(t *testing.T, err error, allowed bool) {
 	t.Helper()
 
 	// If it's allowed, we allow any non-unauthenticated error because
 	// some calls error after authentication checks.
 	if !allowed {
-		assert.True(t, errs2.IsRPC(err, rpcstatus.Unauthenticated))
+		assert.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 	}
 }
 

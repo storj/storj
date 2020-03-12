@@ -23,7 +23,7 @@ export interface PaymentsApi {
     /**
      * projectsCharges returns how much money current user will be charged for each project which he owns.
      */
-    projectsCharges(): Promise<ProjectCharge[]>;
+    projectsCharges(since: Date, before: Date): Promise<ProjectCharge[]>;
 
     /**
      * Add credit card
@@ -145,6 +145,16 @@ export enum BillingHistoryItemType {
 }
 
 /**
+ * BillingHistoryStatusType indicates status of billing history item.
+ */
+export enum BillingHistoryItemStatus {
+    /**
+     * Status showed if transaction successfully completed.
+     */
+    Completed = 'completed',
+}
+
+/**
  * TokenDeposit holds public information about token deposit.
  */
 export class TokenDeposit {
@@ -171,18 +181,23 @@ class Amount {
   */
 export class ProjectCharge {
     public constructor(
+        public since: Date = new Date(),
+        public before: Date = new Date(),
+        public egress: number = 0,
+        public storage: number = 0,
+        public objectCount: number = 0,
         public projectId: string = '',
         // storage shows how much cents we should pay for storing GB*Hrs.
-        public storage: number = 0,
+        public storagePrice: number = 0,
         // egress shows how many cents we should pay for Egress.
-        public egress: number = 0,
+        public egressPrice: number = 0,
         // objectCount shows how many cents we should pay for objects count.
-        public objectCount: number = 0) {}
+        public objectPrice: number = 0) {}
 
     /**
      * summary returns total price for a project in cents.
      */
     public summary(): number {
-        return this.storage + this.egress + this.objectCount;
+        return this.storagePrice + this.egressPrice + this.objectPrice;
     }
 }

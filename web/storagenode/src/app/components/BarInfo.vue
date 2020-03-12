@@ -2,10 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="remaining-space-container">
-        <p class="remaining-space-container__title">{{label}}</p>
-        <p class="remaining-space-container__amount"><b>{{remaining}}</b></p>
-        <div class="remaining-space-container__bar">
+    <div class="bar-info-container">
+        <p class="bar-info-container__title">{{label}}</p>
+        <p class="bar-info-container__amount"><b>{{remaining}}</b></p>
+        <div class="bar-info-container__bar">
             <VInfo :text="infoMessage">
                 <VBar
                     :current="currentBarAmount"
@@ -58,8 +58,8 @@ export default class BarInfo extends Vue {
         margin: 0;
     }
 
-    .remaining-space-container {
-        width: 339px;
+    .bar-info-container {
+        width: calc(100% - 60px);
         height: 99px;
         background-color: #fff;
         border: 1px solid #e9eff4;

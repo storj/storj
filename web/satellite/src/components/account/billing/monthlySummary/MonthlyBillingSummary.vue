@@ -45,6 +45,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import UsageChargeItem from '@/components/account/billing/monthlySummary/UsageChargeItem.vue';
 import VButton from '@/components/common/VButton.vue';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { ProjectCharge } from '@/types/payments';
 
 @Component({
@@ -55,14 +56,28 @@ import { ProjectCharge } from '@/types/payments';
 })
 export default class MonthlyBillingSummary extends Vue {
     /**
+     * Lifecycle hook after initial render.
+     * Fetches current project usage rollup.
+     */
+    public async mounted(): Promise<void> {
+        try {
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
+        }
+    }
+
+    /**
      * areUsageChargesShown indicates if area with all projects is expanded.
      */
     private areUsageChargesShown: boolean = false;
 
     /**
-     * usageCharges is an array of all ProjectCharges.
+     * usageCharges is an array of all stored ProjectCharges.
      */
-    public usageCharges: ProjectCharge[] = this.$store.state.paymentsModule.charges;
+    public get usageCharges(): ProjectCharge[] {
+        return this.$store.state.paymentsModule.charges;
+    }
 
     /**
      * String representation of current billing period dates range.
@@ -201,7 +216,7 @@ export default class MonthlyBillingSummary extends Vue {
                     cursor: default;
                     max-height: 228px;
                     overflow-y: auto;
-                    padding: 0 20px 20px 20px;
+                    padding: 0 20px;
                 }
             }
         }

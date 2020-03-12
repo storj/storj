@@ -37,9 +37,9 @@ var ErrNotEnoughNodes = errs.Class("not enough nodes")
 // architecture: Database
 type DB interface {
 	// SelectStorageNodes looks up nodes based on criteria
-	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
+	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*NodeDossier, error)
 	// SelectNewStorageNodes looks up nodes based on new node criteria
-	SelectNewStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*pb.Node, error)
+	SelectNewStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*NodeDossier, error)
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
@@ -56,7 +56,7 @@ type DB interface {
 	// PaginateQualified will page through the qualified nodes
 	PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
 	// Update updates node address
-	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
+	UpdateAddress(ctx context.Context, value *NodeDossier, defaults NodeSelectionConfig) error
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
 	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
@@ -84,8 +84,8 @@ type DB interface {
 	// GetExitStatus returns a node's graceful exit status.
 	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
 
-	// GetNodeIPs returns a list of IP addresses associated with given node IDs.
-	GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (nodeIPs []string, err error)
+	// GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
+	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
 
 	// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
 	GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeAddresses []NodeLastContact, err error)
@@ -98,27 +98,26 @@ type DB interface {
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
 type NodeCheckInInfo struct {
-	NodeID   storj.NodeID
-	Address  *pb.NodeAddress
-	LastIP   string
-	IsUp     bool
-	Operator *pb.NodeOperator
-	Capacity *pb.NodeCapacity
-	Version  *pb.NodeVersion
+	NodeID     storj.NodeID
+	Address    *pb.NodeAddress
+	LastNet    string
+	LastIPPort string
+	IsUp       bool
+	Operator   *pb.NodeOperator
+	Capacity   *pb.NodeCapacity
+	Version    *pb.NodeVersion
 }
 
 // FindStorageNodesRequest defines easy request parameters.
 type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
-	FreeBandwidth        int64
 	ExcludedNodes        []storj.NodeID
 	MinimumVersion       string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
-	FreeBandwidth  int64
 	FreeDisk       int64
 	AuditCount     int64
 	UptimeCount    int64
@@ -173,6 +172,8 @@ type NodeDossier struct {
 	PieceCount   int64
 	ExitStatus   ExitStatus
 	CreatedAt    time.Time
+	LastNet      string
+	LastIPPort   string
 }
 
 // NodeStats contains statistics about a node.
@@ -193,6 +194,7 @@ type NodeStats struct {
 type NodeLastContact struct {
 	ID                 storj.NodeID
 	Address            string
+	LastIPPort         string
 	LastContactSuccess time.Time
 	LastContactFailure time.Time
 }
@@ -252,13 +254,13 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*pb.Node, err error) {
+func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 }
 
 // FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria
-func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*pb.Node, err error) {
+func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: add sanity limits to requested node count
@@ -272,7 +274,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	// get and exclude IPs associated with excluded nodes if distinctIP is enabled
 	var excludedIPs []string
 	if preferences.DistinctIP && len(excludedNodes) > 0 {
-		excludedIPs, err = service.db.GetNodeIPs(ctx, excludedNodes)
+		excludedIPs, err = service.db.GetNodesNetwork(ctx, excludedNodes)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -283,10 +285,9 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		newNodeCount = int(float64(reputableNodeCount) * preferences.NewNodePercentage)
 	}
 
-	var newNodes []*pb.Node
+	var newNodes []*NodeDossier
 	if newNodeCount > 0 {
 		newNodes, err = service.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
-			FreeBandwidth:  req.FreeBandwidth,
 			FreeDisk:       preferences.MinimumDiskSpace.Int64(),
 			AuditCount:     preferences.AuditCount,
 			ExcludedNodes:  excludedNodes,
@@ -304,12 +305,11 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	for _, newNode := range newNodes {
 		excludedNodes = append(excludedNodes, newNode.Id)
 		if preferences.DistinctIP {
-			excludedIPs = append(excludedIPs, newNode.LastIp)
+			excludedIPs = append(excludedIPs, newNode.LastNet)
 		}
 	}
 
 	criteria := NodeCriteria{
-		FreeBandwidth:  req.FreeBandwidth,
 		FreeDisk:       preferences.MinimumDiskSpace.Int64(),
 		AuditCount:     preferences.AuditCount,
 		UptimeCount:    preferences.UptimeCount,
@@ -383,12 +383,19 @@ func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.N
 		return errors.New("node has no address")
 	}
 
-	// Resolve IP Address Network to ensure it is set
-	value.LastIp, err = GetNetwork(ctx, value.Address.Address)
+	// Resolve the IP and the subnet from the address that is sent
+	resolvedIPPort, resolvedNetwork, err := GetNetwork(ctx, value.Address.Address)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	return service.db.UpdateAddress(ctx, &value, service.config.Node)
+
+	n := NodeDossier{
+		Node:       value,
+		LastNet:    resolvedNetwork,
+		LastIPPort: resolvedIPPort,
+	}
+
+	return service.db.UpdateAddress(ctx, &n, service.config.Node)
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
@@ -467,45 +474,36 @@ func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID)
 	return service.db.DisqualifyNode(ctx, nodeID)
 }
 
-func getIP(ctx context.Context, target string) (ip net.IPAddr, err error) {
-	defer mon.Task()(&ctx)(&err)
-	host, _, err := net.SplitHostPort(target)
-	if err != nil {
-		return net.IPAddr{}, err
-	}
-	ipAddr, err := net.ResolveIPAddr("ip", host)
-	if err != nil {
-		return net.IPAddr{}, err
-	}
-	return *ipAddr, nil
-}
-
 // GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
 func (service *Service) GetOfflineNodesLimited(ctx context.Context, limit int) (offlineNodes []NodeLastContact, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.GetOfflineNodesLimited(ctx, limit)
 }
 
-// GetNetwork resolves the target address and determines its IP /24 Subnet
-func GetNetwork(ctx context.Context, target string) (network string, err error) {
+// GetNetwork resolves the target address and determines its IP and /24 Subnet
+func GetNetwork(ctx context.Context, target string) (ipPort, network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	addr, err := getIP(ctx, target)
+	host, port, err := net.SplitHostPort(target)
 	if err != nil {
-		return "", err
+		return "", "", err
+	}
+	ipAddr, err := net.ResolveIPAddr("ip", host)
+	if err != nil {
+		return "", "", err
 	}
 
 	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
-	if ipv4 := addr.IP.To4(); ipv4 != nil {
+	if ipv4 := ipAddr.IP.To4(); ipv4 != nil {
 		//Filter all IPv4 Addresses into /24 Subnet's
 		mask := net.CIDRMask(24, 32)
-		return ipv4.Mask(mask).String(), nil
+		return net.JoinHostPort(ipAddr.String(), port), ipv4.Mask(mask).String(), nil
 	}
-	if ipv6 := addr.IP.To16(); ipv6 != nil {
+	if ipv6 := ipAddr.IP.To16(); ipv6 != nil {
 		//Filter all IPv6 Addresses into /64 Subnet's
 		mask := net.CIDRMask(64, 128)
-		return ipv6.Mask(mask).String(), nil
+		return net.JoinHostPort(ipAddr.String(), port), ipv6.Mask(mask).String(), nil
 	}
 
-	return "", errors.New("unable to get network for address " + addr.String())
+	return "", "", errors.New("unable to get network for address " + ipAddr.String())
 }

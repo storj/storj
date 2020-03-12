@@ -7,7 +7,7 @@ model value_attribution (
 	field project_id	blob
 	field bucket_name	blob
 	field partner_id	blob
-	field last_updated 	utimestamp  ( autoinsert, autoupdate )
+	field last_updated 	timestamp  ( autoinsert, autoupdate )
 )
 
 create value_attribution ()
@@ -134,8 +134,11 @@ model node (
 	)
 
 	field id             blob
+	// address is how to contact the node, this can be a hostname or IP and it contains the port
 	field address        text  ( updatable ) // TODO: use compressed format
+	// last_net is the /24 subnet of the IP
 	field last_net       text  ( updatable )
+	field last_ip_port   text  ( updatable, nullable )
 	field protocol       int   ( updatable )
 	field type           int   ( updatable )
 	field email          text  ( updatable )
@@ -163,16 +166,24 @@ model node (
 	field last_contact_failure timestamp ( updatable )
 
 	field contained bool ( updatable )
+    // node is disqualified when it fails too many audits or is offline for too long
 	field disqualified timestamp ( updatable, nullable )
+    // node is placed under inspection when it has too many unknown-error audits
+	field suspended timestamp ( updatable, nullable )
 
+	// audit_reputation_fields track information related to successful vs. failed error audits
 	field audit_reputation_alpha  float64 ( updatable )
 	field audit_reputation_beta   float64 ( updatable )
+	// unknown_audit_reputation fields track information related to successful vs. unknown error audits
+	field unknown_audit_reputation_alpha  float64 ( updatable, default 1 )
+	field unknown_audit_reputation_beta   float64 ( updatable, default 0 )
+	// TODO remove uptime alpha/beta once old uptime dq code is removed
 	field uptime_reputation_alpha float64 ( updatable )
 	field uptime_reputation_beta  float64 ( updatable )
 
-    field exit_initiated_at         utimestamp ( updatable, nullable )
-    field exit_loop_completed_at    utimestamp ( updatable, nullable )
-    field exit_finished_at          utimestamp ( updatable, nullable )
+    field exit_initiated_at         timestamp ( updatable, nullable )
+    field exit_loop_completed_at    timestamp ( updatable, nullable )
+    field exit_finished_at          timestamp ( updatable, nullable )
     field exit_success              bool ( updatable )
 )
 
@@ -201,7 +212,7 @@ read limitoffset (
 )
 
 read limitoffset (
-	select node.id node.last_net node.address node.protocol
+	select node.id node.last_net node.last_ip_port node.address node.protocol
 	where  node.id >= ?
 	where  node.disqualified = null
 	orderby asc node.id
@@ -213,14 +224,14 @@ read all (
 )
 
 read limitoffset (
-	select node.id node.address node.last_contact_success node.last_contact_failure
+	select node.id node.address node.last_ip_port node.last_contact_success node.last_contact_failure
     where node.last_contact_success < node.last_contact_failure
 	where  node.disqualified = null
 	orderby asc node.last_contact_failure
 )
 
 read all (
-	select node.id node.address node.last_contact_success node.last_contact_failure
+	select node.id node.address node.last_ip_port node.last_contact_success node.last_contact_failure
 	where node.last_contact_success < ?
 	where node.last_contact_success > node.last_contact_failure
 	where  node.disqualified = null
@@ -234,7 +245,7 @@ model injuredsegment (
 
 	field path blob
 	field data blob
-	field attempted utimestamp (updatable, nullable)
+	field attempted timestamp (updatable, nullable)
     field num_healthy_pieces int (default 52)
 
 	index (
@@ -435,7 +446,7 @@ model serial_number (
 	field serial_number blob
 
 	field bucket_id     blob
-	field expires_at    utimestamp
+	field expires_at    timestamp
 
 	index (
 		fields expires_at
@@ -529,7 +540,7 @@ model bucket_bandwidth_rollup (
 	field bucket_name       blob
 	field project_id        blob
 
-	field interval_start   utimestamp
+	field interval_start   timestamp
 	field interval_seconds uint
 	field action           uint
 
@@ -552,7 +563,7 @@ model bucket_storage_tally (
 	field bucket_name       blob
 	field project_id        blob
 
-	field interval_start   utimestamp
+	field interval_start   timestamp
 
 	field inline uint64
 	field remote uint64
@@ -591,7 +602,7 @@ model storagenode_bandwidth_rollup (
 	key    storagenode_id interval_start action
 
 	field storagenode_id   blob
-	field interval_start   utimestamp
+	field interval_start   timestamp
 	field interval_seconds uint
 	field action           uint
 
@@ -919,7 +930,7 @@ model graceful_exit_progress (
     field bytes_transferred    int64 ( updatable )
 	field pieces_transferred   int64 ( autoinsert, updatable )
 	field pieces_failed        int64 ( autoinsert, updatable )
-    field updated_at           utimestamp ( autoinsert, autoupdate )
+    field updated_at           timestamp ( autoinsert, autoupdate )
 )
 
 create graceful_exit_progress ( noreturn )
@@ -944,12 +955,12 @@ model graceful_exit_transfer_queue (
     field piece_num              int
     field root_piece_id          blob       ( nullable )
     field durability_ratio       float64    ( updatable )
-    field queued_at              utimestamp ( autoinsert )
-    field requested_at           utimestamp ( updatable, nullable )
-    field last_failed_at         utimestamp ( updatable, nullable )
+    field queued_at              timestamp ( autoinsert )
+    field requested_at           timestamp ( updatable, nullable )
+    field last_failed_at         timestamp ( updatable, nullable )
     field last_failed_code       int        ( updatable, nullable )
     field failed_count           int        ( updatable, nullable )
-    field finished_at            utimestamp ( updatable, nullable )
+    field finished_at            timestamp ( updatable, nullable )
     field order_limit_send_count int        ( updatable )
 )
 

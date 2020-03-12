@@ -16,5 +16,4 @@ ENTRYPOINT ["/entrypoint"]
 ENV ADDRESS="" \
     EMAIL="" \
     WALLET="" \
-    BANDWIDTH="2.0TB" \
     STORAGE="2.0TB"

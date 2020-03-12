@@ -18,8 +18,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/fpath"
-	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
+	"storj.io/uplink"
 )
 
 var (
@@ -89,11 +89,11 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket())
+	project, err := cfg.getProject(ctx, false)
 	if err != nil {
 		return err
 	}
-	defer closeProjectAndBucket(project, bucket)
+	defer closeProject(project)
 
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
@@ -103,27 +103,43 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		bar.Start()
 	}
 
-	opts := &libuplink.UploadOptions{}
-
-	if *expires != "" {
-		opts.Expires = expiration.UTC()
-	}
-
+	var customMetadata uplink.CustomMetadata
 	if *metadata != "" {
-		var md map[string]string
-
-		err := json.Unmarshal([]byte(*metadata), &md)
+		err := json.Unmarshal([]byte(*metadata), &customMetadata)
 		if err != nil {
 			return err
 		}
 
-		opts.Metadata = md
+		if err := customMetadata.Verify(); err != nil {
+			return err
+		}
 	}
 
-	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
-	opts.Volatile.EncryptionParameters = cfg.GetEncryptionParameters()
+	upload, err := project.UploadObject(ctx, dst.Bucket(), dst.Path(), &uplink.UploadOptions{
+		Expires: expiration,
+	})
+	if err != nil {
+		return err
+	}
 
-	err = bucket.UploadObject(ctx, dst.Path(), reader, opts)
+	err = upload.SetCustomMetadata(ctx, customMetadata)
+	if err != nil {
+		abortErr := upload.Abort()
+		err = errs.Combine(err, abortErr)
+		return err
+	}
+
+	_, err = io.Copy(upload, reader)
+	if err != nil {
+		abortErr := upload.Abort()
+		err = errs.Combine(err, abortErr)
+		return err
+	}
+
+	if err := upload.Commit(); err != nil {
+		return err
+	}
+
 	if bar != nil {
 		bar.Finish()
 	}
@@ -146,31 +162,27 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket())
+	project, err := cfg.getProject(ctx, false)
 	if err != nil {
 		return err
 	}
-	defer closeProjectAndBucket(project, bucket)
+	defer closeProject(project)
 
-	object, err := bucket.OpenObject(ctx, src.Path())
-	if err != nil {
-		return convertError(err, src)
-	}
-
-	rc, err := object.DownloadRange(ctx, 0, object.Meta.Size)
+	download, err := project.DownloadObject(ctx, src.Bucket(), src.Path(), nil)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, rc.Close()) }()
+	defer func() { err = errs.Combine(err, download.Close()) }()
 
 	var bar *progressbar.ProgressBar
 	var reader io.ReadCloser
 	if showProgress {
-		bar = progressbar.New64(object.Meta.Size)
-		reader = bar.NewProxyReader(rc)
+		info := download.Info()
+		bar = progressbar.New64(info.System.ContentLength)
+		reader = bar.NewProxyReader(download)
 		bar.Start()
 	} else {
-		reader = rc
+		reader = download
 	}
 
 	if fileInfo, err := os.Stat(dst.Path()); err == nil && fileInfo.IsDir() {
@@ -217,31 +229,28 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket())
+	project, err := cfg.getProject(ctx, false)
 	if err != nil {
 		return err
 	}
-	defer closeProjectAndBucket(project, bucket)
+	defer closeProject(project)
 
-	object, err := bucket.OpenObject(ctx, src.Path())
-	if err != nil {
-		return convertError(err, src)
-	}
-
-	rc, err := object.DownloadRange(ctx, 0, object.Meta.Size)
+	download, err := project.DownloadObject(ctx, src.Bucket(), src.Path(), nil)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, rc.Close()) }()
+	defer func() { err = errs.Combine(err, download.Close()) }()
+
+	downloadInfo := download.Info()
 
 	var bar *progressbar.ProgressBar
 	var reader io.Reader
 	if *progress {
-		bar = progressbar.New64(object.Meta.Size)
-		reader = bar.NewProxyReader(reader)
+		bar = progressbar.New64(downloadInfo.System.ContentLength)
+		reader = bar.NewProxyReader(download)
 		bar.Start()
 	} else {
-		reader = rc
+		reader = download
 	}
 
 	// if destination object name not specified, default to source object name
@@ -249,15 +258,27 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		dst = dst.Join(src.Base())
 	}
 
-	opts := &libuplink.UploadOptions{
-		Expires:     object.Meta.Expires,
-		ContentType: object.Meta.ContentType,
-		Metadata:    object.Meta.Metadata,
-	}
-	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
-	opts.Volatile.EncryptionParameters = cfg.GetEncryptionParameters()
+	upload, err := project.UploadObject(ctx, dst.Bucket(), dst.Path(), &uplink.UploadOptions{
+		Expires: downloadInfo.System.Expires,
+	})
 
-	err = bucket.UploadObject(ctx, dst.Path(), reader, opts)
+	_, err = io.Copy(upload, reader)
+	if err != nil {
+		abortErr := upload.Abort()
+		return errs.Combine(err, abortErr)
+	}
+
+	err = upload.SetCustomMetadata(ctx, downloadInfo.Custom)
+	if err != nil {
+		abortErr := upload.Abort()
+		return errs.Combine(err, abortErr)
+	}
+
+	err = upload.Commit()
+	if err != nil {
+		return err
+	}
+
 	if bar != nil {
 		bar.Finish()
 	}

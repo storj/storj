@@ -20,7 +20,7 @@ CREATE TABLE accounting_timestamps (
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
-	interval_start timestamp NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
 	inline bigint NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
-	interval_start timestamp NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
 	remote_segments_count integer NOT NULL,
@@ -98,7 +98,7 @@ CREATE TABLE graceful_exit_progress (
 	bytes_transferred bigint NOT NULL,
 	pieces_transferred bigint NOT NULL,
 	pieces_failed bigint NOT NULL,
-	updated_at timestamp NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE graceful_exit_transfer_queue (
@@ -107,19 +107,19 @@ CREATE TABLE graceful_exit_transfer_queue (
 	piece_num integer NOT NULL,
 	root_piece_id bytea,
 	durability_ratio double precision NOT NULL,
-	queued_at timestamp NOT NULL,
-	requested_at timestamp,
-	last_failed_at timestamp,
+	queued_at timestamp with time zone NOT NULL,
+	requested_at timestamp with time zone,
+	last_failed_at timestamp with time zone,
 	last_failed_code integer,
 	failed_count integer,
-	finished_at timestamp,
+	finished_at timestamp with time zone,
 	order_limit_send_count integer NOT NULL,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
-	attempted timestamp,
+	attempted timestamp with time zone,
 	num_healthy_pieces integer DEFAULT 52 NOT NULL,
 	PRIMARY KEY ( path )
 );
@@ -135,6 +135,7 @@ CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL,
 	last_net text NOT NULL,
+	last_ip_port text,
 	protocol integer NOT NULL,
 	type integer NOT NULL,
 	email text NOT NULL,
@@ -159,13 +160,16 @@ CREATE TABLE nodes (
 	last_contact_failure timestamp with time zone NOT NULL,
 	contained boolean NOT NULL,
 	disqualified timestamp with time zone,
+	suspended timestamp with time zone,
 	audit_reputation_alpha double precision NOT NULL,
 	audit_reputation_beta double precision NOT NULL,
+	unknown_audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
+	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
 	uptime_reputation_alpha double precision NOT NULL,
 	uptime_reputation_beta double precision NOT NULL,
-	exit_initiated_at timestamp,
-	exit_loop_completed_at timestamp,
-	exit_finished_at timestamp,
+	exit_initiated_at timestamp with time zone,
+	exit_loop_completed_at timestamp with time zone,
+	exit_finished_at timestamp with time zone,
 	exit_success boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -256,12 +260,12 @@ CREATE TABLE serial_numbers (
 	id serial NOT NULL,
 	serial_number bytea NOT NULL,
 	bucket_id bytea NOT NULL,
-	expires_at timestamp NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
-	interval_start timestamp NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
 	allocated bigint DEFAULT 0,
@@ -351,7 +355,7 @@ CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
 	partner_id bytea NOT NULL,
-	last_updated timestamp NOT NULL,
+	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 );
 CREATE TABLE api_keys (

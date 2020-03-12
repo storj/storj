@@ -12,9 +12,9 @@ import (
 )
 
 type addressInfo struct {
-	address   string
-	lastIP    string
-	transport pb.NodeTransport
+	address    string
+	lastIPPort string
+	transport  pb.NodeTransport
 }
 
 var _ DB = (*CombinedCache)(nil)
@@ -46,7 +46,7 @@ func NewCombinedCache(db DB) *CombinedCache {
 // to match the values held in the database; however this code does not
 // guarantee that concurrent UpdateAddress calls will be handled in any
 // particular order.
-func (c *CombinedCache) UpdateAddress(ctx context.Context, info *pb.Node, defaults NodeSelectionConfig) (err error) {
+func (c *CombinedCache) UpdateAddress(ctx context.Context, info *NodeDossier, defaults NodeSelectionConfig) (err error) {
 	// Update internal cache and check if this call requires a db call
 
 	if info == nil {
@@ -65,8 +65,7 @@ func (c *CombinedCache) UpdateAddress(ctx context.Context, info *pb.Node, defaul
 	if ok &&
 		address.Address == cached.address &&
 		address.Transport == cached.transport &&
-		info.LastIp == cached.lastIP {
-
+		info.LastIPPort == cached.lastIPPort {
 		return nil
 	}
 
@@ -84,9 +83,9 @@ func (c *CombinedCache) UpdateAddress(ctx context.Context, info *pb.Node, defaul
 
 	c.addressLock.Lock()
 	c.addressCache[info.Id] = &addressInfo{
-		address:   address.Address,
-		lastIP:    info.LastIp,
-		transport: address.Transport,
+		address:    address.Address,
+		lastIPPort: info.LastIPPort,
+		transport:  address.Transport,
 	}
 	c.addressLock.Unlock()
 

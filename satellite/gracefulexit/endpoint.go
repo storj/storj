@@ -396,7 +396,6 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	// get replacement node
 	request := &overlay.FindStorageNodesRequest{
 		RequestedCount: 1,
-		FreeBandwidth:  pieceSize,
 		ExcludedNodes:  excludedNodeIDs,
 	}
 

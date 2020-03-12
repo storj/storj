@@ -51,7 +51,7 @@ export default class ChecksArea extends Vue {
 
 <style scoped lang="scss">
     .checks-area-container {
-        width: 339px;
+        width: calc(48% - 60px);
         height: 79px;
         background-color: #fff;
         border: 1px solid #e9eff4;
@@ -95,5 +95,12 @@ export default class ChecksArea extends Vue {
     /deep/ .info__message-box {
         min-width: 190px;
         white-space: normal;
+    }
+
+    @media screen and (max-width: 460px) {
+
+        .checks-area-image {
+            display: none;
+        }
     }
 </style>

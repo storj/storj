@@ -75,6 +75,9 @@ linters-settings:
     #  2. you use go >= 1.10
     #  3. you do repeated runs (false for CI) or cache $GOPATH/pkg or `go env GOCACHE` dir in CI.
     use-installed-packages: false
+  gocritic:
+    disabled-checks:
+      - ifElseChain
   goimports:
     local: "storj.io"
   golint:

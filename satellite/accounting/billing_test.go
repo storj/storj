@@ -107,6 +107,9 @@ func getTotalProjectBandwidth(
 ) int64 {
 	t.Helper()
 
+	// Wait for the SNs endpoints to finish thir work
+	require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
 	// Calculate the bandwidth used for upload
 	for _, sn := range planet.StorageNodes {
 		sn.Storage2.Orders.Sender.TriggerWait()

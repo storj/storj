@@ -5,6 +5,7 @@ package mockpayments
 
 import (
 	"context"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -111,8 +112,8 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.
-func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) (charges []payments.ProjectCharge, err error) {
-	defer mon.Task()(&ctx, userID)(&err)
+func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges []payments.ProjectCharge, err error) {
+	defer mon.Task()(&ctx, userID, since, before)(&err)
 
 	return []payments.ProjectCharge{}, nil
 }

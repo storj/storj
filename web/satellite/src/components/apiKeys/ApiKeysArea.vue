@@ -92,15 +92,10 @@
                 <h1 class="empty-search-result-area__title">No results found</h1>
                 <EmptySearchResultIcon class="empty-search-result-area__image"/>
             </div>
-            <EmptyState
-                :class="{collapsed: isBannerShown}"
+            <NoApiKeysArea
+                :class="{ collapsed: isBannerShown }"
                 :on-button-click="onCreateApiKeyClick"
                 v-if="isEmptyStateShown"
-                main-title="Let's create your first API Key"
-                additional-text="<p>API keys give access to the project allowing you to create buckets, upload files, and read them. Once you’ve created an API key, you’re ready to interact with the network through our Uplink CLI.</p>"
-                :image-source="emptyImage"
-                button-label="Create an API Key"
-                is-button-shown="true"
             />
         </div>
     </div>
@@ -110,6 +105,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
+import NoApiKeysArea from '@/components/apiKeys/NoApiKeysArea.vue';
 import SortingHeader from '@/components/apiKeys/SortingHeader.vue';
 import EmptyState from '@/components/common/EmptyStateArea.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -123,7 +119,6 @@ import { ApiKey, ApiKeyOrderBy } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
 import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
 import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
@@ -151,6 +146,7 @@ declare interface ResetPagination {
 
 @Component({
     components: {
+        NoApiKeysArea,
         VList,
         EmptyState,
         VHeader,
@@ -164,7 +160,6 @@ declare interface ResetPagination {
     },
 })
 export default class ApiKeysArea extends Vue {
-    public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
     private FIRST_PAGE = 1;
     /**
      * Indicates if delete confirmation state should appear.
@@ -540,6 +535,7 @@ export default class ApiKeysArea extends Vue {
 
     .collapsed {
         margin-top: 0 !important;
+        padding-top: 0 !important;
     }
 
     ::-webkit-scrollbar,

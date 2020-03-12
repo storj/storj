@@ -40,7 +40,9 @@ func BenchmarkOverlay(b *testing.B) {
 		}
 
 		for _, id := range all {
-			err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id}, overlay.NodeSelectionConfig{})
+			n := pb.Node{Id: id}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+			err := overlaydb.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
 			require.NoError(b, err)
 		}
 
@@ -65,7 +67,9 @@ func BenchmarkOverlay(b *testing.B) {
 		b.Run("UpdateAddress", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id}, overlay.NodeSelectionConfig{})
+				n := pb.Node{Id: id}
+				d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+				err := overlaydb.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
 				require.NoError(b, err)
 			}
 		})
@@ -108,8 +112,7 @@ func BenchmarkOverlay(b *testing.B) {
 						Email:  "a@mail.test",
 					},
 					Capacity: &pb.NodeCapacity{
-						FreeBandwidth: 1000,
-						FreeDisk:      1000,
+						FreeDisk: 1000,
 					},
 					Version: &pb.NodeVersion{
 						Version:    "1.0.0",
@@ -141,8 +144,7 @@ func BenchmarkOverlay(b *testing.B) {
 					},
 					IsUp: true,
 					Capacity: &pb.NodeCapacity{
-						FreeBandwidth: int64(i),
-						FreeDisk:      int64(i),
+						FreeDisk: int64(i),
 					},
 					Operator: &pb.NodeOperator{
 						Email:  "a@mail.test",

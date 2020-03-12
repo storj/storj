@@ -85,7 +85,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			db.Rewards(),
 			partnersService,
 			payments.Accounts(),
-			console.TestPasswordCost,
+			console.Config{PasswordCost: console.TestPasswordCost},
 		)
 		require.NoError(t, err)
 

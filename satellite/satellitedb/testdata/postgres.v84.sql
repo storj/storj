@@ -534,3 +534,4 @@ INSERT INTO "injuredsegments" ("path", "data", "num_healthy_pieces") VALUES ('ye
 INSERT INTO "injuredsegments" ("path", "data", "num_healthy_pieces") VALUES ('/this/is/a/new/path', '\x0a23736f2f6d616e792f69636f6e69632f70617468732f746f2f63686f6f73652f66726f6d120a0102030405060708090a', 40);
 
 -- NEW DATA --
+
