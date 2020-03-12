@@ -74,7 +74,6 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		return nodes, nil
 	}
 
-	// query for distinct IPs
 	for i := 0; i < 3; i++ {
 		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedIDs, criteria.ExcludedNetworks, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
 		if err != nil {
@@ -127,7 +126,6 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		return nodes, nil
 	}
 
-	// query for distinct IPs
 	for i := 0; i < 3; i++ {
 		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedIDs, criteria.ExcludedNetworks, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
 		if err != nil {
@@ -259,8 +257,8 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedIDs [
 			audit_reputation_alpha, audit_reputation_beta
 			FROM nodes
 			`+safeQuery+safeExcludeNodes+safeExcludeNetworks+`
-			AND last_net <> ''                         -- don't try to IP-filter nodes with no known IP yet
-			ORDER BY last_net, RANDOM()                -- equal chance of choosing any qualified node at this IP or network
+			AND last_net <> ''                         -- select nodes with a network set
+			ORDER BY last_net, RANDOM()                -- equal chance of choosing any qualified node at this network
 		) filteredcandidates
 		ORDER BY RANDOM()                                  -- do the actual node selection from filtered pool
 		LIMIT ?`), args...)
