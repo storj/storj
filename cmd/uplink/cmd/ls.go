@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
-	"storj.io/storj/pkg/process"
 	"storj.io/uplink"
 )
 
@@ -35,7 +34,7 @@ func init() {
 }
 
 func list(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	project, err := cfg.getProject(ctx, *lsEncryptedFlag)
 	if err != nil {

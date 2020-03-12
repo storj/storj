@@ -3,21 +3,22 @@
 
 <template>
     <div class="chart">
-        <p class="disk-space-chart__data-dimension">{{chartDataDimension}}*h</p>
+        <p class="disk-space-chart__data-dimension">{{ chartDataDimension }}*h</p>
         <VChart
             id="disk-space-chart"
             :chart-data="chartData"
-            :width="400"
-            :height="240"
+            :width="chartWidth"
+            :height="chartHeight"
             :tooltip-constructor="diskSpaceTooltip"
+            :key="chartKey"
         />
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component } from 'vue-property-decorator';
 
-import VChart from '@/app/components/VChart.vue';
+import BaseChart from '@/app/components/BaseChart.vue';
 
 import { ChartData } from '@/app/types/chartData';
 import { Tooltip, TooltipParams } from '@/app/types/tooltip';
@@ -38,12 +39,8 @@ class StampTooltip {
     }
 }
 
-@Component ({
-    components: {
-        VChart,
-    },
-})
-export default class DiskSpaceChart extends Vue {
+@Component
+export default class DiskSpaceChart extends BaseChart {
     private get allStamps(): Stamp[] {
         return ChartUtils.populateEmptyStamps(this.$store.state.node.storageChartData);
     }
@@ -102,11 +99,12 @@ export default class DiskSpaceChart extends Vue {
     }
 
     .disk-space-chart {
+        z-index: 102;
 
         &__data-dimension {
             font-size: 13px;
             color: #586c86;
-            margin: 0 0 5px 31px;
+            margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }
     }

@@ -5,8 +5,10 @@
     <div id="app">
         <div class="container">
             <SNOHeader/>
-            <router-view/>
-            <SNOFooter/>
+            <div class="scrollable" @scroll="onScroll">
+                <router-view/>
+                <SNOFooter />
+            </div>
         </div>
     </div>
 </template>
@@ -17,13 +19,58 @@ import { Component, Vue } from 'vue-property-decorator';
 import SNOFooter from '@/app/components/SNOFooter.vue';
 import SNOHeader from '@/app/components/SNOHeader.vue';
 
+const elementsIdsToRemoveOnScroll: string[] = [
+    'bandwidth-tooltip',
+    'bandwidth-tooltip-arrow',
+    'bandwidth-tooltip-point',
+    'disk-space-tooltip',
+    'disk-space-tooltip-arrow',
+    'disk-space-tooltip-point',
+    'egress-tooltip',
+    'egress-tooltip-arrow',
+    'egress-tooltip-point',
+    'ingress-tooltip',
+    'ingress-tooltip-arrow',
+    'ingress-tooltip-point',
+];
+
+const elementsClassesToRemoveOnScroll: string[] = [
+    'info__message-box',
+    'payout-period-calendar',
+    'notification-popup-container',
+];
+
 @Component({
     components: {
         SNOHeader,
         SNOFooter,
     },
 })
-export default class App extends Vue {}
+export default class App extends Vue {
+    public onScroll(): void {
+        elementsIdsToRemoveOnScroll.forEach(id => {
+            this.removeElementById(id);
+        });
+
+        elementsClassesToRemoveOnScroll.forEach(className => {
+            this.removeElementByClass(className);
+        });
+    }
+
+    private removeElementByClass(className): void {
+        const element: HTMLElement = document.querySelector(className);
+        if (element) {
+            element.remove();
+        }
+    }
+
+    private removeElementById(id): void {
+        const element: HTMLElement | null = document.getElementById(id);
+        if (element) {
+            element.remove();
+        }
+    }
+}
 </script>
 
 <style lang="scss">
@@ -46,6 +93,14 @@ export default class App extends Vue {}
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        height: auto;
+    }
+
+    .scrollable {
+        padding-top: 89px;
+        height: calc(100vh - 89px);
+        width: 100vw;
+        overflow-y: scroll;
     }
 
     @font-face {
