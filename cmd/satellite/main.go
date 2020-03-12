@@ -84,6 +84,11 @@ var (
 		Short: "Run the satellite Admin",
 		RunE:  cmdAdminRun,
 	}
+	runGCCmd = &cobra.Command{
+		Use:   "garbage-collection",
+		Short: "Run the satellite garbage collection process",
+		RunE:  cmdGCRun,
+	}
 	setupCmd = &cobra.Command{
 		Use:         "setup",
 		Short:       "Create config files",
@@ -171,6 +176,7 @@ func init() {
 	runCmd.AddCommand(runAPICmd)
 	runCmd.AddCommand(runAdminCmd)
 	runCmd.AddCommand(runRepairerCmd)
+	runCmd.AddCommand(runGCCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
@@ -184,6 +190,7 @@ func init() {
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAdminCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))

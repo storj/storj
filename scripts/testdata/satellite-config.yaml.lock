@@ -142,6 +142,9 @@ contact.external-address: ""
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s
 
+# if true, run garbage collection as part of the core
+# garbage-collection.run-in-core: true
+
 # if true, skip the first run of GC
 # garbage-collection.skip-first: true
 

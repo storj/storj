@@ -68,6 +68,7 @@ const (
 	debugAdminHTTP    = 6
 	debugPeerHTTP     = 7
 	debugRepairerHTTP = 8
+	debugGCHTTP       = 10
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -372,6 +373,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
 		})
+		apiProcess.WaitForExited(migrationProcess)
 
 		coreProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-core/%d", i),
@@ -413,7 +415,18 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 		repairProcess.WaitForExited(migrationProcess)
 
-		apiProcess.WaitForExited(migrationProcess)
+		garbageCollectionProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-garbage-collection/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+		})
+		garbageCollectionProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
+			"run": {
+				"garbage-collection",
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugGCHTTP)),
+			},
+		})
+		garbageCollectionProcess.WaitForExited(migrationProcess)
 	}
 
 	// Create gateways for each satellite

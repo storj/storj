@@ -64,6 +64,7 @@ type SatelliteSystem struct {
 	API      *satellite.API
 	Repairer *satellite.Repairer
 	Admin    *satellite.Admin
+	GC       *satellite.GarbageCollection
 
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
@@ -196,6 +197,7 @@ func (system *SatelliteSystem) Close() error {
 		system.Core.Close(),
 		system.Repairer.Close(),
 		system.Admin.Close(),
+		system.GC.Close(),
 	)
 }
 
@@ -214,6 +216,9 @@ func (system *SatelliteSystem) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.Admin.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.GC.Run(ctx))
 	})
 	return group.Wait()
 }
@@ -505,9 +510,14 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			return xs, err
 		}
 
+		gcPeer, err := planet.newGarbageCollection(i, identity, db, pointerDB, config, versionInfo)
+		if err != nil {
+			return xs, err
+		}
+
 		log.Debug("id=" + peer.ID().String() + " addr=" + api.Addr())
 
-		system := createNewSystem(log, peer, api, repairerPeer, adminPeer)
+		system := createNewSystem(log, peer, api, repairerPeer, adminPeer, gcPeer)
 		xs = append(xs, system)
 	}
 	return xs, nil
@@ -517,12 +527,13 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many prrocesses.
-func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin) *SatelliteSystem {
+func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection) *SatelliteSystem {
 	system := &SatelliteSystem{
 		Core:     peer,
 		API:      api,
 		Repairer: repairerPeer,
 		Admin:    adminPeer,
+		GC:       gcPeer,
 	}
 	system.Log = log
 	system.Identity = peer.Identity
@@ -559,7 +570,7 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.Audit.Verifier = peer.Audit.Verifier
 	system.Audit.Reporter = peer.Audit.Reporter
 
-	system.GarbageCollection.Service = peer.GarbageCollection.Service
+	system.GarbageCollection.Service = gcPeer.GarbageCollection.Service
 
 	system.DBCleanup.Chore = peer.DBCleanup.Chore
 
@@ -644,4 +655,16 @@ type rollupsWriteCacheCloser struct {
 
 func (cache rollupsWriteCacheCloser) Close() error {
 	return cache.RollupsWriteCache.CloseAndFlush(context.TODO())
+}
+
+func (planet *Planet) newGarbageCollection(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
+	prefix := "satellite-gc" + strconv.Itoa(count)
+	log := planet.log.Named(prefix)
+
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, revocationDB)
+	return satellite.NewGarbageCollection(log, identity, db, pointerDB, revocationDB, versionInfo, &config)
 }

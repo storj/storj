@@ -32,6 +32,7 @@ type Config struct {
 	Interval  time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m"`
 	Enabled   bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
 	SkipFirst bool          `help:"if true, skip the first run of GC" releaseDefault:"true" devDefault:"false"`
+	RunInCore bool          `help:"if true, run garbage collection as part of the core" releaseDefault:"true" devDefault:"false"`
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int           `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate float64       `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`

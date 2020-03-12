@@ -359,20 +359,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			debug.Cycle("Audit Chore", peer.Audit.Chore.Loop))
 	}
 
-	{ // setup garbage collection
-		peer.GarbageCollection.Service = gc.NewService(
-			peer.Log.Named("garbage-collection"),
-			config.GarbageCollection,
-			peer.Dialer,
-			peer.Overlay.DB,
-			peer.Metainfo.Loop,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name: "garbage-collection",
-			Run:  peer.GarbageCollection.Service.Run,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Garbage Collection", peer.GarbageCollection.Service.Loop))
+	{ // setup garbage collection if configured to run with the core
+		if config.GarbageCollection.RunInCore {
+			peer.GarbageCollection.Service = gc.NewService(
+				peer.Log.Named("core-garbage-collection"),
+				config.GarbageCollection,
+				peer.Dialer,
+				peer.Overlay.DB,
+				peer.Metainfo.Loop,
+			)
+			peer.Services.Add(lifecycle.Item{
+				Name: "core-garbage-collection",
+				Run:  peer.GarbageCollection.Service.Run,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Core Garbage Collection", peer.GarbageCollection.Service.Loop))
+		}
 	}
 
 	{ // setup db cleanup
