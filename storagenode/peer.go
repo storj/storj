@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -78,6 +79,7 @@ type DB interface {
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
 	Notifications() notifications.DB
+	HeldAmount() heldamount.DB
 
 	Preflight(ctx context.Context) error
 }
