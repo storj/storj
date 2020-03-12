@@ -122,8 +122,8 @@ type NodeCriteria struct {
 	AuditCount       int64
 	UptimeCount      int64
 	ExcludedIDs      []storj.NodeID
-	ExcludedNetworks []string
-	MinimumVersion   string // semver or empty
+	ExcludedNetworks []string // the /24 subnet of node IP
+	MinimumVersion   string   // semver or empty
 	OnlineWindow     time.Duration
 	DistinctIP       bool
 }
@@ -271,7 +271,8 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	}
 
 	excludedIDs := req.ExcludedIDs
-	// get and exclude IPs associated with excluded nodes if distinctIP is enabled
+	// if distinctIP is enabled, keep track of the network
+	// to make sure we only select nodes from different networks
 	var excludedNetworks []string
 	if preferences.DistinctIP && len(excludedIDs) > 0 {
 		excludedNetworks, err = service.db.GetNodesNetwork(ctx, excludedIDs)
@@ -301,7 +302,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		}
 	}
 
-	// add selected new nodes and their IPs to the excluded lists for reputable node selection
+	// add selected new nodes ID and network to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
 		excludedIDs = append(excludedIDs, newNode.Id)
 		if preferences.DistinctIP {
@@ -384,7 +385,7 @@ func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.N
 	}
 
 	// Resolve the IP and the subnet from the address that is sent
-	resolvedIPPort, resolvedNetwork, err := GetNetwork(ctx, value.Address.Address)
+	resolvedIPPort, resolvedNetwork, err := ResolveIPAndNetwork(ctx, value.Address.Address)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -480,8 +481,8 @@ func (service *Service) GetOfflineNodesLimited(ctx context.Context, limit int) (
 	return service.db.GetOfflineNodesLimited(ctx, limit)
 }
 
-// GetNetwork resolves the target address and determines its IP and /24 Subnet
-func GetNetwork(ctx context.Context, target string) (ipPort, network string, err error) {
+// ResolveIPAndNetwork resolves the target address and determines its IP and /24 Subnet
+func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	host, port, err := net.SplitHostPort(target)
