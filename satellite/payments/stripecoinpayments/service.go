@@ -43,6 +43,7 @@ type Config struct {
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
+	AutoAdvance                  bool          `help:"toogle autoadvance feature for invoice creation" default:"false"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -61,6 +62,9 @@ type Service struct {
 	ObjectHourCents decimal.Decimal
 	// BonusRate amount of percents
 	BonusRate int64
+
+	//Stripe Extended Features
+	AutoAdvance bool
 
 	mu       sync.Mutex
 	rates    coinpayments.CurrencyRateInfos
@@ -127,6 +131,7 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 		EgressByteCents: egressByteCents,
 		ObjectHourCents: objectHourCents,
 		BonusRate:       bonusRate,
+		AutoAdvance:     config.AutoAdvance,
 	}, nil
 }
 
@@ -365,7 +370,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("prepare is for past periods only")
@@ -584,18 +589,31 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 	projectPrice := service.calculateProjectUsagePrice(record.Egress, record.Storage, record.Objects)
 
 	projectItem := &stripe.InvoiceItemParams{
-		Amount:      stripe.Int64(projectPrice.TotalInt64()),
-		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Customer:    stripe.String(cusID),
-		Description: stripe.String(fmt.Sprintf("project %s", projName)),
+		Currency: stripe.String(string(stripe.CurrencyUSD)),
+		Customer: stripe.String(cusID),
 		Period: &stripe.InvoiceItemPeriodParams{
-			End:   stripe.Int64(record.PeriodEnd.Unix()),
 			Start: stripe.Int64(record.PeriodStart.Unix()),
+			End:   stripe.Int64(record.PeriodEnd.Unix()),
 		},
 	}
-
 	projectItem.AddMetadata("projectID", record.ProjectID.String())
 
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Storage", projName))
+	projectItem.Amount = stripe.Int64(projectPrice.Storage.IntPart())
+	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	if err != nil {
+		return err
+	}
+
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth", projName))
+	projectItem.Amount = stripe.Int64(projectPrice.Egress.IntPart())
+	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	if err != nil {
+		return err
+	}
+
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee", projName))
+	projectItem.Amount = stripe.Int64(projectPrice.Objects.IntPart())
 	_, err = service.stripeClient.InvoiceItems.New(projectItem)
 	return err
 }
@@ -837,10 +855,27 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 func (service *Service) createInvoice(ctx context.Context, cusID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	/*var description string
+	// get the first invoice item's period
+	params := &stripe.InvoiceItemListParams{Customer: stripe.String(cusID)}
+	params.Filters.AddFilter("limit", "", "1")
+	iter := service.stripeClient.InvoiceItems.List(params)
+	for iter.Next() {
+		//Add 12 hours to ensure we are in the correct billing month
+		start := time.Unix(iter.InvoiceItem().Period.Start+43200, 0)
+		year, month, _ := start.Date()
+		description = fmt.Sprintf("Billing Period %s %d", month, year)
+	}
+	if iter.Err() != nil {
+		return Error.Wrap(iter.Err())
+	}*/
+	description := "Tardigrade Cloud Storage"
+
 	_, err = service.stripeClient.Invoices.New(
 		&stripe.InvoiceParams{
 			Customer:    stripe.String(cusID),
-			AutoAdvance: stripe.Bool(true),
+			AutoAdvance: stripe.Bool(service.AutoAdvance),
+			Description: stripe.String(description),
 		},
 	)
 

@@ -61,7 +61,7 @@ export default class BillingHistoryDate extends Vue {
         const expiration = this.expiration.toLocaleString('default', { month: 'long', day: '2-digit', year: 'numeric' });
 
         if (this.type === BillingHistoryItemType.Invoice) {
-            return `${start} - ${expiration}`;
+            return `${start}`;
         }
 
         return start;
