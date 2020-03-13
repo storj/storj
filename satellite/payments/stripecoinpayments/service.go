@@ -369,8 +369,9 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	now := time.Now().UTC()
 	utc := period.UTC()
 
-	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+	//Adding 12 hours to test if Stripe actually takes our time as UTC
+	start := time.Date(utc.Year(), utc.Month(), 1, 12, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 1, 12, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("prepare is for past periods only")
@@ -842,10 +843,16 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 func (service *Service) createInvoice(ctx context.Context, cusID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// Get the first Invoice Items Period
+	iter := service.stripeClient.InvoiceItems.List(&stripe.InvoiceItemListParams{Customer: stripe.String(cusID)})
+	start := time.Unix(0, iter.InvoiceItem().Period.Start)
+	year, month, _ := start.Date()
+
 	_, err = service.stripeClient.Invoices.New(
 		&stripe.InvoiceParams{
 			Customer:    stripe.String(cusID),
 			AutoAdvance: stripe.Bool(service.AutoAdvance),
+			Description: stripe.String(fmt.Sprintf("Billing Period %s %d", month, year)),
 		},
 	)
 
