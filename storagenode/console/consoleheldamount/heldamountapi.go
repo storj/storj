@@ -71,6 +71,29 @@ func (heldamount *HeldAmount) GetMonthlyHeldAmount(w http.ResponseWriter, r *htt
 	heldamount.writeData(w, paystubData)
 }
 
+// GetMonthlyPayment returns payment data from satellite for specific month.
+func (heldamount *HeldAmount) GetMonthlyPayment(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	period := r.URL.Query().Get("period")
+	id := r.URL.Query().Get("satelliteID")
+
+	satelliteID, err := storj.NodeIDFromString(id)
+	if err != nil {
+		heldamount.writeError(w, http.StatusBadRequest, Error.Wrap(err))
+		return
+	}
+
+	paymentData, err := heldamount.service.GetPayment(ctx, satelliteID, period)
+	if err != nil {
+		heldamount.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
+		return
+	}
+
+	heldamount.writeData(w, paymentData)
+}
+
 // writeData is helper method to write JSON to http.ResponseWriter and log encoding error.
 func (heldamount *HeldAmount) writeData(w http.ResponseWriter, data interface{}) {
 	w.Header().Set(contentType, applicationJSON)

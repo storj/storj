@@ -90,7 +90,8 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	notificationRouter.Handle("/list", http.HandlerFunc(notificationController.ListNotifications)).Methods(http.MethodGet)
 	notificationRouter.Handle("/{id}/read", http.HandlerFunc(notificationController.ReadNotification)).Methods(http.MethodPost)
 	notificationRouter.Handle("/readall", http.HandlerFunc(notificationController.ReadAllNotifications)).Methods(http.MethodPost)
-	heldamountRouter.Handle("/{period}", http.HandlerFunc(heldamountController.GetMonthlyHeldAmount)).Methods(http.MethodGet)
+	heldamountRouter.Handle("/paystub/{period}/{satelliteID}", http.HandlerFunc(heldamountController.GetMonthlyHeldAmount)).Methods(http.MethodGet)
+	heldamountRouter.Handle("/payment/{period}/{satelliteID}", http.HandlerFunc(heldamountController.GetMonthlyPayment)).Methods(http.MethodGet)
 
 	server.server = http.Server{
 		Handler: router,

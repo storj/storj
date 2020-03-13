@@ -101,6 +101,37 @@ func (service *Service) GetPaystubStats(ctx context.Context, satelliteID storj.N
 	}, nil
 }
 
+// GetPayment retrieves payment data from particular satellite
+func (service *Service) GetPayment(ctx context.Context, satelliteID storj.NodeID, period string) (_ *Payment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	client, err := service.dial(ctx, satelliteID)
+	if err != nil {
+		return nil, HeldAmountServiceErr.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, client.Close()) }()
+
+	requestedPeriod, err := stringToTime(period)
+	if err != nil {
+		return nil, HeldAmountServiceErr.Wrap(err)
+	}
+
+	resp, err := client.GetPayment(ctx, &pb.GetPaymentRequest{Period: requestedPeriod})
+	if err != nil {
+		return nil, HeldAmountServiceErr.Wrap(err)
+	}
+
+	return &Payment{
+		ID:          resp.Id,
+		Created:     resp.CreatedAt,
+		SatelliteID: satelliteID,
+		Period:      period,
+		Amount:      resp.Amount,
+		Receipt:     resp.Receipt,
+		Notes:       resp.Notes,
+	}, nil
+}
+
 // dial dials the HeldAmount client for the satellite by id
 func (service *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
