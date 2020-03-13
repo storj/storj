@@ -482,8 +482,8 @@ export default class PaymentMethods extends Vue {
 
             &__title {
                 font-family: 'font_bold', sans-serif;
-                font-size: 32px;
-                line-height: 48px;
+                font-size: 28px;
+                line-height: 42px;
                 color: #384b65;
             }
 

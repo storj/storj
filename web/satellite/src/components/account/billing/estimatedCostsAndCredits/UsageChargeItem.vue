@@ -3,8 +3,8 @@
 
 <template>
     <div class="usage-charge-item-container">
-        <div class="usage-charge-item-container__summary" @click="toggleDetailedInfo">
-            <div class="usage-charge-item-container__summary__name-container">
+        <div class="usage-charge-item-container__summary" @click.self="toggleDetailedInfo">
+            <div class="usage-charge-item-container__summary__name-container" @click="toggleDetailedInfo">
                 <svg class="usage-charge-item-container__summary__name-container__expand-image" v-if="!isDetailedInfoShown" width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M0.328889 13.6272C-0.10963 13.1302 -0.10963 12.3243 0.328889 11.8273L4.58792 7L0.328889 2.17268C-0.10963 1.67565 -0.10963 0.869804 0.328889 0.372774C0.767408 -0.124258 1.47839 -0.124258 1.91691 0.372774L7.76396 7L1.91691 13.6272C1.47839 14.1243 0.767409 14.1243 0.328889 13.6272Z" fill="#2683FF"/>
                 </svg>
@@ -13,6 +13,7 @@
                 </svg>
                 <span>{{ projectName }}</span>
             </div>
+            <div class="usage-charge-item-container__summary__report-link" @click="onReportClick">Advanced Report -></div>
         </div>
         <div class="usage-charge-item-container__detailed-info-container" v-if="isDetailedInfoShown">
             <div class="usage-charge-item-container__detailed-info-container__info-header">
@@ -54,6 +55,8 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { ProjectCharge } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
+import { toUnixTimestamp } from '@/utils/time';
 
 @Component
 export default class UsageChargeItem extends Vue {
@@ -125,6 +128,30 @@ export default class UsageChargeItem extends Vue {
     }
 
     /**
+     * Opens new tab with advanced report table.
+     */
+    public onReportClick(): void {
+        const projectID = this.$store.getters.selectedProject.id;
+        const startDate = this.$store.state.paymentsModule.startDate;
+        const endDate = this.$store.state.paymentsModule.endDate;
+
+        const url = new URL(location.origin);
+
+        url.pathname = 'usage-report';
+        url.searchParams.append('projectID', projectID);
+        url.searchParams.append('since', toUnixTimestamp(startDate).toString());
+        url.searchParams.append('before', toUnixTimestamp(endDate).toString());
+
+        this.$segment.track(SegmentEvent.REPORT_DOWNLOADED, {
+            start_date: startDate,
+            end_date: endDate,
+            project_id: projectID,
+        });
+
+        window.open(url.href, '_blank');
+    }
+
+    /**
      * Returns formatted egress depending on amount of bytes.
      */
     private get egressFormatted(): Size {
@@ -159,6 +186,15 @@ export default class UsageChargeItem extends Vue {
                     height: 14px;
                     margin-right: 12px;
                 }
+            }
+
+            &__report-link {
+                padding: 3px 5px;
+                font-size: 13px;
+                line-height: 19px;
+                color: #2683ff;
+                background-color: rgba(38, 131, 255, 0.16);
+                border-radius: 6px;
             }
         }
 

@@ -188,15 +188,15 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             },
             [GET_PROJECT_CHARGES]: async function({commit}: any, dateRange: DateRange): Promise<void> {
                 const now = new Date();
-                let beforeUTC = new Date(Date.UTC(dateRange.endDate.getFullYear(), dateRange.endDate.getMonth(), dateRange.endDate.getDate(), 23, 59));
+                let beforeUTC = new Date(Date.UTC(dateRange.endDate.getUTCFullYear(), dateRange.endDate.getUTCMonth(), dateRange.endDate.getUTCDate(), 23, 59));
 
                 if (now.getUTCFullYear() === dateRange.endDate.getUTCFullYear() &&
                     now.getUTCMonth() === dateRange.endDate.getUTCMonth() &&
                     now.getUTCDate() <= dateRange.endDate.getUTCDate()) {
-                    beforeUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getMinutes()));
+                    beforeUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
                 }
 
-                const sinceUTC = new Date(Date.UTC(dateRange.startDate.getFullYear(), dateRange.startDate.getMonth(), dateRange.startDate.getDate()));
+                const sinceUTC = new Date(Date.UTC(dateRange.startDate.getUTCFullYear(), dateRange.startDate.getUTCMonth(), dateRange.startDate.getUTCDate(), 0, 0));
                 const charges: ProjectCharge[] = await api.projectsCharges(sinceUTC, beforeUTC);
 
                 commit(SET_DATE, dateRange);
@@ -204,8 +204,8 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             },
             [GET_PROJECT_CHARGES_CURRENT_ROLLUP]: async function({commit}: any): Promise<void> {
                 const now = new Date();
-                const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getMinutes()));
-                const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+                const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
+                const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
 
                 const charges: ProjectCharge[] = await api.projectsCharges(startUTC, endUTC);
 
@@ -214,7 +214,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             },
             [GET_PROJECT_CHARGES_PREVIOUS_ROLLUP]: async function({commit}: any): Promise<void> {
                 const now = new Date();
-                const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+                const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0));
                 const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59));
 
                 const charges: ProjectCharge[] = await api.projectsCharges(startUTC, endUTC);

@@ -227,7 +227,13 @@ export default class DashboardArea extends Vue {
     public get storageRemaining(): string {
         const storageUsed = this.$store.state.projectsModule.currentLimits.storageUsed;
         const storageLimit = this.$store.state.projectsModule.currentLimits.storageLimit;
-        const remaining = new Size(storageLimit - storageUsed, 2);
+
+        const difference = storageLimit - storageUsed;
+        if (difference < 0) {
+            return '0 Bytes';
+        }
+
+        const remaining = new Size(difference, 2);
 
         return `${remaining.formattedBytes}${remaining.label}`;
     }
@@ -238,7 +244,13 @@ export default class DashboardArea extends Vue {
     public get bandwidthRemaining(): string {
         const bandwidthUsed = this.$store.state.projectsModule.currentLimits.bandwidthUsed;
         const bandwidthLimit = this.$store.state.projectsModule.currentLimits.bandwidthLimit;
-        const remaining = new Size(bandwidthLimit - bandwidthUsed, 2);
+
+        const difference = bandwidthLimit - bandwidthUsed;
+        if (difference < 0) {
+            return '0 Bytes';
+        }
+
+        const remaining = new Size(difference, 2);
 
         return `${remaining.formattedBytes}${remaining.label}`;
     }

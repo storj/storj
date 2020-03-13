@@ -209,7 +209,7 @@ export class DateFormat {
      * @param separator - symbol for joining date string
      * @returns formatted date string
      */
-    public static getUSDate(date: Date, separator: string): string {
+    public static getUTCDate(date: Date, separator: string): string {
         const month = date.getUTCMonth() + 1;
         const day = date.getUTCDate();
         const year = date.getUTCFullYear();

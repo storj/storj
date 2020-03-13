@@ -3,26 +3,20 @@
 
 <template>
     <div class="current-month-area">
-        <div class="current-month-area__header">
-            <div class="current-month-area__header__month-info">
-                <h1 class="current-month-area__header__month-info__title">Current Month</h1>
-                <h2 class="current-month-area__header__month-info__title-info">{{ currentPeriod }}</h2>
-            </div>
+        <div class="current-month-area__title-area">
+            <h1 class="current-month-area__title-area__title">Estimated Costs for This Billing Period</h1>
+            <span class="current-month-area__title-area__costs">{{ chargesSummary | centsToDollars }}</span>
         </div>
         <div class="current-month-area__content">
-            <h2 class="current-month-area__content__title">DETAILED SUMMARY</h2>
+            <h2 class="current-month-area__content__title">DETAILS</h2>
             <div class="current-month-area__content__usage-charges" @click="toggleUsageChargesPopup">
                 <div class="current-month-area__content__usage-charges__head">
-                    <div class="current-month-area__content__usage-charges__head__name">
-                        <div class="current-month-area__content__usage-charges__head__name__image-container" v-if="usageCharges.length > 0">
-                            <svg class="current-month-area__content__usage-charges__head__name__image-container__image" v-if="!areUsageChargesShown" width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" clip-rule="evenodd" d="M0.328889 13.6272C-0.10963 13.1302 -0.10963 12.3243 0.328889 11.8273L4.58792 7L0.328889 2.17268C-0.10963 1.67565 -0.10963 0.869804 0.328889 0.372774C0.767408 -0.124258 1.47839 -0.124258 1.91691 0.372774L7.76396 7L1.91691 13.6272C1.47839 14.1243 0.767409 14.1243 0.328889 13.6272Z" fill="#2683FF"/>
-                            </svg>
-                            <svg class="current-month-area__content__usage-charges__head__name__image-container__image" v-if="areUsageChargesShown" width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
-                            </svg>
+                    <div class="current-month-area__content__usage-charges__head__name-area">
+                        <div class="current-month-area__content__usage-charges__head__name-area__image-container" v-if="usageCharges.length > 0">
+                            <ArrowRightIcon v-if="!areUsageChargesShown"/>
+                            <ArrowDownIcon v-if="areUsageChargesShown"/>
                         </div>
-                        <span class="current-month-area__content__usage-charges__head__name__title">Usage Charges</span>
+                        <span class="current-month-area__content__usage-charges__head__name-area__title">Usage Charges</span>
                     </div>
                     <span>Estimated total <span class="summary">{{ chargesSummary | centsToDollars }}</span></span>
                 </div>
@@ -35,6 +29,17 @@
                     />
                 </div>
             </div>
+            <div class="current-month-area__content__credits-area">
+                <div class="current-month-area__content__credits-area__title-area">
+                    <span class="current-month-area__content__credits-area__title-area__title">Earned Credits</span>
+                </div>
+                <span
+                    :style="{ color: balanceColor }"
+                    class="current-month-area__content__credits-area__balance"
+                >
+                    {{ balance | centsToDollars }}
+                </span>
+            </div>
         </div>
     </div>
 </template>
@@ -42,28 +47,40 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import UsageChargeItem from '@/components/account/billing/monthlySummary/UsageChargeItem.vue';
+import UsageChargeItem from '@/components/account/billing/estimatedCostsAndCredits/UsageChargeItem.vue';
 import VButton from '@/components/common/VButton.vue';
+
+import ArrowRightIcon from '@/../static/images/common/BlueArrowRight.svg';
+import ArrowDownIcon from '@/../static/images/common/BlueExpand.svg';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { ProjectCharge } from '@/types/payments';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
     components: {
         VButton,
         UsageChargeItem,
+        ArrowRightIcon,
+        ArrowDownIcon,
     },
 })
-export default class MonthlyBillingSummary extends Vue {
+export default class EstimatedCostsAndCredits extends Vue {
     /**
      * Lifecycle hook after initial render.
      * Fetches current project usage rollup.
      */
     public async mounted(): Promise<void> {
         try {
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
+            await this.$notify.error(error.message);
+        }
+
+        if (this.balance > 0 && !new ProjectOwning(this.$store).userHasOwnProject()) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
         }
     }
 
@@ -80,23 +97,6 @@ export default class MonthlyBillingSummary extends Vue {
     }
 
     /**
-     * String representation of current billing period dates range.
-     */
-    public get currentPeriod(): string {
-        const months: string[] = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        const now: Date = new Date();
-        const monthNumber = now.getMonth();
-        const date = now.getDate();
-        const year = now.getFullYear();
-
-        if (date === 1) {
-            return `${months[monthNumber]} 1 ${year}`;
-        }
-
-        return `${months[monthNumber]} 1 - ${date} ${year}`;
-    }
-
-    /**
      * chargesSummary returns summary of all projects.
      */
     public get chargesSummary(): number {
@@ -107,6 +107,20 @@ export default class MonthlyBillingSummary extends Vue {
         const usageItemSummaries = this.usageCharges.map(item => item.summary());
 
         return usageItemSummaries.reduce((accumulator, current) => accumulator + current);
+    }
+
+    /**
+     * Returns balance from store in cents.
+     */
+    public get balance(): number {
+        return this.$store.state.paymentsModule.balance;
+    }
+
+    /**
+     * Returns balance color red if balance below zero and clack if not.
+     */
+    public get balanceColor(): string {
+        return this.$store.state.paymentsModule.balance < 0 ? '#FF0000' : '#000';
     }
 
     /**
@@ -138,38 +152,19 @@ export default class MonthlyBillingSummary extends Vue {
         border-radius: 8px;
         font-family: 'font_regular', sans-serif;
 
-        &__header {
+        &__title-area {
             display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: center;
+            padding-bottom: 40px;
+            border-bottom: 1px solid rgba(169, 181, 193, 0.3);
 
-            &__month-info {
-
-                &__title {
-                    font-family: 'font_bold', sans-serif;
-                    font-size: 32px;
-                    line-height: 48px;
-                }
-
-                &__title-info {
-                    font-size: 18px;
-                    user-select: text;
-                }
-            }
-
-            &__usage-info {
-                display: flex;
-                align-items: center;
-
-                &__data {
-                    margin-right: 27px;
-                    color: rgba(53, 64, 73, 0.5);
-                    font-size: 18px;
-
-                    &__bold-text {
-                        color: #354049;
-                    }
-                }
+            &__title,
+            &__costs {
+                font-size: 28px;
+                line-height: 42px;
+                font-family: 'font_bold', sans-serif;
+                color: #354049;
             }
         }
 
@@ -177,9 +172,11 @@ export default class MonthlyBillingSummary extends Vue {
             margin-top: 20px;
 
             &__title {
-                font-size: 14px;
-                line-height: 21px;
-                color: #afb7c1;
+                font-size: 16px;
+                line-height: 23px;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                color: #919191;
             }
 
             &__usage-charges {
@@ -195,7 +192,7 @@ export default class MonthlyBillingSummary extends Vue {
                     align-items: center;
                     padding: 20px;
 
-                    &__name {
+                    &__name-area {
                         display: flex;
                         align-items: center;
 
@@ -217,6 +214,28 @@ export default class MonthlyBillingSummary extends Vue {
                     max-height: 228px;
                     overflow-y: auto;
                     padding: 0 20px;
+                }
+            }
+
+            &__credits-area {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 20px;
+                width: calc(100% - 40px);
+                background-color: #f5f6fa;
+                border-radius: 12px;
+                margin-top: 20px;
+
+                &__title-area {
+                    display: flex;
+                    align-items: center;
+
+                    &__title {
+                        font-size: 16px;
+                        line-height: 21px;
+                        color: #354049;
+                    }
                 }
             }
         }

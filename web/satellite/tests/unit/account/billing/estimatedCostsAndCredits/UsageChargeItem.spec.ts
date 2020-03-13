@@ -3,7 +3,7 @@
 
 import Vuex from 'vuex';
 
-import UsageChargeItem from '@/components/account/billing/monthlySummary/UsageChargeItem.vue';
+import UsageChargeItem from '@/components/account/billing/estimatedCostsAndCredits/UsageChargeItem.vue';
 
 import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
