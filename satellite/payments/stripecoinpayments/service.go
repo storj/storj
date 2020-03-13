@@ -861,7 +861,8 @@ func (service *Service) createInvoice(ctx context.Context, cusID string) (err er
 	params.Filters.AddFilter("limit", "", "1")
 	iter := service.stripeClient.InvoiceItems.List(params)
 	for iter.Next() {
-		start := time.Unix(iter.InvoiceItem().Period.Start, 0)
+		//Add 12 hours to ensure we are in the correct billing month
+		start := time.Unix(iter.InvoiceItem().Period.Start+43200, 0)
 		year, month, _ := start.Date()
 		description = fmt.Sprintf("Billing Period %s %d", month, year)
 	}
