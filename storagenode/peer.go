@@ -230,6 +230,10 @@ type Peer struct {
 		Service *notifications.Service
 	}
 
+	Heldamount struct {
+		Service *heldamount.Service
+	}
+
 	Bandwidth *bandwidth.Service
 }
 
@@ -484,6 +488,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Orders Cleanup", peer.Storage2.Orders.Cleanup))
 	}
 
+	{ // setub heldamount service.
+		peer.Heldamount.Service = heldamount.NewService(
+			peer.Log.Named("heldamount:service"),
+			peer.Dialer,
+			peer.Storage2.Trust,
+		)
+	}
+
 	{ // setup node stats service
 		peer.NodeStats.Service = nodestats.NewService(
 			peer.Log.Named("nodestats:service"),
@@ -547,6 +559,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			assets,
 			peer.Notifications.Service,
 			peer.Console.Service,
+			peer.Heldamount.Service,
 			peer.Console.Listener,
 		)
 		peer.Services.Add(lifecycle.Item{

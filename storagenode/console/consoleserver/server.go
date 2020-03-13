@@ -18,7 +18,9 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/console/consoleheldamount"
 	"storj.io/storj/storagenode/console/consolenotifications"
+	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/notifications"
 )
 
@@ -48,24 +50,28 @@ type Server struct {
 
 	service       *console.Service
 	notifications *notifications.Service
+	heldAmount    *heldamount.Service
 	listener      net.Listener
 
 	server http.Server
 }
 
 // NewServer creates new instance of storagenode console web server.
-func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifications.Service, service *console.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifications.Service, service *console.Service, heldAmount *heldamount.Service, listener net.Listener) *Server {
 	server := Server{
 		log:           logger,
 		service:       service,
 		listener:      listener,
 		notifications: notifications,
+		heldAmount:    heldAmount,
 	}
 
 	router := mux.NewRouter()
 	apiRouter := router.PathPrefix("/api").Subrouter()
 	notificationRouter := router.PathPrefix("/api/notifications").Subrouter()
 	notificationController := consolenotifications.NewNotifications(server.log, server.notifications)
+	heldamountRouter := router.PathPrefix("/api/heldamount").Subrouter()
+	heldamountController := consoleheldamount.NewHeldAmount(server.log, server.heldAmount)
 
 	if assets != nil {
 		fs := http.FileServer(assets)
@@ -84,6 +90,7 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	notificationRouter.Handle("/list", http.HandlerFunc(notificationController.ListNotifications)).Methods(http.MethodGet)
 	notificationRouter.Handle("/{id}/read", http.HandlerFunc(notificationController.ReadNotification)).Methods(http.MethodPost)
 	notificationRouter.Handle("/readall", http.HandlerFunc(notificationController.ReadAllNotifications)).Methods(http.MethodPost)
+	heldamountRouter.Handle("/{period}", http.HandlerFunc(heldamountController.GetMonthlyHeldAmount)).Methods(http.MethodGet)
 
 	server.server = http.Server{
 		Handler: router,
