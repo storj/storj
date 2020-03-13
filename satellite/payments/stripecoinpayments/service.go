@@ -589,20 +589,41 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 
 	projectPrice := service.calculateProjectUsagePrice(record.Egress, record.Storage, record.Objects)
 
-	projectItem := &stripe.InvoiceItemParams{
-		Amount:      stripe.Int64(projectPrice.TotalInt64()),
-		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Customer:    stripe.String(cusID),
-		Description: stripe.String(fmt.Sprintf("project %s", projName)),
+	projectItemBase := &stripe.InvoiceItemParams{
+		Currency: stripe.String(string(stripe.CurrencyUSD)),
+		Customer: stripe.String(cusID),
 		Period: &stripe.InvoiceItemPeriodParams{
 			Start: stripe.Int64(record.PeriodStart.Unix()),
 			End:   stripe.Int64(record.PeriodEnd.Unix()),
 		},
 	}
+	projectItemBase.AddMetadata("projectID", record.ProjectID.String())
 
-	projectItem.AddMetadata("projectID", record.ProjectID.String())
+	projectStorage := projectItemBase
+	projectStorage.Description = stripe.String(fmt.Sprintf("project %s - Storage", projName))
+	projectStorage.Amount = stripe.Int64(projectPrice.Storage.IntPart())
+	_, err = service.stripeClient.InvoiceItems.New(projectStorage)
+	if err != nil {
+		return err
+	}
 
-	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	projectEgress := projectItemBase
+	projectEgress.Description = stripe.String(fmt.Sprintf("project %s - Egress Bandwidth", projName))
+	projectEgress.Amount = stripe.Int64(projectPrice.Egress.IntPart())
+	_, err = service.stripeClient.InvoiceItems.New(projectEgress)
+	if err != nil {
+		return err
+	}
+
+	projectObjects := projectItemBase
+	projectObjects.Description = stripe.String(fmt.Sprintf("project %s - Object Fee", projName))
+	projectObjects.Amount = stripe.Int64(projectPrice.Objects.IntPart())
+	_, err = service.stripeClient.InvoiceItems.New(projectObjects)
+	if err != nil {
+		return err
+	}
+
+	_, err = service.stripeClient.InvoiceItems.New(projectEgress)
 	return err
 }
 
