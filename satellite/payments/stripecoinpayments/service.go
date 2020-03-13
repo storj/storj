@@ -598,21 +598,21 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 	}
 	projectItem.AddMetadata("projectID", record.ProjectID.String())
 
-	projectItem.Description = stripe.String(fmt.Sprintf("project %s - Storage", projName))
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Storage", projName))
 	projectItem.Amount = stripe.Int64(projectPrice.Storage.IntPart())
 	_, err = service.stripeClient.InvoiceItems.New(projectItem)
 	if err != nil {
 		return err
 	}
 
-	projectItem.Description = stripe.String(fmt.Sprintf("project %s - Egress Bandwidth", projName))
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth", projName))
 	projectItem.Amount = stripe.Int64(projectPrice.Egress.IntPart())
 	_, err = service.stripeClient.InvoiceItems.New(projectItem)
 	if err != nil {
 		return err
 	}
 
-	projectItem.Description = stripe.String(fmt.Sprintf("project %s - Object Fee", projName))
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee", projName))
 	projectItem.Amount = stripe.Int64(projectPrice.Objects.IntPart())
 	_, err = service.stripeClient.InvoiceItems.New(projectItem)
 	return err
@@ -855,9 +855,9 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 func (service *Service) createInvoice(ctx context.Context, cusID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var description string
+	/*var description string
 	// get the first invoice item's period
-	/*params := &stripe.InvoiceItemListParams{Customer: stripe.String(cusID)}
+	params := &stripe.InvoiceItemListParams{Customer: stripe.String(cusID)}
 	params.Filters.AddFilter("limit", "", "1")
 	iter := service.stripeClient.InvoiceItems.List(params)
 	for iter.Next() {
@@ -869,7 +869,7 @@ func (service *Service) createInvoice(ctx context.Context, cusID string) (err er
 	if iter.Err() != nil {
 		return Error.Wrap(iter.Err())
 	}*/
-	description = "Tardigrade Cloud Storage"
+	description := "Tardigrade Cloud Storage"
 
 	_, err = service.stripeClient.Invoices.New(
 		&stripe.InvoiceParams{
