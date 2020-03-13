@@ -864,22 +864,26 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 func (service *Service) createInvoice(ctx context.Context, cusID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var description string
 	// get the first invoice item's period
 	iter := service.stripeClient.InvoiceItems.List(&stripe.InvoiceItemListParams{Customer: stripe.String(cusID)})
-	if !iter.Next() {
-		return Error.New("no invoice items found, no invoice to be created")
+	for iter.Next() {
+		if iter.Err() != nil {
+			return Error.Wrap(iter.Err())
+		}
+		start := time.Unix(0, iter.InvoiceItem().Period.Start)
+		year, month, _ := start.Date()
+		description = fmt.Sprintf("Billing Period %s %d", month, year)
+		if iter.InvoiceItem().Period.Start == 0 {
+			break
+		}
 	}
-	if iter.Err() != nil {
-		return Error.Wrap(iter.Err())
-	}
-	start := time.Unix(0, iter.InvoiceItem().Period.Start)
-	year, month, _ := start.Date()
 
 	_, err = service.stripeClient.Invoices.New(
 		&stripe.InvoiceParams{
 			Customer:    stripe.String(cusID),
 			AutoAdvance: stripe.Bool(service.AutoAdvance),
-			Description: stripe.String(fmt.Sprintf("Billing Period %s %d", month, year)),
+			Description: stripe.String(description),
 		},
 	)
 
