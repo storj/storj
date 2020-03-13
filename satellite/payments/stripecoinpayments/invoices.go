@@ -43,7 +43,7 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 			Amount:      stripeInvoice.AmountDue,
 			Status:      string(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
-			End:         time.Unix(stripeInvoice.PeriodEnd, 0),
+			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
 		})
 	}
 

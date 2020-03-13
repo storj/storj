@@ -369,9 +369,9 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	now := time.Now().UTC()
 	utc := period.UTC()
 
-	//Adding 12 hours to test if Stripe actually takes our time as UTC
+	//Adding 12 hours to the UTC time as Stripe seems to have a bug.
 	start := time.Date(utc.Year(), utc.Month(), 1, 12, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 1, 12, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 0, 12, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("prepare is for past periods only")
@@ -595,8 +595,8 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 		Customer:    stripe.String(cusID),
 		Description: stripe.String(fmt.Sprintf("project %s", projName)),
 		Period: &stripe.InvoiceItemPeriodParams{
-			End:   stripe.Int64(record.PeriodEnd.Unix()),
 			Start: stripe.Int64(record.PeriodStart.Unix()),
+			End:   stripe.Int64(record.PeriodEnd.Unix()),
 		},
 	}
 
@@ -843,16 +843,24 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 func (service *Service) createInvoice(ctx context.Context, cusID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Get the first Invoice Items Period
+	var period string
+	// get the first invoice item's period
 	iter := service.stripeClient.InvoiceItems.List(&stripe.InvoiceItemListParams{Customer: stripe.String(cusID)})
-	start := time.Unix(0, iter.InvoiceItem().Period.Start)
-	year, month, _ := start.Date()
+	for iter.Next() {
+		if iter.Err() != nil {
+			return Error.Wrap(iter.Err())
+		}
+		start := time.Unix(0, iter.InvoiceItem().Period.Start)
+		year, month, _ := start.Date()
+		period = fmt.Sprintf("Billing Period %s %d", month, year)
+		break
+	}
 
 	_, err = service.stripeClient.Invoices.New(
 		&stripe.InvoiceParams{
 			Customer:    stripe.String(cusID),
 			AutoAdvance: stripe.Bool(service.AutoAdvance),
-			Description: stripe.String(fmt.Sprintf("Billing Period %s %d", month, year)),
+			Description: stripe.String(period),
 		},
 	)
 
