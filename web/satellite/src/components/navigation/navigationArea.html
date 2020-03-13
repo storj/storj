@@ -9,7 +9,7 @@
         </router-link>
         <ProjectSelectionArea class="project-selection-area"/>
         <p class="navigation-area__project-title">PROJECT</p>
-        <router-link :aria-label="navItem.name" class="navigation-area__item-container" :class="{ disabled: isLinkDisabled(navItem) }" v-for="navItem in navigation" :key="navItem.name" :to="navItem.path">
+        <router-link :aria-label="navItem.name" class="navigation-area__item-container" :class="{ disabled: isLinkDisabled }" v-for="navItem in navigation" :key="navItem.name" :to="navItem.path">
             <div class="navigation-area__item-container__link-container">
                 <div v-html="navItem.icon"></div>
                 <h1 class="navigation-area__item-container__link-container__title">{{navItem.name}}</h1>

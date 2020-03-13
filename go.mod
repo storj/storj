@@ -5,7 +5,7 @@ go 1.13
 require (
 	cloud.google.com/go v0.52.0
 	github.com/BurntSushi/toml v0.3.1
-	github.com/Shopify/go-lua v0.0.0-20181106184032-48449c60c0a9
+	github.com/Shopify/go-lua v0.0.0-20191113154418-05ce435a9edd
 	github.com/alessio/shellescape v0.0.0-20190409004728-b115ca0f9053
 	github.com/alicebob/miniredis/v2 v2.11.1
 	github.com/blang/semver v3.5.1+incompatible
@@ -23,9 +23,9 @@ require (
 	github.com/gorilla/schema v1.1.0
 	github.com/graphql-go/graphql v0.7.9
 	github.com/jackc/pgx v3.2.0+incompatible
-	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
+	github.com/jtolds/go-luar v0.0.0-20200310225017-6fa637b8208b
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
-	github.com/jtolds/tracetagger/v2 v2.0.0-rc3
+	github.com/jtolds/tracetagger/v2 v2.0.0-rc5
 	github.com/lib/pq v1.3.0
 	github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
@@ -35,7 +35,7 @@ require (
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
-	github.com/spacemonkeygo/monkit/v3 v3.0.2
+	github.com/spacemonkeygo/monkit/v3 v3.0.4
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
@@ -44,6 +44,7 @@ require (
 	github.com/stripe/stripe-go v63.1.1+incompatible
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/zeebo/admission/v2 v2.0.0
+	github.com/zeebo/admission/v3 v3.0.1
 	github.com/zeebo/errs v1.2.2
 	github.com/zeebo/structs v1.0.2
 	go.uber.org/zap v1.10.0
@@ -53,7 +54,7 @@ require (
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.27.1
 	gopkg.in/yaml.v2 v2.2.4
-	storj.io/common v0.0.0-20200303092706-429875361e5d
+	storj.io/common v0.0.0-20200310192634-b730fe7e2fd5
 	storj.io/drpc v0.0.8
-	storj.io/uplink v1.0.0-rc.2
+	storj.io/uplink v1.0.0-rc.5.0.20200311190324-aee82d3f05aa
 )

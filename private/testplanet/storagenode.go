@@ -98,7 +98,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			Storage: piecestore.OldConfig{
 				Path:                   filepath.Join(storageDir, "pieces/"),
 				AllocatedDiskSpace:     1 * memory.GB,
-				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: defaultInterval,
 			},
 			Collector: collector.Config{
@@ -128,7 +127,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					MaxSleep:        0,
 				},
 				Monitor: monitor.Config{
-					MinimumBandwidth:      100 * memory.MB,
 					MinimumDiskSpace:      100 * memory.MB,
 					NotifyLowDiskCooldown: defaultInterval,
 				},

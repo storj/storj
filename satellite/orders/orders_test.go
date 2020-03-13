@@ -351,6 +351,62 @@ func buildBenchmarkData(ctx context.Context, b *testing.B, db satellite.DB, stor
 	return requests
 }
 
+func TestLargeOrderLimit(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		ordersDB := db.Orders()
+		chore := reportedrollup.NewChore(zaptest.NewLogger(t), ordersDB, reportedrollup.Config{})
+		serialNum := storj.SerialNumber{1}
+
+		projectID, _ := uuid.New()
+		now := time.Now()
+		beforeRollup := now.Add(-time.Hour)
+		afterRollup := now.Add(time.Hour)
+
+		// setup: create serial number records
+		err := ordersDB.CreateSerialInfo(ctx, serialNum, []byte(projectID.String()+"/b"), now.AddDate(0, 0, 1))
+		require.NoError(t, err)
+
+		var requests []*orders.ProcessOrderRequest
+
+		// process one order with smaller amount than the order limit and confirm we get the correct response
+		{
+			requests = append(requests, &orders.ProcessOrderRequest{
+				Order: &pb.Order{
+					SerialNumber: serialNum,
+					Amount:       100,
+				},
+				OrderLimit: &pb.OrderLimit{
+					SerialNumber:    serialNum,
+					StorageNodeId:   storj.NodeID{1},
+					Action:          pb.PieceAction_GET,
+					OrderExpiration: now.AddDate(0, 0, 3),
+					Limit:           250,
+				},
+			})
+			actualResponses, err := ordersDB.ProcessOrders(ctx, requests)
+			require.NoError(t, err)
+			expectedResponses := []*orders.ProcessOrderResponse{
+				{
+					SerialNumber: serialNum,
+					Status:       pb.SettlementResponse_ACCEPTED,
+				},
+			}
+			assert.Equal(t, expectedResponses, actualResponses)
+
+			require.NoError(t, chore.RunOnce(ctx, now))
+
+			// check only the bandwidth we've used is taken into account
+			bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, *projectID, []byte("b"), beforeRollup, afterRollup)
+			require.NoError(t, err)
+			require.Equal(t, int64(100), bucketBandwidth)
+
+			storageNodeBandwidth, err := ordersDB.GetStorageNodeBandwidth(ctx, storj.NodeID{1}, beforeRollup, afterRollup)
+			require.NoError(t, err)
+			require.Equal(t, int64(100), storageNodeBandwidth)
+		}
+	})
+}
+
 func TestProcessOrders(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		ordersDB := db.Orders()
@@ -358,6 +414,7 @@ func TestProcessOrders(t *testing.T) {
 		invalidSerial := storj.SerialNumber{1}
 		serialNum := storj.SerialNumber{2}
 		serialNum2 := storj.SerialNumber{3}
+
 		projectID, _ := uuid.New()
 		now := time.Now()
 		beforeRollup := now.Add(-time.Hour - time.Second)

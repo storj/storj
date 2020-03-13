@@ -207,7 +207,7 @@ type satelliteDB interface {
 }
 
 func migrateTest(t *testing.T, connStr string) {
-	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
+	ctx := testcontext.NewWithTimeout(t, 8*time.Minute)
 	defer ctx.Cleanup()
 
 	log := zaptest.NewLogger(t)
@@ -269,5 +269,5 @@ func migrateTest(t *testing.T, connStr string) {
 	}
 
 	// verify that we also match the dbx version
-	require.Equal(t, dbxschema, finalSchema, "dbx")
+	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }

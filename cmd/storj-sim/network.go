@@ -568,7 +568,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--operator.wallet", "0x0123456789012345678901234567890123456789",
 
 				"--storage2.monitor.minimum-disk-space", "0",
-				"--storage2.monitor.minimum-bandwidth", "0",
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",

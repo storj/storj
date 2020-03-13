@@ -112,13 +112,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 
 	stats := data.GetStats()
 	if stats != nil {
-		availBW := memory.Size(stats.GetAvailableBandwidth())
 		usedBandwidth := color.WhiteString(memory.Size(stats.GetUsedBandwidth()).Base10String())
-		if availBW < 0 {
-			warnFlag = true
-			availBW = 0
-		}
-		availableBandwidth := color.WhiteString((availBW).Base10String())
 		availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).Base10String())
 		usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).Base10String())
 		usedEgress := color.WhiteString(memory.Size(stats.GetUsedEgress()).Base10String())
@@ -126,7 +120,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 
 		w = tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
 		fmt.Fprintf(w, "\n\t%s\t%s\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"), color.GreenString("Egress"), color.GreenString("Ingress"))
-		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t (since %s 1)\n", availableBandwidth, usedBandwidth, usedEgress, usedIngress, time.Now().Format("Jan"))
+		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t (since %s 1)\n", "N/A", usedBandwidth, usedEgress, usedIngress, time.Now().Format("Jan"))
 		fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
 		if err = w.Flush(); err != nil {
 			return err

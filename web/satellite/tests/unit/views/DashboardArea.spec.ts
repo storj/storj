@@ -13,6 +13,7 @@ import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { makeUsageModule } from '@/store/modules/usage';
 import { makeUsersModule } from '@/store/modules/users';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
@@ -80,6 +81,22 @@ describe('Dashboard', () => {
         expect(wrapper).toMatchSnapshot();
         expect(wrapper.findAll('.loading-overlay.active').length).toBe(1);
         expect(wrapper.findAll('.dashboard-container__wrap').length).toBe(0);
+    });
+
+    it('renders correctly without project and with payment method', async () => {
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_CONTENT_BLUR);
+
+        const wrapper = shallowMount(DashboardArea, {
+            store,
+            localVue,
+            router,
+        });
+
+        expect(wrapper).toMatchSnapshot();
+
+        await wrapper.find('.dashboard-container__blur-area__button').trigger('click');
+
+        expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly when data is loaded', () => {

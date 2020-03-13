@@ -14,10 +14,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/fpath"
-	"storj.io/common/macaroon"
-	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/uplink"
 )
 
 var shareCfg struct {
@@ -31,6 +30,7 @@ var shareCfg struct {
 	NotAfter          string   `help:"disallow access after this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
 	AllowedPathPrefix []string `help:"whitelist of path prefixes to require, overrides the [allowed-path-prefix] arguments"`
 	ExportTo          string   `default:"" help:"path to export the shared access to" basic-help:"true"`
+	BaseURL           string   `default:"https://link.tardigradeshare.io" help:"the base url for link sharing"`
 
 	// Share requires information about the current access
 	AccessConfig
@@ -50,30 +50,29 @@ func init() {
 	process.Bind(shareCmd, &shareCfg, defaults, cfgstruct.ConfDir(getConfDir()))
 }
 
-func parseHumanDate(date string, now time.Time) (*time.Time, error) {
+func parseHumanDate(date string, now time.Time) (time.Time, error) {
 	switch {
 	case date == "":
-		return nil, nil
+		return time.Time{}, nil
 	case date == "now":
-		return &now, nil
+		return now, nil
 	case date[0] == '+':
 		d, err := time.ParseDuration(date[1:])
 		t := now.Add(d)
-		return &t, errs.Wrap(err)
+		return t, errs.Wrap(err)
 	case date[0] == '-':
 		d, err := time.ParseDuration(date[1:])
 		t := now.Add(-d)
-		return &t, errs.Wrap(err)
+		return t, errs.Wrap(err)
 	default:
 		t, err := time.Parse(time.RFC3339, date)
-		return &t, errs.Wrap(err)
+		return t, errs.Wrap(err)
 	}
 }
 
 // shareMain is the function executed when shareCmd is called
 func shareMain(cmd *cobra.Command, args []string) (err error) {
 	now := time.Now()
-
 	notBefore, err := parseHumanDate(shareCfg.NotBefore, now)
 	if err != nil {
 		return err
@@ -91,7 +90,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	var restrictions []libuplink.EncryptionRestriction
+	var sharePrefixes []uplink.SharePrefix
 	for _, path := range shareCfg.AllowedPathPrefix {
 		p, err := fpath.New(path)
 		if err != nil {
@@ -101,46 +100,28 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 			return errs.New("required path must be remote: %q", path)
 		}
 
-		restrictions = append(restrictions, libuplink.EncryptionRestriction{
-			Bucket:     p.Bucket(),
-			PathPrefix: p.Path(),
+		sharePrefixes = append(sharePrefixes, uplink.SharePrefix{
+			Bucket: p.Bucket(),
+			Prefix: p.Path(),
 		})
 	}
 
-	access, err := shareCfg.GetAccess()
-	if err != nil {
-		return err
-	}
-	key, encAccess := access.APIKey, access.EncryptionAccess
-
-	if len(restrictions) > 0 {
-		key, encAccess, err = encAccess.Restrict(key, restrictions...)
-		if err != nil {
-			return err
-		}
-	}
-
-	caveat, err := macaroon.NewCaveat()
+	access, err := shareCfg.GetNewAccess()
 	if err != nil {
 		return err
 	}
 
-	caveat.DisallowDeletes = shareCfg.DisallowDeletes || shareCfg.Readonly
-	caveat.DisallowLists = shareCfg.DisallowLists || shareCfg.Writeonly
-	caveat.DisallowReads = shareCfg.DisallowReads || shareCfg.Writeonly
-	caveat.DisallowWrites = shareCfg.DisallowWrites || shareCfg.Readonly
-	caveat.NotBefore = notBefore
-	caveat.NotAfter = notAfter
+	permission := uplink.Permission{}
+	permission.AllowDelete = !shareCfg.DisallowDeletes && !shareCfg.Readonly
+	permission.AllowList = !shareCfg.DisallowLists && !shareCfg.Writeonly
+	permission.AllowDownload = !shareCfg.DisallowReads && !shareCfg.Writeonly
+	permission.AllowUpload = !shareCfg.DisallowWrites && !shareCfg.Readonly
+	permission.NotBefore = notBefore
+	permission.NotAfter = notAfter
 
-	key, err = key.Restrict(caveat)
+	newAccess, err := access.Share(permission, sharePrefixes...)
 	if err != nil {
 		return err
-	}
-
-	newAccess := &libuplink.Scope{
-		SatelliteAddr:    access.SatelliteAddr,
-		APIKey:           key,
-		EncryptionAccess: encAccess,
 	}
 
 	newAccessData, err := newAccess.Serialize()
@@ -148,17 +129,31 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	fmt.Println("Sharing access to satellite", access.SatelliteAddr)
+	// TODO extend libuplink to give this value
+	// fmt.Println("Sharing access to satellite", access.SatelliteAddr)
+
 	fmt.Println("=========== ACCESS RESTRICTIONS ==========================================================")
-	fmt.Println("Reads     :", formatPermission(!caveat.GetDisallowReads()))
-	fmt.Println("Writes    :", formatPermission(!caveat.GetDisallowWrites()))
-	fmt.Println("Lists     :", formatPermission(!caveat.GetDisallowLists()))
-	fmt.Println("Deletes   :", formatPermission(!caveat.GetDisallowDeletes()))
-	fmt.Println("Not Before:", formatTimeRestriction(caveat.NotBefore))
-	fmt.Println("Not After :", formatTimeRestriction(caveat.NotAfter))
-	fmt.Println("Paths     :", formatPaths(restrictions))
+	fmt.Println("Download  :", formatPermission(permission.AllowDownload))
+	fmt.Println("Upload    :", formatPermission(permission.AllowUpload))
+	fmt.Println("Lists     :", formatPermission(permission.AllowList))
+	fmt.Println("Deletes   :", formatPermission(permission.AllowDelete))
+	fmt.Println("NotBefore :", formatTimeRestriction(permission.NotBefore))
+	fmt.Println("NotAfter  :", formatTimeRestriction(permission.NotAfter))
+	fmt.Println("Paths     :", formatPaths(sharePrefixes))
 	fmt.Println("=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========")
 	fmt.Println("Access    :", newAccessData)
+
+	if len(shareCfg.AllowedPathPrefix) == 1 {
+		fmt.Println("=========== BROWSER URL ==================================================================")
+		p, err := fpath.New(shareCfg.AllowedPathPrefix[0])
+		if err != nil {
+			return err
+		}
+		fmt.Println("URL       :", fmt.Sprintf("%s/%s/%s/%s", shareCfg.BaseURL, newAccessData, p.Bucket(), p.Path()))
+	} else {
+		fmt.Println("=========== BROWSER URL PREFIX ===========================================================")
+		fmt.Println("URL       :", fmt.Sprintf("%s/%s", shareCfg.BaseURL, newAccessData))
+	}
 
 	if shareCfg.ExportTo != "" {
 		// convert to an absolute path, mostly for output purposes.
@@ -181,25 +176,25 @@ func formatPermission(allowed bool) string {
 	return "Disallowed"
 }
 
-func formatTimeRestriction(t *time.Time) string {
-	if t == nil {
+func formatTimeRestriction(t time.Time) string {
+	if t.IsZero() {
 		return "No restriction"
 	}
-	return formatTime(*t)
+	return formatTime(t)
 }
 
-func formatPaths(restrictions []libuplink.EncryptionRestriction) string {
-	if len(restrictions) == 0 {
+func formatPaths(sharePrefixes []uplink.SharePrefix) string {
+	if len(sharePrefixes) == 0 {
 		return "WARNING! The entire project is shared!"
 	}
 
 	var paths []string
-	for _, restriction := range restrictions {
-		path := "sj://" + restriction.Bucket
-		if len(restriction.PathPrefix) == 0 {
+	for _, prefix := range sharePrefixes {
+		path := "sj://" + prefix.Bucket
+		if len(prefix.Prefix) == 0 {
 			path += " (entire bucket)"
 		} else {
-			path += "/" + restriction.PathPrefix
+			path += "/" + prefix.Prefix
 		}
 		paths = append(paths, path)
 	}

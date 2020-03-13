@@ -27,3 +27,22 @@ func (p *Printer) Metric(application, instance string, key []byte, val float64, 
 	_, err := fmt.Println(application, instance, string(key), val, ts.Unix())
 	return err
 }
+
+// PacketPrinter is a PacketDest that writes to stdout
+type PacketPrinter struct {
+	mu sync.Mutex
+}
+
+// NewPacketPrinter returns a PacketPrinter
+func NewPacketPrinter() *PacketPrinter {
+	return &PacketPrinter{}
+}
+
+// Packet implements PacketDest
+func (p *PacketPrinter) Packet(data []byte, ts time.Time) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	_, err := fmt.Println("printing packet", len(data), ts.Unix())
+	return err
+}

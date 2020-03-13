@@ -278,7 +278,6 @@ export default class ProfileArea extends Vue {
         line-height: 27px;
         word-break: break-all;
         max-height: 80px;
-        overflow-y: scroll;
     }
 
     .profile-regular-text {

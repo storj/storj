@@ -256,7 +256,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		defer func() { err = errs.Combine(err, rows.Close(), rows.Err()) }()
+		defer func() { err = errs.Combine(err, rows.Err(), rows.Close()) }()
 		for rows.Next() {
 			var index int
 			var bucketID []byte

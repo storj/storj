@@ -5,15 +5,19 @@ package payments
 
 import (
 	"github.com/skyrings/skyring-common/tools/uuid"
+
+	"storj.io/storj/satellite/accounting"
 )
 
-// ProjectCharge shows how much money current project will charge in the end of the month.
+// ProjectCharge shows project usage and how much money current project will charge in the end of the month.
 type ProjectCharge struct {
+	accounting.ProjectUsage
+
 	ProjectID uuid.UUID `json:"projectId"`
 	// StorageGbHrs shows how much cents we should pay for storing GB*Hrs.
-	StorageGbHrs int64 `json:"storage"`
+	StorageGbHrs int64 `json:"storagePrice"`
 	// Egress shows how many cents we should pay for Egress.
-	Egress int64 `json:"egress"`
+	Egress int64 `json:"egressPrice"`
 	// ObjectCount shows how many cents we should pay for objects count.
-	ObjectCount int64 `json:"objectCount"`
+	ObjectCount int64 `json:"objectPrice"`
 }

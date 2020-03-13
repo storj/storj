@@ -16,7 +16,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/cmd/uplink/cmd"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
@@ -58,8 +57,8 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 						objectName = "object-filename" + strconv.Itoa(i)
 					)
 
-					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-						Client: cmd.ClientConfig{
+					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
+						Client: testplanet.ClientConfig{
 							SegmentSize: 10 * memory.KiB,
 						},
 					},
@@ -133,8 +132,8 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 						uplnk        = planet.Uplinks[0]
 						satelliteSys = planet.Satellites[0]
 					)
-					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-						Client: cmd.ClientConfig{
+					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
+						Client: testplanet.ClientConfig{
 							SegmentSize: 10 * memory.KiB,
 						},
 					}, bucketName, objectName, tc.objData)
@@ -208,8 +207,8 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 						satelliteSys = planet.Satellites[0]
 					)
 
-					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-						Client: cmd.ClientConfig{
+					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
+						Client: testplanet.ClientConfig{
 							SegmentSize: 10 * memory.KiB,
 						},
 					}, bucketName, objectName, tc.objData)
@@ -485,8 +484,8 @@ func uploadFirstObjectWithoutSomeSegmentsPointers(
 		t.Fatal("noSegments list must have at least one segment")
 	}
 
-	err := uplnk.UploadWithClientConfig(ctx, satelliteSys, cmd.Config{
-		Client: cmd.ClientConfig{
+	err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
+		Client: testplanet.ClientConfig{
 			SegmentSize: segmentSize,
 		},
 	},

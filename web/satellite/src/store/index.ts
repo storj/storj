@@ -24,7 +24,7 @@ import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/p
 import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
 import { makeReferralModule, ReferralState } from '@/store/modules/referral';
 import { makeUsageModule, UsageState } from '@/store/modules/usage';
-import { makeUsersModule, USER_ACTIONS } from '@/store/modules/users';
+import { makeUsersModule } from '@/store/modules/users';
 import { CreditUsage } from '@/types/credits';
 import { User } from '@/types/users';
 

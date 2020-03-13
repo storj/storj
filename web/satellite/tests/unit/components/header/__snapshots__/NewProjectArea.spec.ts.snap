@@ -1,0 +1,91 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`NewProjectArea renders correctly without projects and with credit card 1`] = `
+<div class="new-project-container">
+  <!---->
+  <div id="newProjectButton" class="new-project-button-container">
+    <h1 class="new-project-button-container__label">+ Create Project</h1>
+  </div>
+  <!---->
+</div>
+`;
+
+exports[`NewProjectArea renders correctly without projects and with credit card 2`] = `
+<div class="new-project-container">
+  <!---->
+  <div id="newProjectButton" class="new-project-button-container">
+    <h1 class="new-project-button-container__label">+ Create Project</h1>
+  </div>
+  <div class="new-project-popup-container">
+    <div id="newProjectPopup" class="new-project-popup">
+      <div class="new-project-popup__info-panel-container">
+        <h2 class="new-project-popup__info-panel-container__main-label-text">Create New Project</h2> <img src="@/../static/images/project/createProject.jpg" alt="create project image">
+      </div>
+      <div class="new-project-popup__form-container">
+        <div class="input-container full-input">
+          <div class="label-container">
+            <!---->
+            <h3 class="label-container__label">Project Name</h3>
+            <h3 class="label-container__label add-label">Up To 20 Characters</h3>
+            <!---->
+          </div>
+          <!---->
+          <!----> <input id="Project Name" placeholder="Enter Project Name" type="text" class="headered-input" style="width: 100%; height: 48px;">
+        </div>
+        <div class="input-container full-input">
+          <div class="label-container">
+            <!---->
+            <h3 class="label-container__label">Description</h3>
+            <h3 class="label-container__label add-label">Optional</h3>
+            <!---->
+          </div>
+          <!----> <textarea id="Description" placeholder="Enter Project Description" rows="5" cols="40" wrap="hard" class="headered-textarea" style="width: 100%; height: 100px;"></textarea>
+          <!---->
+        </div>
+        <div class="new-project-popup__form-container__button-container">
+          <div class="container white" style="width: 205px; height: 48px;">
+            <h1 class="label">Cancel</h1>
+          </div>
+          <div class="container" style="width: 205px; height: 48px;">
+            <h1 class="label">Next</h1>
+          </div>
+        </div>
+      </div>
+      <div class="new-project-popup__close-cross-container"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65" class="close-cross-svg-path"></path>
+        </svg></div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`NewProjectArea renders correctly without projects and without payment methods 1`] = `
+<div class="new-project-container">
+  <div class="info">
+    <div class="new-project-button-mock">
+      <h1 class="new-project-button-mock__label">+ Create Project</h1>
+    </div>
+    <!---->
+  </div>
+  <!---->
+  <!---->
+</div>
+`;
+
+exports[`NewProjectArea renders correctly without projects and without payment methods with info tooltip 1`] = `
+<div class="new-project-container">
+  <div class="info">
+    <div class="new-project-button-mock">
+      <h1 class="new-project-button-mock__label">+ Create Project</h1>
+    </div>
+    <div class="info__message-box">
+      <div class="info__message-box__text">
+        <p class="info__message-box__text__regular-text">Please add a payment method</p>
+        <p class="info__message-box__text__bold-text"></p>
+      </div>
+    </div>
+  </div>
+  <!---->
+  <!---->
+</div>
+`;

@@ -9,27 +9,18 @@
             :navigation="navigation"
         />
         <router-view v-if="isProjectSelected"/>
-        <EmptyState
-            v-if="!isProjectSelected"
-            main-title="Create your first project"
-            additional-text='<p>Please click the button <b>"New Project"</b> in the upper right corner</p>'
-            :image-source="emptyImage"
-        />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import EmptyState from '@/components/common/EmptyStateArea.vue';
 import TabNavigation from '@/components/navigation/TabNavigation.vue';
 
 import { NavigationLink } from '@/types/navigation';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 @Component({
     components: {
-        EmptyState,
         TabNavigation,
     },
 })
@@ -40,12 +31,11 @@ export default class ProjectOverviewArea extends Vue {
         new NavigationLink('/project-overview/usage-report', 'Report'),
     ];
 
+    /**
+     * Indicates if project is selected.
+     */
     public get isProjectSelected(): boolean {
         return this.$store.getters.selectedProject.id !== '';
-    }
-
-    public get emptyImage(): string {
-        return EMPTY_STATE_IMAGES.PROJECT;
     }
 }
 </script>

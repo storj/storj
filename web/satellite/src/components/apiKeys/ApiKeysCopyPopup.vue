@@ -16,7 +16,7 @@
         <div class="save-api-popup__link-container">
             <a
                 class="save-api-popup__link-container__link"
-                href="https://documentation.tardigrade.io/api-reference/uplink-cli"
+                href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli"
                 target="_blank"
                 v-if="isLinkVisible"
                 @click.self.stop="segmentTrack"

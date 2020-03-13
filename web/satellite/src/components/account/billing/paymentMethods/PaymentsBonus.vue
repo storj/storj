@@ -4,7 +4,7 @@
 <template>
     <div class="payments-bonus-container">
         <LogoIcon class="banner-logo-svg" v-if="anyCreditCards" />
-        <GiftIcon class="banner-gift-svg" v-else />
+        <CardIcon class="banner-gift-svg" v-else />
         <div class="payments-bonus-container__text-container" v-if="anyCreditCards">
             <p class="payments-bonus-container__text-container__main-text">
                 Get free credits for paying in STORJ!
@@ -15,10 +15,10 @@
         </div>
         <div class="payments-bonus-container__text-container" v-else >
             <p class="payments-bonus-container__text-container__main-text">
-                Receive 1TB of Free Storage & Bandwidth for the Production Release!
+                Add a Payment Method to Get Started
             </p>
             <p class="payments-bonus-container__text-container__additional-text">
-                Add a credit card and get free credit. You will not be charged until the production release.
+                Your first 5GB are free. You will not be charged until you use more than 5GB.
             </p>
         </div>
     </div>
@@ -27,13 +27,13 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import GiftIcon from '@/../static/images/account/billing/Gift.svg';
+import CardIcon from '@/../static/images/account/billing/card.svg';
 import LogoIcon from '@/../static/images/navigation/logo.svg';
 
 @Component({
     components: {
-        GiftIcon,
         LogoIcon,
+        CardIcon,
     },
 })
 export default class PaymentsBonus extends Vue {
@@ -68,7 +68,7 @@ export default class PaymentsBonus extends Vue {
                 font-size: 22px;
                 line-height: 30px;
                 margin: 0;
-                color: #1e2d42;
+                color: #2683ff;
             }
 
             &__additional-text {
@@ -82,7 +82,7 @@ export default class PaymentsBonus extends Vue {
     }
 
     .banner-logo-svg {
-        min-height: 60px;
+        min-height: 64px;
         min-width: 54px;
     }
 

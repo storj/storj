@@ -34,6 +34,9 @@ import { Component, Vue } from 'vue-property-decorator';
 import VInfo from '@/components/common/VInfo.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { Project } from '@/types/projects';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
     components: {
@@ -49,6 +52,10 @@ export default class AccountBalance extends Vue {
             this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
         } catch (error) {
             this.$notify.error(error.message);
+        }
+
+        if (this.balance > 0 && !ProjectOwning.userHasOwnProject()) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
         }
     }
 

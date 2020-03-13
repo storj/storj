@@ -63,6 +63,16 @@ func TestInvalidAPIKeyOld(t *testing.T) {
 	})
 }
 
+func assertUnauthenticated(t *testing.T, err error, allowed bool) {
+	t.Helper()
+
+	// If it's allowed, we allow any non-unauthenticated error because
+	// some calls error after authentication checks.
+	if !allowed {
+		assert.True(t, errs2.IsRPC(err, rpcstatus.Unauthenticated))
+	}
+}
+
 func TestRestrictedAPIKey(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,

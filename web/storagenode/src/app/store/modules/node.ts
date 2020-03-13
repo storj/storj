@@ -55,8 +55,6 @@ export const node = {
         utilization: {
             bandwidth: {
                 used: 0,
-                remaining: 1,
-                available: 1,
             },
             diskSpace: {
                 used: 0,
@@ -91,8 +89,6 @@ export const node = {
             state.utilization.diskSpace.remaining = nodeInfo.diskSpace.available - nodeInfo.diskSpace.used;
             state.utilization.diskSpace.available = nodeInfo.diskSpace.available;
             state.utilization.bandwidth.used = nodeInfo.bandwidth.used;
-            state.utilization.bandwidth.remaining = nodeInfo.bandwidth.available - nodeInfo.bandwidth.used;
-            state.utilization.bandwidth.available = nodeInfo.bandwidth.available;
 
             state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => {
                 return satellite.disqualified;

@@ -136,6 +136,7 @@ func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.API
 	return macaroon.ParseAPIKey(string(keyData))
 }
 
+// validateAuth validates things like API key, user permissions and rate limit and always returns valid rpc error.
 func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 

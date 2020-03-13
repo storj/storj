@@ -410,9 +410,11 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			Console: consoleweb.Config{
 				Address:         "127.0.0.1:0",
 				StaticDir:       filepath.Join(developmentRoot, "web/satellite"),
-				PasswordCost:    console.TestPasswordCost,
 				AuthToken:       "very-secret-token",
 				AuthTokenSecret: "my-suppa-secret-key",
+				Config: console.Config{
+					PasswordCost: console.TestPasswordCost,
+				},
 			},
 			Marketing: marketingweb.Config{
 				Address:   "127.0.0.1:0",
@@ -626,7 +628,7 @@ func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Orders(), rollupsWriteCache, versionInfo, &config)
+	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), rollupsWriteCache, db.Irreparable(), versionInfo, &config)
 }
 
 type rollupsWriteCacheCloser struct {

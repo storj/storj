@@ -18,8 +18,6 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
-import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { LocalData } from '@/utils/localData';
 import { validateEmail, validatePassword } from '@/utils/validation';
 
@@ -53,8 +51,6 @@ export default class RegisterArea extends Vue {
     private isTermsAcceptedError: boolean = false;
     private isLoading: boolean = false;
 
-    private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
-
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public isPasswordStrengthShown: boolean = false;
@@ -78,7 +74,6 @@ export default class RegisterArea extends Vue {
             decoded = atob(ids);
         } catch (error) {
             await this.$notify.error('Invalid Referral URL');
-            this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
 
             return;
         }
@@ -120,11 +115,7 @@ export default class RegisterArea extends Vue {
             return;
         }
 
-        this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
-
         await this.createUser();
-
-        this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
 
         this.isLoading = false;
     }
@@ -209,7 +200,7 @@ export default class RegisterArea extends Vue {
             });
 
             // TODO: improve it
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
             const registrationSuccessPopupRef = this.$refs['register_success_popup'];
 
             if (registrationSuccessPopupRef) {
@@ -217,7 +208,6 @@ export default class RegisterArea extends Vue {
             }
         } catch (error) {
             await this.$notify.error(error.message);
-            this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
             this.isLoading = false;
         }
     }

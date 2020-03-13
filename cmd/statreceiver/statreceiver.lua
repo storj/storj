@@ -62,20 +62,32 @@ metric_parser =
     --packetfilter(".*", "", udpout("localhost:9002")))
     --packetfilter("(storagenode|satellite)-(dev|prod|alphastorj|stagingstorj)", ""))
 
-af = "(uplink|satellite|downloadData|uploadData).*(-alpha|-release|storj|-transfersh)"
+af = "(satellite|downloadData|uploadData).*(-alpha|-release|storj|-transfersh)"
 af_rothko = ".*(-alpha|-release|storj|-transfersh)"
+uplink_header_matcher = headermultivalmatcher("sat",
+    "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777",
+    "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777",
+    "121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@asia-east-1.tardigrade.io:7777",
+    "121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@saturn.tardigrade.io:7777",
+    "12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@europe-west-1.tardigrade.io:7777",
+    "12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@jupiter.tardigrade.io:7777",
+    "118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777",
+    "1wFTAgs9DP5RSnCqKV1eLf6N9wtk4EAtmN5DpSxcs8EjT69tGE@saltlake.tardigrade.io:7777")
 
 -- pcopy forks data to multiple outputs
 -- output types include parse, fileout, and udpout
 destination = pbufprep(pcopy(
   --fileout("dump.out"),
-  pbuf(packetfilter(af, "", metric_parser), pbufsize),
+  pbuf(packetfilter(af, "", nil, metric_parser), pbufsize),
 
   -- useful local debugging
   pbuf(udpout("localhost:9001"), pbufsize),
 
   -- rothko
-   pbuf(packetfilter(af_rothko, "", udpout("rothko-internal.datasci.storj.io:9002")), pbufsize)
+   pbuf(packetfilter(af_rothko, "", nil, udpout("rothko-internal.datasci.storj.io:9002")), pbufsize)
+
+   -- uplink
+   --pbuf(packetfilter("uplink", "", uplink_header_matcher, packetprint()), pbufsize)
  ))
 
 -- tie the source to the destination

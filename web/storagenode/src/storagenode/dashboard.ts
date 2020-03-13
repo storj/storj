@@ -48,12 +48,7 @@ export class DiskSpaceInfo {
  * BandwidthInfo stores all info about storage node bandwidth usage
  */
 export class BandwidthInfo {
-    public remaining: number;
-
     public constructor(
         public used: number,
-        public available: number,
-    ) {
-        this.remaining = available - used;
-    }
+    ) {}
 }

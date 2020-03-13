@@ -201,7 +201,6 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: int(req.Redundancy.Total),
-		FreeBandwidth:  maxPieceSize,
 	}
 	nodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
@@ -717,7 +716,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 		Time: time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	salt := sha256.Sum256(keyInfo.ProjectID[:])
@@ -737,7 +736,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		Time:   time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
@@ -769,7 +768,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		Time:   time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = endpoint.validateBucket(ctx, req.Name)
@@ -819,7 +818,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		Time:   time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = endpoint.validateBucket(ctx, req.Name)
@@ -849,7 +848,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	}
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, action)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	allowedBuckets, err := getAllowedBuckets(ctx, req.Header, action)
@@ -933,7 +932,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return err
 	}
 
 	partnerID, err := endpoint.resolvePartnerID(ctx, header, partnerIDBytes)
@@ -1047,18 +1046,31 @@ func convertBucketToProto(ctx context.Context, bucket storj.Bucket, rs *pb.Redun
 	if err != nil {
 		return pbBucket, rpcstatus.Error(rpcstatus.Internal, "UUID marshal error")
 	}
-	return &pb.Bucket{
+
+	pbBucket = &pb.Bucket{
 		Name:                    []byte(bucket.Name),
-		PathCipher:              pb.CipherSuite(int(bucket.PathCipher)),
+		PathCipher:              pb.CipherSuite(bucket.PathCipher),
 		PartnerId:               partnerID,
 		CreatedAt:               bucket.Created,
 		DefaultSegmentSize:      bucket.DefaultSegmentsSize,
 		DefaultRedundancyScheme: rs,
 		DefaultEncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
+			CipherSuite: pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite),
 			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
 		},
-	}, nil
+	}
+
+	// this part is to provide default ciphers (path and encryption) for old uplinks
+	// new uplinks are using ciphers from encryption access
+	if pbBucket.PathCipher == pb.CipherSuite_ENC_UNSPECIFIED {
+		pbBucket.PathCipher = pb.CipherSuite_ENC_AESGCM
+	}
+	if pbBucket.DefaultEncryptionParameters.CipherSuite == pb.CipherSuite_ENC_UNSPECIFIED {
+		pbBucket.DefaultEncryptionParameters.CipherSuite = pb.CipherSuite_ENC_AESGCM
+		pbBucket.DefaultEncryptionParameters.BlockSize = int64(rs.ErasureShareSize * rs.MinReq)
+	}
+
+	return pbBucket, nil
 }
 
 // BeginObject begins object
@@ -1072,7 +1084,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	if !req.ExpiresAt.IsZero() && !req.ExpiresAt.After(time.Now()) {
@@ -1130,7 +1142,7 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 
 	err = signing.VerifyStreamID(ctx, endpoint.satellite, streamID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	if streamID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
@@ -1144,7 +1156,7 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	streamMeta := pb.StreamMeta{}
@@ -1211,7 +1223,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
@@ -1310,7 +1322,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
@@ -1361,7 +1373,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
@@ -1416,7 +1428,7 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 
 	err = signing.VerifyStreamID(ctx, endpoint.satellite, streamID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
 	if streamID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
@@ -1430,7 +1442,7 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	// we don't need to do anything for shim implementation
@@ -1454,7 +1466,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	// no need to validate streamID fields because it was validated during BeginObject
@@ -1483,7 +1495,6 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: redundancy.TotalCount(),
-		FreeBandwidth:  maxPieceSize,
 	}
 	nodes, err := endpoint.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
@@ -1539,7 +1550,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, nil, err
 	}
 
 	if numResults := len(req.UploadResult); numResults < int(streamID.Redundancy.GetSuccessThreshold()) {
@@ -1688,7 +1699,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, nil, err
 	}
 
 	if req.Position.Index < 0 {
@@ -1767,7 +1778,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	pointer, path, err := endpoint.getPointer(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)
@@ -1827,7 +1838,7 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	// at the moment logic is in BeginDeleteSegment
@@ -1851,7 +1862,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	limit := req.Limit
@@ -2018,7 +2029,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	bucketID := createBucketID(keyInfo.ProjectID, streamID.Bucket)

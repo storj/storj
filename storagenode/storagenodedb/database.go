@@ -286,6 +286,9 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 		}
 		// we don't care about changes in versions table
 		schema.DropTable("versions")
+		// if there was a previous pre-flight failure, test_table might still be in the schema
+		schema.DropTable("test_table")
+
 		// If tables and indexes of the schema are empty, set to nil
 		// to help with comparison to the snapshot.
 		if len(schema.Tables) == 0 {

@@ -49,7 +49,7 @@ export class SNOApi {
         });
 
         const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available);
-        const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used, json.bandwidth.available);
+        const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used);
 
         return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
             new Date(json.lastPinged), new Date(json.startedAt), json.version, json.allowedVersion, json.upToDate);

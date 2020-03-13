@@ -57,8 +57,7 @@ func TestNodeInfoUpdated(t *testing.T) {
 		oldCapacity := oldInfo.Capacity
 
 		newCapacity := pb.NodeCapacity{
-			FreeBandwidth: 0,
-			FreeDisk:      0,
+			FreeDisk: 0,
 		}
 		require.NotEqual(t, oldCapacity, newCapacity)
 		node.Contact.Service.UpdateSelf(&newCapacity)
