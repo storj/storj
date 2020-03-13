@@ -857,7 +857,7 @@ func (service *Service) createInvoice(ctx context.Context, cusID string) (err er
 
 	var description string
 	// get the first invoice item's period
-	params := &stripe.InvoiceItemListParams{Customer: stripe.String(cusID)}
+	/*params := &stripe.InvoiceItemListParams{Customer: stripe.String(cusID)}
 	params.Filters.AddFilter("limit", "", "1")
 	iter := service.stripeClient.InvoiceItems.List(params)
 	for iter.Next() {
@@ -868,7 +868,8 @@ func (service *Service) createInvoice(ctx context.Context, cusID string) (err er
 	}
 	if iter.Err() != nil {
 		return Error.Wrap(iter.Err())
-	}
+	}*/
+	description = "Tardigrade Cloud Storage"
 
 	_, err = service.stripeClient.Invoices.New(
 		&stripe.InvoiceParams{
