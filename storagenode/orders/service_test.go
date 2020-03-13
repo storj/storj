@@ -57,8 +57,8 @@ func TestCleanArchive(t *testing.T) {
 		err = node.DB.Orders().Enqueue(ctx, order1)
 		require.NoError(t, err)
 
-		yesterday := time.Now().UTC().Add(-24 * time.Hour)
-		now := time.Now().UTC()
+		yesterday := time.Now().Add(-24 * time.Hour)
+		now := time.Now()
 
 		// archive one order yesterday, one today
 		err = node.DB.Orders().Archive(ctx, yesterday, orders.ArchiveRequest{

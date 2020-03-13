@@ -492,7 +492,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 				TotalShares:    4,
 			},
 			EncryptionParameters: storj.EncryptionParameters{},
-			ExpiresAt:            time.Now().UTC().Add(24 * time.Hour),
+			ExpiresAt:            time.Now().Add(24 * time.Hour),
 		}
 		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
@@ -560,7 +560,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 		require.Len(t, objects, 1)
 
 		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
-		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
+		require.True(t, params.ExpiresAt.Equal(objects[0].ExpiresAt))
 
 		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 			Bucket:        []byte(bucket.Name),
@@ -687,7 +687,7 @@ func TestInlineSegment(t *testing.T) {
 				TotalShares:    4,
 			},
 			EncryptionParameters: storj.EncryptionParameters{},
-			ExpiresAt:            time.Now().UTC().Add(24 * time.Hour),
+			ExpiresAt:            time.Now().Add(24 * time.Hour),
 		}
 		beginObjectResp, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
@@ -723,7 +723,7 @@ func TestInlineSegment(t *testing.T) {
 		require.Len(t, objects, 1)
 
 		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
-		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
+		require.True(t, params.ExpiresAt.Equal(objects[0].ExpiresAt))
 
 		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 			Bucket:        params.Bucket,

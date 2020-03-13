@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/pgutil/pgtest"
@@ -107,6 +108,21 @@ func doQueryTest(t *testing.T, connStr string) {
 				},
 			},
 		},
+		Indexes: []*dbschema.Index{
+			{Name: "names_a_b_key", Table: "names", Columns: []string{"a", "b"}, Unique: true, Partial: ""},
+			{Name: "names_pkey", Table: "names", Columns: []string{"a", "x"}, Unique: true, Partial: ""},
+			{Name: "names_x_key", Table: "names", Columns: []string{"x"}, Unique: true, Partial: ""},
+			{Name: "users_c_key", Table: "users", Columns: []string{"c"}, Unique: true, Partial: ""},
+			{Name: "users_pkey", Table: "users", Columns: []string{"a"}, Unique: true, Partial: ""},
+		},
+	}
+
+	if db.Implementation == dbutil.Cockroach {
+		expected.Indexes = append(expected.Indexes, &dbschema.Index{
+			Name:    "names_auto_index_fk_users_a_ref_users",
+			Table:   "names",
+			Columns: []string{"users_a"},
+		})
 	}
 
 	expected.Sort()

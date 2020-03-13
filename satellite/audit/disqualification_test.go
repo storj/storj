@@ -219,7 +219,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 				Release:    false,
 			},
 		}
-		err = satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		err = satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))

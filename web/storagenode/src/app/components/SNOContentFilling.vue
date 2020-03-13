@@ -22,6 +22,24 @@
         <div class="info-area__chart-area">
             <section>
                 <div class="chart-container">
+                    <div class="chart-container__title-area disk-space-title">
+                        <p class="chart-container__title-area__title">Disk Space Used This Month</p>
+                    </div>
+                    <p class="chart-container__amount disk-space-amount"><b>{{ storageSummary }}*h</b></p>
+                    <div class="chart-container__chart">
+                        <DiskSpaceChart :height="chartHeight" :width="chartWidth"/>
+                    </div>
+                </div>
+                <BarInfo
+                    label="Disk Space Remaining"
+                    :amount="diskSpace.remaining"
+                    info-text="of disk space left"
+                    :current-bar-amount="diskSpace.used"
+                    :max-bar-amount="diskSpace.available"
+                />
+            </section>
+            <section>
+                <div class="chart-container">
                     <div class="chart-container__title-area">
                         <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
                         <div class="chart-container__title-area__buttons-area">
@@ -50,24 +68,6 @@
                         <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth"/>
                     </div>
                 </div>
-            </section>
-            <section>
-                <div class="chart-container">
-                    <div class="chart-container__title-area disk-space-title">
-                        <p class="chart-container__title-area__title">Disk Space Used This Month</p>
-                    </div>
-                    <p class="chart-container__amount disk-space-amount"><b>{{ storageSummary }}*h</b></p>
-                    <div class="chart-container__chart">
-                        <DiskSpaceChart :height="chartHeight" :width="chartWidth"/>
-                    </div>
-                </div>
-                <BarInfo
-                    label="Disk Space Remaining"
-                    :amount="diskSpace.remaining"
-                    info-text="of disk space left"
-                    :current-bar-amount="diskSpace.used"
-                    :max-bar-amount="diskSpace.available"
-                />
             </section>
         </div>
         <div class="info-area__blurred-checks" v-if="!selectedSatellite.id">

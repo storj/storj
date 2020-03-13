@@ -929,7 +929,7 @@ func TestReverifyExpired1(t *testing.T) {
 		newPointer := &pb.Pointer{}
 		err = proto.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
-		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
+		newPointer.ExpirationDate = time.Now().Add(-1 * time.Hour)
 		newPointerBytes, err := proto.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
@@ -1045,7 +1045,7 @@ func TestReverifyExpired2(t *testing.T) {
 		newPointer := &pb.Pointer{}
 		err = proto.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
-		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
+		newPointer.ExpirationDate = time.Now().Add(-1 * time.Hour)
 		newPointerBytes, err := proto.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path1), oldPointerBytes, newPointerBytes)
