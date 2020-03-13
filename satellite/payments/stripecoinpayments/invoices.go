@@ -40,7 +40,7 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 		invoicesList = append(invoicesList, payments.Invoice{
 			ID:          stripeInvoice.ID,
 			Description: stripeInvoice.Description,
-			Amount:      stripeInvoice.AmountDue,
+			Amount:      stripeInvoice.Total,
 			Status:      string(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
