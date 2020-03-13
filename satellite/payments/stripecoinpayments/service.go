@@ -619,11 +619,6 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 	projectObjects.Description = stripe.String(fmt.Sprintf("project %s - Object Fee", projName))
 	projectObjects.Amount = stripe.Int64(projectPrice.Objects.IntPart())
 	_, err = service.stripeClient.InvoiceItems.New(projectObjects)
-	if err != nil {
-		return err
-	}
-
-	_, err = service.stripeClient.InvoiceItems.New(projectEgress)
 	return err
 }
 
