@@ -369,9 +369,8 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	now := time.Now().UTC()
 	utc := period.UTC()
 
-	//Adding 12 hours to the UTC time as Stripe seems to have a bug.
-	start := time.Date(utc.Year(), utc.Month(), 1, 12, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 0, 12, 0, 0, 0, time.UTC)
+	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
 		return Error.New("prepare is for past periods only")
