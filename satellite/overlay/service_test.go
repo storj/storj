@@ -5,6 +5,7 @@ package overlay_test
 
 import (
 	"context"
+	"reflect"
 	"sort"
 	"testing"
 	"time"
@@ -276,6 +277,46 @@ func TestNodeInfo(t *testing.T) {
 		assert.Equal(t, planet.StorageNodes[0].Local().Capacity, node.Capacity)
 		assert.NotEmpty(t, node.Version.Version)
 		assert.Equal(t, planet.StorageNodes[0].Local().Version.Version, node.Version.Version)
+	})
+}
+
+func TestGetNodes(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// pause chores that might update node data
+		planet.Satellites[0].Audit.Chore.Loop.Pause()
+		planet.Satellites[0].Repair.Checker.Loop.Pause()
+		planet.Satellites[0].Repair.Repairer.Loop.Pause()
+		planet.Satellites[0].DowntimeTracking.DetectionChore.Loop.Pause()
+		planet.Satellites[0].DowntimeTracking.EstimationChore.Loop.Pause()
+		for _, node := range planet.StorageNodes {
+			node.Contact.Chore.Pause(ctx)
+		}
+
+		// should not return anything if nodeIDs aren't in the nodes table
+		actualNodes, err := planet.Satellites[0].Overlay.Service.GetNodes(ctx, []storj.NodeID{})
+		require.NoError(t, err)
+		require.Equal(t, 0, len(actualNodes))
+		actualNodes, err = planet.Satellites[0].Overlay.Service.GetNodes(ctx, []storj.NodeID{testrand.NodeID()})
+		require.NoError(t, err)
+		require.Equal(t, 0, len(actualNodes))
+
+		expectedNodes := make(map[storj.NodeID]*overlay.NodeDossier, len(planet.StorageNodes))
+		nodeIDs := make([]storj.NodeID, len(planet.StorageNodes)+1)
+		for i, node := range planet.StorageNodes {
+			nodeIDs[i] = node.ID()
+			node, err := planet.Satellites[0].Overlay.Service.Get(ctx, node.ID())
+			require.NoError(t, err)
+			expectedNodes[node.Id] = node
+		}
+		// add a fake node ID to make sure GetNodes doesn't error and still returns the expected nodes.
+		nodeIDs[len(planet.StorageNodes)] = testrand.NodeID()
+
+		actualNodes, err = planet.Satellites[0].Overlay.Service.GetNodes(ctx, nodeIDs)
+		require.NoError(t, err)
+
+		require.True(t, reflect.DeepEqual(expectedNodes, actualNodes))
 	})
 }
 

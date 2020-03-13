@@ -307,6 +307,53 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay
 	return convertDBNode(ctx, node)
 }
 
+// GetNodes returns a map of nodes for the supplied nodeIDs
+func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*overlay.NodeDossier, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rows *sql.Rows
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT nodes.id, address, last_net, last_ip_port, protocol, type, email, wallet,
+			free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp,
+			release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count,
+			created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified,
+			suspended, audit_reputation_alpha, audit_reputation_beta, unknown_audit_reputation_alpha,
+			unknown_audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
+			exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
+		FROM nodes
+		WHERE id = any($1::bytea[])
+		`), postgresNodeIDList(nodeIDs),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	nodes := make(map[storj.NodeID]*overlay.NodeDossier)
+	for rows.Next() {
+		dbNode := &dbx.Node{}
+		err = rows.Scan(&dbNode.Id, &dbNode.Address, &dbNode.LastNet, &dbNode.LastIpPort, &dbNode.Protocol, &dbNode.Type, &dbNode.Email, &dbNode.Wallet,
+			&dbNode.FreeBandwidth, &dbNode.FreeDisk, &dbNode.PieceCount, &dbNode.Major, &dbNode.Minor, &dbNode.Patch, &dbNode.Hash, &dbNode.Timestamp,
+			&dbNode.Release, &dbNode.Latency90, &dbNode.AuditSuccessCount, &dbNode.TotalAuditCount, &dbNode.UptimeSuccessCount, &dbNode.TotalUptimeCount,
+			&dbNode.CreatedAt, &dbNode.UpdatedAt, &dbNode.LastContactSuccess, &dbNode.LastContactFailure, &dbNode.Contained, &dbNode.Disqualified,
+			&dbNode.Suspended, &dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta, &dbNode.UnknownAuditReputationAlpha,
+			&dbNode.UnknownAuditReputationBeta, &dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
+			&dbNode.ExitInitiatedAt, &dbNode.ExitLoopCompletedAt, &dbNode.ExitFinishedAt, &dbNode.ExitSuccess,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		dossier, err := convertDBNode(ctx, dbNode)
+		if err != nil {
+			return nil, err
+		}
+		nodes[dossier.Id] = dossier
+	}
+
+	return nodes, Error.Wrap(rows.Err())
+}
+
 // KnownOffline filters a set of nodes to offline nodes
 func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
