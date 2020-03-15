@@ -92,7 +92,7 @@ export default class SatelliteSelectionDropdown extends Vue {
         border-radius: 8px;
         padding: 7px 0 7px 0;
         box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
-        background-color: #fff;
+        background-color: var(--block-background-color);
         z-index: 103;
     }
 
@@ -123,8 +123,9 @@ export default class SatelliteSelectionDropdown extends Vue {
             }
 
             &:hover {
-                background-color: #ebecf0;
+                background-color: var(--satellite-selection-hover-background-color);
                 cursor: pointer;
+                color: var(--regular-text-color);
             }
         }
     }

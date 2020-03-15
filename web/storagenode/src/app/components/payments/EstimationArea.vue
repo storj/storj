@@ -280,8 +280,8 @@ export default class EstimationArea extends Vue {
         display: flex;
         flex-direction: column;
         padding: 28px 40px 28px 40px;
-        background: #fff;
-        border: 1px solid #eaeaea;
+        background: var(--block-background-color);
+        border: 1px solid var(--block-border-color);
         box-sizing: border-box;
         border-radius: 12px;
         font-family: 'font_regular', sans-serif;
@@ -295,7 +295,7 @@ export default class EstimationArea extends Vue {
             &__title {
                 font-weight: 500;
                 font-size: 18px;
-                color: #535f77;
+                color: var(--regular-text-color);
             }
         }
 
@@ -338,7 +338,7 @@ export default class EstimationArea extends Vue {
         font-family: 'font_bold', sans-serif;
         font-size: 16px;
         line-height: 20px;
-        color: #535f77;
+        color: var(--regular-text-color);
     }
 
     .additional-text {
@@ -359,7 +359,7 @@ export default class EstimationArea extends Vue {
             padding: 0 16px;
             width: calc(100% - 32px);
             height: 36px;
-            background: #f9fafc;
+            background: var(--estimation-table-header-color);
 
             &__text {
                 font-weight: 500;
@@ -379,7 +379,7 @@ export default class EstimationArea extends Vue {
 
             &__text {
                 font-size: 14px;
-                color: #535f77;
+                color: var(--regular-text-color);
             }
         }
 
@@ -395,7 +395,7 @@ export default class EstimationArea extends Vue {
             &__text {
                 font-family: 'font_bold', sans-serif;
                 font-size: 14px;
-                color: #535f77;
+                color: var(--regular-text-color);
             }
         }
 
@@ -406,12 +406,12 @@ export default class EstimationArea extends Vue {
             padding: 0 16px;
             width: calc(100% - 32px);
             height: 56px;
-            background: rgba(0, 117, 255, 0.05);
+            background-color: var(--estimation-table-total-container-color);
 
             &__text {
                 font-family: 'font_bold', sans-serif;
                 font-size: 14px;
-                color: #535f77;
+                color: var(--regular-text-color);
             }
         }
     }

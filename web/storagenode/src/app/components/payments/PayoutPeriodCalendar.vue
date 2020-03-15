@@ -293,7 +293,7 @@ export default class PayoutPeriodCalendar extends Vue {
         justify-content: flex-start;
         width: 170px;
         height: 215px;
-        background: #fff;
+        background: var(--block-background-color);
         box-shadow: 0 10px 25px rgba(175, 183, 193, 0.1);
         border-radius: 5px;
         padding: 24px;
@@ -328,7 +328,7 @@ export default class PayoutPeriodCalendar extends Vue {
                     font-family: 'font_bold', sans-serif;
                     font-size: 15px;
                     line-height: 18px;
-                    color: #444c63;
+                    color: var(--regular-text-color);
                 }
 
                 &__next {
@@ -346,7 +346,7 @@ export default class PayoutPeriodCalendar extends Vue {
             &__all-time {
                 font-size: 12px;
                 line-height: 18px;
-                color: #224ca5;
+                color: var(--navigation-link-color);
                 cursor: pointer;
             }
         }
@@ -369,14 +369,14 @@ export default class PayoutPeriodCalendar extends Vue {
 
             &__period {
                 font-size: 13px;
-                color: #444c63;
+                color: var(--regular-text-color);
             }
 
             &__ok-button {
                 font-family: 'font_bold', sans-serif;
                 font-size: 16px;
                 line-height: 23px;
-                color: #224ca5;
+                color: var(--navigation-link-color);
                 cursor: pointer;
             }
         }
@@ -388,31 +388,38 @@ export default class PayoutPeriodCalendar extends Vue {
         justify-content: center;
         width: 52px;
         height: 30px;
-        background: #f1f4f9;
+        background: var(--month-active-background-color);
         border-radius: 10px;
         cursor: pointer;
 
         &__label {
             font-size: 12px;
             line-height: 18px;
-            color: #667086;
+            color: var(--regular-text-color);
         }
     }
 
     .disabled {
-        background: #e9e9e9;
+        background: var(--month-disabled-background-color);
         cursor: default;
 
         .month-item__label {
-            color: #b1b1b1 !important;
+            color: var(--month-disabled-label-color) !important;
         }
     }
 
     .selected {
-        background: #224ca5;
+        background: var(--navigation-link-color);
 
         .month-item__label {
             color: white !important;
+        }
+    }
+
+    .arrow-icon {
+
+        path {
+            fill: var(--year-selection-arrow-color);
         }
     }
 </style>

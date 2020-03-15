@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="notification-item" @mouseenter="read">
+    <div class="notification-item" :class="{ 'unread': !notification.isRead }" @mouseenter="read">
         <div class="row">
             <div class="notification-item__new-indicator-container">
                 <span v-if="!notification.isRead" class="notification-item__new-indicator-container__circle" />
@@ -95,7 +95,7 @@ export default class SNONotification extends Vue {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background-color: white;
+        background-color: var(--block-background-color);
         padding: 17px 24px 18px 15px;
         width: calc(100% - 24px - 15px);
         font-family: 'font_regular', sans-serif;
@@ -113,7 +113,7 @@ export default class SNONotification extends Vue {
             &__circle {
                 display: inline-block;
                 border-radius: 50%;
-                background-color: #2683ff;
+                background-color: var(--navigation-link-color);
                 width: 100%;
                 height: 100%;
             }
@@ -124,7 +124,7 @@ export default class SNONotification extends Vue {
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            background-color: #f3f4f9;
+            background-color: var(--notifications-icon-background);
             width: 40px;
             height: 40px;
             min-width: 40px;
@@ -136,7 +136,7 @@ export default class SNONotification extends Vue {
 
             &__message {
                 font-size: 15px;
-                color: #535f77;
+                color: var(--regular-text-color);
                 text-align: left;
                 word-break: break-word;
 
@@ -148,7 +148,7 @@ export default class SNONotification extends Vue {
             &__date {
                 margin-top: 6px;
                 font-size: 9px;
-                color: #9ca1b2;
+                color: var(--label-text-color);
                 text-align: left;
             }
         }
@@ -159,7 +159,7 @@ export default class SNONotification extends Vue {
 
             &__date {
                 font-size: 12px;
-                color: #586c86;
+                color: var(--label-text-color);
                 text-align: right;
             }
         }
@@ -174,7 +174,7 @@ export default class SNONotification extends Vue {
     }
 
     .unread {
-        background-color: #f9fafd;
+        background-color: var(--unread-notification-background-color);
     }
 
     .small-font-size {

@@ -159,8 +159,8 @@ export default class HeldProgress extends Vue {
         display: flex;
         flex-direction: column;
         width: 100%;
-        background: #fff;
-        border: 1px solid #eaeaea;
+        background: var(--block-background-color);
+        border: 1px solid var(--block-border-color);
         box-sizing: border-box;
         border-radius: 12px;
         padding: 29px;
@@ -194,7 +194,7 @@ export default class HeldProgress extends Vue {
 
         &__main-text {
             font-size: 16px;
-            color: #535f77;
+            color: var(--regular-text-color);
 
             .bold {
                 font-family: 'font_bold', sans-serif;

@@ -43,6 +43,10 @@ class IngressTooltip {
 
 @Component
 export default class IngressChart extends BaseChart {
+    private get chartBackgroundColor(): string {
+        return this.isDarkMode ? '#E1A128' : '#fff4df';
+    }
+
     private get allBandwidth(): IngressUsed[] {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.node.ingressChartData);
     }
@@ -60,9 +64,9 @@ export default class IngressChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#fff4df';
+        const chartBackgroundColor = this.chartBackgroundColor;
         const chartBorderColor = '#e1a128';
-        const chartBorderWidth = 2;
+        const chartBorderWidth = 1;
 
         if (this.allBandwidth.length) {
             data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.summary()));
@@ -110,27 +114,26 @@ export default class IngressChart extends BaseChart {
 
         &__data-dimension {
             font-size: 13px;
-            color: #586c86;
+            color: var(--regular-text-color);
             margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }
     }
 
     #ingress-tooltip {
-        background-image: url('../../../static/images/tooltipBack.png');
+        background-image: var(--tooltip-background-path);
         background-repeat: no-repeat;
         background-size: cover;
         min-width: 190px;
         min-height: 170px;
         font-size: 12px;
         border-radius: 14px;
-        box-shadow: 0 2px 10px #d2d6de;
         color: #535f77;
         pointer-events: none;
     }
 
     #ingress-tooltip-arrow {
-        background-image: url('../../../static/images/tooltipArrow.png');
+        background-image: var(--tooltip-arrow-path);
         background-repeat: no-repeat;
         background-size: 50px 30px;
         min-width: 50px;
@@ -143,14 +146,14 @@ export default class IngressChart extends BaseChart {
 
         &__info {
             display: flex;
-            background-color: rgba(254, 238, 215, 0.3);
+            background-color: var(--ingress-tooltip-info-background-color);
             border-radius: 12px;
             padding: 14px;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 14px;
             position: relative;
-            color: #6e4f15;
+            color: var(--ingress-font-color);
         }
     }
 
@@ -166,6 +169,6 @@ export default class IngressChart extends BaseChart {
         align-items: center;
         justify-content: center;
         padding: 10px 0 16px 0;
-        color: rgba(83, 95, 119, 0.44);
+        color: var(--regular-text-color);
     }
 </style>

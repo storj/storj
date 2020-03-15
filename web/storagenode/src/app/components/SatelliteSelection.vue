@@ -52,19 +52,19 @@ export default class SatelliteSelection extends Vue {
 
 <style scoped lang="scss">
     .satellite-selection-toggle-container {
-        width: calc(100% - 24px);
+        width: calc(100% - 26px);
         height: 44px;
         display: flex;
         justify-content: flex-start;
         align-items: center;
-        background-color: #fff;
-        border: 1px solid #e8e8e8;
+        background-color: var(--block-background-color);
+        border: 1px solid var(--block-border-color);
         border-radius: 12px;
         padding: 0 12px;
         position: relative;
         font-size: 14px;
         cursor: pointer;
-        color: #535f77;
+        color: var(--regular-text-color);
 
         &__bold-text {
             margin-right: 3px;

@@ -41,7 +41,7 @@
                     </div>
                     <p class="chart-container__amount disk-space-amount"><b>{{ storageSummary }}*h</b></p>
                     <div class="chart-container__chart">
-                        <DiskSpaceChart :height="chartHeight" :width="chartWidth"/>
+                        <DiskSpaceChart :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
                     </div>
                 </div>
                 <BarInfo
@@ -77,9 +77,9 @@
                     <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{ egressSummary }}</b></p>
                     <p class="chart-container__amount" v-if="isIngressChartShown"><b>{{ ingressSummary }}</b></p>
                     <div class="chart-container__chart" ref="chart" onresize="recalculateChartDimensions()" >
-                        <BandwidthChart v-if="isBandwidthChartShown" :height="chartHeight" :width="chartWidth"/>
-                        <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth"/>
-                        <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth"/>
+                        <BandwidthChart v-if="isBandwidthChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
+                        <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
+                        <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
                     </div>
                 </div>
             </section>
@@ -139,7 +139,7 @@ import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
 import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 
 import { RouteConfig } from '@/app/router';
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { APPSTATE_ACTIONS, appStateModule } from '@/app/store/modules/appState';
 import { formatBytes } from '@/app/utils/converter';
 import { BandwidthInfo, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
 
@@ -188,6 +188,10 @@ export default class SNOContentFilling extends Vue {
 
     public get totalHeld(): number {
         return this.$store.state.payoutModule.totalHeldAmount;
+    }
+
+    public get isDarkMode(): boolean {
+        return this.$store.state.appStateModule.isDarkMode;
     }
 
     /**
@@ -418,7 +422,7 @@ export default class SNOContentFilling extends Vue {
             align-items: center;
             justify-content: space-between;
             padding: 20px 27px 20px 25px;
-            background-color: #fcf8e3;
+            background-color: var(--block-background-color);
             border-radius: 12px;
             width: calc(100% - 52px);
             margin-top: 17px;
@@ -460,7 +464,7 @@ export default class SNOContentFilling extends Vue {
         &__title {
             font-size: 18px;
             line-height: 57px;
-            color: #535f77;
+            color: var(--regular-text-color);
             user-select: none;
         }
 
@@ -470,7 +474,7 @@ export default class SNOContentFilling extends Vue {
             justify-content: center;
             width: 100%;
             height: 224px;
-            background-image: url('../../../static/images/BlurredChecks.png');
+            background-image: var(--blurred-image-path);
             background-size: contain;
             margin: 35px 0;
 
@@ -478,7 +482,7 @@ export default class SNOContentFilling extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 22px;
                 line-height: 49px;
-                color: #4a4a4a;
+                color: var(--regular-text-color);
                 user-select: none;
             }
         }
@@ -498,7 +502,7 @@ export default class SNOContentFilling extends Vue {
                 &__text {
                     font-size: 16px;
                     line-height: 22px;
-                    color: #224ca5;
+                    color: var(--navigation-link-color);
                     margin-right: 9px;
                 }
             }
@@ -532,8 +536,8 @@ export default class SNOContentFilling extends Vue {
     .chart-container {
         width: 339px;
         height: 336px;
-        background-color: #fff;
-        border: 1px solid #e9eff4;
+        background-color: var(--block-background-color);
+        border: 1px solid var(--block-border-color);
         border-radius: 11px;
         padding: 32px 30px;
         margin-bottom: 13px;
@@ -552,13 +556,13 @@ export default class SNOContentFilling extends Vue {
 
             &__title {
                 font-size: 14px;
-                color: #586c86;
+                color: var(--regular-text-color);
                 user-select: none;
             }
 
             &__chart-choice-item {
                 padding: 5px 12px;
-                background-color: #f1f6ff;
+                background-color: var(--chart-selection-button-background-color);
                 border-radius: 47px;
                 font-size: 12px;
                 color: #9daed2;
@@ -573,7 +577,7 @@ export default class SNOContentFilling extends Vue {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 57px;
-            color: #535f77;
+            color: var(--regular-text-color);
         }
 
         &__chart {
@@ -585,13 +589,13 @@ export default class SNOContentFilling extends Vue {
     }
 
     .egress-chart-shown {
-        background-color: #d3f2cc;
-        color: #2e5f46;
+        background-color: var(--egress-button-background-color);
+        color: var(--egress-button-font-color);
     }
 
     .ingress-chart-shown {
-        background-color: #ffeac2;
-        color: #c48c4b;
+        background-color: var(--ingress-button-background-color);
+        color: var(--ingress-button-font-color);
     }
 
     .disk-space-title,

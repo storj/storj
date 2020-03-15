@@ -92,13 +92,20 @@ export default class EstimationPeriodDropdown extends Vue {
             font-family: 'font_regular', sans-serif;
             font-weight: 500;
             font-size: 16px;
-            color: #535f77;
+            color: var(--month-label-color);
         }
 
         &__calendar {
             position: absolute;
             top: 30px;
             right: 0;
+        }
+    }
+
+    .arrow {
+
+        path {
+            fill: var(--period-selection-arrow-color);
         }
     }
 </style>

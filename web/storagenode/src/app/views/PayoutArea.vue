@@ -127,7 +127,7 @@ export default class PayoutArea extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 24px;
                 line-height: 57px;
-                color: #535f77;
+                color: var(--regular-text-color);
                 margin-left: 29px;
                 text-align: center;
             }
@@ -136,7 +136,7 @@ export default class PayoutArea extends Vue {
         &__section-title {
             margin-top: 40px;
             font-size: 18px;
-            color: #535f77;
+            color: var(--title-text-color);
         }
 
         &__estimation {
@@ -199,10 +199,10 @@ export default class PayoutArea extends Vue {
         margin-top: 5px;
         font-size: 14px;
         line-height: 17px;
-        color: #848fa2;
+        color: var(--regular-text-color);
 
         &__link {
-            color: #2683ff;
+            color: var(--navigation-link-color);
             cursor: pointer;
             text-decoration: underline;
         }
