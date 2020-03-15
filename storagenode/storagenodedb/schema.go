@@ -80,7 +80,7 @@ func Schema() map[string]*dbschema.Schema {
 						},
 						&dbschema.Column{
 							Name:       "created_at",
-							Type:       "timestamp with time zone",
+							Type:       "timestamp",
 							IsNullable: false,
 						},
 						&dbschema.Column{
@@ -151,7 +151,7 @@ func Schema() map[string]*dbschema.Schema {
 						},
 						&dbschema.Column{
 							Name:       "created_at",
-							Type:       "timestamp with time zone",
+							Type:       "timestamp",
 							IsNullable: false,
 						},
 						&dbschema.Column{
