@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
@@ -89,6 +90,8 @@ type DB interface {
 	StripeCoinPayments() stripecoinpayments.DB
 	// DowntimeTracking returns database for downtime tracking
 	DowntimeTracking() downtime.DB
+	// Heldamount returns database for heldamount.
+	HeldAmount() heldamount.DB
 }
 
 // Config is the global config satellite

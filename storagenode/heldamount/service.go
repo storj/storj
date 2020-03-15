@@ -19,7 +19,7 @@ import (
 
 var (
 	// HeldAmountServiceErr defines held amount service error
-	HeldAmountServiceErr = errs.Class("node stats service error")
+	HeldAmountServiceErr = errs.Class("heldamount service error")
 
 	mon = monkit.Package()
 )
@@ -68,14 +68,16 @@ func (service *Service) GetPaystubStats(ctx context.Context, satelliteID storj.N
 
 	requestedPeriod, err := stringToTime(period)
 	if err != nil {
+		service.log.Error("stringToTime", zap.Error(err))
 		return nil, HeldAmountServiceErr.Wrap(err)
 	}
 
 	resp, err := client.GetPayStub(ctx, &pb.GetHeldAmountRequest{Period: requestedPeriod})
 	if err != nil {
+		service.log.Error("GetPayStub", zap.Error(err))
 		return nil, HeldAmountServiceErr.Wrap(err)
 	}
-
+	service.log.Error("paystub = = = =", zap.Any("", resp))
 	return &PayStub{
 		Period:         period,
 		SatelliteID:    satelliteID,
@@ -154,7 +156,8 @@ func (service *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *
 
 func stringToTime(period string) (_ time.Time, err error) {
 	layout := "2006-01"
-	result, err := time.Parse(layout, period)
+	per := period[0:7]
+	result, err := time.Parse(layout, per)
 	if err != nil {
 		return time.Time{}, err
 	}
