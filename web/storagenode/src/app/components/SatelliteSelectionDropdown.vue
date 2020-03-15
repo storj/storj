@@ -31,6 +31,7 @@ import DisqualificationIcon from '@/../static/images/disqualify.svg';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
+import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { SatelliteInfo } from '@/storagenode/dashboard';
 
 @Component({
@@ -43,6 +44,8 @@ export default class SatelliteSelectionDropdown extends Vue {
         try {
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
             await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, id);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, id);
         } catch (error) {
             console.error(`${error.message} satellite data.`);
         }
@@ -52,6 +55,8 @@ export default class SatelliteSelectionDropdown extends Vue {
         try {
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
             await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {
             console.error(`${error.message} satellite data.`);
         }

@@ -7,25 +7,34 @@
             <router-link to="/" class="payout-area-container__header__back-link">
                 <BackArrowIcon />
             </router-link>
-            <p class="payout-area-container__header__text">Payout information</p>
+            <p class="payout-area-container__header__text">Payout Information</p>
         </header>
         <SatelliteSelection />
         <p class="payout-area-container__section-title">Payout</p>
         <EstimationArea class="payout-area-container__estimation" />
         <p class="payout-area-container__section-title">Held Amount</p>
-        <p class="additional-text">Learn more about held back <a class="additional-text__link">here</a></p>
+        <p class="additional-text">
+            Learn more about held back
+            <a
+                class="additional-text__link"
+                href="https://documentation.storj.io/resources/faq/held-back-amount"
+                target="_blank"
+            >
+                here
+            </a>
+        </p>
         <section class="payout-area-container__held-info-area">
-            <SingleInfo width="48%" label="Held Amount Rate" value="25%" />
-            <SingleInfo v-if="false" width="48%" label="Total Held Amount" value="$19.93" />
+            <SingleInfo v-if="selectedSatellite.id" width="48%" label="Held Amount Rate" :value="heldRate + '%'" />
+            <SingleInfo width="48%" label="Total Held Amount" :value="totalHeld | centsToDollars" />
         </section>
-        <HeldProgress class="payout-area-container__process-area" />
-        <section class="payout-area-container__held-history-container">
-            <div class="payout-area-container__held-history-container__header">
-                <p class="payout-area-container__held-history-container__header__title">Held Amount history</p>
-            </div>
-            <div class="payout-area-container__held-history-container__divider"></div>
-            <HeldHistoryTable />
-        </section>
+        <HeldProgress v-if="selectedSatellite.id" class="payout-area-container__process-area" />
+<!--        <section class="payout-area-container__held-history-container">-->
+<!--            <div class="payout-area-container__held-history-container__header">-->
+<!--                <p class="payout-area-container__held-history-container__header__title">Held Amount history</p>-->
+<!--            </div>-->
+<!--            <div class="payout-area-container__held-history-container__divider"></div>-->
+<!--            <HeldHistoryTable />-->
+<!--        </section>-->
     </div>
 </template>
 
@@ -40,6 +49,9 @@ import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
+import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import { SatelliteInfo } from '@/storagenode/dashboard';
+
 @Component ({
     components: {
         HeldProgress,
@@ -50,7 +62,36 @@ import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
         BackArrowIcon,
     },
 })
-export default class PayoutArea extends Vue {}
+export default class PayoutArea extends Vue {
+    /**
+     * Lifecycle hook after initial render.
+     * Fetches payout information.
+     */
+    public async mounted(): Promise<any> {
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, this.$store.state.node.selectedSatellite.id);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    public get totalHeld(): number {
+        return this.$store.state.payoutModule.totalHeldAmount;
+    }
+
+    public get heldRate(): number {
+        return this.$store.state.payoutModule.heldInfo.surgePercent;
+    }
+
+    /**
+     * selectedSatellite - current selected satellite from store.
+     * @return SatelliteInfo - current selected satellite
+     */
+    public get selectedSatellite(): SatelliteInfo {
+        return this.$store.state.node.selectedSatellite;
+    }
+}
 </script>
 
 <style scoped lang="scss">
