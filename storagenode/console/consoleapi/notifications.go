@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package consolenotifications
+package consoleapi
 
 import (
 	"encoding/json"
@@ -10,26 +10,16 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/storagenode/notifications"
 )
 
-const (
-	contentType = "Content-Type"
+// ErrNotificationsAPI - console notifications api error type.
+var ErrNotificationsAPI = errs.Class("notifications console web error")
 
-	applicationJSON = "application/json"
-)
-
-var mon = monkit.Package()
-
-// Error is error type of storagenode web console.
-var Error = errs.Class("notifications console web error")
-
-// Notifications represents notification service.
-// architecture: Service
+// Notifications is an api controller that exposes all notifications related api.
 type Notifications struct {
 	service *notifications.Service
 
@@ -46,13 +36,7 @@ type Page struct {
 	PageCount   uint   `json:"pageCount"`
 }
 
-// jsonOutput defines json structure of api response data.
-type jsonOutput struct {
-	Data  interface{} `json:"data"`
-	Error string      `json:"error"`
-}
-
-// NewNotifications creates new instance of notification service.
+// NewNotifications is a constructor for notifications controller.
 func NewNotifications(log *zap.Logger, service *notifications.Service) *Notifications {
 	return &Notifications{
 		log:     log,
@@ -63,25 +47,27 @@ func NewNotifications(log *zap.Logger, service *notifications.Service) *Notifica
 // ReadNotification updates specific notification in database as read.
 func (notification *Notifications) ReadNotification(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
 	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set(contentType, applicationJSON)
 
 	params := mux.Vars(r)
 	id, ok := params["id"]
 	if !ok {
-		notification.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
+		notification.serveJSONError(w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
 
 	notificationID, err := uuid.Parse(id)
 	if err != nil {
-		notification.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
+		notification.serveJSONError(w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
 
 	err = notification.service.Read(ctx, *notificationID)
 	if err != nil {
-		notification.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
+		notification.serveJSONError(w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
 }
@@ -89,11 +75,14 @@ func (notification *Notifications) ReadNotification(w http.ResponseWriter, r *ht
 // ReadAllNotifications updates all notifications in database as read.
 func (notification *Notifications) ReadAllNotifications(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
-	err := notification.service.ReadAll(ctx)
+	w.Header().Set(contentType, applicationJSON)
+
+	err = notification.service.ReadAll(ctx)
 	if err != nil {
-		notification.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
+		notification.serveJSONError(w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
 }
@@ -101,18 +90,20 @@ func (notification *Notifications) ReadAllNotifications(w http.ResponseWriter, r
 // ListNotifications returns listed page of notifications from database.
 func (notification *Notifications) ListNotifications(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
 	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set(contentType, applicationJSON)
 
 	limit, err := strconv.ParseUint(r.URL.Query().Get("limit"), 10, 32)
 	if err != nil {
-		notification.writeError(w, http.StatusBadRequest, Error.Wrap(err))
+		notification.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
 		return
 	}
 
 	page, err := strconv.ParseUint(r.URL.Query().Get("page"), 10, 32)
 	if err != nil {
-		notification.writeError(w, http.StatusBadRequest, Error.Wrap(err))
+		notification.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
 		return
 	}
 
@@ -123,13 +114,13 @@ func (notification *Notifications) ListNotifications(w http.ResponseWriter, r *h
 
 	notificationList, err := notification.service.List(ctx, cursor)
 	if err != nil {
-		notification.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
+		notification.serveJSONError(w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
 
 	unreadCount, err := notification.service.UnreadAmount(ctx)
 	if err != nil {
-		notification.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
+		notification.serveJSONError(w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
 
@@ -147,33 +138,25 @@ func (notification *Notifications) ListNotifications(w http.ResponseWriter, r *h
 	result.UnreadCount = unreadCount
 	result.TotalCount = int(notificationList.TotalCount)
 
-	notification.writeData(w, result)
-}
-
-// writeData is helper method to write JSON to http.ResponseWriter and log encoding error.
-func (notification *Notifications) writeData(w http.ResponseWriter, data interface{}) {
-	w.Header().Set(contentType, applicationJSON)
-	w.WriteHeader(http.StatusOK)
-
-	output := jsonOutput{Data: data}
-
-	if err := json.NewEncoder(w).Encode(output); err != nil {
-		notification.log.Error("json encoder error", zap.Error(err))
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		notification.log.Error("failed to encode json list notifications response", zap.Error(ErrNotificationsAPI.Wrap(err)))
+		return
 	}
 }
 
-// writeError writes a JSON error payload to http.ResponseWriter log encoding error.
-func (notification *Notifications) writeError(w http.ResponseWriter, status int, err error) {
-	if status >= http.StatusInternalServerError {
-		notification.log.Error("api handler server error", zap.Int("status code", status), zap.Error(err))
-	}
-
-	w.Header().Set(contentType, applicationJSON)
+// serveJSONError writes JSON error to response output stream.
+func (notification *Notifications) serveJSONError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)
 
-	output := jsonOutput{Error: err.Error()}
+	var response struct {
+		Error string `json:"error"`
+	}
 
-	if err := json.NewEncoder(w).Encode(output); err != nil {
-		notification.log.Error("json encoder error", zap.Error(err))
+	response.Error = err.Error()
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		notification.log.Error("failed to write json error response", zap.Error(ErrNotificationsAPI.Wrap(err)))
+		return
 	}
 }

@@ -31,8 +31,8 @@ export class NotificationsHttpApi implements NotificationsApi {
         let pageCount: number = 0;
         let unreadCount: number = 0;
 
-        if (notificationResponse.data) {
-            notifications = notificationResponse.data.page.notifications.map(item =>
+        if (notificationResponse) {
+            notifications = notificationResponse.page.notifications.map(item =>
                 new Notification(
                     item.id,
                     item.senderId,
@@ -44,8 +44,8 @@ export class NotificationsHttpApi implements NotificationsApi {
                 )
             );
 
-            pageCount = notificationResponse.data.page.pageCount;
-            unreadCount = notificationResponse.data.unreadCount;
+            pageCount = notificationResponse.page.pageCount;
+            unreadCount = notificationResponse.unreadCount;
         }
 
         return new NotificationsState(notifications, pageCount, unreadCount);
