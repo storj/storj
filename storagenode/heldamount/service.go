@@ -18,8 +18,8 @@ import (
 )
 
 var (
-	// HeldAmountServiceErr defines held amount service error
-	HeldAmountServiceErr = errs.Class("heldamount service error")
+	// ErrHeldAmountService defines held amount service error
+	ErrHeldAmountService = errs.Class("heldamount service error")
 
 	mon = monkit.Package()
 )
@@ -37,45 +37,50 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
+// TODO: separate service on service and endpoint.
+
 // Service retrieves info from satellites using an rpc client
 //
 // architecture: Service
 type Service struct {
 	log *zap.Logger
 
+	db DB
+
 	dialer rpc.Dialer
 	trust  *trust.Pool
 }
 
 // NewService creates new instance of service
-func NewService(log *zap.Logger, dialer rpc.Dialer, trust *trust.Pool) *Service {
+func NewService(log *zap.Logger, db DB, dialer rpc.Dialer, trust *trust.Pool) *Service {
 	return &Service{
 		log:    log,
+		db:     db,
 		dialer: dialer,
 		trust:  trust,
 	}
 }
 
-// GetPaystubStats retrieves held amount for particular satellite
+// GetPaystubStats retrieves held amount for particular satellite from satellite using grpc.
 func (service *Service) GetPaystubStats(ctx context.Context, satelliteID storj.NodeID, period string) (_ *PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := service.dial(ctx, satelliteID)
 	if err != nil {
-		return nil, HeldAmountServiceErr.Wrap(err)
+		return nil, ErrHeldAmountService.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	requestedPeriod, err := stringToTime(period)
 	if err != nil {
 		service.log.Error("stringToTime", zap.Error(err))
-		return nil, HeldAmountServiceErr.Wrap(err)
+		return nil, ErrHeldAmountService.Wrap(err)
 	}
 
 	resp, err := client.GetPayStub(ctx, &pb.GetHeldAmountRequest{Period: requestedPeriod})
 	if err != nil {
 		service.log.Error("GetPayStub", zap.Error(err))
-		return nil, HeldAmountServiceErr.Wrap(err)
+		return nil, ErrHeldAmountService.Wrap(err)
 	}
 	service.log.Error("paystub = = = =", zap.Any("", resp))
 	return &PayStub{
@@ -103,24 +108,24 @@ func (service *Service) GetPaystubStats(ctx context.Context, satelliteID storj.N
 	}, nil
 }
 
-// GetPayment retrieves payment data from particular satellite
+// GetPayment retrieves payment data from particular satellite using grpc.
 func (service *Service) GetPayment(ctx context.Context, satelliteID storj.NodeID, period string) (_ *Payment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := service.dial(ctx, satelliteID)
 	if err != nil {
-		return nil, HeldAmountServiceErr.Wrap(err)
+		return nil, ErrHeldAmountService.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	requestedPeriod, err := stringToTime(period)
 	if err != nil {
-		return nil, HeldAmountServiceErr.Wrap(err)
+		return nil, ErrHeldAmountService.Wrap(err)
 	}
 
 	resp, err := client.GetPayment(ctx, &pb.GetPaymentRequest{Period: requestedPeriod})
 	if err != nil {
-		return nil, HeldAmountServiceErr.Wrap(err)
+		return nil, ErrHeldAmountService.Wrap(err)
 	}
 
 	return &Payment{
@@ -132,6 +137,20 @@ func (service *Service) GetPayment(ctx context.Context, satelliteID storj.NodeID
 		Receipt:     resp.Receipt,
 		Notes:       resp.Notes,
 	}, nil
+}
+
+// GetPaystubStatsCached retrieves held amount for particular satellite from storagenode database.
+func (service *Service) GetPaystubStatsCached(ctx context.Context, satelliteID storj.NodeID, period string) (_ *PayStub, err error) {
+	defer mon.Task()(&ctx, &satelliteID, &period)(&err)
+
+	return service.db.GetPayStub(ctx, satelliteID, period)
+}
+
+// GetPaymentCached retrieves payment data from particular satellite from storagenode database.
+func (service *Service) GetPaymentCached(ctx context.Context, satelliteID storj.NodeID, period string) (_ *Payment, err error) {
+	defer mon.Task()(&ctx, &satelliteID, &period)(&err)
+
+	return service.db.GetPayment(ctx, satelliteID, period)
 }
 
 // dial dials the HeldAmount client for the satellite by id

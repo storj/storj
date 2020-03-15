@@ -491,6 +491,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // setup heldamount service.
 		peer.Heldamount.Service = heldamount.NewService(
 			peer.Log.Named("heldamount:service"),
+			peer.DB.HeldAmount(),
 			peer.Dialer,
 			peer.Storage2.Trust,
 		)

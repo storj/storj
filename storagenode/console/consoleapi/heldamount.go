@@ -49,7 +49,7 @@ func (heldamount *HeldAmount) GetMonthlyHeldAmount(w http.ResponseWriter, r *htt
 		return
 	}
 
-	paystubData, err := heldamount.service.GetPaystubStats(ctx, satelliteID, period)
+	paystubData, err := heldamount.service.GetPaystubStatsCached(ctx, satelliteID, period)
 	if err != nil {
 		heldamount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountPI.Wrap(err))
 		return
@@ -78,7 +78,7 @@ func (heldamount *HeldAmount) GetMonthlyPayment(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	paymentData, err := heldamount.service.GetPayment(ctx, satelliteID, period)
+	paymentData, err := heldamount.service.GetPaymentCached(ctx, satelliteID, period)
 	if err != nil {
 		heldamount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountPI.Wrap(err))
 		return
