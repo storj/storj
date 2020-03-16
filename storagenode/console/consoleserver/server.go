@@ -77,7 +77,8 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	heldAmountController := consoleapi.NewHeldAmount(server.log, server.heldAmount)
 	heldAmountRouter := router.PathPrefix("/api/heldamount").Subrouter()
 	heldAmountRouter.StrictSlash(true)
-	heldAmountRouter.HandleFunc("/paystub/{period}/{satelliteID}", heldAmountController.GetMonthlyHeldAmount).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/paystub/{period}/{satelliteID}", heldAmountController.SatellitePayStubMonthly).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/paystub/{period}", heldAmountController.AllPayStubsMonthly).Methods(http.MethodGet)
 	heldAmountRouter.HandleFunc("/payment/{period}/{satelliteID}", heldAmountController.GetMonthlyPayment).Methods(http.MethodGet)
 
 	if assets != nil {

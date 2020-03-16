@@ -139,11 +139,28 @@ func (service *Service) GetPayment(ctx context.Context, satelliteID storj.NodeID
 	}, nil
 }
 
-// GetPaystubStatsCached retrieves held amount for particular satellite from storagenode database.
-func (service *Service) GetPaystubStatsCached(ctx context.Context, satelliteID storj.NodeID, period string) (_ *PayStub, err error) {
+// SatellitePayStubMonthlyCached retrieves held amount for particular satellite for selected month from storagenode database.
+func (service *Service) SatellitePayStubMonthlyCached(ctx context.Context, satelliteID storj.NodeID, period string) (payStub *PayStub, err error) {
 	defer mon.Task()(&ctx, &satelliteID, &period)(&err)
 
-	return service.db.GetPayStub(ctx, satelliteID, period)
+	payStub, err = service.db.GetPayStub(ctx, satelliteID, period)
+	if err != nil {
+		return nil, ErrHeldAmountService.Wrap(err)
+	}
+
+	return payStub, nil
+}
+
+// AllPayStubsMonthlyCached retrieves held amount for particular satellite from storagenode database.
+func (service *Service) AllPayStubsMonthlyCached(ctx context.Context, period string) (payStubs []PayStub, err error) {
+	defer mon.Task()(&ctx, &period)(&err)
+
+	payStubs, err = service.db.AllPayStubs(ctx, period)
+	if err != nil {
+		return nil, ErrHeldAmountService.Wrap(err)
+	}
+
+	return payStubs, nil
 }
 
 // GetPaymentCached retrieves payment data from particular satellite from storagenode database.
