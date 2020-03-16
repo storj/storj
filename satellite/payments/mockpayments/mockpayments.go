@@ -129,11 +129,11 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (_ [
 	defer mon.Task()(&ctx, userID)(&err)
 
 	return []payments.CreditCard{payments.CreditCard{
-		ID:        "pm_randomcardid",
+		ID:        "pm_card_mastercard",
 		ExpMonth:  12,
-		ExpYear:   2030,
+		ExpYear:   2050,
 		Brand:     "Mastercard",
-		Last4:     "1234",
+		Last4:     "4444",
 		IsDefault: true,
 	}}, nil
 }
