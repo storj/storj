@@ -1143,7 +1143,7 @@ func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, 
 						Timestamp:  time.Time{},
 						Release:    false,
 					},
-				}, time.Now().UTC().Add(-4*time.Hour))
+				}, time.Now().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
 

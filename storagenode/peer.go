@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -78,11 +79,12 @@ type DB interface {
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
 	Notifications() notifications.DB
+	HeldAmount() heldamount.DB
 
 	Preflight(ctx context.Context) error
 }
 
-// Config is all the configuration parameters for a Storage Node
+// Config is all the configuration parameters for a Storage Node.
 type Config struct {
 	Identity identity.Config
 
@@ -226,6 +228,10 @@ type Peer struct {
 
 	Notifications struct {
 		Service *notifications.Service
+	}
+
+	Heldamount struct {
+		Service *heldamount.Service
 	}
 
 	Bandwidth *bandwidth.Service
@@ -482,6 +488,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Orders Cleanup", peer.Storage2.Orders.Cleanup))
 	}
 
+	{ // setup heldamount service.
+		peer.Heldamount.Service = heldamount.NewService(
+			peer.Log.Named("heldamount:service"),
+			peer.DB.HeldAmount(),
+			peer.Dialer,
+			peer.Storage2.Trust,
+		)
+	}
+
 	{ // setup node stats service
 		peer.NodeStats.Service = nodestats.NewService(
 			peer.Log.Named("nodestats:service"),
@@ -495,8 +510,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			nodestats.CacheStorage{
 				Reputation:   peer.DB.Reputation(),
 				StorageUsage: peer.DB.StorageUsage(),
+				HeldAmount:   peer.DB.HeldAmount(),
 			},
 			peer.NodeStats.Service,
+			peer.Heldamount.Service,
 			peer.Storage2.Trust,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -545,6 +562,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			assets,
 			peer.Notifications.Service,
 			peer.Console.Service,
+			peer.Heldamount.Service,
 			peer.Console.Listener,
 		)
 		peer.Services.Add(lifecycle.Item{

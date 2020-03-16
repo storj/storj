@@ -39,7 +39,7 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	if cmd.Flag("access").Changed {
 		return ErrAccessFlag

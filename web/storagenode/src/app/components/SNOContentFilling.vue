@@ -3,50 +3,33 @@
 
 <template>
     <div class="info-area">
-        <SatelliteSelection/>
+        <SatelliteSelection />
         <div v-if="isDisqualifiedInfoShown" class="info-area__disqualified-info">
             <LargeDisqualificationIcon
                 class="info-area__disqualified-info__image"
                 alt="Disqualified image"
             />
-            <p class="info-area__disqualified-info__info">Your node has been disqualified on <b>{{getDisqualificationDate}}</b>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
+            <p class="info-area__disqualified-info__info">Your node has been disqualified on <b>{{ getDisqualificationDate }}</b>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
         </div>
         <div v-else-if="doDisqualifiedSatellitesExist" class="info-area__disqualified-info">
             <LargeDisqualificationIcon
                 class="info-area__disqualified-info__image"
                 alt="Disqualified image"
             />
-            <p class="info-area__disqualified-info__info">Your node has been disqualified on<span v-for="disqualified in disqualifiedSatellites"><b> {{disqualified.id}}</b></span>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
+            <p class="info-area__disqualified-info__info">Your node has been disqualified on<span v-for="disqualified in disqualifiedSatellites"><b> {{ disqualified.id }}</b></span>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
         </div>
         <p class="info-area__title">Utilization & Remaining</p>
         <div class="info-area__chart-area">
-            <div class="chart-container">
-                <div class="chart-container__title-area">
-                    <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
-                    <div class="chart-container__title-area__chart-choice-item" :class="{'egress-chart-shown' : isEgressChartShown}" @click.stop="toggleEgressChartShowing">Egress</div>
-                    <div class="chart-container__title-area__chart-choice-item" :class="{'ingress-chart-shown' : isIngressChartShown}" @click.stop="toggleIngressChartShowing">Ingress</div>
+            <section>
+                <div class="chart-container">
+                    <div class="chart-container__title-area disk-space-title">
+                        <p class="chart-container__title-area__title">Disk Space Used This Month</p>
+                    </div>
+                    <p class="chart-container__amount disk-space-amount"><b>{{ storageSummary }}*h</b></p>
+                    <div class="chart-container__chart">
+                        <DiskSpaceChart :height="chartHeight" :width="chartWidth"/>
+                    </div>
                 </div>
-                <p class="chart-container__amount" v-if="isBandwidthChartShown"><b>{{bandwidthSummary}}</b></p>
-                <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{egressSummary}}</b></p>
-                <p class="chart-container__amount" v-if="isIngressChartShown"><b>{{ingressSummary}}</b></p>
-                <div class="chart-container__chart">
-                    <BandwidthChart v-if="isBandwidthChartShown"/>
-                    <EgressChart v-if="isEgressChartShown"/>
-                    <IngressChart v-if="isIngressChartShown"/>
-                </div>
-            </div>
-            <div class="chart-container">
-                <div class="chart-container__title-area disk-space-title">
-                    <p class="chart-container__title-area__title">Disk Space Used This Month</p>
-                </div>
-                <p class="chart-container__amount disk-space-amount"><b>{{storageSummary}}*h</b></p>
-                <div class="chart-container__chart">
-                    <DiskSpaceChart/>
-                </div>
-            </div>
-        </div>
-        <div>
-            <div class="info-area__remaining-space-area">
                 <BarInfo
                     label="Disk Space Remaining"
                     :amount="diskSpace.remaining"
@@ -54,7 +37,38 @@
                     :current-bar-amount="diskSpace.used"
                     :max-bar-amount="diskSpace.available"
                 />
-            </div>
+            </section>
+            <section>
+                <div class="chart-container">
+                    <div class="chart-container__title-area">
+                        <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
+                        <div class="chart-container__title-area__buttons-area">
+                            <div
+                                class="chart-container__title-area__chart-choice-item"
+                                :class="{ 'egress-chart-shown': isEgressChartShown }"
+                                @click.stop="toggleEgressChartShowing"
+                            >
+                                Egress
+                            </div>
+                            <div
+                                class="chart-container__title-area__chart-choice-item"
+                                :class="{ 'ingress-chart-shown': isIngressChartShown }"
+                                @click.stop="toggleIngressChartShowing"
+                            >
+                                Ingress
+                            </div>
+                        </div>
+                    </div>
+                    <p class="chart-container__amount" v-if="isBandwidthChartShown"><b>{{ bandwidthSummary }}</b></p>
+                    <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{ egressSummary }}</b></p>
+                    <p class="chart-container__amount" v-if="isIngressChartShown"><b>{{ ingressSummary }}</b></p>
+                    <div class="chart-container__chart" ref="chart" onresize="recalculateChartDimensions()" >
+                        <BandwidthChart v-if="isBandwidthChartShown" :height="chartHeight" :width="chartWidth"/>
+                        <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth"/>
+                        <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth"/>
+                    </div>
+                </div>
+            </section>
         </div>
         <div class="info-area__blurred-checks" v-if="!selectedSatellite.id">
             <p class="info-area__blurred-checks__title">Select a Specific Satellite to View Audit and Uptime Percentages</p>
@@ -74,11 +88,21 @@
                 />
             </div>
         </div>
-        <p class="info-area__title">Payout</p>
+<!--        <div class="info-area__payout-header">-->
+<!--            <p class="info-area__title">Payout</p>-->
+<!--            <router-link :to="PAYOUT_PATH" class="info-area__payout-header__link">-->
+<!--                <p class="info-area__payout-header__link__text">Payout Information</p>-->
+<!--                <BlueArrowRight />-->
+<!--            </router-link>-->
+<!--        </div>-->
         <PayoutArea
             label="STORJ Wallet Address"
             :wallet-address="wallet"
         />
+<!--        <section class="info-area__total-info-area">-->
+<!--            <SingleInfo width="48%" label="Total Earnings, Feb" value="$1.99" />-->
+<!--            <SingleInfo width="48%" label="Total Held Amount" value="$19.93" />-->
+<!--        </section>-->
     </div>
 </template>
 
@@ -91,11 +115,15 @@ import ChecksArea from '@/app/components/ChecksArea.vue';
 import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
 import EgressChart from '@/app/components/EgressChart.vue';
 import IngressChart from '@/app/components/IngressChart.vue';
+import EstimationArea from '@/app/components/payments/EstimationArea.vue';
+import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 import PayoutArea from '@/app/components/PayoutArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
+import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
 
+import { RouteConfig } from '@/app/router';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { formatBytes } from '@/app/utils/converter';
 import { BandwidthInfo, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
@@ -115,6 +143,7 @@ class Checks {
 
 @Component ({
     components: {
+        EstimationArea,
         EgressChart,
         IngressChart,
         SatelliteSelection,
@@ -124,9 +153,44 @@ class Checks {
         ChecksArea,
         PayoutArea,
         LargeDisqualificationIcon,
+        BlueArrowRight,
+        SingleInfo,
     },
 })
 export default class SNOContentFilling extends Vue {
+    public readonly PAYOUT_PATH: string = RouteConfig.Payout.path;
+    public chartWidth: number = 0;
+    public chartHeight: number = 0;
+
+    public $refs: {
+        chart: HTMLElement;
+    };
+
+    /**
+     * Used container size recalculation for charts resizing.
+     */
+    public recalculateChartDimensions(): void {
+        this.chartWidth = this.$refs['chart'].clientWidth;
+        this.chartHeight = this.$refs['chart'].clientHeight;
+    }
+
+    /**
+     * Lifecycle hook after initial render.
+     * Adds event on window resizing to recalculate size of charts.
+     */
+    public mounted(): void {
+        window.addEventListener('resize', this.recalculateChartDimensions);
+        this.recalculateChartDimensions();
+    }
+
+    /**
+     * Lifecycle hook before component destruction.
+     * Removes event on window resizing.
+     */
+    public beforeDestroy(): void {
+        window.removeEventListener('resize', this.recalculateChartDimensions);
+    }
+
     /**
      * isBandwidthChartShown showing status of bandwidth chart from store.
      * @return boolean - bandwidth chart displaying status
@@ -215,14 +279,6 @@ export default class SNOContentFilling extends Vue {
      */
     public get storageSummary(): string {
         return formatBytes(this.$store.state.node.storageSummary);
-    }
-
-    /**
-     * bandwidth - used amount of bandwidth from store.
-     * @return BandwidthInfo - used amount of bandwidth
-     */
-    public get bandwidth(): BandwidthInfo {
-        return this.$store.state.node.utilization.bandwidth;
     }
 
     /**
@@ -345,11 +401,49 @@ export default class SNOContentFilling extends Vue {
             }
         }
 
+        &__payout-header {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+
+            &__link {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: flex-end;
+
+                &__text {
+                    font-size: 16px;
+                    line-height: 22px;
+                    color: #224ca5;
+                    margin-right: 9px;
+                }
+            }
+        }
+
         &__chart-area,
-        &__remaining-space-area,
         &__checks-area {
             display: flex;
+            flex-direction: row;
             justify-content: space-between;
+            width: 100%;
+        }
+
+        &__bar-info {
+            width: 339px;
+        }
+
+        &__estimation-area {
+            margin-top: 11px;
+        }
+
+        &__total-info-area {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 20px;
         }
     }
 
@@ -368,6 +462,12 @@ export default class SNOContentFilling extends Vue {
             align-items: center;
             justify-content: space-between;
 
+            &__buttons-area {
+                display: flex;
+                flex-direction: row;
+                align-items: flex-end;
+            }
+
             &__title {
                 font-size: 14px;
                 color: #586c86;
@@ -383,10 +483,12 @@ export default class SNOContentFilling extends Vue {
                 max-height: 25px;
                 cursor: pointer;
                 user-select: none;
+                margin-left: 9px;
             }
         }
 
         &__amount {
+            font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 57px;
             color: #535f77;
@@ -394,8 +496,9 @@ export default class SNOContentFilling extends Vue {
 
         &__chart {
             position: absolute;
-            bottom: 0;
             left: 0;
+            width: calc(100% - 10px);
+            height: 240px;
         }
     }
 
@@ -412,5 +515,61 @@ export default class SNOContentFilling extends Vue {
     .disk-space-title,
     .disk-space-amount {
         margin-top: 5px;
+    }
+
+    @media screen and (max-width: 1000px) {
+
+        .info-area {
+
+            &__chart-area {
+                flex-direction: column;
+                justify-content: flex-start;
+            }
+        }
+
+        .chart-container {
+            width: calc(100% - 60px);
+        }
+    }
+
+    @media screen and (max-width: 780px) {
+
+        .info-area {
+
+            &__checks-area {
+                flex-direction: column;
+
+                .checks-area-container {
+                    width: calc(100% - 60px) !important;
+                }
+            }
+
+            &__total-info-area {
+                flex-direction: column;
+
+                .info-container {
+                    width: 100% !important;
+
+                    &:first-of-type {
+                        margin-bottom: 12px;
+                    }
+                }
+            }
+
+            &__blurred-checks {
+
+                &__title {
+                    text-align: center;
+                }
+            }
+        }
+    }
+
+    @media screen and (max-width: 400px) {
+
+        .chart-container {
+            width: calc(100% - 36px);
+            padding: 24px 18px;
+        }
     }
 </style>

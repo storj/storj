@@ -137,7 +137,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 						Release:    false,
 					},
 				}
-				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info, time.Now().UTC().Add(-4*time.Hour))
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info, time.Now().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
 

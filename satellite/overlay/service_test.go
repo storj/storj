@@ -142,7 +142,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.EqualValues(t, stats.AuditReputationAlpha, newAuditAlpha)
 		require.EqualValues(t, stats.AuditReputationBeta, newAuditBeta)
 		require.NotNil(t, stats.Disqualified)
-		require.True(t, time.Now().UTC().Sub(*stats.Disqualified) < time.Minute)
+		require.True(t, time.Since(*stats.Disqualified) < time.Minute)
 
 		err = service.DisqualifyNode(ctx, valid2ID)
 		require.NoError(t, err)
@@ -407,8 +407,8 @@ func TestUpdateCheckIn(t *testing.T) {
 
 		// check-in for that node id, which should add the node
 		// to the nodes tables in the database
-		startOfTest := time.Now().UTC()
-		err = db.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		startOfTest := time.Now()
+		err = db.OverlayCache().UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		// confirm that the node is now in the nodes table with the
@@ -426,7 +426,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.Equal(t, expectedNode, actualNode)
 
 		// confirm that we can update the address field
-		startOfUpdateTest := time.Now().UTC()
+		startOfUpdateTest := time.Now()
 		expectedAddress = "9.8.7.6"
 		updatedInfo := overlay.NodeCheckInInfo{
 			NodeID: nodeID,
@@ -437,7 +437,7 @@ func TestUpdateCheckIn(t *testing.T) {
 			Version: &pb.NodeVersion{
 				Version:    "v0.1.0",
 				CommitHash: "abc123",
-				Timestamp:  time.Now().UTC(),
+				Timestamp:  time.Now(),
 				Release:    true,
 			},
 			LastIPPort: expectedAddress,
@@ -445,12 +445,12 @@ func TestUpdateCheckIn(t *testing.T) {
 		}
 		// confirm that the updated node is in the nodes table with the
 		// correct updated fields set
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		updatedNode, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.True(t, updatedNode.Reputation.LastContactSuccess.After(startOfUpdateTest))
-		require.True(t, updatedNode.Reputation.LastContactFailure.Equal(time.Time{}.UTC()))
+		require.True(t, updatedNode.Reputation.LastContactFailure.Equal(time.Time{}))
 		require.Equal(t, updatedNode.Address.GetAddress(), expectedAddress)
 		require.Equal(t, updatedNode.Reputation.UptimeSuccessCount, actualNode.Reputation.UptimeSuccessCount+1)
 		require.Equal(t, updatedInfo.Version.GetVersion(), updatedNode.Version.GetVersion())
@@ -458,8 +458,8 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.Equal(t, updatedInfo.Version.GetRelease(), updatedNode.Version.GetRelease())
 		require.True(t, updatedNode.Version.GetTimestamp().After(info.Version.GetTimestamp()))
 
-		// confirm we can update IsUp field
-		startOfUpdateTest2 := time.Now().UTC()
+		// confirm we can udpate IsUp field
+		startOfUpdateTest2 := time.Now()
 		updatedInfo2 := overlay.NodeCheckInInfo{
 			NodeID: nodeID,
 			Address: &pb.NodeAddress{
@@ -473,7 +473,7 @@ func TestUpdateCheckIn(t *testing.T) {
 				Release:    false,
 			},
 		}
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		updated2Node, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -547,7 +547,7 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 		info2 := getNodeInfo(testrand.NodeID())
 
 		{ // check-in the nodes, which should add them
-			twoHoursAgo := time.Now().UTC().Add(-2 * time.Hour)
+			twoHoursAgo := time.Now().Add(-2 * time.Hour)
 			err := db.OverlayCache().UpdateCheckIn(ctx, info1, twoHoursAgo, overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
@@ -567,7 +567,7 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 		}
 
 		{ // check-in again with current time
-			err := db.OverlayCache().UpdateCheckIn(ctx, info1, time.Now().UTC(), overlay.NodeSelectionConfig{})
+			err := db.OverlayCache().UpdateCheckIn(ctx, info1, time.Now(), overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			nodeLastContacts, err := db.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Minute)

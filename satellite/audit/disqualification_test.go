@@ -175,7 +175,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		request := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 4,
 			RequestedCount:       0,
-			ExcludedNodes:        nil,
+			ExcludedIDs:          nil,
 			MinimumVersion:       "", // semver or empty
 		}
 		nodes, err := satellitePeer.Overlay.Service.FindStorageNodes(ctx, request)
@@ -219,7 +219,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 				Release:    false,
 			},
 		}
-		err = satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		err = satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))

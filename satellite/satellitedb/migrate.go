@@ -908,6 +908,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN last_ip_port text`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Add missing consumed_serials_expires_at_index index",
+				Version:     97,
+				Action: migrate.SQL{
+					`CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );`,
+				},
+			},
 		},
 	}
 }

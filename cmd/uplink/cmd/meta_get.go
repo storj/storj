@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
-	"storj.io/storj/pkg/process"
 )
 
 func init() {
@@ -39,7 +38,7 @@ func metaGetMain(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("too many arguments")
 	}
 
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	src, err := fpath.New(path)
 	if err != nil {

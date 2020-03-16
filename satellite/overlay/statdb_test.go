@@ -24,7 +24,7 @@ func TestStatDB(t *testing.T) {
 		testDatabase(ctx, t, db.OverlayCache())
 	})
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testDatabase(ctx, t, overlay.NewCombinedCache(db.OverlayCache()))
+		testDatabase(ctx, t, db.OverlayCache())
 	})
 }
 
@@ -182,14 +182,14 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			},
 		}
 		// update check-in when node is offline
-		err = cache.UpdateCheckIn(ctx, info, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		err = cache.UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		_, err = cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 
 		info.IsUp = true
 		// update check-in when node is online
-		err = cache.UpdateCheckIn(ctx, info, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		err = cache.UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		_, err = cache.Get(ctx, nodeID)
 		require.NoError(t, err)

@@ -112,20 +112,20 @@ type NodeCheckInInfo struct {
 type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
-	ExcludedNodes        []storj.NodeID
+	ExcludedIDs          []storj.NodeID
 	MinimumVersion       string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
-	FreeDisk       int64
-	AuditCount     int64
-	UptimeCount    int64
-	ExcludedNodes  []storj.NodeID
-	ExcludedIPs    []string
-	MinimumVersion string // semver or empty
-	OnlineWindow   time.Duration
-	DistinctIP     bool
+	FreeDisk         int64
+	AuditCount       int64
+	UptimeCount      int64
+	ExcludedIDs      []storj.NodeID
+	ExcludedNetworks []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
+	MinimumVersion   string   // semver or empty
+	OnlineWindow     time.Duration
+	DistinctIP       bool
 }
 
 // UpdateRequest is used to update a node status.
@@ -270,11 +270,12 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		reputableNodeCount = req.RequestedCount
 	}
 
-	excludedNodes := req.ExcludedNodes
-	// get and exclude IPs associated with excluded nodes if distinctIP is enabled
-	var excludedIPs []string
-	if preferences.DistinctIP && len(excludedNodes) > 0 {
-		excludedIPs, err = service.db.GetNodesNetwork(ctx, excludedNodes)
+	excludedIDs := req.ExcludedIDs
+	// if distinctIP is enabled, keep track of the network
+	// to make sure we only select nodes from different networks
+	var excludedNetworks []string
+	if preferences.DistinctIP && len(excludedIDs) > 0 {
+		excludedNetworks, err = service.db.GetNodesNetwork(ctx, excludedIDs)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -288,36 +289,36 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	var newNodes []*NodeDossier
 	if newNodeCount > 0 {
 		newNodes, err = service.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
-			FreeDisk:       preferences.MinimumDiskSpace.Int64(),
-			AuditCount:     preferences.AuditCount,
-			ExcludedNodes:  excludedNodes,
-			MinimumVersion: preferences.MinimumVersion,
-			OnlineWindow:   preferences.OnlineWindow,
-			DistinctIP:     preferences.DistinctIP,
-			ExcludedIPs:    excludedIPs,
+			FreeDisk:         preferences.MinimumDiskSpace.Int64(),
+			AuditCount:       preferences.AuditCount,
+			ExcludedIDs:      excludedIDs,
+			MinimumVersion:   preferences.MinimumVersion,
+			OnlineWindow:     preferences.OnlineWindow,
+			DistinctIP:       preferences.DistinctIP,
+			ExcludedNetworks: excludedNetworks,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 	}
 
-	// add selected new nodes and their IPs to the excluded lists for reputable node selection
+	// add selected new nodes ID and network to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
-		excludedNodes = append(excludedNodes, newNode.Id)
+		excludedIDs = append(excludedIDs, newNode.Id)
 		if preferences.DistinctIP {
-			excludedIPs = append(excludedIPs, newNode.LastNet)
+			excludedNetworks = append(excludedNetworks, newNode.LastNet)
 		}
 	}
 
 	criteria := NodeCriteria{
-		FreeDisk:       preferences.MinimumDiskSpace.Int64(),
-		AuditCount:     preferences.AuditCount,
-		UptimeCount:    preferences.UptimeCount,
-		ExcludedNodes:  excludedNodes,
-		ExcludedIPs:    excludedIPs,
-		MinimumVersion: preferences.MinimumVersion,
-		OnlineWindow:   preferences.OnlineWindow,
-		DistinctIP:     preferences.DistinctIP,
+		FreeDisk:         preferences.MinimumDiskSpace.Int64(),
+		AuditCount:       preferences.AuditCount,
+		UptimeCount:      preferences.UptimeCount,
+		ExcludedIDs:      excludedIDs,
+		ExcludedNetworks: excludedNetworks,
+		MinimumVersion:   preferences.MinimumVersion,
+		OnlineWindow:     preferences.OnlineWindow,
+		DistinctIP:       preferences.DistinctIP,
 	}
 	reputableNodes, err := service.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {
@@ -384,7 +385,7 @@ func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.N
 	}
 
 	// Resolve the IP and the subnet from the address that is sent
-	resolvedIPPort, resolvedNetwork, err := GetNetwork(ctx, value.Address.Address)
+	resolvedIPPort, resolvedNetwork, err := ResolveIPAndNetwork(ctx, value.Address.Address)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -480,8 +481,8 @@ func (service *Service) GetOfflineNodesLimited(ctx context.Context, limit int) (
 	return service.db.GetOfflineNodesLimited(ctx, limit)
 }
 
-// GetNetwork resolves the target address and determines its IP and /24 Subnet
-func GetNetwork(ctx context.Context, target string) (ipPort, network string, err error) {
+// ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6
+func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	host, port, err := net.SplitHostPort(target)
