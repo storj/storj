@@ -404,7 +404,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.coupon-project-limit: 0 B
 
 # coupon value in cents
-# payments.coupon-value: 5500
+# payments.coupon-value: 30
 
 # price user should pay for each TB of egress
 # payments.egress-tb-price: "45"
@@ -478,7 +478,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # rollup.interval: 24h0m0s
 
 # the bandwidth and storage usage limit for the alpha release
-# rollup.max-alpha-usage: 0 B
+# rollup.max-alpha-usage: 5 GB
 
 # public address to listen on
 server.address: :7777
