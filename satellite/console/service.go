@@ -867,6 +867,23 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
+	cards, err := s.accounts.CreditCards().List(ctx, auth.User.ID)
+	if err != nil {
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+		return p, nil
+	}
+
+	balance, err := s.accounts.Balance(ctx, auth.User.ID)
+	if err != nil {
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+		return p, nil
+	}
+
+	if len(cards) == 0 && balance < s.minCoinPayment {
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s - no payment methods", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+		return p, nil
+	}
+
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
@@ -890,23 +907,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 	if err != nil {
 		return nil, err
-	}
-
-	cards, err := s.accounts.CreditCards().List(ctx, auth.User.ID)
-	if err != nil {
-		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-		return p, nil
-	}
-
-	balance, err := s.accounts.Balance(ctx, auth.User.ID)
-	if err != nil {
-		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-		return p, nil
-	}
-
-	if len(cards) == 0 && balance < s.minCoinPayment {
-		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s - no payment methods", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-		return p, nil
 	}
 
 	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID)

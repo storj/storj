@@ -397,7 +397,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
 
-# duration a coupon is valid in months/billing cycles
+# duration a new coupon is valid in months/billing cycles
 # payments.coupon-duration: 2
 
 # project limit to which increase to after applying the coupon
