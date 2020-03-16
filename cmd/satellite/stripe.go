@@ -19,11 +19,6 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// Payments is a wrapper around the Account Handling Service
-type Payments struct {
-	Accounts payments.Accounts
-}
-
 // UserData contains the uuid and email of a satellite user
 type UserData struct {
 	ID    uuid.UUID
@@ -52,8 +47,7 @@ func generateStripeCustomers(ctx context.Context) error {
 
 	dbxDB, err := dbx.Open(driver, source)
 	if err != nil {
-		return errs.New("failed opening database via DBX at %q: %v",
-			source, err)
+		return err
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
 	defer func() {
@@ -80,7 +74,7 @@ func generateStripeCustomers(ctx context.Context) error {
 			return err
 		}
 
-		err = handler.Accounts.Setup(ctx, user.ID, user.Email)
+		err = handler.Setup(ctx, user.ID, user.Email)
 		if err != nil {
 			return err
 		}
@@ -88,7 +82,7 @@ func generateStripeCustomers(ctx context.Context) error {
 	return err
 }
 
-func setupPayments(log *zap.Logger, db satellite.DB) (handler *Payments, err error) {
+func setupPayments(log *zap.Logger, db satellite.DB) (handler payments.Accounts, err error) {
 	pc := runCfg.Payments
 	service, err := stripecoinpayments.NewService(
 		log.Named("payments.stripe:service"),
@@ -109,8 +103,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (handler *Payments, err err
 		return nil, err
 	}
 
-	handler = &Payments{}
-	handler.Accounts = service.Accounts()
+	handler = service.Accounts()
 
 	return handler, err
 }
