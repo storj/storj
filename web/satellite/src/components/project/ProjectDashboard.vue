@@ -24,11 +24,11 @@ import { NavigationLink } from '@/types/navigation';
         TabNavigation,
     },
 })
-export default class ProjectOverviewArea extends Vue {
+export default class ProjectDashboard extends Vue {
     // TODO: make type for project routes
     public navigation: NavigationLink[] = [
-        new NavigationLink('/project-overview/details', 'Details'),
-        new NavigationLink('/project-overview/usage-report', 'Report'),
+        new NavigationLink('/project-dashboard/details', 'Details'),
+        new NavigationLink('/project-dashboard/usage-report', 'Report'),
     ];
 
     /**

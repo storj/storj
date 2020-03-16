@@ -188,7 +188,7 @@ export default class UsageReport extends Vue {
      * Changes location to project overview route.
      */
     public onBackClick(): void {
-        this.$router.push(RouteConfig.ProjectOverview.path);
+        this.$router.push(RouteConfig.ProjectDashboard.path);
     }
 
     public async onCurrentRollupClick(event: any): Promise<void> {

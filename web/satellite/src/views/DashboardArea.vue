@@ -98,7 +98,7 @@ export default class DashboardArea extends Vue {
     /**
      * Holds router link to project details page.
      */
-    public readonly projectDetailsPath: string = RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path;
+    public readonly projectDetailsPath: string = RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path;
 
     /**
      * Lifecycle hook after initial render.
@@ -163,7 +163,7 @@ export default class DashboardArea extends Vue {
 
             if (!this.isRouteAccessibleWithoutProject()) {
                 try {
-                    await this.$router.push(RouteConfig.Account.with(RouteConfig.Profile).path);
+                    await this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
                 } catch (error) {
                     return;
                 }
@@ -290,7 +290,7 @@ export default class DashboardArea extends Vue {
     private isRouteAccessibleWithoutProject(): boolean {
         const availableRoutes = [
             RouteConfig.Account.with(RouteConfig.Billing).path,
-            RouteConfig.Account.with(RouteConfig.Profile).path,
+            RouteConfig.Account.with(RouteConfig.Settings).path,
             RouteConfig.Overview.path,
         ];
 

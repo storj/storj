@@ -74,7 +74,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         EditProfilePopup,
     },
 })
-export default class ProfileArea extends Vue {
+export default class SettingsArea extends Vue {
     /**
      * Lifecycle hook after initial render where user info is fetching.
      */

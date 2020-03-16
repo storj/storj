@@ -59,7 +59,7 @@ export default class AccountDropdown extends Vue {
      * Changes location to account root route.
      */
     public onAccountSettingsClick(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Profile).path);
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Settings).path);
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
     }
 
