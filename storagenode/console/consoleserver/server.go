@@ -79,6 +79,8 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	heldAmountRouter.StrictSlash(true)
 	heldAmountRouter.HandleFunc("/paystub/{period}/{satelliteID}", heldAmountController.SatellitePayStubMonthly).Methods(http.MethodGet)
 	heldAmountRouter.HandleFunc("/paystub/{period}", heldAmountController.AllPayStubsMonthly).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/paystub/{start}/{end}/{satelliteID}", heldAmountController.SatellitePayStubPeriod).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/paystub/{start}/{end}", heldAmountController.AllPayStubsPeriod).Methods(http.MethodGet)
 	heldAmountRouter.HandleFunc("/payment/{period}/{satelliteID}", heldAmountController.GetMonthlyPayment).Methods(http.MethodGet)
 
 	if assets != nil {

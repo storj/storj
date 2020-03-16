@@ -5,6 +5,9 @@ package heldamount
 
 import (
 	"context"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -163,6 +166,51 @@ func (service *Service) AllPayStubsMonthlyCached(ctx context.Context, period str
 	return payStubs, nil
 }
 
+// SatellitePayStubPeriodCached retrieves held amount for all satellites for selected months from storagenode database.
+func (service *Service) SatellitePayStubPeriodCached(ctx context.Context, satelliteID storj.NodeID, periodStart, periodEnd string) (payStubs []*PayStub, err error) {
+	defer mon.Task()(&ctx, &satelliteID, &periodStart, &periodEnd)(&err)
+
+	periods, err := parsePeriodRange(periodStart, periodEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, period := range periods {
+		payStub, err := service.db.GetPayStub(ctx, satelliteID, period)
+		if err != nil {
+			if ErrNoPayStubForPeriod.Has(err) {
+				continue
+			}
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
+
+		payStubs = append(payStubs, payStub)
+	}
+
+	return payStubs, nil
+}
+
+// AllPayStubsPeriodCached retrieves held amount for all satellites for selected range of months from storagenode database.
+func (service *Service) AllPayStubsPeriodCached(ctx context.Context, periodStart, periodEnd string) (payStubs []PayStub, err error) {
+	defer mon.Task()(&ctx, &periodStart, &periodEnd)(&err)
+
+	periods, err := parsePeriodRange(periodStart, periodEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, period := range periods {
+		payStub, err := service.db.AllPayStubs(ctx, period)
+		if err != nil {
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
+
+		payStubs = append(payStubs, payStub...)
+	}
+
+	return payStubs, nil
+}
+
 // GetPaymentCached retrieves payment data from particular satellite from storagenode database.
 func (service *Service) GetPaymentCached(ctx context.Context, satelliteID storj.NodeID, period string) (_ *Payment, err error) {
 	defer mon.Task()(&ctx, &satelliteID, &period)(&err)
@@ -199,4 +247,59 @@ func stringToTime(period string) (_ time.Time, err error) {
 	}
 
 	return result, nil
+}
+
+// TODO: improve it.
+func parsePeriodRange(periodStart, periodEnd string) (periods []string, err error) {
+	var yearStart, yearEnd, monthStart, monthEnd int
+
+	start := strings.Split(periodStart, "-")
+	if len(start) != 2 {
+		return nil, ErrHeldAmountService.New("period start has wrong format")
+	}
+	end := strings.Split(periodEnd, "-")
+	if len(start) != 2 {
+		return nil, ErrHeldAmountService.New("period end has wrong format")
+	}
+
+	yearStart, err = strconv.Atoi(start[0])
+	if err != nil {
+		return nil, ErrHeldAmountService.New("period start has wrong format")
+	}
+	monthStart, err = strconv.Atoi(start[1])
+	if err != nil || monthStart > 12 || monthStart < 1 {
+		return nil, ErrHeldAmountService.New("period start has wrong format")
+	}
+	yearEnd, err = strconv.Atoi(end[0])
+	if err != nil {
+		return nil, ErrHeldAmountService.New("period end has wrong format")
+	}
+	monthEnd, err = strconv.Atoi(end[1])
+	if err != nil || monthEnd > 12 || monthEnd < 1 {
+		return nil, ErrHeldAmountService.New("period end has wrong format")
+	}
+	if yearEnd < yearStart {
+		return nil, ErrHeldAmountService.New("period has wrong format")
+	}
+	if yearEnd == yearStart && monthEnd < monthStart {
+		return nil, ErrHeldAmountService.New("period has wrong format")
+	}
+
+	for ; yearStart <= yearEnd; yearStart++ {
+		lastMonth := 12
+		if yearStart == yearEnd {
+			lastMonth = monthEnd
+		}
+		for ; monthStart <= lastMonth; monthStart++ {
+			format := "%d-%d"
+			if monthStart < 10 {
+				format = "%d-0%d"
+			}
+			periods = append(periods, fmt.Sprintf(format, yearStart, monthStart))
+		}
+
+		monthStart = 1
+	}
+
+	return periods, nil
 }

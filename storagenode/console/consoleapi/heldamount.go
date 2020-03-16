@@ -100,6 +100,85 @@ func (heldAmount *HeldAmount) AllPayStubsMonthly(w http.ResponseWriter, r *http.
 	}
 }
 
+// SatellitePayStubPeriod retrieves held amount for all satellites for selected months from storagenode database.
+func (heldAmount *HeldAmount) SatellitePayStubPeriod(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set(contentType, applicationJSON)
+
+	params := mux.Vars(r)
+
+	id, ok := params["satelliteID"]
+	if !ok {
+		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
+		return
+	}
+	satelliteID, err := storj.NodeIDFromString(id)
+	if err != nil {
+		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountPI.Wrap(err))
+		return
+	}
+
+	start, ok := params["start"]
+	if !ok {
+		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
+		return
+	}
+
+	end, ok := params["end"]
+	if !ok {
+		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
+		return
+	}
+
+	payStubs, err := heldAmount.service.SatellitePayStubPeriodCached(ctx, satelliteID, start, end)
+	if err != nil {
+		heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountPI.Wrap(err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(payStubs); err != nil {
+		heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountPI.Wrap(err)))
+		return
+	}
+}
+
+// AllPayStubsPeriod retrieves held amount for all satellites for selected range of months from storagenode database.
+func (heldAmount *HeldAmount) AllPayStubsPeriod(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set(contentType, applicationJSON)
+
+	params := mux.Vars(r)
+
+	start, ok := params["start"]
+	if !ok {
+		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
+		return
+	}
+
+	end, ok := params["end"]
+	if !ok {
+		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
+		return
+	}
+
+	payStubs, err := heldAmount.service.AllPayStubsPeriodCached(ctx, start, end)
+	if err != nil {
+		heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountPI.Wrap(err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(payStubs); err != nil {
+		heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountPI.Wrap(err)))
+		return
+	}
+}
+
 // GetMonthlyPayment returns payment data from satellite for specific month.
 func (heldAmount *HeldAmount) GetMonthlyPayment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

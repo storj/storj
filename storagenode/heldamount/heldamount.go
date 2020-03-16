@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
 )
 
@@ -27,6 +29,9 @@ type DB interface {
 	// AllPayments retrieves payment stats from all satellites in specific period from DB.
 	AllPayments(ctx context.Context, period string) ([]Payment, error)
 }
+
+// ErrNoPayStubForPeriod represents errors from the heldamount database.
+var ErrNoPayStubForPeriod = errs.Class("no payStub for period error")
 
 // PayStub is node heldamount data for satellite by specific period.
 type PayStub struct {

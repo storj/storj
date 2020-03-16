@@ -5,6 +5,7 @@ package storagenodedb
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/zeebo/errs"
 
@@ -136,6 +137,9 @@ func (db *heldamountDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID
 		&result.Paid,
 	)
 	if err != nil {
+		if sql.ErrNoRows == err {
+			return nil, heldamount.ErrNoPayStubForPeriod.Wrap(err)
+		}
 		return nil, ErrHeldAmount.Wrap(err)
 	}
 
