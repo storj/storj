@@ -58,7 +58,8 @@ func (e *Endpoint) GetPayStub(ctx context.Context, req *pb.GetHeldAmountRequest)
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	stub, err := e.service.GetPayStub(ctx, node.Id, req.Period.String())
+	period := req.Period.String()[0:7]
+	stub, err := e.service.GetPayStub(ctx, node.Id, period)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +68,6 @@ func (e *Endpoint) GetPayStub(ctx context.Context, req *pb.GetHeldAmountRequest)
 	if err != nil {
 		return nil, err
 	}
-
 	return &pb.GetHeldAmountResponse{
 		Period:         periodTime,
 		NodeId:         stub.NodeID,
@@ -128,8 +128,9 @@ func (e *Endpoint) GetPayment(ctx context.Context, req *pb.GetPaymentRequest) (_
 
 // toTime converts string period to time.Time.
 func toTime(period string) (_ time.Time, err error) {
-	const layout = "2006-01"
-	t, err := time.Parse(layout, period)
+	layout := "2006-01"
+	per := period[0:7]
+	t, err := time.Parse(layout, per)
 	if err != nil {
 		return time.Time{}, err
 	}

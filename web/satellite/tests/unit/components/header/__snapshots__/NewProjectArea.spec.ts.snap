@@ -17,11 +17,15 @@ exports[`NewProjectArea renders correctly without projects and with credit card 
     <h1 class="new-project-button-container__label">+ Create Project</h1>
   </div>
   <div class="new-project-popup-container">
-    <div id="newProjectPopup" class="new-project-popup">
-      <div class="new-project-popup__info-panel-container">
-        <h2 class="new-project-popup__info-panel-container__main-label-text">Create New Project</h2> <img src="@/../static/images/project/createProject.jpg" alt="create project image">
-      </div>
+    <div id="newProjectPopup" class="new-project-popup"><img src="@/../static/images/project/createProject.jpg" alt="create project image" class="new-project-popup__image">
       <div class="new-project-popup__form-container">
+        <div class="new-project-popup__form-container__success-title-area"><svg width="18" height="13" viewBox="0 0 18 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1.375 7.375C0.615609 6.61561 0.615609 5.38439 1.375 4.625C2.13439 3.86561 3.36561 3.86561 4.12501 4.625L8.70834 9.20834C9.46774 9.96773 9.46774 11.1989 8.70834 11.9583C7.94895 12.7177 6.71773 12.7177 5.95834 11.9583L1.375 7.375Z" fill="#34BF89"></path>
+            <path d="M8.70834 11.9583C7.94895 12.7177 6.71773 12.7177 5.95834 11.9583C5.19895 11.1989 5.19895 9.96773 5.95834 9.20834L14.2084 0.958327C14.9677 0.198935 16.199 0.198935 16.9584 0.958327C17.7177 1.71772 17.7177 2.94894 16.9584 3.70833L8.70834 11.9583Z" fill="#34BF89"></path>
+          </svg>
+          <p class="new-project-popup__form-container__success-title-area__title">Payment Method Added</p>
+        </div>
+        <h2 class="new-project-popup__form-container__main-title">Next, let’s create a project.</h2>
         <div class="input-container full-input">
           <div class="label-container">
             <!---->
@@ -44,7 +48,7 @@ exports[`NewProjectArea renders correctly without projects and with credit card 
         </div>
         <div class="new-project-popup__form-container__button-container">
           <div class="container white" style="width: 205px; height: 48px;">
-            <h1 class="label">Cancel</h1>
+            <h1 class="label">Back to Billing</h1>
           </div>
           <div class="container" style="width: 205px; height: 48px;">
             <h1 class="label">Next</h1>

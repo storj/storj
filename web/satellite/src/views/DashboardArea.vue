@@ -11,12 +11,16 @@
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader/>
                 <div class="dashboard-container__main-area">
-                    <div class="dashboard-container__main-area__banner-area">
-                        <VBanner
-                            v-if="isBannerShown"
-                            text="We’ve Now Added Billing!"
-                            additional-text="Your attention is required. Add a credit card to set up your account."
-                            :path="billingPath"
+                    <div class="dashboard-container__main-area__bar-area">
+                        <VInfoBar
+                            v-if="isInfoBarShown"
+                            :first-value="storageRemaining"
+                            :second-value="bandwidthRemaining"
+                            first-description="of Storage Remaining"
+                            second-description="of Bandwidth Remaining"
+                            :path="projectDetailsPath"
+                            link="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                            link-label="Request Limit Increase ->"
                         />
                     </div>
                     <div class="dashboard-container__main-area__content">
@@ -48,7 +52,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VBanner from '@/components/common/VBanner.vue';
+import VInfoBar from '@/components/common/VInfoBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
@@ -64,12 +68,14 @@ import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
+import { Size } from '@/utils/bytesSize';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+import { ProjectOwning } from '@/utils/projectOwning';
 
 const {
     SETUP_ACCOUNT,
@@ -83,13 +89,16 @@ const {
     components: {
         NavigationArea,
         DashboardHeader,
-        VBanner,
+        VInfoBar,
         AddImage,
         CloseCrossIcon,
     },
 })
 export default class DashboardArea extends Vue {
-    public readonly billingPath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
+    /**
+     * Holds router link to project details page.
+     */
+    public readonly projectDetailsPath: string = RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path;
 
     /**
      * Lifecycle hook after initial render.
@@ -196,7 +205,7 @@ export default class DashboardArea extends Vue {
             await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
         }
 
-        if (this.$store.getters.isBonusCouponApplied && !this.userHasHisOwnProject) {
+        if (this.$store.getters.isBonusCouponApplied && !new ProjectOwning(this.$store).userHasOwnProject()) {
             await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CONTENT_BLUR);
         }
 
@@ -204,14 +213,46 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Indicates if bonus banner should be rendered.
+     * Indicates if info bar is shown.
      */
-    public get isBannerShown(): boolean {
-        const isOverviewPage = this.$route.name === RouteConfig.Overview.name;
+    public get isInfoBarShown(): boolean {
         const isBillingPage = this.$route.name === RouteConfig.Billing.name;
-        const hasCreditCards = this.$store.state.paymentsModule.creditCards.length > 0;
 
-        return !(isOverviewPage || isBillingPage || hasCreditCards);
+        return isBillingPage && new ProjectOwning(this.$store).userHasOwnProject();
+    }
+
+    /**
+     * Returns formatted string of remaining storage.
+     */
+    public get storageRemaining(): string {
+        const storageUsed = this.$store.state.projectsModule.currentLimits.storageUsed;
+        const storageLimit = this.$store.state.projectsModule.currentLimits.storageLimit;
+
+        const difference = storageLimit - storageUsed;
+        if (difference < 0) {
+            return '0 Bytes';
+        }
+
+        const remaining = new Size(difference, 2);
+
+        return `${remaining.formattedBytes}${remaining.label}`;
+    }
+
+    /**
+     * Returns formatted string of remaining bandwidth.
+     */
+    public get bandwidthRemaining(): string {
+        const bandwidthUsed = this.$store.state.projectsModule.currentLimits.bandwidthUsed;
+        const bandwidthLimit = this.$store.state.projectsModule.currentLimits.bandwidthLimit;
+
+        const difference = bandwidthLimit - bandwidthUsed;
+        if (difference < 0) {
+            return '0 Bytes';
+        }
+
+        const remaining = new Size(difference, 2);
+
+        return `${remaining.formattedBytes}${remaining.label}`;
     }
 
     /**
@@ -255,13 +296,6 @@ export default class DashboardArea extends Vue {
 
         return availableRoutes.includes(this.$router.currentRoute.path.toLowerCase());
     }
-
-    /**
-     * Indicates if user has his own project.
-     */
-    private get userHasHisOwnProject(): boolean {
-        return this.$store.state.projectsModule.projects.some((project: Project) => project.ownerId === this.$store.getters.user.id);
-    }
 }
 </script>
 
@@ -294,7 +328,7 @@ export default class DashboardArea extends Vue {
             display: flex;
             flex-direction: column;
 
-            &__banner-area {
+            &__bar-area {
                 flex: 0 1 auto;
             }
 

@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -152,6 +153,12 @@ type API struct {
 
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
+	}
+
+	HeldAmount struct {
+		Endpoint *heldamount.Endpoint
+		Service  *heldamount.Service
+		DB       heldamount.DB
 	}
 
 	GracefulExit struct {
@@ -611,6 +618,20 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 		pbgrpc.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 		pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint)
+	}
+
+	{ // setup heldamount endpoint
+		peer.HeldAmount.DB = peer.DB.HeldAmount()
+		peer.HeldAmount.Service = heldamount.NewService(
+			peer.Log.Named("heldamount:service"),
+			peer.HeldAmount.DB)
+		peer.HeldAmount.Endpoint = heldamount.NewEndpoint(
+			peer.Log.Named("heldamount:endpoint"),
+			peer.DB.StoragenodeAccounting(),
+			peer.Overlay.DB,
+			peer.HeldAmount.Service)
+		pbgrpc.RegisterHeldAmountServer(peer.Server.GRPC(), peer.HeldAmount.Endpoint)
+		pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.HeldAmount.Endpoint)
 	}
 
 	{ // setup graceful exit

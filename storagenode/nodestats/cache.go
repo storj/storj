@@ -15,6 +15,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/private/date"
+	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
@@ -36,6 +37,7 @@ type Config struct {
 type CacheStorage struct {
 	Reputation   reputation.DB
 	StorageUsage storageusage.DB
+	HeldAmount   heldamount.DB
 }
 
 // Cache runs cache loop and stores reputation stats
@@ -45,9 +47,10 @@ type CacheStorage struct {
 type Cache struct {
 	log *zap.Logger
 
-	db      CacheStorage
-	service *Service
-	trust   *trust.Pool
+	db                CacheStorage
+	service           *Service
+	heldamountService *heldamount.Service
+	trust             *trust.Pool
 
 	maxSleep   time.Duration
 	Reputation *sync2.Cycle
@@ -55,15 +58,16 @@ type Cache struct {
 }
 
 // NewCache creates new caching service instance
-func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, trust *trust.Pool) *Cache {
+func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, heldamountService *heldamount.Service, trust *trust.Pool) *Cache {
 	return &Cache{
-		log:        log,
-		db:         db,
-		service:    service,
-		trust:      trust,
-		maxSleep:   config.MaxSleep,
-		Reputation: sync2.NewCycle(config.ReputationSync),
-		Storage:    sync2.NewCycle(config.StorageSync),
+		log:               log,
+		db:                db,
+		service:           service,
+		heldamountService: heldamountService,
+		trust:             trust,
+		maxSleep:          config.MaxSleep,
+		Reputation:        sync2.NewCycle(config.ReputationSync),
+		Storage:           sync2.NewCycle(10 * time.Second),
 	}
 }
 
@@ -134,6 +138,32 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 
 		err = cache.db.StorageUsage.Store(ctx, spaceUsages)
 		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+// CacheHeldAmount queries held amount stats and payments from all the satellites known to the storagenode and stores info into db.
+func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
+		payStub, err := cache.heldamountService.GetPaystubStats(ctx, satellite, time.Now().String())
+		if err != nil {
+			return err
+		}
+		if err = cache.db.HeldAmount.StorePayStub(ctx, *payStub); err != nil {
+			return err
+		}
+
+		payment, err := cache.heldamountService.GetPayment(ctx, satellite, time.Now().String())
+		if err != nil {
+			return err
+		}
+
+		if err = cache.db.HeldAmount.StorePayment(ctx, *payment); err != nil {
 			return err
 		}
 

@@ -13,6 +13,7 @@
                             label="Add STORJ"
                             width="123px"
                             height="48px"
+                            is-blue-white="true"
                             :on-press="onAddSTORJ"
                         />
                     </div>
@@ -293,7 +294,7 @@ export default class PaymentMethods extends Vue {
 
         this.isLoading = true;
 
-        if ((this.tokenDepositValue < 50 || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !ProjectOwning.userHasOwnProject()) {
+        if ((this.tokenDepositValue < 50 || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !new ProjectOwning(this.$store).userHasOwnProject()) {
             await this.$notify.error('First deposit amount must be more than 50 and less than 1000000');
             this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
             this.areaState = PaymentMethodsBlockState.DEFAULT;
@@ -378,14 +379,17 @@ export default class PaymentMethods extends Vue {
         this.isLoading = false;
         this.isLoaded = true;
 
-        if (!ProjectOwning.userHasOwnProject()) {
+        if (!new ProjectOwning(this.$store).userHasOwnProject()) {
             await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CONTENT_BLUR);
         }
 
         setTimeout(() => {
             this.onCancel();
             this.isLoaded = false;
+
+            setTimeout(() => {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CONTENT_BLUR);
+            }, 500);
         }, 2000);
     }
 
@@ -478,8 +482,8 @@ export default class PaymentMethods extends Vue {
 
             &__title {
                 font-family: 'font_bold', sans-serif;
-                font-size: 32px;
-                line-height: 48px;
+                font-size: 28px;
+                line-height: 42px;
                 color: #384b65;
             }
 

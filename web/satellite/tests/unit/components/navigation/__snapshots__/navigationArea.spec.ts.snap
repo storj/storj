@@ -3,7 +3,7 @@
 exports[`NavigationArea snapshot not changed with project 1`] = `
 <div class="navigation-area">
   <div class="navigation-area__wrap">
-    <router-link-stub to="/project-overview" tag="a" event="click" class="navigation-area__logo">
+    <router-link-stub to="/account/billing" tag="a" event="click" class="navigation-area__logo">
       <logoicon-stub class="navigation-area__logo__img"></logoicon-stub>
       <logotexticon-stub class="navigation-area__logo__text"></logotexticon-stub>
     </router-link-stub>
@@ -88,7 +88,7 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
 exports[`NavigationArea snapshot not changed without project 1`] = `
 <div class="navigation-area">
   <div class="navigation-area__wrap">
-    <router-link-stub to="/project-overview" tag="a" event="click" class="navigation-area__logo">
+    <router-link-stub to="/account/billing" tag="a" event="click" class="navigation-area__logo">
       <logoicon-stub class="navigation-area__logo__img"></logoicon-stub>
       <logotexticon-stub class="navigation-area__logo__text"></logotexticon-stub>
     </router-link-stub>

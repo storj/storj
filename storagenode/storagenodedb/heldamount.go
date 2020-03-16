@@ -5,7 +5,6 @@ package storagenodedb
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/zeebo/errs"
 
@@ -136,39 +135,39 @@ func (db *heldamountDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID
 		&result.Disposed,
 		&result.Paid,
 	)
-
-	if err == sql.ErrNoRows {
-		err = nil
+	if err != nil {
+		return nil, ErrHeldAmount.Wrap(err)
 	}
 
-	return &result, ErrHeldAmount.Wrap(err)
+	return &result, nil
 }
 
 // AllPayStubs retrieves all paystub stats from DB for specific period.
 func (db *heldamountDB) AllPayStubs(ctx context.Context, period string) (_ []heldamount.PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT satellite_id,
-			created_at,
-			codes,
-			usage_at_rest,
-			usage_get,
-			usage_put,
-			usage_get_repair,
-			usage_put_repair,
-			usage_get_audit,
-			comp_at_rest,
-			comp_get,
-			comp_put,
-			comp_get_repair,
-			comp_put_repair,
-			comp_get_audit,
-			surge_percent,
-			held,
-			owed,
-			disposed,
-			paid
-		FROM paystubs WHERE period = ?`
+	query := `SELECT 
+			  	satellite_id,
+			  	created_at,
+			  	codes,
+			  	usage_at_rest,
+			  	usage_get,
+			  	usage_put,
+			  	usage_get_repair,
+			  	usage_put_repair,
+			  	usage_get_audit,
+			  	comp_at_rest,
+			  	comp_get,
+			  	comp_put,
+			  	comp_get_repair,
+			  	comp_put_repair,
+			  	comp_get_audit,
+			  	surge_percent,
+			  	held,
+			  	owed,
+			  	disposed,
+			  	paid
+			  FROM paystubs WHERE period = ?`
 
 	rows, err := db.QueryContext(ctx, query, period)
 	if err != nil {
@@ -180,6 +179,7 @@ func (db *heldamountDB) AllPayStubs(ctx context.Context, period string) (_ []hel
 	var paystubList []heldamount.PayStub
 	for rows.Next() {
 		var paystub heldamount.PayStub
+		paystub.Period = period
 
 		err := rows.Scan(&paystub.SatelliteID,
 			&paystub.Created,
@@ -202,15 +202,17 @@ func (db *heldamountDB) AllPayStubs(ctx context.Context, period string) (_ []hel
 			&paystub.Disposed,
 			&paystub.Paid,
 		)
-
 		if err != nil {
 			return nil, ErrHeldAmount.Wrap(err)
 		}
 
 		paystubList = append(paystubList, paystub)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, ErrHeldAmount.Wrap(err)
+	}
 
-	return paystubList, rows.Err()
+	return paystubList, nil
 }
 
 // StorePayment inserts or updates payment data into the db.
@@ -266,19 +268,19 @@ func (db *heldamountDB) GetPayment(ctx context.Context, satelliteID storj.NodeID
 		&result.Receipt,
 		&result.Notes,
 	)
-
-	if err == sql.ErrNoRows {
-		err = nil
+	if err != nil {
+		return nil, ErrHeldAmount.Wrap(err)
 	}
 
-	return &result, ErrHeldAmount.Wrap(err)
+	return &result, nil
 }
 
 // AllPayments retrieves all payment stats from DB for specific period.
 func (db *heldamountDB) AllPayments(ctx context.Context, period string) (_ []heldamount.Payment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT satellite_id,
+	query := `SELECT 
+			satellite_id,
 			id,
 			created_at,
 			amount,
@@ -296,6 +298,7 @@ func (db *heldamountDB) AllPayments(ctx context.Context, period string) (_ []hel
 	var paymentList []heldamount.Payment
 	for rows.Next() {
 		var payment heldamount.Payment
+		payment.Period = period
 
 		err := rows.Scan(&payment.SatelliteID,
 			&payment.ID,
@@ -311,6 +314,9 @@ func (db *heldamountDB) AllPayments(ctx context.Context, period string) (_ []hel
 
 		paymentList = append(paymentList, payment)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, ErrHeldAmount.Wrap(err)
+	}
 
-	return paymentList, rows.Err()
+	return paymentList, nil
 }

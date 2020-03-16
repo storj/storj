@@ -105,14 +105,14 @@ export default class UsageReport extends Vue {
      * Returns formatted starting date for report.
      */
     public get startDate(): string {
-        return DateFormat.getUSDate(this.$store.state.usageModule.startDate, '/');
+        return DateFormat.getUTCDate(this.$store.state.usageModule.startDate, '/');
     }
 
     /**
      * Returns formatted end date for report.
      */
     public get endDate(): string {
-        return DateFormat.getUSDate(this.$store.state.usageModule.endDate, '/');
+        return DateFormat.getUTCDate(this.$store.state.usageModule.endDate, '/');
     }
 
     /**
@@ -368,7 +368,7 @@ export default class UsageReport extends Vue {
 
                     .usage-report-container__options-area__option__image {
 
-                        .usage-report-svg-path {
+                        .date-picker-svg-path {
                             fill: #fff !important;
                         }
                     }

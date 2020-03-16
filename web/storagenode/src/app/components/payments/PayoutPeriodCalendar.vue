@@ -5,28 +5,29 @@
     <div class="payout-period-calendar">
         <div class="payout-period-calendar__header">
             <div class="payout-period-calendar__header__year-selection">
-                <div class="payout-period-calendar__header__year-selection__prev">
+                <div class="payout-period-calendar__header__year-selection__prev" @click="decrementYear">
                     <GrayArrowLeftIcon />
                 </div>
-                <p class="payout-period-calendar__header__year-selection__year">2020</p>
-                <div class="payout-period-calendar__header__year-selection__next">
+                <p class="payout-period-calendar__header__year-selection__year">{{ displayedYear }}</p>
+                <div class="payout-period-calendar__header__year-selection__next" @click="incrementYear">
                     <GrayArrowLeftIcon />
                 </div>
             </div>
-            <p class="payout-period-calendar__header__all-time">All time</p>
+            <p class="payout-period-calendar__header__all-time" @click="selectAllTime">All time</p>
         </div>
         <div class="payout-period-calendar__months-area">
             <div
                 class="month-item"
                 :class="{ selected: item.selected, disabled: !item.active }"
-                v-for="item in displayedMonths"
+                v-for="item in currentDisplayedMonths"
                 :key="item.name"
+                @click="checkMonth(item)"
             >
                 <p class="month-item__label">{{ item.name }}</p>
             </div>
         </div>
         <div class="payout-period-calendar__footer-area">
-            <p class="payout-period-calendar__footer-area__period">Jan - Apr, 2019</p>
+            <p class="payout-period-calendar__footer-area__period">{{ period }}</p>
             <p class="payout-period-calendar__footer-area__ok-button">OK</p>
         </div>
     </div>
@@ -36,6 +37,10 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import GrayArrowLeftIcon from '@/../static/images/payments/GrayArrowLeft.svg';
+
+interface StoredMonthsByYear {
+    [key: number]: MonthButton[];
+}
 
 /**
  * Holds all months names.
@@ -51,6 +56,7 @@ const monthNames = [
  */
 class MonthButton {
     public constructor(
+        public year: number = 0,
         public index: number = 0,
         public active: boolean = false,
         public selected: boolean = false,
@@ -59,7 +65,7 @@ class MonthButton {
     /**
      * Returns month label depends on index.
      */
-    public get name() {
+    public get name(): string {
         return monthNames[this.index].slice(0, 3);
     }
 }
@@ -73,14 +79,171 @@ export default class PayoutPeriodCalendar extends Vue {
     /**
      * Contains current months list depends on active and selected month state.
      */
-    public displayedMonths: MonthButton[] = [];
+    public currentDisplayedMonths: MonthButton[] = [];
+    public displayedYear: number;
+    public period: string;
 
-    public constructor() {
-        super();
+    private displayedMonths: StoredMonthsByYear = {};
+    private now: Date;
+    private firstSelectedMonth: MonthButton | null;
+    private secondSelectedMonth: MonthButton | null;
 
-        for (let i = 0; i < monthNames.length; i++) {
-            this.displayedMonths.push(new MonthButton(i, true, false));
+    /**
+     * Lifecycle hook after initial render.
+     * Sets up current calendar state.
+     */
+    public mounted(): void {
+        this.now = new Date();
+        this.displayedYear = this.now.getUTCFullYear();
+        this.populateMonths(this.displayedYear);
+        this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
+    }
+
+    /**
+     * Updates selected period label.
+     */
+    public updatePeriod(): void {
+        if (!this.firstSelectedMonth) {
+            this.period = '';
+
+            return;
         }
+
+        this.period = this.secondSelectedMonth ?
+            `${this.firstSelectedMonth.name}, ${this.firstSelectedMonth.year} - ${this.secondSelectedMonth.name}, ${this.secondSelectedMonth.year}`
+            : `${monthNames[this.firstSelectedMonth.index]}, ${this.firstSelectedMonth.year}`;
+    }
+
+    /**
+     * Selects period between node start and now.
+     */
+    public selectAllTime(): void {
+        const nodeStartedAt = this.$store.state.node.info.startedAt;
+
+        this.firstSelectedMonth = new MonthButton(nodeStartedAt.getUTCFullYear(), nodeStartedAt.getUTCMonth());
+        this.secondSelectedMonth = new MonthButton(this.now.getUTCFullYear(), this.now.getUTCMonth());
+        this.updateMonthsSelection(true);
+        this.updatePeriod();
+    }
+
+    /**
+     * Updates first and second selected month on click.
+     */
+    public checkMonth(month: MonthButton): void {
+        if (this.firstSelectedMonth && this.secondSelectedMonth) {
+            this.updateMonthsSelection(false);
+            this.firstSelectedMonth = this.secondSelectedMonth = null;
+
+            if (month.active) {
+                this.firstSelectedMonth = month;
+                month.selected = true;
+            }
+
+            this.updatePeriod();
+
+            return;
+        }
+
+        if (!month.active) return;
+
+        if (!this.firstSelectedMonth) {
+            this.firstSelectedMonth = month;
+            month.selected = true;
+            this.updatePeriod();
+
+            return;
+        }
+
+        if (this.firstSelectedMonth === month) {
+            this.firstSelectedMonth = null;
+            month.selected = false;
+            this.updatePeriod();
+
+            return;
+        }
+
+        this.secondSelectedMonth = month;
+        if ((this.secondSelectedMonth && this.firstSelectedMonth) && new Date(this.secondSelectedMonth.year, this.secondSelectedMonth.index) < new Date(this.firstSelectedMonth.year, this.firstSelectedMonth.index)) {
+            [this.secondSelectedMonth, this.firstSelectedMonth] = [this.firstSelectedMonth, this.secondSelectedMonth];
+        }
+
+        this.updatePeriod();
+        this.updateMonthsSelection(true);
+    }
+
+    /**
+     * Increments year and updates current months set.
+     */
+    public incrementYear(): void {
+        if (this.displayedYear === this.now.getUTCFullYear()) return;
+
+        this.displayedYear += 1;
+        this.populateMonths(this.displayedYear);
+        this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
+    }
+
+    /**
+     * Decrement year and updates current months set.
+     */
+    public decrementYear(): void {
+        if (this.displayedYear === this.$store.state.node.info.startedAt.getUTCFullYear()) return;
+
+        this.displayedYear -= 1;
+        this.populateMonths(this.displayedYear);
+        this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
+    }
+
+    /**
+     * Marks all months between first and second selected as selected/unselected.
+     */
+    private updateMonthsSelection(value: boolean): void {
+        if (!this.secondSelectedMonth || !this.firstSelectedMonth) return;
+
+        for (let i = this.firstSelectedMonth.year; i <= this.secondSelectedMonth.year; i++) {
+            if (!this.displayedMonths[i]) {
+                this.populateMonths(i);
+            }
+
+            this.displayedMonths[i].forEach(month => {
+                const date = new Date(month.year, month.index);
+
+                if (
+                    (this.secondSelectedMonth && this.firstSelectedMonth)
+                    && new Date(this.firstSelectedMonth.year, this.firstSelectedMonth.index) <= date
+                    && date <= new Date(this.secondSelectedMonth.year, this.secondSelectedMonth.index)
+                ) {
+                    month.selected = value;
+                }
+            });
+        }
+    }
+
+    /**
+     * Sets months set in displayedMonths with year as key.
+     */
+    private populateMonths(year: number): void {
+        if (this.displayedMonths[year]) {
+            this.currentDisplayedMonths = this.displayedMonths[year];
+
+            return;
+        }
+
+        const months: MonthButton[] = [];
+        const isCurrentYear = year === this.now.getUTCFullYear();
+        const nowMonth = this.now.getUTCMonth();
+        const nodeStartedAt = this.$store.state.node.info.startedAt;
+
+        for (let i = 0; i < 12; i++) {
+            const notBeforeNodeStart =
+                (nodeStartedAt.getUTCFullYear() === year && nodeStartedAt.getUTCMonth() <= i)
+                || nodeStartedAt.getUTCFullYear() < year;
+            const inFuture = isCurrentYear && i > nowMonth;
+
+            const isMonthActive = notBeforeNodeStart && !inFuture;
+            months.push(new MonthButton(year, i, isMonthActive, false));
+        }
+
+        this.displayedMonths[year] = months;
     }
 }
 </script>
@@ -98,6 +261,7 @@ export default class PayoutPeriodCalendar extends Vue {
         border-radius: 5px;
         padding: 24px;
         font-family: 'font_regular', sans-serif;
+        cursor: default;
 
         &__header {
             display: flex;

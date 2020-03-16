@@ -543,10 +543,25 @@ export default class SNOContentFilling extends Vue {
                     width: calc(100% - 60px) !important;
                 }
             }
-        }
 
-        .info-area__blurred-checks__title {
-            text-align: center;
+            &__total-info-area {
+                flex-direction: column;
+
+                .info-container {
+                    width: 100% !important;
+
+                    &:first-of-type {
+                        margin-bottom: 12px;
+                    }
+                }
+            }
+
+            &__blurred-checks {
+
+                &__title {
+                    text-align: center;
+                }
+            }
         }
     }
 

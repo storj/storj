@@ -157,7 +157,7 @@ export default class NoApiKeysArea extends Vue {
     @media screen and (max-width: 1590px) {
 
         .no-api-keys-area {
-            padding: 0 0 65px 0;
+            padding: 65px 0;
 
             &__steps-area {
 
@@ -189,41 +189,7 @@ export default class NoApiKeysArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 1240px) {
-
-        .no-api-keys-area {
-
-            &__steps-area {
-
-                &__numbers {
-                    padding: 0 90px;
-                }
-
-                &__items {
-
-                    &__create-api-key,
-                    &__setup-uplink,
-                    &__store-data {
-
-                        &__title {
-                            font-family: 'font_bold', sans-serif;
-                            font-size: 16px;
-                            line-height: 16px;
-                            text-align: center;
-                            color: #354049;
-                        }
-                    }
-                }
-            }
-        }
-
-        .no-api-keys-area-image {
-            max-width: 220px;
-            max-height: 160px;
-        }
-    }
-
-    @media screen and (max-width: 1190px) {
+    @media screen and (max-width: 900px) {
 
         .no-api-keys-area {
 
@@ -254,40 +220,6 @@ export default class NoApiKeysArea extends Vue {
         .no-api-keys-area-image {
             max-width: 200px;
             max-height: 140px;
-        }
-    }
-
-    @media screen and (max-width: 1110px) {
-
-        .no-api-keys-area {
-
-            &__steps-area {
-
-                &__numbers {
-                    padding: 0 65px;
-                }
-
-                &__items {
-
-                    &__create-api-key,
-                    &__setup-uplink,
-                    &__store-data {
-
-                        &__title {
-                            font-family: 'font_bold', sans-serif;
-                            font-size: 12px;
-                            line-height: 16px;
-                            text-align: center;
-                            color: #354049;
-                        }
-                    }
-                }
-            }
-        }
-
-        .no-api-keys-area-image {
-            max-width: 180px;
-            max-height: 120px;
         }
     }
 </style>

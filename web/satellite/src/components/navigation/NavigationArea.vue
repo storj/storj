@@ -36,7 +36,7 @@ export default class NavigationArea extends Vue {
      */
     public areAccountItemsShown: boolean = true;
     public isAccountButtonShown: boolean = false;
-    public homePath: string = RouteConfig.ProjectOverview.path;
+    public homePath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
 
     public toggleResourceItemsVisibility(): void {
         this.areResourceItemsShown = !this.areResourceItemsShown;
