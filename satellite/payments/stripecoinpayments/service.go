@@ -34,6 +34,9 @@ var (
 	mon = monkit.Package()
 )
 
+// fetchLimit sets the maximum amount of items before we start paging on requests
+const fetchLimit = 100
+
 // Config stores needed information for payment service initialization.
 type Config struct {
 	StripeSecretKey              string        `help:"stripe API secret key" default:""`
@@ -62,6 +65,12 @@ type Service struct {
 	ObjectHourCents decimal.Decimal
 	// BonusRate amount of percents
 	BonusRate int64
+	// Coupon Values
+	CouponValue        int64
+	CouponDuration     int64
+	CouponProjectLimit memory.Size
+	// Minimum CoinPayment to create a coupon
+	MinCoinPayment int64
 
 	//Stripe Extended Features
 	AutoAdvance bool
@@ -72,7 +81,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate int64) (*Service, error) {
+func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64) (*Service, error) {
 	backendConfig := &stripe.BackendConfig{
 		LeveledLogger: log.Sugar(),
 	}
@@ -121,17 +130,21 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 	egressByteCents := egressTBCents.Div(decimal.New(1000000000000, 0))
 
 	return &Service{
-		log:             log,
-		db:              db,
-		projectsDB:      projectsDB,
-		usageDB:         usageDB,
-		stripeClient:    stripeClient,
-		coinPayments:    coinPaymentsClient,
-		ByteHourCents:   byteHourCents,
-		EgressByteCents: egressByteCents,
-		ObjectHourCents: objectHourCents,
-		BonusRate:       bonusRate,
-		AutoAdvance:     config.AutoAdvance,
+		log:                log,
+		db:                 db,
+		projectsDB:         projectsDB,
+		usageDB:            usageDB,
+		stripeClient:       stripeClient,
+		coinPayments:       coinPaymentsClient,
+		ByteHourCents:      byteHourCents,
+		EgressByteCents:    egressByteCents,
+		ObjectHourCents:    objectHourCents,
+		BonusRate:          bonusRate,
+		CouponValue:        couponValue,
+		CouponDuration:     couponDuration,
+		CouponProjectLimit: couponProjectLimit,
+		MinCoinPayment:     minCoinPayment,
+		AutoAdvance:        config.AutoAdvance,
 	}, nil
 }
 
@@ -144,10 +157,9 @@ func (service *Service) Accounts() payments.Accounts {
 func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const limit = 100
 	before := time.Now()
 
-	txsPage, err := service.db.Transactions().ListPending(ctx, 0, limit, before)
+	txsPage, err := service.db.Transactions().ListPending(ctx, 0, fetchLimit, before)
 	if err != nil {
 		return err
 	}
@@ -161,7 +173,7 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 			return err
 		}
 
-		txsPage, err = service.db.Transactions().ListPending(ctx, txsPage.NextOffset, limit, before)
+		txsPage, err = service.db.Transactions().ListPending(ctx, txsPage.NextOffset, fetchLimit, before)
 		if err != nil {
 			return err
 		}
@@ -218,8 +230,8 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 
 		cents := convertToCents(rate, &info.Received)
 
-		if cents >= 5000 {
-			err = service.Accounts().Coupons().AddPromotionalCoupon(ctx, userID, 2, 5500, memory.TB)
+		if cents >= service.MinCoinPayment {
+			err = service.Accounts().Coupons().AddPromotionalCoupon(ctx, userID)
 			if err != nil {
 				service.log.Error(fmt.Sprintf("could not add promotional coupon for user %s", userID.String()), zap.Error(err))
 				continue
@@ -235,10 +247,9 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const limit = 100
 	before := time.Now()
 
-	txsPage, err := service.db.Transactions().ListUnapplied(ctx, 0, limit, before)
+	txsPage, err := service.db.Transactions().ListUnapplied(ctx, 0, fetchLimit, before)
 	if err != nil {
 		return err
 	}
@@ -258,7 +269,7 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 			return err
 		}
 
-		txsPage, err = service.db.Transactions().ListUnapplied(ctx, txsPage.NextOffset, limit, before)
+		txsPage, err = service.db.Transactions().ListUnapplied(ctx, txsPage.NextOffset, fetchLimit, before)
 		if err != nil {
 			return err
 		}
@@ -364,8 +375,6 @@ func (service *Service) GetRate(ctx context.Context, curr1, curr2 coinpayments.C
 func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const limit = 25
-
 	now := time.Now().UTC()
 	utc := period.UTC()
 
@@ -376,7 +385,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 		return Error.New("prepare is for past periods only")
 	}
 
-	projsPage, err := service.projectsDB.List(ctx, 0, limit, end)
+	projsPage, err := service.projectsDB.List(ctx, 0, fetchLimit, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -390,7 +399,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 			return Error.Wrap(err)
 		}
 
-		projsPage, err = service.projectsDB.List(ctx, projsPage.NextOffset, limit, end)
+		projsPage, err = service.projectsDB.List(ctx, projsPage.NextOffset, fetchLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -517,10 +526,9 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 func (service *Service) InvoiceApplyProjectRecords(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const limit = 25
 	before := time.Now().UTC()
 
-	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, limit, before)
+	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, fetchLimit, before)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -534,7 +542,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context) (err err
 			return Error.Wrap(err)
 		}
 
-		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, recordsPage.NextOffset, limit, before)
+		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, recordsPage.NextOffset, fetchLimit, before)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -623,10 +631,9 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 func (service *Service) InvoiceApplyCoupons(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const limit = 25
 	before := time.Now().UTC()
 
-	usagePage, err := service.db.Coupons().ListUnapplied(ctx, 0, limit, before)
+	usagePage, err := service.db.Coupons().ListUnapplied(ctx, 0, fetchLimit, before)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -640,7 +647,7 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		usagePage, err = service.db.Coupons().ListUnapplied(ctx, usagePage.NextOffset, limit, before)
+		usagePage, err = service.db.Coupons().ListUnapplied(ctx, usagePage.NextOffset, fetchLimit, before)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -728,10 +735,9 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 func (service *Service) InvoiceApplyCredits(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const limit = 25
 	before := time.Now().UTC()
 
-	spendingsPage, err := service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, limit, before)
+	spendingsPage, err := service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, fetchLimit, before)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -745,7 +751,7 @@ func (service *Service) InvoiceApplyCredits(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), spendingsPage.NextOffset, limit, before)
+		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), spendingsPage.NextOffset, fetchLimit, before)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -808,10 +814,9 @@ func (service *Service) createInvoiceCreditItem(ctx context.Context, spending Cr
 func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	const limit = 25
 	before := time.Now()
 
-	cusPage, err := service.db.Customers().List(ctx, 0, limit, before)
+	cusPage, err := service.db.Customers().List(ctx, 0, fetchLimit, before)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -831,7 +836,7 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, limit, before)
+		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, fetchLimit, before)
 		if err != nil {
 			return Error.Wrap(err)
 		}

@@ -432,7 +432,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				pc.StorageTBPrice,
 				pc.EgressTBPrice,
 				pc.ObjectPrice,
-				pc.BonusRate)
+				pc.BonusRate,
+				pc.CouponValue,
+				pc.CouponDuration,
+				pc.CouponProjectLimit,
+				pc.MinCoinPayment)
 
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())

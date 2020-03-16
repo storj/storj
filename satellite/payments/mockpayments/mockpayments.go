@@ -128,7 +128,14 @@ func (accounts accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []pay
 func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (_ []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	return []payments.CreditCard{}, nil
+	return []payments.CreditCard{{
+		ID:        "pm_card_mastercard",
+		ExpMonth:  12,
+		ExpYear:   2050,
+		Brand:     "Mastercard",
+		Last4:     "4444",
+		IsDefault: true,
+	}}, nil
 }
 
 // Add is used to save new credit card, attach it to payment account and make it default.
@@ -198,8 +205,8 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration
 // AddPromotionalCoupon is used to add a promotional coupon for specified users who already have
 // a project and do not have a promotional coupon yet.
 // And updates project limits to selected size.
-func (coupons *coupons) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID, duration int, amount int64, projectLimit memory.Size) (err error) {
-	defer mon.Task()(&ctx, userID, duration, amount, projectLimit)(&err)
+func (coupons *coupons) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx, userID)(&err)
 
 	return nil
 }
