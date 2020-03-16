@@ -73,7 +73,7 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
+			return storj.Bucket{}, storj.ErrBucketNotFound.New("%s", bucketName)
 		}
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
@@ -109,7 +109,7 @@ func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projec
 		return storj.ErrBucket.Wrap(err)
 	}
 	if !deleted {
-		return storj.ErrBucketNotFound.New("")
+		return storj.ErrBucketNotFound.New("%s", bucketName)
 	}
 	return nil
 }
