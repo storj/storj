@@ -128,7 +128,7 @@ func (accounts accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []pay
 func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (_ []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	return []payments.CreditCard{payments.CreditCard{
+	return []payments.CreditCard{{
 		ID:        "pm_card_mastercard",
 		ExpMonth:  12,
 		ExpYear:   2050,
