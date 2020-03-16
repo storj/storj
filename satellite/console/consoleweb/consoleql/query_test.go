@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite"
@@ -23,7 +22,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage/redis/redisserver"
@@ -43,17 +42,6 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 		)
 
-		payments, err := stripecoinpayments.NewService(
-			log.Named("payments"),
-			stripecoinpayments.Config{},
-			db.StripeCoinPayments(),
-			db.Console().Projects(),
-			db.ProjectAccounting(),
-			"0", "0", "0", 10,
-			5500, 2, memory.TB, 5000,
-		)
-		require.NoError(t, err)
-
 		redis, err := redisserver.Mini()
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
@@ -71,7 +59,7 @@ func TestGraphqlQuery(t *testing.T) {
 			projectUsage,
 			db.Rewards(),
 			partnersService,
-			payments.Accounts(),
+			mockpayments.Accounts(),
 			console.Config{PasswordCost: console.TestPasswordCost},
 			5000,
 		)
