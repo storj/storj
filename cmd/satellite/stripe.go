@@ -6,8 +6,6 @@ package main
 import (
 	"context"
 
-	"github.com/prometheus/common/log"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -21,14 +19,15 @@ import (
 
 // UserData contains the uuid and email of a satellite user.
 type UserData struct {
-	ID    uuid.UUID
+	ID    []byte
 	Email string
 }
 
 // generateStripeCustomers creates missing stripe-customers for users in our database.
 func generateStripeCustomers(ctx context.Context) (err error) {
 	//Open SatelliteDB for the Payment Service
-	db, err := satellitedb.New(zap.L().Named("db"), runCfg.Database, satellitedb.Options{})
+	logger := zap.L()
+	db, err := satellitedb.New(logger.Named("db"), runCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -49,7 +48,7 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	log.Debug("Connected to:", zap.String("db source", source))
+	logger.Debug("Connected to:", zap.String("db source", source))
 	defer func() {
 		err = errs.Combine(err, dbxDB.Close())
 	}()
@@ -66,19 +65,25 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 	defer func() {
 		err = errs.Combine(err, rows.Close())
 	}()
-
+	var n int64
 	for rows.Next() {
+		n++
 		var user UserData
-		err := rows.Scan(&user)
+		err := rows.Scan(&user.ID, &user.Email)
+
 		if err != nil {
 			return err
 		}
-
-		err = handler.Setup(ctx, user.ID, user.Email)
+		uid, err := dbutil.BytesToUUID(user.ID)
+		if err != nil {
+			return err
+		}
+		err = handler.Setup(ctx, uid, user.Email)
 		if err != nil {
 			return err
 		}
 	}
+	logger.Info("Ensured Stripe-Customer", zap.Int64("created", n))
 	return err
 }
 
