@@ -870,18 +870,18 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	cards, err := s.accounts.CreditCards().List(ctx, auth.User.ID)
 	if err != nil {
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-		return p, nil
+		return nil, Error.Wrap(err)
 	}
 
 	balance, err := s.accounts.Balance(ctx, auth.User.ID)
 	if err != nil {
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-		return p, nil
+		return nil, Error.Wrap(err)
 	}
 
 	if len(cards) == 0 && balance < s.minCoinPayment {
-		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s - no payment methods", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-		return p, nil
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s - no valid payment methods found", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+		return nil, Error.Wrap(err)
 	}
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
@@ -904,9 +904,8 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 		return nil
 	})
-
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID)
