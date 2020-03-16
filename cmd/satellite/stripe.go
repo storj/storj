@@ -19,10 +19,12 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
+// Payments is a wrapper arround the Account Handling Service
 type Payments struct {
 	Accounts payments.Accounts
 }
 
+// UserData contains the uuid and email of a satellite user
 type UserData struct {
 	ID    uuid.UUID
 	Email string
@@ -54,7 +56,9 @@ func generateStripeCustomers(ctx context.Context) error {
 			source, err)
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
-	defer dbxDB.Close()
+	defer func() {
+		err = errs.Combine(err, dbxDB.Close())
+	}()
 
 	handler, err := setupPayments(zap.L().Named("payments"), db)
 	if err != nil {
@@ -65,7 +69,9 @@ func generateStripeCustomers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
 
 	for rows.Next() {
 		var user UserData
