@@ -134,7 +134,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		stats, err := service.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       valid1ID,
 			IsUp:         true,
-			AuditSuccess: false,
+			AuditOutcome: overlay.AuditFailure,
 		})
 		require.NoError(t, err)
 		newAuditAlpha := 1
@@ -151,7 +151,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		_, err = service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 			NodeID:       valid2ID,
 			IsUp:         false,
-			AuditSuccess: true,
+			AuditOutcome: overlay.AuditSuccess,
 		}})
 		require.NoError(t, err)
 		dossier, err := service.Get(ctx, valid2ID)
@@ -197,7 +197,7 @@ func TestRandomizedSelection(t *testing.T) {
 				_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       newID,
 					IsUp:         true,
-					AuditSuccess: true,
+					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1,
 					AuditWeight:  1,
 					AuditDQ:      0.5,
@@ -299,7 +299,7 @@ func TestKnownReliable(t *testing.T) {
 		// Disqualify storage node #0
 		stats, err := service.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[0].ID(),
-			AuditSuccess: false,
+			AuditOutcome: overlay.AuditFailure,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, stats.Disqualified)

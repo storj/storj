@@ -77,9 +77,13 @@ func BenchmarkOverlay(b *testing.B) {
 		b.Run("UpdateStats", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
+				outcome := overlay.AuditFailure
+				if i&1 == 0 {
+					outcome = overlay.AuditSuccess
+				}
 				_, err := overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       id,
-					AuditSuccess: i&1 == 0,
+					AuditOutcome: outcome,
 					IsUp:         i&2 == 0,
 				})
 				require.NoError(b, err)
@@ -90,9 +94,13 @@ func BenchmarkOverlay(b *testing.B) {
 			var updateRequests []*overlay.UpdateRequest
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
+				outcome := overlay.AuditFailure
+				if i&1 == 0 {
+					outcome = overlay.AuditSuccess
+				}
 				updateRequests = append(updateRequests, &overlay.UpdateRequest{
 					NodeID:       id,
-					AuditSuccess: i&1 == 0,
+					AuditOutcome: outcome,
 					IsUp:         i&2 == 0,
 				})
 

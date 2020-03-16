@@ -51,7 +51,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			// update stats so node disqualification is triggered
 			_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       tt.nodeID,
-				AuditSuccess: true,
+				AuditOutcome: overlay.AuditSuccess,
 				IsUp:         true,
 				AuditLambda:  1, AuditWeight: 1,
 				AuditDQ: 0.9,
@@ -133,7 +133,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 		updateReq := &overlay.UpdateRequest{
 			NodeID:       nodeID,
-			AuditSuccess: true,
+			AuditOutcome: overlay.AuditSuccess,
 			IsUp:         true,
 			AuditLambda:  0.123, AuditWeight: 0.456,
 			AuditDQ: 0, // don't disqualify for any reason
@@ -149,7 +149,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		auditAlpha = expectedAuditAlpha
 		auditBeta = expectedAuditBeta
 
-		updateReq.AuditSuccess = false
+		updateReq.AuditOutcome = overlay.AuditFailure
 		updateReq.IsUp = false
 		stats, err = cache.UpdateStats(ctx, updateReq)
 		require.NoError(t, err)
