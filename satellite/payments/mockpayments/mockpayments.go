@@ -128,7 +128,14 @@ func (accounts accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []pay
 func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (_ []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	return []payments.CreditCard{}, nil
+	return []payments.CreditCard{payments.CreditCard{
+		ID:        "pm_randomcardid",
+		ExpMonth:  12,
+		ExpYear:   2030,
+		Brand:     "Mastercard",
+		Last4:     "1234",
+		IsDefault: true,
+	}}, nil
 }
 
 // Add is used to save new credit card, attach it to payment account and make it default.
