@@ -880,7 +880,8 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	}
 
 	if len(cards) == 0 && balance < s.minCoinPayment {
-		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s - no valid payment methods found", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+		err = errs.New("no valid payment methods found")
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 		return nil, Error.Wrap(err)
 	}
 
