@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/private/post"
@@ -64,6 +65,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			db.Console().Projects(),
 			db.ProjectAccounting(),
 			"0", "0", "0", 10,
+			5500, 2, memory.TB, 5000,
 		)
 		require.NoError(t, err)
 
@@ -86,6 +88,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			partnersService,
 			payments.Accounts(),
 			console.Config{PasswordCost: console.TestPasswordCost},
+			5000,
 		)
 		require.NoError(t, err)
 
