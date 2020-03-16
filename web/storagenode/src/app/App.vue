@@ -97,6 +97,10 @@ export default class App extends Vue {
     }
 
     .scrollable {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         padding-top: 89px;
         height: calc(100vh - 89px);
         width: 100vw;

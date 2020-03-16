@@ -84,7 +84,7 @@ type DB interface {
 	Preflight(ctx context.Context) error
 }
 
-// Config is all the configuration parameters for a Storage Node
+// Config is all the configuration parameters for a Storage Node.
 type Config struct {
 	Identity identity.Config
 
@@ -488,9 +488,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Orders Cleanup", peer.Storage2.Orders.Cleanup))
 	}
 
-	{ // setub heldamount service.
+	{ // setup heldamount service.
 		peer.Heldamount.Service = heldamount.NewService(
 			peer.Log.Named("heldamount:service"),
+			peer.DB.HeldAmount(),
 			peer.Dialer,
 			peer.Storage2.Trust,
 		)
@@ -509,8 +510,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			nodestats.CacheStorage{
 				Reputation:   peer.DB.Reputation(),
 				StorageUsage: peer.DB.StorageUsage(),
+				HeldAmount:   peer.DB.HeldAmount(),
 			},
 			peer.NodeStats.Service,
+			peer.Heldamount.Service,
 			peer.Storage2.Trust,
 		)
 		peer.Services.Add(lifecycle.Item{

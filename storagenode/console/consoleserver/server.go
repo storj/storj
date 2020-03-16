@@ -5,7 +5,6 @@ package consoleserver
 
 import (
 	"context"
-	"encoding/json"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -16,23 +15,15 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/storj"
 	"storj.io/storj/storagenode/console"
-	"storj.io/storj/storagenode/console/consoleheldamount"
-	"storj.io/storj/storagenode/console/consolenotifications"
+	"storj.io/storj/storagenode/console/consoleapi"
 	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/notifications"
 )
 
-const (
-	contentType = "Content-Type"
-
-	applicationJSON = "application/json"
-)
-
-// Error is storagenode console web error type.
 var (
-	mon   = monkit.Package()
+	mon = monkit.Package()
+	// Error is storagenode console web error type.
 	Error = errs.Class("storagenode console web error")
 )
 
@@ -67,11 +58,28 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	}
 
 	router := mux.NewRouter()
-	apiRouter := router.PathPrefix("/api").Subrouter()
+
+	// handle api endpoints
+	storageNodeController := consoleapi.NewStorageNode(server.log, server.service)
+	storageNodeRouter := router.PathPrefix("/api/sno").Subrouter()
+	storageNodeRouter.StrictSlash(true)
+	storageNodeRouter.HandleFunc("/", storageNodeController.StorageNode).Methods(http.MethodGet)
+	storageNodeRouter.HandleFunc("/satellites", storageNodeController.Satellites).Methods(http.MethodGet)
+	storageNodeRouter.HandleFunc("/satellite/{id}", storageNodeController.Satellite).Methods(http.MethodGet)
+
+	notificationController := consoleapi.NewNotifications(server.log, server.notifications)
 	notificationRouter := router.PathPrefix("/api/notifications").Subrouter()
-	notificationController := consolenotifications.NewNotifications(server.log, server.notifications)
-	heldamountRouter := router.PathPrefix("/api/heldamount").Subrouter()
-	heldamountController := consoleheldamount.NewHeldAmount(server.log, server.heldAmount)
+	notificationRouter.StrictSlash(true)
+	notificationRouter.HandleFunc("/list", notificationController.ListNotifications).Methods(http.MethodGet)
+	notificationRouter.HandleFunc("/{id}/read", notificationController.ReadNotification).Methods(http.MethodPost)
+	notificationRouter.HandleFunc("/readall", notificationController.ReadAllNotifications).Methods(http.MethodPost)
+
+	heldAmountController := consoleapi.NewHeldAmount(server.log, server.heldAmount)
+	heldAmountRouter := router.PathPrefix("/api/heldamount").Subrouter()
+	heldAmountRouter.StrictSlash(true)
+	heldAmountRouter.HandleFunc("/paystub/{period}/{satelliteID}", heldAmountController.SatellitePayStubMonthly).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/paystub/{period}", heldAmountController.AllPayStubsMonthly).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/payment/{period}/{satelliteID}", heldAmountController.GetMonthlyPayment).Methods(http.MethodGet)
 
 	if assets != nil {
 		fs := http.FileServer(assets)
@@ -82,15 +90,6 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 			fs.ServeHTTP(w, req)
 		}))
 	}
-
-	// handle api endpoints
-	apiRouter.Handle("/dashboard", http.HandlerFunc(server.dashboardHandler)).Methods(http.MethodGet)
-	apiRouter.Handle("/satellites", http.HandlerFunc(server.satellitesHandler)).Methods(http.MethodGet)
-	apiRouter.Handle("/satellite/{id}", http.HandlerFunc(server.satelliteHandler)).Methods(http.MethodGet)
-	notificationRouter.Handle("/list", http.HandlerFunc(notificationController.ListNotifications)).Methods(http.MethodGet)
-	notificationRouter.Handle("/{id}/read", http.HandlerFunc(notificationController.ReadNotification)).Methods(http.MethodPost)
-	notificationRouter.Handle("/readall", http.HandlerFunc(notificationController.ReadAllNotifications)).Methods(http.MethodPost)
-	heldamountRouter.Handle("/{period}", http.HandlerFunc(heldamountController.GetMonthlyHeldAmount)).Methods(http.MethodGet)
 
 	server.server = http.Server{
 		Handler: router,
@@ -122,77 +121,6 @@ func (server *Server) Close() error {
 	return server.server.Close()
 }
 
-// dashboardHandler handles dashboard API requests.
-func (server *Server) dashboardHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	data, err := server.service.GetDashboardData(ctx)
-	if err != nil {
-		server.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
-		return
-	}
-
-	server.writeData(w, data)
-}
-
-// satelliteHandler handles satellites API request.
-func (server *Server) satellitesHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	data, err := server.service.GetAllSatellitesData(ctx)
-	if err != nil {
-		server.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
-		return
-	}
-
-	server.writeData(w, data)
-}
-
-// satelliteHandler handles satellite API requests.
-func (server *Server) satelliteHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
-	var err error
-
-	params := mux.Vars(r)
-	id, ok := params["id"]
-	if !ok {
-		server.writeError(w, http.StatusBadRequest, Error.Wrap(err))
-		return
-	}
-
-	satelliteID, err := storj.NodeIDFromString(id)
-	if err != nil {
-		server.writeError(w, http.StatusBadRequest, Error.Wrap(err))
-		return
-	}
-
-	if err = server.service.VerifySatelliteID(ctx, satelliteID); err != nil {
-		server.writeError(w, http.StatusNotFound, Error.Wrap(err))
-		return
-	}
-
-	data, err := server.service.GetSatelliteData(ctx, satelliteID)
-	if err != nil {
-		server.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
-		return
-	}
-
-	server.writeData(w, data)
-}
-
 // cacheMiddleware is a middleware for caching static files.
 func (server *Server) cacheMiddleware(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -211,38 +139,4 @@ func (server *Server) cacheMiddleware(fn http.Handler) http.Handler {
 
 		fn.ServeHTTP(w, r)
 	})
-}
-
-// jsonOutput defines json structure of api response data.
-type jsonOutput struct {
-	Data  interface{} `json:"data"`
-	Error string      `json:"error"`
-}
-
-// writeData is helper method to write JSON to http.ResponseWriter and log encoding error.
-func (server *Server) writeData(w http.ResponseWriter, data interface{}) {
-	w.Header().Set(contentType, applicationJSON)
-	w.WriteHeader(http.StatusOK)
-
-	output := jsonOutput{Data: data}
-
-	if err := json.NewEncoder(w).Encode(output); err != nil {
-		server.log.Error("json encoder error", zap.Error(err))
-	}
-}
-
-// writeError writes a JSON error payload to http.ResponseWriter log encoding error.
-func (server *Server) writeError(w http.ResponseWriter, status int, err error) {
-	if status >= http.StatusInternalServerError {
-		server.log.Error("api handler server error", zap.Int("status code", status), zap.Error(err))
-	}
-
-	w.Header().Set(contentType, applicationJSON)
-	w.WriteHeader(status)
-
-	output := jsonOutput{Error: err.Error()}
-
-	if err := json.NewEncoder(w).Encode(output); err != nil {
-		server.log.Error("json encoder error", zap.Error(err))
-	}
 }
