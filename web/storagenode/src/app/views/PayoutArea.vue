@@ -57,6 +57,10 @@ export default class PayoutArea extends Vue {}
     .payout-area-container {
         width: 822px;
         font-family: 'font_regular', sans-serif;
+        overflow-y: scroll;
+        overflow-x: hidden;
+        min-height: calc(100vh - 89px - 89px - 50px);
+        padding-bottom: 50px;
 
         &__header {
             width: 100%;
