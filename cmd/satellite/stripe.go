@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -19,14 +19,14 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// UserData contains the uuid and email of a satellite user
+// UserData contains the uuid and email of a satellite user.
 type UserData struct {
 	ID    uuid.UUID
 	Email string
 }
 
-// generateStripeCustomers creates missing stripe-customers for users in our database
-func generateStripeCustomers(ctx context.Context) error {
+// generateStripeCustomers creates missing stripe-customers for users in our database.
+func generateStripeCustomers(ctx context.Context) (err error) {
 	//Open SatelliteDB for the Payment Service
 	db, err := satellitedb.New(zap.L().Named("db"), runCfg.Database, satellitedb.Options{})
 	if err != nil {
