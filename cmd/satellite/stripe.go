@@ -30,6 +30,7 @@ type UserData struct {
 
 // generateStripeCustomers creates missing stripe-customers for users in our database
 func generateStripeCustomers(ctx context.Context) error {
+	//Open SatelliteDB for the Payment Service
 	db, err := satellitedb.New(zap.L().Named("db"), runCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
@@ -38,6 +39,7 @@ func generateStripeCustomers(ctx context.Context) error {
 		err = errs.Combine(err, db.Close())
 	}()
 
+	//Open direct DB connection to execute custom queries
 	driver, source, implementation, err := dbutil.SplitConnStr(runCfg.Database)
 	if err != nil {
 		return err
@@ -52,6 +54,7 @@ func generateStripeCustomers(ctx context.Context) error {
 			source, err)
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
+	defer dbxDB.Close()
 
 	handler, err := setupPayments(zap.L().Named("payments"), db)
 	if err != nil {

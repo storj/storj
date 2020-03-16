@@ -120,13 +120,18 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdGracefulExit,
 	}
-
 	verifyGracefulExitReceiptCmd = &cobra.Command{
 		Use:   "verify-exit-receipt [storage node ID] [receipt]",
 		Short: "Verify a graceful exit receipt",
 		Long:  "Verify a graceful exit receipt is valid.",
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdVerifyGracefulExitReceipt,
+	}
+	stripeCustomerCmd = &cobra.Command{
+		Use:   "ensure-stripe-customer",
+		Short: "Ensures that we have a stripe customer for every user",
+		Long:  "Ensures that we have a stripe customer for every satellite user",
+		RunE:  cmdStripeCustomer,
 	}
 
 	runCfg   Satellite
@@ -173,6 +178,7 @@ func init() {
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(gracefulExitCmd)
 	reportsCmd.AddCommand(verifyGracefulExitReceiptCmd)
+	reportsCmd.AddCommand(stripeCustomerCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -183,6 +189,7 @@ func init() {
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(verifyGracefulExitReceiptCmd, &verifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
@@ -413,6 +420,12 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	return generateNodeUsageCSV(ctx, start, end, file)
+}
+
+func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return generateStripeCustomers(ctx)
 }
 
 func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
