@@ -69,7 +69,7 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 	for rows.Next() {
 		n++
 		var user UserData
-		err := rows.Scan(&user)
+		err := rows.Scan(&user.ID, &user.Email)
 
 		if err != nil {
 			return err
