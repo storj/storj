@@ -198,8 +198,8 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration
 // AddPromotionalCoupon is used to add a promotional coupon for specified users who already have
 // a project and do not have a promotional coupon yet.
 // And updates project limits to selected size.
-func (coupons *coupons) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID, duration int, amount int64, projectLimit memory.Size) (err error) {
-	defer mon.Task()(&ctx, userID, duration, amount, projectLimit)(&err)
+func (coupons *coupons) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx, userID)(&err)
 
 	return nil
 }

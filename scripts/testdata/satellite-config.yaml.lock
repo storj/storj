@@ -397,8 +397,20 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
 
+# duration a coupon is valid in months/billing cycles
+# payments.coupon-duration: 2
+
+# project limit to which increase to after applying the coupon
+# payments.coupon-project-limit: 1.0 TB
+
+# coupon value in cents
+# payments.coupon-value: 5500
+
 # price user should pay for each TB of egress
 # payments.egress-tb-price: "45"
+
+# minimum value of coin payments in cents before coupon is applied
+# payments.min-coin-payment: 5000
 
 # price user should pay for each object stored in network per month
 # payments.object-price: "0.0000022"

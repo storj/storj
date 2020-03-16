@@ -65,6 +65,12 @@ type Service struct {
 	ObjectHourCents decimal.Decimal
 	// BonusRate amount of percents
 	BonusRate int64
+	// Coupon Values
+	CouponValue        int64
+	CouponDuration     int64
+	CouponProjectLimit memory.Size
+	// Minimum CoinPayment to create a coupon
+	MinCoinPayment int64
 
 	//Stripe Extended Features
 	AutoAdvance bool
@@ -75,7 +81,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate int64) (*Service, error) {
+func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64) (*Service, error) {
 	backendConfig := &stripe.BackendConfig{
 		LeveledLogger: log.Sugar(),
 	}
@@ -124,17 +130,21 @@ func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projec
 	egressByteCents := egressTBCents.Div(decimal.New(1000000000000, 0))
 
 	return &Service{
-		log:             log,
-		db:              db,
-		projectsDB:      projectsDB,
-		usageDB:         usageDB,
-		stripeClient:    stripeClient,
-		coinPayments:    coinPaymentsClient,
-		ByteHourCents:   byteHourCents,
-		EgressByteCents: egressByteCents,
-		ObjectHourCents: objectHourCents,
-		BonusRate:       bonusRate,
-		AutoAdvance:     config.AutoAdvance,
+		log:                log,
+		db:                 db,
+		projectsDB:         projectsDB,
+		usageDB:            usageDB,
+		stripeClient:       stripeClient,
+		coinPayments:       coinPaymentsClient,
+		ByteHourCents:      byteHourCents,
+		EgressByteCents:    egressByteCents,
+		ObjectHourCents:    objectHourCents,
+		BonusRate:          bonusRate,
+		CouponValue:        couponValue,
+		CouponDuration:     couponDuration,
+		CouponProjectLimit: couponProjectLimit,
+		MinCoinPayment:     minCoinPayment,
+		AutoAdvance:        config.AutoAdvance,
 	}, nil
 }
 
@@ -220,8 +230,8 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 
 		cents := convertToCents(rate, &info.Received)
 
-		if cents >= 5000 {
-			err = service.Accounts().Coupons().AddPromotionalCoupon(ctx, userID, 2, 5500, memory.TB)
+		if cents >= service.MinCoinPayment {
+			err = service.Accounts().Coupons().AddPromotionalCoupon(ctx, userID)
 			if err != nil {
 				service.log.Error(fmt.Sprintf("could not add promotional coupon for user %s", userID.String()), zap.Error(err))
 				continue

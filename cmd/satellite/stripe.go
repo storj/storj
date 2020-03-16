@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// Payments is a wrapper arround the Account Handling Service
+// Payments is a wrapper around the Account Handling Service
 type Payments struct {
 	Accounts payments.Accounts
 }
@@ -99,7 +99,11 @@ func setupPayments(log *zap.Logger, db satellite.DB) (handler *Payments, err err
 		pc.StorageTBPrice,
 		pc.EgressTBPrice,
 		pc.ObjectPrice,
-		pc.BonusRate)
+		pc.BonusRate,
+		pc.CouponValue,
+		pc.CouponDuration,
+		pc.CouponProjectLimit,
+		pc.MinCoinPayment)
 
 	if err != nil {
 		return nil, err

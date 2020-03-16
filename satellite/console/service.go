@@ -87,6 +87,8 @@ type Service struct {
 	accounts          payments.Accounts
 
 	config Config
+
+	minCoinPayment int64
 }
 
 // Config keeps track of core console service configuration parameters
@@ -101,7 +103,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, config Config) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, config Config, minCoinPayment int64) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -125,6 +127,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 		partners:          partners,
 		accounts:          accounts,
 		config:            config,
+		minCoinPayment:    minCoinPayment,
 	}, nil
 }
 
@@ -369,7 +372,7 @@ func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, 
 		return errs.New("user don't have a payment method")
 	}
 
-	return paymentService.service.accounts.Coupons().AddPromotionalCoupon(ctx, userID, duration, amount, limit)
+	return paymentService.service.accounts.Coupons().AddPromotionalCoupon(ctx, userID)
 }
 
 // checkRegistrationSecret returns a RegistrationToken if applicable (nil if not), and an error
@@ -894,11 +897,19 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 		return p, nil
 	}
-	if len(cards) == 0 {
+
+	balance, err := s.accounts.Balance(ctx, auth.User.ID)
+	if err != nil {
+		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
+		return p, nil
+	}
+
+	if len(cards) == 0 && balance < s.minCoinPayment {
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s - no payment methods", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 		return p, nil
 	}
-	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID, 2, 5500, memory.TB)
+
+	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID)
 	if err != nil {
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 	}
