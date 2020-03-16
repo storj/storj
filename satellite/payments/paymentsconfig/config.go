@@ -18,6 +18,6 @@ type Config struct {
 	BonusRate          int64       `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
 	CouponValue        int64       `help:"coupon value in cents" default:"5500"`
 	CouponDuration     int64       `help:"duration a new coupon is valid in months/billing cycles" default:"2"`
-	CouponProjectLimit memory.Size `help:"project limit to which increase to after applying the coupon" default:"1TB"`
+	CouponProjectLimit memory.Size `help:"project limit to which increase to after applying the coupon, 0 B means not changing it from the default" default:"0 B"`
 	MinCoinPayment     int64       `help:"minimum value of coin payments in cents before coupon is applied" default:"5000"`
 }
