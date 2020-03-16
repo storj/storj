@@ -59,7 +59,7 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 		return err
 	}
 
-	rows, err := dbxDB.Query(ctx, "SELECT id, email FROM users WHERE email NOT IN (SELECT email from stripe_coinpayments")
+	rows, err := dbxDB.Query(ctx, "SELECT id, email FROM users WHERE id NOT IN (SELECT user_id from stripe_customers)")
 	if err != nil {
 		return err
 	}
