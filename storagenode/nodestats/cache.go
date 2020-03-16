@@ -97,11 +97,6 @@ func (cache *Cache) Run(ctx context.Context) error {
 			cache.log.Error("Get disk space usage query failed", zap.Error(err))
 		}
 
-		err = cache.CacheHeldAmount(ctx)
-		if err != nil {
-			cache.log.Error("Get held amount data query failed", zap.Error(err))
-		}
-
 		return nil
 	})
 
