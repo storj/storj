@@ -1231,7 +1231,7 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
 		require.NoError(t, err)
 
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(time.Second)
 
 		var group2 errs2.Group
 
