@@ -8,6 +8,7 @@ import (
 
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/heldamount"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // paymentStubs is payment data for specific storagenode for some specific period by working with satellite.
@@ -71,4 +72,45 @@ func (paystubs *paymentStubs) GetPayment(ctx context.Context, nodeID storj.NodeI
 	}
 
 	return payment, nil
+}
+
+// CreatePaystub inserts storagenode_paystub into database.
+func (paystubs *paymentStubs) CreatePaystub(ctx context.Context, stub heldamount.PayStub) (err error) {
+	return paystubs.db.CreateNoReturn_StoragenodePaystub(
+		ctx,
+		dbx.StoragenodePaystub_Period(stub.Period),
+		dbx.StoragenodePaystub_NodeId(stub.NodeID[:]),
+		dbx.StoragenodePaystub_Codes(stub.Codes),
+		dbx.StoragenodePaystub_UsageAtRest(stub.UsageAtRest),
+		dbx.StoragenodePaystub_UsageGet(stub.UsageGet),
+		dbx.StoragenodePaystub_UsagePut(stub.UsagePut),
+		dbx.StoragenodePaystub_UsageGetRepair(stub.UsageGetRepair),
+		dbx.StoragenodePaystub_UsagePutRepair(stub.UsagePutRepair),
+		dbx.StoragenodePaystub_UsageGetAudit(stub.UsageGetAudit),
+		dbx.StoragenodePaystub_CompAtRest(stub.CompAtRest),
+		dbx.StoragenodePaystub_CompGet(stub.CompGet),
+		dbx.StoragenodePaystub_CompPut(stub.CompPut),
+		dbx.StoragenodePaystub_CompGetRepair(stub.CompGetRepair),
+		dbx.StoragenodePaystub_CompPutRepair(stub.CompPutRepair),
+		dbx.StoragenodePaystub_CompGetAudit(stub.CompGetAudit),
+		dbx.StoragenodePaystub_SurgePercent(stub.SurgePercent),
+		dbx.StoragenodePaystub_Held(stub.Held),
+		dbx.StoragenodePaystub_Owed(stub.Owed),
+		dbx.StoragenodePaystub_Disposed(stub.Disposed),
+		dbx.StoragenodePaystub_Paid(stub.Paid),
+	)
+}
+
+// CreatePayment inserts storagenode_payment into database.
+func (paystubs *paymentStubs) CreatePayment(ctx context.Context, payment heldamount.StoragenodePayment) (err error) {
+	return paystubs.db.CreateNoReturn_StoragenodePayment(
+		ctx,
+		dbx.StoragenodePayment_NodeId(payment.NodeID[:]),
+		dbx.StoragenodePayment_Amount(payment.Amount),
+		dbx.StoragenodePayment_Create_Fields{
+			Period:  dbx.StoragenodePayment_Period(payment.Period),
+			Receipt: dbx.StoragenodePayment_Receipt(payment.Receipt),
+			Notes:   dbx.StoragenodePayment_Notes(payment.Notes),
+		},
+	)
 }

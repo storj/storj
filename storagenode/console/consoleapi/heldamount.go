@@ -206,7 +206,7 @@ func (heldAmount *HeldAmount) GetMonthlyPayment(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	paymentData, err := heldAmount.service.GetPaymentCached(ctx, satelliteID, period)
+	paymentData, err := heldAmount.service.GetPayment(ctx, satelliteID, period)
 	if err != nil {
 		heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountPI.Wrap(err))
 		return

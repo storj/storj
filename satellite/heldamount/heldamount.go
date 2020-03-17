@@ -20,6 +20,10 @@ type DB interface {
 	GetPaystub(ctx context.Context, nodeID storj.NodeID, period string) (PayStub, error)
 	// GetPayment return storagenode payment by nodeID and period.
 	GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (StoragenodePayment, error)
+	// CreatePaystub insert paystub into db.
+	CreatePaystub(ctx context.Context, stub PayStub) (err error)
+	// CreatePayment insert payment into db.
+	CreatePayment(ctx context.Context, payment StoragenodePayment) (err error)
 }
 
 // PayStub is an entity that holds held amount of cash that will be paid to storagenode operator after some period.
@@ -52,7 +56,7 @@ type StoragenodePayment struct {
 	ID      int64        `json:"id"`
 	Created time.Time    `json:"created"`
 	NodeID  storj.NodeID `json:"nodeId"`
-	Period  time.Time    `json:"period"`
+	Period  string       `json:"period"`
 	Amount  int64        `json:"amount"`
 	Receipt string       `json:"receipt"`
 	Notes   string       `json:"notes"`

@@ -5,7 +5,6 @@ package heldamount
 
 import (
 	"context"
-	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
@@ -13,6 +12,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/storj/private/date"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/overlay"
 )
@@ -64,7 +64,7 @@ func (e *Endpoint) GetPayStub(ctx context.Context, req *pb.GetHeldAmountRequest)
 		return nil, err
 	}
 
-	periodTime, err := toTime(stub.Period)
+	periodTime, err := date.PeriodToTime(stub.Period)
 	if err != nil {
 		return nil, err
 	}
@@ -115,25 +115,18 @@ func (e *Endpoint) GetPayment(ctx context.Context, req *pb.GetPaymentRequest) (_
 		return nil, err
 	}
 
+	timePeriod, err := date.PeriodToTime(payment.Period)
+	if err != nil {
+		return nil, err
+	}
+
 	return &pb.GetPaymentResponse{
 		NodeId:    payment.NodeID,
 		CreatedAt: payment.Created,
-		Period:    payment.Period,
+		Period:    timePeriod,
 		Amount:    payment.Amount,
 		Receipt:   payment.Receipt,
 		Notes:     payment.Notes,
 		Id:        payment.ID,
 	}, nil
-}
-
-// toTime converts string period to time.Time.
-func toTime(period string) (_ time.Time, err error) {
-	layout := "2006-01"
-	per := period[0:7]
-	t, err := time.Parse(layout, per)
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	return t, nil
 }
