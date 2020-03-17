@@ -328,7 +328,7 @@ func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, fail
 		updateRequests[i] = &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			IsUp:         true,
-			AuditOutcome: overlay.AuditFailure,
+			AuditSuccess: false,
 		}
 	}
 	if len(updateRequests) > 0 {

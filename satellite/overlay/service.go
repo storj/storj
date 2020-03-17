@@ -94,11 +94,6 @@ type DB interface {
 
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
-
-	// SuspendNode suspends a storage node.
-	SuspendNode(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
-	// UnsuspendNode unsuspends a storage node.
-	UnsuspendNode(ctx context.Context, nodeID storj.NodeID) (err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -133,22 +128,10 @@ type NodeCriteria struct {
 	DistinctIP       bool
 }
 
-// AuditType is an enum representing the outcome of a particular audit reported to the overlay.
-type AuditType int
-
-const (
-	// AuditSuccess represents a successful audit.
-	AuditSuccess AuditType = iota
-	// AuditFailure represents a failed audit.
-	AuditFailure
-	// AuditUnknown represents an audit that resulted in an unknown error from the node.
-	AuditUnknown
-)
-
 // UpdateRequest is used to update a node status.
 type UpdateRequest struct {
 	NodeID       storj.NodeID
-	AuditOutcome AuditType
+	AuditSuccess bool
 	IsUp         bool
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
@@ -186,7 +169,6 @@ type NodeDossier struct {
 	Version      pb.NodeVersion
 	Contained    bool
 	Disqualified *time.Time
-	Suspended    *time.Time
 	PieceCount   int64
 	ExitStatus   ExitStatus
 	CreatedAt    time.Time
@@ -196,19 +178,16 @@ type NodeDossier struct {
 
 // NodeStats contains statistics about a node.
 type NodeStats struct {
-	Latency90                   int64
-	AuditSuccessCount           int64
-	AuditCount                  int64
-	UptimeSuccessCount          int64
-	UptimeCount                 int64
-	LastContactSuccess          time.Time
-	LastContactFailure          time.Time
-	AuditReputationAlpha        float64
-	AuditReputationBeta         float64
-	Disqualified                *time.Time
-	UnknownAuditReputationAlpha float64
-	UnknownAuditReputationBeta  float64
-	Suspended                   *time.Time
+	Latency90            int64
+	AuditSuccessCount    int64
+	AuditCount           int64
+	UptimeSuccessCount   int64
+	UptimeCount          int64
+	LastContactSuccess   time.Time
+	LastContactFailure   time.Time
+	AuditReputationAlpha float64
+	AuditReputationBeta  float64
+	Disqualified         *time.Time
 }
 
 // NodeLastContact contains the ID, address, and timestamp

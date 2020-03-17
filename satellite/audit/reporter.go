@@ -54,14 +54,12 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path sto
 
 	successes := req.Successes
 	fails := req.Fails
-	unknowns := req.Unknown
 	offlines := req.Offlines
 	pendingAudits := req.PendingAudits
 
 	reporter.log.Debug("Reporting audits",
 		zap.Int("successes", len(successes)),
 		zap.Int("failures", len(fails)),
-		zap.Int("unknowns", len(unknowns)),
 		zap.Int("offlines", len(offlines)),
 		zap.Int("pending", len(pendingAudits)),
 		zap.Binary("Segment", []byte(path)),
@@ -72,7 +70,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path sto
 
 	tries := 0
 	for tries <= reporter.maxRetries {
-		if len(successes) == 0 && len(fails) == 0 && len(unknowns) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 {
+		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 {
 			return Report{}, nil
 		}
 
@@ -86,12 +84,6 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path sto
 		}
 		if len(fails) > 0 {
 			fails, err = reporter.recordAuditFailStatus(ctx, fails)
-			if err != nil {
-				errlist.Add(err)
-			}
-		}
-		if len(unknowns) > 0 {
-			unknowns, err = reporter.recordAuditUnknownStatus(ctx, unknowns)
 			if err != nil {
 				errlist.Add(err)
 			}
@@ -119,14 +111,13 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path sto
 			Successes:     successes,
 			Fails:         fails,
 			Offlines:      offlines,
-			Unknown:       unknowns,
 			PendingAudits: pendingAudits,
 		}, errs.Combine(Error.New("some nodes failed to be updated in overlay"), err)
 	}
 	return Report{}, nil
 }
 
-// recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditoutcome=fail
+// recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditsuccess=false
 func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -135,34 +126,15 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 		updateRequests[i] = &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			IsUp:         true,
-			AuditOutcome: overlay.AuditFailure,
+			AuditSuccess: false,
 		}
 	}
-	failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
-	if err != nil || len(failed) > 0 {
-		reporter.log.Debug("failed to record Failed Nodes ", zap.Strings("NodeIDs", failed.Strings()))
-		return failed, errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), err)
-	}
-	return nil, nil
-}
-
-// recordAuditUnknownStatus updates nodeIDs in overlay with isup=true, auditoutcome=unknown
-func (reporter *Reporter) recordAuditUnknownStatus(ctx context.Context, unknownAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	updateRequests := make([]*overlay.UpdateRequest, len(unknownAuditNodeIDs))
-	for i, nodeID := range unknownAuditNodeIDs {
-		updateRequests[i] = &overlay.UpdateRequest{
-			NodeID:       nodeID,
-			IsUp:         true,
-			AuditOutcome: overlay.AuditUnknown,
+	if len(updateRequests) > 0 {
+		failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
+		if err != nil || len(failed) > 0 {
+			reporter.log.Debug("failed to record Failed Nodes ", zap.Strings("NodeIDs", failed.Strings()))
+			return failed, errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), err)
 		}
-	}
-
-	failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
-	if err != nil || len(failed) > 0 {
-		reporter.log.Debug("failed to record Unknown Nodes ", zap.Strings("NodeIDs", failed.Strings()))
-		return failed, errs.Combine(Error.New("failed to record some audit unknown statuses in overlay"), err)
 	}
 	return nil, nil
 }
@@ -188,7 +160,7 @@ func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeID
 	return nil, nil
 }
 
-// recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditoutcome=success
+// recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditsuccess=true
 func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -197,14 +169,16 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 		updateRequests[i] = &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			IsUp:         true,
-			AuditOutcome: overlay.AuditSuccess,
+			AuditSuccess: true,
 		}
 	}
 
-	failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
-	if err != nil || len(failed) > 0 {
-		reporter.log.Debug("failed to record Success Nodes ", zap.Strings("NodeIDs", failed.Strings()))
-		return failed, errs.Combine(Error.New("failed to record some audit success statuses in overlay"), err)
+	if len(updateRequests) > 0 {
+		failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
+		if err != nil || len(failed) > 0 {
+			reporter.log.Debug("failed to record Success Nodes ", zap.Strings("NodeIDs", failed.Strings()))
+			return failed, errs.Combine(Error.New("failed to record some audit success statuses in overlay"), err)
+		}
 	}
 	return nil, nil
 }
@@ -227,33 +201,35 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 			updateRequests = append(updateRequests, &overlay.UpdateRequest{
 				NodeID:       pendingAudit.NodeID,
 				IsUp:         true,
-				AuditOutcome: overlay.AuditFailure,
+				AuditSuccess: false,
 			})
 		}
 	}
 
-	failedBatch, err := reporter.overlay.BatchUpdateStats(ctx, updateRequests)
-	if err != nil {
-		errlist.Add(err)
-	}
-	if len(failedBatch) > 0 {
-		pendingMap := make(map[storj.NodeID]*PendingAudit)
-		for _, pendingAudit := range pendingAudits {
-			pendingMap[pendingAudit.NodeID] = pendingAudit
+	if len(updateRequests) > 0 {
+		failedBatch, err := reporter.overlay.BatchUpdateStats(ctx, updateRequests)
+		if err != nil {
+			errlist.Add(err)
 		}
-		for _, nodeID := range failedBatch {
-			pending, ok := pendingMap[nodeID]
-			if ok {
-				failed = append(failed, pending)
+		if len(failedBatch) > 0 {
+			pendingMap := make(map[storj.NodeID]*PendingAudit)
+			for _, pendingAudit := range pendingAudits {
+				pendingMap[pendingAudit.NodeID] = pendingAudit
+			}
+			for _, nodeID := range failedBatch {
+				pending, ok := pendingMap[nodeID]
+				if ok {
+					failed = append(failed, pending)
+				}
 			}
 		}
-	}
 
-	if len(failed) > 0 {
-		for _, v := range failed {
-			reporter.log.Debug("failed to record Pending Nodes ", zap.Stringer("NodeID", v.NodeID), zap.String("Path", v.Path))
+		if len(failed) > 0 {
+			for _, v := range failed {
+				reporter.log.Debug("failed to record Pending Nodes ", zap.Stringer("NodeID", v.NodeID), zap.String("Path", v.Path))
+			}
+			return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
 		}
-		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
 	}
 	return nil, nil
 }

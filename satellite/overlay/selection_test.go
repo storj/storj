@@ -137,7 +137,7 @@ func TestNodeSelection(t *testing.T) {
 				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       node.ID(),
 					IsUp:         true,
-					AuditOutcome: overlay.AuditSuccess,
+					AuditSuccess: true,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				})
 				require.NoError(t, err)
@@ -162,7 +162,7 @@ func TestNodeSelectionWithBatch(t *testing.T) {
 				_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 					NodeID:       node.ID(),
 					IsUp:         true,
-					AuditOutcome: overlay.AuditSuccess,
+					AuditSuccess: true,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				}}, 1)
 				require.NoError(t, err)
@@ -282,7 +282,7 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       node.ID(),
 					IsUp:         true,
-					AuditOutcome: overlay.AuditSuccess,
+					AuditSuccess: true,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				})
 				require.NoError(t, err)
@@ -485,7 +485,7 @@ func TestDistinctIPs(t *testing.T) {
 			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       planet.StorageNodes[i].ID(),
 				IsUp:         true,
-				AuditOutcome: overlay.AuditSuccess,
+				AuditSuccess: true,
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
@@ -513,7 +513,7 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 			_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 				NodeID:       planet.StorageNodes[i].ID(),
 				IsUp:         true,
-				AuditOutcome: overlay.AuditSuccess,
+				AuditSuccess: true,
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
