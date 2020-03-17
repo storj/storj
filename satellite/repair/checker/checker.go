@@ -43,6 +43,7 @@ type durabilityStats struct {
 	remoteSegmentsChecked       int64
 	remoteSegmentsNeedingRepair int64
 	remoteSegmentsLost          int64
+	remoteSegmentsFailedToCheck int64
 	remoteSegmentInfo           []string
 	// remoteSegmentsOverThreshold[0]=# of healthy=rt+1, remoteSegmentsOverThreshold[1]=# of healthy=rt+2, etc...
 	remoteSegmentsOverThreshold [5]int64
@@ -130,6 +131,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 
 	mon.IntVal("remote_files_checked").Observe(observer.monStats.objectsChecked)                             //locked
 	mon.IntVal("remote_segments_checked").Observe(observer.monStats.remoteSegmentsChecked)                   //locked
+	mon.IntVal("remote_segments_failed_to_check").Observe(observer.monStats.remoteSegmentsFailedToCheck)     //locked
 	mon.IntVal("remote_segments_needing_repair").Observe(observer.monStats.remoteSegmentsNeedingRepair)      //locked
 	mon.IntVal("remote_segments_lost").Observe(observer.monStats.remoteSegmentsLost)                         //locked
 	mon.IntVal("remote_files_lost").Observe(int64(len(observer.monStats.remoteSegmentInfo)))                 //locked
@@ -138,6 +140,11 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	mon.IntVal("remote_segments_over_threshold_3").Observe(observer.monStats.remoteSegmentsOverThreshold[2]) //locked
 	mon.IntVal("remote_segments_over_threshold_4").Observe(observer.monStats.remoteSegmentsOverThreshold[3]) //locked
 	mon.IntVal("remote_segments_over_threshold_5").Observe(observer.monStats.remoteSegmentsOverThreshold[4]) //locked
+
+	allUnhealthy := observer.monStats.remoteSegmentsNeedingRepair + observer.monStats.remoteSegmentsFailedToCheck
+	allChecked := observer.monStats.remoteSegmentsChecked
+	allHealthy := allChecked - allUnhealthy
+	mon.FloatVal("remote_segments_healthy_percentage").Observe(100 * float64(allHealthy) / float64(allChecked)) //locked
 
 	return nil
 }
@@ -245,6 +252,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 
 	missingPieces, err := obs.nodestate.MissingPieces(ctx, pointer.CreationDate, pieces)
 	if err != nil {
+		obs.monStats.remoteSegmentsFailedToCheck++
 		return errs.Combine(Error.New("error getting missing pieces"), err)
 	}
 

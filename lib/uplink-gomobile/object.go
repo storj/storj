@@ -34,9 +34,9 @@ func newObjectInfoFromObject(object storj.Object) *ObjectInfo {
 		IsPrefix:    object.IsPrefix,
 		Size:        object.Size,
 		ContentType: object.ContentType,
-		Created:     object.Created.UTC().UnixNano() / int64(time.Millisecond),
-		Modified:    object.Modified.UTC().UnixNano() / int64(time.Millisecond),
-		Expires:     object.Expires.UTC().UnixNano() / int64(time.Millisecond),
+		Created:     object.Created.UnixNano() / int64(time.Millisecond),
+		Modified:    object.Modified.UnixNano() / int64(time.Millisecond),
+		Expires:     object.Expires.UnixNano() / int64(time.Millisecond),
 		metadata:    object.Metadata,
 	}
 }
@@ -50,9 +50,9 @@ func newObjectInfoFromObjectMeta(objectMeta libuplink.ObjectMeta) *ObjectInfo {
 		IsPrefix:    objectMeta.IsPrefix,
 		Size:        objectMeta.Size,
 		ContentType: objectMeta.ContentType,
-		Created:     objectMeta.Created.UTC().UnixNano() / int64(time.Millisecond),
-		Modified:    objectMeta.Modified.UTC().UnixNano() / int64(time.Millisecond),
-		Expires:     objectMeta.Expires.UTC().UnixNano() / int64(time.Millisecond),
+		Created:     objectMeta.Created.UnixNano() / int64(time.Millisecond),
+		Modified:    objectMeta.Modified.UnixNano() / int64(time.Millisecond),
+		Expires:     objectMeta.Expires.UnixNano() / int64(time.Millisecond),
 		metadata:    objectMeta.Metadata,
 	}
 }

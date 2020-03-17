@@ -52,7 +52,7 @@ export default class SNOFooter extends Vue {
     .footer {
         padding: 0 36px;
         width: calc(100% - 72px);
-        height: 89px;
+        min-height: 89px;
         display: flex;
         justify-content: center;
         background-color: #fff;

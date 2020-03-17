@@ -12,6 +12,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
@@ -454,6 +455,34 @@ func TestListGetObjects(t *testing.T) {
 	})
 }
 
+func TestBucketExistenceCheck(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		// test object methods for bucket existence check
+		_, err = metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+			Bucket:        []byte("non-existing-bucket"),
+			EncryptedPath: []byte("encrypted-path"),
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+
+		_, _, err = metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("non-existing-bucket"),
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+	})
+}
+
 func TestBeginCommitListSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -492,7 +521,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 				TotalShares:    4,
 			},
 			EncryptionParameters: storj.EncryptionParameters{},
-			ExpiresAt:            time.Now().UTC().Add(24 * time.Hour),
+			ExpiresAt:            time.Now().Add(24 * time.Hour),
 		}
 		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
@@ -560,7 +589,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 		require.Len(t, objects, 1)
 
 		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
-		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
+		require.True(t, params.ExpiresAt.Equal(objects[0].ExpiresAt))
 
 		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 			Bucket:        []byte(bucket.Name),
@@ -687,7 +716,7 @@ func TestInlineSegment(t *testing.T) {
 				TotalShares:    4,
 			},
 			EncryptionParameters: storj.EncryptionParameters{},
-			ExpiresAt:            time.Now().UTC().Add(24 * time.Hour),
+			ExpiresAt:            time.Now().Add(24 * time.Hour),
 		}
 		beginObjectResp, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
@@ -723,7 +752,7 @@ func TestInlineSegment(t *testing.T) {
 		require.Len(t, objects, 1)
 
 		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
-		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
+		require.True(t, params.ExpiresAt.Equal(objects[0].ExpiresAt))
 
 		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 			Bucket:        params.Bucket,
@@ -1231,7 +1260,7 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
 		require.NoError(t, err)
 
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(time.Second)
 
 		var group2 errs2.Group
 

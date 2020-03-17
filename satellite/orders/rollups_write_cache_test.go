@@ -43,7 +43,7 @@ func TestRollupsWriteCacheBatchLimitReached(t *testing.T) {
 		useBatchSize := 10
 		amount := (memory.MB * 500).Int64()
 		projectID := testrand.UUID()
-		startTime := time.Now().UTC()
+		startTime := time.Now()
 
 		rwc := orders.NewRollupsWriteCache(zaptest.NewLogger(t), db.Orders(), useBatchSize)
 
@@ -90,7 +90,7 @@ func TestRollupsWriteCacheBatchChore(t *testing.T) {
 			useBatchSize := 10
 			amount := (memory.MB * 500).Int64()
 			projectID := testrand.UUID()
-			startTime := time.Now().UTC()
+			startTime := time.Now()
 
 			planet.Satellites[0].Orders.Chore.Loop.Pause()
 
@@ -148,7 +148,7 @@ func TestUpdateBucketBandwidthAllocation(t *testing.T) {
 			projectID := testrand.UUID()
 			bucketName := []byte("testbucketname")
 			amount := (memory.MB * 500).Int64()
-			err := ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, pb.PieceAction_GET, amount, time.Now().UTC())
+			err := ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, pb.PieceAction_GET, amount, time.Now())
 			require.NoError(t, err)
 
 			// test: confirm there is one item in the cache now
@@ -171,7 +171,7 @@ func TestUpdateBucketBandwidthAllocation(t *testing.T) {
 			// setup: add another item to the cache but with a different projectID
 			projectID2 := testrand.UUID()
 			amount2 := (memory.MB * 10).Int64()
-			err = ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, time.Now().UTC())
+			err = ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, time.Now())
 			require.NoError(t, err)
 			size = cache.CurrentSize()
 			require.Equal(t, size, 2)

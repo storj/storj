@@ -197,7 +197,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: requestCount,
-		ExcludedNodes:  excludeNodeIDs,
+		ExcludedIDs:    excludeNodeIDs,
 	}
 	newNodes, err := repairer.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
@@ -328,7 +328,7 @@ func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, fail
 		updateRequests[i] = &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			IsUp:         true,
-			AuditSuccess: false,
+			AuditOutcome: overlay.AuditFailure,
 		}
 	}
 	if len(updateRequests) > 0 {

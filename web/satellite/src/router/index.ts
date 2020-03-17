@@ -7,14 +7,13 @@ import Router, { RouteRecord } from 'vue-router';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import BillingHistory from '@/components/account/billing/billingHistory/BillingHistory.vue';
-import ProfileArea from '@/components/account/ProfileArea.vue';
-import ReferralArea from '@/components/account/referral/ReferralArea.vue';
+import SettingsArea from '@/components/account/SettingsArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import OverviewArea from '@/components/overview/OverviewArea.vue';
+import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
 import ProjectDetails from '@/components/project/ProjectDetails.vue';
-import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
 import UsageReport from '@/components/project/UsageReport.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
@@ -37,7 +36,7 @@ export abstract class RouteConfig {
     public static Register = new NavigationLink('/register', 'Register');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static Account = new NavigationLink('/account', 'Account');
-    public static ProjectOverview = new NavigationLink('/project-overview', 'Overview');
+    public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
     public static Team = new NavigationLink('/project-members', 'Team');
     public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
     public static Buckets = new NavigationLink('/buckets', 'Buckets');
@@ -46,7 +45,7 @@ export abstract class RouteConfig {
     // child paths
     public static ProjectDetails = new NavigationLink('details', 'Project Details');
     public static UsageReport = new NavigationLink('usage-report', 'Usage Report');
-    public static Profile = new NavigationLink('profile', 'Profile');
+    public static Settings = new NavigationLink('settings', 'Settings');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     // TODO: disabled until implementation
@@ -61,7 +60,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Register.name,
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
-    RouteConfig.Profile.name,
+    RouteConfig.Settings.name,
     // RouteConfig.Referral.name,
 ];
 
@@ -96,9 +95,9 @@ export const router = new Router({
                     component: AccountArea,
                     children: [
                         {
-                            path: RouteConfig.Profile.path,
-                            name: RouteConfig.Profile.name,
-                            component: ProfileArea,
+                            path: RouteConfig.Settings.path,
+                            name: RouteConfig.Settings.name,
+                            component: SettingsArea,
                         },
                         {
                             path: RouteConfig.Billing.path,
@@ -118,9 +117,9 @@ export const router = new Router({
                     ],
                 },
                 {
-                    path: RouteConfig.ProjectOverview.path,
-                    name: RouteConfig.ProjectOverview.name,
-                    component: ProjectOverviewArea,
+                    path: RouteConfig.ProjectDashboard.path,
+                    name: RouteConfig.ProjectDashboard.name,
+                    component: ProjectDashboard,
                     children: [
                         {
                             path: RouteConfig.UsageReport.path,
@@ -137,7 +136,7 @@ export const router = new Router({
                 {
                     path: RouteConfig.Root.path,
                     name: 'default',
-                    component: ProjectOverviewArea,
+                    component: ProjectDashboard,
                 },
                 {
                     path: RouteConfig.Team.path,
@@ -171,19 +170,19 @@ export const router = new Router({
 
 router.beforeEach((to, from, next) => {
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
-        next(RouteConfig.Account.with(RouteConfig.Profile).path);
+        next(RouteConfig.Account.with(RouteConfig.Settings).path);
 
         return;
     }
 
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.ProjectOverview)) {
-        next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.ProjectDashboard)) {
+        next(RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path);
 
         return;
     }
 
     if (to.name === 'default') {
-        next(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+        next(RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path);
 
         return;
     }

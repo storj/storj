@@ -135,56 +135,56 @@ model node (
 
 	field id             blob
 	// address is how to contact the node, this can be a hostname or IP and it contains the port
-	field address        text  ( updatable ) // TODO: use compressed format
+	field address        text  ( updatable, default "" ) // TODO: use compressed format
 	// last_net is the /24 subnet of the IP
 	field last_net       text  ( updatable )
 	field last_ip_port   text  ( updatable, nullable )
-	field protocol       int   ( updatable )
-	field type           int   ( updatable )
+	field protocol       int   ( updatable, default 0 )
+	field type           int   ( updatable, default 0 )
 	field email          text  ( updatable )
 	field wallet         text  ( updatable ) // TODO: use compressed format
-	field free_bandwidth int64 ( updatable )
-	field free_disk      int64 ( updatable )
-	field piece_count    int64 ( autoinsert, updatable )
+	field free_bandwidth int64 ( updatable, default -1 )
+	field free_disk      int64 ( updatable, default -1 )
+	field piece_count    int64 ( autoinsert, updatable, default 0 )
 
- 	field major             int64 ( updatable )
-	field minor             int64 ( updatable )
-	field patch             int64 ( updatable )
-	field hash              text ( updatable )
-	field timestamp         timestamp ( updatable )
-	field release           bool ( updatable )
+ 	field major             int64 ( updatable, default 0 )
+	field minor             int64 ( updatable, default 0 )
+	field patch             int64 ( updatable, default 0 )
+	field hash              text ( updatable, default "" )
+	field timestamp         timestamp ( updatable, default "0001-01-01 00:00:00+00" )
+	field release           bool ( updatable, default false )
 
-	field latency_90           int64   ( updatable )
-	field audit_success_count  int64   ( updatable )
-	field total_audit_count    int64   ( updatable )
+	field latency_90           int64   ( updatable, default 0 )
+	field audit_success_count  int64   ( updatable, default 0 )
+	field total_audit_count    int64   ( updatable, default 0 )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
 
-	field created_at           timestamp ( autoinsert )
-	field updated_at           timestamp ( autoinsert, autoupdate )
-	field last_contact_success timestamp ( updatable )
-	field last_contact_failure timestamp ( updatable )
+	field created_at           timestamp ( autoinsert, default current_timestamp )
+	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
+	field last_contact_success timestamp ( updatable, default "epoch" )
+	field last_contact_failure timestamp ( updatable, default "epoch" )
 
-	field contained bool ( updatable )
+	field contained bool ( updatable, default false )
     // node is disqualified when it fails too many audits or is offline for too long
 	field disqualified timestamp ( updatable, nullable )
     // node is placed under inspection when it has too many unknown-error audits
 	field suspended timestamp ( updatable, nullable )
 
 	// audit_reputation_fields track information related to successful vs. failed error audits
-	field audit_reputation_alpha  float64 ( updatable )
-	field audit_reputation_beta   float64 ( updatable )
+	field audit_reputation_alpha  float64 ( updatable, default 1 )
+	field audit_reputation_beta   float64 ( updatable, default 0 )
 	// unknown_audit_reputation fields track information related to successful vs. unknown error audits
 	field unknown_audit_reputation_alpha  float64 ( updatable, default 1 )
 	field unknown_audit_reputation_beta   float64 ( updatable, default 0 )
 	// TODO remove uptime alpha/beta once old uptime dq code is removed
-	field uptime_reputation_alpha float64 ( updatable )
-	field uptime_reputation_beta  float64 ( updatable )
+	field uptime_reputation_alpha float64 ( updatable, default 1 )
+	field uptime_reputation_beta  float64 ( updatable, default 0 )
 
     field exit_initiated_at         timestamp ( updatable, nullable )
     field exit_loop_completed_at    timestamp ( updatable, nullable )
     field exit_finished_at          timestamp ( updatable, nullable )
-    field exit_success              bool ( updatable )
+    field exit_success              bool ( updatable, default false )
 )
 
 create node ( noreturn )
@@ -208,13 +208,6 @@ read all (
 read limitoffset (
 	select node
 	where  node.id >= ?
-	orderby asc node.id
-)
-
-read limitoffset (
-	select node.id node.last_net node.last_ip_port node.address node.protocol
-	where  node.id >= ?
-	where  node.disqualified = null
 	orderby asc node.id
 )
 
@@ -295,7 +288,7 @@ model project (
 
     field name           text
     field description    text      ( updatable )
-    field usage_limit    int64     ( updatable )
+    field usage_limit    int64     ( updatable, default 0 )
     field rate_limit     int       ( nullable, updatable )
     field partner_id     blob      ( nullable  )
     field owner_id       blob
@@ -437,7 +430,7 @@ read all (
 model serial_number (
 	key    id
 	index (
-	    name serial_number
+	    name serial_number_index
 	    fields serial_number
 	    unique
 	)
@@ -786,8 +779,8 @@ model offer (
 	field name text ( updatable )
 	field description text ( updatable )
 
-	field award_credit_in_cents int ( updatable )
-	field invitee_credit_in_cents int ( updatable )
+	field award_credit_in_cents int ( updatable, default 0 )
+	field invitee_credit_in_cents int ( updatable, default 0 )
 
 	field award_credit_duration_days int ( updatable, nullable )
 	field invitee_credit_duration_days int ( updatable, nullable )
@@ -924,13 +917,13 @@ read limitoffset ( // After
 
 model graceful_exit_progress (
 	table graceful_exit_progress
-    key node_id
+	key node_id
 
-    field node_id              blob
-    field bytes_transferred    int64 ( updatable )
-	field pieces_transferred   int64 ( autoinsert, updatable )
-	field pieces_failed        int64 ( autoinsert, updatable )
-    field updated_at           timestamp ( autoinsert, autoupdate )
+	field node_id            blob
+	field bytes_transferred  int64     ( updatable )
+	field pieces_transferred int64     ( autoinsert, updatable, default 0 )
+	field pieces_failed      int64     ( autoinsert, updatable, default 0 )
+	field updated_at         timestamp ( autoinsert, autoupdate )
 )
 
 create graceful_exit_progress ( noreturn )
@@ -948,20 +941,20 @@ read one (
 
 model graceful_exit_transfer_queue (
 	table graceful_exit_transfer_queue
-    key node_id path piece_num
+	key node_id path piece_num
 
-    field node_id                blob
-    field path                   blob
-    field piece_num              int
-    field root_piece_id          blob       ( nullable )
-    field durability_ratio       float64    ( updatable )
-    field queued_at              timestamp ( autoinsert )
-    field requested_at           timestamp ( updatable, nullable )
-    field last_failed_at         timestamp ( updatable, nullable )
-    field last_failed_code       int        ( updatable, nullable )
-    field failed_count           int        ( updatable, nullable )
-    field finished_at            timestamp ( updatable, nullable )
-    field order_limit_send_count int        ( updatable )
+	field node_id                blob
+	field path                   blob
+	field piece_num              int
+	field root_piece_id          blob      ( nullable )
+	field durability_ratio       float64   ( updatable )
+	field queued_at              timestamp ( autoinsert )
+	field requested_at           timestamp ( updatable, nullable )
+	field last_failed_at         timestamp ( updatable, nullable )
+	field last_failed_code       int       ( updatable, nullable )
+	field failed_count           int       ( updatable, nullable )
+	field finished_at            timestamp ( updatable, nullable )
+	field order_limit_send_count int       ( updatable, default 0 )
 )
 
 create graceful_exit_transfer_queue ( noreturn )

@@ -19,7 +19,7 @@ import (
 
 func TestReputationDBGetInsert(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		timestamp := time.Now().UTC()
+		timestamp := time.Now()
 		reputationDB := db.Reputation()
 
 		stats := reputation.Stats{
@@ -52,8 +52,8 @@ func TestReputationDBGetInsert(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Equal(t, res.SatelliteID, stats.SatelliteID)
-			assert.Equal(t, res.Disqualified, stats.Disqualified)
-			assert.Equal(t, res.UpdatedAt, stats.UpdatedAt)
+			assert.True(t, res.Disqualified.Equal(*stats.Disqualified))
+			assert.True(t, res.UpdatedAt.Equal(stats.UpdatedAt))
 
 			compareReputationMetric(t, &res.Uptime, &stats.Uptime)
 			compareReputationMetric(t, &res.Audit, &stats.Audit)
@@ -67,6 +67,7 @@ func TestReputationDBGetAll(t *testing.T) {
 
 		var stats []reputation.Stats
 		for i := 0; i < 10; i++ {
+			// we use UTC here to make struct equality testing easier
 			timestamp := time.Now().UTC().Add(time.Hour * time.Duration(i))
 
 			rep := reputation.Stats{

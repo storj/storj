@@ -385,12 +385,15 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []
 				return err
 			}
 
-			_, err = coupons.db.Update_Project_By_Id(ctx,
-				dbx.Project_Id(id.ProjectID[:]),
-				dbx.Project_Update_Fields{
-					UsageLimit: dbx.Project_UsageLimit(projectLimit.Int64()),
-				},
-			)
+			// if projectLimit specified, set it, else omit change the existing value
+			if projectLimit.Int64() > 0 {
+				_, err = coupons.db.Update_Project_By_Id(ctx,
+					dbx.Project_Id(id.ProjectID[:]),
+					dbx.Project_Update_Fields{
+						UsageLimit: dbx.Project_UsageLimit(projectLimit.Int64()),
+					},
+				)
+			}
 			if err != nil {
 				return err
 			}

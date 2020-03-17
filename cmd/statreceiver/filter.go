@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zeebo/admission/v2/admproto"
+	"github.com/zeebo/admission/v3/admproto"
 
 	"storj.io/common/memory"
 )
@@ -16,20 +16,22 @@ import (
 // PacketFilter inspects a packet header to determine if it should be passed
 // through
 type PacketFilter struct {
-	application *regexp.Regexp
-	instance    *regexp.Regexp
-	dest        PacketDest
-	scratch     sync.Pool
+	application   *regexp.Regexp
+	instance      *regexp.Regexp
+	headerMatcher HeaderMatcher
+	dest          PacketDest
+	scratch       sync.Pool
 }
 
 // NewPacketFilter creates a PacketFilter. It takes a packet destination,
 // an application regular expression, and an instance regular expression.
 // If the regular expression is matched, the packet will be passed through.
-func NewPacketFilter(applicationRegex, instanceRegex string, dest PacketDest) *PacketFilter {
+func NewPacketFilter(applicationRegex, instanceRegex string, headerMatcher HeaderMatcher, dest PacketDest) *PacketFilter {
 	return &PacketFilter{
-		application: regexp.MustCompile(applicationRegex),
-		instance:    regexp.MustCompile(instanceRegex),
-		dest:        dest,
+		application:   regexp.MustCompile(applicationRegex),
+		instance:      regexp.MustCompile(instanceRegex),
+		headerMatcher: headerMatcher,
+		dest:          dest,
 		scratch: sync.Pool{
 			New: func() interface{} {
 				var x [10 * memory.KB]byte
@@ -49,14 +51,68 @@ func (a *PacketFilter) Packet(data []byte, ts time.Time) error {
 	defer a.scratch.Put(scratch)
 
 	r := admproto.NewReaderWith((*scratch)[:])
-	_, application, instance, err := r.Begin(cdata)
+	buf, application, instance, numHeaders, err := r.Begin(cdata)
 	if err != nil {
 		return err
 	}
 	if a.application.Match(application) && a.instance.Match(instance) {
-		return a.dest.Packet(data, ts)
+
+		// No headerMatcher? Dispatch to destination now.
+		if a.headerMatcher == nil {
+			return a.dest.Packet(data, ts)
+		}
+
+		// We have a headerMatcher, check each header and return on the first match
+		var key, val []byte
+		for i := 0; i < numHeaders; i++ {
+			buf, key, val, err = r.NextHeader(buf)
+			if err != nil {
+				return err
+			}
+			if a.headerMatcher.Match(key, val) {
+				return a.dest.Packet(data, ts)
+			}
+		}
 	}
+
 	return nil
+}
+
+// HeaderMatcher is an interface defining a struct which matches headers. It
+// matches if Match returns true.
+type HeaderMatcher interface {
+	Match(key, val []byte) bool
+}
+
+// HeaderMultiValMatcher implements HeaderMatcher. It allows you to supply a
+// key, and then any number of values which may match that key. The value from
+// the packet header is compared to each item provided here, in order. If you
+// have a large number of vals, consider writing a HeaderMatcher which uses a
+// map look-up.
+type HeaderMultiValMatcher struct {
+	key  string
+	vals []string
+}
+
+// NewHeaderMultiValMatcher creates a HeaderMultiValMatcher
+func NewHeaderMultiValMatcher(key string, vals ...string) *HeaderMultiValMatcher {
+	return &HeaderMultiValMatcher{
+		key:  key,
+		vals: vals,
+	}
+}
+
+// Match returns whether the key/val pair is a match
+func (h *HeaderMultiValMatcher) Match(key, val []byte) bool {
+	if string(key) != h.key {
+		return false
+	}
+	for _, v := range h.vals {
+		if v == string(val) {
+			return true
+		}
+	}
+	return false
 }
 
 // KeyFilter is a MetricDest that only passes along metrics that pass the key

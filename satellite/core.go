@@ -226,7 +226,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup overlay
-		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
+		peer.Overlay.DB = peer.DB.OverlayCache()
 		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
@@ -432,7 +432,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				pc.StorageTBPrice,
 				pc.EgressTBPrice,
 				pc.ObjectPrice,
-				pc.BonusRate)
+				pc.BonusRate,
+				pc.CouponValue,
+				pc.CouponDuration,
+				pc.CouponProjectLimit,
+				pc.MinCoinPayment)
 
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())

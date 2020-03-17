@@ -141,7 +141,7 @@ export default class ProjectSelectionArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 1024px) {
+    @media screen and (max-width: 1280px) {
 
         .project-selection-container {
             margin-right: 30px;

@@ -44,8 +44,8 @@ export default class NewProjectArea extends Vue {
      * Life cycle hook after initial render.
      * Toggles new project button visibility depending on user having his own project or payment method.
      */
-    public mounted(): void {
-        if (ProjectOwning.userHasOwnProject() || !this.$store.getters.isBonusCouponApplied) {
+    public beforeMount(): void {
+        if (new ProjectOwning(this.$store).userHasOwnProject() || !this.$store.getters.isBonusCouponApplied) {
             this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
 
             return;
@@ -79,7 +79,7 @@ export default class NewProjectArea extends Vue {
      * Indicates if new project creation mock button is shown.
      */
     public get isMockButtonShown(): boolean {
-        return !ProjectOwning.userHasOwnProject() && !this.$store.getters.isBonusCouponApplied;
+        return !new ProjectOwning(this.$store).userHasOwnProject() && !this.$store.getters.isBonusCouponApplied;
     }
 }
 </script>
@@ -97,21 +97,20 @@ export default class NewProjectArea extends Vue {
         width: 156px;
         height: 40px;
         border-radius: 6px;
-        border: 1px solid #afb7c1;
-        background-color: white;
+        border: 2px solid #2683ff;
+        background-color: transparent;
         cursor: pointer;
 
         &__label {
             font-family: 'font_medium', sans-serif;
             font-size: 15px;
             line-height: 22px;
-            color: #354049;
+            color: #2683ff;
         }
 
         &:hover {
             background-color: #2683ff;
-            border: 1px solid #2683ff;
-            box-shadow: 0 4px 20px rgba(35, 121, 236, 0.4);
+            border: 2px solid #2683ff;
 
             .new-project-button-container__label {
                 color: white;

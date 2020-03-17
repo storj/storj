@@ -3,11 +3,14 @@
 
 import OverviewArea from '@/components/overview/OverviewArea.vue';
 
-import { shallowMount } from '@vue/test-utils';
+import { router } from '@/router';
+import { mount } from '@vue/test-utils';
 
 describe('OverviewArea.vue', () => {
     it('renders correctly', (): void => {
-        const wrapper = shallowMount(OverviewArea);
+        const wrapper = mount(OverviewArea, {
+            router,
+        });
 
         expect(wrapper).toMatchSnapshot();
     });

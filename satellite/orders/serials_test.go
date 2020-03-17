@@ -21,7 +21,7 @@ func TestSerialNumbers(t *testing.T) {
 		ordersDB := db.Orders()
 
 		expectedBucket := []byte("bucketID")
-		err := ordersDB.CreateSerialInfo(ctx, storj.SerialNumber{1}, expectedBucket, time.Now().UTC())
+		err := ordersDB.CreateSerialInfo(ctx, storj.SerialNumber{1}, expectedBucket, time.Now())
 		require.NoError(t, err)
 
 		bucketID, err := ordersDB.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
@@ -46,7 +46,7 @@ func TestSerialNumbers(t *testing.T) {
 		require.True(t, orders.ErrUsingSerialNumber.Has(err))
 		require.Empty(t, bucketID)
 
-		deleted, err := ordersDB.DeleteExpiredSerials(ctx, time.Now().UTC())
+		deleted, err := ordersDB.DeleteExpiredSerials(ctx, time.Now())
 		require.NoError(t, err)
 		require.Equal(t, deleted, 1)
 

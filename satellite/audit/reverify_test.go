@@ -929,7 +929,7 @@ func TestReverifyExpired1(t *testing.T) {
 		newPointer := &pb.Pointer{}
 		err = proto.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
-		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
+		newPointer.ExpirationDate = time.Now().Add(-1 * time.Hour)
 		newPointerBytes, err := proto.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
@@ -1045,7 +1045,7 @@ func TestReverifyExpired2(t *testing.T) {
 		newPointer := &pb.Pointer{}
 		err = proto.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
-		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
+		newPointer.ExpirationDate = time.Now().Add(-1 * time.Hour)
 		newPointerBytes, err := proto.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path1), oldPointerBytes, newPointerBytes)
@@ -1258,13 +1258,12 @@ func TestReverifyUnknownError(t *testing.T) {
 		require.Len(t, report.Unknown, 1)
 		require.Equal(t, report.Unknown[0], badNode)
 
-		// TODO uncomment this stuff when suspension mode is implemented
-		//// record  audit
-		//_, err = audits.Reporter.RecordAudits(ctx, report, path)
-		//require.NoError(t, err)
-		//
-		//// make sure that pending audit is removed by the reporter when audit is recorded
-		//_, err = containment.Get(ctx, pending.NodeID)
-		//require.True(t, audit.ErrContainedNotFound.Has(err))
+		// record  audit
+		_, err = audits.Reporter.RecordAudits(ctx, report, path)
+		require.NoError(t, err)
+
+		// make sure that pending audit is removed by the reporter when audit is recorded
+		_, err = containment.Get(ctx, pending.NodeID)
+		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }

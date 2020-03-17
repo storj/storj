@@ -279,6 +279,14 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 	serialNumArray := make([][]byte, 0, len(requests))
 	settledArray := make([]int64, 0, len(requests))
 
+	// remove duplicate bucket_id, serial_number pairs sent in the same request.
+	// postgres will complain.
+	type requestKey struct {
+		BucketID     string
+		SerialNumber storj.SerialNumber
+	}
+	seenRequests := make(map[requestKey]struct{})
+
 	for i, request := range requests {
 		if bucketIDs[i] == nil {
 			responses = append(responses, &orders.ProcessOrderResponse{
@@ -287,6 +295,21 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 			})
 			continue
 		}
+
+		// Filter duplicate requests and reject them.
+		key := requestKey{
+			BucketID:     string(bucketIDs[i]),
+			SerialNumber: request.Order.SerialNumber,
+		}
+		if _, seen := seenRequests[key]; seen {
+			responses = append(responses, &orders.ProcessOrderResponse{
+				SerialNumber: request.Order.SerialNumber,
+				Status:       pb.SettlementResponse_REJECTED,
+			})
+			continue
+		}
+		seenRequests[key] = struct{}{}
+
 		expiresAtArray = append(expiresAtArray, request.OrderLimit.OrderExpiration)
 		bucketIDArray = append(bucketIDArray, bucketIDs[i])
 		actionArray = append(actionArray, request.OrderLimit.Action)

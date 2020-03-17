@@ -116,7 +116,7 @@ describe('Dashboard', () => {
     it('loads routes correctly when authorithed without project with available routes', async () => {
         const availableWithoutProject = [
             RouteConfig.Account.with(RouteConfig.Billing).path,
-            RouteConfig.Account.with(RouteConfig.Profile).path,
+            RouteConfig.Account.with(RouteConfig.Settings).path,
         ];
 
         for (let i = 0; i < availableWithoutProject.length; i++) {
@@ -137,7 +137,7 @@ describe('Dashboard', () => {
             RouteConfig.ApiKeys.path,
             RouteConfig.Buckets.path,
             RouteConfig.Team.path,
-            RouteConfig.ProjectOverview.with(RouteConfig.UsageReport).path,
+            RouteConfig.ProjectDashboard.with(RouteConfig.UsageReport).path,
         ];
 
         for (let i = 0; i < unavailableWithoutProject.length; i++) {
@@ -150,7 +150,7 @@ describe('Dashboard', () => {
             });
 
             setTimeout(() => {
-                expect(wrapper.vm.$router.currentRoute.path).toBe(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+                expect(wrapper.vm.$router.currentRoute.path).toBe(RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path);
             }, 50);
         }
 

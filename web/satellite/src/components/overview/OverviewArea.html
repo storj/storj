@@ -2,12 +2,13 @@
 <!--See LICENSE for copying information.-->
 
 <div class="overview-area">
-    <h1 class="overview-area__title">Welcome to Storj</h1>
-    <p class="overview-area__sub-title">
-        To get started, let’s add a payment method.<br/>We’ll provide you with a $55 credit right away!
-    </p>
-    <router-link class="overview-area__button" :to="billingPath" >Add Payment Info & Get $55</router-link>
-    <span class="overview-area__charge-info">You will not be charged unless $55 is used</span>
+    <div class="overview-area__welcome-container">
+        <h1 class="overview-area__welcome-container__title">Welcome to Storj</h1>
+        <p class="overview-area__welcome-container__sub-title">
+            To create a project, get started by adding a payment method - <br/>your first 5GB are free for your first project.
+        </p>
+        <router-link class="overview-area__welcome-container__button" :to="billingPath" >Add Payment</router-link>
+    </div>
     <div class="overview-area__steps-area">
         <div class="overview-area__steps-area__numbers">
             <FirstStepIcon class="overview-area__steps-area__numbers__icon"/>

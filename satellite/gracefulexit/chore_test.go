@@ -56,7 +56,7 @@ func TestChore(t *testing.T) {
 
 		exitStatusRequest := overlay.ExitStatusRequest{
 			NodeID:          exitingNode.ID(),
-			ExitInitiatedAt: time.Now().UTC(),
+			ExitInitiatedAt: time.Now(),
 		}
 
 		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusRequest)
@@ -158,7 +158,7 @@ func TestDurabilityRatio(t *testing.T) {
 
 		exitStatusRequest := overlay.ExitStatusRequest{
 			NodeID:          exitingNode.ID(),
-			ExitInitiatedAt: time.Now().UTC(),
+			ExitInitiatedAt: time.Now(),
 		}
 
 		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusRequest)

@@ -397,8 +397,20 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
 
+# duration a new coupon is valid in months/billing cycles
+# payments.coupon-duration: 2
+
+# project limit to which increase to after applying the coupon, 0 B means not changing it from the default
+# payments.coupon-project-limit: 0 B
+
+# coupon value in cents
+# payments.coupon-value: 30
+
 # price user should pay for each TB of egress
 # payments.egress-tb-price: "45"
+
+# minimum value of coin payments in cents before coupon is applied
+# payments.min-coin-payment: 5000
 
 # price user should pay for each object stored in network per month
 # payments.object-price: "0.0000022"
@@ -411,6 +423,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # amount of time we wait before running next account balance update loop
 # payments.stripe-coin-payments.account-balance-update-interval: 1h30m0s
+
+# toogle autoadvance feature for invoice creation
+# payments.stripe-coin-payments.auto-advance: false
 
 # coinpayments API private key key
 # payments.stripe-coin-payments.coinpayments-private-key: ""
@@ -463,7 +478,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # rollup.interval: 24h0m0s
 
 # the bandwidth and storage usage limit for the alpha release
-# rollup.max-alpha-usage: 0 B
+# rollup.max-alpha-usage: 5.0 GB
 
 # public address to listen on
 server.address: :7777

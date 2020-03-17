@@ -137,7 +137,7 @@ func TestNodeSelection(t *testing.T) {
 				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       node.ID(),
 					IsUp:         true,
-					AuditSuccess: true,
+					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				})
 				require.NoError(t, err)
@@ -162,7 +162,7 @@ func TestNodeSelectionWithBatch(t *testing.T) {
 				_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 					NodeID:       node.ID(),
 					IsUp:         true,
-					AuditSuccess: true,
+					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				}}, 1)
 				require.NoError(t, err)
@@ -250,7 +250,7 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 
 		response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
 			RequestedCount: tt.RequestCount,
-			ExcludedNodes:  excludedNodes,
+			ExcludedIDs:    excludedNodes,
 		}, &tt.Preferences)
 
 		t.Log(len(response), err)
@@ -282,7 +282,7 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       node.ID(),
 					IsUp:         true,
-					AuditSuccess: true,
+					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				})
 				require.NoError(t, err)
@@ -402,7 +402,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		req := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 2,
 			RequestedCount:       2,
-			ExcludedNodes:        excludedNodes,
+			ExcludedIDs:          excludedNodes,
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.NoError(t, err)
@@ -414,7 +414,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		req = overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 3,
 			RequestedCount:       3,
-			ExcludedNodes:        excludedNodes,
+			ExcludedIDs:          excludedNodes,
 		}
 		_, err = satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.Error(t, err)
@@ -458,7 +458,7 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 		req := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 2,
 			RequestedCount:       2,
-			ExcludedNodes:        excludedNodes,
+			ExcludedIDs:          excludedNodes,
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.NoError(t, err)
@@ -485,7 +485,7 @@ func TestDistinctIPs(t *testing.T) {
 			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       planet.StorageNodes[i].ID(),
 				IsUp:         true,
-				AuditSuccess: true,
+				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
@@ -513,7 +513,7 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 			_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 				NodeID:       planet.StorageNodes[i].ID(),
 				IsUp:         true,
-				AuditSuccess: true,
+				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
@@ -580,13 +580,13 @@ func TestAddrtoNetwork_Conversion(t *testing.T) {
 	defer ctx.Cleanup()
 
 	ip := "8.8.8.8:28967"
-	resolvedIPPort, network, err := overlay.GetNetwork(ctx, ip)
+	resolvedIPPort, network, err := overlay.ResolveIPAndNetwork(ctx, ip)
 	require.Equal(t, "8.8.8.0", network)
 	require.Equal(t, ip, resolvedIPPort)
 	require.NoError(t, err)
 
 	ipv6 := "[fc00::1:200]:28967"
-	resolvedIPPort, network, err = overlay.GetNetwork(ctx, ipv6)
+	resolvedIPPort, network, err = overlay.ResolveIPAndNetwork(ctx, ipv6)
 	require.Equal(t, "fc00::", network)
 	require.Equal(t, ipv6, resolvedIPPort)
 	require.NoError(t, err)

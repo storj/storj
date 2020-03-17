@@ -18,7 +18,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/fpath"
-	"storj.io/storj/pkg/process"
 	"storj.io/uplink"
 )
 
@@ -300,7 +299,7 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("no destination specified")
 	}
 
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	src, err := fpath.New(args[0])
 	if err != nil {

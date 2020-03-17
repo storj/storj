@@ -368,8 +368,8 @@ CREATE TABLE credits_spendings (
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint NOT NULL,
-	pieces_failed bigint NOT NULL,
+	pieces_transferred bigint DEFAULT 0 NOT NULL,
+	pieces_failed bigint DEFAULT 0 NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -385,7 +385,7 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp with time zone,
-	order_limit_send_count integer NOT NULL,
+	order_limit_send_count integer DEFAULT 0 NOT NULL,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
@@ -405,44 +405,44 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
-	address text NOT NULL,
+	address text DEFAULT '' NOT NULL,
 	last_net text NOT NULL,
 	last_ip_port text,
-	protocol integer NOT NULL,
-	type integer NOT NULL,
+	protocol integer DEFAULT 0 NOT NULL,
+	type integer DEFAULT 0 NOT NULL,
 	email text NOT NULL,
 	wallet text NOT NULL,
-	free_bandwidth bigint NOT NULL,
-	free_disk bigint NOT NULL,
-	piece_count bigint NOT NULL,
-	major bigint NOT NULL,
-	minor bigint NOT NULL,
-	patch bigint NOT NULL,
-	hash text NOT NULL,
-	timestamp timestamp with time zone NOT NULL,
-	release boolean NOT NULL,
-	latency_90 bigint NOT NULL,
-	audit_success_count bigint NOT NULL,
-	total_audit_count bigint NOT NULL,
+	free_bandwidth bigint DEFAULT -1 NOT NULL,
+	free_disk bigint DEFAULT -1 NOT NULL,
+	piece_count bigint DEFAULT 0 NOT NULL,
+	major bigint DEFAULT 0 NOT NULL,
+	minor bigint DEFAULT 0 NOT NULL,
+	patch bigint DEFAULT 0 NOT NULL,
+	hash text DEFAULT '' NOT NULL,
+	timestamp timestamp with time zone DEFAULT '0001-01-01 00:00:00+00' NOT NULL,
+	release boolean DEFAULT false NOT NULL,
+	latency_90 bigint DEFAULT 0 NOT NULL,
+	audit_success_count bigint DEFAULT 0 NOT NULL,
+	total_audit_count bigint DEFAULT 0 NOT NULL,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	last_contact_success timestamp with time zone NOT NULL,
-	last_contact_failure timestamp with time zone NOT NULL,
-	contained boolean NOT NULL,
+	created_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
+	updated_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
+	last_contact_success timestamp with time zone DEFAULT 'epoch' NOT NULL,
+	last_contact_failure timestamp with time zone DEFAULT 'epoch' NOT NULL,
+	contained boolean DEFAULT false NOT NULL,
 	disqualified timestamp with time zone,
 	suspended timestamp with time zone,
-	audit_reputation_alpha double precision NOT NULL,
-	audit_reputation_beta double precision NOT NULL,
+	audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
+	audit_reputation_beta double precision DEFAULT 0 NOT NULL,
 	unknown_audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
 	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	uptime_reputation_alpha double precision NOT NULL,
-	uptime_reputation_beta double precision NOT NULL,
+	uptime_reputation_alpha double precision DEFAULT 1 NOT NULL,
+	uptime_reputation_beta double precision DEFAULT 0 NOT NULL,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
-	exit_success boolean NOT NULL,
+	exit_success boolean DEFAULT false NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE nodes_offline_times (
@@ -455,8 +455,8 @@ CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	award_credit_in_cents integer NOT NULL,
-	invitee_credit_in_cents integer NOT NULL,
+	award_credit_in_cents integer DEFAULT 0 NOT NULL,
+	invitee_credit_in_cents integer DEFAULT 0 NOT NULL,
 	award_credit_duration_days integer,
 	invitee_credit_duration_days integer,
 	redeemable_cap integer,
@@ -496,7 +496,7 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint NOT NULL,
+	usage_limit bigint DEFAULT 0 NOT NULL,
 	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
@@ -706,7 +706,7 @@ CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
-CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
+CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
@@ -870,8 +870,8 @@ CREATE TABLE credits_spendings (
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint NOT NULL,
-	pieces_failed bigint NOT NULL,
+	pieces_transferred bigint DEFAULT 0 NOT NULL,
+	pieces_failed bigint DEFAULT 0 NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -887,7 +887,7 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp with time zone,
-	order_limit_send_count integer NOT NULL,
+	order_limit_send_count integer DEFAULT 0 NOT NULL,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
@@ -907,44 +907,44 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
-	address text NOT NULL,
+	address text DEFAULT '' NOT NULL,
 	last_net text NOT NULL,
 	last_ip_port text,
-	protocol integer NOT NULL,
-	type integer NOT NULL,
+	protocol integer DEFAULT 0 NOT NULL,
+	type integer DEFAULT 0 NOT NULL,
 	email text NOT NULL,
 	wallet text NOT NULL,
-	free_bandwidth bigint NOT NULL,
-	free_disk bigint NOT NULL,
-	piece_count bigint NOT NULL,
-	major bigint NOT NULL,
-	minor bigint NOT NULL,
-	patch bigint NOT NULL,
-	hash text NOT NULL,
-	timestamp timestamp with time zone NOT NULL,
-	release boolean NOT NULL,
-	latency_90 bigint NOT NULL,
-	audit_success_count bigint NOT NULL,
-	total_audit_count bigint NOT NULL,
+	free_bandwidth bigint DEFAULT -1 NOT NULL,
+	free_disk bigint DEFAULT -1 NOT NULL,
+	piece_count bigint DEFAULT 0 NOT NULL,
+	major bigint DEFAULT 0 NOT NULL,
+	minor bigint DEFAULT 0 NOT NULL,
+	patch bigint DEFAULT 0 NOT NULL,
+	hash text DEFAULT '' NOT NULL,
+	timestamp timestamp with time zone DEFAULT '0001-01-01 00:00:00+00' NOT NULL,
+	release boolean DEFAULT false NOT NULL,
+	latency_90 bigint DEFAULT 0 NOT NULL,
+	audit_success_count bigint DEFAULT 0 NOT NULL,
+	total_audit_count bigint DEFAULT 0 NOT NULL,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	last_contact_success timestamp with time zone NOT NULL,
-	last_contact_failure timestamp with time zone NOT NULL,
-	contained boolean NOT NULL,
+	created_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
+	updated_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
+	last_contact_success timestamp with time zone DEFAULT 'epoch' NOT NULL,
+	last_contact_failure timestamp with time zone DEFAULT 'epoch' NOT NULL,
+	contained boolean DEFAULT false NOT NULL,
 	disqualified timestamp with time zone,
 	suspended timestamp with time zone,
-	audit_reputation_alpha double precision NOT NULL,
-	audit_reputation_beta double precision NOT NULL,
+	audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
+	audit_reputation_beta double precision DEFAULT 0 NOT NULL,
 	unknown_audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
 	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	uptime_reputation_alpha double precision NOT NULL,
-	uptime_reputation_beta double precision NOT NULL,
+	uptime_reputation_alpha double precision DEFAULT 1 NOT NULL,
+	uptime_reputation_beta double precision DEFAULT 0 NOT NULL,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
-	exit_success boolean NOT NULL,
+	exit_success boolean DEFAULT false NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE nodes_offline_times (
@@ -957,8 +957,8 @@ CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	award_credit_in_cents integer NOT NULL,
-	invitee_credit_in_cents integer NOT NULL,
+	award_credit_in_cents integer DEFAULT 0 NOT NULL,
+	invitee_credit_in_cents integer DEFAULT 0 NOT NULL,
 	award_credit_duration_days integer,
 	invitee_credit_duration_days integer,
 	redeemable_cap integer,
@@ -998,7 +998,7 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint NOT NULL,
+	usage_limit bigint DEFAULT 0 NOT NULL,
 	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
@@ -1208,7 +1208,7 @@ CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
-CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
+CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
@@ -2753,12 +2753,13 @@ type GracefulExitTransferQueue struct {
 func (GracefulExitTransferQueue) _Table() string { return "graceful_exit_transfer_queue" }
 
 type GracefulExitTransferQueue_Create_Fields struct {
-	RootPieceId    GracefulExitTransferQueue_RootPieceId_Field
-	RequestedAt    GracefulExitTransferQueue_RequestedAt_Field
-	LastFailedAt   GracefulExitTransferQueue_LastFailedAt_Field
-	LastFailedCode GracefulExitTransferQueue_LastFailedCode_Field
-	FailedCount    GracefulExitTransferQueue_FailedCount_Field
-	FinishedAt     GracefulExitTransferQueue_FinishedAt_Field
+	RootPieceId         GracefulExitTransferQueue_RootPieceId_Field
+	RequestedAt         GracefulExitTransferQueue_RequestedAt_Field
+	LastFailedAt        GracefulExitTransferQueue_LastFailedAt_Field
+	LastFailedCode      GracefulExitTransferQueue_LastFailedCode_Field
+	FailedCount         GracefulExitTransferQueue_FailedCount_Field
+	FinishedAt          GracefulExitTransferQueue_FinishedAt_Field
+	OrderLimitSendCount GracefulExitTransferQueue_OrderLimitSendCount_Field
 }
 
 type GracefulExitTransferQueue_Update_Fields struct {
@@ -3355,14 +3356,36 @@ type Node struct {
 func (Node) _Table() string { return "nodes" }
 
 type Node_Create_Fields struct {
+	Address                     Node_Address_Field
 	LastIpPort                  Node_LastIpPort_Field
+	Protocol                    Node_Protocol_Field
+	Type                        Node_Type_Field
+	FreeBandwidth               Node_FreeBandwidth_Field
+	FreeDisk                    Node_FreeDisk_Field
+	Major                       Node_Major_Field
+	Minor                       Node_Minor_Field
+	Patch                       Node_Patch_Field
+	Hash                        Node_Hash_Field
+	Timestamp                   Node_Timestamp_Field
+	Release                     Node_Release_Field
+	Latency90                   Node_Latency90_Field
+	AuditSuccessCount           Node_AuditSuccessCount_Field
+	TotalAuditCount             Node_TotalAuditCount_Field
+	LastContactSuccess          Node_LastContactSuccess_Field
+	LastContactFailure          Node_LastContactFailure_Field
+	Contained                   Node_Contained_Field
 	Disqualified                Node_Disqualified_Field
 	Suspended                   Node_Suspended_Field
+	AuditReputationAlpha        Node_AuditReputationAlpha_Field
+	AuditReputationBeta         Node_AuditReputationBeta_Field
 	UnknownAuditReputationAlpha Node_UnknownAuditReputationAlpha_Field
 	UnknownAuditReputationBeta  Node_UnknownAuditReputationBeta_Field
+	UptimeReputationAlpha       Node_UptimeReputationAlpha_Field
+	UptimeReputationBeta        Node_UptimeReputationBeta_Field
 	ExitInitiatedAt             Node_ExitInitiatedAt_Field
 	ExitLoopCompletedAt         Node_ExitLoopCompletedAt_Field
 	ExitFinishedAt              Node_ExitFinishedAt_Field
+	ExitSuccess                 Node_ExitSuccess_Field
 }
 
 type Node_Update_Fields struct {
@@ -4311,6 +4334,8 @@ type Offer struct {
 func (Offer) _Table() string { return "offers" }
 
 type Offer_Create_Fields struct {
+	AwardCreditInCents        Offer_AwardCreditInCents_Field
+	InviteeCreditInCents      Offer_InviteeCreditInCents_Field
 	AwardCreditDurationDays   Offer_AwardCreditDurationDays_Field
 	InviteeCreditDurationDays Offer_InviteeCreditDurationDays_Field
 	RedeemableCap             Offer_RedeemableCap_Field
@@ -4981,8 +5006,9 @@ type Project struct {
 func (Project) _Table() string { return "projects" }
 
 type Project_Create_Fields struct {
-	RateLimit Project_RateLimit_Field
-	PartnerId Project_PartnerId_Field
+	UsageLimit Project_UsageLimit_Field
+	RateLimit  Project_RateLimit_Field
+	PartnerId  Project_PartnerId_Field
 }
 
 type Project_Update_Fields struct {
@@ -8421,14 +8447,6 @@ type Id_Address_LastIpPort_LastContactSuccess_LastContactFailure_Row struct {
 	LastContactFailure time.Time
 }
 
-type Id_LastNet_LastIpPort_Address_Protocol_Row struct {
-	Id         []byte
-	LastNet    string
-	LastIpPort *string
-	Address    string
-	Protocol   int
-}
-
 type Id_PieceCount_Row struct {
 	Id         []byte
 	PieceCount int64
@@ -8614,87 +8632,152 @@ func (obj *postgresImpl) CreateNoReturn_AccountingRollup(ctx context.Context,
 
 func (obj *postgresImpl) CreateNoReturn_Node(ctx context.Context,
 	node_id Node_Id_Field,
-	node_address Node_Address_Field,
 	node_last_net Node_LastNet_Field,
-	node_protocol Node_Protocol_Field,
-	node_type Node_Type_Field,
 	node_email Node_Email_Field,
 	node_wallet Node_Wallet_Field,
-	node_free_bandwidth Node_FreeBandwidth_Field,
-	node_free_disk Node_FreeDisk_Field,
-	node_major Node_Major_Field,
-	node_minor Node_Minor_Field,
-	node_patch Node_Patch_Field,
-	node_hash Node_Hash_Field,
-	node_timestamp Node_Timestamp_Field,
-	node_release Node_Release_Field,
-	node_latency_90 Node_Latency90_Field,
-	node_audit_success_count Node_AuditSuccessCount_Field,
-	node_total_audit_count Node_TotalAuditCount_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_last_contact_success Node_LastContactSuccess_Field,
-	node_last_contact_failure Node_LastContactFailure_Field,
-	node_contained Node_Contained_Field,
-	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
-	node_audit_reputation_beta Node_AuditReputationBeta_Field,
-	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
-	node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
-	node_exit_success Node_ExitSuccess_Field,
 	optional Node_Create_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
 	__id_val := node_id.value()
-	__address_val := node_address.value()
 	__last_net_val := node_last_net.value()
 	__last_ip_port_val := optional.LastIpPort.value()
-	__protocol_val := node_protocol.value()
-	__type_val := node_type.value()
 	__email_val := node_email.value()
 	__wallet_val := node_wallet.value()
-	__free_bandwidth_val := node_free_bandwidth.value()
-	__free_disk_val := node_free_disk.value()
-	__piece_count_val := int64(0)
-	__major_val := node_major.value()
-	__minor_val := node_minor.value()
-	__patch_val := node_patch.value()
-	__hash_val := node_hash.value()
-	__timestamp_val := node_timestamp.value()
-	__release_val := node_release.value()
-	__latency_90_val := node_latency_90.value()
-	__audit_success_count_val := node_audit_success_count.value()
-	__total_audit_count_val := node_total_audit_count.value()
 	__uptime_success_count_val := node_uptime_success_count.value()
 	__total_uptime_count_val := node_total_uptime_count.value()
-	__created_at_val := __now
-	__updated_at_val := __now
-	__last_contact_success_val := node_last_contact_success.value()
-	__last_contact_failure_val := node_last_contact_failure.value()
-	__contained_val := node_contained.value()
 	__disqualified_val := optional.Disqualified.value()
 	__suspended_val := optional.Suspended.value()
-	__audit_reputation_alpha_val := node_audit_reputation_alpha.value()
-	__audit_reputation_beta_val := node_audit_reputation_beta.value()
-	__uptime_reputation_alpha_val := node_uptime_reputation_alpha.value()
-	__uptime_reputation_beta_val := node_uptime_reputation_beta.value()
 	__exit_initiated_at_val := optional.ExitInitiatedAt.value()
 	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
 	__exit_finished_at_val := optional.ExitFinishedAt.value()
-	__exit_success_val := node_exit_success.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, address, last_net, last_ip_port, protocol, type, email, wallet, free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified, suspended, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, email, wallet, uptime_success_count, total_uptime_count, disqualified, suspended, exit_initiated_at, exit_loop_completed_at, exit_finished_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO nodes "), __clause}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __address_val, __last_net_val, __last_ip_port_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __suspended_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __exit_success_val)
+	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __email_val, __wallet_val, __uptime_success_count_val, __total_uptime_count_val, __disqualified_val, __suspended_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Address._set {
+		__values = append(__values, optional.Address.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("address"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Protocol._set {
+		__values = append(__values, optional.Protocol.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("protocol"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Type._set {
+		__values = append(__values, optional.Type.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("type"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.FreeBandwidth._set {
+		__values = append(__values, optional.FreeBandwidth.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_bandwidth"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.FreeDisk._set {
+		__values = append(__values, optional.FreeDisk.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_disk"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Major._set {
+		__values = append(__values, optional.Major.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("major"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Minor._set {
+		__values = append(__values, optional.Minor.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("minor"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Patch._set {
+		__values = append(__values, optional.Patch.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("patch"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Hash._set {
+		__values = append(__values, optional.Hash.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("hash"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Timestamp._set {
+		__values = append(__values, optional.Timestamp.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Release._set {
+		__values = append(__values, optional.Release.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("release"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Latency90._set {
+		__values = append(__values, optional.Latency90.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("latency_90"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditSuccessCount._set {
+		__values = append(__values, optional.AuditSuccessCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_success_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.TotalAuditCount._set {
+		__values = append(__values, optional.TotalAuditCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("total_audit_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.LastContactSuccess._set {
+		__values = append(__values, optional.LastContactSuccess.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_success"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.LastContactFailure._set {
+		__values = append(__values, optional.LastContactFailure.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_failure"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Contained._set {
+		__values = append(__values, optional.Contained.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("contained"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditReputationAlpha._set {
+		__values = append(__values, optional.AuditReputationAlpha.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditReputationBeta._set {
+		__values = append(__values, optional.AuditReputationBeta.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
 
 	if optional.UnknownAuditReputationAlpha._set {
 		__values = append(__values, optional.UnknownAuditReputationAlpha.value())
@@ -8705,6 +8788,24 @@ func (obj *postgresImpl) CreateNoReturn_Node(ctx context.Context,
 	if optional.UnknownAuditReputationBeta._set {
 		__values = append(__values, optional.UnknownAuditReputationBeta.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UptimeReputationAlpha._set {
+		__values = append(__values, optional.UptimeReputationAlpha.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("uptime_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UptimeReputationBeta._set {
+		__values = append(__values, optional.UptimeReputationBeta.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("uptime_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ExitSuccess._set {
+		__values = append(__values, optional.ExitSuccess.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("exit_success"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -8769,7 +8870,6 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
 	project_description Project_Description_Field,
-	project_usage_limit Project_UsageLimit_Field,
 	project_owner_id Project_OwnerId_Field,
 	optional Project_Create_Fields) (
 	project *Project, err error) {
@@ -8779,17 +8879,37 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 	__id_val := project_id.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
-	__usage_limit_val := project_usage_limit.value()
 	__rate_limit_val := optional.RateLimit.value()
 	__partner_id_val := optional.PartnerId.value()
 	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, rate_limit, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, name, description, rate_limit, partner_id, owner_id, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __rate_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
+	__values = append(__values, __id_val, __name_val, __description_val, __rate_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.UsageLimit._set {
+		__values = append(__values, optional.UsageLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("usage_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -9253,8 +9373,6 @@ func (obj *postgresImpl) Create_ResetPasswordToken(ctx context.Context,
 func (obj *postgresImpl) Create_Offer(ctx context.Context,
 	offer_name Offer_Name_Field,
 	offer_description Offer_Description_Field,
-	offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
-	offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
 	offer_expires_at Offer_ExpiresAt_Field,
 	offer_status Offer_Status_Field,
 	offer_type Offer_Type_Field,
@@ -9265,8 +9383,6 @@ func (obj *postgresImpl) Create_Offer(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__name_val := offer_name.value()
 	__description_val := offer_description.value()
-	__award_credit_in_cents_val := offer_award_credit_in_cents.value()
-	__invitee_credit_in_cents_val := offer_invitee_credit_in_cents.value()
 	__award_credit_duration_days_val := optional.AwardCreditDurationDays.value()
 	__invitee_credit_duration_days_val := optional.InviteeCreditDurationDays.value()
 	__redeemable_cap_val := optional.RedeemableCap.value()
@@ -9275,11 +9391,38 @@ func (obj *postgresImpl) Create_Offer(ctx context.Context,
 	__status_val := offer_status.value()
 	__type_val := offer_type.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO offers ( name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, expires_at, created_at, status, type ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("name, description, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, expires_at, created_at, status, type")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO offers "), __clause, __sqlbundle_Literal(" RETURNING offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type")}}
 
 	var __values []interface{}
-	__values = append(__values, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val)
+	__values = append(__values, __name_val, __description_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.AwardCreditInCents._set {
+		__values = append(__values, optional.AwardCreditInCents.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("award_credit_in_cents"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.InviteeCreditInCents._set {
+		__values = append(__values, optional.InviteeCreditInCents.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("invitee_credit_in_cents"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -9390,14 +9533,16 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitProgress(ctx context.Context
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := graceful_exit_progress_node_id.value()
 	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
-	__pieces_transferred_val := int64(0)
-	__pieces_failed_val := int64(0)
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, pieces_transferred, pieces_failed, updated_at ) VALUES ( ?, ?, ?, ?, ? )")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("node_id, bytes_transferred, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO graceful_exit_progress "), __clause}}
 
 	var __values []interface{}
-	__values = append(__values, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
+	__values = append(__values, __node_id_val, __bytes_transferred_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -9415,7 +9560,6 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Co
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
 	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
 	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
-	graceful_exit_transfer_queue_order_limit_send_count GracefulExitTransferQueue_OrderLimitSendCount_Field,
 	optional GracefulExitTransferQueue_Create_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -9432,13 +9576,33 @@ func (obj *postgresImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.Co
 	__last_failed_code_val := optional.LastFailedCode.value()
 	__failed_count_val := optional.FailedCount.value()
 	__finished_at_val := optional.FinishedAt.value()
-	__order_limit_send_count_val := graceful_exit_transfer_queue_order_limit_send_count.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_transfer_queue ( node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at, order_limit_send_count ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO graceful_exit_transfer_queue "), __clause}}
 
 	var __values []interface{}
-	__values = append(__values, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val, __order_limit_send_count_val)
+	__values = append(__values, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.OrderLimitSendCount._set {
+		__values = append(__values, optional.OrderLimitSendCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("order_limit_send_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -10042,43 +10206,6 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, node)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *postgresImpl) Limited_Node_Id_Node_LastNet_Node_LastIpPort_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx context.Context,
-	node_id_greater_or_equal Node_Id_Field,
-	limit int, offset int64) (
-	rows []*Id_LastNet_LastIpPort_Address_Protocol_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.last_net, nodes.last_ip_port, nodes.address, nodes.protocol FROM nodes WHERE nodes.id >= ? AND nodes.disqualified is NULL ORDER BY nodes.id LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, node_id_greater_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		row := &Id_LastNet_LastIpPort_Address_Protocol_Row{}
-		err = __rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort, &row.Address, &row.Protocol)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, row)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -10769,7 +10896,7 @@ func (obj *postgresImpl) Paged_PendingSerialQueue(ctx context.Context,
 	rows []*PendingSerialQueue, next *Paged_PendingSerialQueue_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number, pending_serial_queue.action, pending_serial_queue.settled, pending_serial_queue.expires_at, pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number FROM pending_serial_queue WHERE (pending_serial_queue.storage_node_id > ? OR (pending_serial_queue.storage_node_id = ? AND (pending_serial_queue.bucket_id > ? OR (pending_serial_queue.bucket_id = ? AND pending_serial_queue.serial_number > ?)))) ORDER BY pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number, pending_serial_queue.action, pending_serial_queue.settled, pending_serial_queue.expires_at, pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number FROM pending_serial_queue WHERE (pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number) > (?, ?, ?) ORDER BY pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number, pending_serial_queue.action, pending_serial_queue.settled, pending_serial_queue.expires_at, pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number FROM pending_serial_queue ORDER BY pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number LIMIT ?")
 
@@ -10777,7 +10904,7 @@ func (obj *postgresImpl) Paged_PendingSerialQueue(ctx context.Context,
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_storage_node_id, start._value_storage_node_id, start._value_bucket_id, start._value_bucket_id, start._value_serial_number, limit)
+		__values = append(__values, start._value_storage_node_id, start._value_bucket_id, start._value_serial_number, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -14658,87 +14785,152 @@ func (obj *cockroachImpl) CreateNoReturn_AccountingRollup(ctx context.Context,
 
 func (obj *cockroachImpl) CreateNoReturn_Node(ctx context.Context,
 	node_id Node_Id_Field,
-	node_address Node_Address_Field,
 	node_last_net Node_LastNet_Field,
-	node_protocol Node_Protocol_Field,
-	node_type Node_Type_Field,
 	node_email Node_Email_Field,
 	node_wallet Node_Wallet_Field,
-	node_free_bandwidth Node_FreeBandwidth_Field,
-	node_free_disk Node_FreeDisk_Field,
-	node_major Node_Major_Field,
-	node_minor Node_Minor_Field,
-	node_patch Node_Patch_Field,
-	node_hash Node_Hash_Field,
-	node_timestamp Node_Timestamp_Field,
-	node_release Node_Release_Field,
-	node_latency_90 Node_Latency90_Field,
-	node_audit_success_count Node_AuditSuccessCount_Field,
-	node_total_audit_count Node_TotalAuditCount_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_last_contact_success Node_LastContactSuccess_Field,
-	node_last_contact_failure Node_LastContactFailure_Field,
-	node_contained Node_Contained_Field,
-	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
-	node_audit_reputation_beta Node_AuditReputationBeta_Field,
-	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
-	node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
-	node_exit_success Node_ExitSuccess_Field,
 	optional Node_Create_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
 	__id_val := node_id.value()
-	__address_val := node_address.value()
 	__last_net_val := node_last_net.value()
 	__last_ip_port_val := optional.LastIpPort.value()
-	__protocol_val := node_protocol.value()
-	__type_val := node_type.value()
 	__email_val := node_email.value()
 	__wallet_val := node_wallet.value()
-	__free_bandwidth_val := node_free_bandwidth.value()
-	__free_disk_val := node_free_disk.value()
-	__piece_count_val := int64(0)
-	__major_val := node_major.value()
-	__minor_val := node_minor.value()
-	__patch_val := node_patch.value()
-	__hash_val := node_hash.value()
-	__timestamp_val := node_timestamp.value()
-	__release_val := node_release.value()
-	__latency_90_val := node_latency_90.value()
-	__audit_success_count_val := node_audit_success_count.value()
-	__total_audit_count_val := node_total_audit_count.value()
 	__uptime_success_count_val := node_uptime_success_count.value()
 	__total_uptime_count_val := node_total_uptime_count.value()
-	__created_at_val := __now
-	__updated_at_val := __now
-	__last_contact_success_val := node_last_contact_success.value()
-	__last_contact_failure_val := node_last_contact_failure.value()
-	__contained_val := node_contained.value()
 	__disqualified_val := optional.Disqualified.value()
 	__suspended_val := optional.Suspended.value()
-	__audit_reputation_alpha_val := node_audit_reputation_alpha.value()
-	__audit_reputation_beta_val := node_audit_reputation_beta.value()
-	__uptime_reputation_alpha_val := node_uptime_reputation_alpha.value()
-	__uptime_reputation_beta_val := node_uptime_reputation_beta.value()
 	__exit_initiated_at_val := optional.ExitInitiatedAt.value()
 	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
 	__exit_finished_at_val := optional.ExitFinishedAt.value()
-	__exit_success_val := node_exit_success.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, address, last_net, last_ip_port, protocol, type, email, wallet, free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified, suspended, audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, email, wallet, uptime_success_count, total_uptime_count, disqualified, suspended, exit_initiated_at, exit_loop_completed_at, exit_finished_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO nodes "), __clause}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __address_val, __last_net_val, __last_ip_port_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __piece_count_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __uptime_success_count_val, __total_uptime_count_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __suspended_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __exit_success_val)
+	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __email_val, __wallet_val, __uptime_success_count_val, __total_uptime_count_val, __disqualified_val, __suspended_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Address._set {
+		__values = append(__values, optional.Address.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("address"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Protocol._set {
+		__values = append(__values, optional.Protocol.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("protocol"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Type._set {
+		__values = append(__values, optional.Type.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("type"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.FreeBandwidth._set {
+		__values = append(__values, optional.FreeBandwidth.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_bandwidth"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.FreeDisk._set {
+		__values = append(__values, optional.FreeDisk.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_disk"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Major._set {
+		__values = append(__values, optional.Major.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("major"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Minor._set {
+		__values = append(__values, optional.Minor.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("minor"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Patch._set {
+		__values = append(__values, optional.Patch.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("patch"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Hash._set {
+		__values = append(__values, optional.Hash.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("hash"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Timestamp._set {
+		__values = append(__values, optional.Timestamp.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Release._set {
+		__values = append(__values, optional.Release.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("release"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Latency90._set {
+		__values = append(__values, optional.Latency90.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("latency_90"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditSuccessCount._set {
+		__values = append(__values, optional.AuditSuccessCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_success_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.TotalAuditCount._set {
+		__values = append(__values, optional.TotalAuditCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("total_audit_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.LastContactSuccess._set {
+		__values = append(__values, optional.LastContactSuccess.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_success"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.LastContactFailure._set {
+		__values = append(__values, optional.LastContactFailure.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_failure"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Contained._set {
+		__values = append(__values, optional.Contained.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("contained"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditReputationAlpha._set {
+		__values = append(__values, optional.AuditReputationAlpha.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.AuditReputationBeta._set {
+		__values = append(__values, optional.AuditReputationBeta.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
 
 	if optional.UnknownAuditReputationAlpha._set {
 		__values = append(__values, optional.UnknownAuditReputationAlpha.value())
@@ -14749,6 +14941,24 @@ func (obj *cockroachImpl) CreateNoReturn_Node(ctx context.Context,
 	if optional.UnknownAuditReputationBeta._set {
 		__values = append(__values, optional.UnknownAuditReputationBeta.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UptimeReputationAlpha._set {
+		__values = append(__values, optional.UptimeReputationAlpha.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("uptime_reputation_alpha"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UptimeReputationBeta._set {
+		__values = append(__values, optional.UptimeReputationBeta.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("uptime_reputation_beta"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ExitSuccess._set {
+		__values = append(__values, optional.ExitSuccess.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("exit_success"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -14813,7 +15023,6 @@ func (obj *cockroachImpl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
 	project_description Project_Description_Field,
-	project_usage_limit Project_UsageLimit_Field,
 	project_owner_id Project_OwnerId_Field,
 	optional Project_Create_Fields) (
 	project *Project, err error) {
@@ -14823,17 +15032,37 @@ func (obj *cockroachImpl) Create_Project(ctx context.Context,
 	__id_val := project_id.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
-	__usage_limit_val := project_usage_limit.value()
 	__rate_limit_val := optional.RateLimit.value()
 	__partner_id_val := optional.PartnerId.value()
 	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, rate_limit, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, name, description, rate_limit, partner_id, owner_id, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __rate_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
+	__values = append(__values, __id_val, __name_val, __description_val, __rate_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.UsageLimit._set {
+		__values = append(__values, optional.UsageLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("usage_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -15297,8 +15526,6 @@ func (obj *cockroachImpl) Create_ResetPasswordToken(ctx context.Context,
 func (obj *cockroachImpl) Create_Offer(ctx context.Context,
 	offer_name Offer_Name_Field,
 	offer_description Offer_Description_Field,
-	offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
-	offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
 	offer_expires_at Offer_ExpiresAt_Field,
 	offer_status Offer_Status_Field,
 	offer_type Offer_Type_Field,
@@ -15309,8 +15536,6 @@ func (obj *cockroachImpl) Create_Offer(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__name_val := offer_name.value()
 	__description_val := offer_description.value()
-	__award_credit_in_cents_val := offer_award_credit_in_cents.value()
-	__invitee_credit_in_cents_val := offer_invitee_credit_in_cents.value()
 	__award_credit_duration_days_val := optional.AwardCreditDurationDays.value()
 	__invitee_credit_duration_days_val := optional.InviteeCreditDurationDays.value()
 	__redeemable_cap_val := optional.RedeemableCap.value()
@@ -15319,11 +15544,38 @@ func (obj *cockroachImpl) Create_Offer(ctx context.Context,
 	__status_val := offer_status.value()
 	__type_val := offer_type.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO offers ( name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, expires_at, created_at, status, type ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("name, description, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, expires_at, created_at, status, type")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO offers "), __clause, __sqlbundle_Literal(" RETURNING offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type")}}
 
 	var __values []interface{}
-	__values = append(__values, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val)
+	__values = append(__values, __name_val, __description_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __expires_at_val, __created_at_val, __status_val, __type_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.AwardCreditInCents._set {
+		__values = append(__values, optional.AwardCreditInCents.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("award_credit_in_cents"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.InviteeCreditInCents._set {
+		__values = append(__values, optional.InviteeCreditInCents.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("invitee_credit_in_cents"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -15434,14 +15686,16 @@ func (obj *cockroachImpl) CreateNoReturn_GracefulExitProgress(ctx context.Contex
 	__now := obj.db.Hooks.Now().UTC()
 	__node_id_val := graceful_exit_progress_node_id.value()
 	__bytes_transferred_val := graceful_exit_progress_bytes_transferred.value()
-	__pieces_transferred_val := int64(0)
-	__pieces_failed_val := int64(0)
 	__updated_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_progress ( node_id, bytes_transferred, pieces_transferred, pieces_failed, updated_at ) VALUES ( ?, ?, ?, ?, ? )")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("node_id, bytes_transferred, updated_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO graceful_exit_progress "), __clause}}
 
 	var __values []interface{}
-	__values = append(__values, __node_id_val, __bytes_transferred_val, __pieces_transferred_val, __pieces_failed_val, __updated_at_val)
+	__values = append(__values, __node_id_val, __bytes_transferred_val, __updated_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -15459,7 +15713,6 @@ func (obj *cockroachImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.C
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
 	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
 	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
-	graceful_exit_transfer_queue_order_limit_send_count GracefulExitTransferQueue_OrderLimitSendCount_Field,
 	optional GracefulExitTransferQueue_Create_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -15476,13 +15729,33 @@ func (obj *cockroachImpl) CreateNoReturn_GracefulExitTransferQueue(ctx context.C
 	__last_failed_code_val := optional.LastFailedCode.value()
 	__failed_count_val := optional.FailedCount.value()
 	__finished_at_val := optional.FinishedAt.value()
-	__order_limit_send_count_val := graceful_exit_transfer_queue_order_limit_send_count.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO graceful_exit_transfer_queue ( node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at, order_limit_send_count ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO graceful_exit_transfer_queue "), __clause}}
 
 	var __values []interface{}
-	__values = append(__values, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val, __order_limit_send_count_val)
+	__values = append(__values, __node_id_val, __path_val, __piece_num_val, __root_piece_id_val, __durability_ratio_val, __queued_at_val, __requested_at_val, __last_failed_at_val, __last_failed_code_val, __failed_count_val, __finished_at_val)
 
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.OrderLimitSendCount._set {
+		__values = append(__values, optional.OrderLimitSendCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("order_limit_send_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -16086,43 +16359,6 @@ func (obj *cockroachImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx c
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, node)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *cockroachImpl) Limited_Node_Id_Node_LastNet_Node_LastIpPort_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx context.Context,
-	node_id_greater_or_equal Node_Id_Field,
-	limit int, offset int64) (
-	rows []*Id_LastNet_LastIpPort_Address_Protocol_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.last_net, nodes.last_ip_port, nodes.address, nodes.protocol FROM nodes WHERE nodes.id >= ? AND nodes.disqualified is NULL ORDER BY nodes.id LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, node_id_greater_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		row := &Id_LastNet_LastIpPort_Address_Protocol_Row{}
-		err = __rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort, &row.Address, &row.Protocol)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, row)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -16813,7 +17049,7 @@ func (obj *cockroachImpl) Paged_PendingSerialQueue(ctx context.Context,
 	rows []*PendingSerialQueue, next *Paged_PendingSerialQueue_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number, pending_serial_queue.action, pending_serial_queue.settled, pending_serial_queue.expires_at, pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number FROM pending_serial_queue WHERE (pending_serial_queue.storage_node_id > ? OR (pending_serial_queue.storage_node_id = ? AND (pending_serial_queue.bucket_id > ? OR (pending_serial_queue.bucket_id = ? AND pending_serial_queue.serial_number > ?)))) ORDER BY pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number, pending_serial_queue.action, pending_serial_queue.settled, pending_serial_queue.expires_at, pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number FROM pending_serial_queue WHERE (pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number) > (?, ?, ?) ORDER BY pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number LIMIT ?")
 
 	var __embed_first_stmt = __sqlbundle_Literal("SELECT pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number, pending_serial_queue.action, pending_serial_queue.settled, pending_serial_queue.expires_at, pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number FROM pending_serial_queue ORDER BY pending_serial_queue.storage_node_id, pending_serial_queue.bucket_id, pending_serial_queue.serial_number LIMIT ?")
 
@@ -16821,7 +17057,7 @@ func (obj *cockroachImpl) Paged_PendingSerialQueue(ctx context.Context,
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_storage_node_id, start._value_storage_node_id, start._value_bucket_id, start._value_bucket_id, start._value_serial_number, limit)
+		__values = append(__values, start._value_storage_node_id, start._value_bucket_id, start._value_serial_number, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -20937,14 +21173,13 @@ func (rx *Rx) CreateNoReturn_GracefulExitTransferQueue(ctx context.Context,
 	graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
 	graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
 	graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
-	graceful_exit_transfer_queue_order_limit_send_count GracefulExitTransferQueue_OrderLimitSendCount_Field,
 	optional GracefulExitTransferQueue_Create_Fields) (
 	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.CreateNoReturn_GracefulExitTransferQueue(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, graceful_exit_transfer_queue_durability_ratio, graceful_exit_transfer_queue_order_limit_send_count, optional)
+	return tx.CreateNoReturn_GracefulExitTransferQueue(ctx, graceful_exit_transfer_queue_node_id, graceful_exit_transfer_queue_path, graceful_exit_transfer_queue_piece_num, graceful_exit_transfer_queue_durability_ratio, optional)
 
 }
 
@@ -20965,40 +21200,18 @@ func (rx *Rx) CreateNoReturn_Irreparabledb(ctx context.Context,
 
 func (rx *Rx) CreateNoReturn_Node(ctx context.Context,
 	node_id Node_Id_Field,
-	node_address Node_Address_Field,
 	node_last_net Node_LastNet_Field,
-	node_protocol Node_Protocol_Field,
-	node_type Node_Type_Field,
 	node_email Node_Email_Field,
 	node_wallet Node_Wallet_Field,
-	node_free_bandwidth Node_FreeBandwidth_Field,
-	node_free_disk Node_FreeDisk_Field,
-	node_major Node_Major_Field,
-	node_minor Node_Minor_Field,
-	node_patch Node_Patch_Field,
-	node_hash Node_Hash_Field,
-	node_timestamp Node_Timestamp_Field,
-	node_release Node_Release_Field,
-	node_latency_90 Node_Latency90_Field,
-	node_audit_success_count Node_AuditSuccessCount_Field,
-	node_total_audit_count Node_TotalAuditCount_Field,
 	node_uptime_success_count Node_UptimeSuccessCount_Field,
 	node_total_uptime_count Node_TotalUptimeCount_Field,
-	node_last_contact_success Node_LastContactSuccess_Field,
-	node_last_contact_failure Node_LastContactFailure_Field,
-	node_contained Node_Contained_Field,
-	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
-	node_audit_reputation_beta Node_AuditReputationBeta_Field,
-	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
-	node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
-	node_exit_success Node_ExitSuccess_Field,
 	optional Node_Create_Fields) (
 	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.CreateNoReturn_Node(ctx, node_id, node_address, node_last_net, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_major, node_minor, node_patch, node_hash, node_timestamp, node_release, node_latency_90, node_audit_success_count, node_total_audit_count, node_uptime_success_count, node_total_uptime_count, node_last_contact_success, node_last_contact_failure, node_contained, node_audit_reputation_alpha, node_audit_reputation_beta, node_uptime_reputation_alpha, node_uptime_reputation_beta, node_exit_success, optional)
+	return tx.CreateNoReturn_Node(ctx, node_id, node_last_net, node_email, node_wallet, node_uptime_success_count, node_total_uptime_count, optional)
 
 }
 
@@ -21230,8 +21443,6 @@ func (rx *Rx) Create_NodesOfflineTime(ctx context.Context,
 func (rx *Rx) Create_Offer(ctx context.Context,
 	offer_name Offer_Name_Field,
 	offer_description Offer_Description_Field,
-	offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
-	offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
 	offer_expires_at Offer_ExpiresAt_Field,
 	offer_status Offer_Status_Field,
 	offer_type Offer_Type_Field,
@@ -21241,7 +21452,7 @@ func (rx *Rx) Create_Offer(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Offer(ctx, offer_name, offer_description, offer_award_credit_in_cents, offer_invitee_credit_in_cents, offer_expires_at, offer_status, offer_type, optional)
+	return tx.Create_Offer(ctx, offer_name, offer_description, offer_expires_at, offer_status, offer_type, optional)
 
 }
 
@@ -21266,7 +21477,6 @@ func (rx *Rx) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
 	project_description Project_Description_Field,
-	project_usage_limit Project_UsageLimit_Field,
 	project_owner_id Project_OwnerId_Field,
 	optional Project_Create_Fields) (
 	project *Project, err error) {
@@ -21274,7 +21484,7 @@ func (rx *Rx) Create_Project(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Project(ctx, project_id, project_name, project_description, project_usage_limit, project_owner_id, optional)
+	return tx.Create_Project(ctx, project_id, project_name, project_description, project_owner_id, optional)
 
 }
 
@@ -22127,17 +22337,6 @@ func (rx *Rx) Limited_Node_Id_Node_Address_Node_LastIpPort_Node_LastContactSucce
 	return tx.Limited_Node_Id_Node_Address_Node_LastIpPort_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactFailure(ctx, limit, offset)
 }
 
-func (rx *Rx) Limited_Node_Id_Node_LastNet_Node_LastIpPort_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx context.Context,
-	node_id_greater_or_equal Node_Id_Field,
-	limit int, offset int64) (
-	rows []*Id_LastNet_LastIpPort_Address_Protocol_Row, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_Node_Id_Node_LastNet_Node_LastIpPort_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx, node_id_greater_or_equal, limit, offset)
-}
-
 func (rx *Rx) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 	project_member_project_id ProjectMember_ProjectId_Field,
 	limit int, offset int64) (
@@ -22587,7 +22786,6 @@ type Methods interface {
 		graceful_exit_transfer_queue_path GracefulExitTransferQueue_Path_Field,
 		graceful_exit_transfer_queue_piece_num GracefulExitTransferQueue_PieceNum_Field,
 		graceful_exit_transfer_queue_durability_ratio GracefulExitTransferQueue_DurabilityRatio_Field,
-		graceful_exit_transfer_queue_order_limit_send_count GracefulExitTransferQueue_OrderLimitSendCount_Field,
 		optional GracefulExitTransferQueue_Create_Fields) (
 		err error)
 
@@ -22601,33 +22799,11 @@ type Methods interface {
 
 	CreateNoReturn_Node(ctx context.Context,
 		node_id Node_Id_Field,
-		node_address Node_Address_Field,
 		node_last_net Node_LastNet_Field,
-		node_protocol Node_Protocol_Field,
-		node_type Node_Type_Field,
 		node_email Node_Email_Field,
 		node_wallet Node_Wallet_Field,
-		node_free_bandwidth Node_FreeBandwidth_Field,
-		node_free_disk Node_FreeDisk_Field,
-		node_major Node_Major_Field,
-		node_minor Node_Minor_Field,
-		node_patch Node_Patch_Field,
-		node_hash Node_Hash_Field,
-		node_timestamp Node_Timestamp_Field,
-		node_release Node_Release_Field,
-		node_latency_90 Node_Latency90_Field,
-		node_audit_success_count Node_AuditSuccessCount_Field,
-		node_total_audit_count Node_TotalAuditCount_Field,
 		node_uptime_success_count Node_UptimeSuccessCount_Field,
 		node_total_uptime_count Node_TotalUptimeCount_Field,
-		node_last_contact_success Node_LastContactSuccess_Field,
-		node_last_contact_failure Node_LastContactFailure_Field,
-		node_contained Node_Contained_Field,
-		node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
-		node_audit_reputation_beta Node_AuditReputationBeta_Field,
-		node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
-		node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
-		node_exit_success Node_ExitSuccess_Field,
 		optional Node_Create_Fields) (
 		err error)
 
@@ -22761,8 +22937,6 @@ type Methods interface {
 	Create_Offer(ctx context.Context,
 		offer_name Offer_Name_Field,
 		offer_description Offer_Description_Field,
-		offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
-		offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
 		offer_expires_at Offer_ExpiresAt_Field,
 		offer_status Offer_Status_Field,
 		offer_type Offer_Type_Field,
@@ -22783,7 +22957,6 @@ type Methods interface {
 		project_id Project_Id_Field,
 		project_name Project_Name_Field,
 		project_description Project_Description_Field,
-		project_usage_limit Project_UsageLimit_Field,
 		project_owner_id Project_OwnerId_Field,
 		optional Project_Create_Fields) (
 		project *Project, err error)
@@ -23159,11 +23332,6 @@ type Methods interface {
 	Limited_Node_Id_Node_Address_Node_LastIpPort_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactFailure(ctx context.Context,
 		limit int, offset int64) (
 		rows []*Id_Address_LastIpPort_LastContactSuccess_LastContactFailure_Row, err error)
-
-	Limited_Node_Id_Node_LastNet_Node_LastIpPort_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx context.Context,
-		node_id_greater_or_equal Node_Id_Field,
-		limit int, offset int64) (
-		rows []*Id_LastNet_LastIpPort_Address_Protocol_Row, err error)
 
 	Limited_ProjectMember_By_ProjectId(ctx context.Context,
 		project_member_project_id ProjectMember_ProjectId_Field,

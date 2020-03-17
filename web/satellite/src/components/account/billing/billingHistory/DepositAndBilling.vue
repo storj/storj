@@ -82,8 +82,8 @@ export default class DepositAndBilling extends Vue {
             font-family: 'font_bold', sans-serif;
 
             &__title {
-                font-size: 32px;
-                line-height: 48px;
+                font-size: 28px;
+                line-height: 42px;
             }
 
             .button {

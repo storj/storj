@@ -672,14 +672,15 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 	})
 }
 
-// TestRepairMultipleDisqualified does the following:
+// TestRepairMultipleDisqualifiedAndSuspended does the following:
 // - Uploads test data to 7 nodes
-// - Disqualifies 3 nodes
+// - Disqualifies 2 nodes and suspends 1 node
 // - Triggers data repair, which repairs the data from the remaining 4 nodes to additional 3 new nodes
 // - Shuts down the 4 nodes from which the data was repaired
 // - Now we have just the 3 new nodes to which the data was repaired
 // - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
-func TestRepairMultipleDisqualified(t *testing.T) {
+// - Expect newly repaired pointer does not contain the disqualified or suspended nodes
+func TestRepairMultipleDisqualifiedAndSuspended(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 12,
@@ -718,32 +719,33 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 
 		// calculate how many storagenodes to disqualify
 		numStorageNodes := len(planet.StorageNodes)
-		redundancy := pointer.GetRemote().GetRedundancy()
 		remotePieces := pointer.GetRemote().GetRemotePieces()
-		minReq := redundancy.GetMinReq()
 		numPieces := len(remotePieces)
-		toDisqualify := numPieces - (int(minReq + 1))
+		// sanity check
+		require.EqualValues(t, numPieces, 7)
+		toDisqualify := 2
+		toSuspend := 1
 		// we should have enough storage nodes to repair on
-		require.True(t, (numStorageNodes-toDisqualify) >= numPieces)
+		require.True(t, (numStorageNodes-toDisqualify-toSuspend) >= numPieces)
 
 		// disqualify nodes and track lost pieces
 		nodesToDisqualify := make(map[storj.NodeID]bool)
+		nodesToSuspend := make(map[storj.NodeID]bool)
 		nodesToKeepAlive := make(map[storj.NodeID]bool)
 
-		for i, piece := range remotePieces {
-			if i >= toDisqualify {
-				nodesToKeepAlive[piece.NodeId] = true
-				continue
-			}
-			nodesToDisqualify[piece.NodeId] = true
+		// disqualify and suspend nodes
+		for i := 0; i < toDisqualify; i++ {
+			nodesToDisqualify[remotePieces[i].NodeId] = true
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, remotePieces[i].NodeId)
+			require.NoError(t, err)
 		}
-
-		for _, node := range planet.StorageNodes {
-			if nodesToDisqualify[node.ID()] {
-				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, node.ID())
-				require.NoError(t, err)
-
-			}
+		for i := toDisqualify; i < toDisqualify+toSuspend; i++ {
+			nodesToSuspend[remotePieces[i].NodeId] = true
+			err := satellite.DB.OverlayCache().SuspendNode(ctx, remotePieces[i].NodeId, time.Now())
+			require.NoError(t, err)
+		}
+		for i := toDisqualify + toSuspend; i < len(remotePieces); i++ {
+			nodesToKeepAlive[remotePieces[i].NodeId] = true
 		}
 
 		err = satellite.Repair.Checker.RefreshReliabilityCache(ctx)
@@ -765,13 +767,14 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, newData, testData)
 
-		// updated pointer should not contain any of the disqualified nodes
+		// updated pointer should not contain any of the disqualified or suspended nodes
 		pointer, err = metainfo.Get(ctx, path)
 		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
 		for _, piece := range remotePieces {
 			require.False(t, nodesToDisqualify[piece.NodeId])
+			require.False(t, nodesToSuspend[piece.NodeId])
 		}
 	})
 }
@@ -1143,7 +1146,7 @@ func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, 
 						Timestamp:  time.Time{},
 						Release:    false,
 					},
-				}, time.Now().UTC().Add(-4*time.Hour))
+				}, time.Now().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
 

@@ -69,10 +69,10 @@ func TestProjectRecords(t *testing.T) {
 
 func TestProjectRecordsList(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		utc := time.Now().UTC()
+		now := time.Now()
 
-		start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-		end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		end := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, now.Location())
 
 		projectRecordsDB := db.StripeCoinPayments().ProjectRecords()
 
@@ -125,8 +125,8 @@ func TestProjectRecordsList(t *testing.T) {
 				assert.Equal(t, createRecord.Storage, record.Storage)
 				assert.Equal(t, createRecord.Egress, record.Egress)
 				assert.Equal(t, createRecord.Objects, record.Objects)
-				assert.Equal(t, start, record.PeriodStart.UTC())
-				assert.Equal(t, end, record.PeriodEnd.UTC())
+				assert.True(t, start.Equal(record.PeriodStart))
+				assert.True(t, end.Equal(record.PeriodEnd))
 			}
 		}
 	})
