@@ -1134,6 +1134,21 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid expiration time")
 	}
 
+	if len(req.Bucket) == 0 {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, storj.ErrNoBucket.New("").Error())
+	}
+
+	// TODO this needs to be optimized to avoid DB call on each request
+	_, err = endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
 	// use only satellite values for Redundancy Scheme
 	pbRS := endpoint.redundancyScheme()
 
@@ -1381,6 +1396,17 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	// TODO this needs to be optimized to avoid DB call on each request
+	_, err = endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	prefix, err := CreatePath(ctx, keyInfo.ProjectID, lastSegment, req.Bucket, req.EncryptedPrefix)

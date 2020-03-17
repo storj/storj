@@ -12,6 +12,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
@@ -451,6 +452,34 @@ func TestListGetObjects(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, 3, len(items))
+	})
+}
+
+func TestBucketExistenceCheck(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		// test object methods for bucket existence check
+		_, err = metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+			Bucket:        []byte("non-existing-bucket"),
+			EncryptedPath: []byte("encrypted-path"),
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+
+		_, _, err = metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("non-existing-bucket"),
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
 	})
 }
 

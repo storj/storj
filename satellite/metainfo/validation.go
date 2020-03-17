@@ -237,7 +237,7 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 	defer mon.Task()(&ctx)(&err)
 
 	if len(bucket) == 0 {
-		return Error.New("bucket not specified")
+		return Error.Wrap(storj.ErrNoBucket.New(""))
 	}
 
 	if len(bucket) < 3 || len(bucket) > 63 {
