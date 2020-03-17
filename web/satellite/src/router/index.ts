@@ -58,6 +58,7 @@ export abstract class RouteConfig {
 export const notProjectRelatedRoutes = [
     RouteConfig.Login.name,
     RouteConfig.Register.name,
+    RouteConfig.ForgotPassword.name,
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
     RouteConfig.Settings.name,

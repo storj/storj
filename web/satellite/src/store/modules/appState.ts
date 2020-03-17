@@ -18,7 +18,7 @@ export const appStateModule = {
             isDeleteProjectPopupShown: false,
             isDeleteAccountPopupShown: false,
             isSortProjectMembersByPopupShown: false,
-            isSuccessfulRegistrationPopupShown: false,
+            isSuccessfulRegistrationShown: false,
             isSuccessfulProjectCreationPopupShown: false,
             isEditProfilePopupShown: false,
             isChangePasswordPopupShown: false,
@@ -57,15 +57,15 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_DELETE_ACCOUNT_DROPDOWN](state: any): void {
             state.appState.isDeleteAccountPopupShown = !state.appState.isDeleteAccountPopupShown;
         },
-        // Mutation changing 'sort project members by' popup visibility
+        // Mutation changing 'sort project members by' popup visibility.
         [APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN](state: any): void {
             state.appState.isSortProjectMembersByPopupShown = !state.appState.isSortProjectMembersByPopupShown;
         },
-        // Mutation changing 'successful registration' popup visibility
-        [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP](state: any): void {
-            state.appState.isSuccessfulRegistrationPopupShown = !state.appState.isSuccessfulRegistrationPopupShown;
+        // Mutation changing 'successful registration' area visibility.
+        [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION](state: any): void {
+            state.appState.isSuccessfulRegistrationShown = !state.appState.isSuccessfulRegistrationShown;
         },
-        // Mutation changing 'successful project creation' popup visibility
+        // Mutation changing 'successful project creation' popup visibility.
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP](state: any): void {
             state.appState.isSuccessfulProjectCreationPopupShown = !state.appState.isSuccessfulProjectCreationPopupShown;
         },
@@ -98,7 +98,6 @@ export const appStateModule = {
             state.appState.isAccountDropdownShown = false;
             state.appState.isProjectsDropdownShown = false;
             state.appState.isSortProjectMembersByPopupShown = false;
-            state.appState.isSuccessfulRegistrationPopupShown = false;
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: any, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;
@@ -163,12 +162,12 @@ export const appStateModule = {
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP]: function ({commit, state}: any): void {
-            if (!state.appState.isSuccessfullRegistrationPopupShown) {
+        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION]: function ({commit, state}: any): void {
+            if (!state.appState.isSuccessfulRegistrationShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
-            commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
+            commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         },
         [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP]: function ({commit, state}: any): void {
             if (!state.appState.isSuccessfulProjectCreationPopupShown) {

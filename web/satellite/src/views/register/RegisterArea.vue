@@ -8,7 +8,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
-import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
+import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
 import InfoIcon from '@/../static/images/info.svg';
@@ -24,7 +24,7 @@ import { validateEmail, validatePassword } from '@/utils/validation';
 @Component({
     components: {
         HeaderlessInput,
-        RegistrationSuccessPopup,
+        RegistrationSuccess,
         AuthIcon,
         LogoIcon,
         InfoIcon,
@@ -85,22 +85,35 @@ export default class RegisterArea extends Vue {
     }
 
     /**
-     * Checks if page is inside iframe
+     * Indicates if registration successful area shown.
+     */
+    public get isRegistrationSuccessful(): boolean {
+        return this.$store.state.appStateModule.appState.isSuccessfulRegistrationShown;
+    }
+
+    /**
+     * Checks if page is inside iframe.
      */
     public get isInsideIframe(): boolean {
         return window.self !== window.top;
     }
 
+    /**
+     * Makes password strength container visible.
+     */
     public showPasswordStrength(): void {
         this.isPasswordStrengthShown = true;
     }
 
+    /**
+     * Hides password strength container.
+     */
     public hidePasswordStrength(): void {
         this.isPasswordStrengthShown = false;
     }
 
     /**
-     * Register user.
+     * Validates input fields and proceeds user creation.
      */
     public async onCreateClick(): Promise<void> {
         if (this.isLoading) {
@@ -134,27 +147,42 @@ export default class RegisterArea extends Vue {
         this.$router.push(RouteConfig.Login.path);
     }
 
+    /**
+     * Sets user's email field from value string.
+     */
     public setEmail(value: string): void {
         this.user.email = value.trim();
         this.emailError = '';
     }
 
+    /**
+     * Sets user's full name field from value string.
+     */
     public setFullName(value: string): void {
         this.user.fullName = value.trim();
         this.fullNameError = '';
     }
 
+    /**
+     * Sets user's password field from value string.
+     */
     public setPassword(value: string): void {
         this.user.password = value.trim();
         this.password = value;
         this.passwordError = '';
     }
 
+    /**
+     * Sets user's repeat password field from value string.
+     */
     public setRepeatedPassword(value: string): void {
         this.repeatedPassword = value;
         this.repeatedPasswordError = '';
     }
 
+    /**
+     * Validates input values to satisfy expected rules.
+     */
     private validateFields(): boolean {
         let isNoErrors = true;
 
@@ -186,6 +214,9 @@ export default class RegisterArea extends Vue {
         return isNoErrors;
     }
 
+    /**
+     * Creates user and toggles successful registration area visibility.
+     */
     private async createUser(): Promise<void> {
         try {
             this.userId = this.referralToken ?
@@ -199,13 +230,7 @@ export default class RegisterArea extends Vue {
                 referralToken: this.referralToken,
             });
 
-            // TODO: improve it
-            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
-            const registrationSuccessPopupRef = this.$refs['register_success_popup'];
-
-            if (registrationSuccessPopupRef) {
-                (registrationSuccessPopupRef as any).startResendEmailCountdown();
-            }
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;
