@@ -50,7 +50,7 @@ populate_sno_versions(){
 git fetch --tags
 current_commit=$(git rev-parse HEAD)
 current_release_version=$(git describe --tags $current_commit | cut -d '.' -f 1-2)
-previous_release_version=$(git describe --tags `git rev-list --exclude='*rc*' --exclude=$current_release_version --tags --max-count=1`)
+previous_release_version=$(git describe --tags `git rev-list --exclude='*rc*' --exclude=$current_release_version* --tags --max-count=1`)
 stage1_sat_version=$previous_release_version
 stage1_uplink_version=$previous_release_version
 stage1_storagenode_versions=$(populate_sno_versions $previous_release_version 10)
