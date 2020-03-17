@@ -40,3 +40,6 @@ make satellite-ui-image
 ```
 docker run -p 8080:8080 storjlabs/satellite-ui:latest
 ```
+
+
+Relative [**src**](./src "src"): folder
