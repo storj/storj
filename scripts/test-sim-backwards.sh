@@ -19,8 +19,8 @@ RELEASE_DIR="$STORJ_NETWORK_DIR/release"
 # and for the current branch code
 git worktree add -f "$BRANCH_DIR" HEAD
 
-latestReleaseTag=$(git describe --tags `git rev-list --tags --max-count=1`)
-latestReleaseCommit=$(git rev-list -n 1 "$latestReleaseTag")
+latestReleaseCommit="$(git rev-list --exclude='*rc*' --tags --max-count=1)"
+latestReleaseTag=$(git describe --tags "$latestReleaseCommit")
 echo "Checking out latest release tag: $latestReleaseTag"
 git worktree add -f "$RELEASE_DIR" "$latestReleaseCommit"
 
