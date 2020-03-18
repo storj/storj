@@ -36,15 +36,6 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
         <h1 class="navigation-area__item-container__link-container__title">API Keys</h1>
       </div>
     </router-link-stub>
-    <router-link-stub to="/buckets" tag="a" event="click" aria-label="Buckets" class="navigation-area__item-container">
-      <div class="navigation-area__item-container__link-container">
-        <div><svg class="svg" width="19" height="20" viewBox="0 0 19 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path class="navigation-svg-path" opacity="0.8" fill-rule="evenodd" clip-rule="evenodd" d="M0.216155 3.00455L2.55063 18.3948C4.49602 18.8271 7.00341 19.0216 9.51081 19.0216C11.9966 19.0216 14.504 18.8271 16.4494 18.3948L18.7838 3.00455C18.2435 3.26394 17.5518 3.48009 16.7088 3.65301C14.8714 4.06371 12.3208 4.30148 9.51081 4.30148C6.7008 4.30148 4.15017 4.06371 2.29124 3.65301C1.46985 3.48009 0.756542 3.26394 0.216155 3.00455ZM2.50739 2.61547C4.30148 2.98294 6.76564 3.22071 9.51081 3.22071C12.2344 3.22071 14.7201 2.98294 16.4926 2.61547C17.9192 2.31286 18.8703 1.96701 19 1.68601V1.59955C18.9568 1.29693 18.0057 0.951081 16.4926 0.626849C14.7201 0.23777 12.2344 0 9.51081 0C6.76564 0 4.30148 0.23777 2.50739 0.626849C0.994312 0.951081 0.0432309 1.29693 0 1.59955L0.0216155 1.68601C0.151308 1.96701 1.08077 2.31286 2.50739 2.61547Z" fill="#909BA8"></path>
-          </svg>
-        </div>
-        <h1 class="navigation-area__item-container__link-container__title">Buckets</h1>
-      </div>
-    </router-link-stub>
     <div class="navigation-area__resources-title custom">
       <p class="navigation-area__resources-title__title">RESOURCES</p>
       <!---->
@@ -116,15 +107,6 @@ exports[`NavigationArea snapshot not changed without project 1`] = `
           </svg>
         </div>
         <h1 class="navigation-area__item-container__link-container__title">API Keys</h1>
-      </div>
-    </router-link-stub>
-    <router-link-stub to="/buckets" tag="a" event="click" aria-label="Buckets" class="navigation-area__item-container disabled">
-      <div class="navigation-area__item-container__link-container">
-        <div><svg class="svg" width="19" height="20" viewBox="0 0 19 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path class="navigation-svg-path" opacity="0.8" fill-rule="evenodd" clip-rule="evenodd" d="M0.216155 3.00455L2.55063 18.3948C4.49602 18.8271 7.00341 19.0216 9.51081 19.0216C11.9966 19.0216 14.504 18.8271 16.4494 18.3948L18.7838 3.00455C18.2435 3.26394 17.5518 3.48009 16.7088 3.65301C14.8714 4.06371 12.3208 4.30148 9.51081 4.30148C6.7008 4.30148 4.15017 4.06371 2.29124 3.65301C1.46985 3.48009 0.756542 3.26394 0.216155 3.00455ZM2.50739 2.61547C4.30148 2.98294 6.76564 3.22071 9.51081 3.22071C12.2344 3.22071 14.7201 2.98294 16.4926 2.61547C17.9192 2.31286 18.8703 1.96701 19 1.68601V1.59955C18.9568 1.29693 18.0057 0.951081 16.4926 0.626849C14.7201 0.23777 12.2344 0 9.51081 0C6.76564 0 4.30148 0.23777 2.50739 0.626849C0.994312 0.951081 0.0432309 1.29693 0 1.59955L0.0216155 1.68601C0.151308 1.96701 1.08077 2.31286 2.50739 2.61547Z" fill="#909BA8"></path>
-          </svg>
-        </div>
-        <h1 class="navigation-area__item-container__link-container__title">Buckets</h1>
       </div>
     </router-link-stub>
     <div class="navigation-area__resources-title custom">

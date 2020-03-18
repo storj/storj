@@ -11,7 +11,6 @@ import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
-import { makeUsageModule } from '@/store/modules/usage';
 import { makeUsersModule } from '@/store/modules/users';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { User } from '@/types/users';
@@ -27,7 +26,6 @@ import { BucketsMock } from '../mock/api/buckets';
 import { PaymentsMock } from '../mock/api/payments';
 import { ProjectMembersApiMock } from '../mock/api/projectMembers';
 import { ProjectsApiMock } from '../mock/api/projects';
-import { ProjectUsageMock } from '../mock/api/usage';
 import { UsersApiMock } from '../mock/api/users';
 
 const localVue = createLocalVue();
@@ -48,14 +46,12 @@ const projectsModule = makeProjectsModule(projectsApi);
 const apiKeysModule = makeApiKeysModule(new ApiKeysMock());
 const teamMembersModule = makeProjectMembersModule(new ProjectMembersApiMock());
 const bucketsModule = makeBucketsModule(new BucketsMock());
-const usageModule = makeUsageModule(new ProjectUsageMock());
 const notificationsModule = makeNotificationsModule();
 const paymentsModule = makePaymentsModule(new PaymentsMock());
 
 const store = new Vuex.Store({
     modules: {
         notificationsModule,
-        usageModule,
         bucketsModule,
         apiKeysModule,
         usersModule,
@@ -135,9 +131,8 @@ describe('Dashboard', () => {
     it('loads routes correctly when authorithed without project with unavailable routes', async () => {
         const unavailableWithoutProject = [
             RouteConfig.ApiKeys.path,
-            RouteConfig.Buckets.path,
             RouteConfig.Team.path,
-            RouteConfig.ProjectDashboard.with(RouteConfig.UsageReport).path,
+            RouteConfig.ProjectDashboard.path,
         ];
 
         for (let i = 0; i < unavailableWithoutProject.length; i++) {
@@ -150,7 +145,7 @@ describe('Dashboard', () => {
             });
 
             setTimeout(() => {
-                expect(wrapper.vm.$router.currentRoute.path).toBe(RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path);
+                expect(wrapper.vm.$router.currentRoute.path).toBe(RouteConfig.ProjectDashboard.path);
             }, 50);
         }
 

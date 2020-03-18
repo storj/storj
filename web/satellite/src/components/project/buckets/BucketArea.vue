@@ -6,18 +6,12 @@
         <NoBucketArea v-if="isNoBucketAreaShown"/>
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
-                <p class="buckets-header__title">Buckets</p>
+                <p class="buckets-header__title">Buckets Usage</p>
                 <VHeader
                     class="buckets-header-component"
                     placeholder="Buckets"
                     :search="fetch"
                 />
-            </div>
-            <div class="buckets-notification-container">
-                <div class="buckets-notification">
-                    <NotificationIcon/>
-                    <p class="buckets-notification__text">Usage will appear within an hour of activity.</p>
-                </div>
             </div>
             <div v-if="buckets.length" class="buckets-container">
                 <SortingHeader/>
@@ -26,16 +20,16 @@
                     :item-component="itemComponent"
                     :on-item-click="doNothing"
                 />
-                <VPagination
-                    v-if="isPaginationShown"
-                    :total-page-count="totalPageCount"
-                    :on-page-click-callback="onPageClick"
-                />
             </div>
             <div class="empty-search-result-area" v-if="isEmptySearchResultShown">
                 <h1 class="empty-search-result-area__title">No results found</h1>
-                <EmptySearchIcon class="empty-search-result-area__image"/>
             </div>
+        </div>
+        <div class="buckets-area__pagination-area" v-if="isPaginationShown">
+            <VPagination
+                :total-page-count="totalPageCount"
+                :on-page-click-callback="onPageClick"
+            />
         </div>
     </div>
 </template>
@@ -43,19 +37,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import BucketItem from '@/components/buckets/BucketItem.vue';
-import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
-import SortingHeader from '@/components/buckets/SortingHeader.vue';
 import VHeader from '@/components/common/VHeader.vue';
 import VList from '@/components/common/VList.vue';
 import VPagination from '@/components/common/VPagination.vue';
-
-import EmptySearchIcon from '@/../static/images/buckets/emptySearch.svg';
-import NotificationIcon from '@/../static/images/buckets/notification.svg';
+import BucketItem from '@/components/project/buckets/BucketItem.vue';
+import NoBucketArea from '@/components/project/buckets/NoBucketsArea.vue';
+import SortingHeader from '@/components/project/buckets/SortingHeader.vue';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Bucket } from '@/types/buckets';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
 const {
     FETCH,
@@ -71,8 +61,6 @@ const {
         VHeader,
         VPagination,
         VList,
-        NotificationIcon,
-        EmptySearchIcon,
     },
 })
 export default class BucketArea extends Vue {
@@ -90,6 +78,9 @@ export default class BucketArea extends Vue {
         await this.$store.dispatch(SET_SEARCH, '');
     }
 
+    /**
+     * Mock function for buckets list.
+     */
     public doNothing(): void {
         // this method is used to mock prop function of common List
     }
@@ -108,6 +99,9 @@ export default class BucketArea extends Vue {
         return this.$store.getters.page.totalCount;
     }
 
+    /**
+     * Returns BucketItem for common list.
+     */
     public get itemComponent() {
         return BucketItem;
     }
@@ -126,20 +120,29 @@ export default class BucketArea extends Vue {
         return this.$store.getters.cursor.search;
     }
 
+    /**
+     * Indicates if no bucket area is shown.
+     */
     public get isNoBucketAreaShown(): boolean {
         return !this.totalCount && !this.search;
     }
 
+    /**
+     * Indicates if pagination is shown.
+     */
     public get isPaginationShown(): boolean {
         return this.totalPageCount > 1;
     }
 
+    /**
+     * Indicates if empty bucket search is shown.
+     */
     public get isEmptySearchResultShown(): boolean {
         return !!(!this.totalPageCount && this.search);
     }
 
     /**
-     * Fetches buckets depends on search query.
+     * Fetches buckets depending on search query.
      */
     public async fetch(searchQuery: string): Promise<void> {
         await this.$store.dispatch(SET_SEARCH, searchQuery);
@@ -166,24 +169,33 @@ export default class BucketArea extends Vue {
 
 <style scoped lang="scss">
     .buckets-area {
-        padding-bottom: 100px;
+        margin-top: 30px;
         position: relative;
+
+        &__pagination-area {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     }
 
     .buckets-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 32px 65px 20px 65px;
+        padding: 25px 30px 15px 30px;
+        background-color: #fff;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
 
         &__title {
+            white-space: nowrap;
             font-family: 'font_bold', sans-serif;
-            font-size: 32px;
-            line-height: 39px;
-            color: #263549;
-            margin-right: 50px;
-            margin-block-start: 0;
-            margin-block-end: 0;
+            font-size: 18px;
+            line-height: 18px;
+            color: #354049;
+            margin: 0 50px 0 0;
         }
     }
 
@@ -191,55 +203,30 @@ export default class BucketArea extends Vue {
         height: 55px !important;
     }
 
-    .buckets-container,
-    .buckets-notification-container {
-        padding: 0 60px 0 60px;
-    }
-
-    .buckets-notification {
-        width: calc(100% - 64px);
-        display: flex;
-        justify-content: flex-start;
-        padding: 16px 32px;
-        align-items: center;
-        border-radius: 12px;
-        background-color: #d0e3fe;
-        margin-bottom: 25px;
-
-        &__text {
-            font-family: 'font_medium', sans-serif;
-            font-size: 14px;
-            margin-left: 26px;
-        }
+    .buckets-container {
+        padding: 0 30px;
+        background-color: #fff;
+        border-bottom-left-radius: 6px;
+        border-bottom-right-radius: 6px;
     }
 
     .empty-search-result-area {
         display: flex;
         align-items: center;
         justify-content: center;
-        flex-direction: column;
+        padding-bottom: 20px;
+        background-color: #fff;
+        border-bottom-left-radius: 6px;
+        border-bottom-right-radius: 6px;
 
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
-            margin-top: 104px;
-        }
-
-        &__image {
-            margin-top: 40px;
         }
     }
 
-    @media screen and (max-width: 1024px) {
-
-        .buckets-header {
-            padding: 40px 40px 20px 40px;
-        }
-
-        .buckets-container,
-        .buckets-notification-container {
-            padding: 0 40px 0 40px;
-        }
+    /deep/ .pagination-container {
+        padding-left: 0;
     }
 </style>

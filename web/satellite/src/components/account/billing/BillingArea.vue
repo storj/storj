@@ -55,11 +55,11 @@ import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCost
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 import VDatepicker from '@/components/common/VDatePicker.vue';
 
-import DatePickerIcon from '@/../static/images/project/datePicker.svg';
+import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { DateRange } from '@/types/usage';
+import { DateRange } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { ProjectOwning } from '@/utils/projectOwning';
