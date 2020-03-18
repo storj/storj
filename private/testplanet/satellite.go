@@ -380,6 +380,7 @@ func (planet *Planet) newSatellites(count int) ([]*Satellite, error) {
 				TotalTimeout:                  10 * time.Minute,
 				MaxBufferMem:                  4 * memory.MiB,
 				MaxExcessRateOptimalThreshold: 0.05,
+				InMemoryRepair:                false,
 			},
 			Audit: audit.Config{
 				MaxRetriesStatDB:   0,

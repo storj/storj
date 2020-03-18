@@ -8,6 +8,9 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -16,6 +19,7 @@ import (
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
@@ -37,15 +41,17 @@ type ECRepairer struct {
 	dialer          rpc.Dialer
 	satelliteSignee signing.Signee
 	downloadTimeout time.Duration
+	inMemoryRepair  bool
 }
 
 // NewECRepairer creates a new repairer for interfacing with storagenodes.
-func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.Signee, downloadTimeout time.Duration) *ECRepairer {
+func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.Signee, downloadTimeout time.Duration, inMemoryRepair bool) *ECRepairer {
 	return &ECRepairer{
 		log:             log,
 		dialer:          dialer,
 		satelliteSignee: satelliteSignee,
 		downloadTimeout: downloadTimeout,
+		inMemoryRepair:  inMemoryRepair,
 	}
 }
 
@@ -113,7 +119,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				inProgress++
 				cond.L.Unlock()
 
-				downloadedPiece, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
+				pieceReadCloser, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
 				cond.L.Lock()
 				inProgress--
 				if err != nil {
@@ -131,7 +137,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 					return
 				}
 
-				pieceReaders[currentLimitIndex] = ioutil.NopCloser(bytes.NewReader(downloadedPiece))
+				pieceReaders[currentLimitIndex] = pieceReadCloser
 				successfulPieces++
 
 				return
@@ -164,10 +170,66 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	return decodeReader, failedPieces, nil
 }
 
+// tempFileReadWriteCloser wraps a temporary file
+// and deletes the file when Close() is called.
+type tempFileReadWriteCloser struct {
+	file *os.File
+}
+
+func newTempFileReadWriteCloser() (*tempFileReadWriteCloser, error) {
+	tempDir := os.TempDir()
+	repairDir := filepath.Join(tempDir, "repair")
+	err := os.MkdirAll(repairDir, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+	// on linux, create an unlinked tempfile that will automatically be removed when we close
+	// on non-linux systems, create a temp file with ioutil that we will delete inside Close()
+	var newFile *os.File
+	if runtime.GOOS == "linux" {
+		newFile, err = os.OpenFile(repairDir, os.O_RDWR|os.O_EXCL|unix.O_TMPFILE, 0600)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		newFile, err = ioutil.TempFile(repairDir, "storj-satellite-repair-*")
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &tempFileReadWriteCloser{
+		file: newFile,
+	}, nil
+}
+
+func (f *tempFileReadWriteCloser) SeekToFront() (err error) {
+	_, err = f.file.Seek(0, 0)
+	return err
+}
+
+func (f *tempFileReadWriteCloser) Read(p []byte) (n int, err error) {
+	return f.file.Read(p)
+}
+
+func (f *tempFileReadWriteCloser) Write(b []byte) (n int, err error) {
+	return f.file.Write(b)
+}
+
+func (f *tempFileReadWriteCloser) Close() error {
+	closeErr := f.file.Close()
+	// we only need to explicitly remove file on non-linux systems
+	if runtime.GOOS != "linux" {
+		filename := f.file.Name()
+		removeErr := os.Remove(filename)
+		return errs.Combine(closeErr, removeErr)
+	}
+	return closeErr
+}
+
 // downloadAndVerifyPiece downloads a piece from a storagenode,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
-func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (data []byte, err error) {
+func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (pieceReadCloser io.ReadCloser, err error) {
 	// contact node
 	downloadCtx, cancel := context.WithTimeout(ctx, ec.downloadTimeout)
 	defer cancel()
@@ -187,13 +249,42 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	}
 	defer func() { err = errs.Combine(err, downloader.Close()) }()
 
-	pieceBytes, err := ioutil.ReadAll(downloader)
-	if err != nil {
-		return nil, err
+	hashWriter := pkcrypto.NewHash()
+	downloadReader := io.TeeReader(downloader, hashWriter)
+	var downloadedPieceSize int64
+
+	if ec.inMemoryRepair {
+		pieceBytes, err := ioutil.ReadAll(downloadReader)
+		if err != nil {
+			return nil, err
+		}
+		downloadedPieceSize = int64(len(pieceBytes))
+		pieceReadCloser = ioutil.NopCloser(bytes.NewReader(pieceBytes))
+	} else {
+		pieceReadWriteCloser, err := newTempFileReadWriteCloser()
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			// close and remove file if there is some error
+			if err != nil {
+				err = errs.Combine(err, pieceReadWriteCloser.Close())
+			}
+		}()
+		downloadedPieceSize, err = io.Copy(pieceReadWriteCloser, downloadReader)
+		if err != nil {
+			return nil, err
+		}
+		// seek to beginning of file so the repair job starts at the beginning of the piece
+		err = pieceReadWriteCloser.SeekToFront()
+		if err != nil {
+			return nil, err
+		}
+		pieceReadCloser = pieceReadWriteCloser
 	}
 
-	if int64(len(pieceBytes)) != pieceSize {
-		return nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, len(pieceBytes))
+	if downloadedPieceSize != pieceSize {
+		return nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, downloadedPieceSize)
 	}
 
 	// get signed piece hash and original order limit
@@ -211,12 +302,12 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	}
 
 	// verify the hashes from storage node
-	calculatedHash := pkcrypto.SHA256Hash(pieceBytes)
+	calculatedHash := hashWriter.Sum(nil)
 	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
 		return nil, ErrPieceHashVerifyFailed.Wrap(err)
 	}
 
-	return pieceBytes, nil
+	return pieceReadCloser, nil
 }
 
 func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
