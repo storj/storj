@@ -10,8 +10,10 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
@@ -143,10 +145,13 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	}
 }
 
+// flattenMigration joins the migration sql queries from each migration step
+// to speed up the database setup
 func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
 	var db tagsql.DB
 	var version int
 	var statements migrate.SQL
+	var steps = []*migrate.Step{}
 
 	for _, step := range m.Steps {
 		if db == nil {
@@ -156,24 +161,42 @@ func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
 		}
 
 		version = step.Version
-		sql, ok := step.Action.(migrate.SQL)
-		if !ok {
+
+		switch action := step.Action.(type) {
+		case migrate.SQL:
+			statements = append(statements, action...)
+		case migrate.Func:
+			// if a migrate.Func is encountered then create a step with all
+			// the sql in the previous migration versions
+			if len(statements) > 0 {
+				newSQLStep := migrate.Step{
+					DB:          db,
+					Description: "Setup",
+					Version:     version - 1,
+					Action:      migrate.SQL{strings.Join(statements, ";\n")},
+				}
+				steps = append(steps, &newSQLStep)
+				statements = migrate.SQL{}
+			}
+			// then add the migrate.Func step
+			steps = append(steps, step)
+		default:
 			return nil, errs.New("unexpected action type %T", step.Action)
 		}
-
-		statements = append(statements, sql...)
 	}
 
+	if len(statements) > 0 {
+		newSQLStep := migrate.Step{
+			DB:          db,
+			Description: "Setup",
+			Version:     version,
+			Action:      migrate.SQL{strings.Join(statements, ";\n")},
+		}
+		steps = append(steps, &newSQLStep)
+	}
 	return &migrate.Migration{
 		Table: "versions",
-		Steps: []*migrate.Step{
-			{
-				DB:          db,
-				Description: "Setup",
-				Version:     version,
-				Action:      migrate.SQL{strings.Join(statements, ";\n")},
-			},
-		},
+		Steps: steps,
 	}, nil
 }
 
@@ -931,6 +954,61 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`UPDATE nodes SET vetted_at = '2020-03-18 12:00:00.000000+00' WHERE total_audit_count >= 100;`,
 				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Remove unused id field and thus change primary key for storagenode_storage_tallies table",
+				Version:     100,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+
+					// we need to handle the migration for cockroach differently than for postgres since cockroachdb 1. only
+					// allows primary key creation at table creation time and 2. table drop or rename is performed async and
+					// cannot be done in a transaction (ref: https://github.com/cockroachdb/cockroach/issues/12123).
+					// this migration step is not safe to run at the same time as any satellite core process that has data in the
+					// storagenode_storage_tallies table, but since we aren't using cockroachdb-backed satellite in prod yet this
+					// isn't a concern, meaning when this runs against cockroach there won't be any data in the table
+					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+						_, err := db.Exec(ctx,
+							`ALTER TABLE storagenode_storage_tallies RENAME TO storagenode_storage_tallies_original;`,
+						)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+
+						_, err = db.Exec(ctx,
+							`CREATE TABLE storagenode_storage_tallies (
+								node_id bytea NOT NULL,
+								interval_end_time timestamp with time zone NOT NULL,
+								data_total double precision NOT NULL,
+								CONSTRAINT storagenode_storage_tallies_pkey PRIMARY KEY ( interval_end_time, node_id )
+							);
+							CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
+							INSERT INTO storagenode_storage_tallies (node_id, interval_end_time, data_total)
+								SELECT node_id, interval_end_time, data_total
+								FROM storagenode_storage_tallies_original;
+							DROP TABLE storagenode_storage_tallies_original;`,
+						)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+						return nil
+					}
+
+					// We were not using the serial64 id field on storagenode_storage_tallies table so we are removing it
+					// to save space and performance, this means we also have to drop the existing primary key that is depenedent on the id.
+					// When we create a new primary key make sure to name it so that if we rename the table in the future the primary key name won't change.
+					_, err := tx.Exec(ctx,
+						`ALTER TABLE storagenode_storage_tallies DROP CONSTRAINT accounting_raws_pkey;
+						ALTER TABLE storagenode_storage_tallies ADD CONSTRAINT storagenode_storage_tallies_pkey PRIMARY KEY ( interval_end_time, node_id );
+						ALTER TABLE storagenode_storage_tallies DROP COLUMN id;
+						CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
+						`,
+					)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					return nil
+				}),
 			},
 		},
 	}

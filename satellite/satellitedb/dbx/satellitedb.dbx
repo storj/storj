@@ -617,26 +617,28 @@ read all (
 )
 
 model storagenode_storage_tally (
-	key   id
+	// this primary key will enforce uniqueness on interval_end_time,node_id
+	// and also creates an index on interval_end_time implicitly.
+	// the interval_end_time will be the same value for many rows so
+	// we put that first so we can use cockroachdb prefix compression.
+	// node_id is also used many times but interval_end_time is more
+	// repetative and will benefit greater.
+	key interval_end_time node_id
 
-	field id								serial64
-	field node_id						blob
+	index ( fields node_id )
+
+	field node_id		blob
 	field interval_end_time	timestamp
-	field data_total				float64
+	field data_total	float64
 )
 
-create storagenode_storage_tally ( noreturn )
-delete storagenode_storage_tally ( where storagenode_storage_tally.id = ? )
-read one (
-		select storagenode_storage_tally
-		where storagenode_storage_tally.id = ?
-)
 read all (
-	select storagenode_storage_tally
+    select storagenode_storage_tally
 )
+
 read all (
-	select storagenode_storage_tally
-	where storagenode_storage_tally.interval_end_time >= ?
+    select storagenode_storage_tally
+    where storagenode_storage_tally.interval_end_time >= ?
 )
 
 // --- storage node payment tables --- //
