@@ -273,6 +273,9 @@ func (db *heldamountDB) GetPayment(ctx context.Context, satelliteID storj.NodeID
 		&result.Notes,
 	)
 	if err != nil {
+		if sql.ErrNoRows == err {
+			return nil, heldamount.ErrNoPayStubForPeriod.Wrap(err)
+		}
 		return nil, ErrHeldAmount.Wrap(err)
 	}
 

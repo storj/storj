@@ -149,10 +149,12 @@ func TestHeldAmountDB(t *testing.T) {
 
 			paym, err = heldAmount.GetPayment(ctx, satelliteID, "")
 			assert.Error(t, err)
+			assert.Equal(t, true, heldamount.ErrNoPayStubForPeriod.Has(err))
 			assert.Nil(t, paym)
 
 			paym, err = heldAmount.GetPayment(ctx, storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, period)
 			assert.Error(t, err)
+			assert.Equal(t, true, heldamount.ErrNoPayStubForPeriod.Has(err))
 			assert.Nil(t, paym)
 		})
 
@@ -172,6 +174,81 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, len(payments), 0)
 		})
+	})
+}
+func TestSatellitePaymentPeriodCached(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		heldAmountDB := db.HeldAmount()
+		service := heldamount.NewService(nil, heldAmountDB, rpc.Dialer{}, nil)
+
+		payment := heldamount.Payment{
+			Created:     time.Now().UTC(),
+			SatelliteID: storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+			Amount:      228,
+			Receipt:     "receipt_test",
+			Notes:       "notes_test",
+		}
+
+		for i := 1; i < 4; i++ {
+			payment.Period = fmt.Sprintf("2020-0%d", i)
+			payment.ID = int64(i)
+			err := heldAmountDB.StorePayment(ctx, payment)
+			require.NoError(t, err)
+		}
+
+		payments, err := service.SatellitePaymentPeriodCached(ctx, payment.SatelliteID, "2020-01", "2020-03")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(payments))
+
+		payments, err = service.SatellitePaymentPeriodCached(ctx, payment.SatelliteID, "2019-01", "2021-03")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(payments))
+
+		payments, err = service.SatellitePaymentPeriodCached(ctx, payment.SatelliteID, "2019-01", "2020-01")
+		require.NoError(t, err)
+		require.Equal(t, 1, len(payments))
+	})
+}
+
+func TestAllPaymentPeriodCached(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		heldAmountDB := db.HeldAmount()
+		service := heldamount.NewService(nil, heldAmountDB, rpc.Dialer{}, nil)
+
+		payment := heldamount.Payment{
+			ID:          1,
+			Created:     time.Now().UTC(),
+			SatelliteID: storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+			Amount:      228,
+			Receipt:     "receipt_test",
+			Notes:       "notes_test",
+		}
+
+		for i := 1; i < 4; i++ {
+			payment.SatelliteID[0] += byte(i)
+			for j := 1; j < 4; j++ {
+				payment.Period = fmt.Sprintf("2020-0%d", j)
+				payment.ID = int64(12*i + 2*j + 1)
+				err := heldAmountDB.StorePayment(ctx, payment)
+				require.NoError(t, err)
+			}
+		}
+
+		payments, err := service.AllPaymentsPeriodCached(ctx, "2020-01", "2020-03")
+		require.NoError(t, err)
+		require.Equal(t, 9, len(payments))
+
+		payments, err = service.AllPaymentsPeriodCached(ctx, "2019-01", "2021-03")
+		require.NoError(t, err)
+		require.Equal(t, 9, len(payments))
+
+		payments, err = service.AllPaymentsPeriodCached(ctx, "2019-01", "2020-01")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(payments))
+
+		payments, err = service.AllPaymentsPeriodCached(ctx, "2019-01", "2019-01")
+		require.NoError(t, err)
+		require.Equal(t, 0, len(payments))
 	})
 }
 

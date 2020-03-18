@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -17,6 +16,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/private/date"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -74,7 +74,7 @@ func (service *Service) GetPaystubStats(ctx context.Context, satelliteID storj.N
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
-	requestedPeriod, err := stringToTime(period)
+	requestedPeriod, err := date.PeriodToTime(period)
 	if err != nil {
 		service.log.Error("stringToTime", zap.Error(err))
 		return nil, ErrHeldAmountService.Wrap(err)
@@ -121,7 +121,7 @@ func (service *Service) GetPayment(ctx context.Context, satelliteID storj.NodeID
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
-	requestedPeriod, err := stringToTime(period)
+	requestedPeriod, err := date.PeriodToTime(period)
 	if err != nil {
 		return nil, ErrHeldAmountService.Wrap(err)
 	}
@@ -235,6 +235,51 @@ func (service *Service) AllPaymentsMonthlyCached(ctx context.Context, period str
 	return payments, nil
 }
 
+// SatellitePaymentPeriodCached retrieves payment for all satellites for selected months from storagenode database.
+func (service *Service) SatellitePaymentPeriodCached(ctx context.Context, satelliteID storj.NodeID, periodStart, periodEnd string) (payments []*Payment, err error) {
+	defer mon.Task()(&ctx, &satelliteID, &periodStart, &periodEnd)(&err)
+
+	periods, err := parsePeriodRange(periodStart, periodEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, period := range periods {
+		payment, err := service.db.GetPayment(ctx, satelliteID, period)
+		if err != nil {
+			if ErrNoPayStubForPeriod.Has(err) {
+				continue
+			}
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
+
+		payments = append(payments, payment)
+	}
+
+	return payments, nil
+}
+
+// AllPaymentsPeriodCached retrieves payment for all satellites for selected range of months from storagenode database.
+func (service *Service) AllPaymentsPeriodCached(ctx context.Context, periodStart, periodEnd string) (payments []Payment, err error) {
+	defer mon.Task()(&ctx, &periodStart, &periodEnd)(&err)
+
+	periods, err := parsePeriodRange(periodStart, periodEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, period := range periods {
+		payment, err := service.db.AllPayments(ctx, period)
+		if err != nil {
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
+
+		payments = append(payments, payment...)
+	}
+
+	return payments, nil
+}
+
 // dial dials the HeldAmount client for the satellite by id
 func (service *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -253,17 +298,6 @@ func (service *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *
 		conn:                 conn,
 		DRPCHeldAmountClient: pb.NewDRPCHeldAmountClient(conn.Raw()),
 	}, nil
-}
-
-func stringToTime(period string) (_ time.Time, err error) {
-	layout := "2006-01"
-	per := period[0:7]
-	result, err := time.Parse(layout, per)
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	return result, nil
 }
 
 // TODO: improve it.

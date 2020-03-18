@@ -81,7 +81,10 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	heldAmountRouter.HandleFunc("/paystub/{period}", heldAmountController.AllPayStubsMonthly).Methods(http.MethodGet)
 	heldAmountRouter.HandleFunc("/paystub/{start}/{end}/{satelliteID}", heldAmountController.SatellitePayStubPeriod).Methods(http.MethodGet)
 	heldAmountRouter.HandleFunc("/paystub/{start}/{end}", heldAmountController.AllPayStubsPeriod).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/payment/{period}/{satelliteID}", heldAmountController.GetMonthlyPayment).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/payment/{period}/{satelliteID}", heldAmountController.SatellitePaymentMonthly).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/payment/{period}", heldAmountController.AllPaymentsMonthly).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/payment/{start}/{end}/{satelliteID}", heldAmountController.SatellitePaymentPeriod).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/payment/{start}/{end}", heldAmountController.AllPaymentsPeriod).Methods(http.MethodGet)
 
 	if assets != nil {
 		fs := http.FileServer(assets)
