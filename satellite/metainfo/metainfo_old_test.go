@@ -625,13 +625,13 @@ func TestCommitSegmentPointer(t *testing.T) {
 				require.NoError(t, err)
 				pointer.Remote.RemotePieces[0].Hash = storageNodeHash
 			},
-			ErrorMessage: "all pieces needs to have the same size",
+			ErrorMessage: "piece sizes are invalid",
 		},
 		{
 			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {
 				pointer.SegmentSize = 100
 			},
-			ErrorMessage: "expected piece size is different from provided",
+			ErrorMessage: "piece sizes are invalid",
 		},
 		{
 			Modify: func(ctx context.Context, pointer *pb.Pointer, _ map[storj.NodeID]*identity.FullIdentity, limits []*pb.OrderLimit) {

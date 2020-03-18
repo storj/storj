@@ -18,7 +18,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
-	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
@@ -31,6 +30,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
+	"storj.io/storj/satellite/metainfo/pointerverification"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
@@ -39,10 +39,9 @@ import (
 )
 
 const (
-	pieceHashExpiration = 24 * time.Hour
-	satIDExpiration     = 24 * time.Hour
-	lastSegment         = -1
-	listLimit           = 1000
+	satIDExpiration = 24 * time.Hour
+	lastSegment     = -1
+	listLimit       = 1000
 
 	deleteObjectPiecesSuccessThreshold = 0.75
 )
@@ -73,23 +72,23 @@ type Revocations interface {
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log               *zap.Logger
-	metainfo          *Service
-	deletePieces      *piecedeletion.Service
-	orders            *orders.Service
-	overlay           *overlay.Service
-	attributions      attribution.DB
-	partners          *rewards.PartnersService
-	peerIdentities    overlay.PeerIdentities
-	projectUsage      *accounting.Service
-	projects          console.Projects
-	apiKeys           APIKeys
-	createRequests    *createRequests
-	requiredRSConfig  RSConfig
-	satellite         signing.Signer
-	maxCommitInterval time.Duration
-	limiterCache      *lrucache.ExpiringLRU
-	limiterConfig     RateLimiterConfig
+	log                 *zap.Logger
+	metainfo            *Service
+	deletePieces        *piecedeletion.Service
+	orders              *orders.Service
+	overlay             *overlay.Service
+	attributions        attribution.DB
+	partners            *rewards.PartnersService
+	pointerVerification *pointerverification.Service
+	projectUsage        *accounting.Service
+	projects            console.Projects
+	apiKeys             APIKeys
+	createRequests      *createRequests
+	requiredRSConfig    RSConfig
+	satellite           signing.Signer
+	maxCommitInterval   time.Duration
+	limiterCache        *lrucache.ExpiringLRU
+	limiterConfig       RateLimiterConfig
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -101,21 +100,21 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	limiterConfig RateLimiterConfig) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:               log,
-		metainfo:          metainfo,
-		deletePieces:      deletePieces,
-		orders:            orders,
-		overlay:           cache,
-		attributions:      attributions,
-		partners:          partners,
-		peerIdentities:    peerIdentities,
-		apiKeys:           apiKeys,
-		projectUsage:      projectUsage,
-		projects:          projects,
-		createRequests:    newCreateRequests(),
-		requiredRSConfig:  rsConfig,
-		satellite:         satellite,
-		maxCommitInterval: maxCommitInterval,
+		log:                 log,
+		metainfo:            metainfo,
+		deletePieces:        deletePieces,
+		orders:              orders,
+		overlay:             cache,
+		attributions:        attributions,
+		partners:            partners,
+		pointerVerification: pointerverification.NewService(peerIdentities),
+		apiKeys:             apiKeys,
+		projectUsage:        projectUsage,
+		projects:            projects,
+		createRequests:      newCreateRequests(),
+		requiredRSConfig:    rsConfig,
+		satellite:           satellite,
+		maxCommitInterval:   maxCommitInterval,
 		limiterCache: lrucache.New(lrucache.Options{
 			Capacity:   limiterConfig.CacheCapacity,
 			Expiration: limiterConfig.CacheExpiration,
@@ -502,115 +501,33 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		return nil
 	}
 
-	remote := pointer.Remote
-
-	peerIDMap, err := endpoint.mapNodesFor(ctx, remote.RemotePieces)
+	// verify that the piece sizes matches what we would expect.
+	err = endpoint.pointerVerification.VerifySizes(ctx, pointer)
 	if err != nil {
-		return err
+		endpoint.log.Debug("piece sizes are invalid", zap.Error(err))
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece sizes are invalid: %v", err)
 	}
 
-	type invalidPiece struct {
-		NodeID   storj.NodeID
-		PieceNum int32
-		Reason   string
+	validPieces, invalidPieces, err := endpoint.pointerVerification.SelectValidPieces(ctx, pointer, originalLimits)
+	if err != nil {
+		endpoint.log.Debug("pointer verification failed", zap.Error(err))
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "pointer verification failed: %s", err)
 	}
 
-	var (
-		remotePieces  []*pb.RemotePiece
-		invalidPieces []invalidPiece
-		lastPieceSize int64
-		allSizesValid = true
-	)
-	for _, piece := range remote.RemotePieces {
-		// Verify storagenode signature on piecehash
-		peerID, ok := peerIDMap[piece.NodeId]
-		if !ok {
-			endpoint.log.Warn("Identity chain unknown for node. Piece removed from pointer",
-				zap.Stringer("Node ID", piece.NodeId),
-				zap.Int32("Piece ID", piece.PieceNum),
-			)
-
-			invalidPieces = append(invalidPieces, invalidPiece{
-				NodeID:   piece.NodeId,
-				PieceNum: piece.PieceNum,
-				Reason:   "Identity chain unknown for node",
-			})
-			continue
-		}
-		signee := signing.SigneeFromPeerIdentity(peerID)
-
-		limit := originalLimits[piece.PieceNum]
-		if limit == nil {
-			endpoint.log.Warn("There is not limit for the piece.  Piece removed from pointer",
-				zap.Int32("Piece ID", piece.PieceNum),
-			)
-
-			invalidPieces = append(invalidPieces, invalidPiece{
-				NodeID:   piece.NodeId,
-				PieceNum: piece.PieceNum,
-				Reason:   "No order limit for validating the piece hash",
-			})
-			continue
-		}
-
-		err = endpoint.validatePieceHash(ctx, piece, limit, signee)
-		if err != nil {
-			endpoint.log.Warn("Problem validating piece hash. Pieces removed from pointer", zap.Error(err))
-			invalidPieces = append(invalidPieces, invalidPiece{
-				NodeID:   piece.NodeId,
-				PieceNum: piece.PieceNum,
-				Reason:   err.Error(),
-			})
-			continue
-		}
-
-		if piece.Hash.PieceSize <= 0 || (lastPieceSize > 0 && lastPieceSize != piece.Hash.PieceSize) {
-			allSizesValid = false
-			break
-		}
-		lastPieceSize = piece.Hash.PieceSize
-
-		remotePieces = append(remotePieces, piece)
-	}
-
-	if allSizesValid {
-		redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
-		if err != nil {
-			endpoint.log.Debug("pointer contains an invalid redundancy strategy", zap.Error(Error.Wrap(err)))
-			return rpcstatus.Errorf(rpcstatus.InvalidArgument,
-				"invalid redundancy strategy; MinReq and/or Total are invalid: %s", err,
-			)
-		}
-
-		expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
-		if expectedPieceSize != lastPieceSize {
-			endpoint.log.Debug("expected piece size is different from provided",
-				zap.Int64("expectedSize", expectedPieceSize),
-				zap.Int64("actualSize", lastPieceSize),
-			)
-			return rpcstatus.Errorf(rpcstatus.InvalidArgument,
-				"expected piece size is different from provided (%d != %d)",
-				expectedPieceSize, lastPieceSize,
-			)
-		}
-	} else {
-		errMsg := "all pieces needs to have the same size"
-		endpoint.log.Debug(errMsg)
-		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
-	}
+	remote := pointer.Remote
 
 	// We repair when the number of healthy files is less than or equal to the repair threshold
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
-	if numPieces := int32(len(remotePieces)); numPieces <= remote.Redundancy.RepairThreshold && numPieces < remote.Redundancy.SuccessThreshold {
+	if numPieces := int32(len(validPieces)); numPieces <= remote.Redundancy.RepairThreshold && numPieces < remote.Redundancy.SuccessThreshold {
 		endpoint.log.Debug("Number of valid pieces is less than or equal to the repair threshold",
 			zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
-			zap.Int("validPieces", len(remotePieces)),
+			zap.Int("validPieces", len(validPieces)),
 			zap.Int("invalidPieces", len(invalidPieces)),
 			zap.Int32("repairThreshold", remote.Redundancy.RepairThreshold),
 		)
 
 		errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than or equal to the repair threshold (%d). Found %d invalid pieces",
-			len(remotePieces),
+			len(validPieces),
 			remote.Redundancy.RepairThreshold,
 			len(remote.RemotePieces),
 		)
@@ -627,16 +544,16 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
 	}
 
-	if int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+	if int32(len(validPieces)) < remote.Redundancy.SuccessThreshold {
 		endpoint.log.Debug("Number of valid pieces is less than the success threshold",
 			zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
-			zap.Int("validPieces", len(remotePieces)),
+			zap.Int("validPieces", len(validPieces)),
 			zap.Int("invalidPieces", len(invalidPieces)),
 			zap.Int32("successThreshold", remote.Redundancy.SuccessThreshold),
 		)
 
 		errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
-			len(remotePieces),
+			len(validPieces),
 			remote.Redundancy.SuccessThreshold,
 			len(remote.RemotePieces),
 		)
@@ -653,27 +570,9 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
 	}
 
-	remote.RemotePieces = remotePieces
+	remote.RemotePieces = validPieces
 
 	return nil
-}
-
-func (endpoint *Endpoint) mapNodesFor(ctx context.Context, pieces []*pb.RemotePiece) (map[storj.NodeID]*identity.PeerIdentity, error) {
-	nodeIDList := storj.NodeIDList{}
-	for _, piece := range pieces {
-		nodeIDList = append(nodeIDList, piece.NodeId)
-	}
-	peerIDList, err := endpoint.peerIdentities.BatchGet(ctx, nodeIDList)
-	if err != nil {
-		endpoint.log.Error("retrieving batch of the peer identities of nodes", zap.Error(Error.Wrap(err)))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "retrieving nodes peer identities")
-	}
-	peerIDMap := make(map[storj.NodeID]*identity.PeerIdentity, len(peerIDList))
-	for _, peerID := range peerIDList {
-		peerIDMap[peerID.ID] = peerID
-	}
-
-	return peerIDMap, nil
 }
 
 // CreatePath creates a Segment path.

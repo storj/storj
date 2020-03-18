@@ -20,7 +20,6 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
@@ -405,41 +404,6 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 				redundancy.ErasureShareSize,
 			)
 		}
-	}
-
-	return nil
-}
-
-func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, originalLimit *pb.OrderLimit, signee signing.Signee) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if piece.Hash == nil {
-		return errs.New("no piece hash. NodeID: %v, PieceNum: %d", piece.NodeId, piece.PieceNum)
-	}
-
-	err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
-	if err != nil {
-		return errs.New("piece hash signature could not be verified for node (NodeID: %v, PieceNum: %d): %+v",
-			piece.NodeId, piece.PieceNum, err,
-		)
-	}
-
-	timestamp := piece.Hash.Timestamp
-	if timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
-		return errs.New("piece hash timestamp is too old (%v). NodeId: %v, PieceNum: %d)",
-			timestamp, piece.NodeId, piece.PieceNum,
-		)
-	}
-
-	switch {
-	case originalLimit.PieceId != piece.Hash.PieceId:
-		return errs.New("piece hash pieceID (%v) doesn't match limit pieceID (%v). NodeID: %v, PieceNum: %d",
-			piece.Hash.PieceId, originalLimit.PieceId, piece.NodeId, piece.PieceNum,
-		)
-	case originalLimit.Limit < piece.Hash.PieceSize:
-		return errs.New("piece hash PieceSize (%d) is larger than order limit (%d). NodeID: %v, PieceNum: %d",
-			piece.Hash.PieceSize, originalLimit.Limit, piece.NodeId, piece.PieceNum,
-		)
 	}
 
 	return nil
