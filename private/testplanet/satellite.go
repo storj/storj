@@ -302,12 +302,12 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
-					UptimeCount:       0,
-					AuditCount:        0,
-					NewNodePercentage: 0,
-					OnlineWindow:      time.Minute,
-					DistinctIP:        false,
-					MinimumDiskSpace:  100 * memory.MB,
+					UptimeCount:      0,
+					AuditCount:       0,
+					NewNodeFraction:  0,
+					OnlineWindow:     time.Minute,
+					DistinctIP:       false,
+					MinimumDiskSpace: 100 * memory.MB,
 
 					AuditReputationRepairWeight: 1,
 					AuditReputationUplinkWeight: 1,

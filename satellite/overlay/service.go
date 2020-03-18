@@ -296,8 +296,8 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	}
 
 	newNodeCount := 0
-	if preferences.NewNodePercentage > 0 {
-		newNodeCount = int(float64(reputableNodeCount) * preferences.NewNodePercentage)
+	if preferences.NewNodeFraction > 0 {
+		newNodeCount = int(float64(reputableNodeCount) * preferences.NewNodeFraction)
 	}
 
 	var newNodes []*NodeDossier
