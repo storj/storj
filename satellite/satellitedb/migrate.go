@@ -916,6 +916,22 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Add vetted_at timestamp column to nodes table",
+				Version:     98,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN vetted_at timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Backfill vetted_at with time.now for nodes that have been vetted already (aka nodes that have been audited 100 times)",
+				Version:     99,
+				Action: migrate.SQL{
+					`UPDATE nodes SET vetted_at = '2020-03-18 12:00:00.000000+00' WHERE total_audit_count >= 100;`,
+				},
+			},
 		},
 	}
 }

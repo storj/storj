@@ -152,6 +152,7 @@ CREATE TABLE nodes (
 	latency_90 bigint DEFAULT 0 NOT NULL,
 	audit_success_count bigint DEFAULT 0 NOT NULL,
 	total_audit_count bigint DEFAULT 0 NOT NULL,
+	vetted_at timestamp with time zone,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
 	created_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
