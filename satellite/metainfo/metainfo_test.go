@@ -62,7 +62,7 @@ func TestInvalidAPIKey(t *testing.T) {
 			_, err = client.CreateBucket(ctx, metainfo.CreateBucketParams{})
 			assertInvalidArgument(t, err, false)
 
-			err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
+			_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
 			assertInvalidArgument(t, err, false)
 
 			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
