@@ -50,9 +50,6 @@ PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --p
 # run upload part of backward compatibility tests from the lastest release branch
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
 
-# set the segment size lower to make test run faster
-echo client.segment-size: 6 MiB >> `storj-sim network env GATEWAY_0_DIR`/config.yaml
-
 SATELLITE_CONFIG=$(storj-sim network env SATELLITE_0_DIR)/config.yaml
 
 # this replaces anywhere that has "/release/" in the config file, which currently just renames the static dir paths
