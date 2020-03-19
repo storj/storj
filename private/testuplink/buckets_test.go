@@ -76,8 +76,11 @@ func TestBucketsBasic(t *testing.T) {
 		}
 
 		// Delete the bucket
-		err = db.DeleteBucket(ctx, TestBucket)
-		assert.NoError(t, err)
+		bucket, err = db.DeleteBucket(ctx, TestBucket)
+		if assert.NoError(t, err) {
+			assert.Equal(t, TestBucket, bucket.Name)
+			assert.Equal(t, storj.EncAESGCM, bucket.PathCipher)
+		}
 
 		// Check that the bucket list is empty
 		bucketList, err = db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
@@ -116,8 +119,11 @@ func TestBucketsReadWrite(t *testing.T) {
 		}
 
 		// Delete the bucket
-		err = db.DeleteBucket(ctx, TestBucket)
-		assert.NoError(t, err)
+		bucket, err = db.DeleteBucket(ctx, TestBucket)
+		if assert.NoError(t, err) {
+			assert.Equal(t, TestBucket, bucket.Name)
+			assert.Equal(t, storj.EncAESGCM, bucket.PathCipher)
+		}
 
 		// Check that the bucket list is empty
 		bucketList, err = db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
@@ -140,7 +146,7 @@ func TestErrNoBucket(t *testing.T) {
 		_, err = db.GetBucket(ctx, "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		err = db.DeleteBucket(ctx, "")
+		_, err = db.DeleteBucket(ctx, "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 	})
 }
@@ -162,8 +168,10 @@ func TestBucketCreateCipher(t *testing.T) {
 				assert.Equal(t, cipher, bucket.PathCipher)
 			}
 
-			err = db.DeleteBucket(ctx, "test")
-			assert.NoError(t, err)
+			bucket, err = db.DeleteBucket(ctx, "test")
+			if assert.NoError(t, err) {
+				assert.Equal(t, cipher, bucket.PathCipher)
+			}
 		})
 	})
 }
