@@ -5,7 +5,7 @@
     <div class="account-billing-area">
         <div class="account-billing-area__title-area">
             <h1 class="account-billing-area__title-area__title">Billing</h1>
-            <div class="account-billing-area__title-area__options-area" v-if="areBillingPeriodsVisible">
+            <div class="account-billing-area__title-area__options-area" v-if="userHasOwnProject">
                 <div class="account-billing-area__title-area__options-area__option active" @click.prevent="onCurrentPeriodClick">
                     <span class="account-billing-area__title-area__options-area__option__label">Current Billing Period</span>
                 </div>
@@ -60,6 +60,7 @@ import DatePickerIcon from '@/../static/images/project/datePicker.svg';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { DateRange } from '@/types/usage';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { ProjectOwning } from '@/utils/projectOwning';
 
@@ -88,12 +89,16 @@ declare interface ShowCheck {
 })
 export default class BillingArea extends Vue {
     /**
-     * Mounted lifecycle hook after initial render.
-     * Fetches project limits and current usage rollup.
+     * Mounted lifecycle hook before initial render.
+     * Fetches billing history and project limits.
      */
-    public async mounted(): Promise<void> {
+    public async beforeMount(): Promise<void> {
         try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
+            if (this.$store.getters.canUserCreateFirstProject && !this.userHasOwnProject) {
+                await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
+                await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CONTENT_BLUR);
+            }
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -171,7 +176,7 @@ export default class BillingArea extends Vue {
     public get isSummaryVisible(): boolean {
         const isBalancePositive: boolean = this.$store.state.paymentsModule.balance > 0;
 
-        return isBalancePositive || new ProjectOwning(this.$store).userHasOwnProject();
+        return isBalancePositive || this.userHasOwnProject;
     }
 
     /**
@@ -196,9 +201,9 @@ export default class BillingArea extends Vue {
     }
 
     /**
-     * Indicates if billing periods logic is visible.
+     * Indicates if user has own project.
      */
-    public get areBillingPeriodsVisible(): boolean {
+    public get userHasOwnProject(): boolean {
         return new ProjectOwning(this.$store).userHasOwnProject();
     }
 

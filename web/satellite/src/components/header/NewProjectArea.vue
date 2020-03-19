@@ -45,7 +45,7 @@ export default class NewProjectArea extends Vue {
      * Toggles new project button visibility depending on user having his own project or payment method.
      */
     public beforeMount(): void {
-        if (new ProjectOwning(this.$store).userHasOwnProject() || !this.$store.getters.isBonusCouponApplied) {
+        if (this.userHasOwnProject || !this.$store.getters.canUserCreateFirstProject) {
             this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
 
             return;
@@ -79,7 +79,14 @@ export default class NewProjectArea extends Vue {
      * Indicates if new project creation mock button is shown.
      */
     public get isMockButtonShown(): boolean {
-        return !new ProjectOwning(this.$store).userHasOwnProject() && !this.$store.getters.isBonusCouponApplied;
+        return !(this.userHasOwnProject || this.$store.getters.canUserCreateFirstProject);
+    }
+
+    /**
+     * Indicates if user has own project.
+     */
+    private get userHasOwnProject(): boolean {
+        return new ProjectOwning(this.$store).userHasOwnProject();
     }
 }
 </script>

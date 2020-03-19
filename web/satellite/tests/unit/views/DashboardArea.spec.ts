@@ -84,7 +84,7 @@ describe('Dashboard', () => {
     });
 
     it('renders correctly without project and with payment method', async () => {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_CONTENT_BLUR);
+        store.commit(APP_STATE_MUTATIONS.SHOW_CONTENT_BLUR);
 
         const wrapper = shallowMount(DashboardArea, {
             store,

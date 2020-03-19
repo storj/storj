@@ -49,7 +49,7 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
       <p class="navigation-area__resources-title__title">RESOURCES</p>
       <!---->
       <!---->
-    </div> <a href="https://documentation.tardigrade.io/setup/buckets-objects" target="_blank" class="navigation-area__item-container">
+    </div> <a href="https://documentation.tardigrade.io" target="_blank" class="navigation-area__item-container">
       <div class="navigation-area__item-container__link-container">
         <docsicon-stub class="svg"></docsicon-stub>
         <h1 class="navigation-area__item-container__link-container__title docs-title">Docs</h1>
@@ -131,7 +131,7 @@ exports[`NavigationArea snapshot not changed without project 1`] = `
       <p class="navigation-area__resources-title__title">RESOURCES</p>
       <!---->
       <!---->
-    </div> <a href="https://documentation.tardigrade.io/setup/buckets-objects" target="_blank" class="navigation-area__item-container">
+    </div> <a href="https://documentation.tardigrade.io" target="_blank" class="navigation-area__item-container">
       <div class="navigation-area__item-container__link-container">
         <docsicon-stub class="svg"></docsicon-stub>
         <h1 class="navigation-area__item-container__link-container__title docs-title">Docs</h1>

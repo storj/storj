@@ -230,7 +230,7 @@ export default class PaymentMethods extends Vue {
      * Indicates if free credits or percentage bonus banner is shown.
      */
     public get isDefaultBonusBannerShown(): boolean {
-        return this.isDefaultState && !this.$store.getters.isBonusCouponApplied;
+        return this.isDefaultState && !this.$store.getters.canUserCreateFirstProject;
     }
 
     /**
@@ -294,7 +294,7 @@ export default class PaymentMethods extends Vue {
 
         this.isLoading = true;
 
-        if ((this.tokenDepositValue < 50 || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !new ProjectOwning(this.$store).userHasOwnProject()) {
+        if ((this.tokenDepositValue < 50 || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !this.userHasOwnProject) {
             await this.$notify.error('First deposit amount must be more than 50 and less than 1000000');
             this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
             this.areaState = PaymentMethodsBlockState.DEFAULT;
@@ -379,7 +379,7 @@ export default class PaymentMethods extends Vue {
         this.isLoading = false;
         this.isLoaded = true;
 
-        if (!new ProjectOwning(this.$store).userHasOwnProject()) {
+        if (!this.userHasOwnProject) {
             await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
         }
 
@@ -388,7 +388,9 @@ export default class PaymentMethods extends Vue {
             this.isLoaded = false;
 
             setTimeout(() => {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CONTENT_BLUR);
+                if (!this.userHasOwnProject) {
+                    this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CONTENT_BLUR);
+                }
             }, 500);
         }, 2000);
     }
@@ -398,6 +400,13 @@ export default class PaymentMethods extends Vue {
      */
     private get isDefaultState(): boolean {
         return this.areaState === PaymentMethodsBlockState.DEFAULT;
+    }
+
+    /**
+     * Indicates if user has own project.
+     */
+    private get userHasOwnProject(): boolean {
+        return new ProjectOwning(this.$store).userHasOwnProject();
     }
 
     /**

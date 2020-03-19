@@ -157,8 +157,8 @@ export default class DashboardArea extends Vue {
         if (!projects.length) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
-            if (this.$store.getters.isBonusCouponApplied) {
-                await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CONTENT_BLUR);
+            if (this.$store.getters.canUserCreateFirstProject) {
+                await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CONTENT_BLUR);
             }
 
             if (!this.isRouteAccessibleWithoutProject()) {
@@ -205,8 +205,8 @@ export default class DashboardArea extends Vue {
             await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
         }
 
-        if (this.$store.getters.isBonusCouponApplied && !new ProjectOwning(this.$store).userHasOwnProject()) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CONTENT_BLUR);
+        if (this.$store.getters.canUserCreateFirstProject && !new ProjectOwning(this.$store).userHasOwnProject()) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CONTENT_BLUR);
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
@@ -281,7 +281,7 @@ export default class DashboardArea extends Vue {
      * Hides blur.
      */
     public onCloseClick(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CONTENT_BLUR);
+        this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CONTENT_BLUR);
     }
 
     /**
