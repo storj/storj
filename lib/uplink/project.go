@@ -121,7 +121,7 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 // Objects at the time of deletion, they may be lost permanently.
 func (p *Project) DeleteBucket(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = p.project.DeleteBucketReturnDeleted(ctx, bucket)
+	_, err = p.project.DeleteBucket(ctx, bucket)
 	return err
 }
 
