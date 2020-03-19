@@ -397,8 +397,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the minimum node software version for node selection queries
 # overlay.node.minimum-version: ""
 
-# the percentage of new nodes allowed per request
-# overlay.node.new-node-percentage: 0.05
+# the fraction of new nodes allowed per request
+# overlay.node.new-node-fraction: 0.05
 
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s

@@ -432,7 +432,7 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 			UniqueIPCount: 2,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.DistinctIP = true
-				config.Overlay.Node.NewNodePercentage = 1
+				config.Overlay.Node.NewNodeFraction = 1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
