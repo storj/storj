@@ -4,8 +4,8 @@
 package version
 
 func init() {
-	buildTimestamp = "1584530605"
-	buildCommitHash = "6f4463f1dc22d508b2262d1bdef8caa7a5e9c156"
-	buildVersion = "v0.35.3"
+	buildTimestamp = "1584659182"
+	buildCommitHash = "7e7b5f5844ae49994979bc6fbfc7d3d4a1c55051"
+	buildVersion = "v1.0.0"
 	buildRelease = "true"
 }
