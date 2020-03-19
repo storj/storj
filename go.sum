@@ -583,8 +583,12 @@ honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 storj.io/common v0.0.0-20200318103328-b7e942ff9304 h1:KQ1ITzbT32bAyBx5gPYQFkMs86iUGA1Sl+QvsMQuJZc=
 storj.io/common v0.0.0-20200318103328-b7e942ff9304/go.mod h1:I0QTs7z1rI+ZEN95GGY2LKMzP5OZqu0Udga3WhyQfO0=
+storj.io/common v0.0.0-20200319165559-1fc2508a7284 h1:Bym7jVTXPdZ5cHEH3tey/RR5ps3vG1Ru9ucDVlJWIxs=
+storj.io/common v0.0.0-20200319165559-1fc2508a7284/go.mod h1:I0QTs7z1rI+ZEN95GGY2LKMzP5OZqu0Udga3WhyQfO0=
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2/go.mod h1:/ascUDbzNAv0A3Jj7wUIKFBH2JdJ2uJIBO/b9+2yHgQ=
 storj.io/drpc v0.0.8 h1:wu68cMmtoT0vSWIAZz29RpJkWdi4o0S8BIrLslpH5FQ=
 storj.io/drpc v0.0.8/go.mod h1:v39uWro/EbXXk+gNnrM9FQuVVS2zUBWBfeduydgeXUA=
 storj.io/uplink v1.0.0-rc.5.0.20200318180255-45744be46610 h1:Bu6pS7+LDHpc+EyujFCp+O5p7b2HIH080p0Cic5ELFo=
 storj.io/uplink v1.0.0-rc.5.0.20200318180255-45744be46610/go.mod h1:2VBdNnx7zZoCx91ETUVM56mDRIFDToRyKBWxH/Usrek=
+storj.io/uplink v1.0.0 h1:2tj09e88/2CuGMguS9qyVIEPX2NDE4W/1vMf4bdUCyA=
+storj.io/uplink v1.0.0/go.mod h1:2VBdNnx7zZoCx91ETUVM56mDRIFDToRyKBWxH/Usrek=

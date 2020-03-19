@@ -47,7 +47,7 @@ func TestInvalidAPIKey(t *testing.T) {
 			_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
 			assertInvalidArgument(t, err, false)
 
-			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+			_, _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
 			assertInvalidArgument(t, err, false)
 
 			_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
@@ -65,7 +65,7 @@ func TestInvalidAPIKey(t *testing.T) {
 			_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
 			assertInvalidArgument(t, err, false)
 
-			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+			_, _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
 			assertInvalidArgument(t, err, false)
 
 			err = client.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{})
@@ -807,7 +807,7 @@ func TestInlineSegment(t *testing.T) {
 		}
 
 		{ // test deleting segments
-			streamID, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+			streamID, _, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
 				Bucket:        params.Bucket,
 				EncryptedPath: params.EncryptedPath,
 			})
@@ -881,7 +881,7 @@ func TestRemoteSegment(t *testing.T) {
 			// Begin/Finish deleting segment
 			// List objects
 
-			streamID, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+			streamID, _, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
 				Bucket:        []byte(expectedBucketName),
 				EncryptedPath: items[0].EncryptedPath,
 			})
