@@ -4,8 +4,12 @@
 <template>
     <div class="pagination-container">
         <div class="pagination-container__pages">
-            <div class="pagination-container__button" @click="prevPage">
-                <PaginationLeftIcon class="pagination-container__button__image"/>
+            <div
+                class="pagination-container__button"
+                @click="prevPage"
+                :class="{ active: !isFirstPage }"
+            >
+                <p class="pagination-container__button__label">Prev</p>
             </div>
             <div class="pagination-container__items">
                 <PagesBlock
@@ -23,8 +27,12 @@
                     :is-selected="isSelected"
                 />
             </div>
-            <div class="pagination-container__button" @click="nextPage">
-                <PaginationRightIcon class="pagination-container__button__image"/>
+            <div
+                class="pagination-container__button"
+                @click="nextPage"
+                :class="{ active: !isLastPage }"
+            >
+                <p class="pagination-container__button__label">Next</p>
             </div>
         </div>
     </div>
@@ -35,16 +43,11 @@ import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
 import PagesBlock from '@/app/components/PagesBlock.vue';
 
-import PaginationLeftIcon from '@/../static/images/common/paginationLeft.svg';
-import PaginationRightIcon from '@/../static/images/common/paginationRight.svg';
-
 import { OnPageClickCallback, Page } from '@/app/types/pagination';
 
 @Component({
     components: {
         PagesBlock,
-        PaginationLeftIcon,
-        PaginationRightIcon,
     },
 })
 export default class VPagination extends Vue {
@@ -296,7 +299,6 @@ export default class VPagination extends Vue {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding-left: 25px;
         margin-top: 25px;
 
         &__pages {
@@ -308,17 +310,22 @@ export default class VPagination extends Vue {
             display: flex;
             align-items: center;
             justify-content: center;
-            cursor: pointer;
-            border: 1px solid #afb7c1;
+            border: 1px solid #e8e8e8;
             border-radius: 6px;
             width: 30px;
             height: 30px;
+            font-family: 'font_bold', sans-serif;
+            font-size: 14px;
+            color: #535f77;
+            padding: 5px 37px;
 
-            &:hover {
+            &__label {
+                margin: 0;
+            }
 
-                .pagination-svg-path {
-                    fill: #fff !important;
-                }
+            &.active {
+                background-color: white;
+                cursor: pointer;
             }
         }
 

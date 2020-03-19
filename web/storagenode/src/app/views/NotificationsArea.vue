@@ -5,14 +5,14 @@
     <div class="notifications-container">
         <div class="notifications-container__header">
             <div class="notifications-container__header__left-area">
-                <router-link :to="'/'" class="notifications-container__header__back-link">
+                <router-link to="/" class="notifications-container__header__back-link">
                     <BackArrowIcon />
                 </router-link>
                 <p class="notifications-container__header__text">Notifications</p>
             </div>
             <div
                 class="notifications-container__header__button"
-                :class="{ 'disabled': isMarkAllAsReadButtonDisabled }"
+                :class="{ disabled: isMarkAllAsReadButtonDisabled }"
                 @click="markAllAsRead"
             >
                 <p class="notifications-container__header__button__label">Mark all as read</p>
@@ -112,8 +112,15 @@ export default class NotificationsArea extends Vue {
 
 <style scoped lang="scss">
     .notifications-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
         width: 822px;
         min-height: calc(100vh - 89px - 89px);
+        overflow-y: scroll;
+        height: calc(100vh - 89px - 50px);
+        padding-bottom: 50px;
 
         &__header {
             width: 100%;
@@ -221,19 +228,45 @@ export default class NotificationsArea extends Vue {
         }
     }
 
-    @media screen and (max-height: 868px) {
+    @media screen and (max-width: 1000px) {
 
-        .notifications-container__content-area {
-            height: 60vh;
-            min-height: 60vh;
+        .notifications-container {
+            padding: 0 37px;
+            width: calc(100% - 74px);
         }
     }
 
-    @media screen and (max-height: 768px) {
+    @media screen and (max-width: 450px) {
 
-        .notifications-container__content-area {
-            height: 55vh;
-            min-height: 55vh;
+        .notifications-container {
+
+            &__header {
+                flex-direction: column;
+                align-items: flex-start;
+                margin: 0;
+            }
+
+            &__empty-state {
+
+                &__image {
+                    margin-top: 30px;
+                    width: 275px;
+                    height: 312px;
+                }
+            }
+        }
+    }
+
+    @media screen and (max-height: 650px), (max-width: 300px) {
+
+        .notifications-container {
+
+            &__empty-state {
+
+                &__image {
+                    display: none;
+                }
+            }
         }
     }
 </style>
