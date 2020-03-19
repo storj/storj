@@ -28,14 +28,11 @@ pbufsize = 1000
 --  * print() goes to stdout
 --  * db("sqlite3", path) goes to sqlite
 --  * db("postgres", connstring) goes to postgres
-   influx_out = graphite("influx-internal.datasci.storj.io.:2003")
-   graphite_out = graphite("graphite-internal.datasci.storj.io.:2003")
+   influx_out_old = graphite("influx-internal.datasci.storj.io.:2003")
    influx_out_v3 = influx("http://influx-internal.datasci.storj.io:8086/write?db=v3_stats_new")
 
-v2_metric_handlers = sanitize(mbufprep(mcopy(
-  -- send all satellite data to graphite
-    mbuf(influx_out, mbufsize),
-    mbuf(graphite_out, mbufsize))))
+v2_metric_handlers = sanitize(mbufprep(mbuf("influx_old", influx_out_old, mbufsize)))
+
 --    mbuf(graphite_out_stefan, mbufsize),
   -- send specific storagenode data to the db
     --keyfilter(
@@ -48,8 +45,8 @@ v2_metric_handlers = sanitize(mbufprep(mcopy(
 
 
 v3_metric_handlers = mbufprep(mcopy(
-    mbuf(downgrade(v2_metric_handlers), mbufsize),
-    mbuf(influx_out_v3, mbufsize)
+    mbuf("downgrade", downgrade(v2_metric_handlers), mbufsize),
+    mbuf("influx_new", influx_out_v3, mbufsize)
 ))
 
 -- create a metric parser.

@@ -102,21 +102,25 @@ type Metric struct {
 // metrics to buffer in memory to deal with potentially variable processing
 // speeds. MetricBuffers drop metrics if the buffer is full.
 type MetricBuffer struct {
-	ch chan Metric
+	name string
+	ch   chan Metric
 }
 
 // NewMetricBuffer makes a metric buffer with a buffer size of bufsize
-func NewMetricBuffer(p MetricDest, bufsize int) *MetricBuffer {
+func NewMetricBuffer(name string, p MetricDest, bufsize int) *MetricBuffer {
 	ch := make(chan Metric, bufsize)
 	go func() {
 		for pkt := range ch {
 			err := p.Metric(pkt.Application, pkt.Instance, pkt.Key, pkt.Val, pkt.TS)
 			if err != nil {
-				log.Printf("failed delivering buffered metric: %v", err)
+				log.Printf("failed delivering %s buffered metric: %v", name, err)
 			}
 		}
 	}()
-	return &MetricBuffer{ch: ch}
+	return &MetricBuffer{
+		name: name,
+		ch:   ch,
+	}
 }
 
 // Metric implements the MetricDest interface
@@ -131,7 +135,7 @@ func (p *MetricBuffer) Metric(application, instance string, key []byte,
 		TS:          ts}:
 		return nil
 	default:
-		return fmt.Errorf("metric buffer overrun")
+		return fmt.Errorf("%s metric buffer overrun", p.name)
 	}
 }
 

@@ -84,7 +84,7 @@ keyRange:
 		break
 	}
 	if !added {
-		log.Printf("metric dropped: %q", key)
+		log.Printf("influx metric dropped: %q", key)
 		return nil
 	}
 
