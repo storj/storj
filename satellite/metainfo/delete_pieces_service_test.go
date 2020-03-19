@@ -363,6 +363,8 @@ func TestDeletePiecesService_DeletePieces_InvalidDialer(t *testing.T) {
 }
 
 func TestDeletePiecesService_DeletePieces_Invalid(t *testing.T) {
+	t.Skip()
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
