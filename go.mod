@@ -2,6 +2,12 @@ module storj.io/storj
 
 go 1.13
 
+replace storj.io/drpc => /Users/yingrongzhao/drpc
+
+replace storj.io/common => /Users/yingrongzhao/common
+
+replace storj.io/monkit-jaeger => /Users/yingrongzhao/monkit-jaeger
+
 require (
 	cloud.google.com/go v0.52.0
 	github.com/BurntSushi/toml v0.3.1
@@ -35,12 +41,12 @@ require (
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
-	github.com/spacemonkeygo/monkit/v3 v3.0.4
+	github.com/spacemonkeygo/monkit/v3 v3.0.5
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.4.0
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/stripe/stripe-go v63.1.1+incompatible
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/zeebo/admission/v2 v2.0.0
@@ -53,8 +59,10 @@ require (
 	golang.org/x/sys v0.0.0-20200113162924-86b910548bc1
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.27.1
+	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190623001553-09813957f0a8
 	gopkg.in/yaml.v2 v2.2.4
 	storj.io/common v0.0.0-20200318103328-b7e942ff9304
 	storj.io/drpc v0.0.8
+	storj.io/monkit-jaeger v0.0.0-20200305222653-48145d285891
 	storj.io/uplink v1.0.0-rc.5.0.20200318180255-45744be46610
 )

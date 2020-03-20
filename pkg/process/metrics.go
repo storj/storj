@@ -6,6 +6,7 @@ package process
 import (
 	"context"
 	"flag"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,10 +14,11 @@ import (
 	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spacemonkeygo/monkit/v3/environment"
-	"github.com/zeebo/admission/v2/admproto"
+	"github.com/spacemonkeygo/monkit/v3/present"
 	"go.uber.org/zap"
 
 	"storj.io/common/identity"
+	jaeger "storj.io/monkit-jaeger"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/telemetry"
 	"storj.io/storj/private/version"
@@ -52,10 +54,10 @@ func InitMetrics(ctx context.Context, log *zap.Logger, r *monkit.Registry, insta
 	r.ScopeNamed("env").Chain(monkit.StatSourceFunc(version.Build.Stats))
 
 	log = log.Named("telemetry")
-	if *metricCollector == "" || *metricInterval == 0 {
-		log.Info("disabled")
-		return nil
-	}
+	// if *metricCollector == "" || *metricInterval == 0 {
+	// 	log.Info("disabled")
+	// 	return nil
+	// }
 
 	if instanceID == "" {
 		instanceID = telemetry.DefaultInstanceID()
@@ -64,17 +66,30 @@ func InitMetrics(ctx context.Context, log *zap.Logger, r *monkit.Registry, insta
 	if len(instanceID) > maxInstanceLength {
 		instanceID = instanceID[:maxInstanceLength]
 	}
-	c, err := telemetry.NewClient(log, *metricCollector, telemetry.ClientOpts{
-		Interval:      *metricInterval,
-		Application:   *metricApp + *metricAppSuffix,
-		Instance:      instanceID,
-		Registry:      r,
-		FloatEncoding: admproto.Float32Encoding,
-	})
+	// c, err := telemetry.NewClient(log, *metricCollector, telemetry.ClientOpts{
+	// 	Interval:      *metricInterval,
+	// 	Application:   *metricApp + *metricAppSuffix,
+	// 	Instance:      instanceID,
+	// 	Registry:      r,
+	// 	FloatEncoding: admproto.Float32Encoding,
+	// })
 	if err != nil {
 		return err
 	}
-	go c.Run(ctx)
+	go http.ListenAndServe(*metricCollector, present.HTTP(r))
+	collector, err := jaeger.NewUDPCollector("localhost:5775", 600, *metricApp, []jaeger.Tag{
+		jaeger.Tag{
+			Key:   "instance-id",
+			Value: &instanceID,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	jaeger.RegisterJaeger(r, collector, jaeger.Options{
+		Fraction: 1,
+	})
+	// go c.Run(ctx)
 	return nil
 }
 

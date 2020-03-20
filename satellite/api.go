@@ -260,7 +260,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
 		pbgrpc.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
-		pb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPC(), peer.Overlay.Inspector)
+		pb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPCHandler(), peer.Overlay.Inspector)
 	}
 
 	{ // setup contact service
@@ -287,7 +287,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
 		pbgrpc.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
-		pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint)
+		pb.DRPCRegisterNode(peer.Server.DRPCHandler(), peer.Contact.Endpoint)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "contact:service",
@@ -297,7 +297,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup vouchers
 		pbgrpc.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
-		pb.DRPCRegisterVouchers(peer.Server.DRPC(), peer.Vouchers.Endpoint)
+		pb.DRPCRegisterVouchers(peer.Server.DRPCHandler(), peer.Vouchers.Endpoint)
 	}
 
 	{ // setup live accounting
@@ -344,7 +344,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Orders.NodeStatusLogging,
 		)
 		pbgrpc.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
-		pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint.DRPC())
+		pb.DRPCRegisterOrders(peer.Server.DRPCHandler(), peer.Orders.Endpoint.DRPC())
 	}
 
 	{ // setup marketing portal
@@ -420,7 +420,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Metainfo.RateLimiter,
 		)
 		pbgrpc.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
-		pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2)
+		pb.DRPCRegisterMetainfo(peer.Server.DRPCHandler(), peer.Metainfo.Endpoint2)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metainfo:endpoint",
@@ -431,7 +431,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup datarepair
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
 		pbgrpc.RegisterIrreparableInspectorServer(peer.Server.PrivateGRPC(), peer.Repair.Inspector)
-		pb.DRPCRegisterIrreparableInspector(peer.Server.PrivateDRPC(), peer.Repair.Inspector)
+		pb.DRPCRegisterIrreparableInspector(peer.Server.PrivateDRPCHandler(), peer.Repair.Inspector)
 	}
 
 	{ // setup inspector
@@ -441,7 +441,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Metainfo.Service,
 		)
 		pbgrpc.RegisterHealthInspectorServer(peer.Server.PrivateGRPC(), peer.Inspector.Endpoint)
-		pb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPC(), peer.Inspector.Endpoint)
+		pb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPCHandler(), peer.Inspector.Endpoint)
 	}
 
 	{ // setup mailservice
@@ -550,7 +550,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				pc.StripeCoinPayments.ConversionRatesCycleInterval)
 
 			pbgrpc.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
-			pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector)
+			pb.DRPCRegisterPayments(peer.Server.PrivateDRPCHandler(), peer.Payments.Inspector)
 
 			peer.Services.Add(lifecycle.Item{
 				Name:  "payments.stripe:version",
@@ -619,7 +619,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.StoragenodeAccounting(),
 		)
 		pbgrpc.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
-		pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint)
+		pb.DRPCRegisterNodeStats(peer.Server.DRPCHandler(), peer.NodeStats.Endpoint)
 	}
 
 	{ // setup heldamount endpoint
@@ -633,7 +633,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Overlay.DB,
 			peer.HeldAmount.Service)
 		pbgrpc.RegisterHeldAmountServer(peer.Server.GRPC(), peer.HeldAmount.Endpoint)
-		pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.HeldAmount.Endpoint)
+		pb.DRPCRegisterHeldAmount(peer.Server.DRPCHandler(), peer.HeldAmount.Endpoint)
 	}
 
 	{ // setup graceful exit
@@ -650,7 +650,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.GracefulExit)
 
 			pbgrpc.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
-			pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC())
+			pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPCHandler(), peer.GracefulExit.Endpoint.DRPC())
 		} else {
 			peer.Log.Named("gracefulexit").Info("disabled")
 		}

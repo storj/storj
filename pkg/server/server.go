@@ -17,7 +17,10 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpctracing"
+	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
+	jaeger "storj.io/monkit-jaeger"
 	"storj.io/storj/pkg/listenmux"
 	"storj.io/storj/private/grpctlsopts"
 )
@@ -33,12 +36,14 @@ type public struct {
 	listener net.Listener
 	drpc     *drpcserver.Server
 	grpc     *grpc.Server
+	handler  *drpcmux.Mux
 }
 
 type private struct {
 	listener net.Listener
 	drpc     *drpcserver.Server
 	grpc     *grpc.Server
+	handler  *drpcmux.Mux
 }
 
 // Server represents a bundle of services defined by a specific ID.
@@ -79,24 +84,30 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 	if err != nil {
 		return nil, err
 	}
+	pubMux := drpcmux.New()
+	traceHandler := rpctracing.NewHandler(pubMux, jaeger.NewRemoteTrace)
 	server.public = public{
 		listener: wrapListener(publicListener),
-		drpc:     drpcserver.NewWithOptions(serverOptions),
+		drpc:     drpcserver.NewWithOptions(traceHandler, serverOptions),
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
 			grpctlsopts.ServerOption(tlsOptions),
 		),
+		handler: pubMux,
 	}
 
 	privateListener, err := net.Listen("tcp", privateAddr)
 	if err != nil {
 		return nil, errs.Combine(err, publicListener.Close())
 	}
+	privMux := drpcmux.New()
+	privTraceHandler := rpctracing.NewHandler(privMux, jaeger.NewRemoteTrace)
 	server.private = private{
 		listener: wrapListener(privateListener),
-		drpc:     drpcserver.NewWithOptions(serverOptions),
+		drpc:     drpcserver.NewWithOptions(privTraceHandler, serverOptions),
 		grpc:     grpc.NewServer(),
+		handler:  privMux,
 	}
 
 	return server, nil
@@ -117,11 +128,17 @@ func (p *Server) GRPC() *grpc.Server { return p.public.grpc }
 // DRPC returns the server's dRPC handle for registration purposes
 func (p *Server) DRPC() *drpcserver.Server { return p.public.drpc }
 
+// DRPC returns the server's dRPC handle for registration purposes
+func (p *Server) DRPCHandler() *drpcmux.Mux { return p.public.handler }
+
 // PrivateGRPC returns the server's gRPC handle for registration purposes
 func (p *Server) PrivateGRPC() *grpc.Server { return p.private.grpc }
 
 // PrivateDRPC returns the server's dRPC handle for registration purposes
 func (p *Server) PrivateDRPC() *drpcserver.Server { return p.private.drpc }
+
+// DRPC returns the server's dRPC handle for registration purposes
+func (p *Server) PrivateDRPCHandler() *drpcmux.Mux { return p.private.handler }
 
 // Close shuts down the server
 func (p *Server) Close() error {
