@@ -17,6 +17,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -24,7 +25,6 @@ import (
 	"storj.io/common/storj"
 	lrucache "storj.io/storj/pkg/cache"
 	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/private/context2"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
