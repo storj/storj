@@ -38,7 +38,7 @@ func New(dbURL string) (*Client, error) {
 		return nil, err
 	}
 
-	dbutil.Configure(db, mon)
+	dbutil.Configure(db, "postgreskv", mon)
 	//TODO: Fix the parameters!!
 	err = schema.PrepareDB(context.TODO(), db, dbURL)
 	if err != nil {
