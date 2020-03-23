@@ -83,8 +83,7 @@ func TestServicePingSatellites(t *testing.T) {
 		node.Contact.Chore.Pause(ctx)
 
 		newCapacity := pb.NodeCapacity{
-			FreeBandwidth: 0,
-			FreeDisk:      0,
+			FreeDisk: 0,
 		}
 		for _, satellite := range planet.Satellites {
 			info, err := satellite.Overlay.Service.Get(ctx, node.ID())
