@@ -240,10 +240,6 @@ github.com/kshvakov/clickhouse v1.3.5/go.mod h1:DMzX7FxRymoNkVgizH0DWAL8Cur7wHLg
 github.com/lib/pq v1.0.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
 github.com/lib/pq v1.3.0 h1:/qkRGz8zljWiDcFvgpwUpwIAPu3r07TDvs3Rws+o/pU=
 github.com/lib/pq v1.3.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
-github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e h1:UC+nLCm+w3WL+ibAW/wsWbQC3KAz7LLawR2hgX0eR9s=
-github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e/go.mod h1:2871C3urfEJnq/bpTYjFdMOdgxVd8otLLEL6vMNy/Iw=
-github.com/loov/plot v0.0.0-20180510142208-e59891ae1271 h1:51ToN6N0TDtCruf681gufYuEhO9qFHQzM3RFTS/n6XE=
-github.com/loov/plot v0.0.0-20180510142208-e59891ae1271/go.mod h1:3yy5HBPbe5e1UmEffbO0n0g6A8h6ChHaCTeundr6H60=
 github.com/magiconair/properties v1.8.0 h1:LLgXmsheXeRoUOBOjtwPQCWIYqM/LU1ayDtDePerRcY=
 github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/mattn/go-colorable v0.1.2 h1:/bC9yWikZXAL9uJdulbSfyVNIR3n3trXl+v8+1sx8mU=
@@ -583,14 +579,10 @@ honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 storj.io/common v0.0.0-20200318103328-b7e942ff9304 h1:KQ1ITzbT32bAyBx5gPYQFkMs86iUGA1Sl+QvsMQuJZc=
 storj.io/common v0.0.0-20200318103328-b7e942ff9304/go.mod h1:I0QTs7z1rI+ZEN95GGY2LKMzP5OZqu0Udga3WhyQfO0=
-storj.io/common v0.0.0-20200319165559-1fc2508a7284 h1:Bym7jVTXPdZ5cHEH3tey/RR5ps3vG1Ru9ucDVlJWIxs=
-storj.io/common v0.0.0-20200319165559-1fc2508a7284/go.mod h1:I0QTs7z1rI+ZEN95GGY2LKMzP5OZqu0Udga3WhyQfO0=
 storj.io/common v0.0.0-20200320083002-07faa8a64ad8 h1:DgWXFCldvyu1drZKKL0D3vlHSkjmBsvBqr8nXg59SFs=
 storj.io/common v0.0.0-20200320083002-07faa8a64ad8/go.mod h1:I0QTs7z1rI+ZEN95GGY2LKMzP5OZqu0Udga3WhyQfO0=
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2/go.mod h1:/ascUDbzNAv0A3Jj7wUIKFBH2JdJ2uJIBO/b9+2yHgQ=
 storj.io/drpc v0.0.8 h1:wu68cMmtoT0vSWIAZz29RpJkWdi4o0S8BIrLslpH5FQ=
 storj.io/drpc v0.0.8/go.mod h1:v39uWro/EbXXk+gNnrM9FQuVVS2zUBWBfeduydgeXUA=
-storj.io/uplink v1.0.0-rc.5.0.20200318180255-45744be46610 h1:Bu6pS7+LDHpc+EyujFCp+O5p7b2HIH080p0Cic5ELFo=
-storj.io/uplink v1.0.0-rc.5.0.20200318180255-45744be46610/go.mod h1:2VBdNnx7zZoCx91ETUVM56mDRIFDToRyKBWxH/Usrek=
 storj.io/uplink v1.0.0 h1:2tj09e88/2CuGMguS9qyVIEPX2NDE4W/1vMf4bdUCyA=
 storj.io/uplink v1.0.0/go.mod h1:2VBdNnx7zZoCx91ETUVM56mDRIFDToRyKBWxH/Usrek=

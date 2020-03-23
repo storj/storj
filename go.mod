@@ -27,8 +27,6 @@ require (
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5
 	github.com/lib/pq v1.3.0
-	github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e
-	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
 	github.com/mattn/go-isatty v0.0.9 // indirect
 	github.com/mattn/go-sqlite3 v2.0.2+incompatible
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
