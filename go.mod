@@ -4,8 +4,6 @@ go 1.13
 
 require (
 	cloud.google.com/go v0.52.0
-	github.com/BurntSushi/toml v0.3.1
-	github.com/Shopify/go-lua v0.0.0-20191113154418-05ce435a9edd
 	github.com/alessio/shellescape v0.0.0-20190409004728-b115ca0f9053
 	github.com/alicebob/miniredis/v2 v2.11.1
 	github.com/blang/semver v3.5.1+incompatible
@@ -23,7 +21,6 @@ require (
 	github.com/gorilla/schema v1.1.0
 	github.com/graphql-go/graphql v0.7.9
 	github.com/jackc/pgx v3.2.0+incompatible
-	github.com/jtolds/go-luar v0.0.0-20200310225017-6fa637b8208b
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5
 	github.com/lib/pq v1.3.0
@@ -41,7 +38,6 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/stripe/stripe-go v63.1.1+incompatible
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
-	github.com/zeebo/admission/v2 v2.0.0
 	github.com/zeebo/admission/v3 v3.0.1
 	github.com/zeebo/errs v1.2.2
 	github.com/zeebo/structs v1.0.2
