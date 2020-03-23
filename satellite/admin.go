@@ -16,7 +16,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/debug"
+	"storj.io/private/debug"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"

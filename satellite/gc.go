@@ -18,7 +18,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/debug"
+	"storj.io/private/debug"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version"
 	version_checker "storj.io/storj/private/version/checker"

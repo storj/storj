@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/telemetry"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/process"
 )
 
 var (

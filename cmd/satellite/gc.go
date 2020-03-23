@@ -8,7 +8,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/process"
+	"storj.io/private/process"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"

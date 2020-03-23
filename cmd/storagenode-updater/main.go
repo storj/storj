@@ -31,8 +31,8 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
 	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
 )
