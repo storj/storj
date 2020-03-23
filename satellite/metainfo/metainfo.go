@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	satIDExpiration = 24 * time.Hour
+	satIDExpiration = 48 * time.Hour
 	lastSegment     = -1
 	listLimit       = 1000
 
