@@ -20,8 +20,8 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
+	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/private/version"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )

@@ -22,9 +22,9 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
+	"storj.io/private/version"
 	"storj.io/storj/certificate/certificateclient"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
 )
 

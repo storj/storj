@@ -33,7 +33,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
-	"storj.io/storj/private/version"
+	"storj.io/private/version"
 	"storj.io/storj/private/version/checker"
 )
 

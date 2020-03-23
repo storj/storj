@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/private/version"
+	"storj.io/private/version"
 )
 
 // Config contains the necessary Information to check the Software Version
