@@ -61,6 +61,9 @@ compensation.rates.put-tb: "0"
 # comma separated monthly withheld percentage rates
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
+# url link for account activation redirect
+# console.account-activation-redirect-url: ""
+
 # server address of the graphql api gateway and frontend app
 # console.address: :10100
 
