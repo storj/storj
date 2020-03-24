@@ -384,7 +384,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		coreProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
-				"--rollup.max-alpha-usage", "200GB",
 			},
 		})
 		coreProcess.WaitForExited(migrationProcess)
