@@ -20,27 +20,30 @@ func TestHTTPSourceNew(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
 		httpURL string
-		err     string
+		errs    []string
 	}{
 		{
 			name:    "not a valid URL",
 			httpURL: "://",
-			err:     `HTTP source: "://": not a URL: parse ://: missing protocol scheme`,
+			errs: []string{
+				`HTTP source: "://": not a URL: parse ://: missing protocol scheme`,
+				`HTTP source: "://": not a URL: parse "://": missing protocol scheme`,
+			},
 		},
 		{
 			name:    "not an HTTP or HTTPS URL",
 			httpURL: "file://",
-			err:     `HTTP source: "file://": scheme is not supported`,
+			errs:    []string{`HTTP source: "file://": scheme is not supported`},
 		},
 		{
 			name:    "missing host",
 			httpURL: "http:///path",
-			err:     `HTTP source: "http:///path": host is missing`,
+			errs:    []string{`HTTP source: "http:///path": host is missing`},
 		},
 		{
 			name:    "fragment not allowed",
 			httpURL: "http://localhost/path#OHNO",
-			err:     `HTTP source: "http://localhost/path#OHNO": fragment is not allowed`,
+			errs:    []string{`HTTP source: "http://localhost/path#OHNO": fragment is not allowed`},
 		},
 		{
 			name:    "success",
@@ -50,8 +53,9 @@ func TestHTTPSourceNew(t *testing.T) {
 		tt := tt // quiet linting
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := trust.NewHTTPSource(tt.httpURL)
-			if tt.err != "" {
-				require.EqualError(t, err, tt.err)
+			if len(tt.errs) > 0 {
+				require.Error(t, err)
+				require.Contains(t, tt.errs, err.Error())
 				return
 			}
 			require.NoError(t, err)

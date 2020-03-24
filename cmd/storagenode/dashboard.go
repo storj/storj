@@ -21,7 +21,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/process"
 	"storj.io/storj/private/version"
 )
 

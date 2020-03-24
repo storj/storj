@@ -23,8 +23,8 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
 	"storj.io/storj/private/version/checker"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"

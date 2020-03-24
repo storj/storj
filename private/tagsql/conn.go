@@ -9,7 +9,7 @@ import (
 	"errors"
 
 	"storj.io/common/context2"
-	"storj.io/storj/pkg/traces"
+	"storj.io/private/traces"
 )
 
 // Conn is an interface for *sql.Conn-like connections.

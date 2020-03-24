@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
-	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/private/cfgstruct"
 	"storj.io/storj/private/grpctlsopts"
 )
 

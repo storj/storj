@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/process"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
