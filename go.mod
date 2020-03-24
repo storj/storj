@@ -6,7 +6,6 @@ require (
 	github.com/alessio/shellescape v0.0.0-20190409004728-b115ca0f9053
 	github.com/alicebob/miniredis/v2 v2.11.1
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/boltdb/bolt v1.3.1
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/cheggaaa/pb/v3 v3.0.1
 	github.com/fatih/color v1.7.0
@@ -36,10 +35,11 @@ require (
 	github.com/stripe/stripe-go v63.1.1+incompatible
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/zeebo/errs v1.2.2
+	go.etcd.io/bbolt v1.3.4
 	go.uber.org/zap v1.14.1
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200113162924-86b910548bc1
+	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.27.1
 	storj.io/common v0.0.0-20200323134045-2bd4d6e2dd7d
