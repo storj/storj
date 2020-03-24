@@ -916,6 +916,17 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Test PR 98",
+				Version:     98,
+				Action: migrate.SQL{
+					`ALTER TABLE storagenode_storage_tallies DROP CONSTRAINT accounting_raws_pkey;
+					ALTER TABLE storagenode_storage_tallies ADD CONSTRAINT storagenode_storage_tallies_pkey PRIMARY KEY ( interval_end_time, node_id );
+					ALTER TABLE storagenode_storage_tallies DROP COLUMN id;
+					CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );`,
+				},
+			},
 		},
 	}
 }
