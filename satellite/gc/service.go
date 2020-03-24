@@ -136,7 +136,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			limiter.Go(ctx, func() {
 				err := service.sendRetainRequest(ctx, id, info)
 				if err != nil {
-					service.log.Error("error sending retain info to node", zap.Stringer("Node ID", id), zap.Error(err))
+					service.log.Warn("error sending retain info to node", zap.Stringer("Node ID", id), zap.Error(err))
 				}
 			})
 		}
