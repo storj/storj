@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/heldamount"
@@ -47,6 +48,10 @@ func (paystubs *paymentStubs) GetPaystub(ctx context.Context, nodeID storj.NodeI
 		&payStub.Paid,
 	)
 	if err != nil {
+		if sql.ErrNoRows == err {
+			return heldamount.PayStub{}, heldamount.ErrNoDataForPeriod.Wrap(err)
+		}
+
 		return heldamount.PayStub{}, Error.Wrap(err)
 	}
 
@@ -68,6 +73,10 @@ func (paystubs *paymentStubs) GetPayment(ctx context.Context, nodeID storj.NodeI
 		&payment.Notes,
 	)
 	if err != nil {
+		if sql.ErrNoRows == err {
+			return heldamount.StoragenodePayment{}, heldamount.ErrNoDataForPeriod.Wrap(err)
+		}
+
 		return heldamount.StoragenodePayment{}, Error.Wrap(err)
 	}
 

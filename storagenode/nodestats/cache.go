@@ -21,11 +21,6 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
-var (
-	// NodeStatsCacheErr defines node stats cache loop error
-	NodeStatsCacheErr = errs.Class("node stats cache error")
-)
-
 // Config defines nodestats cache configuration
 type Config struct {
 	MaxSleep       time.Duration `help:"maximum duration to wait before requesting data" releaseDefault:"300s" devDefault:"1s"`
@@ -97,6 +92,11 @@ func (cache *Cache) Run(ctx context.Context) error {
 			cache.log.Error("Get disk space usage query failed", zap.Error(err))
 		}
 
+		err = cache.CacheHeldAmount(ctx)
+		if err != nil {
+			cache.log.Error("Get held amount query failed", zap.Error(err))
+		}
+
 		return nil
 	})
 
@@ -150,21 +150,30 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
-		payStub, err := cache.heldamountService.GetPaystubStats(ctx, satellite, time.Now().String())
+		payStub, err := cache.heldamountService.GetPaystubStats(ctx, satellite, time.Now().AddDate(0, -1, 0).String())
 		if err != nil {
-			return err
-		}
-		if err = cache.db.HeldAmount.StorePayStub(ctx, *payStub); err != nil {
+			if heldamount.ErrNoPayStubForPeriod.Has(err) {
+				return nil
+			}
+
 			return err
 		}
 
-		payment, err := cache.heldamountService.GetPayment(ctx, satellite, time.Now().String())
+		if payStub != nil {
+			if err = cache.db.HeldAmount.StorePayStub(ctx, *payStub); err != nil {
+				return err
+			}
+		}
+
+		payment, err := cache.heldamountService.GetPayment(ctx, satellite, time.Now().AddDate(0, -1, 0).String())
 		if err != nil {
 			return err
 		}
 
-		if err = cache.db.HeldAmount.StorePayment(ctx, *payment); err != nil {
-			return err
+		if payment != nil {
+			if err = cache.db.HeldAmount.StorePayment(ctx, *payment); err != nil {
+				return err
+			}
 		}
 
 		return nil
