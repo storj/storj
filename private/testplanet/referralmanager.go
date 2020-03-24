@@ -67,7 +67,9 @@ func (planet *Planet) newReferralManager() (*server.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	pb.DRPCRegisterReferralManager(referralmanager.DRPC(), endpoints)
+	if err := pb.DRPCRegisterReferralManager(referralmanager.DRPC(), endpoints); err != nil {
+		return nil, err
+	}
 
 	log.Debug("id=" + identity.ID.String() + " addr=" + referralmanager.Addr().String())
 	return referralmanager, nil

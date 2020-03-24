@@ -30,7 +30,7 @@ require (
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.4.0
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/stripe/stripe-go v63.1.1+incompatible
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/zeebo/errs v1.2.2
@@ -41,8 +41,8 @@ require (
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.27.1
-	storj.io/common v0.0.0-20200323134045-2bd4d6e2dd7d
-	storj.io/drpc v0.0.8
+	storj.io/common v0.0.0-20200324171116-bad40c947e25
+	storj.io/drpc v0.0.11
 	storj.io/private v0.0.0-20200323175212-c3ef21e873a9
 	storj.io/uplink v1.0.0
 )

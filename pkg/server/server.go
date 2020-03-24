@@ -17,6 +17,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
 	"storj.io/storj/pkg/listenmux"
 	"storj.io/storj/private/grpctlsopts"
@@ -34,12 +35,14 @@ type public struct {
 	listener net.Listener
 	drpc     *drpcserver.Server
 	grpc     *grpc.Server
+	mux      *drpcmux.Mux
 }
 
 type private struct {
 	listener net.Listener
 	drpc     *drpcserver.Server
 	grpc     *grpc.Server
+	mux      *drpcmux.Mux
 }
 
 // Server represents a bundle of services defined by a specific ID.
@@ -78,24 +81,29 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 	if err != nil {
 		return nil, err
 	}
+
+	publicMux := drpcmux.New()
 	server.public = public{
 		listener: wrapListener(publicListener),
-		drpc:     drpcserver.NewWithOptions(serverOptions),
+		drpc:     drpcserver.NewWithOptions(publicMux, serverOptions),
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
 			grpctlsopts.ServerOption(tlsOptions),
 		),
+		mux: publicMux,
 	}
 
 	privateListener, err := net.Listen("tcp", privateAddr)
 	if err != nil {
 		return nil, errs.Combine(err, publicListener.Close())
 	}
+	privateMux := drpcmux.New()
 	server.private = private{
 		listener: wrapListener(privateListener),
-		drpc:     drpcserver.NewWithOptions(serverOptions),
+		drpc:     drpcserver.NewWithOptions(privateMux, serverOptions),
 		grpc:     grpc.NewServer(),
+		mux:      privateMux,
 	}
 
 	return server, nil
@@ -113,14 +121,14 @@ func (p *Server) PrivateAddr() net.Addr { return p.private.listener.Addr() }
 // GRPC returns the server's gRPC handle for registration purposes
 func (p *Server) GRPC() *grpc.Server { return p.public.grpc }
 
-// DRPC returns the server's dRPC handle for registration purposes
-func (p *Server) DRPC() *drpcserver.Server { return p.public.drpc }
+// DRPC returns the server's dRPC mux for registration purposes
+func (p *Server) DRPC() *drpcmux.Mux { return p.public.mux }
 
 // PrivateGRPC returns the server's gRPC handle for registration purposes
 func (p *Server) PrivateGRPC() *grpc.Server { return p.private.grpc }
 
-// PrivateDRPC returns the server's dRPC handle for registration purposes
-func (p *Server) PrivateDRPC() *drpcserver.Server { return p.private.drpc }
+// PrivateDRPC returns the server's dRPC mux for registration purposes
+func (p *Server) PrivateDRPC() *drpcmux.Mux { return p.private.mux }
 
 // Close shuts down the server
 func (p *Server) Close() error {

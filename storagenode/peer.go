@@ -368,7 +368,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
 		pbgrpc.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
-		pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint)
+		if err := pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 
 	}
 
@@ -457,7 +459,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		pbgrpc.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
-		pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint.DRPC())
+		if err := pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint.DRPC()); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 
 		// TODO workaround for custom timeout for order sending request (read/write)
 		sc := config.Server
@@ -584,7 +588,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.Contact.ExternalAddress,
 		)
 		pbgrpc.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
-		pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector)
+		if err := pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{ // setup graceful exit service
@@ -595,7 +601,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.BlobsCache,
 		)
 		pbgrpc.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
-		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
+		if err := pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 
 		peer.GracefulExit.Chore = gracefulexit.NewChore(
 			peer.Log.Named("gracefulexit:chore"),
