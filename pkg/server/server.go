@@ -22,11 +22,12 @@ import (
 	"storj.io/storj/private/grpctlsopts"
 )
 
-// Service represents a specific gRPC method collection to be registered
-// on a shared gRPC server. Metainfo, OverlayCache, PieceStore,
-// etc. are all examples of services.
-type Service interface {
-	Run(ctx context.Context, server *Server) error
+// Config holds server specific configuration parameters
+type Config struct {
+	tlsopts.Config
+	Address         string `user:"true" help:"public address to listen on" default:":7777"`
+	PrivateAddress  string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
+	DebugLogTraffic bool   `user:"true" help:"log all GRPC traffic to zap logger" default:"false"`
 }
 
 type public struct {
@@ -47,7 +48,6 @@ type Server struct {
 	log        *zap.Logger
 	public     public
 	private    private
-	next       []Service
 	tlsOptions *tlsopts.Options
 
 	mu   sync.Mutex
@@ -58,10 +58,9 @@ type Server struct {
 
 // New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
+func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor) (*Server, error) {
 	server := &Server{
 		log:        log,
-		next:       services,
 		tlsOptions: tlsOptions,
 		done:       make(chan struct{}),
 	}
@@ -144,14 +143,6 @@ func (p *Server) Close() error {
 // Run will run the server and all of its services
 func (p *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// are there any unstarted services? start those first. the
-	// services should know to call Run again once they're ready.
-	if len(p.next) > 0 {
-		next := p.next[0]
-		p.next = p.next[1:]
-		return next.Run(ctx, p)
-	}
 
 	// Make sure the server isn't already closed. If it is, register
 	// ourselves in the wait group so that Close can wait on it.
