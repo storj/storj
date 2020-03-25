@@ -11,7 +11,7 @@ require (
 	github.com/go-redis/redis v6.14.1+incompatible
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang-migrate/migrate/v4 v4.7.0
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.3.3
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/gorilla/mux v1.7.1
@@ -40,7 +40,7 @@ require (
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
-	google.golang.org/grpc v1.27.1
+	google.golang.org/grpc v1.28.0
 	storj.io/common v0.0.0-20200325130515-1ce63718a5c6
 	storj.io/drpc v0.0.11
 	storj.io/private v0.0.0-20200323175212-c3ef21e873a9
