@@ -952,7 +952,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Description: "Backfill vetted_at with time.now for nodes that have been vetted already (aka nodes that have been audited 100 times)",
 				Version:     99,
 				Action: migrate.SQL{
-					`UPDATE nodes SET vetted_at = '2020-03-18 12:00:00.000000+00' WHERE total_audit_count >= 100;`,
+					`UPDATE nodes SET vetted_at = date_trunc('day', now() at time zone 'utc') at time zone 'utc' WHERE total_audit_count >= 100;`,
 				},
 			},
 			{
