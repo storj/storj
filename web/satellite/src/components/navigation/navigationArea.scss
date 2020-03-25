@@ -17,6 +17,10 @@ a {
     background-color: #afb7c1;
 }
 
+.navigation-svg-path {
+    fill: rgb(53, 64, 73);
+}
+
 .navigation-area {
     position: relative;
     min-width: 280px;
@@ -30,7 +34,6 @@ a {
     flex-direction: column;
     justify-content: space-between;
     font-family: 'font_regular', sans-serif;
-    user-select: none;
 
     &__logo {
         display: flex;
@@ -166,7 +169,7 @@ a {
     display: none;
 }
 
-@media screen and (max-width: 1024px) {
+@media screen and (max-width: 1280px) {
 
     ::-webkit-scrollbar,
     ::-webkit-scrollbar-track,

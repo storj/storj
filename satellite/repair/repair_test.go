@@ -472,14 +472,15 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 	})
 }
 
-// TestRemoveIrreparableSegmentFromQueue
+// TestIrreparableSegmentAccordingToOverlay
 // - Upload tests data to 7 nodes
-// - Kill nodes so that repair threshold > online nodes > minimum threshold
+// - Disqualify nodes so that repair threshold > online nodes > minimum threshold
 // - Call checker to add segment to the repair queue
-// - Kill nodes so that online nodes < minimum threshold
+// - Disqualify nodes so that online nodes < minimum threshold
 // - Run the repairer
 // - Verify segment is no longer in the repair queue and segment should be the same
-func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
+// - Verify segment is now in the irreparable db instead
+func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 10,
@@ -495,6 +496,7 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		satellite.Audit.Worker.Loop.Stop()
 
 		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Checker.IrreparableLoop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -502,25 +504,14 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		pointer, _ := getRemoteSegment(t, ctx, satellite)
+		pointer, encryptedPath := getRemoteSegment(t, ctx, satellite)
 
-		// kill nodes and track lost pieces
-		nodesToDQ := make(map[storj.NodeID]bool)
-
-		// Kill 3 nodes so that pointer has 4 left (less than repair threshold)
-		toKill := 3
-
+		// dq 3 nodes so that pointer has 4 left (less than repair threshold)
+		toDQ := 3
 		remotePieces := pointer.GetRemote().GetRemotePieces()
 
-		for i, piece := range remotePieces {
-			if i >= toKill {
-				continue
-			}
-			nodesToDQ[piece.NodeId] = true
-		}
-
-		for nodeID := range nodesToDQ {
-			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, nodeID)
+		for i := 0; i < toDQ; i++ {
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, remotePieces[i].NodeId)
 			require.NoError(t, err)
 		}
 
@@ -529,7 +520,7 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		satellite.Repair.Checker.Loop.TriggerWait()
 		satellite.Repair.Checker.Loop.Pause()
 
-		// Kill nodes so that online nodes < minimum threshold
+		// Disqualify nodes so that online nodes < minimum threshold
 		// This will make the segment irreparable
 		for _, piece := range remotePieces {
 			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, piece.NodeId)
@@ -542,27 +533,154 @@ func TestRemoveIrreparableSegmentFromQueue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, count, 1)
 
+		// Verify that the segment is not in the irreparable db
+		irreparableSegment, err := satellite.DB.Irreparable().Get(ctx, []byte(encryptedPath))
+		require.Error(t, err)
+		require.Nil(t, irreparableSegment)
+
 		// Run the repairer
+		beforeRepair := time.Now().Truncate(time.Second)
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.WaitForPendingRepairs()
+		afterRepair := time.Now().Truncate(time.Second)
 
 		// Verify that the segment was removed
 		count, err = satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, 0)
+
+		// Verify that the segment _is_ in the irreparable db
+		irreparableSegment, err = satellite.DB.Irreparable().Get(ctx, []byte(encryptedPath))
+		require.NoError(t, err)
+		require.Equal(t, encryptedPath, string(irreparableSegment.Path))
+		lastAttemptTime := time.Unix(irreparableSegment.LastRepairAttempt, 0)
+		require.Falsef(t, lastAttemptTime.Before(beforeRepair), "%s is before %s", lastAttemptTime, beforeRepair)
+		require.Falsef(t, lastAttemptTime.After(afterRepair), "%s is after %s", lastAttemptTime, afterRepair)
 	})
 }
 
-// TestRepairMultipleDisqualified does the following:
+func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *storagenode.Peer, isUp bool, timestamp time.Time) error {
+	local := node.Local()
+	checkInInfo := overlay.NodeCheckInInfo{
+		NodeID:     node.ID(),
+		Address:    local.Address,
+		LastIPPort: local.LastIPPort,
+		IsUp:       isUp,
+		Operator:   &local.Operator,
+		Capacity:   &local.Capacity,
+		Version:    &local.Version,
+	}
+	return overlayDB.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-24*time.Hour), overlay.NodeSelectionConfig{})
+}
+
+// TestIrreparableSegmentNodesOffline
+// - Upload tests data to 7 nodes
+// - Disqualify nodes so that repair threshold > online nodes > minimum threshold
+// - Call checker to add segment to the repair queue
+// - Kill (as opposed to disqualifying) nodes so that online nodes < minimum threshold
+// - Run the repairer
+// - Verify segment is no longer in the repair queue and segment should be the same
+// - Verify segment is now in the irreparable db instead
+func TestIrreparableSegmentNodesOffline(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 10,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(3, 5, 7, 7),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// first, upload some remote data
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Stop()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Checker.IrreparableLoop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		pointer, encryptedPath := getRemoteSegment(t, ctx, satellite)
+
+		// kill 3 nodes and mark them as offline so that pointer has 4 left from overlay
+		// perspective (less than repair threshold)
+		toMarkOffline := 3
+		remotePieces := pointer.GetRemote().GetRemotePieces()
+
+		for i := 0; i < toMarkOffline; i++ {
+			node := planet.FindNode(remotePieces[i].NodeId)
+			stopNodeByID(t, ctx, planet, node.ID())
+			err = updateNodeCheckIn(ctx, satellite.DB.OverlayCache(), node, false, time.Now().Add(-24*time.Hour))
+			require.NoError(t, err)
+		}
+
+		// trigger checker to add segment to repair queue
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+
+		// Verify that the segment is on the repair queue
+		count, err := satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, 1)
+
+		// Kill 2 extra nodes so that the number of available pieces is less than the minimum
+		for i := toMarkOffline; i < toMarkOffline+2; i++ {
+			stopNodeByID(t, ctx, planet, remotePieces[i].NodeId)
+		}
+
+		// Mark nodes as online again so that online nodes > minimum threshold
+		// This will make the repair worker attempt to download the pieces
+		for i := 0; i < toMarkOffline; i++ {
+			node := planet.FindNode(remotePieces[i].NodeId)
+			err := updateNodeCheckIn(ctx, satellite.DB.OverlayCache(), node, true, time.Now())
+			require.NoError(t, err)
+		}
+
+		// Verify that the segment is not in the irreparable db
+		irreparableSegment, err := satellite.DB.Irreparable().Get(ctx, []byte(encryptedPath))
+		require.Error(t, err)
+		require.Nil(t, irreparableSegment)
+
+		// Run the repairer
+		beforeRepair := time.Now().Truncate(time.Second)
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+		afterRepair := time.Now().Truncate(time.Second)
+
+		// Verify that the segment was removed from the repair queue
+		count, err = satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, 0)
+
+		// Verify that the segment _is_ in the irreparable db
+		irreparableSegment, err = satellite.DB.Irreparable().Get(ctx, []byte(encryptedPath))
+		require.NoError(t, err)
+		require.Equal(t, encryptedPath, string(irreparableSegment.Path))
+		lastAttemptTime := time.Unix(irreparableSegment.LastRepairAttempt, 0)
+		require.Falsef(t, lastAttemptTime.Before(beforeRepair), "%s is before %s", lastAttemptTime, beforeRepair)
+		require.Falsef(t, lastAttemptTime.After(afterRepair), "%s is after %s", lastAttemptTime, afterRepair)
+	})
+}
+
+// TestRepairMultipleDisqualifiedAndSuspended does the following:
 // - Uploads test data to 7 nodes
-// - Disqualifies 3 nodes
+// - Disqualifies 2 nodes and suspends 1 node
 // - Triggers data repair, which repairs the data from the remaining 4 nodes to additional 3 new nodes
 // - Shuts down the 4 nodes from which the data was repaired
 // - Now we have just the 3 new nodes to which the data was repaired
 // - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
-func TestRepairMultipleDisqualified(t *testing.T) {
+// - Expect newly repaired pointer does not contain the disqualified or suspended nodes
+func TestRepairMultipleDisqualifiedAndSuspended(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 12,
@@ -601,32 +719,33 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 
 		// calculate how many storagenodes to disqualify
 		numStorageNodes := len(planet.StorageNodes)
-		redundancy := pointer.GetRemote().GetRedundancy()
 		remotePieces := pointer.GetRemote().GetRemotePieces()
-		minReq := redundancy.GetMinReq()
 		numPieces := len(remotePieces)
-		toDisqualify := numPieces - (int(minReq + 1))
+		// sanity check
+		require.EqualValues(t, numPieces, 7)
+		toDisqualify := 2
+		toSuspend := 1
 		// we should have enough storage nodes to repair on
-		require.True(t, (numStorageNodes-toDisqualify) >= numPieces)
+		require.True(t, (numStorageNodes-toDisqualify-toSuspend) >= numPieces)
 
 		// disqualify nodes and track lost pieces
 		nodesToDisqualify := make(map[storj.NodeID]bool)
+		nodesToSuspend := make(map[storj.NodeID]bool)
 		nodesToKeepAlive := make(map[storj.NodeID]bool)
 
-		for i, piece := range remotePieces {
-			if i >= toDisqualify {
-				nodesToKeepAlive[piece.NodeId] = true
-				continue
-			}
-			nodesToDisqualify[piece.NodeId] = true
+		// disqualify and suspend nodes
+		for i := 0; i < toDisqualify; i++ {
+			nodesToDisqualify[remotePieces[i].NodeId] = true
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, remotePieces[i].NodeId)
+			require.NoError(t, err)
 		}
-
-		for _, node := range planet.StorageNodes {
-			if nodesToDisqualify[node.ID()] {
-				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, node.ID())
-				require.NoError(t, err)
-
-			}
+		for i := toDisqualify; i < toDisqualify+toSuspend; i++ {
+			nodesToSuspend[remotePieces[i].NodeId] = true
+			err := satellite.DB.OverlayCache().SuspendNode(ctx, remotePieces[i].NodeId, time.Now())
+			require.NoError(t, err)
+		}
+		for i := toDisqualify + toSuspend; i < len(remotePieces); i++ {
+			nodesToKeepAlive[remotePieces[i].NodeId] = true
 		}
 
 		err = satellite.Repair.Checker.RefreshReliabilityCache(ctx)
@@ -648,13 +767,14 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, newData, testData)
 
-		// updated pointer should not contain any of the disqualified nodes
+		// updated pointer should not contain any of the disqualified or suspended nodes
 		pointer, err = metainfo.Get(ctx, path)
 		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
 		for _, piece := range remotePieces {
 			require.False(t, nodesToDisqualify[piece.NodeId])
+			require.False(t, nodesToSuspend[piece.NodeId])
 		}
 	})
 }
@@ -1026,7 +1146,7 @@ func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, 
 						Timestamp:  time.Time{},
 						Release:    false,
 					},
-				}, time.Now().UTC().Add(-4*time.Hour))
+				}, time.Now().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
 

@@ -5,10 +5,12 @@ package metainfo
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"golang.org/x/time/rate"
 
@@ -67,9 +69,51 @@ type ScopedPath struct {
 }
 
 type observerContext struct {
-	Observer
+	observer Observer
+
 	ctx  context.Context
 	done chan error
+
+	object *monkit.DurationDist
+	remote *monkit.DurationDist
+	inline *monkit.DurationDist
+}
+
+func newObserverContext(ctx context.Context, obs Observer) *observerContext {
+	name := fmt.Sprintf("%T", obs)
+	key := monkit.NewSeriesKey("observer").WithTag("name", name)
+
+	return &observerContext{
+		observer: obs,
+
+		ctx:  ctx,
+		done: make(chan error),
+
+		object: monkit.NewDurationDist(key.WithTag("pointer_type", "object")),
+		inline: monkit.NewDurationDist(key.WithTag("pointer_type", "inline")),
+		remote: monkit.NewDurationDist(key.WithTag("pointer_type", "remote")),
+	}
+}
+
+func (observer *observerContext) Object(ctx context.Context, path ScopedPath, pointer *pb.Pointer) error {
+	start := time.Now()
+	defer func() { observer.object.Insert(time.Since(start)) }()
+
+	return observer.observer.Object(ctx, path, pointer)
+}
+
+func (observer *observerContext) RemoteSegment(ctx context.Context, path ScopedPath, pointer *pb.Pointer) error {
+	start := time.Now()
+	defer func() { observer.remote.Insert(time.Since(start)) }()
+
+	return observer.observer.RemoteSegment(ctx, path, pointer)
+}
+
+func (observer *observerContext) InlineSegment(ctx context.Context, path ScopedPath, pointer *pb.Pointer) error {
+	start := time.Now()
+	defer func() { observer.inline.Insert(time.Since(start)) }()
+
+	return observer.observer.InlineSegment(ctx, path, pointer)
 }
 
 func (observer *observerContext) HandleError(err error) bool {
@@ -83,6 +127,10 @@ func (observer *observerContext) HandleError(err error) bool {
 
 func (observer *observerContext) Finish() {
 	close(observer.done)
+
+	name := fmt.Sprintf("%T", observer.observer)
+	stats := allObserverStatsCollectors.GetStats(name)
+	stats.Observe(observer)
 }
 
 func (observer *observerContext) Wait() error {
@@ -122,11 +170,7 @@ func NewLoop(config LoopConfig, db PointerDB) *Loop {
 func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	obsContext := &observerContext{
-		Observer: observer,
-		ctx:      ctx,
-		done:     make(chan error),
-	}
+	obsContext := newObserverContext(ctx, observer)
 
 	select {
 	case loop.join <- obsContext:
@@ -193,11 +237,7 @@ waitformore:
 func IterateDatabase(ctx context.Context, rateLimit float64, db PointerDB, observers ...Observer) error {
 	obsContexts := make([]*observerContext, len(observers))
 	for i, observer := range observers {
-		obsContexts[i] = &observerContext{
-			Observer: observer,
-			ctx:      ctx,
-			done:     make(chan error),
-		}
+		obsContexts[i] = newObserverContext(ctx, observer)
 	}
 	return iterateDatabase(ctx, db, obsContexts, rate.NewLimiter(rate.Limit(rateLimit), 1))
 }

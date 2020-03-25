@@ -8,7 +8,7 @@ cleanup(){
 }
 trap cleanup EXIT
 
-docker run --rm -d -p 5433:5432 --name $CONTAINER_NAME postgres:9.6 -c log_min_duration_statement=0
+docker run --rm -d -p 5433:5432 --name $CONTAINER_NAME -e POSTGRES_PASSWORD=tmppass postgres:9.6 -c log_min_duration_statement=0
 docker logs -f $CONTAINER_NAME > $LOG_FILE 2>&1 &
 
 STORJ_SIM_DATABASE=${STORJ_SIM_DATABASE:-"teststorj"}
@@ -22,4 +22,4 @@ done
 
 docker exec $CONTAINER_NAME psql -h localhost -U postgres -c "create database $STORJ_SIM_DATABASE;"
 
-export STORJ_SIM_POSTGRES="postgres://postgres@localhost:5433/$STORJ_SIM_DATABASE?sslmode=disable"
+export STORJ_SIM_POSTGRES="postgres://postgres:tmppass@localhost:5433/$STORJ_SIM_DATABASE?sslmode=disable"

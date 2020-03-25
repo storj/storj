@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
-	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
@@ -145,12 +144,24 @@ func (service *Service) CreateGetOrderLimitsOld(ctx context.Context, bucketID []
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 
+	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
+	for i, piece := range pointer.GetRemote().GetRemotePieces() {
+		nodeIDs[i] = piece.NodeId
+	}
+
+	nodes, err := service.overlay.GetNodes(ctx, nodeIDs)
+	if err != nil {
+		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
 	var combinedErrs error
 	var limits []*pb.AddressedOrderLimit
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		node, err := service.overlay.Get(ctx, piece.NodeId)
-		if err != nil {
-			service.log.Debug("error getting node from overlay", zap.Error(err))
+		node, ok := nodes[piece.NodeId]
+		if !ok {
+			service.log.Debug("node does not exist in nodes map", zap.Stringer("ID", piece.NodeId))
+			err = errs.New("node ID %v does not exist in nodes map", piece.NodeId)
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -188,9 +199,13 @@ func (service *Service) CreateGetOrderLimitsOld(ctx context.Context, bucketID []
 			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}
 
+		// use the lastIP that we have on record to avoid doing extra DNS resolutions
+		if node.LastIPPort != "" {
+			node.Address.Address = node.LastIPPort
+		}
 		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		})
 	}
 
@@ -241,12 +256,24 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 
+	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
+	for i, piece := range pointer.GetRemote().GetRemotePieces() {
+		nodeIDs[i] = piece.NodeId
+	}
+
+	nodes, err := service.overlay.GetNodes(ctx, nodeIDs)
+	if err != nil {
+		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
 	var combinedErrs error
 	var limits []*pb.AddressedOrderLimit
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		node, err := service.overlay.Get(ctx, piece.NodeId)
-		if err != nil {
-			service.log.Debug("error getting node from overlay", zap.Error(err))
+		node, ok := nodes[piece.NodeId]
+		if !ok {
+			service.log.Debug("node does not exist in nodes map", zap.Stringer("ID", piece.NodeId))
+			err = errs.New("node ID %v does not exist in nodes map", piece.NodeId)
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -281,9 +308,13 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 			OrderExpiration:  orderExpiration,
 		}
 
+		// use the lastIP that we have on record to avoid doing extra DNS resolutions
+		if node.LastIPPort != "" {
+			node.Address.Address = node.LastIPPort
+		}
 		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		})
 	}
 
@@ -353,7 +384,7 @@ func (service *Service) RandomSampleOfOrderLimits(limits []*pb.AddressedOrderLim
 }
 
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
-func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byte, nodes []*pb.Node, expiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byte, nodes []*overlay.NodeDossier, expiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	orderExpiration := time.Now().Add(service.orderExpiration)
@@ -387,11 +418,16 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byt
 		})
 		if err != nil {
 			return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+
 		}
 
+		// use the lastIP that we have on record to avoid doing extra DNS resolutions
+		if node.LastIPPort != "" {
+			node.Address.Address = node.LastIPPort
+		}
 		limits[pieceNum] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		}
 		pieceNum++
 	}
@@ -430,12 +466,24 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
+	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
+	for i, piece := range pointer.GetRemote().GetRemotePieces() {
+		nodeIDs[i] = piece.NodeId
+	}
+
+	nodes, err := service.overlay.GetNodes(ctx, nodeIDs)
+	if err != nil {
+		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
 	var combinedErrs error
 	var limits []*pb.AddressedOrderLimit
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		node, err := service.overlay.Get(ctx, piece.NodeId)
-		if err != nil {
-			service.log.Error("error getting node from overlay", zap.Error(err))
+		node, ok := nodes[piece.NodeId]
+		if !ok {
+			service.log.Debug("node does not exist in nodes map", zap.Stringer("ID", piece.NodeId))
+			err = errs.New("node ID %v does not exist in nodes map", piece.NodeId)
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -473,9 +521,13 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}
 
+		// use the lastIP that we have on record to avoid doing extra DNS resolutions
+		if node.LastIPPort != "" {
+			node.Address.Address = node.LastIPPort
+		}
 		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		})
 	}
 
@@ -513,6 +565,17 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
+	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
+	for i, piece := range pointer.GetRemote().GetRemotePieces() {
+		nodeIDs[i] = piece.NodeId
+	}
+
+	nodes, err := service.overlay.GetNodes(ctx, nodeIDs)
+	if err != nil {
+		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
 	var combinedErrs error
 	var limitsCount int32
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
@@ -521,9 +584,10 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 			continue
 		}
 
-		node, err := service.overlay.Get(ctx, piece.NodeId)
-		if err != nil {
-			service.log.Error("error getting node from overlay", zap.Error(err))
+		node, ok := nodes[piece.NodeId]
+		if !ok {
+			service.log.Debug("node does not exist in nodes map", zap.Stringer("ID", piece.NodeId))
+			err = errs.New("node ID %v does not exist in nodes map", piece.NodeId)
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -563,7 +627,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 
 		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		}
 		limitsCount++
 	}
@@ -637,7 +701,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 
 	limit = &pb.AddressedOrderLimit{
 		Limit:              orderLimit,
-		StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+		StorageNodeAddress: node.Address,
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -686,13 +750,25 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
+	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
+	for i, piece := range pointer.GetRemote().GetRemotePieces() {
+		nodeIDs[i] = piece.NodeId
+	}
+
+	nodes, err := service.overlay.GetNodes(ctx, nodeIDs)
+	if err != nil {
+		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
 	var combinedErrs error
 	var limitsCount int
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range healthy {
-		node, err := service.overlay.Get(ctx, piece.NodeId)
-		if err != nil {
-			service.log.Error("error getting node from the overlay", zap.Error(err))
+		node, ok := nodes[piece.NodeId]
+		if !ok {
+			service.log.Debug("node does not exist in nodes map", zap.Stringer("ID", piece.NodeId))
+			err = errs.New("node ID %v does not exist in nodes map", piece.NodeId)
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
@@ -732,7 +808,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 
 		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		}
 		limitsCount++
 	}
@@ -759,7 +835,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 }
 
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of pointer to newNodes.
-func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*pb.Node) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*overlay.NodeDossier) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 	orderExpiration := time.Now().Add(service.orderExpiration)
 
@@ -833,7 +909,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 
 			limits[pieceNum] = &pb.AddressedOrderLimit{
 				Limit:              orderLimit,
-				StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+				StorageNodeAddress: node.Address,
 			}
 			pieceNum++
 			totalPiecesToRepair--
@@ -916,7 +992,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 
 	limit = &pb.AddressedOrderLimit{
 		Limit:              orderLimit,
-		StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+		StorageNodeAddress: node.Address,
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -964,11 +1040,4 @@ func SplitBucketID(bucketID []byte) (projectID *uuid.UUID, bucketName []byte, er
 		return nil, nil, err
 	}
 	return projectID, bucketName, nil
-}
-
-// lookupNodeAddress tries to resolve node address to an IP to avoid DNS lookups on the uplink side.
-func lookupNodeAddress(ctx context.Context, address *pb.NodeAddress) *pb.NodeAddress {
-	new := *address
-	new.Address = rpc.LookupNodeAddress(ctx, address.Address)
-	return &new
 }

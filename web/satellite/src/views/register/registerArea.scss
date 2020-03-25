@@ -163,10 +163,6 @@ body {
                 width: 23px;
                 cursor: pointer;
                 font-size: 22px;
-                -webkit-user-select: none;
-                -moz-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
                 outline: none;
             }
 
@@ -253,34 +249,6 @@ body {
 
 .input-wrap.full-input {
     width: 100%;
-}
-
-.loading-overlay {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 100vh;
-    z-index: 100;
-    background-color: rgba(134, 134, 148, 0.7);
-    visibility: hidden;
-    opacity: 0;
-    -webkit-transition: all 0.5s linear;
-    -moz-transition: all 0.5s linear;
-    -o-transition: all 0.5s linear;
-    transition: all 0.5s linear;
-
-    .loading-image {
-        z-index: 200;
-    }
-}
-
-.loading-overlay.active {
-    visibility: visible;
-    opacity: 1;
 }
 
 .image {

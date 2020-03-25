@@ -84,7 +84,6 @@ export default class EmptyStateProjectArea extends Vue {
                 margin-bottom: 15px;
                 min-width: 900px;
                 color: #354049;
-                user-select: none;
             }
         }
     }

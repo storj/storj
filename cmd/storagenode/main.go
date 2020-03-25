@@ -18,10 +18,10 @@ import (
 	"storj.io/common/fpath"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
+	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/private/version"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )
@@ -176,7 +176,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	// okay, start doing stuff ====
 
-	err = peer.Version.CheckVersion(ctx)
+	_, err = peer.Version.Service.CheckVersion(ctx)
 	if err != nil {
 		return err
 	}

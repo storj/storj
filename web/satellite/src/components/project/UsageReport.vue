@@ -105,14 +105,14 @@ export default class UsageReport extends Vue {
      * Returns formatted starting date for report.
      */
     public get startDate(): string {
-        return DateFormat.getUSDate(this.$store.state.usageModule.startDate, '/');
+        return DateFormat.getUTCDate(this.$store.state.usageModule.startDate, '/');
     }
 
     /**
      * Returns formatted end date for report.
      */
     public get endDate(): string {
-        return DateFormat.getUSDate(this.$store.state.usageModule.endDate, '/');
+        return DateFormat.getUTCDate(this.$store.state.usageModule.endDate, '/');
     }
 
     /**
@@ -188,7 +188,7 @@ export default class UsageReport extends Vue {
      * Changes location to project overview route.
      */
     public onBackClick(): void {
-        this.$router.push(RouteConfig.ProjectOverview.path);
+        this.$router.push(RouteConfig.ProjectDashboard.path);
     }
 
     public async onCurrentRollupClick(event: any): Promise<void> {
@@ -324,7 +324,6 @@ export default class UsageReport extends Vue {
                 line-height: 39px;
                 color: #263549;
                 margin: 0;
-                user-select: none;
             }
         }
 
@@ -354,7 +353,6 @@ export default class UsageReport extends Vue {
                     font-size: 16px;
                     line-height: 23px;
                     color: #354049;
-                    user-select: none;
                 }
 
                 &__image {
@@ -370,7 +368,7 @@ export default class UsageReport extends Vue {
 
                     .usage-report-container__options-area__option__image {
 
-                        .usage-report-svg-path {
+                        .date-picker-svg-path {
                             fill: #fff !important;
                         }
                     }
@@ -414,7 +412,6 @@ export default class UsageReport extends Vue {
                         color: #354049;
                         margin-block-start: 0;
                         margin-block-end: 0;
-                        user-select: none;
                     }
 
                     &__amount {
@@ -465,7 +462,6 @@ export default class UsageReport extends Vue {
                         line-height: 21px;
                         color: #354049;
                         margin-right: 30px;
-                        user-select: none;
                     }
 
                     &__image {

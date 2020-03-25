@@ -52,7 +52,8 @@ type Config struct {
 	IdentityVersion *storj.IDVersion
 	Reconfigure     Reconfigure
 
-	Name string
+	Name        string
+	NonParallel bool
 }
 
 // Planet is a full storj system setup.
@@ -235,6 +236,16 @@ func (planet *Planet) StopPeer(peer Peer) error {
 
 // Size returns number of nodes in the network
 func (planet *Planet) Size() int { return len(planet.uplinks) + len(planet.peers) }
+
+// FindNode is a helper to retrieve a storage node record by its node ID.
+func (planet *Planet) FindNode(nodeID storj.NodeID) *storagenode.Peer {
+	for _, node := range planet.StorageNodes {
+		if node.ID() == nodeID {
+			return node
+		}
+	}
+	return nil
+}
 
 // Shutdown shuts down all the nodes and deletes temporary directories.
 func (planet *Planet) Shutdown() error {

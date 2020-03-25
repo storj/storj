@@ -78,6 +78,7 @@ export class UpdateProjectModel {
 export class CreateProjectModel {
     public name: string;
     public description: string;
+    public ownerId: string;
 }
 
 export class ProjectLimits {

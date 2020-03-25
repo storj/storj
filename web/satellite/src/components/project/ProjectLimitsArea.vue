@@ -23,7 +23,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 
 @Component

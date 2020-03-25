@@ -13,6 +13,7 @@ import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { makeUsageModule } from '@/store/modules/usage';
 import { makeUsersModule } from '@/store/modules/users';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
@@ -82,6 +83,22 @@ describe('Dashboard', () => {
         expect(wrapper.findAll('.dashboard-container__wrap').length).toBe(0);
     });
 
+    it('renders correctly without project and with payment method', async () => {
+        store.commit(APP_STATE_MUTATIONS.SHOW_CONTENT_BLUR);
+
+        const wrapper = shallowMount(DashboardArea, {
+            store,
+            localVue,
+            router,
+        });
+
+        expect(wrapper).toMatchSnapshot();
+
+        await wrapper.find('.dashboard-container__blur-area__button').trigger('click');
+
+        expect(wrapper).toMatchSnapshot();
+    });
+
     it('renders correctly when data is loaded', () => {
         store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
 
@@ -99,7 +116,7 @@ describe('Dashboard', () => {
     it('loads routes correctly when authorithed without project with available routes', async () => {
         const availableWithoutProject = [
             RouteConfig.Account.with(RouteConfig.Billing).path,
-            RouteConfig.Account.with(RouteConfig.Profile).path,
+            RouteConfig.Account.with(RouteConfig.Settings).path,
         ];
 
         for (let i = 0; i < availableWithoutProject.length; i++) {
@@ -120,7 +137,7 @@ describe('Dashboard', () => {
             RouteConfig.ApiKeys.path,
             RouteConfig.Buckets.path,
             RouteConfig.Team.path,
-            RouteConfig.ProjectOverview.with(RouteConfig.UsageReport).path,
+            RouteConfig.ProjectDashboard.with(RouteConfig.UsageReport).path,
         ];
 
         for (let i = 0; i < unavailableWithoutProject.length; i++) {
@@ -133,7 +150,7 @@ describe('Dashboard', () => {
             });
 
             setTimeout(() => {
-                expect(wrapper.vm.$router.currentRoute.path).toBe(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+                expect(wrapper.vm.$router.currentRoute.path).toBe(RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path);
             }, 50);
         }
 

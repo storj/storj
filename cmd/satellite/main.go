@@ -16,15 +16,15 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/context2"
 	"storj.io/common/fpath"
 	"storj.io/common/storj"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
+	"storj.io/private/version"
 	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/pkg/cache"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/private/context2"
-	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/metainfo"
@@ -84,6 +84,11 @@ var (
 		Short: "Run the satellite Admin",
 		RunE:  cmdAdminRun,
 	}
+	runGCCmd = &cobra.Command{
+		Use:   "garbage-collection",
+		Short: "Run the satellite garbage collection process",
+		RunE:  cmdGCRun,
+	}
 	setupCmd = &cobra.Command{
 		Use:         "setup",
 		Short:       "Create config files",
@@ -120,13 +125,18 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdGracefulExit,
 	}
-
 	verifyGracefulExitReceiptCmd = &cobra.Command{
 		Use:   "verify-exit-receipt [storage node ID] [receipt]",
 		Short: "Verify a graceful exit receipt",
 		Long:  "Verify a graceful exit receipt is valid.",
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdVerifyGracefulExitReceipt,
+	}
+	stripeCustomerCmd = &cobra.Command{
+		Use:   "ensure-stripe-customer",
+		Short: "Ensures that we have a stripe customer for every user",
+		Long:  "Ensures that we have a stripe customer for every satellite user",
+		RunE:  cmdStripeCustomer,
 	}
 
 	runCfg   Satellite
@@ -166,6 +176,7 @@ func init() {
 	runCmd.AddCommand(runAPICmd)
 	runCmd.AddCommand(runAdminCmd)
 	runCmd.AddCommand(runRepairerCmd)
+	runCmd.AddCommand(runGCCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
@@ -173,16 +184,19 @@ func init() {
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(gracefulExitCmd)
 	reportsCmd.AddCommand(verifyGracefulExitReceiptCmd)
+	reportsCmd.AddCommand(stripeCustomerCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAdminCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(verifyGracefulExitReceiptCmd, &verifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
@@ -244,8 +258,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// okay, start doing stuff ====
-
-	err = peer.Version.CheckVersion(ctx)
+	_, err = peer.Version.Service.CheckVersion(ctx)
 	if err != nil {
 		return err
 	}
@@ -414,6 +427,12 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	return generateNodeUsageCSV(ctx, start, end, file)
+}
+
+func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return generateStripeCustomers(ctx)
 }
 
 func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {

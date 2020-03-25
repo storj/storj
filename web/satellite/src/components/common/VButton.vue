@@ -30,6 +30,8 @@ export default class VButton extends Vue {
     @Prop({default: false})
     private readonly isDeletion: boolean;
     @Prop({default: false})
+    private readonly isBlueWhite: boolean;
+    @Prop({default: false})
     private isDisabled: boolean;
     @Prop({default: () => { return; }})
     private readonly onPress: Function;
@@ -45,6 +47,8 @@ export default class VButton extends Vue {
 
         if (this.isDeletion) return 'container red';
 
+        if (this.isBlueWhite) return 'container blue-white';
+
         return 'container';
     }
 }
@@ -58,6 +62,15 @@ export default class VButton extends Vue {
 
         .label {
             color: #354049 !important;
+        }
+    }
+
+    .blue-white {
+        background-color: transparent !important;
+        border: 2px solid #2683ff !important;
+
+        .label {
+            color: #2683ff !important;
         }
     }
 
@@ -77,7 +90,6 @@ export default class VButton extends Vue {
         background-color: #2683ff;
         border-radius: 6px;
         cursor: pointer;
-        user-select: none;
 
         .label {
             font-family: 'font_medium', sans-serif;
@@ -89,7 +101,8 @@ export default class VButton extends Vue {
         &:hover {
             background-color: #0059d0;
 
-            &.white {
+            &.white,
+            &.blue-white {
                 box-shadow: none !important;
                 background-color: #2683ff !important;
                 border: 1px solid #2683ff !important;

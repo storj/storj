@@ -9,8 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
-	"storj.io/common/storj"
-	"storj.io/storj/pkg/process"
 )
 
 func init() {
@@ -23,7 +21,7 @@ func init() {
 }
 
 func deleteBucket(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	if len(args) == 0 {
 		return fmt.Errorf("no bucket specified for deletion")
@@ -42,23 +40,13 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("nested buckets not supported, use format sj://bucket/")
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket())
+	project, err := cfg.getProject(ctx, false)
 	if err != nil {
 		return convertError(err, dst)
 	}
-	defer closeProjectAndBucket(project, bucket)
+	defer closeProject(project)
 
-	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
-	if err != nil {
-		return convertError(err, dst)
-	}
-
-	if len(list.Items) > 0 {
-		return fmt.Errorf("bucket not empty: %s", dst.Bucket())
-	}
-
-	err = project.DeleteBucket(ctx, dst.Bucket())
-	if err != nil {
+	if _, err := project.DeleteBucket(ctx, dst.Bucket()); err != nil {
 		return convertError(err, dst)
 	}
 

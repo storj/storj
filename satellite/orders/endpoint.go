@@ -17,6 +17,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -59,7 +60,8 @@ type DB interface {
 
 	// WithTransaction runs the callback and provides it with a Transaction.
 	WithTransaction(ctx context.Context, cb func(ctx context.Context, tx Transaction) error) error
-	// WithQueue TODO: DOCS
+	// WithQueue runs the callback and provides it with a Queue. When the callback returns with
+	// no error, any pending serials returned by the queue are removed from it.
 	WithQueue(ctx context.Context, cb func(ctx context.Context, queue Queue) error) error
 }
 
@@ -71,20 +73,21 @@ type Transaction interface {
 	// UpdateStoragenodeBandwidthBatch updates all the bandwidth rollups in the database
 	UpdateStoragenodeBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []StoragenodeBandwidthRollup) error
 
-	// CreateConsumedSerialsBatch TODO: DOCS
+	// CreateConsumedSerialsBatch creates the batch of ConsumedSerials.
 	CreateConsumedSerialsBatch(ctx context.Context, consumedSerials []ConsumedSerial) (err error)
 
-	// HasConsumedSerial TODO: DOCS
+	// HasConsumedSerial returns true if the node and serial number have been consumed.
 	HasConsumedSerial(ctx context.Context, nodeID storj.NodeID, serialNumber storj.SerialNumber) (bool, error)
 }
 
-// Queue TODO: DOCS
+// Queue is an abstraction around a queue of pending serials.
 type Queue interface {
-	// GetPendingSerialsBatch TODO: DOCS
-	GetPendingSerialsBatch(ctx context.Context, size int) ([]PendingSerial, error)
+	// GetPendingSerialsBatch returns a batch of pending serials containing at most size
+	// entries. It returns a boolean indicating true if the queue is empty.
+	GetPendingSerialsBatch(ctx context.Context, size int) ([]PendingSerial, bool, error)
 }
 
-// ConsumedSerial TODO: DOCS
+// ConsumedSerial is a serial that has been consumed and its bandwidth recorded.
 type ConsumedSerial struct {
 	NodeID       storj.NodeID
 	SerialNumber storj.SerialNumber
@@ -228,7 +231,7 @@ func monitoredSettlementStreamSend(ctx context.Context, stream settlementStream,
 }
 
 // Settlement receives orders and handles them in batches
-func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err error) {
+func (endpoint *Endpoint) Settlement(stream pbgrpc.Orders_SettlementServer) (err error) {
 	return endpoint.doSettlement(stream)
 }
 

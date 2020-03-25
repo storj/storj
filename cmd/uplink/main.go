@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"storj.io/private/process"
 	"storj.io/storj/cmd/uplink/cmd"
-	"storj.io/storj/pkg/process"
 )
 
 func main() {

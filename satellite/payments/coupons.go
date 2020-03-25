@@ -25,7 +25,7 @@ type Coupons interface {
 	// AddPromotionalCoupon is used to add a promotional coupon for specified users who already have
 	// a project and do not have a promotional coupon yet.
 	// And updates project limits to selected size.
-	AddPromotionalCoupon(ctx context.Context, userID uuid.UUID, duration int, amount int64, projectLimit memory.Size) error
+	AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) error
 
 	// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
 	// a project, payment method and do not have a promotional coupon yet.

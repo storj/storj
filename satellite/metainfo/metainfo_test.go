@@ -12,6 +12,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
@@ -44,43 +45,43 @@ func TestInvalidAPIKey(t *testing.T) {
 			client.SetRawAPIKey([]byte(invalidAPIKey))
 
 			_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
-			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-			assertUnauthenticated(t, err, false)
+			_, _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, _, err = client.ListObjects(ctx, metainfo.ListObjectsParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			err = client.CommitObject(ctx, metainfo.CommitObjectParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.CreateBucket(ctx, metainfo.CreateBucketParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
-			err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
-			assertUnauthenticated(t, err, false)
+			_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
+			assertInvalidArgument(t, err, false)
 
-			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-			assertUnauthenticated(t, err, false)
+			_, _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+			assertInvalidArgument(t, err, false)
 
 			err = client.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.GetObject(ctx, metainfo.GetObjectParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			err = client.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.GetProjectInfo(ctx)
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			// these methods needs StreamID to do authentication
 
@@ -98,19 +99,19 @@ func TestInvalidAPIKey(t *testing.T) {
 			require.NoError(t, err)
 
 			_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: streamID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, _, _, err = client.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{StreamID: streamID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			err = client.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{StreamID: streamID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, _, err = client.ListSegments(ctx, metainfo.ListSegmentsParams{StreamID: streamID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			_, _, err = client.DownloadSegment(ctx, metainfo.DownloadSegmentParams{StreamID: streamID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 
 			// these methods needs SegmentID
 
@@ -127,18 +128,18 @@ func TestInvalidAPIKey(t *testing.T) {
 			require.NoError(t, err)
 
 			err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{SegmentID: segmentID})
-			assertUnauthenticated(t, err, false)
+			assertInvalidArgument(t, err, false)
 		}
 	})
 }
 
-func assertUnauthenticated(t *testing.T, err error, allowed bool) {
+func assertInvalidArgument(t *testing.T, err error, allowed bool) {
 	t.Helper()
 
 	// If it's allowed, we allow any non-unauthenticated error because
 	// some calls error after authentication checks.
 	if !allowed {
-		assert.True(t, errs2.IsRPC(err, rpcstatus.Unauthenticated))
+		assert.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 	}
 }
 
@@ -454,6 +455,34 @@ func TestListGetObjects(t *testing.T) {
 	})
 }
 
+func TestBucketExistenceCheck(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		// test object methods for bucket existence check
+		_, err = metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+			Bucket:        []byte("non-existing-bucket"),
+			EncryptedPath: []byte("encrypted-path"),
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+
+		_, _, err = metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("non-existing-bucket"),
+		})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+	})
+}
+
 func TestBeginCommitListSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -492,7 +521,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 				TotalShares:    4,
 			},
 			EncryptionParameters: storj.EncryptionParameters{},
-			ExpiresAt:            time.Now().UTC().Add(24 * time.Hour),
+			ExpiresAt:            time.Now().Add(24 * time.Hour),
 		}
 		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
@@ -560,7 +589,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 		require.Len(t, objects, 1)
 
 		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
-		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
+		require.True(t, params.ExpiresAt.Equal(objects[0].ExpiresAt))
 
 		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 			Bucket:        []byte(bucket.Name),
@@ -687,7 +716,7 @@ func TestInlineSegment(t *testing.T) {
 				TotalShares:    4,
 			},
 			EncryptionParameters: storj.EncryptionParameters{},
-			ExpiresAt:            time.Now().UTC().Add(24 * time.Hour),
+			ExpiresAt:            time.Now().Add(24 * time.Hour),
 		}
 		beginObjectResp, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
@@ -723,7 +752,7 @@ func TestInlineSegment(t *testing.T) {
 		require.Len(t, objects, 1)
 
 		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
-		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
+		require.True(t, params.ExpiresAt.Equal(objects[0].ExpiresAt))
 
 		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 			Bucket:        params.Bucket,
@@ -778,7 +807,7 @@ func TestInlineSegment(t *testing.T) {
 		}
 
 		{ // test deleting segments
-			streamID, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+			streamID, _, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
 				Bucket:        params.Bucket,
 				EncryptedPath: params.EncryptedPath,
 			})
@@ -852,7 +881,7 @@ func TestRemoteSegment(t *testing.T) {
 			// Begin/Finish deleting segment
 			// List objects
 
-			streamID, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+			streamID, _, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
 				Bucket:        []byte(expectedBucketName),
 				EncryptedPath: items[0].EncryptedPath,
 			})
@@ -1231,7 +1260,7 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
 		require.NoError(t, err)
 
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(time.Second)
 
 		var group2 errs2.Group
 

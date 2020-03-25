@@ -2,9 +2,6 @@
 <!--See LICENSE for copying information.-->
 
 <div class="register-container" @keyup.enter="onCreateClick">
-    <div :class="loadingClassName">
-        <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Company logo loading gif">
-    </div>
     <AuthIcon
         class="image"
         alt="Authentication illustration"
@@ -21,7 +18,7 @@
             </div>
         </div>
         <div class="register-area-wrapper">
-            <div class="register-area">
+            <div class="register-area" v-if="!isRegistrationSuccessful">
                 <div class="register-area__title-container">
                     <h1 class="register-area__title-container__title">Sign Up to Storj</h1>
                 </div>
@@ -76,17 +73,17 @@
                 <div class="register-area__submit-container">
                     <div class="register-area__submit-container__terms-area">
                         <label class="container">
-                            <input type="checkbox" v-model="isTermsAccepted">
-                            <span class="checkmark" :class="{'error': isTermsAcceptedError}"></span>
+                            <input type="checkbox" id="terms" v-model="isTermsAccepted">
+                            <span class="checkmark" :class="{'error': isTermsAcceptedError}"/>
                         </label>
-                        <h2 class="register-area__submit-container__terms-area__terms-confirmation">I agree to the <a class="register-area__submit-container__terms-area__link" href="https://tardigrade.io/terms-of-use/" target="_blank">Terms & Conditions</a></h2>
+                        <h2 class="register-area__submit-container__terms-area__terms-confirmation"><label for="terms">I agree to the </label><a class="register-area__submit-container__terms-area__link" href="https://tardigrade.io/terms-of-use/" target="_blank">Terms & Conditions</a></h2>
                     </div>
                     <div id="createAccountButton" class="register-area__submit-container__create-button" @click.prevent="onCreateClick">
                         <p class="register-area__submit-container__create-button__label">Create Account</p>
                     </div>
                 </div>
             </div>
+            <RegistrationSuccess v-if="isRegistrationSuccessful"/>
         </div>
     </div>
-    <RegistrationSuccessPopup ref="register_success_popup"/>
 </div>

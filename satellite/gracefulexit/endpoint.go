@@ -16,6 +16,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -121,7 +122,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overla
 }
 
 // Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
-func (endpoint *Endpoint) Process(stream pb.SatelliteGracefulExit_ProcessServer) (err error) {
+func (endpoint *Endpoint) Process(stream pbgrpc.SatelliteGracefulExit_ProcessServer) (err error) {
 	return endpoint.doProcess(stream)
 }
 
@@ -387,16 +388,15 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	// populate excluded node IDs
 	remote := pointer.GetRemote()
 	pieces := remote.RemotePieces
-	excludedNodeIDs := make([]storj.NodeID, len(pieces))
+	excludedIDs := make([]storj.NodeID, len(pieces))
 	for i, piece := range pieces {
-		excludedNodeIDs[i] = piece.NodeId
+		excludedIDs[i] = piece.NodeId
 	}
 
 	// get replacement node
 	request := &overlay.FindStorageNodesRequest{
 		RequestedCount: 1,
-		FreeBandwidth:  pieceSize,
-		ExcludedNodes:  excludedNodeIDs,
+		ExcludedIDs:    excludedIDs,
 	}
 
 	newNodes, err := endpoint.overlay.FindStorageNodes(ctx, *request)

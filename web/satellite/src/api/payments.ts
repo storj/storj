@@ -4,6 +4,7 @@
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
+import { toUnixTimestamp } from '@/utils/time';
 
 /**
  * PaymentsHttpApi is a http implementation of Payments API.
@@ -57,8 +58,10 @@ export class PaymentsHttpApi implements PaymentsApi {
     /**
      * projectsCharges returns how much money current user will be charged for each project which he owns.
      */
-    public async projectsCharges(): Promise<ProjectCharge[]> {
-        const path = `${this.ROOT_PATH}/account/charges`;
+    public async projectsCharges(start: Date, end: Date): Promise<ProjectCharge[]> {
+        const since = toUnixTimestamp(start).toString();
+        const before = toUnixTimestamp(end).toString();
+        const path = `${this.ROOT_PATH}/account/charges?from=${since}&to=${before}`;
         const response = await this.client.get(path);
 
         if (!response.ok) {
@@ -73,10 +76,15 @@ export class PaymentsHttpApi implements PaymentsApi {
         if (charges) {
             return charges.map(charge =>
                 new ProjectCharge(
-                    charge.projectId,
-                    charge.storage,
+                    new Date(charge.since),
+                    new Date(charge.before),
                     charge.egress,
-                    charge.objectCount),
+                    charge.storage,
+                    charge.objectCount,
+                    charge.projectId,
+                    charge.storagePrice,
+                    charge.egressPrice,
+                    charge.objectPrice),
             );
         }
 

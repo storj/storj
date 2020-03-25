@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage/redis/redisserver"
@@ -57,16 +57,6 @@ func TestGrapqhlMutation(t *testing.T) {
 			},
 		)
 
-		payments, err := stripecoinpayments.NewService(
-			log.Named("payments"),
-			stripecoinpayments.Config{},
-			db.StripeCoinPayments(),
-			db.Console().Projects(),
-			db.ProjectAccounting(),
-			"0", "0", "0", 10,
-		)
-		require.NoError(t, err)
-
 		redis, err := redisserver.Mini()
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
@@ -84,8 +74,9 @@ func TestGrapqhlMutation(t *testing.T) {
 			projectUsage,
 			db.Rewards(),
 			partnersService,
-			payments.Accounts(),
-			console.TestPasswordCost,
+			mockpayments.Accounts(),
+			console.Config{PasswordCost: console.TestPasswordCost},
+			5000,
 		)
 		require.NoError(t, err)
 

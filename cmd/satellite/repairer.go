@@ -8,10 +8,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/process"
+	"storj.io/common/context2"
+	"storj.io/private/process"
+	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/private/context2"
-	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -66,8 +66,8 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		db.RepairQueue(),
 		db.Buckets(),
 		db.OverlayCache(),
-		db.Orders(),
 		rollupsWriteCache,
+		db.Irreparable(),
 		version.Build,
 		&runCfg.Config,
 	)
@@ -75,7 +75,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	err = peer.Version.CheckVersion(ctx)
+	_, err = peer.Version.Service.CheckVersion(ctx)
 	if err != nil {
 		return err
 	}

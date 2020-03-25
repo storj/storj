@@ -206,7 +206,7 @@ export default class HeaderArea extends Vue {
         const projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         if (!projects.length) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
-            await this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
+            await this.$router.push(RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path);
 
             return;
         }
@@ -231,7 +231,6 @@ export default class HeaderArea extends Vue {
                 line-height: 39px;
                 color: #263549;
                 margin: 0;
-                user-select: none;
             }
 
             &__info-button {
@@ -341,7 +340,7 @@ export default class HeaderArea extends Vue {
     }
 
     /deep/ .info__message-box {
-        background-image: url('../../../static/images/account/billing/MessageBox.png');
+        background-image: url('../../../static/images/team/MessageBox.png');
         background-repeat: no-repeat;
         min-height: 80px;
         min-width: 200px;

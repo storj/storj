@@ -38,8 +38,8 @@ DST_DIR=$TMPDIR/dst
 
 mkdir -p "$SRC_DIR" "$DST_DIR"
 
-random_bytes_file "2048"       "$SRC_DIR/another-testfile"  # create 2kb file of random bytes (inline)
-random_bytes_file "5120"       "$SRC_DIR/testfile"          # create 5kb file of random bytes (inline)
+random_bytes_file "2KiB"       "$SRC_DIR/another-testfile"  # create 2kb file of random bytes (inline)
+random_bytes_file "5KiB"       "$SRC_DIR/testfile"          # create 5kb file of random bytes (remote)
 
 uplink --access "$GATEWAY_0_ACCESS" mb "sj://$BUCKET_WITHOUT_ACCESS/"
 uplink --access "$GATEWAY_0_ACCESS" mb "sj://$BUCKET_WITH_ACCESS/"

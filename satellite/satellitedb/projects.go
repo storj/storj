@@ -97,12 +97,12 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		createFields.PartnerId = dbx.Project_PartnerId(project.PartnerID[:])
 	}
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
+	createFields.UsageLimit = dbx.Project_UsageLimit(0)
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
 		dbx.Project_Name(project.Name),
 		dbx.Project_Description(project.Description),
-		dbx.Project_UsageLimit(0),
 		dbx.Project_OwnerId(project.OwnerID[:]),
 		createFields,
 	)

@@ -13,8 +13,8 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/private/version"
 	"storj.io/storj/private/date"
-	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
@@ -46,7 +46,6 @@ type Service struct {
 	version   *checker.Service
 	pingStats *contact.PingStats
 
-	allocatedBandwidth memory.Size
 	allocatedDiskSpace memory.Size
 
 	walletAddress string
@@ -56,7 +55,7 @@ type Service struct {
 
 // NewService returns new instance of Service.
 func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *checker.Service,
-	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
+	allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
 	reputationDB reputation.DB, storageUsageDB storageusage.DB, pingStats *contact.PingStats, contact *contact.Service) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
@@ -81,6 +80,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 	if contact == nil {
 		return nil, errs.New("contact service can't be nil")
 	}
+
 	return &Service{
 		log:                log,
 		trust:              trust,
@@ -90,7 +90,6 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		pieceStore:         pieceStore,
 		version:            version,
 		pingStats:          pingStats,
-		allocatedBandwidth: allocatedBandwidth,
 		allocatedDiskSpace: allocatedDiskSpace,
 		contact:            contact,
 		walletAddress:      walletAddress,
@@ -176,8 +175,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	}
 
 	data.Bandwidth = BandwidthInfo{
-		Used:      bandwidthUsage,
-		Available: s.allocatedBandwidth.Int64(),
+		Used: bandwidthUsage,
 	}
 
 	return data, nil

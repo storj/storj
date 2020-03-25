@@ -113,7 +113,7 @@ export default class NotificationsArea extends Vue {
 <style scoped lang="scss">
     .notifications-container {
         width: 822px;
-        height: calc(100vh - 89px - 89px);
+        min-height: calc(100vh - 89px - 89px);
 
         &__header {
             width: 100%;

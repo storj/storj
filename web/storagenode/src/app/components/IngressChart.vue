@@ -3,21 +3,22 @@
 
 <template>
     <div class="chart">
-        <p class="ingress-chart__data-dimension">{{chartDataDimension}}</p>
+        <p class="ingress-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
             id="ingress-chart"
             :chart-data="chartData"
-            :width="400"
-            :height="240"
+            :width="chartWidth"
+            :height="chartHeight"
             :tooltip-constructor="ingressTooltip"
+            :key="chartKey"
         />
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component } from 'vue-property-decorator';
 
-import VChart from '@/app/components/VChart.vue';
+import BaseChart from '@/app/components/BaseChart.vue';
 
 import { ChartData } from '@/app/types/chartData';
 import { Tooltip, TooltipParams } from '@/app/types/tooltip';
@@ -40,12 +41,8 @@ class IngressTooltip {
     }
 }
 
-@Component ({
-    components: {
-        VChart,
-    },
-})
-export default class IngressChart extends Vue {
+@Component
+export default class IngressChart extends BaseChart {
     private get allBandwidth(): IngressUsed[] {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.node.ingressChartData);
     }
@@ -108,16 +105,13 @@ export default class IngressChart extends Vue {
 </script>
 
 <style lang="scss">
-    p {
-        margin: 0;
-    }
-
     .ingress-chart {
+        z-index: 102;
 
         &__data-dimension {
             font-size: 13px;
             color: #586c86;
-            margin: 0 0 5px 31px;
+            margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }
     }

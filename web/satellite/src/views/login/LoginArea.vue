@@ -10,14 +10,12 @@ import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
 import LogoIcon from '@/../static/images/Logo.svg';
-import LoadingLogoIcon from '@/../static/images/LogoWhite.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AppState } from '@/utils/constants/appStateEnum';
-import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail, validatePassword } from '@/utils/validation';
 
 @Component({
@@ -25,7 +23,6 @@ import { validateEmail, validatePassword } from '@/utils/validation';
         HeaderlessInput,
         AuthIcon,
         LogoIcon,
-        LoadingLogoIcon,
     },
 })
 export default class Login extends Vue {
@@ -33,15 +30,12 @@ export default class Login extends Vue {
     private password: string = '';
     private authToken: string = '';
     private isLoading: boolean = false;
-
-    private readonly forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
-    private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
-    private loadingLogoClassName: string = LOADING_CLASSES.LOADING_LOGO;
     private emailError: string = '';
     private passwordError: string = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
+    public readonly forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
     public isActivatedBannerShown: boolean = false;
 
     public mounted(): void {
@@ -116,13 +110,9 @@ export default class Login extends Vue {
             top.location.href = window.self.location.origin + '/project-overview/details';
         }
 
-        this.activateLoadingOverlay();
-
-        setTimeout(() => {
-            this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
-            this.isLoading = false;
-            this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
-        }, 2000);
+        await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
+        this.isLoading = false;
+        await this.$router.push(RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path);
     }
 
     private validateFields(): boolean {
@@ -139,14 +129,6 @@ export default class Login extends Vue {
         }
 
         return isNoErrors;
-    }
-
-    /**
-     * Starts loading animation.
-     */
-    private activateLoadingOverlay(): void {
-        this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
-        this.loadingLogoClassName = LOADING_CLASSES.LOADING_LOGO_ACTIVE;
     }
 }
 </script>

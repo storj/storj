@@ -8,7 +8,6 @@ package txutil
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/lib/pq"
@@ -37,7 +36,6 @@ func WithTx(ctx context.Context, db tagsql.DB, txOpts *sql.TxOptions, fn func(co
 		err, rollbackErr := withTxOnce(ctx, db, txOpts, fn)
 		if dur := time.Since(start); dur < 5*time.Minute && i < 10 {
 			if code := errCode(err); code == "CR000" || code == "40001" {
-				mon.Event(fmt.Sprintf("transaction_retry_%d", i+1))
 				continue
 			}
 		} else {

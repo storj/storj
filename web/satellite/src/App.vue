@@ -31,7 +31,6 @@ export default class App extends Vue {
                 'sortTeamMemberByDropdown',
                 'sortTeamMemberByDropdownButton',
                 'notificationArea',
-                'successfulRegistrationPopup',
                 'paymentSelectButton',
                 'paymentSelect',
             ];

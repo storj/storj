@@ -231,7 +231,7 @@ func TestNewClient(t *testing.T) {
 
 		defer ctx.Check(conn.Close)
 
-		client := certificateclient.NewClientFrom(pb.NewDRPCCertificatesClient(conn.Raw()))
+		client := certificateclient.NewClientFrom(pb.NewDRPCCertificatesClient(conn))
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 

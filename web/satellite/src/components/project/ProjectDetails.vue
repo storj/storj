@@ -55,10 +55,11 @@
             <p class="project-details__limits-increase-text">
                 To increase your limits please contact us at
                 <a
-                    href="mailto:support@tardigrade.io"
+                    href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
                     class="project-details__limits-increase-text__link"
+                    target="_blank"
                 >
-                    support@tardigrade.io
+                    -> Request limit increase
                 </a>
             </p>
         </div>
@@ -197,7 +198,6 @@ export default class ProjectDetailsArea extends Vue {
             font-size: 32px;
             line-height: 39px;
             color: #263549;
-            user-select: none;
             margin: 0;
         }
 
@@ -242,7 +242,6 @@ export default class ProjectDetailsArea extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: rgba(56, 75, 101, 0.4);
-                user-select: none;
             }
 
             &__project-name {
@@ -282,7 +281,6 @@ export default class ProjectDetailsArea extends Vue {
                     font-size: 16px;
                     line-height: 21px;
                     color: rgba(56, 75, 101, 0.4);
-                    user-select: none;
                 }
 
                 &__project-description {

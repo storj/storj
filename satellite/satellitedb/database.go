@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -175,4 +176,9 @@ func (db *satelliteDB) StripeCoinPayments() stripecoinpayments.DB {
 // DowntimeTracking returns database for downtime tracking
 func (db *satelliteDB) DowntimeTracking() downtime.DB {
 	return &downtimeTrackingDB{db: db}
+}
+
+// HeldAmount returns database for storagenode payStubs and payments info
+func (db *satelliteDB) HeldAmount() heldamount.DB {
+	return &paymentStubs{db: db}
 }

@@ -92,7 +92,7 @@ func TestDB(t *testing.T) {
 
 func TestQueryAttribution(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		now := time.Now().UTC()
+		now := time.Now()
 
 		projectID := testrand.UUID()
 		partnerID := testrand.UUID()

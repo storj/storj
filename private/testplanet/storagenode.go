@@ -18,7 +18,7 @@ import (
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/debug"
+	"storj.io/private/debug"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/storagenode"
@@ -98,7 +98,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			Storage: piecestore.OldConfig{
 				Path:                   filepath.Join(storageDir, "pieces/"),
 				AllocatedDiskSpace:     1 * memory.GB,
-				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: defaultInterval,
 			},
 			Collector: collector.Config{
@@ -128,8 +127,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					MaxSleep:        0,
 				},
 				Monitor: monitor.Config{
-					MinimumBandwidth: 100 * memory.MB,
-					MinimumDiskSpace: 100 * memory.MB,
+					MinimumDiskSpace:      100 * memory.MB,
+					NotifyLowDiskCooldown: defaultInterval,
 				},
 				Trust: trust.Config{
 					Sources:         sources,

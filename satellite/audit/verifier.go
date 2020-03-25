@@ -40,6 +40,8 @@ var (
 	ErrSegmentDeleted = errs.Class("segment deleted during audit")
 	// ErrSegmentExpired is the errs class used when a segment to audit has already expired.
 	ErrSegmentExpired = errs.Class("segment expired before audit")
+	// ErrSegmentModified is the errs class used when a segment has been changed in any way
+	ErrSegmentModified = errs.Class("segment has been modified")
 )
 
 // Share represents required information about an audited share
@@ -93,7 +95,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		}
 		return Report{}, err
 	}
-	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now().UTC()) {
+	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
 		errDelete := verifier.metainfo.Delete(ctx, path, pointerBytes)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
@@ -145,7 +147,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		}, err
 	}
 
-	_, err = verifier.checkIfSegmentAltered(ctx, path, pointer)
+	err = verifier.checkIfSegmentAltered(ctx, path, pointer, pointerBytes)
 	if err != nil {
 		return Report{
 			Offlines: offlineNodes,
@@ -219,6 +221,8 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			zap.Stringer("Node ID", share.NodeID),
 			zap.Error(share.Error))
 	}
+
+	mon.IntVal("verify_shares_downloaded_successfully").Observe(int64(len(sharesToAudit))) //locked
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
 	total := int(pointer.Remote.Redundancy.GetTotal())
@@ -374,7 +378,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		}
 		return Report{}, err
 	}
-	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now().UTC()) {
+	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
 		errDelete := verifier.metainfo.Delete(ctx, path, pointerBytes)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
@@ -388,17 +392,28 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		pieceHashesVerifiedMutex.Lock()
 
 		// for each node in Fails and PendingAudits, remove if piece hashes not verified for that segment
+		// if the piece hashes are not verified, remove the "failed" node from containment
 		newFails := storj.NodeIDList{}
 		newPendingAudits := []*PendingAudit{}
 
 		for _, id := range report.Fails {
 			if pieceHashesVerified[id] {
 				newFails = append(newFails, id)
+			} else {
+				_, errDelete := verifier.containment.Delete(ctx, id)
+				if errDelete != nil {
+					verifier.log.Debug("Error deleting node from containment db", zap.Stringer("Node ID", id), zap.Error(errDelete))
+				}
 			}
 		}
 		for _, pending := range report.PendingAudits {
 			if pieceHashesVerified[pending.NodeID] {
 				newPendingAudits = append(newPendingAudits, pending)
+			} else {
+				_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
+				if errDelete != nil {
+					verifier.log.Debug("Error deleting node from containment db", zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
+				}
 			}
 		}
 
@@ -429,11 +444,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			pendingPointerBytes, pendingPointer, err := verifier.metainfo.GetWithBytes(ctx, pending.Path)
 			if err != nil {
 				if storj.ErrObjectNotFound.Has(err) {
-					// segment has been deleted since node was contained
-					_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
-					if errDelete != nil {
-						verifier.log.Debug("Error deleting node from containment db", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
-					}
 					ch <- result{nodeID: pending.NodeID, status: skipped}
 					return
 				}
@@ -447,10 +457,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				if errDelete != nil {
 					verifier.log.Debug("Reverify: error deleting expired segment", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
 				}
-				_, errDelete = verifier.containment.Delete(ctx, pending.NodeID)
-				if errDelete != nil {
-					verifier.log.Debug("Error deleting node from containment db", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
-				}
 				verifier.log.Debug("Reverify: segment already expired", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID))
 				ch <- result{nodeID: pending.NodeID, status: skipped}
 				return
@@ -462,11 +468,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			pieceHashesVerifiedMutex.Unlock()
 
 			if pendingPointer.GetRemote().RootPieceId != pending.PieceID {
-				// segment has changed since initial containment
-				_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
-				if errDelete != nil {
-					verifier.log.Debug("Error deleting node from containment db", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
-				}
 				ch <- result{nodeID: pending.NodeID, status: skipped}
 				return
 			}
@@ -479,11 +480,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				}
 			}
 			if !found {
-				// node is no longer in pointer, so remove from containment
-				_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
-				if errDelete != nil {
-					verifier.log.Debug("Error deleting node from containment db", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
-				}
 				ch <- result{nodeID: pending.NodeID, status: skipped}
 				return
 			}
@@ -546,10 +542,10 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				}
 				if errs2.IsRPC(err, rpcstatus.NotFound) {
 					// Get the original segment pointer in the metainfo
-					_, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer)
+					err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer, pendingPointerBytes)
 					if err != nil {
-						ch <- result{nodeID: pending.NodeID, status: success}
-						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
+						ch <- result{nodeID: pending.NodeID, status: skipped}
+						verifier.log.Debug("Reverify: audit source changed before reverification", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 						return
 					}
 					// missing share
@@ -573,10 +569,10 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				ch <- result{nodeID: pending.NodeID, status: success}
 				verifier.log.Debug("Reverify: hashes match (audit success)", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID))
 			} else {
-				_, err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer)
+				err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer, pendingPointerBytes)
 				if err != nil {
-					ch <- result{nodeID: pending.NodeID, status: success}
-					verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
+					ch <- result{nodeID: pending.NodeID, status: skipped}
+					verifier.log.Debug("Reverify: audit source changed before reverification", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
 				}
 				verifier.log.Debug("Reverify: hashes mismatch (audit failed)", zap.Binary("Segment", []byte(pending.Path)), zap.Stringer("Node ID", pending.NodeID),
@@ -599,6 +595,11 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			report.PendingAudits = append(report.PendingAudits, result.pendingAudit)
 		case unknown:
 			report.Unknown = append(report.Unknown, result.nodeID)
+		case skipped:
+			_, errDelete := verifier.containment.Delete(ctx, result.nodeID)
+			if errDelete != nil {
+				verifier.log.Debug("Error deleting node from containment db", zap.Stringer("Node ID", result.nodeID), zap.Error(errDelete))
+			}
 		case erred:
 			err = errs.Combine(err, result.err)
 		}
@@ -678,25 +679,29 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 }
 
 // checkIfSegmentAltered checks if path's pointer has been altered since path was selected.
-func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, segmentPath string, oldPointer *pb.Pointer) (newPointer *pb.Pointer, err error) {
+func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, segmentPath string, oldPointer *pb.Pointer, oldPointerBytes []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if verifier.OnTestingCheckSegmentAlteredHook != nil {
 		verifier.OnTestingCheckSegmentAlteredHook()
 	}
 
-	newPointer, err = verifier.metainfo.Get(ctx, segmentPath)
+	newPointerBytes, newPointer, err := verifier.metainfo.GetWithBytes(ctx, segmentPath)
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
-			return nil, ErrSegmentDeleted.New("%q", segmentPath)
+			return ErrSegmentDeleted.New("%q", segmentPath)
 		}
-		return nil, err
+		return err
 	}
 
 	if oldPointer != nil && oldPointer.CreationDate != newPointer.CreationDate {
-		return nil, ErrSegmentDeleted.New("%q", segmentPath)
+		return ErrSegmentDeleted.New("%q", segmentPath)
 	}
-	return newPointer, nil
+
+	if !bytes.Equal(oldPointerBytes, newPointerBytes) {
+		return ErrSegmentModified.New("%q", segmentPath)
+	}
+	return nil
 }
 
 // auditShares takes the downloaded shares and uses infectious's Correct function to check that they

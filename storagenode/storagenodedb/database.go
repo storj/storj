@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
@@ -102,6 +103,7 @@ type DB struct {
 	usedSerialsDB     *usedSerialsDB
 	satellitesDB      *satellitesDB
 	notificationsDB   *notificationDB
+	heldamountDB      *heldamountDB
 
 	SQLDBs map[string]DBContainer
 }
@@ -125,6 +127,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	usedSerialsDB := &usedSerialsDB{}
 	satellitesDB := &satellitesDB{}
 	notificationsDB := &notificationDB{}
+	heldamountDB := &heldamountDB{}
 
 	db := &DB{
 		log:    log,
@@ -145,6 +148,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		usedSerialsDB:     usedSerialsDB,
 		satellitesDB:      satellitesDB,
 		notificationsDB:   notificationsDB,
+		heldamountDB:      heldamountDB,
 
 		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -158,6 +162,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 			UsedSerialsDBName:     usedSerialsDB,
 			SatellitesDBName:      satellitesDB,
 			NotificationsDBName:   notificationsDB,
+			HeldAmountDBName:      heldamountDB,
 		},
 	}
 
@@ -228,6 +233,11 @@ func (db *DB) openDatabases() error {
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
+
+	err = db.openDatabase(HeldAmountDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
 	return nil
 }
 
@@ -286,6 +296,9 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 		}
 		// we don't care about changes in versions table
 		schema.DropTable("versions")
+		// if there was a previous pre-flight failure, test_table might still be in the schema
+		schema.DropTable("test_table")
+
 		// If tables and indexes of the schema are empty, set to nil
 		// to help with comparison to the snapshot.
 		if len(schema.Tables) == 0 {
@@ -427,6 +440,11 @@ func (db *DB) Satellites() satellites.DB {
 // Notifications returns the instance of the Notifications database.
 func (db *DB) Notifications() notifications.DB {
 	return db.notificationsDB
+}
+
+// HeldAmount returns instance of the HeldAmount database.
+func (db *DB) HeldAmount() heldamount.DB {
+	return db.heldamountDB
 }
 
 // RawDatabases are required for testing purposes
@@ -1041,6 +1059,90 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Action: migrate.SQL{
 					`UPDATE piece_space_used SET total = 0 WHERE total < 0`,
 					`UPDATE piece_space_used SET content_size = 0 WHERE content_size < 0`,
+				},
+			},
+			{
+				DB:          db.heldamountDB,
+				Description: "Create paystubs table and payments table",
+				Version:     32,
+				Action: migrate.SQL{
+					`CREATE TABLE paystubs (
+						  period text NOT NULL,
+						  satellite_id bytea NOT NULL,
+						  created_at timestamp with time zone NOT NULL,
+						  codes text NOT NULL,
+						  usage_at_rest double precision NOT NULL,
+						  usage_get bigint NOT NULL,
+						  usage_put bigint NOT NULL,
+						  usage_get_repair bigint NOT NULL,
+						  usage_put_repair bigint NOT NULL,
+						  usage_get_audit bigint NOT NULL,
+						  comp_at_rest bigint NOT NULL,
+						  comp_get bigint NOT NULL,
+						  comp_put bigint NOT NULL,
+						  comp_get_repair bigint NOT NULL,
+						  comp_put_repair bigint NOT NULL,
+						  comp_get_audit bigint NOT NULL,
+						  surge_percent bigint NOT NULL,
+						  held bigint NOT NULL,
+						  owed bigint NOT NULL,
+						  disposed bigint NOT NULL,
+						  paid bigint NOT NULL,
+						  PRIMARY KEY ( period, satellite_id )
+     				);`,
+					`CREATE TABLE payments (
+						  id bigserial NOT NULL,
+						  created_at timestamp with time zone NOT NULL,
+						  satellite_id bytea NOT NULL,
+						  period text,
+						  amount bigint NOT NULL,
+						  receipt text,
+						  notes text,
+						  PRIMARY KEY ( id )
+     				);`,
+				},
+			},
+			{
+				DB:          db.heldamountDB,
+				Description: "Remove time zone from created_at in paystubs and payments",
+				Version:     33,
+				Action: migrate.SQL{
+					`DROP TABLE paystubs;`,
+					`DROP TABLE payments;`,
+					`CREATE TABLE paystubs (
+						  period text NOT NULL,
+						  satellite_id bytea NOT NULL,
+						  created_at timestamp NOT NULL,
+						  codes text NOT NULL,
+						  usage_at_rest double precision NOT NULL,
+						  usage_get bigint NOT NULL,
+						  usage_put bigint NOT NULL,
+						  usage_get_repair bigint NOT NULL,
+						  usage_put_repair bigint NOT NULL,
+						  usage_get_audit bigint NOT NULL,
+						  comp_at_rest bigint NOT NULL,
+						  comp_get bigint NOT NULL,
+						  comp_put bigint NOT NULL,
+						  comp_get_repair bigint NOT NULL,
+						  comp_put_repair bigint NOT NULL,
+						  comp_get_audit bigint NOT NULL,
+						  surge_percent bigint NOT NULL,
+						  held bigint NOT NULL,
+						  owed bigint NOT NULL,
+						  disposed bigint NOT NULL,
+						  paid bigint NOT NULL,
+						  PRIMARY KEY ( period, satellite_id )
+     				);`,
+					`CREATE TABLE payments (
+						  id bigserial NOT NULL,
+						  created_at timestamp NOT NULL,
+						  satellite_id bytea NOT NULL,
+						  period text,
+						  amount bigint NOT NULL,
+						  receipt text,
+						  notes text,
+						  PRIMARY KEY ( id )
+     				);`,
 				},
 			},
 		},

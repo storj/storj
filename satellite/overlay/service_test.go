@@ -5,13 +5,13 @@ package overlay_test
 
 import (
 	"context"
+	"reflect"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/pb"
@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storagenode"
 )
 
 func TestCache_Database(t *testing.T) {
@@ -34,13 +33,13 @@ func TestCache_Database(t *testing.T) {
 }
 
 // returns a NodeSelectionConfig with sensible test values
-func testNodeSelectionConfig(auditCount int64, newNodePercentage float64, distinctIP bool) overlay.NodeSelectionConfig {
+func testNodeSelectionConfig(auditCount int64, newNodeFraction float64, distinctIP bool) overlay.NodeSelectionConfig {
 	return overlay.NodeSelectionConfig{
-		UptimeCount:       0,
-		AuditCount:        auditCount,
-		NewNodePercentage: newNodePercentage,
-		OnlineWindow:      time.Hour,
-		DistinctIP:        distinctIP,
+		UptimeCount:     0,
+		AuditCount:      auditCount,
+		NewNodeFraction: newNodeFraction,
+		OnlineWindow:    time.Hour,
+		DistinctIP:      distinctIP,
 
 		AuditReputationRepairWeight: 1,
 		AuditReputationUplinkWeight: 1,
@@ -99,30 +98,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		// TODO: add erroring database test
 	}
 
-	{ // Paginate
-
-		// should return two nodes
-		nodes, more, err := service.Paginate(ctx, 0, 2)
-		assert.NotNil(t, more)
-		assert.NoError(t, err)
-		assert.Equal(t, len(nodes), 2)
-
-		// should return no nodes
-		zero, more, err := service.Paginate(ctx, 0, 0)
-		assert.NoError(t, err)
-		assert.NotNil(t, more)
-		assert.NotEqual(t, len(zero), 0)
-	}
-
-	{ // PaginateQualified
-
-		// should return two nodes
-		nodes, more, err := service.PaginateQualified(ctx, 0, 3)
-		assert.NotNil(t, more)
-		assert.NoError(t, err)
-		assert.Equal(t, len(nodes), 2)
-	}
-
 	{ // Reputation
 		valid1, err := service.Get(ctx, valid1ID)
 		require.NoError(t, err)
@@ -134,7 +109,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		stats, err := service.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       valid1ID,
 			IsUp:         true,
-			AuditSuccess: false,
+			AuditOutcome: overlay.AuditFailure,
 		})
 		require.NoError(t, err)
 		newAuditAlpha := 1
@@ -142,7 +117,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.EqualValues(t, stats.AuditReputationAlpha, newAuditAlpha)
 		require.EqualValues(t, stats.AuditReputationBeta, newAuditBeta)
 		require.NotNil(t, stats.Disqualified)
-		require.True(t, time.Now().UTC().Sub(*stats.Disqualified) < time.Minute)
+		require.True(t, time.Since(*stats.Disqualified) < time.Minute)
 
 		err = service.DisqualifyNode(ctx, valid2ID)
 		require.NoError(t, err)
@@ -151,7 +126,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		_, err = service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 			NodeID:       valid2ID,
 			IsUp:         false,
-			AuditSuccess: true,
+			AuditOutcome: overlay.AuditSuccess,
 		}})
 		require.NoError(t, err)
 		dossier, err := service.Get(ctx, valid2ID)
@@ -183,8 +158,9 @@ func TestRandomizedSelection(t *testing.T) {
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
 			newID := testrand.NodeID()
-
-			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID}, defaults)
+			n := pb.Node{Id: newID}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+			err := cache.UpdateAddress(ctx, &d, defaults)
 			require.NoError(t, err)
 			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
 				Type:     pb.NodeType_STORAGE,
@@ -196,7 +172,7 @@ func TestRandomizedSelection(t *testing.T) {
 				_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       newID,
 					IsUp:         true,
-					AuditSuccess: true,
+					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1,
 					AuditWeight:  1,
 					AuditDQ:      0.5,
@@ -210,7 +186,7 @@ func TestRandomizedSelection(t *testing.T) {
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			var nodes []*pb.Node
+			var nodes []*overlay.NodeDossier
 			var err error
 
 			if i%2 == 0 {
@@ -271,7 +247,6 @@ func TestNodeInfo(t *testing.T) {
 		assert.NotEmpty(t, node.Operator.Email)
 		assert.NotEmpty(t, node.Operator.Wallet)
 		assert.Equal(t, planet.StorageNodes[0].Local().Operator, node.Operator)
-		assert.NotEmpty(t, node.Capacity.FreeBandwidth)
 		assert.NotEmpty(t, node.Capacity.FreeDisk)
 		assert.Equal(t, planet.StorageNodes[0].Local().Capacity, node.Capacity)
 		assert.NotEmpty(t, node.Version.Version)
@@ -279,55 +254,87 @@ func TestNodeInfo(t *testing.T) {
 	})
 }
 
-func TestKnownReliable(t *testing.T) {
-	onlineWindow := 500 * time.Millisecond
-
+func TestGetNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.OnlineWindow = onlineWindow
-			},
-			StorageNode: func(index int, config *storagenode.Config) {
-				config.Contact.Interval = onlineWindow / 2
-			},
-		},
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// pause chores that might update node data
+		planet.Satellites[0].Audit.Chore.Loop.Pause()
+		planet.Satellites[0].Repair.Checker.Loop.Pause()
+		planet.Satellites[0].Repair.Repairer.Loop.Pause()
+		planet.Satellites[0].DowntimeTracking.DetectionChore.Loop.Pause()
+		planet.Satellites[0].DowntimeTracking.EstimationChore.Loop.Pause()
+		for _, node := range planet.StorageNodes {
+			node.Contact.Chore.Pause(ctx)
+		}
+
+		// should not return anything if nodeIDs aren't in the nodes table
+		actualNodes, err := planet.Satellites[0].Overlay.Service.GetNodes(ctx, []storj.NodeID{})
+		require.NoError(t, err)
+		require.Equal(t, 0, len(actualNodes))
+		actualNodes, err = planet.Satellites[0].Overlay.Service.GetNodes(ctx, []storj.NodeID{testrand.NodeID()})
+		require.NoError(t, err)
+		require.Equal(t, 0, len(actualNodes))
+
+		expectedNodes := make(map[storj.NodeID]*overlay.NodeDossier, len(planet.StorageNodes))
+		nodeIDs := make([]storj.NodeID, len(planet.StorageNodes)+1)
+		for i, node := range planet.StorageNodes {
+			nodeIDs[i] = node.ID()
+			node, err := planet.Satellites[0].Overlay.Service.Get(ctx, node.ID())
+			require.NoError(t, err)
+			expectedNodes[node.Id] = node
+		}
+		// add a fake node ID to make sure GetNodes doesn't error and still returns the expected nodes.
+		nodeIDs[len(planet.StorageNodes)] = testrand.NodeID()
+
+		actualNodes, err = planet.Satellites[0].Overlay.Service.GetNodes(ctx, nodeIDs)
+		require.NoError(t, err)
+
+		require.True(t, reflect.DeepEqual(expectedNodes, actualNodes))
+	})
+}
+
+func TestKnownReliable(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		service := satellite.Overlay.Service
 
 		// Disqualify storage node #0
-		stats, err := service.UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       planet.StorageNodes[0].ID(),
-			AuditSuccess: false,
-		})
+		err := satellite.DB.OverlayCache().DisqualifyNode(ctx, planet.StorageNodes[0].ID())
 		require.NoError(t, err)
-		require.NotNil(t, stats.Disqualified)
 
 		// Stop storage node #1
-		err = planet.StopPeer(planet.StorageNodes[1])
+		offlineNode := planet.StorageNodes[1]
+		err = planet.StopPeer(offlineNode)
 		require.NoError(t, err)
-		_, err = service.UpdateUptime(ctx, planet.StorageNodes[1].ID(), false)
+		// set last contact success to 1 hour ago to make node appear offline
+		checkInInfo := getNodeInfo(offlineNode.ID())
+		err = service.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-time.Hour))
 		require.NoError(t, err)
-
-		// Sleep for the duration of the online window and check that storage node #1 is offline
-		time.Sleep(onlineWindow)
-		node, err := service.Get(ctx, planet.StorageNodes[1].ID())
+		// Check that storage node #1 is offline
+		node, err := service.Get(ctx, offlineNode.ID())
 		require.NoError(t, err)
 		require.False(t, service.IsOnline(node))
 
-		// Check that only storage nodes #2 and #3 are reliable
+		// Suspend storage node #2
+		err = satellite.DB.OverlayCache().SuspendNode(ctx, planet.StorageNodes[2].ID(), time.Now())
+		require.NoError(t, err)
+
+		// Check that only storage nodes #3 and #4 are reliable
 		result, err := service.KnownReliable(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
 			planet.StorageNodes[3].ID(),
+			planet.StorageNodes[4].ID(),
 		})
 		require.NoError(t, err)
 		require.Len(t, result, 2)
 
 		// Sort the storage nodes for predictable checks
-		expectedReliable := []pb.Node{planet.StorageNodes[2].Local().Node, planet.StorageNodes[3].Local().Node}
+		expectedReliable := []pb.Node{planet.StorageNodes[3].Local().Node, planet.StorageNodes[4].Local().Node}
 		sort.Slice(expectedReliable, func(i, j int) bool { return expectedReliable[i].Id.Less(expectedReliable[j].Id) })
 		sort.Slice(result, func(i, j int) bool { return result[i].Id.Less(result[j].Id) })
 
@@ -335,7 +342,6 @@ func TestKnownReliable(t *testing.T) {
 		for i, node := range result {
 			assert.Equal(t, expectedReliable[i].Id, node.Id)
 			assert.Equal(t, expectedReliable[i].Address, node.Address)
-			assert.NotNil(t, node.LastIp)
 		}
 	})
 }
@@ -344,7 +350,7 @@ func TestUpdateCheckIn(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // setup
 		nodeID := storj.NodeID{1, 2, 3}
 		expectedEmail := "test@email.com"
-		expectedAddress := "1.2.4.4"
+		expectedAddress := "1.2.4.4:8080"
 		info := overlay.NodeCheckInInfo{
 			NodeID: nodeID,
 			Address: &pb.NodeAddress{
@@ -352,8 +358,7 @@ func TestUpdateCheckIn(t *testing.T) {
 			},
 			IsUp: true,
 			Capacity: &pb.NodeCapacity{
-				FreeBandwidth: int64(1234),
-				FreeDisk:      int64(5678),
+				FreeDisk: int64(5678),
 			},
 			Operator: &pb.NodeOperator{
 				Email:  expectedEmail,
@@ -365,11 +370,12 @@ func TestUpdateCheckIn(t *testing.T) {
 				Timestamp:  time.Time{},
 				Release:    false,
 			},
+			LastIPPort: expectedAddress,
+			LastNet:    "1.2.4",
 		}
 		expectedNode := &overlay.NodeDossier{
 			Node: pb.Node{
-				Id:     nodeID,
-				LastIp: info.LastIP,
+				Id: nodeID,
 				Address: &pb.NodeAddress{
 					Address:   info.Address.GetAddress(),
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
@@ -381,8 +387,7 @@ func TestUpdateCheckIn(t *testing.T) {
 				Wallet: info.Operator.GetWallet(),
 			},
 			Capacity: pb.NodeCapacity{
-				FreeBandwidth: info.Capacity.GetFreeBandwidth(),
-				FreeDisk:      info.Capacity.GetFreeDisk(),
+				FreeDisk: info.Capacity.GetFreeDisk(),
 			},
 			Reputation: overlay.NodeStats{
 				UptimeCount:        1,
@@ -398,6 +403,8 @@ func TestUpdateCheckIn(t *testing.T) {
 			Disqualified: nil,
 			PieceCount:   0,
 			ExitStatus:   overlay.ExitStatus{NodeID: nodeID},
+			LastIPPort:   expectedAddress,
+			LastNet:      "1.2.4",
 		}
 
 		// confirm the node doesn't exist in nodes table yet
@@ -407,8 +414,8 @@ func TestUpdateCheckIn(t *testing.T) {
 
 		// check-in for that node id, which should add the node
 		// to the nodes tables in the database
-		startOfTest := time.Now().UTC()
-		err = db.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		startOfTest := time.Now()
+		err = db.OverlayCache().UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		// confirm that the node is now in the nodes table with the
@@ -426,7 +433,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.Equal(t, expectedNode, actualNode)
 
 		// confirm that we can update the address field
-		startOfUpdateTest := time.Now().UTC()
+		startOfUpdateTest := time.Now()
 		expectedAddress = "9.8.7.6"
 		updatedInfo := overlay.NodeCheckInInfo{
 			NodeID: nodeID,
@@ -434,43 +441,38 @@ func TestUpdateCheckIn(t *testing.T) {
 				Address: expectedAddress,
 			},
 			IsUp: true,
-			Capacity: &pb.NodeCapacity{
-				FreeBandwidth: int64(12355),
-			},
 			Version: &pb.NodeVersion{
 				Version:    "v0.1.0",
 				CommitHash: "abc123",
-				Timestamp:  time.Now().UTC(),
+				Timestamp:  time.Now(),
 				Release:    true,
 			},
+			LastIPPort: expectedAddress,
+			LastNet:    "9.8.7",
 		}
 		// confirm that the updated node is in the nodes table with the
 		// correct updated fields set
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		updatedNode, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.True(t, updatedNode.Reputation.LastContactSuccess.After(startOfUpdateTest))
-		require.True(t, updatedNode.Reputation.LastContactFailure.Equal(time.Time{}.UTC()))
+		require.True(t, updatedNode.Reputation.LastContactFailure.Equal(time.Time{}))
 		require.Equal(t, updatedNode.Address.GetAddress(), expectedAddress)
 		require.Equal(t, updatedNode.Reputation.UptimeSuccessCount, actualNode.Reputation.UptimeSuccessCount+1)
-		require.Equal(t, updatedNode.Capacity.GetFreeBandwidth(), int64(12355))
 		require.Equal(t, updatedInfo.Version.GetVersion(), updatedNode.Version.GetVersion())
 		require.Equal(t, updatedInfo.Version.GetCommitHash(), updatedNode.Version.GetCommitHash())
 		require.Equal(t, updatedInfo.Version.GetRelease(), updatedNode.Version.GetRelease())
 		require.True(t, updatedNode.Version.GetTimestamp().After(info.Version.GetTimestamp()))
 
 		// confirm we can udpate IsUp field
-		startOfUpdateTest2 := time.Now().UTC()
+		startOfUpdateTest2 := time.Now()
 		updatedInfo2 := overlay.NodeCheckInInfo{
 			NodeID: nodeID,
 			Address: &pb.NodeAddress{
 				Address: "9.8.7.6",
 			},
 			IsUp: false,
-			Capacity: &pb.NodeCapacity{
-				FreeBandwidth: int64(12355),
-			},
 			Version: &pb.NodeVersion{
 				Version:    "v0.0.0",
 				CommitHash: "",
@@ -478,7 +480,7 @@ func TestUpdateCheckIn(t *testing.T) {
 				Release:    false,
 			},
 		}
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		updated2Node, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -501,8 +503,9 @@ func TestCache_DowntimeTracking(t *testing.T) {
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
 			newID := testrand.NodeID()
-
-			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID}, defaults)
+			n := pb.Node{Id: newID}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+			err := cache.UpdateAddress(ctx, &d, defaults)
 			require.NoError(t, err)
 			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
 				Type:     pb.NodeType_STORAGE,
@@ -551,7 +554,7 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 		info2 := getNodeInfo(testrand.NodeID())
 
 		{ // check-in the nodes, which should add them
-			twoHoursAgo := time.Now().UTC().Add(-2 * time.Hour)
+			twoHoursAgo := time.Now().Add(-2 * time.Hour)
 			err := db.OverlayCache().UpdateCheckIn(ctx, info1, twoHoursAgo, overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
@@ -571,12 +574,86 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 		}
 
 		{ // check-in again with current time
-			err := db.OverlayCache().UpdateCheckIn(ctx, info1, time.Now().UTC(), overlay.NodeSelectionConfig{})
+			err := db.OverlayCache().UpdateCheckIn(ctx, info1, time.Now(), overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			nodeLastContacts, err := db.OverlayCache().GetSuccesfulNodesNotCheckedInSince(ctx, time.Minute)
 			require.NoError(t, err)
 			require.Len(t, nodeLastContacts, 0)
+		}
+	})
+}
+
+// TestSuspendedSelection ensures that suspended nodes are not selected by SelectStorageNodes or SelectNewStorageNodes
+func TestSuspendedSelection(t *testing.T) {
+	totalNodes := 10
+
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := db.OverlayCache()
+		suspendedIDs := make(map[storj.NodeID]bool)
+		defaults := overlay.NodeSelectionConfig{
+			AuditReputationAlpha0: 1,
+			AuditReputationBeta0:  0,
+		}
+
+		// put nodes in cache
+		for i := 0; i < totalNodes; i++ {
+			newID := testrand.NodeID()
+			n := pb.Node{Id: newID}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+			err := cache.UpdateAddress(ctx, &d, defaults)
+			require.NoError(t, err)
+			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
+				Type:     pb.NodeType_STORAGE,
+				Capacity: &pb.NodeCapacity{},
+			})
+			require.NoError(t, err)
+
+			if i%2 == 0 { // make half of nodes "new" and half "vetted"
+				_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
+					NodeID:       newID,
+					IsUp:         true,
+					AuditOutcome: overlay.AuditSuccess,
+					AuditLambda:  1,
+					AuditWeight:  1,
+					AuditDQ:      0.5,
+				})
+				require.NoError(t, err)
+			}
+
+			// suspend the first four nodes (2 new, 2 vetted)
+			if i < 4 {
+				err = cache.SuspendNode(ctx, newID, time.Now())
+				require.NoError(t, err)
+				suspendedIDs[newID] = true
+			}
+		}
+
+		var nodes []*overlay.NodeDossier
+		var err error
+
+		numNodesToSelect := 10
+
+		// select 10 vetted nodes - 5 vetted, 2 suspended, so expect 3
+		nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+			OnlineWindow: time.Hour,
+			AuditCount:   1,
+		})
+		require.NoError(t, err)
+		require.Len(t, nodes, 3)
+		for _, node := range nodes {
+			require.False(t, suspendedIDs[node.Id])
+		}
+
+		// select 10 new nodes - 5 new, 2 suspended, so expect 3
+		nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+			OnlineWindow: time.Hour,
+			AuditCount:   1,
+		})
+		require.NoError(t, err)
+		require.Len(t, nodes, 3)
+		for _, node := range nodes {
+			require.False(t, suspendedIDs[node.Id])
 		}
 	})
 }

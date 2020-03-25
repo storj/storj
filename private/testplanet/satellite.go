@@ -22,10 +22,10 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/debug"
+	"storj.io/private/debug"
+	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/private/version"
 	versionchecker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
@@ -63,6 +64,7 @@ type SatelliteSystem struct {
 	API      *satellite.API
 	Repairer *satellite.Repairer
 	Admin    *satellite.Admin
+	GC       *satellite.GarbageCollection
 
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
@@ -195,6 +197,7 @@ func (system *SatelliteSystem) Close() error {
 		system.Core.Close(),
 		system.Repairer.Close(),
 		system.Admin.Close(),
+		system.GC.Close(),
 	)
 }
 
@@ -213,6 +216,9 @@ func (system *SatelliteSystem) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.Admin.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.GC.Run(ctx))
 	})
 	return group.Wait()
 }
@@ -296,12 +302,12 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
-					UptimeCount:       0,
-					AuditCount:        0,
-					NewNodePercentage: 0,
-					OnlineWindow:      time.Minute,
-					DistinctIP:        false,
-					MinimumDiskSpace:  100 * memory.MB,
+					UptimeCount:      0,
+					AuditCount:       0,
+					NewNodeFraction:  0,
+					OnlineWindow:     time.Minute,
+					DistinctIP:       false,
+					MinimumDiskSpace: 100 * memory.MB,
 
 					AuditReputationRepairWeight: 1,
 					AuditReputationUplinkWeight: 1,
@@ -341,9 +347,15 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 					CacheCapacity:   100,
 					CacheExpiration: 10 * time.Second,
 				},
-				DeletePiecesService: metainfo.DeletePiecesServiceConfig{
-					MaxConcurrentConnection: 100,
-					NodeOperationTimeout:    2 * time.Second,
+				PieceDeletion: piecedeletion.Config{
+					MaxConcurrency: 100,
+
+					MaxPiecesPerBatch:   4000,
+					MaxPiecesPerRequest: 2000,
+
+					DialTimeout:    2 * time.Second,
+					RequestTimeout: 2 * time.Second,
+					FailThreshold:  2 * time.Second,
 				},
 			},
 			Orders: orders.Config{
@@ -410,9 +422,11 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			Console: consoleweb.Config{
 				Address:         "127.0.0.1:0",
 				StaticDir:       filepath.Join(developmentRoot, "web/satellite"),
-				PasswordCost:    console.TestPasswordCost,
 				AuthToken:       "very-secret-token",
 				AuthTokenSecret: "my-suppa-secret-key",
+				Config: console.Config{
+					PasswordCost: console.TestPasswordCost,
+				},
 			},
 			Marketing: marketingweb.Config{
 				Address:   "127.0.0.1:0",
@@ -496,9 +510,14 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 			return xs, err
 		}
 
+		gcPeer, err := planet.newGarbageCollection(i, identity, db, pointerDB, config, versionInfo)
+		if err != nil {
+			return xs, err
+		}
+
 		log.Debug("id=" + peer.ID().String() + " addr=" + api.Addr())
 
-		system := createNewSystem(log, peer, api, repairerPeer, adminPeer)
+		system := createNewSystem(log, peer, api, repairerPeer, adminPeer, gcPeer)
 		xs = append(xs, system)
 	}
 	return xs, nil
@@ -508,12 +527,13 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many prrocesses.
-func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin) *SatelliteSystem {
+func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection) *SatelliteSystem {
 	system := &SatelliteSystem{
 		Core:     peer,
 		API:      api,
 		Repairer: repairerPeer,
 		Admin:    adminPeer,
+		GC:       gcPeer,
 	}
 	system.Log = log
 	system.Identity = peer.Identity
@@ -550,7 +570,7 @@ func createNewSystem(log *zap.Logger, peer *satellite.Core, api *satellite.API, 
 	system.Audit.Verifier = peer.Audit.Verifier
 	system.Audit.Reporter = peer.Audit.Reporter
 
-	system.GarbageCollection.Service = peer.GarbageCollection.Service
+	system.GarbageCollection.Service = gcPeer.GarbageCollection.Service
 
 	system.DBCleanup.Chore = peer.DBCleanup.Chore
 
@@ -626,7 +646,7 @@ func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Orders(), rollupsWriteCache, versionInfo, &config)
+	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), rollupsWriteCache, db.Irreparable(), versionInfo, &config)
 }
 
 type rollupsWriteCacheCloser struct {
@@ -635,4 +655,16 @@ type rollupsWriteCacheCloser struct {
 
 func (cache rollupsWriteCacheCloser) Close() error {
 	return cache.RollupsWriteCache.CloseAndFlush(context.TODO())
+}
+
+func (planet *Planet) newGarbageCollection(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
+	prefix := "satellite-gc" + strconv.Itoa(count)
+	log := planet.log.Named(prefix)
+
+	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, revocationDB)
+	return satellite.NewGarbageCollection(log, identity, db, pointerDB, revocationDB, versionInfo, &config)
 }

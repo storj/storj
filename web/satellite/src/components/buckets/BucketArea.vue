@@ -76,8 +76,6 @@ const {
     },
 })
 export default class BucketArea extends Vue {
-    public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
-
     /**
      * Lifecycle hook after initial render where buckets list is fetched.
      */
@@ -186,7 +184,6 @@ export default class BucketArea extends Vue {
             margin-right: 50px;
             margin-block-start: 0;
             margin-block-end: 0;
-            user-select: none;
         }
     }
 

@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
 	"storj.io/storj/pkg/revocation"
 )
 
