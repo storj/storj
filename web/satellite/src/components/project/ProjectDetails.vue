@@ -55,10 +55,11 @@
             <p class="project-details__limits-increase-text">
                 To increase your limits please contact us at
                 <a
-                    href="mailto:support@tardigrade.io"
+                    href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
                     class="project-details__limits-increase-text__link"
+                    target="_blank"
                 >
-                    support@tardigrade.io
+                    -> Request limit increase
                 </a>
             </p>
         </div>

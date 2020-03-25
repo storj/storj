@@ -18,7 +18,7 @@
             </div>
         </div>
         <div class="register-area-wrapper">
-            <div class="register-area">
+            <div class="register-area" v-if="!isRegistrationSuccessful">
                 <div class="register-area__title-container">
                     <h1 class="register-area__title-container__title">Sign Up to Storj</h1>
                 </div>
@@ -83,7 +83,7 @@
                     </div>
                 </div>
             </div>
+            <RegistrationSuccess v-if="isRegistrationSuccessful"/>
         </div>
     </div>
-    <RegistrationSuccessPopup ref="register_success_popup"/>
 </div>

@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/storj/private/version"
+	"storj.io/private/version"
 )
 
 // seedLength is the number of bytes in a rollout seed.

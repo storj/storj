@@ -55,8 +55,6 @@ import ArrowDownIcon from '@/../static/images/common/BlueExpand.svg';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { ProjectCharge } from '@/types/payments';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
     components: {
@@ -77,10 +75,6 @@ export default class EstimatedCostsAndCredits extends Vue {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(error.message);
-        }
-
-        if (this.balance > 0 && !new ProjectOwning(this.$store).userHasOwnProject()) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
         }
     }
 

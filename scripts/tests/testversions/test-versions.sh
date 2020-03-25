@@ -19,9 +19,9 @@ setup(){
         output=$2
 	    head -c $size </dev/urandom > $output
     }
-    random_bytes_file "2048"   "$test_files_dir/small-upload-testfile"          # create 2kb file of random bytes (inline)
-    random_bytes_file "5120" "$test_files_dir/big-upload-testfile"              # create 5kb file of random bytes (remote)
-    random_bytes_file "131072" "$test_files_dir/multisegment-upload-testfile"   # create 128kb file of random bytes (remote)
+    random_bytes_file "2KiB"  "$test_files_dir/small-upload-testfile"         # create 2kb file of random bytes (inline)
+    random_bytes_file "5KiB"  "$test_files_dir/big-upload-testfile"           # create 5kb file of random bytes (remote)
+    random_bytes_file "64MiB" "$test_files_dir/multisegment-upload-testfile"  # create 64mb file of random bytes (remote + inline)
 
     echo "setup test successfully"
 }
@@ -59,9 +59,9 @@ if [ ! -d ${main_cfg_dir}/uplink ]; then
     if [[ ${#should_use_access} -gt 0 ]]; then
         access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
         new_access=$(go run $update_access_script_path $(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_DIR) $access)
-        uplink import --config-dir="${main_cfg_dir}/uplink" "${new_access}" --client.segment-size="64.0 KiB"
+        uplink import --config-dir="${main_cfg_dir}/uplink" "${new_access}"
     else
-        uplink setup --config-dir="${main_cfg_dir}/uplink" --non-interactive --api-key="$api_key" --satellite-addr="$sat_addr" --enc.encryption-key="test" --client.segment-size="64.0 KiB"
+        uplink setup --config-dir="${main_cfg_dir}/uplink" --non-interactive --api-key="$api_key" --satellite-addr="$sat_addr" --enc.encryption-key="test"
     fi
 fi
 

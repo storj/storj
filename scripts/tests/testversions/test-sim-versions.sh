@@ -20,6 +20,9 @@ populate_sno_versions(){
     seq $number_of_nodes | xargs -n1 -I{} echo $version
 }
 
+# set this var to anything else than `jenkins` to run tests locally
+RUN_TYPE=${RUN_TYPE:-"jenkins"}
+
 # set peers' versions
 # in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are split into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
@@ -163,11 +166,15 @@ for version in ${unique_versions}; do
         then
             echo "Installing storj-sim for ${version} in ${dir}."
             pushd ${dir}
-            install_sim ${bin_dir}
+            if [ "$RUN_TYPE" = "jenkins" ]; then
+                install_sim ${bin_dir}
+            fi
             echo "finished installing"
             popd
-            # uncomment for local testing
-            # GOBIN=${bin_dir} make -C ${dir} install-sim >/dev/null 2>&1
+            # for local testing
+            if [ "$RUN_TYPE" != "jenkins" ]; then
+                GOBIN=${bin_dir} make -C ${dir} install-sim >/dev/null 2>&1
+            fi
             echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
             PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
             echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
@@ -180,9 +187,13 @@ for version in ${unique_versions}; do
             echo "Installing uplink for ${version} in ${dir}."
             pushd ${dir}
             mkdir -p ${bin_dir}
-            go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-            # uncomment for local testing
-            # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink >/dev/null 2>&1
+            if [ "$RUN_TYPE" = "jenkins" ]; then
+                go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+            fi
+            # for local testing
+            if [ "$RUN_TYPE" != "jenkins" ]; then
+                GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink >/dev/null 2>&1
+            fi    
             popd
             echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
             echo "Binary shasums:"

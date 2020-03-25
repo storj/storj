@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"storj.io/common/context2"
-	"storj.io/storj/pkg/traces"
+	"storj.io/private/traces"
 )
 
 // Open opens *sql.DB and wraps the implementation with tagging.

@@ -7,7 +7,7 @@ import (
 	"context"
 	"database/sql"
 
-	"storj.io/storj/pkg/traces"
+	"storj.io/private/traces"
 )
 
 // Tx is an interface for *sql.Tx-like transactions.

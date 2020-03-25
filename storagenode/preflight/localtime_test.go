@@ -81,9 +81,10 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(contactServer.Close)
 
-		pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
+		err = pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
 			localTime: time.Now().Add(-25 * time.Minute),
 		})
+		require.NoError(t, err)
 
 		group.Go(func() error {
 			return contactServer.Run(ctx)
@@ -136,9 +137,10 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(contactServer.Close)
 
-		pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
+		err = pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
 			localTime: time.Now().Add(-31 * time.Minute),
 		})
+		require.NoError(t, err)
 
 		group.Go(func() error {
 			return contactServer.Run(ctx)

@@ -671,4 +671,3 @@ func Schema() map[string]*dbschema.Schema {
 		},
 	}
 }
-

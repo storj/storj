@@ -458,7 +458,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--non-interactive",
 
 				"--access", accessData,
-				"--identity-dir", process.Directory,
 				"--server.address", process.Address,
 
 				"--debug.addr", net.JoinHostPort(host, port(gatewayPeer, i, debugHTTP)),

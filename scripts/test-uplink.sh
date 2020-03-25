@@ -34,11 +34,13 @@ compare_files () {
     fi
 }
 
-random_bytes_file "2048"       "$SRC_DIR/small-upload-testfile"          # create 2kb file of random bytes (inline)
-random_bytes_file "5242880"    "$SRC_DIR/big-upload-testfile"            # create 5mb file of random bytes (remote)
-random_bytes_file "12582912"   "$SRC_DIR/multisegment-upload-testfile"   # create 2 x 6mb file of random bytes (remote)
-random_bytes_file "9437184"    "$SRC_DIR/diff-size-segments"             # create 9mb file of random bytes (remote)
-random_bytes_file "100KiB"     "$SRC_DIR/put-file"                       # create 100KiB file of random bytes (remote)
+random_bytes_file "2KiB"    "$SRC_DIR/small-upload-testfile"          # create 2KiB file of random bytes (inline)
+random_bytes_file "5MiB"    "$SRC_DIR/big-upload-testfile"            # create 5MiB file of random bytes (remote)
+# this is special case where we need to test at least one remote segment and inline segment of exact size 0
+random_bytes_file "64MiB"   "$SRC_DIR/multisegment-upload-testfile"   # create 64MiB file of random bytes (1 remote segments + inline)
+random_bytes_file "68MiB"   "$SRC_DIR/diff-size-segments"             # create 68MiB file of random bytes (2 remote segments)
+
+random_bytes_file "100KiB"  "$SRC_DIR/put-file"                       # create 100KiB file of random bytes (remote)
 
 UPLINK_DEBUG_ADDR=""
 
@@ -47,10 +49,10 @@ export STORJ_DEBUG_ADDR=$UPLINK_DEBUG_ADDR
 
 uplink mb "sj://$BUCKET/"
 
-uplink cp "$SRC_DIR/small-upload-testfile"        "sj://$BUCKET/" --progress=false 
+uplink cp "$SRC_DIR/small-upload-testfile"        "sj://$BUCKET/" --progress=false
 uplink cp "$SRC_DIR/big-upload-testfile"          "sj://$BUCKET/" --progress=false
 uplink cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/" --progress=false
-uplink cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/" --progress=false 
+uplink cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/" --progress=false
 
 cat "$SRC_DIR/put-file" | uplink put "sj://$BUCKET/put-file"
 
@@ -73,13 +75,13 @@ then
     exit 1
 fi
 
-uplink ls "sj://$BUCKET/non-existing-prefix" 
+uplink ls "sj://$BUCKET/non-existing-prefix"
 
 uplink cp  "sj://$BUCKET/small-upload-testfile"        "$DST_DIR" --progress=false
-uplink cp  "sj://$BUCKET/big-upload-testfile"          "$DST_DIR" --progress=false 
-uplink cp  "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR" --progress=false 
-uplink cp  "sj://$BUCKET/diff-size-segments"           "$DST_DIR" --progress=false 
-uplink cp  "sj://$BUCKET/put-file"                     "$DST_DIR" --progress=false 
+uplink cp  "sj://$BUCKET/big-upload-testfile"          "$DST_DIR" --progress=false
+uplink cp  "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR" --progress=false
+uplink cp  "sj://$BUCKET/diff-size-segments"           "$DST_DIR" --progress=false
+uplink cp  "sj://$BUCKET/put-file"                     "$DST_DIR" --progress=false
 uplink cat "sj://$BUCKET/put-file" >>                  "$DST_DIR/put-file-from-cat"
 
 uplink rm "sj://$BUCKET/small-upload-testfile"

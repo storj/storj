@@ -49,7 +49,7 @@ export default class ProjectDashboard extends Vue {
             position: absolute;
             right: 65px;
             top: 44px;
-            z-index: 99;
+            z-index: 19;
         }
     }
 

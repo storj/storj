@@ -17,28 +17,32 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
 	"storj.io/storj/pkg/listenmux"
 	"storj.io/storj/private/grpctlsopts"
 )
 
-// Service represents a specific gRPC method collection to be registered
-// on a shared gRPC server. Metainfo, OverlayCache, PieceStore,
-// etc. are all examples of services.
-type Service interface {
-	Run(ctx context.Context, server *Server) error
+// Config holds server specific configuration parameters
+type Config struct {
+	tlsopts.Config
+	Address         string `user:"true" help:"public address to listen on" default:":7777"`
+	PrivateAddress  string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
+	DebugLogTraffic bool   `user:"true" help:"log all GRPC traffic to zap logger" default:"false"`
 }
 
 type public struct {
 	listener net.Listener
 	drpc     *drpcserver.Server
 	grpc     *grpc.Server
+	mux      *drpcmux.Mux
 }
 
 type private struct {
 	listener net.Listener
 	drpc     *drpcserver.Server
 	grpc     *grpc.Server
+	mux      *drpcmux.Mux
 }
 
 // Server represents a bundle of services defined by a specific ID.
@@ -47,7 +51,6 @@ type Server struct {
 	log        *zap.Logger
 	public     public
 	private    private
-	next       []Service
 	tlsOptions *tlsopts.Options
 
 	mu   sync.Mutex
@@ -58,10 +61,9 @@ type Server struct {
 
 // New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
+func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor) (*Server, error) {
 	server := &Server{
 		log:        log,
-		next:       services,
 		tlsOptions: tlsOptions,
 		done:       make(chan struct{}),
 	}
@@ -79,24 +81,29 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 	if err != nil {
 		return nil, err
 	}
+
+	publicMux := drpcmux.New()
 	server.public = public{
 		listener: wrapListener(publicListener),
-		drpc:     drpcserver.NewWithOptions(serverOptions),
+		drpc:     drpcserver.NewWithOptions(publicMux, serverOptions),
 		grpc: grpc.NewServer(
 			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
 			grpctlsopts.ServerOption(tlsOptions),
 		),
+		mux: publicMux,
 	}
 
 	privateListener, err := net.Listen("tcp", privateAddr)
 	if err != nil {
 		return nil, errs.Combine(err, publicListener.Close())
 	}
+	privateMux := drpcmux.New()
 	server.private = private{
 		listener: wrapListener(privateListener),
-		drpc:     drpcserver.NewWithOptions(serverOptions),
+		drpc:     drpcserver.NewWithOptions(privateMux, serverOptions),
 		grpc:     grpc.NewServer(),
+		mux:      privateMux,
 	}
 
 	return server, nil
@@ -114,14 +121,14 @@ func (p *Server) PrivateAddr() net.Addr { return p.private.listener.Addr() }
 // GRPC returns the server's gRPC handle for registration purposes
 func (p *Server) GRPC() *grpc.Server { return p.public.grpc }
 
-// DRPC returns the server's dRPC handle for registration purposes
-func (p *Server) DRPC() *drpcserver.Server { return p.public.drpc }
+// DRPC returns the server's dRPC mux for registration purposes
+func (p *Server) DRPC() *drpcmux.Mux { return p.public.mux }
 
 // PrivateGRPC returns the server's gRPC handle for registration purposes
 func (p *Server) PrivateGRPC() *grpc.Server { return p.private.grpc }
 
-// PrivateDRPC returns the server's dRPC handle for registration purposes
-func (p *Server) PrivateDRPC() *drpcserver.Server { return p.private.drpc }
+// PrivateDRPC returns the server's dRPC mux for registration purposes
+func (p *Server) PrivateDRPC() *drpcmux.Mux { return p.private.mux }
 
 // Close shuts down the server
 func (p *Server) Close() error {
@@ -144,14 +151,6 @@ func (p *Server) Close() error {
 // Run will run the server and all of its services
 func (p *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// are there any unstarted services? start those first. the
-	// services should know to call Run again once they're ready.
-	if len(p.next) > 0 {
-		next := p.next[0]
-		p.next = p.next[1:]
-		return next.Run(ctx, p)
-	}
 
 	// Make sure the server isn't already closed. If it is, register
 	// ourselves in the wait group so that Close can wait on it.

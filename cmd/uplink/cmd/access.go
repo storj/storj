@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
 )
 
 var (

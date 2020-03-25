@@ -21,8 +21,8 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
-	"storj.io/storj/pkg/process"
-	"storj.io/storj/private/version"
+	"storj.io/private/process"
+	"storj.io/private/version"
 )
 
 const contactWindow = time.Hour * 2

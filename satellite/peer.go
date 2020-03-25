@@ -9,7 +9,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/common/identity"
-	"storj.io/storj/pkg/debug"
+	"storj.io/private/debug"
 	"storj.io/storj/pkg/server"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"

@@ -6,14 +6,13 @@ package checker
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/private/version"
+	"storj.io/private/version"
 )
 
 // Config contains the necessary Information to check the Software Version
@@ -139,33 +138,6 @@ func (service *Service) checkVersion(ctx context.Context) (latestVersion version
 // Checked returns whether the version has been updated.
 func (service *Service) Checked() bool {
 	return service.checked.Released()
-}
-
-// DebugHandler implements version info endpoint.
-type DebugHandler struct {
-	log *zap.Logger
-}
-
-// NewDebugHandler returns new debug handler.
-func NewDebugHandler(log *zap.Logger) *DebugHandler {
-	return &DebugHandler{log}
-}
-
-// ServeHTTP returns a json representation of the current version information for the binary.
-func (server *DebugHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	j, err := version.Build.Marshal()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	_, err = w.Write(append(j, '\n'))
-	if err != nil {
-		server.log.Sugar().Errorf("error writing data to client: %w", err)
-	}
 }
 
 // isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version

@@ -12,9 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
 	"storj.io/storj/cmd/internal/wizard"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
 	"storj.io/uplink"
 	"storj.io/uplink/backcomp"
 )
