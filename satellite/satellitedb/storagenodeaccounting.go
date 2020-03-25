@@ -69,6 +69,7 @@ func (db *StoragenodeAccounting) GetTallies(ctx context.Context) (_ []*accountin
 			return nil, Error.Wrap(err)
 		}
 		out[i] = &accounting.StoragenodeStorageTally{
+			ID:              r.Id,
 			NodeID:          nodeID,
 			IntervalEndTime: r.IntervalEndTime,
 			DataTotal:       r.DataTotal,
@@ -88,6 +89,7 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRoll
 			return nil, Error.Wrap(err)
 		}
 		out[i] = &accounting.StoragenodeStorageTally{
+			ID:              r.Id,
 			NodeID:          nodeID,
 			IntervalEndTime: r.IntervalEndTime,
 			DataTotal:       r.DataTotal,

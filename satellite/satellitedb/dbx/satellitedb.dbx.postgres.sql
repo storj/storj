@@ -308,10 +308,11 @@ CREATE TABLE storagenode_paystubs (
 	PRIMARY KEY ( period, node_id )
 );
 CREATE TABLE storagenode_storage_tallies (
+	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
 	interval_end_time timestamp with time zone NOT NULL,
 	data_total double precision NOT NULL,
-	PRIMARY KEY ( interval_end_time, node_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
@@ -438,5 +439,4 @@ CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
-CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );

@@ -580,10 +580,11 @@ CREATE TABLE storagenode_paystubs (
 	PRIMARY KEY ( period, node_id )
 );
 CREATE TABLE storagenode_storage_tallies (
+	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
 	interval_end_time timestamp with time zone NOT NULL,
 	data_total double precision NOT NULL,
-	PRIMARY KEY ( interval_end_time, node_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
@@ -710,7 +711,6 @@ CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
-CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );`
 }
 
@@ -1083,10 +1083,11 @@ CREATE TABLE storagenode_paystubs (
 	PRIMARY KEY ( period, node_id )
 );
 CREATE TABLE storagenode_storage_tallies (
+	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
 	interval_end_time timestamp with time zone NOT NULL,
 	data_total double precision NOT NULL,
-	PRIMARY KEY ( interval_end_time, node_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
@@ -1213,7 +1214,6 @@ CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
-CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );`
 }
 
@@ -6414,6 +6414,7 @@ func (f StoragenodePaystub_Paid_Field) value() interface{} {
 func (StoragenodePaystub_Paid_Field) _Column() string { return "paid" }
 
 type StoragenodeStorageTally struct {
+	Id              int64
 	NodeId          []byte
 	IntervalEndTime time.Time
 	DataTotal       float64
@@ -6423,6 +6424,25 @@ func (StoragenodeStorageTally) _Table() string { return "storagenode_storage_tal
 
 type StoragenodeStorageTally_Update_Fields struct {
 }
+
+type StoragenodeStorageTally_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodeStorageTally_Id(v int64) StoragenodeStorageTally_Id_Field {
+	return StoragenodeStorageTally_Id_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeStorageTally_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeStorageTally_Id_Field) _Column() string { return "id" }
 
 type StoragenodeStorageTally_NodeId_Field struct {
 	_set   bool
@@ -9181,6 +9201,32 @@ func (obj *postgresImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) CreateNoReturn_StoragenodeStorageTally(ctx context.Context,
+	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__node_id_val := storagenode_storage_tally_node_id.value()
+	__interval_end_time_val := storagenode_storage_tally_interval_end_time.value()
+	__data_total_val := storagenode_storage_tally_data_total.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_storage_tallies ( node_id, interval_end_time, data_total ) VALUES ( ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __node_id_val, __interval_end_time_val, __data_total_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *postgresImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 	storagenode_paystub_period StoragenodePaystub_Period_Field,
 	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
@@ -11146,11 +11192,33 @@ func (obj *postgresImpl) All_StoragenodeBandwidthRollup_By_IntervalStart_Greater
 
 }
 
+func (obj *postgresImpl) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_storage_tally_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_storage_tally = &StoragenodeStorageTally{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+	if err != nil {
+		return (*StoragenodeStorageTally)(nil), obj.makeErr(err)
+	}
+	return storagenode_storage_tally, nil
+
+}
+
 func (obj *postgresImpl) All_StoragenodeStorageTally(ctx context.Context) (
 	rows []*StoragenodeStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
 
 	var __values []interface{}
 
@@ -11165,7 +11233,7 @@ func (obj *postgresImpl) All_StoragenodeStorageTally(ctx context.Context) (
 
 	for __rows.Next() {
 		storagenode_storage_tally := &StoragenodeStorageTally{}
-		err = __rows.Scan(&storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+		err = __rows.Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -11183,7 +11251,7 @@ func (obj *postgresImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterO
 	rows []*StoragenodeStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time >= ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time >= ?")
 
 	var __values []interface{}
 	__values = append(__values, storagenode_storage_tally_interval_end_time_greater_or_equal.value())
@@ -11199,7 +11267,7 @@ func (obj *postgresImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterO
 
 	for __rows.Next() {
 		storagenode_storage_tally := &StoragenodeStorageTally{}
-		err = __rows.Scan(&storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+		err = __rows.Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -13906,6 +13974,33 @@ func (obj *postgresImpl) Delete_ConsumedSerial_By_ExpiresAt_LessOrEqual(ctx cont
 
 }
 
+func (obj *postgresImpl) Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_storage_tally_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *postgresImpl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 	reset_password_token_secret ResetPasswordToken_Secret_Field) (
 	deleted bool, err error) {
@@ -15258,6 +15353,32 @@ func (obj *cockroachImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *cockroachImpl) CreateNoReturn_StoragenodeStorageTally(ctx context.Context,
+	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__node_id_val := storagenode_storage_tally_node_id.value()
+	__interval_end_time_val := storagenode_storage_tally_interval_end_time.value()
+	__data_total_val := storagenode_storage_tally_data_total.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_storage_tallies ( node_id, interval_end_time, data_total ) VALUES ( ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __node_id_val, __interval_end_time_val, __data_total_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -17235,11 +17356,33 @@ func (obj *cockroachImpl) All_StoragenodeBandwidthRollup_By_IntervalStart_Greate
 
 }
 
+func (obj *cockroachImpl) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_storage_tally_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_storage_tally = &StoragenodeStorageTally{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+	if err != nil {
+		return (*StoragenodeStorageTally)(nil), obj.makeErr(err)
+	}
+	return storagenode_storage_tally, nil
+
+}
+
 func (obj *cockroachImpl) All_StoragenodeStorageTally(ctx context.Context) (
 	rows []*StoragenodeStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies")
 
 	var __values []interface{}
 
@@ -17254,7 +17397,7 @@ func (obj *cockroachImpl) All_StoragenodeStorageTally(ctx context.Context) (
 
 	for __rows.Next() {
 		storagenode_storage_tally := &StoragenodeStorageTally{}
-		err = __rows.Scan(&storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+		err = __rows.Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -17272,7 +17415,7 @@ func (obj *cockroachImpl) All_StoragenodeStorageTally_By_IntervalEndTime_Greater
 	rows []*StoragenodeStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time >= ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.id, storagenode_storage_tallies.node_id, storagenode_storage_tallies.interval_end_time, storagenode_storage_tallies.data_total FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time >= ?")
 
 	var __values []interface{}
 	__values = append(__values, storagenode_storage_tally_interval_end_time_greater_or_equal.value())
@@ -17288,7 +17431,7 @@ func (obj *cockroachImpl) All_StoragenodeStorageTally_By_IntervalEndTime_Greater
 
 	for __rows.Next() {
 		storagenode_storage_tally := &StoragenodeStorageTally{}
-		err = __rows.Scan(&storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
+		err = __rows.Scan(&storagenode_storage_tally.Id, &storagenode_storage_tally.NodeId, &storagenode_storage_tally.IntervalEndTime, &storagenode_storage_tally.DataTotal)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -19995,6 +20138,33 @@ func (obj *cockroachImpl) Delete_ConsumedSerial_By_ExpiresAt_LessOrEqual(ctx con
 
 }
 
+func (obj *cockroachImpl) Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_storage_tally_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *cockroachImpl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 	reset_password_token_secret ResetPasswordToken_Secret_Field) (
 	deleted bool, err error) {
@@ -21173,6 +21343,19 @@ func (rx *Rx) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 
 }
 
+func (rx *Rx) CreateNoReturn_StoragenodeStorageTally(ctx context.Context,
+	storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+	storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+	storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_StoragenodeStorageTally(ctx, storagenode_storage_tally_node_id, storagenode_storage_tally_interval_end_time, storagenode_storage_tally_data_total)
+
+}
+
 func (rx *Rx) CreateNoReturn_UsedSerial(ctx context.Context,
 	used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
 	used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
@@ -21683,6 +21866,16 @@ func (rx *Rx) Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx context.Context,
 
 }
 
+func (rx *Rx) Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_StoragenodeStorageTally_By_Id(ctx, storagenode_storage_tally_id)
+}
+
 func (rx *Rx) Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
 	stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field) (
 	deleted bool, err error) {
@@ -22002,6 +22195,16 @@ func (rx *Rx) Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Get_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
+}
+
+func (rx *Rx) Get_StoragenodeStorageTally_By_Id(ctx context.Context,
+	storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+	storagenode_storage_tally *StoragenodeStorageTally, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StoragenodeStorageTally_By_Id(ctx, storagenode_storage_tally_id)
 }
 
 func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
@@ -22704,6 +22907,12 @@ type Methods interface {
 		storagenode_paystub_paid StoragenodePaystub_Paid_Field) (
 		err error)
 
+	CreateNoReturn_StoragenodeStorageTally(ctx context.Context,
+		storagenode_storage_tally_node_id StoragenodeStorageTally_NodeId_Field,
+		storagenode_storage_tally_interval_end_time StoragenodeStorageTally_IntervalEndTime_Field,
+		storagenode_storage_tally_data_total StoragenodeStorageTally_DataTotal_Field) (
+		err error)
+
 	CreateNoReturn_UsedSerial(ctx context.Context,
 		used_serial_serial_number_id UsedSerial_SerialNumberId_Field,
 		used_serial_storage_node_id UsedSerial_StorageNodeId_Field) (
@@ -22953,6 +23162,10 @@ type Methods interface {
 		serial_number_expires_at_less_or_equal SerialNumber_ExpiresAt_Field) (
 		count int64, err error)
 
+	Delete_StoragenodeStorageTally_By_Id(ctx context.Context,
+		storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+		deleted bool, err error)
+
 	Delete_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx context.Context,
 		stripecoinpayments_apply_balance_intent_tx_id StripecoinpaymentsApplyBalanceIntent_TxId_Field) (
 		deleted bool, err error)
@@ -23087,6 +23300,10 @@ type Methods interface {
 	Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		reset_password_token *ResetPasswordToken, err error)
+
+	Get_StoragenodeStorageTally_By_Id(ctx context.Context,
+		storagenode_storage_tally_id StoragenodeStorageTally_Id_Field) (
+		storagenode_storage_tally *StoragenodeStorageTally, err error)
 
 	Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field) (
