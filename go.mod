@@ -21,9 +21,11 @@ require (
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-isatty v0.0.9 // indirect
 	github.com/mattn/go-sqlite3 v2.0.2+incompatible
+	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
+	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
 	github.com/spacemonkeygo/monkit/v3 v3.0.5
 	github.com/spf13/cast v1.3.0
@@ -45,4 +47,6 @@ require (
 	storj.io/drpc v0.0.11
 	storj.io/private v0.0.0-20200323175212-c3ef21e873a9
 	storj.io/uplink v1.0.2-0.20200325131054-76ecb3d2e025
+
+// storj/gatway for storj-sim is installed via makefile `install-sim` target
 )
