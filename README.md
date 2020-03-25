@@ -97,6 +97,14 @@ git push origin master
 
 Use Github to open a pull request!
 
+### A Note about Versioning
+
+While we are practicing [semantic versioning](https://semver.org/) for our client 
+libraries such as [uplink](https://github.com/storj/uplink), we are *not* practicing 
+semantic versioning in this repo, as we do not intend for it to be used via 
+[Go modules](https://blog.golang.org/using-go-modules). We may have 
+backwards-incompatible changes between minor and patch releases in this repo.
+
 # Start using Storj
 
 Our wiki has [documentation and tutorials](https://github.com/storj/storj/wiki).
