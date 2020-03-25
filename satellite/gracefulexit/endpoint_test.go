@@ -184,7 +184,7 @@ func TestConcurrentConnections(t *testing.T) {
 					err = errs.Combine(err, conn.Close())
 				}()
 
-				client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
+				client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 
 				// wait for "main" call to begin
 				wg.Wait()
@@ -204,7 +204,7 @@ func TestConcurrentConnections(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 		// this connection will immediately return since graceful exit has not been initiated yet
 		c, err := client.Process(ctx)
 		require.NoError(t, err)
@@ -405,7 +405,7 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 		processClient, err := client.Process(ctx)
 		require.NoError(t, err)
 
@@ -952,7 +952,7 @@ func TestExitDisabled(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 		processClient, err := client.Process(ctx)
 		require.NoError(t, err)
 
@@ -1029,7 +1029,7 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 
 		c, err := client.Process(ctx)
 		require.NoError(t, err)
@@ -1266,7 +1266,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 
 		c, err := client.Process(ctx)
 		require.NoError(t, err)
@@ -1394,7 +1394,7 @@ func TestIneligibleNodeAge(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 
 		c, err := client.Process(ctx)
 		require.NoError(t, err)
@@ -1452,7 +1452,7 @@ func testTransfers(t *testing.T, objects int, verifier func(t *testing.T, ctx *t
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
+		client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 
 		c, err := client.Process(ctx)
 		require.NoError(t, err)

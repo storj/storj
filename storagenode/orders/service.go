@@ -282,7 +282,7 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 	}
 	defer func() { err = errs.Combine(err, conn.Close()) }()
 
-	stream, err := pb.NewDRPCOrdersClient(conn.Raw()).Settlement(ctx)
+	stream, err := pb.NewDRPCOrdersClient(conn).Settlement(ctx)
 	if err != nil {
 		return OrderError.New("failed to start settlement: %w", err)
 	}

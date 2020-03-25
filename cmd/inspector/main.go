@@ -142,10 +142,10 @@ func NewInspector(address, path string) (*Inspector, error) {
 	return &Inspector{
 		conn:           conn,
 		identity:       id,
-		overlayclient:  pb.NewDRPCOverlayInspectorClient(conn.Raw()),
-		irrdbclient:    pb.NewDRPCIrreparableInspectorClient(conn.Raw()),
-		healthclient:   pb.NewDRPCHealthInspectorClient(conn.Raw()),
-		paymentsClient: pb.NewDRPCPaymentsClient(conn.Raw()),
+		overlayclient:  pb.NewDRPCOverlayInspectorClient(conn),
+		irrdbclient:    pb.NewDRPCIrreparableInspectorClient(conn),
+		healthclient:   pb.NewDRPCHealthInspectorClient(conn),
+		paymentsClient: pb.NewDRPCPaymentsClient(conn),
 	}, nil
 }
 

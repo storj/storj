@@ -296,7 +296,7 @@ func (service *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *
 
 	return &Client{
 		conn:                 conn,
-		DRPCHeldAmountClient: pb.NewDRPCHeldAmountClient(conn.Raw()),
+		DRPCHeldAmountClient: pb.NewDRPCHeldAmountClient(conn),
 	}, nil
 }
 
