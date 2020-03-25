@@ -44,5 +44,5 @@ require (
 	storj.io/common v0.0.0-20200324171116-bad40c947e25
 	storj.io/drpc v0.0.11
 	storj.io/private v0.0.0-20200323175212-c3ef21e873a9
-	storj.io/uplink v1.0.0
+	storj.io/uplink v1.0.1
 )
