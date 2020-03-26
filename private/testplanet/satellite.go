@@ -395,6 +395,7 @@ func (planet *Planet) newSatellites(count int) ([]*SatelliteSystem, error) {
 				InitialPieces:     10,
 				FalsePositiveRate: 0.1,
 				ConcurrentSends:   1,
+				RunInCore:         false,
 			},
 			DBCleanup: dbcleanup.Config{
 				SerialsInterval: defaultInterval,
