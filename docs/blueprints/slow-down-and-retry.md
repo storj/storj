@@ -56,7 +56,7 @@ Requests are batched:
 3. (last commit segment upload or last make inline segment) + commit object upload
 4. special case for multi-segment object with last segment inline: commit segment upload + last make inline segment + commit object upload
 
-In case of `Too Many Requests` during upload operation we should be able to retry batched requests as soon as we resolve point 1 from Open Issues. Other case for upload is when we fail to upload single segment to storage nodes then we should retry uploading whole segment from scratch (can we use the same order limits?). In future we can improve this logic to re-upload failed pieces to different storage nodes (maybe?).
+In case of `Too Many Requests` during upload operation we should be able to retry batched requests as soon as we resolve point 1 from Open Issues. Other case for upload is when we fail to upload single segment to storage nodes then we should retry uploading whole segment from scratch. In future we can improve this logic to re-upload failed pieces to different storage nodes.
 
 In case of `Too Many Requests` during download operation we should be able to retry single Metainfo API requests. If downloading segment from storage nodes will fail we should retry downloading this single segment.
 
@@ -84,3 +84,4 @@ Options:
 
 1. Currently, endpoints handled by DRPC in case of error are not returning value, only error. With Metainfo `Batch` call we would need to have partial results which requests were executed successfully. 
 2. Maybe we should treat Batch request as a one request from rate limit perspective.
+3. Can we reuse order limits from failed upload? Failed upload means when sending data to storage nodes was unsuccessful. 
