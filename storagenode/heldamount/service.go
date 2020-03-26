@@ -21,8 +21,11 @@ import (
 )
 
 var (
-	// ErrHeldAmountService defines held amount service error
+	// ErrHeldAmountService defines held amount service error.
 	ErrHeldAmountService = errs.Class("heldamount service error")
+
+	// ErrBadPeriod defines that period has wrong format.
+	ErrBadPeriod = errs.Class("wrong period format")
 
 	mon = monkit.Package()
 )
@@ -160,19 +163,19 @@ func (service *Service) AllPayStubsMonthlyCached(ctx context.Context, period str
 
 	payStubs, err = service.db.AllPayStubs(ctx, period)
 	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+		return payStubs, ErrHeldAmountService.Wrap(err)
 	}
 
 	return payStubs, nil
 }
 
 // SatellitePayStubPeriodCached retrieves held amount for all satellites for selected months from storagenode database.
-func (service *Service) SatellitePayStubPeriodCached(ctx context.Context, satelliteID storj.NodeID, periodStart, periodEnd string) (payStubs []*PayStub, err error) {
+func (service *Service) SatellitePayStubPeriodCached(ctx context.Context, satelliteID storj.NodeID, periodStart, periodEnd string) (payStubs []PayStub, err error) {
 	defer mon.Task()(&ctx, &satelliteID, &periodStart, &periodEnd)(&err)
 
 	periods, err := parsePeriodRange(periodStart, periodEnd)
 	if err != nil {
-		return nil, err
+		return []PayStub{}, err
 	}
 
 	for _, period := range periods {
@@ -181,10 +184,11 @@ func (service *Service) SatellitePayStubPeriodCached(ctx context.Context, satell
 			if ErrNoPayStubForPeriod.Has(err) {
 				continue
 			}
-			return nil, ErrHeldAmountService.Wrap(err)
+
+			return []PayStub{}, ErrHeldAmountService.Wrap(err)
 		}
 
-		payStubs = append(payStubs, payStub)
+		payStubs = append(payStubs, *payStub)
 	}
 
 	return payStubs, nil
@@ -196,13 +200,17 @@ func (service *Service) AllPayStubsPeriodCached(ctx context.Context, periodStart
 
 	periods, err := parsePeriodRange(periodStart, periodEnd)
 	if err != nil {
-		return nil, err
+		return []PayStub{}, err
 	}
 
 	for _, period := range periods {
 		payStub, err := service.db.AllPayStubs(ctx, period)
 		if err != nil {
-			return nil, ErrHeldAmountService.Wrap(err)
+			if ErrNoPayStubForPeriod.Has(err) {
+				continue
+			}
+
+			return []PayStub{}, ErrHeldAmountService.Wrap(err)
 		}
 
 		payStubs = append(payStubs, payStub...)
@@ -300,40 +308,40 @@ func (service *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *
 	}, nil
 }
 
-// TODO: improve it.
+// TODO: move to separate struct.
 func parsePeriodRange(periodStart, periodEnd string) (periods []string, err error) {
 	var yearStart, yearEnd, monthStart, monthEnd int
 
 	start := strings.Split(periodStart, "-")
 	if len(start) != 2 {
-		return nil, ErrHeldAmountService.New("period start has wrong format")
+		return nil, ErrBadPeriod.New("period start has wrong format")
 	}
 	end := strings.Split(periodEnd, "-")
 	if len(start) != 2 {
-		return nil, ErrHeldAmountService.New("period end has wrong format")
+		return nil, ErrBadPeriod.New("period end has wrong format")
 	}
 
 	yearStart, err = strconv.Atoi(start[0])
 	if err != nil {
-		return nil, ErrHeldAmountService.New("period start has wrong format")
+		return nil, ErrBadPeriod.New("period start has wrong format")
 	}
 	monthStart, err = strconv.Atoi(start[1])
 	if err != nil || monthStart > 12 || monthStart < 1 {
-		return nil, ErrHeldAmountService.New("period start has wrong format")
+		return nil, ErrBadPeriod.New("period start has wrong format")
 	}
 	yearEnd, err = strconv.Atoi(end[0])
 	if err != nil {
-		return nil, ErrHeldAmountService.New("period end has wrong format")
+		return nil, ErrBadPeriod.New("period end has wrong format")
 	}
 	monthEnd, err = strconv.Atoi(end[1])
 	if err != nil || monthEnd > 12 || monthEnd < 1 {
-		return nil, ErrHeldAmountService.New("period end has wrong format")
+		return nil, ErrBadPeriod.New("period end has wrong format")
 	}
 	if yearEnd < yearStart {
-		return nil, ErrHeldAmountService.New("period has wrong format")
+		return nil, ErrBadPeriod.New("period has wrong format")
 	}
 	if yearEnd == yearStart && monthEnd < monthStart {
-		return nil, ErrHeldAmountService.New("period has wrong format")
+		return nil, ErrBadPeriod.New("period has wrong format")
 	}
 
 	for ; yearStart <= yearEnd; yearStart++ {
