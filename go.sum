@@ -604,8 +604,6 @@ honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 storj.io/common v0.0.0-20200323134045-2bd4d6e2dd7d h1:R4qel+wubcKJP8HvWromOGOplbAlpVNwfIkDkFD4RY0=
 storj.io/common v0.0.0-20200323134045-2bd4d6e2dd7d/go.mod h1:I0QTs7z1rI+ZEN95GGY2LKMzP5OZqu0Udga3WhyQfO0=
-storj.io/common v0.0.0-20200324171116-bad40c947e25 h1:AU4vRaFLkATRaCN6cZY0MiyNdl1n3aRkkEn/1mEo3Sc=
-storj.io/common v0.0.0-20200324171116-bad40c947e25/go.mod h1:RBaNRmk/lqyZ7h1MAH4N9zld0z+tO4M9sLOFT30K+cE=
 storj.io/common v0.0.0-20200325130515-1ce63718a5c6 h1:oyYoBs5GofkCHt/F24uJMzkGpQOoJkp3TYdTVghsUAo=
 storj.io/common v0.0.0-20200325130515-1ce63718a5c6/go.mod h1:RBaNRmk/lqyZ7h1MAH4N9zld0z+tO4M9sLOFT30K+cE=
 storj.io/drpc v0.0.7-0.20191115031725-2171c57838d2/go.mod h1:/ascUDbzNAv0A3Jj7wUIKFBH2JdJ2uJIBO/b9+2yHgQ=
@@ -613,5 +611,5 @@ storj.io/drpc v0.0.11 h1:6vLxfpSbwCLtqzAoXzXx/SxBqBtbzbmquXPqfcWKqfw=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=
 storj.io/private v0.0.0-20200323175212-c3ef21e873a9 h1:dFwvi7xBYIHpqmpfLddibHpXexiN4gaAN1uo4Xx5890=
 storj.io/private v0.0.0-20200323175212-c3ef21e873a9/go.mod h1:I09FR2ZU1Dy1vaQ2SkUbfGpwVtJrwafjYWGw8W808WE=
-storj.io/uplink v1.0.1 h1:UgqT6xIFSkQKlQdAUM9LwNV51iVRgBFQlqzefN+akYs=
-storj.io/uplink v1.0.1/go.mod h1:Ob8Y/k8YE/TCD1X9+qfcyPEq3VWJ7Iy5SOX2t6QaY+c=
+storj.io/uplink v1.0.2-0.20200325131054-76ecb3d2e025 h1:nOqt2h+itlSAXxpe9KHSmLmPvboQEuKAlcpf+Dw5Prg=
+storj.io/uplink v1.0.2-0.20200325131054-76ecb3d2e025/go.mod h1:+BSgpndm+al62UbUiwvsg5IjqE66JS9ZGKGiWPGDjRs=
