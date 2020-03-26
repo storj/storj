@@ -14,7 +14,7 @@
                 <p class="name">{{ itemData.formattedName() }}</p>
             </div>
         </div>
-        <div class="apikey-item-container__common-info">
+        <div class="apikey-item-container__common-info date-item-container">
             <p class="date">{{ itemData.getDate() }}</p>
         </div>
     </div>
@@ -58,7 +58,7 @@ export default class ApiKeysItem extends Vue {
             display: flex;
             align-items: center;
             justify-content: flex-start;
-            width: 40%;
+            width: 60%;
 
             .checkbox-container {
                 margin-left: 28px;
@@ -129,5 +129,9 @@ export default class ApiKeysItem extends Vue {
         .date {
             color: #fff;
         }
+    }
+
+    .date-item-container {
+        width: 40%;
     }
 </style>
