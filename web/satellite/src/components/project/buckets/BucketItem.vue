@@ -3,9 +3,9 @@
 
 <template>
     <div class="container">
-        <p class="container__item" :title="itemData.bucketName">{{ itemData.formattedBucketName() }}</p>
-        <p class="container__item">{{ itemData.storage.toFixed(4) }}</p>
-        <p class="container__item">{{ itemData.egress.toFixed(4) }}</p>
+        <p class="container__item name" :title="itemData.bucketName">{{ itemData.formattedBucketName() }}</p>
+        <p class="container__item">{{ itemData.storage.toFixed(2) }}GB</p>
+        <p class="container__item">{{ itemData.egress.toFixed(2) }}GB</p>
         <p class="container__item">{{ itemData.objectCount.toString() }}</p>
     </div>
 </template>
@@ -24,18 +24,22 @@ export default class BucketItem extends Vue {
 
 <style scoped lang="scss">
     .container {
-        padding: 25px 0;
+        padding: 15px 0;
         outline: none;
         display: flex;
         background: #fff;
         margin-bottom: 1px;
+        border-top: 1px solid #d7d7d7;
 
         &__item {
-            width: 25%;
-            padding-left: 26px;
+            width: 20%;
             font-family: 'font_medium', sans-serif;
             font-size: 16px;
             margin: 0;
         }
+    }
+
+    .name {
+        width: 40%;
     }
 </style>

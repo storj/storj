@@ -3,17 +3,17 @@
 
 <template>
     <div class="sort-header-container">
-        <div class="sort-header-container__item">
-            <p class="sort-header-container__item__name">Bucket Name</p>
+        <div class="sort-header-container__item name">
+            <p class="sort-header-container__item__name">BUCKET NAME</p>
         </div>
         <div class="sort-header-container__item">
-            <p class="sort-header-container__item__name">Storage Used, GB</p>
+            <p class="sort-header-container__item__name">STORAGE</p>
         </div>
         <div class="sort-header-container__item">
-            <p class="sort-header-container__item__name">Egress Used, GB</p>
+            <p class="sort-header-container__item__name">BANDWIDTH</p>
         </div>
         <div class="sort-header-container__item">
-            <p class="sort-header-container__item__name">Objects Stored</p>
+            <p class="sort-header-container__item__name">OBJECTS</p>
         </div>
     </div>
 </template>
@@ -34,17 +34,21 @@ export default class SortBucketsHeader extends Vue {}
         align-items: center;
 
         &__item {
-            width: 25%;
+            width: 20%;
             margin: 0;
             text-align: left;
-            padding-left: 26px;
 
             &__name {
                 font-family: 'font_medium', sans-serif;
-                font-size: 16px;
-                line-height: 23px;
-                color: #2a2a32;
+                font-size: 14px;
+                line-height: 20px;
+                color: #acacac;
+                letter-spacing: 0.03em;
             }
         }
+    }
+
+    .name {
+        width: 40%;
     }
 </style>

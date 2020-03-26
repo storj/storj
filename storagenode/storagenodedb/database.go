@@ -265,7 +265,7 @@ func (db *DB) openDatabase(dbName string) error {
 	mDB := db.SQLDBs[dbName]
 	mDB.Configure(sqlDB)
 
-	dbutil.Configure(sqlDB, mon)
+	dbutil.Configure(sqlDB, dbName, mon)
 
 	return nil
 }

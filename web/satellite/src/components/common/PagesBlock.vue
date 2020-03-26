@@ -34,7 +34,7 @@ export default class PagesBlock extends Vue {
             font-family: 'font_medium', sans-serif;
             font-size: 16px;
             margin-right: 15px;
-            width: 10px;
+            width: auto;
             text-align: center;
             cursor: pointer;
             display: block;
@@ -72,7 +72,7 @@ export default class PagesBlock extends Vue {
             position: absolute;
             bottom: -4px;
             left: 0;
-            width: 10px;
+            width: 100%;
             height: 2px;
             background-color: #2379ec;
         }
