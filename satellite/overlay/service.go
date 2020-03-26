@@ -37,9 +37,9 @@ var ErrNotEnoughNodes = errs.Class("not enough nodes")
 // architecture: Database
 type DB interface {
 	// SelectStorageNodes looks up nodes based on criteria
-	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*NodeDossier, error)
+	SelectStorageNodes(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *NodeCriteria) ([]*NodeDossier, error)
 	// SelectNewStorageNodes looks up nodes based on new node criteria
-	SelectNewStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*NodeDossier, error)
+	// SelectNewStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*NodeDossier, error)
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
@@ -300,29 +300,29 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		newNodeCount = int(float64(reputableNodeCount) * preferences.NewNodeFraction)
 	}
 
-	var newNodes []*NodeDossier
-	if newNodeCount > 0 {
-		newNodes, err = service.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
-			FreeDisk:         preferences.MinimumDiskSpace.Int64(),
-			AuditCount:       preferences.AuditCount,
-			ExcludedIDs:      excludedIDs,
-			MinimumVersion:   preferences.MinimumVersion,
-			OnlineWindow:     preferences.OnlineWindow,
-			DistinctIP:       preferences.DistinctIP,
-			ExcludedNetworks: excludedNetworks,
-		})
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-	}
+	// var newNodes []*NodeDossier
+	// if newNodeCount > 0 {
+	// 	newNodes, err = service.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
+	// 		FreeDisk:         preferences.MinimumDiskSpace.Int64(),
+	// 		AuditCount:       preferences.AuditCount,
+	// 		ExcludedIDs:      excludedIDs,
+	// 		MinimumVersion:   preferences.MinimumVersion,
+	// 		OnlineWindow:     preferences.OnlineWindow,
+	// 		DistinctIP:       preferences.DistinctIP,
+	// 		ExcludedNetworks: excludedNetworks,
+	// 	})
+	// 	if err != nil {
+	// 		return nil, Error.Wrap(err)
+	// 	}
+	// }
 
-	// add selected new nodes ID and network to the excluded lists for reputable node selection
-	for _, newNode := range newNodes {
-		excludedIDs = append(excludedIDs, newNode.Id)
-		if preferences.DistinctIP {
-			excludedNetworks = append(excludedNetworks, newNode.LastNet)
-		}
-	}
+	// // add selected new nodes ID and network to the excluded lists for reputable node selection
+	// for _, newNode := range newNodes {
+	// 	excludedIDs = append(excludedIDs, newNode.Id)
+	// 	if preferences.DistinctIP {
+	// 		excludedNetworks = append(excludedNetworks, newNode.LastNet)
+	// 	}
+	// }
 
 	criteria := NodeCriteria{
 		FreeDisk:         preferences.MinimumDiskSpace.Int64(),
@@ -334,13 +334,13 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		OnlineWindow:     preferences.OnlineWindow,
 		DistinctIP:       preferences.DistinctIP,
 	}
-	reputableNodes, err := service.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
+	nodes, err = service.db.SelectStorageNodes(ctx, reputableNodeCount, newNodeCount, &criteria)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	nodes = append(nodes, newNodes...)
-	nodes = append(nodes, reputableNodes...)
+	// nodes = append(nodes, newNodes...)
+	// nodes = append(nodes, reputableNodes...)
 
 	if len(nodes) < reputableNodeCount {
 		return nodes, ErrNotEnoughNodes.New("requested %d found %d; %+v ", reputableNodeCount, len(nodes), criteria)
