@@ -431,7 +431,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	u, err = s.store.Users().GetByEmail(ctx, user.Email)
 	if err == nil {
-		return nil, errs.New(emailUsedErrMsg)
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
 	if err != sql.ErrNoRows {
 		return nil, Error.Wrap(err)

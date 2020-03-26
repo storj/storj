@@ -23,7 +23,7 @@
                     <div class="header-default-state" v-if="isDefaultHeaderState">
                         <VButton
                             class="button"
-                            label="+Create API Key"
+                            label="+ Create API Key"
                             width="180px"
                             height="48px"
                             :on-press="onCreateApiKeyClick"
