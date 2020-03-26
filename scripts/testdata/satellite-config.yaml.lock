@@ -143,7 +143,7 @@ contact.external-address: ""
 # garbage-collection.retain-send-timeout: 1m0s
 
 # if true, run garbage collection as part of the core
-# garbage-collection.run-in-core: true
+# garbage-collection.run-in-core: false
 
 # if true, skip the first run of GC
 # garbage-collection.skip-first: true
