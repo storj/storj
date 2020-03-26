@@ -152,7 +152,7 @@ export default class BillingArea extends Vue {
      */
     public async beforeRouteLeave(to, from, next): Promise<void> {
         try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -220,7 +220,7 @@ export default class BillingArea extends Vue {
                 start_date: this.dateRange.startDate,
                 end_date: this.dateRange.endDate,
             });
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
         }
@@ -239,7 +239,7 @@ export default class BillingArea extends Vue {
                 start_date: this.dateRange.startDate,
                 end_date: this.dateRange.endDate,
             });
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_PREVIOUS_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
         }
@@ -274,7 +274,7 @@ export default class BillingArea extends Vue {
         const dateRange: DateRange = new DateRange(startDate, endDate);
 
         try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES, dateRange);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES, dateRange);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
         }

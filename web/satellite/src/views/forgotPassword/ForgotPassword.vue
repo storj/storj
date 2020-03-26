@@ -52,21 +52,24 @@ export default class ForgotPassword extends Vue {
 
         try {
             await this.auth.forgotPassword(this.email);
-            await this.$notify.success('Please look for instructions at your email');
         } catch (error) {
             await this.$notify.error(error.message);
+
+            return;
         }
+
+        await this.$notify.success('Please look for instructions at your email');
     }
 
     /**
      * Changes location to Login route.
      */
     public onBackToLoginClick(): void {
-      this.$router.push(RouteConfig.Login.path);
+        this.$router.push(RouteConfig.Login.path);
     }
 
     public onLogoClick(): void {
-      location.reload();
+        location.reload();
     }
 
     private validateFields(): boolean {
