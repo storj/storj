@@ -9,12 +9,9 @@ import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import BillingHistory from '@/components/account/billing/billingHistory/BillingHistory.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
-import BucketArea from '@/components/buckets/BucketArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import OverviewArea from '@/components/overview/OverviewArea.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
-import ProjectDetails from '@/components/project/ProjectDetails.vue';
-import UsageReport from '@/components/project/UsageReport.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import store from '@/store';
@@ -39,12 +36,9 @@ export abstract class RouteConfig {
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
     public static Team = new NavigationLink('/project-members', 'Team');
     public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
-    public static Buckets = new NavigationLink('/buckets', 'Buckets');
     public static Overview = new NavigationLink('/overview', 'Initial Overview');
 
     // child paths
-    public static ProjectDetails = new NavigationLink('details', 'Project Details');
-    public static UsageReport = new NavigationLink('usage-report', 'Usage Report');
     public static Settings = new NavigationLink('settings', 'Settings');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
@@ -121,18 +115,6 @@ export const router = new Router({
                     path: RouteConfig.ProjectDashboard.path,
                     name: RouteConfig.ProjectDashboard.name,
                     component: ProjectDashboard,
-                    children: [
-                        {
-                            path: RouteConfig.UsageReport.path,
-                            name: RouteConfig.UsageReport.name,
-                            component: UsageReport,
-                        },
-                        {
-                            path: RouteConfig.ProjectDetails.path,
-                            name: RouteConfig.ProjectDetails.name,
-                            component: ProjectDetails,
-                        },
-                    ],
                 },
                 {
                     path: RouteConfig.Root.path,
@@ -148,11 +130,6 @@ export const router = new Router({
                     path: RouteConfig.ApiKeys.path,
                     name: RouteConfig.ApiKeys.name,
                     component: ApiKeysArea,
-                },
-                {
-                    path: RouteConfig.Buckets.path,
-                    name: RouteConfig.Buckets.name,
-                    component: BucketArea,
                 },
                 {
                     path: RouteConfig.Overview.path,
@@ -171,19 +148,13 @@ export const router = new Router({
 
 router.beforeEach((to, from, next) => {
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
-        next(RouteConfig.Account.with(RouteConfig.Settings).path);
-
-        return;
-    }
-
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.ProjectDashboard)) {
-        next(RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path);
+        next(RouteConfig.Account.with(RouteConfig.Billing).path);
 
         return;
     }
 
     if (to.name === 'default') {
-        next(RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path);
+        next(RouteConfig.ProjectDashboard.path);
 
         return;
     }
@@ -210,7 +181,7 @@ router.afterEach(({name}, from) => {
 
 /**
  * if our route is a tab and has no sub tab route - we will navigate to default subtab.
- * F.E. /account/ -> /account/profile/; /project-overview/ -> /project-overview/details/
+ * F.E. /account/ -> /account/billing/;
  * @param routes - array of RouteRecord from vue-router
  * @param next - callback to process next route
  * @param tabRoute - tabNavigator route

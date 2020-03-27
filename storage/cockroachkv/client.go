@@ -40,7 +40,7 @@ func New(dbURL string) (*Client, error) {
 		return nil, err
 	}
 
-	dbutil.Configure(db, mon)
+	dbutil.Configure(db, "cockroachkv", mon)
 
 	// TODO: new shouldn't be taking ctx as argument
 	err = schema.PrepareDB(context.TODO(), db)

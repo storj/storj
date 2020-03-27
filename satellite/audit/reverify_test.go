@@ -179,7 +179,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		// delete the piece from the first node
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -271,7 +271,7 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		// delete the piece from the first node
 		piece := pieces[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -875,7 +875,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 
 		// delete the piece for pointer1 from the selected node
 		pieceID := pointer1.GetRemote().RootPieceId.Derive(selectedNode, selectedPieceNum)
-		node := getStorageNode(planet, selectedNode)
+		node := planet.FindNode(selectedNode)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -1080,7 +1080,7 @@ func TestReverifySlowDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
@@ -1179,7 +1179,7 @@ func TestReverifyUnknownError(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewBadDB(log.Named("baddb"), db), nil
 			},
 			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),

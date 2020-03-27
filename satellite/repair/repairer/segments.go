@@ -73,7 +73,7 @@ func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
 	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
 	excessOptimalThreshold float64, repairOverride int,
-	downloadTimeout time.Duration,
+	downloadTimeout time.Duration, inMemoryRepair bool,
 	satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
@@ -86,7 +86,7 @@ func NewSegmentRepairer(
 		metainfo:                   metainfo,
 		orders:                     orders,
 		overlay:                    overlay,
-		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout),
+		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout, inMemoryRepair),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 		repairOverride:             repairOverride,

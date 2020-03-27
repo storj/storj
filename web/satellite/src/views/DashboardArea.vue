@@ -18,7 +18,7 @@
                             :second-value="bandwidthRemaining"
                             first-description="of Storage Remaining"
                             second-description="of Bandwidth Remaining"
-                            :path="projectDetailsPath"
+                            :path="projectDashboardPath"
                             link="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
                             link-label="Request Limit Increase ->"
                         />
@@ -64,7 +64,6 @@ import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
@@ -98,7 +97,7 @@ export default class DashboardArea extends Vue {
     /**
      * Holds router link to project details page.
      */
-    public readonly projectDetailsPath: string = RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path;
+    public readonly projectDashboardPath: string = RouteConfig.ProjectDashboard.path;
 
     /**
      * Lifecycle hook after initial render.
@@ -191,12 +190,6 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
         } catch (error) {
             await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }
 
         try {

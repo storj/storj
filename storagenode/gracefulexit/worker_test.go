@@ -101,7 +101,7 @@ func TestWorkerTimeout(t *testing.T) {
 		StorageNodeCount: successThreshold + 1,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
 			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),

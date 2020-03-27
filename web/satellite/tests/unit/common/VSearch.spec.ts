@@ -26,7 +26,7 @@ describe('SearchComponent.vue', () => {
 
         wrapper.vm.onMouseEnter();
 
-        expect(wrapper.vm.style.width).toMatch('602px');
+        expect(wrapper.vm.style.width).toMatch('540px');
 
         wrapper.vm.onMouseLeave();
 

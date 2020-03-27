@@ -2,17 +2,16 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { UsageState } from '@/store/modules/usage';
 import {
     BillingHistoryItem,
     BillingHistoryItemStatus,
     BillingHistoryItemType,
     CreditCard,
+    DateRange,
     PaymentsApi,
     ProjectCharge,
     TokenDeposit,
 } from '@/types/payments';
-import { DateRange } from '@/types/usage';
 
 export const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',
@@ -97,7 +96,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             [SET_CREDIT_CARDS](state: PaymentsState, creditCards: CreditCard[]): void {
                 state.creditCards = creditCards;
             },
-            [SET_DATE](state: UsageState, dateRange: DateRange) {
+            [SET_DATE](state: PaymentsState, dateRange: DateRange) {
                 state.startDate = dateRange.startDate;
                 state.endDate = dateRange.endDate;
             },

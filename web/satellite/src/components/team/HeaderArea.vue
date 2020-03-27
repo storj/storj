@@ -206,7 +206,7 @@ export default class HeaderArea extends Vue {
         const projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         if (!projects.length) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
-            await this.$router.push(RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path);
+            await this.$router.push(RouteConfig.ProjectDashboard.path);
 
             return;
         }
@@ -318,7 +318,7 @@ export default class HeaderArea extends Vue {
             position: absolute;
             bottom: 0;
             right: 0;
-            width: 602px;
+            width: 540px;
             height: 56px;
             z-index: 100;
             opacity: 0.3;

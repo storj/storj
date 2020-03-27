@@ -238,7 +238,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 	})
 }
 
-func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) bool {
+func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.Satellite, nodeID storj.NodeID) bool {
 	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
 	require.NoError(t, err)
 

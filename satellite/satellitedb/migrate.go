@@ -1010,6 +1010,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				DB:          db.DB,
+				Description: "Add missing bucket_bandwidth_rollups_project_id_action_interval_index index",
+				Version:     101,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );`,
+				},
+			},
 		},
 	}
 }
