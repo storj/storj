@@ -325,7 +325,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # validate redundancy scheme configuration
 # metainfo.rs.validate: true
 
-# address to send telemetry to
+# address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
 # application name for telemetry identification

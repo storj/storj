@@ -46,7 +46,7 @@ require (
 	google.golang.org/grpc v1.28.0
 	storj.io/common v0.0.0-20200325130515-1ce63718a5c6
 	storj.io/drpc v0.0.11
-	storj.io/private v0.0.0-20200323175212-c3ef21e873a9
+	storj.io/private v0.0.0-20200327035409-e9d82e7e0c6b
 	storj.io/uplink v1.0.2-0.20200325131054-76ecb3d2e025
 
 // storj/gatway for storj-sim is installed via makefile `install-sim` target
