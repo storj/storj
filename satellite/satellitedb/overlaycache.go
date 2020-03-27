@@ -91,13 +91,14 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 
 	totalCount := newNodeCount + reputableNodeCount
 	receivedNewNodeCount := 0
+	receivedNodeNetworks := make(map[string]struct{})
+
 	for i := 0; i < 3; i++ {
 		newNodeQuery := ""
 		if receivedNewNodeCount < newNodeCount {
 			moreNewNodeArgs := []interface{}{}
 			newNodeQuery, moreNewNodeArgs = buildSelectionDistinct(ctx, criteria.ExcludedNetworks, newNodeCount, safeNewNodeQuery, true)
 			newNodeArgs = append(newNodeArgs, moreNewNodeArgs...)
-			// TODO: change how UNION ALL is added, depending on if we expect requests for only new nodes and not reputable nodes
 			newNodeQuery += "  UNION ALL "
 		}
 		reputableNodeQuery, moreReputableNodeArgs := buildSelectionDistinct(ctx, criteria.ExcludedNetworks, reputableNodeCount, safeReputableNodeQuery, false)
@@ -124,8 +125,13 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 			if err != nil {
 				return nil, err
 			}
+			// checking for last net collision among reputable and new nodes since we can't check within the query
+			if _, ok := receivedNodeNetworks[dbNode.LastNet]; ok {
+				continue
+			}
 			if isNew {
 				receivedNewNodeCount++
+				receivedNodeNetworks[dbNode.LastNet] = struct{}{}
 			}
 			dossier, err := convertDBNode(ctx, dbNode)
 			if err != nil {
