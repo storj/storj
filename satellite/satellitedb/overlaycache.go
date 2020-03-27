@@ -33,59 +33,30 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
-func (cache *overlaycache) SelectStorageNodes(ctx context.Context, newNodeCount, reputableNodeCount int, criteria *overlay.NodeCriteria) (nodes []*overlay.NodeDossier, err error) {
+func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria) (nodes []*overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if newNodeCount == 0 && reputableNodeCount == 0 {
 		return nil, nil
 	}
-	nodeType := int(pb.NodeType_STORAGE)
-
-	safeReputableNodeQuery := `
-		WHERE disqualified IS NULL
-		AND suspended IS NULL
-		AND exit_initiated_at IS NULL
-		AND type = ?
-		AND free_disk >= ?
-		AND total_audit_count >= ?
-		AND total_uptime_count >= ?
-		AND last_contact_success > ?`
-	reputableNodeArgs := append(make([]interface{}, 0),
-		nodeType, criteria.FreeDisk, criteria.AuditCount,
-		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
-
-	safeNewNodeQuery := `
-		WHERE disqualified IS NULL
-		AND suspended IS NULL
-		AND exit_initiated_at IS NULL
-		AND type = ?
-		AND free_disk >= ?
-		AND (total_audit_count < ? OR total_uptime_count < ?)
-		AND last_contact_success > ?`
-	newNodeArgs := append(make([]interface{}, 0),
-		nodeType, criteria.FreeDisk, criteria.AuditCount,
-		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
-
-	if criteria.MinimumVersion != "" {
-		v, err := version.NewSemVer(criteria.MinimumVersion)
+	safeNewNodeQuery := ""
+	newNodeArgs := []interface{}{}
+	if newNodeCount > 0 {
+		safeNewNodeQuery, newNodeArgs, err = buildConditions(ctx, criteria, true)
 		if err != nil {
-			return nil, Error.New("invalid node selection criteria version: %v", err)
+			return nil, err
 		}
-		safeNewNodeQuery += `
-			AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?))))
-			AND release`
-		safeReputableNodeQuery += `
-			AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?))))
-			AND release`
-		newNodeArgs = append(newNodeArgs, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
-		reputableNodeArgs = append(reputableNodeArgs, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
+	}
+	safeReputableNodeQuery, reputableNodeArgs, err := buildConditions(ctx, criteria, false)
+	if err != nil {
+		return nil, err
 	}
 
 	if !criteria.DistinctIP {
-		newNodeQuery, moreNewNodeArgs := queryNodes(ctx, criteria.ExcludedIDs, newNodeCount, safeNewNodeQuery)
+		newNodeQuery, moreNewNodeArgs := buildSelection(ctx, newNodeCount, safeNewNodeQuery)
 		newNodeArgs = append(newNodeArgs, moreNewNodeArgs...)
 
-		reputableNodeQuery, moreReputableNodeArgs := queryNodes(ctx, criteria.ExcludedIDs, reputableNodeCount, safeReputableNodeQuery)
+		reputableNodeQuery, moreReputableNodeArgs := buildSelection(ctx, reputableNodeCount, safeReputableNodeQuery)
 		reputableNodeArgs = append(reputableNodeArgs, moreReputableNodeArgs...)
 
 		finalQuery := newNodeQuery + " UNION ALL " + reputableNodeQuery
@@ -119,17 +90,17 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, newNodeCount,
 	}
 
 	totalCount := newNodeCount + reputableNodeCount
-	var receivedNewNodeCount int
+	receivedNewNodeCount := 0
 	for i := 0; i < 3; i++ {
 		newNodeQuery := ""
 		moreNewNodeArgs := []interface{}{}
 		if receivedNewNodeCount < newNodeCount {
-			newNodeQuery, moreNewNodeArgs = queryNodesDistinct(ctx, criteria.ExcludedIDs, criteria.ExcludedNetworks, newNodeCount, safeNewNodeQuery, true)
+			newNodeQuery, moreNewNodeArgs = buildSelectionDistinct(ctx, criteria.ExcludedNetworks, newNodeCount, safeNewNodeQuery, true)
 			newNodeArgs = append(newNodeArgs, moreNewNodeArgs...)
 			// TODO: change how UNION ALL is added, depending on if we expect requests for only new nodes and not reputable nodes
 			newNodeQuery += "  UNION ALL "
 		}
-		reputableNodeQuery, moreReputableNodeArgs := queryNodesDistinct(ctx, criteria.ExcludedIDs, criteria.ExcludedNetworks, reputableNodeCount, safeReputableNodeQuery, false)
+		reputableNodeQuery, moreReputableNodeArgs := buildSelectionDistinct(ctx, criteria.ExcludedNetworks, reputableNodeCount, safeReputableNodeQuery, false)
 		reputableNodeArgs = append(reputableNodeArgs, moreReputableNodeArgs...)
 
 		finalQuery := newNodeQuery + reputableNodeQuery
@@ -174,6 +145,56 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, newNodeCount,
 	return nodes, nil
 }
 
+func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, isNewNodeQuery bool) (query string, args []interface{}, err error) {
+
+	nodeType := int(pb.NodeType_STORAGE)
+
+	// initiated with reputable node conditions
+	reputationCondition := `
+	AND total_audit_count >= ?
+	AND total_uptime_count >= ?`
+
+	if isNewNodeQuery {
+		reputationCondition = `
+		AND (total_audit_count < ? OR total_uptime_count < ?)
+		`
+	}
+
+	safeNodeQuery := `
+	WHERE disqualified IS NULL
+	AND suspended IS NULL
+	AND exit_initiated_at IS NULL
+	AND type = ?
+	AND free_disk >= ?
+	` + reputationCondition + `
+	AND last_contact_success > ?`
+	args = append(make([]interface{}, 0),
+		nodeType, criteria.FreeDisk, criteria.AuditCount,
+		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
+
+	if criteria.MinimumVersion != "" {
+		v, err := version.NewSemVer(criteria.MinimumVersion)
+		if err != nil {
+			return "", nil, Error.New("invalid node selection criteria version: %v", err)
+		}
+		safeNodeQuery += `
+				AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?))))
+				AND release`
+		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
+	}
+
+	safeExcludeNodes := ""
+	if len(criteria.ExcludedIDs) > 0 {
+		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(criteria.ExcludedIDs)-1) + `)`
+		for _, id := range criteria.ExcludedIDs {
+			args = append(args, id.Bytes())
+		}
+	}
+	safeNodeQuery += safeExcludeNodes
+
+	return safeNodeQuery, args, nil
+}
+
 // GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
 func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -200,16 +221,8 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 	return nodeNets, Error.Wrap(rows.Err())
 }
 
-func queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string) (query string, args []interface{}) {
+func buildSelection(ctx context.Context, count int, safeQuery string) (query string, args []interface{}) {
 	defer mon.Task()(&ctx)(nil)
-
-	safeExcludeNodes := ""
-	if len(excludedNodes) > 0 {
-		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excludedNodes)-1) + `)`
-		for _, id := range excludedNodes {
-			args = append(args, id.Bytes())
-		}
-	}
 
 	args = append(args, count)
 
@@ -218,27 +231,19 @@ func queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, sa
 		total_uptime_count, uptime_success_count, disqualified, suspended,
 		audit_reputation_alpha, audit_reputation_beta
 		FROM nodes
-		` + safeQuery + safeExcludeNodes + `
+		` + safeQuery + `
 		ORDER BY RANDOM()
 		LIMIT ?)`
 
 	return query, args
 }
 
-func queryNodesDistinct(ctx context.Context, excludedIDs []storj.NodeID, excludedNodeNetworks []string, count int, safeQuery string, isNewNodeRequest bool) (query string, args []interface{}) {
+func buildSelectionDistinct(ctx context.Context, excludedNodeNetworks []string, count int, safeQuery string, isNewNodeRequest bool) (query string, args []interface{}) {
 	defer mon.Task()(&ctx)(nil)
 
 	isNewNodeFlag := "false"
 	if isNewNodeRequest {
 		isNewNodeFlag = "true"
-	}
-
-	safeExcludeNodes := ""
-	if len(excludedIDs) > 0 {
-		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excludedIDs)-1) + `)`
-		for _, id := range excludedIDs {
-			args = append(args, id.Bytes())
-		}
 	}
 
 	safeExcludeNetworks := ""
@@ -258,7 +263,7 @@ func queryNodesDistinct(ctx context.Context, excludedIDs []storj.NodeID, exclude
 			audit_success_count, total_uptime_count, uptime_success_count,
 			audit_reputation_alpha, audit_reputation_beta, ` + isNewNodeFlag + `
 			FROM nodes
-			` + safeQuery + safeExcludeNodes + safeExcludeNetworks + `
+			` + safeQuery + safeExcludeNetworks + `
 			AND last_net <> ''                         -- select nodes with a network set
 			ORDER BY last_net, RANDOM()                -- equal chance of choosing any qualified node at this network
 		) filteredcandidates
