@@ -6,6 +6,7 @@ require (
 	github.com/alessio/shellescape v0.0.0-20190409004728-b115ca0f9053
 	github.com/alicebob/miniredis/v2 v2.11.1
 	github.com/btcsuite/btcutil v1.0.1
+	github.com/calebcase/tmpfile v1.0.1
 	github.com/cheggaaa/pb/v3 v3.0.1
 	github.com/fatih/color v1.7.0
 	github.com/go-redis/redis v6.14.1+incompatible
