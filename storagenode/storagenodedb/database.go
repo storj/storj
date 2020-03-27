@@ -1145,6 +1145,14 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
      				);`,
 				},
 			},
+			{
+				DB:          db.reputationDB,
+				Description: "Add suspended field to satellites db",
+				Version:     34,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN suspended TIMESTAMP`,
+				},
+			},
 		},
 	}
 }

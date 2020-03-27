@@ -34,6 +34,7 @@ const snoAPI = new SNOApi();
 const allSatellites = {
     id: null,
     disqualified: null,
+    suspended: null,
 };
 
 export const node = {
@@ -60,6 +61,7 @@ export const node = {
         },
         satellites: new Array<SatelliteInfo>(),
         disqualifiedSatellites: new Array<SatelliteInfo>(),
+        suspendedSatellites: new Array<SatelliteInfo>(),
         selectedSatellite: allSatellites,
         bandwidthChartData: new Array<BandwidthUsed>(),
         egressChartData: new Array<EgressUsed>(),
@@ -87,6 +89,7 @@ export const node = {
             state.utilization.bandwidth.used = nodeInfo.bandwidth.used;
 
             state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => satellite.disqualified);
+            state.suspendedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => satellite.suspended);
 
             state.satellites = nodeInfo.satellites || [];
 
@@ -137,12 +140,12 @@ export const node = {
         },
     },
     actions: {
-        [NODE_ACTIONS.GET_NODE_INFO]: async function ({commit}: any): Promise<void> {
+        [NODE_ACTIONS.GET_NODE_INFO]: async function ({ commit }: any): Promise<void> {
             const response = await snoAPI.dashboard();
 
             commit(NODE_MUTATIONS.POPULATE_STORE, response);
         },
-        [NODE_ACTIONS.SELECT_SATELLITE]: async function ({commit}, id?: string): Promise<void> {
+        [NODE_ACTIONS.SELECT_SATELLITE]: async function ({ commit }, id?: string): Promise<void> {
             let response: Satellite | Satellites;
             if (id) {
                 response = await snoAPI.satellite(id);
@@ -162,6 +165,6 @@ export const node = {
  * @param successCount - holds amount of success attempts for reputation metric
  * @param totalCount - holds total amount of attempts for reputation metric
  */
-function calculateSuccessRatio(successCount: number, totalCount: number) : number {
+function calculateSuccessRatio(successCount: number, totalCount: number): number {
     return totalCount === 0 ? 100 : successCount / totalCount * 100;
 }
