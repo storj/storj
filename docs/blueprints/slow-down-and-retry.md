@@ -17,7 +17,7 @@ backoff (e.g. exponential).
 
 Without a retry this error becomes fatal and can cause operations to fail that
 would otherwise succeed if performed at a slower pace. For example, long
-listing operations that proceed to quickly can fail and have to be restarted
+listing operations that proceed too quickly can fail and have to be restarted
 (e.g. observed often in the S3 gateway).
 
 In particular large uploads are badly impacted because a single `Too Many
@@ -62,9 +62,12 @@ In case of `Too Many Requests` during download operation we should be able to re
 
 As an addition to retry logic we need to implement at least basic backoff mechanism that will increase the waiting time (between retries) up to a certain threshold. This will prevent from overwhelming satellite with retry requests. For our needs exponential backoff looks to be reasonable solution. 
 
+As an alternative for implementing exponential backoff on client side we can also consider to return with `To Many Request` error information when client should try to repeat request. The HTTP protocol defines that is such situation server may include a `Retry-After` header ([429](https://httpstatuses.com/429)). We can use similar approach and return delay value more attached to current satellite load.
+
 Additional rules:
 * Every retried request should be processed by backoff logic.
-* Retry and slow mechanism should be transient from libuplink consumer perspective except several necessary configurable options (see Implementation).
+* Retry and slow mechanism should be transient from libuplink consumer perspective except several necessary configurable options (see Implementation) and logging (see next point).
+* Every retry should be logged (severity WARNING or lower) to give details why retry occurs and how long it will take to repeat request.
 * Applying retry and slow down logic shouldn't degrade libuplink overall performance and increase number of round trips to satellite.
 
 ## Implementation
