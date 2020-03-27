@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storagenode"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -71,8 +70,8 @@ type Planet struct {
 	uplinks   []*Uplink
 
 	VersionControl *versioncontrol.Peer
-	Satellites     []*SatelliteSystem
-	StorageNodes   []*storagenode.Peer
+	Satellites     []*Satellite
+	StorageNodes   []*StorageNode
 	Uplinks        []*Uplink
 
 	ReferralManager *server.Server
@@ -238,7 +237,7 @@ func (planet *Planet) StopPeer(peer Peer) error {
 func (planet *Planet) Size() int { return len(planet.uplinks) + len(planet.peers) }
 
 // FindNode is a helper to retrieve a storage node record by its node ID.
-func (planet *Planet) FindNode(nodeID storj.NodeID) *storagenode.Peer {
+func (planet *Planet) FindNode(nodeID storj.NodeID) *StorageNode {
 	for _, node := range planet.StorageNodes {
 		if node.ID() == nodeID {
 			return node

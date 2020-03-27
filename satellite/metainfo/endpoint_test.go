@@ -446,7 +446,7 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 }
 
 func getProjectIDAndEncPathFirstObject(
-	ctx context.Context, t *testing.T, satellite *testplanet.SatelliteSystem,
+	ctx context.Context, t *testing.T, satellite *testplanet.Satellite,
 ) (projectID *uuid.UUID, encryptedPath []byte) {
 	t.Helper()
 
@@ -463,7 +463,7 @@ func getProjectIDAndEncPathFirstObject(
 
 func uploadFirstObjectWithoutLastSegmentPointer(
 	ctx context.Context, t *testing.T, uplnk *testplanet.Uplink,
-	satelliteSys *testplanet.SatelliteSystem, segmentSize memory.Size,
+	satelliteSys *testplanet.Satellite, segmentSize memory.Size,
 	bucketName string, objectName string, objectData []byte,
 ) (projectID *uuid.UUID, encryptedPath []byte) {
 	t.Helper()
@@ -475,7 +475,7 @@ func uploadFirstObjectWithoutLastSegmentPointer(
 
 func uploadFirstObjectWithoutSomeSegmentsPointers(
 	ctx context.Context, t *testing.T, uplnk *testplanet.Uplink,
-	satelliteSys *testplanet.SatelliteSystem, segmentSize memory.Size,
+	satelliteSys *testplanet.Satellite, segmentSize memory.Size,
 	bucketName string, objectName string, objectData []byte, noSegmentsIndexes []int64,
 ) (projectID *uuid.UUID, encryptedPath []byte) {
 	t.Helper()

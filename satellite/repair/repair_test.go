@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
-	"storj.io/storj/storagenode"
 )
 
 // TestDataRepair does the following:
@@ -210,7 +209,6 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		nodesToKill := make(map[storj.NodeID]bool)
 		originalNodes := make(map[storj.NodeID]bool)
 
-		var corruptedNode *storagenode.Peer
 		var corruptedNodeID storj.NodeID
 		var corruptedPieceID storj.PieceID
 
@@ -230,13 +228,9 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		require.NotNil(t, corruptedNodeID)
 		require.NotNil(t, corruptedPieceID)
 
-		for _, node := range planet.StorageNodes {
-			if node.ID() == corruptedNodeID {
-				corruptedNode = node
-			}
-			if nodesToKill[node.ID()] {
-				stopNodeByID(t, ctx, planet, node.ID())
-			}
+		corruptedNode := planet.FindNode(corruptedNodeID)
+		for nodeID := range nodesToKill {
+			stopNodeByID(t, ctx, planet, nodeID)
 		}
 		require.NotNil(t, corruptedNode)
 
@@ -325,7 +319,6 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		nodesToKill := make(map[storj.NodeID]bool)
 		originalNodes := make(map[storj.NodeID]bool)
 
-		var corruptedNode *storagenode.Peer
 		var corruptedNodeID storj.NodeID
 		var corruptedPieceID storj.PieceID
 		var corruptedPiece *pb.RemotePiece
@@ -348,13 +341,9 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 		require.NotNil(t, corruptedPieceID)
 		require.NotNil(t, corruptedPiece)
 
-		for _, node := range planet.StorageNodes {
-			if node.ID() == corruptedNodeID {
-				corruptedNode = node
-			}
-			if nodesToKill[node.ID()] {
-				stopNodeByID(t, ctx, planet, node.ID())
-			}
+		corruptedNode := planet.FindNode(corruptedNodeID)
+		for nodeID := range nodesToKill {
+			stopNodeByID(t, ctx, planet, nodeID)
 		}
 		require.NotNil(t, corruptedNode)
 
@@ -561,7 +550,7 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 	})
 }
 
-func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *storagenode.Peer, isUp bool, timestamp time.Time) error {
+func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *testplanet.StorageNode, isUp bool, timestamp time.Time) error {
 	local := node.Local()
 	checkInInfo := overlay.NodeCheckInInfo{
 		NodeID:     node.ID(),
@@ -1102,7 +1091,7 @@ func TestDataRepairUploadLimit(t *testing.T) {
 // getRemoteSegment returns a remote pointer its path from satellite.
 // nolint:golint
 func getRemoteSegment(
-	t *testing.T, ctx context.Context, satellite *testplanet.SatelliteSystem,
+	t *testing.T, ctx context.Context, satellite *testplanet.Satellite,
 ) (_ *pb.Pointer, path string) {
 	t.Helper()
 
@@ -1128,35 +1117,31 @@ func getRemoteSegment(
 func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, nodeID storj.NodeID) {
 	t.Helper()
 
-	for _, node := range planet.StorageNodes {
-		if node.ID() == nodeID {
-			err := planet.StopPeer(node)
-			require.NoError(t, err)
+	node := planet.FindNode(nodeID)
+	require.NotNil(t, node)
+	err := planet.StopPeer(node)
+	require.NoError(t, err)
 
-			for _, satellite := range planet.Satellites {
-				err = satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
-					NodeID: node.ID(),
-					Address: &pb.NodeAddress{
-						Address: node.Addr(),
-					},
-					IsUp: true,
-					Version: &pb.NodeVersion{
-						Version:    "v0.0.0",
-						CommitHash: "",
-						Timestamp:  time.Time{},
-						Release:    false,
-					},
-				}, time.Now().Add(-4*time.Hour))
-				require.NoError(t, err)
-			}
-
-			break
-		}
+	for _, satellite := range planet.Satellites {
+		err = satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+			NodeID: node.ID(),
+			Address: &pb.NodeAddress{
+				Address: node.Addr(),
+			},
+			IsUp: true,
+			Version: &pb.NodeVersion{
+				Version:    "v0.0.0",
+				CommitHash: "",
+				Timestamp:  time.Time{},
+				Release:    false,
+			},
+		}, time.Now().Add(-4*time.Hour))
+		require.NoError(t, err)
 	}
 }
 
 // corruptPieceData manipulates piece data on a storage node.
-func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *storagenode.Peer, corruptedPieceID storj.PieceID) {
+func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *testplanet.StorageNode, corruptedPieceID storj.PieceID) {
 	t.Helper()
 
 	blobRef := storage.BlobRef{

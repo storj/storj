@@ -179,7 +179,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		// delete the piece from the first node
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -271,7 +271,7 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		// delete the piece from the first node
 		piece := pieces[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -875,7 +875,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 
 		// delete the piece for pointer1 from the selected node
 		pieceID := pointer1.GetRemote().RootPieceId.Derive(selectedNode, selectedPieceNum)
-		node := getStorageNode(planet, selectedNode)
+		node := planet.FindNode(selectedNode)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 

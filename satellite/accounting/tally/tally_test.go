@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/tally"
-	"storj.io/storj/storagenode"
 )
 
 func TestDeleteTalliesBefore(t *testing.T) {
@@ -321,7 +320,7 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 }
 
 // makePointer creates a pointer
-func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme, segmentSize int64, inline bool) *pb.Pointer {
+func makePointer(storageNodes []*testplanet.StorageNode, rs storj.RedundancyScheme, segmentSize int64, inline bool) *pb.Pointer {
 	if inline {
 		inlinePointer := &pb.Pointer{
 			CreationDate:  time.Now(),

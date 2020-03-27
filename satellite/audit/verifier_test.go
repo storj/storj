@@ -501,7 +501,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -552,7 +552,7 @@ func TestVerifierMissingPieceHashesNotVerified(t *testing.T) {
 		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -748,7 +748,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
