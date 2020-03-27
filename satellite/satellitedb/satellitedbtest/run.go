@@ -7,6 +7,7 @@ package satellitedbtest
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -95,23 +96,21 @@ func (db *tempMasterDB) TestDBAccess() *dbx.DB {
 }
 
 // CreateMasterDB creates a new satellite database for testing
-func CreateMasterDB(ctx context.Context, t testing.TB, category string, index int, dbInfo Database) (db satellite.DB, err error) {
+func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db satellite.DB, err error) {
 	if dbInfo.URL == "" {
-		t.Fatalf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
+		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 	}
 
 	schemaSuffix := SchemaSuffix()
-	t.Log("schema-suffix ", schemaSuffix)
-
-	log := zaptest.NewLogger(t)
-	schema := SchemaName(t.Name(), category, index, schemaSuffix)
+	log.Debug("creating", zap.String("suffix", schemaSuffix))
+	schema := SchemaName(name, category, index, schemaSuffix)
 
 	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
 	if err != nil {
 		return nil, err
 	}
 
-	return CreateMasterDBOnTopOf(log.Named("db"), tempDB)
+	return CreateMasterDBOnTopOf(log, tempDB)
 }
 
 // CreateMasterDBOnTopOf creates a new satellite database on top of an already existing
@@ -133,23 +132,22 @@ func (db *tempPointerDB) Close() error {
 }
 
 // CreatePointerDB creates a new satellite pointer database for testing
-func CreatePointerDB(ctx context.Context, t testing.TB, category string, index int, dbInfo Database) (db metainfo.PointerDB, err error) {
+func CreatePointerDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db metainfo.PointerDB, err error) {
 	if dbInfo.URL == "" {
-		t.Fatalf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
+		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 	}
 
 	schemaSuffix := SchemaSuffix()
-	t.Log("schema-suffix ", schemaSuffix)
+	log.Debug("creating", zap.String("suffix", schemaSuffix))
 
-	log := zaptest.NewLogger(t)
-	schema := SchemaName(t.Name(), category, index, schemaSuffix)
+	schema := SchemaName(name, category, index, schemaSuffix)
 
 	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
 	if err != nil {
 		return nil, err
 	}
 
-	return CreatePointerDBOnTopOf(ctx, log.Named("pointerdb"), tempDB)
+	return CreatePointerDBOnTopOf(ctx, log, tempDB)
 }
 
 // CreatePointerDBOnTopOf creates a new satellite database on top of an already existing
@@ -174,7 +172,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 				t.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
 
-			db, err := CreateMasterDB(ctx, t, "T", 0, dbInfo.MasterDB)
+			db, err := CreateMasterDB(ctx, zaptest.NewLogger(t), t.Name(), "T", 0, dbInfo.MasterDB)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -208,7 +206,7 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 			ctx := testcontext.New(b)
 			defer ctx.Cleanup()
 
-			db, err := CreateMasterDB(ctx, b, "X", 0, dbInfo.MasterDB)
+			db, err := CreateMasterDB(ctx, zap.NewNop(), b.Name(), "X", 0, dbInfo.MasterDB)
 			if err != nil {
 				b.Fatal(err)
 			}

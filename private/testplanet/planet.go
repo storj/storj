@@ -55,6 +55,12 @@ type Config struct {
 	NonParallel bool
 }
 
+// DatabaseConfig defines connection strings for database.
+type DatabaseConfig struct {
+	SatelliteDB        string
+	SatellitePointerDB string
+}
+
 // Planet is a full storj system setup.
 type Planet struct {
 	id        string
@@ -113,7 +119,7 @@ func (peer *closablePeer) Close() error {
 }
 
 // NewCustom creates a new full system with the specified configuration.
-func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
+func NewCustom(log *zap.Logger, config Config, satelliteDatabases satellitedbtest.SatelliteDatabases) (*Planet, error) {
 	// Clear error in the beginning to avoid issues down the line.
 	if err := satellitedbtest.PostgresDefined(); err != nil {
 		return nil, err
@@ -158,7 +164,7 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Satellites, err = planet.newSatellites(config.SatelliteCount)
+	planet.Satellites, err = planet.newSatellites(config.SatelliteCount, satelliteDatabases)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}

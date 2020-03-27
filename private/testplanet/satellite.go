@@ -54,6 +54,7 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage/redis/redisserver"
 )
@@ -229,7 +230,7 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 func (system *Satellite) PrivateAddr() string { return system.API.Server.PrivateAddr().String() }
 
 // newSatellites initializes satellites
-func (planet *Planet) newSatellites(count int) ([]*Satellite, error) {
+func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtest.SatelliteDatabases) ([]*Satellite, error) {
 	var xs []*Satellite
 	defer func() {
 		for _, x := range xs {
@@ -251,25 +252,33 @@ func (planet *Planet) newSatellites(count int) ([]*Satellite, error) {
 			return nil, err
 		}
 
-		var db satellite.DB
-		if planet.config.Reconfigure.NewSatelliteDB != nil {
-			db, err = planet.config.Reconfigure.NewSatelliteDB(log.Named("db"), i)
-		} else {
-			return nil, errs.New("NewSatelliteDB not defined")
-		}
+		db, err := satellitedbtest.CreateMasterDB(context.TODO(), log.Named("db"), planet.config.Name, "S", i, satelliteDatabases.MasterDB)
 		if err != nil {
 			return nil, err
+		}
+
+		if planet.config.Reconfigure.SatelliteDB != nil {
+			var newdb satellite.DB
+			newdb, err = planet.config.Reconfigure.SatelliteDB(log.Named("db"), i, db)
+			if err != nil {
+				return nil, errs.Combine(err, db.Close())
+			}
+			db = newdb
 		}
 		planet.databases = append(planet.databases, db)
 
-		var pointerDB metainfo.PointerDB
-		if planet.config.Reconfigure.NewSatellitePointerDB != nil {
-			pointerDB, err = planet.config.Reconfigure.NewSatellitePointerDB(log.Named("pointerdb"), i)
-		} else {
-			return nil, errs.New("NewSatellitePointerDB not defined")
-		}
+		pointerDB, err := satellitedbtest.CreatePointerDB(context.TODO(), log.Named("pointerdb"), planet.config.Name, "P", i, satelliteDatabases.PointerDB)
 		if err != nil {
 			return nil, err
+		}
+
+		if planet.config.Reconfigure.SatellitePointerDB != nil {
+			var newPointerDB metainfo.PointerDB
+			newPointerDB, err = planet.config.Reconfigure.SatellitePointerDB(log.Named("pointerdb"), i, pointerDB)
+			if err != nil {
+				return nil, errs.Combine(err, pointerDB.Close())
+			}
+			pointerDB = newPointerDB
 		}
 		planet.databases = append(planet.databases, pointerDB)
 
@@ -277,7 +286,6 @@ func (planet *Planet) newSatellites(count int) ([]*Satellite, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		planet.databases = append(planet.databases, redis)
 
 		config := satellite.Config{
