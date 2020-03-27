@@ -67,11 +67,9 @@ Additional rules:
 * Retry and slow mechanism should be transient from libuplink consumer perspective except several necessary configurable options (see Implementation).
 * Applying retry and slow down logic shouldn't degrade libuplink overall performance and increase number of round trips to satellite.
 
-## Rationale
-
-[A discussion of alternate approaches and the trade offs, advantages, and disadvantages of the specified approach.]
-
 ## Implementation
+
+TODO: will be added when general design will be accepted.
 
 Options:
 * initial interval
@@ -83,5 +81,4 @@ Options:
 ## Open issues
 
 1. Currently, endpoints handled by DRPC in case of error are not returning value, only error. With Metainfo `Batch` call we would need to have partial results which requests were executed successfully. 
-2. Maybe we should treat Batch request as a one request from rate limit perspective.
-3. Can we reuse order limits from failed upload? Failed upload means when sending data to storage nodes was unsuccessful. 
+2. Can we reuse order limits from failed upload? Failed upload means when sending data to storage nodes was unsuccessful. 
