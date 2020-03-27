@@ -117,9 +117,9 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 		for rows.Next() {
 			var isNew bool
 			dbNode := &dbx.Node{}
-			err = rows.Scan(&dbNode.Id, &dbNode.Type, &dbNode.Address, &dbNode.LastNet, &dbNode.LastIpPort,
-				&dbNode.FreeDisk, &dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
-				&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified, &dbNode.Suspended,
+			err = rows.Scan(&dbNode.LastNet,
+				&dbNode.Id, &dbNode.Type, &dbNode.Address, &dbNode.LastIpPort, &dbNode.FreeDisk, &dbNode.TotalAuditCount,
+				&dbNode.AuditSuccessCount, &dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
 				&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta, &isNew,
 			)
 			if err != nil {
