@@ -93,8 +93,8 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 	receivedNewNodeCount := 0
 	for i := 0; i < 3; i++ {
 		newNodeQuery := ""
-		moreNewNodeArgs := []interface{}{}
 		if receivedNewNodeCount < newNodeCount {
+			moreNewNodeArgs := []interface{}{}
 			newNodeQuery, moreNewNodeArgs = buildSelectionDistinct(ctx, criteria.ExcludedNetworks, newNodeCount, safeNewNodeQuery, true)
 			newNodeArgs = append(newNodeArgs, moreNewNodeArgs...)
 			// TODO: change how UNION ALL is added, depending on if we expect requests for only new nodes and not reputable nodes
