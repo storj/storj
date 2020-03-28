@@ -133,7 +133,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 		cancel()
 		return err
 	}
-	service.log.Info("Retrieved segment from repair queue", zap.Binary("Segment", seg.GetPath()))
+	service.log.Debug("Retrieved segment from repair queue")
 
 	// this goroutine inherits the JobLimiter semaphore acquisition and is now responsible
 	// for releasing it.
@@ -142,7 +142,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 		defer cancel()
 
 		if err := service.worker(ctx, seg); err != nil {
-			service.log.Error("repair worker failed:", zap.Binary("Segment", seg.GetPath()), zap.Error(err))
+			service.log.Error("repair worker failed:", zap.Error(err))
 		}
 	}()
 
@@ -154,16 +154,13 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 
 	workerStartTime := time.Now().UTC()
 
-	service.log.Info("Limiter running repair on segment",
-		zap.Binary("Segment", seg.GetPath()),
-		zap.String("Segment Path", string(seg.GetPath())))
+	service.log.Debug("Limiter running repair on segment")
 	// note that shouldDelete is used even in the case where err is not null
 	shouldDelete, err := service.repairer.Repair(ctx, string(seg.GetPath()))
 	if shouldDelete {
 		if irreparableErr, ok := err.(*irreparableError); ok {
 			service.log.Error("segment could not be repaired! adding to irreparableDB for more attention",
-				zap.Error(err),
-				zap.Binary("segment", seg.GetPath()))
+				zap.Error(err))
 			segmentInfo := &pb.IrreparableSegment{
 				Path:               seg.GetPath(),
 				SegmentDetail:      irreparableErr.segmentInfo,
@@ -177,11 +174,9 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 			}
 		} else if err != nil {
 			service.log.Error("unexpected error repairing segment!",
-				zap.Error(err),
-				zap.Binary("segment", seg.GetPath()))
+				zap.Error(err))
 		} else {
-			service.log.Info("removing repaired segment from repair queue",
-				zap.Binary("Segment", seg.GetPath()))
+			service.log.Debug("removing repaired segment from repair queue")
 		}
 		if shouldDelete {
 			delErr := service.queue.Delete(ctx, seg)
