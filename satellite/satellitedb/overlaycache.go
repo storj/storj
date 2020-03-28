@@ -60,7 +60,9 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 		reputableNodeArgs = append(reputableNodeArgs, moreReputableNodeArgs...)
 
 		finalQuery := newNodeQuery + " UNION ALL " + reputableNodeQuery
-		finalArgs := append(newNodeArgs, reputableNodeArgs...)
+		finalArgs := []interface{}{}
+		finalArgs = append(finalArgs, newNodeArgs...)
+		finalArgs = append(finalArgs, reputableNodeArgs...)
 
 		rows, err := cache.db.Query(ctx, cache.db.Rebind(finalQuery), finalArgs...)
 		if err != nil {
@@ -105,7 +107,9 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 		reputableNodeArgs = append(reputableNodeArgs, moreReputableNodeArgs...)
 
 		finalQuery := newNodeQuery + reputableNodeQuery
-		finalArgs := append(newNodeArgs, reputableNodeArgs...)
+		finalArgs := []interface{}{}
+		finalArgs = append(finalArgs, newNodeArgs...)
+		finalArgs = append(finalArgs, reputableNodeArgs...)
 
 		rows, err := cache.db.Query(ctx, cache.db.Rebind(finalQuery), finalArgs...)
 		if err != nil {
