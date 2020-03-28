@@ -149,7 +149,7 @@ export default class PayoutArea extends Vue {
         &__held-info-area {
             display: flex;
             flex-direction: row;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
             margin-top: 20px;
         }
@@ -200,6 +200,40 @@ export default class PayoutArea extends Vue {
             color: #2683ff;
             cursor: pointer;
             text-decoration: underline;
+        }
+    }
+
+    @media screen and (max-width: 890px) {
+
+        .payout-area-container {
+            width: calc(100% - 36px - 36px);
+            padding-left: 36px;
+            padding-right: 36px;
+        }
+    }
+
+    @media screen and (max-width: 640px) {
+
+        .payout-area-container {
+            width: calc(100% - 20px - 20px);
+            padding-left: 20px;
+            padding-right: 20px;
+
+            &__header {
+                margin-top: 50px;
+            }
+
+            &__held-info-area {
+                flex-direction: column;
+
+                .info-container {
+                    width: 100% !important;
+
+                    &:first-of-type {
+                        margin-bottom: 20px;
+                    }
+                }
+            }
         }
     }
 </style>

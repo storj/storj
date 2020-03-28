@@ -8,7 +8,7 @@
             <EstimationPeriodDropdown />
         </div>
         <div class="estimation-container__divider"></div>
-        <div>
+        <div class="estimation-table-container">
             <div class="estimation-table-container__labels-area">
                 <div class="column justify-start column-1">
                     <p class="estimation-table-container__labels-area__text">Name</p>
@@ -472,5 +472,27 @@ export default class EstimationArea extends Vue {
 
     .column-6 {
         width: 8.7%;
+    }
+
+    @media screen and (max-width: 640px) {
+
+        .estimation-container {
+            padding: 28px 20px 28px 20px;
+        }
+
+        .column-2,
+        .column-3,
+        .column-4,
+        .column-5 {
+            display: none;
+        }
+
+        .column-1 {
+            width: 70%;
+        }
+
+        .column-6 {
+            width: 30%;
+        }
     }
 </style>

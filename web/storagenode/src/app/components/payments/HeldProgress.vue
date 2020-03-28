@@ -207,4 +207,11 @@ export default class HeldProgress extends Vue {
             color: #9b9db1;
         }
     }
+
+    @media screen and (max-width: 640px) {
+
+        .label {
+            text-align: center;
+        }
+    }
 </style>
