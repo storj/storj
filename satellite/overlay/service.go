@@ -37,9 +37,9 @@ var ErrNotEnoughNodes = errs.Class("not enough nodes")
 // architecture: Database
 type DB interface {
 	// SelectStorageNodes looks up nodes based on criteria
-	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*NodeDossier, error)
+	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*SelectedNode, error)
 	// SelectNewStorageNodes looks up nodes based on new node criteria
-	SelectNewStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*NodeDossier, error)
+	SelectNewStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*SelectedNode, error)
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
@@ -218,6 +218,14 @@ type NodeLastContact struct {
 	LastContactFailure time.Time
 }
 
+// SelectedNode is used as a result for creating orders limits.
+type SelectedNode struct {
+	ID         storj.NodeID
+	Address    *pb.NodeAddress
+	LastNet    string
+	LastIPPort string
+}
+
 // Service is used to store and handle node information
 //
 // architecture: Service
@@ -268,13 +276,13 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*NodeDossier, err error) {
+func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 }
 
 // FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria
-func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*NodeDossier, err error) {
+func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: add sanity limits to requested node count
@@ -300,7 +308,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		newNodeCount = int(float64(reputableNodeCount) * preferences.NewNodeFraction)
 	}
 
-	var newNodes []*NodeDossier
+	var newNodes []*SelectedNode
 	if newNodeCount > 0 {
 		newNodes, err = service.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
 			FreeDisk:         preferences.MinimumDiskSpace.Int64(),
@@ -318,7 +326,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	// add selected new nodes ID and network to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
-		excludedIDs = append(excludedIDs, newNode.Id)
+		excludedIDs = append(excludedIDs, newNode.ID)
 		if preferences.DistinctIP {
 			excludedNetworks = append(excludedNetworks, newNode.LastNet)
 		}

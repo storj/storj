@@ -186,7 +186,7 @@ func TestRandomizedSelection(t *testing.T) {
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			var nodes []*overlay.NodeDossier
+			var nodes []*overlay.SelectedNode
 			var err error
 
 			if i%2 == 0 {
@@ -205,7 +205,7 @@ func TestRandomizedSelection(t *testing.T) {
 			require.Len(t, nodes, numNodesToSelect)
 
 			for _, node := range nodes {
-				nodeCounts[node.Id]++
+				nodeCounts[node.ID]++
 			}
 		}
 
@@ -629,7 +629,7 @@ func TestSuspendedSelection(t *testing.T) {
 			}
 		}
 
-		var nodes []*overlay.NodeDossier
+		var nodes []*overlay.SelectedNode
 		var err error
 
 		numNodesToSelect := 10
@@ -642,7 +642,7 @@ func TestSuspendedSelection(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, nodes, 3)
 		for _, node := range nodes {
-			require.False(t, suspendedIDs[node.Id])
+			require.False(t, suspendedIDs[node.ID])
 		}
 
 		// select 10 new nodes - 5 new, 2 suspended, so expect 3
@@ -653,7 +653,7 @@ func TestSuspendedSelection(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, nodes, 3)
 		for _, node := range nodes {
-			require.False(t, suspendedIDs[node.Id])
+			require.False(t, suspendedIDs[node.ID])
 		}
 	})
 }

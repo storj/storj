@@ -384,7 +384,7 @@ func (service *Service) RandomSampleOfOrderLimits(limits []*pb.AddressedOrderLim
 }
 
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
-func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byte, nodes []*overlay.NodeDossier, expiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byte, nodes []*overlay.SelectedNode, expiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	orderExpiration := time.Now().Add(service.orderExpiration)
@@ -408,8 +408,8 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byt
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
 			UplinkPublicKey:  piecePublicKey,
-			StorageNodeId:    node.Id,
-			PieceId:          rootPieceID.Derive(node.Id, pieceNum),
+			StorageNodeId:    node.ID,
+			PieceId:          rootPieceID.Derive(node.ID, pieceNum),
 			Action:           pb.PieceAction_PUT,
 			Limit:            maxPieceSize,
 			PieceExpiration:  expiration,
@@ -835,7 +835,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 }
 
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of pointer to newNodes.
-func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*overlay.NodeDossier) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*overlay.SelectedNode) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 	orderExpiration := time.Now().Add(service.orderExpiration)
 
@@ -895,8 +895,8 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 				SatelliteId:      service.satellite.ID(),
 				SatelliteAddress: service.satelliteAddress,
 				UplinkPublicKey:  piecePublicKey,
-				StorageNodeId:    node.Id,
-				PieceId:          rootPieceID.Derive(node.Id, pieceNum),
+				StorageNodeId:    node.ID,
+				PieceId:          rootPieceID.Derive(node.ID, pieceNum),
 				Action:           pb.PieceAction_PUT_REPAIR,
 				Limit:            pieceSize,
 				PieceExpiration:  pointer.ExpirationDate,
