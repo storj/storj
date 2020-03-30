@@ -32,11 +32,11 @@ const (
 func TestUserRepository(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repository := db.Console().Users()
-		partnerID := testrand.UUID()
+		partnerID := testrand.UUID2()
 
 		// Test with and without partnerID
 		user := &console.User{
-			ID:           testrand.UUID(),
+			ID:           testrand.UUID2(),
 			FullName:     name,
 			ShortName:    lastName,
 			Email:        email,
@@ -47,7 +47,7 @@ func TestUserRepository(t *testing.T) {
 		testUsers(ctx, t, repository, user)
 
 		user = &console.User{
-			ID:           testrand.UUID(),
+			ID:           testrand.UUID2(),
 			FullName:     name,
 			ShortName:    lastName,
 			Email:        email,
@@ -72,7 +72,7 @@ func TestUserEmailCase(t *testing.T) {
 			{email: "_______@domain.com	"},
 		} {
 			newUser := &console.User{
-				ID:           testrand.UUID(),
+				ID:           testrand.UUID2(),
 				FullName:     newName,
 				ShortName:    newLastName,
 				Email:        testCase.email,

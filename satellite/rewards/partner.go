@@ -8,8 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
 
 // PartnerList defines a json struct for defining partners.

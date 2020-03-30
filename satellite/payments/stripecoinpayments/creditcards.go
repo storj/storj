@@ -6,10 +6,10 @@ package stripecoinpayments
 import (
 	"context"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
 )
 

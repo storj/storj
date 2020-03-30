@@ -7,8 +7,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"

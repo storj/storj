@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -23,6 +22,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	lrucache "storj.io/storj/pkg/cache"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/accounting"
@@ -898,7 +898,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 	}
 
 	// update bucket information
-	bucket.PartnerID = partnerID
+	bucket.PartnerID = storj.DeprecatedUUID(partnerID)
 	_, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
 	if err != nil {
 		endpoint.log.Error("error while updating bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
@@ -939,10 +939,10 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	}
 
 	return storj.Bucket{
-		ID:                  *bucketID,
+		ID:                  storj.DeprecatedUUID(bucketID),
 		Name:                string(req.GetName()),
-		ProjectID:           projectID,
-		PartnerID:           partnerID,
+		ProjectID:           storj.DeprecatedUUID(projectID),
+		PartnerID:           storj.DeprecatedUUID(partnerID),
 		PathCipher:          storj.CipherSuite(req.GetPathCipher()),
 		DefaultSegmentsSize: req.GetDefaultSegmentSize(),
 		DefaultRedundancyScheme: storj.RedundancyScheme{

@@ -6,9 +6,9 @@ package referrals
 import (
 	"net/mail"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
 

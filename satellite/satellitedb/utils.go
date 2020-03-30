@@ -6,9 +6,8 @@ package satellitedb
 import (
 	"database/sql/driver"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 )
 

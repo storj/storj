@@ -4,8 +4,7 @@
 package payments
 
 import (
-	"github.com/skyrings/skyring-common/tools/uuid"
-
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 )
 

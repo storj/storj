@@ -6,12 +6,12 @@ package metainfo_test
 import (
 	"testing"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 )
 
@@ -32,7 +32,7 @@ func TestResolvePartnerID(t *testing.T) {
 		_, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{}, []byte{1, 2, 3})
 		require.Error(t, err)
 
-		randomUUID := testrand.UUID()
+		randomUUID := testrand.UUID2()
 
 		// good uuid
 		result, err := endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{}, randomUUID[:])

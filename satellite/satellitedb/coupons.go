@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"

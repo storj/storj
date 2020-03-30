@@ -7,9 +7,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/pkg/cache"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"

@@ -13,7 +13,7 @@ import (
 )
 
 func TestClaims(t *testing.T) {
-	id := testrand.UUID()
+	id := testrand.UUID2()
 
 	claims := Claims{
 		ID:         id,

@@ -10,9 +10,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
-	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 )
 
 func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {

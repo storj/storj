@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -64,8 +64,8 @@ func (testData *AttributionTestData) init() {
 func TestDB(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		attributionDB := db.Attribution()
-		project1, project2 := testrand.UUID(), testrand.UUID()
-		partner1, partner2 := testrand.UUID(), testrand.UUID()
+		project1, project2 := testrand.UUID2(), testrand.UUID2()
+		partner1, partner2 := testrand.UUID2(), testrand.UUID2()
 
 		infos := []*attribution.Info{
 			{project1, []byte("alpha"), partner1, time.Time{}},
@@ -94,14 +94,14 @@ func TestQueryAttribution(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		now := time.Now()
 
-		projectID := testrand.UUID()
-		partnerID := testrand.UUID()
+		projectID := testrand.UUID2()
+		partnerID := testrand.UUID2()
 		alphaBucket := []byte("alpha")
 		betaBucket := []byte("beta")
 		testData := []AttributionTestData{
 			{
 				name:       "new partnerID, projectID, alpha",
-				partnerID:  testrand.UUID(),
+				partnerID:  testrand.UUID2(),
 				projectID:  projectID,
 				bucketName: alphaBucket,
 
@@ -116,7 +116,7 @@ func TestQueryAttribution(t *testing.T) {
 			{
 				name:       "partnerID, new projectID, alpha",
 				partnerID:  partnerID,
-				projectID:  testrand.UUID(),
+				projectID:  testrand.UUID2(),
 				bucketName: alphaBucket,
 
 				remoteSize: remoteSize / 2,
@@ -129,7 +129,7 @@ func TestQueryAttribution(t *testing.T) {
 			},
 			{
 				name:       "new partnerID, projectID, beta",
-				partnerID:  testrand.UUID(),
+				partnerID:  testrand.UUID2(),
 				projectID:  projectID,
 				bucketName: betaBucket,
 
@@ -144,7 +144,7 @@ func TestQueryAttribution(t *testing.T) {
 			{
 				name:       "partnerID, new projectID, beta",
 				partnerID:  partnerID,
-				projectID:  testrand.UUID(),
+				projectID:  testrand.UUID2(),
 				bucketName: betaBucket,
 
 				remoteSize: remoteSize / 4,

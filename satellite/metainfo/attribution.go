@@ -7,11 +7,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/useragent"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 )
 

@@ -8,8 +8,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/dbx"

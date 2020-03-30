@@ -11,7 +11,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	monkit "github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -19,6 +18,7 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -450,7 +450,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		newUser := &User{
-			ID:           *userID,
+			ID:           userID,
 			Email:        user.Email,
 			FullName:     user.FullName,
 			ShortName:    user.ShortName,

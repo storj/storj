@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -24,7 +24,7 @@ import (
 func TestCreditsRepository(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		creditsRepo := db.StripeCoinPayments().Credits()
-		userID := testrand.UUID()
+		userID := testrand.UUID2()
 		credit := payments.Credit{
 			UserID:        userID,
 			Amount:        10,
@@ -32,7 +32,7 @@ func TestCreditsRepository(t *testing.T) {
 		}
 
 		spending := stripecoinpayments.CreditsSpending{
-			ProjectID: testrand.UUID(),
+			ProjectID: testrand.UUID2(),
 			UserID:    userID,
 			Amount:    5,
 			Status:    stripecoinpayments.CreditsSpendingStatusUnapplied,
@@ -95,9 +95,9 @@ func TestCreditsRepositoryList(t *testing.T) {
 			require.NoError(t, err)
 
 			spending := stripecoinpayments.CreditsSpending{
-				ID:        *spendingID,
-				ProjectID: *projectID,
-				UserID:    *userID,
+				ID:        spendingID,
+				ProjectID: projectID,
+				UserID:    userID,
 				Amount:    int64(5 + i),
 				Status:    0,
 			}
@@ -136,7 +136,7 @@ func TestCreditsRepositoryList(t *testing.T) {
 			transactionID := "transID" + strconv.Itoa(i)
 
 			credit := payments.Credit{
-				UserID:        *user2ID,
+				UserID:        user2ID,
 				Amount:        5,
 				TransactionID: coinpayments.TransactionID(transactionID),
 			}
@@ -145,21 +145,21 @@ func TestCreditsRepositoryList(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		page2, err := creditsDB.ListCreditsPaged(ctx, 0, spendLen, time.Now(), *user2ID)
+		page2, err := creditsDB.ListCreditsPaged(ctx, 0, spendLen, time.Now(), user2ID)
 		require.NoError(t, err)
 		require.Equal(t, spendLen, len(page2.Credits))
 
 		assert.True(t, page2.Next)
 		assert.Equal(t, int64(5), page2.NextOffset)
 
-		page2, err = creditsDB.ListCreditsPaged(ctx, page2.NextOffset, spendLen, time.Now(), *user2ID)
+		page2, err = creditsDB.ListCreditsPaged(ctx, page2.NextOffset, spendLen, time.Now(), user2ID)
 		require.NoError(t, err)
 		require.Equal(t, spendLen, len(page2.Credits))
 
 		assert.True(t, page2.Next)
 		assert.Equal(t, int64(10), page2.NextOffset)
 
-		page2, err = creditsDB.ListCreditsPaged(ctx, page2.NextOffset, spendLen, time.Now(), *user2ID)
+		page2, err = creditsDB.ListCreditsPaged(ctx, page2.NextOffset, spendLen, time.Now(), user2ID)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(page2.Credits))
 

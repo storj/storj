@@ -6,7 +6,6 @@ package referrals
 import (
 	"context"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -16,6 +15,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 )
@@ -120,7 +120,7 @@ func (service *Service) CreateUser(ctx context.Context, user CreateUser) (_ *con
 		return nil, errs.Wrap(err)
 	}
 
-	err = service.redeemToken(ctx, userID, user.ReferralToken)
+	err = service.redeemToken(ctx, &userID, user.ReferralToken)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -131,7 +131,7 @@ func (service *Service) CreateUser(ctx context.Context, user CreateUser) (_ *con
 	}
 
 	newUser := &console.User{
-		ID:           *userID,
+		ID:           userID,
 		Email:        user.Email,
 		FullName:     user.FullName,
 		ShortName:    user.ShortName,

@@ -8,7 +8,7 @@ import (
 	"net/mail"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
 // Users exposes methods to manage User table in database.

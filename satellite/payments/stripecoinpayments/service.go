@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
@@ -19,6 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -509,7 +509,7 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 			}
 
 			creditsSpendings = append(creditsSpendings, CreditsSpending{
-				ID:        *creditSpendingID,
+				ID:        creditSpendingID,
 				Amount:    amountChargedFromBonuses,
 				UserID:    project.OwnerID,
 				ProjectID: project.ID,

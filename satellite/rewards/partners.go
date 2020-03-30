@@ -3,7 +3,7 @@
 
 package rewards
 
-import "github.com/skyrings/skyring-common/tools/uuid"
+import "storj.io/common/uuid"
 
 // DefaultPartnersDB is current default settings.
 var DefaultPartnersDB = func() PartnersDB {

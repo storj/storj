@@ -4,8 +4,9 @@
 package dbutil
 
 import (
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
 
 // BytesToUUID is used to convert []byte to UUID.

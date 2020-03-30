@@ -79,7 +79,7 @@ func (planet *Planet) newReferralManager() (*server.Server, error) {
 func (server *DefaultReferralManagerServer) GetTokens(ctx context.Context, req *pb.GetTokensRequest) (*pb.GetTokensResponse, error) {
 	tokens := make([][]byte, server.tokenCount)
 	for i := 0; i < server.tokenCount; i++ {
-		uuid := testrand.UUID()
+		uuid := testrand.UUID2()
 		tokens[i] = uuid[:]
 	}
 	return &pb.GetTokensResponse{

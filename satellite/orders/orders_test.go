@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -19,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/reportedrollup"
@@ -396,7 +396,7 @@ func TestLargeOrderLimit(t *testing.T) {
 			require.NoError(t, chore.RunOnce(ctx, now))
 
 			// check only the bandwidth we've used is taken into account
-			bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, *projectID, []byte("b"), beforeRollup, afterRollup)
+			bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte("b"), beforeRollup, afterRollup)
 			require.NoError(t, err)
 			require.Equal(t, int64(100), bucketBandwidth)
 
@@ -422,7 +422,7 @@ func TestProcessOrders(t *testing.T) {
 
 		// assertion helpers
 		checkBucketBandwidth := func(bucket string, amount int64) {
-			settled, err := ordersDB.GetBucketBandwidth(ctx, *projectID, []byte(bucket), beforeRollup, afterRollup)
+			settled, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucket), beforeRollup, afterRollup)
 			require.NoError(t, err)
 			require.Equal(t, amount, settled)
 		}
@@ -656,7 +656,7 @@ func TestProcessOrders_DoubleSend(t *testing.T) {
 
 		// assertion helpers
 		checkBucketBandwidth := func(bucket string, amount int64) {
-			settled, err := ordersDB.GetBucketBandwidth(ctx, *projectID, []byte(bucket), beforeRollup, afterRollup)
+			settled, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucket), beforeRollup, afterRollup)
 			require.NoError(t, err)
 			require.Equal(t, amount, settled)
 		}

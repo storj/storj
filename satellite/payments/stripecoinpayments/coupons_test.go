@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -28,8 +28,8 @@ func TestCouponRepository(t *testing.T) {
 			Amount:      10,
 			Status:      payments.CouponActive,
 			Description: "description",
-			ProjectID:   testrand.UUID(),
-			UserID:      testrand.UUID(),
+			ProjectID:   testrand.UUID2(),
+			UserID:      testrand.UUID2(),
 		}
 
 		now := time.Now().UTC()
@@ -112,7 +112,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 		// activated user with 2 project. New coupon should be added to the first project.
 		user1, err := usersRepo.Insert(ctx, &console.User{
-			ID:           testrand.UUID(),
+			ID:           testrand.UUID2(),
 			FullName:     "user1",
 			ShortName:    "",
 			Email:        "test1@example.com",
@@ -127,7 +127,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 		// activated user with proj. New coupon should be added.
 		user2, err := usersRepo.Insert(ctx, &console.User{
-			ID:           testrand.UUID(),
+			ID:           testrand.UUID2(),
 			FullName:     "user2",
 			ShortName:    "",
 			Email:        "test2@example.com",
@@ -142,7 +142,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 		// activated user without proj. New coupon should not be added.
 		user3, err := usersRepo.Insert(ctx, &console.User{
-			ID:           testrand.UUID(),
+			ID:           testrand.UUID2(),
 			FullName:     "user3",
 			ShortName:    "",
 			Email:        "test3@example.com",
@@ -157,7 +157,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 		// inactive user. New coupon should not be added.
 		user4, err := usersRepo.Insert(ctx, &console.User{
-			ID:           testrand.UUID(),
+			ID:           testrand.UUID2(),
 			FullName:     "user4",
 			ShortName:    "",
 			Email:        "test4@example.com",
@@ -167,7 +167,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 		// activated user with proj and coupon. New coupon should not be added.
 		user5, err := usersRepo.Insert(ctx, &console.User{
-			ID:           testrand.UUID(),
+			ID:           testrand.UUID2(),
 			FullName:     "user5",
 			ShortName:    "",
 			Email:        "test5@example.com",
@@ -182,7 +182,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 		// creating projects for users above.
 		proj1, err := projectsRepo.Insert(ctx, &console.Project{
-			ID:          testrand.UUID(),
+			ID:          testrand.UUID2(),
 			Name:        "proj 1 of user 1",
 			Description: "descr 1",
 			OwnerID:     user1.ID,
@@ -191,7 +191,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 		// should not be processed as we takes only first project of the user.
 		proj2, err := projectsRepo.Insert(ctx, &console.Project{
-			ID:          testrand.UUID(),
+			ID:          testrand.UUID2(),
 			Name:        "proj 2 of user 1",
 			Description: "descr 2",
 			OwnerID:     user1.ID,
@@ -199,7 +199,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		require.NoError(t, err)
 
 		proj3, err := projectsRepo.Insert(ctx, &console.Project{
-			ID:          testrand.UUID(),
+			ID:          testrand.UUID2(),
 			Name:        "proj 1 of user 2",
 			Description: "descr 3",
 			OwnerID:     user2.ID,
@@ -207,14 +207,14 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		require.NoError(t, err)
 
 		proj4, err := projectsRepo.Insert(ctx, &console.Project{
-			ID:          testrand.UUID(),
+			ID:          testrand.UUID2(),
 			Name:        "proj 1 of user 5",
 			Description: "descr 4",
 			OwnerID:     user5.ID,
 		})
 		require.NoError(t, err)
 
-		couponID := testrand.UUID()
+		couponID := testrand.UUID2()
 		err = couponsRepo.Insert(ctx, payments.Coupon{
 			ID:          couponID,
 			UserID:      user5.ID,
@@ -229,7 +229,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 		// creating new users and projects to test that multiple execution of populate method wont generate extra coupons.
 		user6, err := usersRepo.Insert(ctx, &console.User{
-			ID:           testrand.UUID(),
+			ID:           testrand.UUID2(),
 			FullName:     "user6",
 			ShortName:    "",
 			Email:        "test6@example.com",
@@ -243,7 +243,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		require.NoError(t, err)
 
 		proj5, err := projectsRepo.Insert(ctx, &console.Project{
-			ID:          testrand.UUID(),
+			ID:          testrand.UUID2(),
 			Name:        "proj 1 of user 6",
 			Description: "descr 6",
 			OwnerID:     user6.ID,

@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
 // StorjTokens defines all payments STORJ token related functionality.

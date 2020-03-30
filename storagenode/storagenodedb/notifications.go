@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/storagenode/notifications"
 )
@@ -54,7 +54,7 @@ func (db *notificationDB) Insert(ctx context.Context, notification notifications
 	}
 
 	return notifications.Notification{
-		ID:        *id,
+		ID:        id,
 		SenderID:  notification.SenderID,
 		Type:      notification.Type,
 		Title:     notification.Title,

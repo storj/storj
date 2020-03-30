@@ -8,10 +8,9 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -202,9 +201,9 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 	}
 
 	bucket = storj.Bucket{
-		ID:                  id,
+		ID:                  storj.DeprecatedUUID(id),
 		Name:                string(dbxBucket.Name),
-		ProjectID:           project,
+		ProjectID:           storj.DeprecatedUUID(project),
 		Created:             dbxBucket.CreatedAt,
 		PathCipher:          storj.CipherSuite(dbxBucket.PathCipher),
 		DefaultSegmentsSize: int64(dbxBucket.DefaultSegmentSize),
@@ -227,7 +226,7 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 		if err != nil {
 			return bucket, storj.ErrBucket.Wrap(err)
 		}
-		bucket.PartnerID = partnerID
+		bucket.PartnerID = storj.DeprecatedUUID(partnerID)
 	}
 
 	return bucket, nil

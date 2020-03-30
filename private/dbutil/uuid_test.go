@@ -23,7 +23,7 @@ func TestBytesToUUID(t *testing.T) {
 	})
 
 	t.Run("Valid input", func(t *testing.T) {
-		id := testrand.UUID()
+		id := testrand.UUID2()
 		result, err := BytesToUUID(id[:])
 		assert.NoError(t, err)
 		assert.Equal(t, result, id)

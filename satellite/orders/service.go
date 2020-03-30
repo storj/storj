@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/eestream"
 )
@@ -82,7 +82,7 @@ func (service *Service) createSerial(ctx context.Context) (_ storj.SerialNumber,
 	if err != nil {
 		return storj.SerialNumber{}, Error.Wrap(err)
 	}
-	return storj.SerialNumber(*id), nil
+	return storj.SerialNumber(id), nil
 }
 
 func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, expiresAt time.Time) (err error) {
