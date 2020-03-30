@@ -66,7 +66,6 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 
 		rows, err := cache.db.Query(ctx, cache.db.Rebind(finalQuery), finalArgs...)
 		if err != nil {
-			fmt.Printf("***indistinct:\n\nfinal query:\n%s\nfinal args:\n%#v", finalQuery, finalArgs)
 			return nil, Error.Wrap(err)
 		}
 		defer func() { err = errs.Combine(err, rows.Close()) }()
@@ -89,24 +88,26 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 	receivedNodeNetworks := make(map[string]struct{})
 
 	for i := 0; i < 3; i++ {
-		newNodeQuery := ""
+		finalArgs := []interface{}{}
 		moreNewNodeArgs := []interface{}{}
+		newNodeQuery := ""
 		if receivedNewNodeCount < newNodeCount {
 			newNodeQuery, moreNewNodeArgs = buildSelectionDistinct(ctx, criteria.ExcludedNetworks, newNodeCount, safeNewNodeQuery, true)
 			newNodeArgs = append(newNodeArgs, moreNewNodeArgs...)
+			finalArgs = append(finalArgs, newNodeArgs...)
 			newNodeQuery += "  UNION ALL "
 		}
 		reputableNodeQuery, moreReputableNodeArgs := buildSelectionDistinct(ctx, criteria.ExcludedNetworks, reputableNodeCount, safeReputableNodeQuery, false)
+		fmt.Printf("***distinctreputable:\n\nmore reputable args:\n%#v\n", moreReputableNodeArgs)
 		reputableNodeArgs = append(reputableNodeArgs, moreReputableNodeArgs...)
+		fmt.Printf("***distinctreputable:\n\nreputable query:\n%s\nreputable args:\n%#v\n", reputableNodeQuery, reputableNodeArgs)
 
 		finalQuery := newNodeQuery + reputableNodeQuery
-		finalArgs := []interface{}{}
-		finalArgs = append(finalArgs, newNodeArgs...)
 		finalArgs = append(finalArgs, reputableNodeArgs...)
 
 		rows, err := cache.db.Query(ctx, cache.db.Rebind(finalQuery), finalArgs...)
 		if err != nil {
-			fmt.Printf("***distinct:\n\nfinal query:\n%s\nfinal args:\n%#v", finalQuery, finalArgs)
+			fmt.Printf("***distinct:\n\nfinal query:\n%s\nfinal args:\n%#v\n", finalQuery, finalArgs)
 			return nil, Error.Wrap(err)
 		}
 		defer func() { err = errs.Combine(err, rows.Close()) }()
