@@ -67,7 +67,7 @@ func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
 		trust:             trust,
 		maxSleep:          config.MaxSleep,
 		Reputation:        sync2.NewCycle(config.ReputationSync),
-		Storage:           sync2.NewCycle(10 * time.Second),
+		Storage:           sync2.NewCycle(config.StorageSync),
 	}
 }
 
