@@ -117,7 +117,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 			var isNew bool
 			var node overlay.SelectedNode
 			node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
-			err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort)
+			err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort, &isNew)
 			if err != nil {
 				return nil, err
 			}
