@@ -64,7 +64,11 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher on satellite api: ", err)
+		zap.S().Warn("Failed to initialize telemetry batcher on satellite admin: ", err)
+	}
+
+	if err := process.InitTracingWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Warn("Failed to initialize tracing collector on satellite admin: ", err)
 	}
 
 	err = db.CheckVersion(ctx)

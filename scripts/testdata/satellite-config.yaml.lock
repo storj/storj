@@ -555,6 +555,24 @@ server.private-address: 127.0.0.1:7778
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
 
+# address for jaeger agent
+# tracing.agent-addr: ""
+
+# application name for tracing identification
+# tracing.app: satellite
+
+# application suffix
+# tracing.app-suffix: -release
+
+# buffer size for collector batch packet size
+# tracing.buffer-size: 0
+
+# buffer size for collector queue size
+# tracing.queue-size: 0
+
+# how frequently to send up telemetry
+# tracing.sample: 0
+
 # Interval to check the version
 # version.check-interval: 15m0s
 

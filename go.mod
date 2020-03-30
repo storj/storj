@@ -27,7 +27,7 @@ require (
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
 	github.com/sirupsen/logrus v1.4.2 // indirect
-	github.com/spacemonkeygo/monkit/v3 v3.0.5
+	github.com/spacemonkeygo/monkit/v3 v3.0.6-0.20200327233048-76480079049a
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
@@ -43,9 +43,10 @@ require (
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.28.0
-	storj.io/common v0.0.0-20200406083704-0c6466fbde8b
+	storj.io/common v0.0.0-20200407070412-ce42115bd3d1
 	storj.io/drpc v0.0.11
-	storj.io/private v0.0.0-20200327035409-e9d82e7e0c6b
+	storj.io/monkit-jaeger v0.0.0-20200403204040-f5a746eeacca
+	storj.io/private v0.0.0-20200403212157-26f222c154f0
 	storj.io/uplink v1.0.4-0.20200406100056-baa89e6fe434
 
 // storj/gatway for storj-sim is installed via makefile `install-sim` target
