@@ -66,7 +66,8 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 
 		rows, err := cache.db.Query(ctx, cache.db.Rebind(finalQuery), finalArgs...)
 		if err != nil {
-			return nil, err
+			fmt.Printf("***indistinct:\n\nfinal query:\n%s\nfinal args:\n%#v", finalQuery, finalArgs)
+			return nil, Error.Wrap(err)
 		}
 		defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -97,8 +98,8 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 
 	for i := 0; i < 3; i++ {
 		newNodeQuery := ""
+		moreNewNodeArgs := []interface{}{}
 		if receivedNewNodeCount < newNodeCount {
-			moreNewNodeArgs := []interface{}{}
 			newNodeQuery, moreNewNodeArgs = buildSelectionDistinct(ctx, criteria.ExcludedNetworks, newNodeCount, safeNewNodeQuery, true)
 			newNodeArgs = append(newNodeArgs, moreNewNodeArgs...)
 			newNodeQuery += "  UNION ALL "
@@ -113,7 +114,8 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 
 		rows, err := cache.db.Query(ctx, cache.db.Rebind(finalQuery), finalArgs...)
 		if err != nil {
-			return nil, err
+			fmt.Printf("***distinct:\n\nfinal query:\n%s\nfinal args:\n%#v", finalQuery, finalArgs)
+			return nil, Error.Wrap(err)
 		}
 		defer func() { err = errs.Combine(err, rows.Close()) }()
 
