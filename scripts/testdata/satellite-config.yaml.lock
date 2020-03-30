@@ -143,7 +143,7 @@ contact.external-address: ""
 # garbage-collection.retain-send-timeout: 1m0s
 
 # if true, run garbage collection as part of the core
-# garbage-collection.run-in-core: true
+# garbage-collection.run-in-core: false
 
 # if true, skip the first run of GC
 # garbage-collection.skip-first: true
@@ -325,7 +325,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # validate redundancy scheme configuration
 # metainfo.rs.validate: true
 
-# address to send telemetry to
+# address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
 # application name for telemetry identification
@@ -464,6 +464,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
+
+# whether to download pieces for repair in memory (true) or download to disk (false)
+# repairer.in-memory-repair: false
 
 # how frequently repairer should try and repair more data
 # repairer.interval: 5m0s

@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 
 	"storj.io/common/identity"
 	"storj.io/common/pb"
@@ -227,11 +228,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
-		unaryInterceptor := grpcauth.NewAPIKeyInterceptor()
+		apiKeyInterceptor := grpcauth.NewAPIKeyInterceptor()
+		var loggingInterceptor grpc.UnaryServerInterceptor
 		if sc.DebugLogTraffic {
-			unaryInterceptor = server.CombineInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
+			loggingInterceptor = server.UnaryMessageLoggingInterceptor(log)
 		}
-		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress, unaryInterceptor)
+
+		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress, apiKeyInterceptor, loggingInterceptor)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

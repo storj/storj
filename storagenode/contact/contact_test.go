@@ -26,7 +26,7 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		resp, err := pb.NewDRPCContactClient(conn.Raw()).PingNode(ctx, &pb.ContactPingRequest{})
+		resp, err := pb.NewDRPCContactClient(conn).PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 
@@ -34,7 +34,7 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 
 		time.Sleep(time.Second) //HACKFIX: windows has large time granularity
 
-		resp, err = pb.NewDRPCContactClient(conn.Raw()).PingNode(ctx, &pb.ContactPingRequest{})
+		resp, err = pb.NewDRPCContactClient(conn).PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 
@@ -83,8 +83,7 @@ func TestServicePingSatellites(t *testing.T) {
 		node.Contact.Chore.Pause(ctx)
 
 		newCapacity := pb.NodeCapacity{
-			FreeBandwidth: 0,
-			FreeDisk:      0,
+			FreeDisk: 0,
 		}
 		for _, satellite := range planet.Satellites {
 			info, err := satellite.Overlay.Service.Get(ctx, node.ID())

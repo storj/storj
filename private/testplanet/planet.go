@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storagenode"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -56,6 +55,12 @@ type Config struct {
 	NonParallel bool
 }
 
+// DatabaseConfig defines connection strings for database.
+type DatabaseConfig struct {
+	SatelliteDB        string
+	SatellitePointerDB string
+}
+
 // Planet is a full storj system setup.
 type Planet struct {
 	id        string
@@ -71,8 +76,8 @@ type Planet struct {
 	uplinks   []*Uplink
 
 	VersionControl *versioncontrol.Peer
-	Satellites     []*SatelliteSystem
-	StorageNodes   []*storagenode.Peer
+	Satellites     []*Satellite
+	StorageNodes   []*StorageNode
 	Uplinks        []*Uplink
 
 	ReferralManager *server.Server
@@ -114,7 +119,7 @@ func (peer *closablePeer) Close() error {
 }
 
 // NewCustom creates a new full system with the specified configuration.
-func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
+func NewCustom(log *zap.Logger, config Config, satelliteDatabases satellitedbtest.SatelliteDatabases) (*Planet, error) {
 	// Clear error in the beginning to avoid issues down the line.
 	if err := satellitedbtest.PostgresDefined(); err != nil {
 		return nil, err
@@ -159,7 +164,7 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Satellites, err = planet.newSatellites(config.SatelliteCount)
+	planet.Satellites, err = planet.newSatellites(config.SatelliteCount, satelliteDatabases)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -238,7 +243,7 @@ func (planet *Planet) StopPeer(peer Peer) error {
 func (planet *Planet) Size() int { return len(planet.uplinks) + len(planet.peers) }
 
 // FindNode is a helper to retrieve a storage node record by its node ID.
-func (planet *Planet) FindNode(nodeID storj.NodeID) *storagenode.Peer {
+func (planet *Planet) FindNode(nodeID storj.NodeID) *StorageNode {
 	for _, node := range planet.StorageNodes {
 		if node.ID() == nodeID {
 			return node

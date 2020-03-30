@@ -140,7 +140,6 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info, time.Now().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
-
 		}
 		// confirm that we marked the correct number of storage nodes as offline
 		nodes, err := satellite.Overlay.Service.Reliable(ctx)

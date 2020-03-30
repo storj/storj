@@ -72,7 +72,7 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (token
 		err = conn.Close()
 	}()
 
-	client := pb.NewDRPCReferralManagerClient(conn.Raw())
+	client := pb.NewDRPCReferralManagerClient(conn)
 	response, err := client.GetTokens(ctx, &pb.GetTokensRequest{
 		OwnerUserId:      userID[:],
 		OwnerSatelliteId: service.signer.ID(),
@@ -166,7 +166,7 @@ func (service *Service) redeemToken(ctx context.Context, userID *uuid.UUID, toke
 		return errs.Wrap(err)
 	}
 
-	client := pb.NewDRPCReferralManagerClient(conn.Raw())
+	client := pb.NewDRPCReferralManagerClient(conn)
 	_, err = client.RedeemToken(ctx, &pb.RedeemTokenRequest{
 		Token:             referralToken[:],
 		RedeemUserId:      userID[:],

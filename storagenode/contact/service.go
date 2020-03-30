@@ -120,7 +120,7 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	}
 	defer func() { err = errs.Combine(err, conn.Close()) }()
 
-	_, err = pb.NewDRPCNodeClient(conn.Raw()).CheckIn(ctx, &pb.CheckInRequest{
+	_, err = pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
 		Address:  self.Address.GetAddress(),
 		Version:  &self.Version,
 		Capacity: &self.Capacity,

@@ -23,7 +23,7 @@
                     <div class="header-default-state" v-if="isDefaultHeaderState">
                         <VButton
                             class="button"
-                            label="+Create API Key"
+                            label="+ Create API Key"
                             width="180px"
                             height="48px"
                             :on-press="onCreateApiKeyClick"
@@ -107,7 +107,6 @@ import { Component, Vue } from 'vue-property-decorator';
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
 import NoApiKeysArea from '@/components/apiKeys/NoApiKeysArea.vue';
 import SortingHeader from '@/components/apiKeys/SortingHeader.vue';
-import EmptyState from '@/components/common/EmptyStateArea.vue';
 import VButton from '@/components/common/VButton.vue';
 import VHeader from '@/components/common/VHeader.vue';
 import VList from '@/components/common/VList.vue';
@@ -148,7 +147,6 @@ declare interface ResetPagination {
     components: {
         NoApiKeysArea,
         VList,
-        EmptyState,
         VHeader,
         ApiKeysItem,
         VButton,
@@ -434,7 +432,7 @@ export default class ApiKeysArea extends Vue {
                 position: absolute;
                 bottom: 0;
                 right: 0;
-                width: 602px;
+                width: 540px;
                 height: 56px;
                 z-index: 100;
                 opacity: 0.3;

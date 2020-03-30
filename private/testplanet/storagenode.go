@@ -37,9 +37,23 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
-// newStorageNodes initializes storage nodes
-func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.NodeURLs) ([]*storagenode.Peer, error) {
-	var xs []*storagenode.Peer
+// StorageNode contains all the processes needed to run a full StorageNode setup.
+type StorageNode struct {
+	Config storagenode.Config
+	*storagenode.Peer
+}
+
+// URL returns the storj.NodeURL.
+func (system *StorageNode) URL() storj.NodeURL {
+	return storj.NodeURL{
+		ID:      system.Peer.ID(),
+		Address: system.Peer.Addr(),
+	}
+}
+
+// newStorageNodes initializes storage nodes.
+func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.NodeURLs) ([]*StorageNode, error) {
+	var xs []*StorageNode
 	defer func() {
 		for _, x := range xs {
 			planet.peers = append(planet.peers, newClosablePeer(x))
@@ -183,8 +197,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			return nil, err
 		}
 
-		if planet.config.Reconfigure.NewStorageNodeDB != nil {
-			db, err = planet.config.Reconfigure.NewStorageNodeDB(i, db, planet.log)
+		if planet.config.Reconfigure.StorageNodeDB != nil {
+			db, err = planet.config.Reconfigure.StorageNodeDB(i, db, planet.log)
 			if err != nil {
 				return nil, err
 			}
@@ -208,7 +222,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		planet.databases = append(planet.databases, db)
 
 		log.Debug("id=" + peer.ID().String() + " addr=" + peer.Addr())
-		xs = append(xs, peer)
+		xs = append(xs, &StorageNode{
+			Config: config,
+			Peer:   peer,
+		})
 	}
 	return xs, nil
 }

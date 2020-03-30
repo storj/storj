@@ -23,7 +23,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode"
 	"storj.io/uplink/private/ecclient"
 	"storj.io/uplink/private/eestream"
 )
@@ -145,7 +144,7 @@ func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec
 	require.NoError(t, err)
 }
 
-func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellite *testplanet.SatelliteSystem, piecePublicKey storj.PiecePublicKey, storageNode *storagenode.Peer, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
+func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellite *testplanet.Satellite, piecePublicKey storj.PiecePublicKey, storageNode *testplanet.StorageNode, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
 	// TODO refactor to avoid OrderLimit duplication
 	serialNumber := testrand.SerialNumber()
 

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="footer">
+    <div class="footer" v-if="isShown">
         <div class="footer__content-holder">
             <StorjIcon
                 class="footer__content-holder__icon"
@@ -36,6 +36,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import StorjIcon from '@/../static/images/storjIcon.svg';
 
+import { RouteConfig } from '@/app/router';
+
 @Component({
     components: {
         StorjIcon,
@@ -44,6 +46,13 @@ import StorjIcon from '@/../static/images/storjIcon.svg';
 export default class SNOFooter extends Vue {
     public scrollUp(): void {
         window.scrollTo(0, 0);
+    }
+
+    /**
+     * Indicates if footer should appear.
+     */
+    public get isShown(): boolean {
+        return this.$route.name !== RouteConfig.Notifications.name;
     }
 }
 </script>

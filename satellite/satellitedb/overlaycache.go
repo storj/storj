@@ -311,7 +311,7 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs []storj.NodeID)
 	var rows *sql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT nodes.id, address, last_net, last_ip_port, protocol, type, email, wallet,
-			free_bandwidth, free_disk, piece_count, major, minor, patch, hash, timestamp,
+			free_disk, piece_count, major, minor, patch, hash, timestamp,
 			release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count,
 			created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified,
 			suspended, audit_reputation_alpha, audit_reputation_beta, unknown_audit_reputation_alpha,
@@ -330,7 +330,7 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs []storj.NodeID)
 	for rows.Next() {
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.Id, &dbNode.Address, &dbNode.LastNet, &dbNode.LastIpPort, &dbNode.Protocol, &dbNode.Type, &dbNode.Email, &dbNode.Wallet,
-			&dbNode.FreeBandwidth, &dbNode.FreeDisk, &dbNode.PieceCount, &dbNode.Major, &dbNode.Minor, &dbNode.Patch, &dbNode.Hash, &dbNode.Timestamp,
+			&dbNode.FreeDisk, &dbNode.PieceCount, &dbNode.Major, &dbNode.Minor, &dbNode.Patch, &dbNode.Hash, &dbNode.Timestamp,
 			&dbNode.Release, &dbNode.Latency90, &dbNode.AuditSuccessCount, &dbNode.TotalAuditCount, &dbNode.UptimeSuccessCount, &dbNode.TotalUptimeCount,
 			&dbNode.CreatedAt, &dbNode.UpdatedAt, &dbNode.LastContactSuccess, &dbNode.LastContactFailure, &dbNode.Contained, &dbNode.Disqualified,
 			&dbNode.Suspended, &dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta, &dbNode.UnknownAuditReputationAlpha,

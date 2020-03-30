@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/spacemonkeygo/monkit/v3"
+	monkit "github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -110,6 +110,8 @@ var (
 	Error = errs.Class("orders error")
 	// ErrUsingSerialNumber error class for serial number
 	ErrUsingSerialNumber = errs.Class("serial number")
+
+	errExpiredOrder = errs.Class("order limit expired")
 
 	mon = monkit.Package()
 )
@@ -278,6 +280,13 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 		}
 	}()
 
+	var expirationCount int64
+	defer func() {
+		if expirationCount > 0 {
+			log.Debug("order verification found expired orders", zap.Int64("amount", expirationCount))
+		}
+	}()
+
 	for {
 		request, err := monitoredSettlementStreamReceive(ctx, stream)
 		if err != nil {
@@ -304,26 +313,34 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 		rejectErr := func() error {
 			// satellite verifies that it signed the order limit
 			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
+				mon.Event("order_verification_failed_satellite_signature")
 				return Error.New("unable to verify order limit")
 			}
 
 			// satellite verifies that the order signature matches pub key in order limit
 			if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
+				mon.Event("order_verification_failed_uplink_signature")
 				return Error.New("unable to verify order")
 			}
 
 			// TODO should this reject or just error ??
 			if orderLimit.SerialNumber != order.SerialNumber {
+				mon.Event("order_verification_failed_serial_mismatch")
 				return Error.New("invalid serial number")
 			}
 
 			if orderLimit.OrderExpiration.Before(time.Now()) {
-				return Error.New("order limit expired")
+				mon.Event("order_verification_failed_expired")
+				expirationCount++
+				return errExpiredOrder.New("order limit expired")
 			}
 			return nil
 		}()
 		if rejectErr != nil {
-			log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(rejectErr))
+			mon.Event("order_verification_failed")
+			if !errExpiredOrder.Has(rejectErr) {
+				log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(rejectErr))
+			}
 			err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
 				SerialNumber: orderLimit.SerialNumber,
 				Status:       pb.SettlementResponse_REJECTED,

@@ -17,8 +17,8 @@ module.exports = {
         ],
     },
     chainWebpack: config => {
-        config.output.chunkFilename(`js/vendors.js`);
-        config.output.filename(`js/app.js`);
+        config.output.chunkFilename(`js/vendors_[hash].js`);
+        config.output.filename(`js/app_[hash].js`);
 
         config.resolve.alias
             .set('@', path.resolve('src'));

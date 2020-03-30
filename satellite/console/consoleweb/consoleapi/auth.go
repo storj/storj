@@ -395,6 +395,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusBadRequest
 	case console.ErrUnauthorized.Has(err):
 		return http.StatusUnauthorized
+	case console.ErrEmailUsed.Has(err):
+		return http.StatusConflict
 	default:
 		return http.StatusInternalServerError
 	}

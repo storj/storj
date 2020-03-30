@@ -115,7 +115,7 @@ func (localTime *LocalTime) getSatelliteTime(ctx context.Context, satelliteID st
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	resp, err := pb.NewDRPCNodeClient(conn.Raw()).GetTime(ctx, &pb.GetTimeRequest{})
+	resp, err := pb.NewDRPCNodeClient(conn).GetTime(ctx, &pb.GetTimeRequest{})
 	if err != nil {
 		return nil, err
 	}

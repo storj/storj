@@ -9,22 +9,12 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode"
 )
 
-func getStorageNode(planet *testplanet.Planet, nodeID storj.NodeID) *storagenode.Peer {
-	for _, node := range planet.StorageNodes {
-		if node.ID() == nodeID {
-			return node
-		}
-	}
-	return nil
-}
-
 func stopStorageNode(ctx context.Context, planet *testplanet.Planet, nodeID storj.NodeID) error {
-	node := getStorageNode(planet, nodeID)
+	node := planet.FindNode(nodeID)
 	if node == nil {
-		return fmt.Errorf("no such node: %s", nodeID.String())
+		return fmt.Errorf("no such node: %s", nodeID)
 	}
 
 	err := planet.StopPeer(node)

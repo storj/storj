@@ -174,6 +174,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			config.Repairer.MaxExcessRateOptimalThreshold,
 			config.Checker.RepairOverride,
 			config.Repairer.DownloadTimeout,
+			config.Repairer.InMemoryRepair,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
 		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer, irrDB)
