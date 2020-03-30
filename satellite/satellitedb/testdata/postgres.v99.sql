@@ -544,4 +544,4 @@ INSERT INTO "nodes"("id", "address", "last_net", "last_ip_port", "protocol", "ty
 
 -- NEW DATA --
 
-UPDATE "nodes" SET vetted_at='2020-03-18 12:00:00.000000+00' where id = E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016';
+UPDATE "nodes" SET vetted_at = date_trunc('day', now() at time zone 'utc') at time zone 'utc' where id = E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016';
