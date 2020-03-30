@@ -127,8 +127,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 							NodeId:   limit.GetLimit().StorageNodeId,
 						})
 					} else {
-						ec.log.Debug("Failed to download pieces for repair",
-							zap.Binary("Segment", []byte(path)),
+						ec.log.Info("Failed to download pieces for repair",
 							zap.Error(err))
 					}
 					return
@@ -318,8 +317,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
-	ec.log.Info("Starting a timer for repair so that the number of pieces will be closer to the success threshold",
-		zap.Binary("Segment", []byte(path)),
+	ec.log.Debug("Starting a timer for repair so that the number of pieces will be closer to the success threshold",
 		zap.Duration("Timer", timeout),
 		zap.Int("Node Count", nonNilCount(limits)),
 		zap.Int("Optimal Threshold", rs.OptimalThreshold()),
@@ -328,8 +326,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 	var successfulCount, failureCount, cancellationCount int32
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
-			ec.log.Info("Timer expired. Canceling the long tail...",
-				zap.Binary("Segment", []byte(path)),
+			ec.log.Debug("Timer expired. Canceling the long tail...",
 				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
 			)
 			cancel()
@@ -352,8 +349,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 			} else {
 				cancellationCount++
 			}
-			ec.log.Debug("Repair to storage node failed",
-				zap.Binary("Segment", []byte(path)),
+			ec.log.Info("Repair to storage node failed",
 				zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
 				zap.Error(info.err),
 			)
@@ -385,7 +381,6 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 	}
 
 	ec.log.Info("Successfully repaired",
-		zap.Binary("Segment", []byte(path)),
 		zap.Int32("Success Count", atomic.LoadInt32(&successfulCount)),
 	)
 
@@ -418,7 +413,6 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	})
 	if err != nil {
 		ec.log.Debug("Failed dialing for putting piece to node",
-			zap.Binary("Segment", []byte(path)),
 			zap.Stringer("Piece ID", pieceID),
 			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),
@@ -430,7 +424,6 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	upload, err := ps.Upload(ctx, limit.GetLimit(), privateKey)
 	if err != nil {
 		ec.log.Debug("Failed requesting upload of pieces to node",
-			zap.Binary("Segment", []byte(path)),
 			zap.Stringer("Piece ID", pieceID),
 			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),
@@ -453,12 +446,10 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	// to slow connection. No error logging for this case.
 	if ctx.Err() == context.Canceled {
 		if parent.Err() == context.Canceled {
-			ec.log.Info("Upload to node canceled by user",
-				zap.Binary("Segment", []byte(path)),
+			ec.log.Debug("Upload to node canceled by user",
 				zap.Stringer("Node ID", storageNodeID))
 		} else {
 			ec.log.Debug("Node cut from upload due to slow connection",
-				zap.Binary("Segment", []byte(path)),
 				zap.Stringer("Node ID", storageNodeID))
 		}
 		err = context.Canceled
@@ -469,7 +460,6 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 		}
 
 		ec.log.Debug("Failed uploading piece to node",
-			zap.Binary("Segment", []byte(path)),
 			zap.Stringer("Piece ID", pieceID),
 			zap.Stringer("Node ID", storageNodeID),
 			zap.String("Node Address", nodeAddress),

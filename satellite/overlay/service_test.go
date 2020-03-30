@@ -186,7 +186,7 @@ func TestRandomizedSelection(t *testing.T) {
 
 		// select numNodesToSelect nodes selectIterations times
 		for i := 0; i < selectIterations; i++ {
-			var nodes []*overlay.NodeDossier
+			var nodes []*overlay.SelectedNode
 			var err error
 
 			if i%2 == 0 {
@@ -205,7 +205,7 @@ func TestRandomizedSelection(t *testing.T) {
 			require.Len(t, nodes, numNodesToSelect)
 
 			for _, node := range nodes {
-				nodeCounts[node.Id]++
+				nodeCounts[node.ID]++
 			}
 		}
 
@@ -254,7 +254,7 @@ func TestNodeInfo(t *testing.T) {
 	})
 }
 
-func TestGetNodes(t *testing.T) {
+func TestGetOnlineNodesForGetDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -269,25 +269,30 @@ func TestGetNodes(t *testing.T) {
 		}
 
 		// should not return anything if nodeIDs aren't in the nodes table
-		actualNodes, err := planet.Satellites[0].Overlay.Service.GetNodes(ctx, []storj.NodeID{})
+		actualNodes, err := planet.Satellites[0].Overlay.Service.GetOnlineNodesForGetDelete(ctx, []storj.NodeID{})
 		require.NoError(t, err)
 		require.Equal(t, 0, len(actualNodes))
-		actualNodes, err = planet.Satellites[0].Overlay.Service.GetNodes(ctx, []storj.NodeID{testrand.NodeID()})
+		actualNodes, err = planet.Satellites[0].Overlay.Service.GetOnlineNodesForGetDelete(ctx, []storj.NodeID{testrand.NodeID()})
 		require.NoError(t, err)
 		require.Equal(t, 0, len(actualNodes))
 
-		expectedNodes := make(map[storj.NodeID]*overlay.NodeDossier, len(planet.StorageNodes))
+		expectedNodes := make(map[storj.NodeID]*overlay.SelectedNode, len(planet.StorageNodes))
 		nodeIDs := make([]storj.NodeID, len(planet.StorageNodes)+1)
 		for i, node := range planet.StorageNodes {
 			nodeIDs[i] = node.ID()
-			node, err := planet.Satellites[0].Overlay.Service.Get(ctx, node.ID())
+			dossier, err := planet.Satellites[0].Overlay.Service.Get(ctx, node.ID())
 			require.NoError(t, err)
-			expectedNodes[node.Id] = node
+			expectedNodes[dossier.Id] = &overlay.SelectedNode{
+				ID:         dossier.Id,
+				Address:    dossier.Address,
+				LastNet:    dossier.LastNet,
+				LastIPPort: dossier.LastIPPort,
+			}
 		}
-		// add a fake node ID to make sure GetNodes doesn't error and still returns the expected nodes.
+		// add a fake node ID to make sure GetOnlineNodesForGetDelete doesn't error and still returns the expected nodes.
 		nodeIDs[len(planet.StorageNodes)] = testrand.NodeID()
 
-		actualNodes, err = planet.Satellites[0].Overlay.Service.GetNodes(ctx, nodeIDs)
+		actualNodes, err = planet.Satellites[0].Overlay.Service.GetOnlineNodesForGetDelete(ctx, nodeIDs)
 		require.NoError(t, err)
 
 		require.True(t, reflect.DeepEqual(expectedNodes, actualNodes))
@@ -629,7 +634,7 @@ func TestSuspendedSelection(t *testing.T) {
 			}
 		}
 
-		var nodes []*overlay.NodeDossier
+		var nodes []*overlay.SelectedNode
 		var err error
 
 		numNodesToSelect := 10
@@ -642,7 +647,7 @@ func TestSuspendedSelection(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, nodes, 3)
 		for _, node := range nodes {
-			require.False(t, suspendedIDs[node.Id])
+			require.False(t, suspendedIDs[node.ID])
 		}
 
 		// select 10 new nodes - 5 new, 2 suspended, so expect 3
@@ -653,7 +658,7 @@ func TestSuspendedSelection(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, nodes, 3)
 		for _, node := range nodes {
-			require.False(t, suspendedIDs[node.Id])
+			require.False(t, suspendedIDs[node.ID])
 		}
 	})
 }

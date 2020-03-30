@@ -36,12 +36,12 @@ var ErrNotEnoughNodes = errs.Class("not enough nodes")
 //
 // architecture: Database
 type DB interface {
+	// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
+	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*SelectedNode, error)
 	// SelectStorageNodes looks up nodes based on criteria
-	SelectStorageNodes(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *NodeCriteria) ([]*NodeDossier, error)
+	SelectStorageNodes(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *NodeCriteria) ([]*SelectedNode, error)
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// GetNodes returns a map of nodes for the supplied nodeIDs
-	GetNodes(ctx context.Context, nodeIDs []storj.NodeID) (map[storj.NodeID]*NodeDossier, error)
 	// KnownOffline filters a set of nodes to offline nodes
 	KnownOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
@@ -215,6 +215,14 @@ type NodeLastContact struct {
 	LastContactFailure time.Time
 }
 
+// SelectedNode is used as a result for creating orders limits.
+type SelectedNode struct {
+	ID         storj.NodeID
+	Address    *pb.NodeAddress
+	LastNet    string
+	LastIPPort string
+}
+
 // Service is used to store and handle node information
 //
 // architecture: Service
@@ -252,11 +260,11 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDo
 	return service.db.Get(ctx, nodeID)
 }
 
-// GetNodes returns a map of nodes for the supplied nodeIDs.
-func (service *Service) GetNodes(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeDossier, err error) {
+// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs.
+func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.db.GetNodes(ctx, nodeIDs)
+	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow)
 }
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
@@ -265,13 +273,13 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*NodeDossier, err error) {
+func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 }
 
 // FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria
-func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*NodeDossier, err error) {
+func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: add sanity limits to requested node count

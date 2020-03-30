@@ -101,8 +101,10 @@ install_sim(){
     go install -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
+    mkdir -p .build/gateway-tmp
+	-cd .build/gateway-tmp && go mod init gatewaybuild
+	cd .build/gateway-tmp && GO111MODULE=on go get storj.io/gateway@v1.0.0-rc.8
     go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    cd ./cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
 
@@ -213,20 +215,17 @@ for version in ${unique_versions}; do
         shasum ${bin_dir}/uplink
         shasum ${bin_dir}/gateway
     else
-        echo "Installing uplink and gateway for ${version} in ${dir}."
+        echo "Installing uplink for ${version} in ${dir}."
         pushd ${dir}
         mkdir -p ${bin_dir}
         # uncomment for Jenkins testing:
         go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-        cd ./cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
         # uncomment for local testing:
         # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink > /dev/null 2>&1
-        # GOBIN=${bin_dir} cd ./cmd/gateway && go install -race -v storj.io/storj/cmd/gateway > /dev/null 2>&1
         popd
         echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
         echo "Binary shasums:"
         shasum ${bin_dir}/uplink
-        shasum ${bin_dir}/gateway
     fi
 done
 

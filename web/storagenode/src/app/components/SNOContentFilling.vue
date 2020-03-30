@@ -88,21 +88,21 @@
                 />
             </div>
         </div>
-<!--        <div class="info-area__payout-header">-->
-<!--            <p class="info-area__title">Payout</p>-->
-<!--            <router-link :to="PAYOUT_PATH" class="info-area__payout-header__link">-->
-<!--                <p class="info-area__payout-header__link__text">Payout Information</p>-->
-<!--                <BlueArrowRight />-->
-<!--            </router-link>-->
-<!--        </div>-->
+        <div class="info-area__payout-header">
+            <p class="info-area__title">Payout</p>
+            <router-link :to="PAYOUT_PATH" class="info-area__payout-header__link">
+                <p class="info-area__payout-header__link__text">Payout Information</p>
+                <BlueArrowRight />
+            </router-link>
+        </div>
         <PayoutArea
             label="STORJ Wallet Address"
             :wallet-address="wallet"
         />
-<!--        <section class="info-area__total-info-area">-->
-<!--            <SingleInfo width="48%" label="Total Earnings, Feb" value="$1.99" />-->
-<!--            <SingleInfo width="48%" label="Total Held Amount" value="$19.93" />-->
-<!--        </section>-->
+        <section class="info-area__total-info-area">
+            <SingleInfo width="48%" label="Total Earnings" :value="totalEarnings | centsToDollars" />
+            <SingleInfo width="48%" label="Total Held Amount" :value="totalHeld | centsToDollars" />
+        </section>
     </div>
 </template>
 
@@ -165,6 +165,14 @@ export default class SNOContentFilling extends Vue {
     public $refs: {
         chart: HTMLElement;
     };
+
+    public get totalEarnings(): number {
+        return this.$store.state.payoutModule.totalEarnings;
+    }
+
+    public get totalHeld(): number {
+        return this.$store.state.payoutModule.totalHeldAmount;
+    }
 
     /**
      * Used container size recalculation for charts resizing.
