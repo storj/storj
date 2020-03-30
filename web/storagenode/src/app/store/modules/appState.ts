@@ -6,6 +6,7 @@ export const APPSTATE_MUTATIONS = {
     TOGGLE_BANDWIDTH_CHART: 'TOGGLE_BANDWIDTH_CHART',
     TOGGLE_EGRESS_CHART: 'TOGGLE_EGRESS_CHART',
     TOGGLE_INGRESS_CHART: 'TOGGLE_INGRESS_CHART,',
+    TOGGLE_PAYOUT_CALENDAR: 'TOGGLE_PAYOUT_CALENDAR',
     CLOSE_ADDITIONAL_CHARTS: 'CLOSE_ADDITIONAL_CHARTS',
     CLOSE_ALL_POPUPS: 'CLOSE_ALL_POPUPS',
 };
@@ -16,6 +17,7 @@ export const APPSTATE_ACTIONS = {
     TOGGLE_EGRESS_CHART: 'TOGGLE_EGRESS_CHART',
     TOGGLE_INGRESS_CHART: 'TOGGLE_INGRESS_CHART',
     CLOSE_ADDITIONAL_CHARTS: 'CLOSE_ADDITIONAL_CHARTS',
+    TOGGLE_PAYOUT_CALENDAR: 'TOGGLE_PAYOUT_CALENDAR',
     CLOSE_ALL_POPUPS: 'CLOSE_ALL_POPUPS',
 };
 
@@ -26,6 +28,7 @@ const {
     TOGGLE_INGRESS_CHART,
     CLOSE_ADDITIONAL_CHARTS,
     CLOSE_ALL_POPUPS,
+    TOGGLE_PAYOUT_CALENDAR,
 } = APPSTATE_MUTATIONS;
 
 export const appStateModule = {
@@ -34,6 +37,7 @@ export const appStateModule = {
         isBandwidthChartShown: true,
         isEgressChartShown: false,
         isIngressChartShown: false,
+        isPayoutCalendarShown: false,
     },
     mutations: {
         [TOGGLE_SATELLITE_SELECTION](state: any): void {
@@ -47,6 +51,9 @@ export const appStateModule = {
         },
         [TOGGLE_INGRESS_CHART](state: any): void {
             state.isIngressChartShown = !state.isIngressChartShown;
+        },
+        [TOGGLE_PAYOUT_CALENDAR](state: any, value): void {
+            state.isPayoutCalendarShown = value;
         },
         [CLOSE_ADDITIONAL_CHARTS](state: any): void {
             state.isBandwidthChartShown = true;
@@ -66,6 +73,9 @@ export const appStateModule = {
             }
 
             commit(APPSTATE_MUTATIONS.CLOSE_ALL_POPUPS);
+        },
+        [APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR]: function ({commit, state}: any, value: boolean): void {
+            commit(APPSTATE_MUTATIONS.TOGGLE_PAYOUT_CALENDAR, value);
         },
         [APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART]: function ({commit, state}: any): void {
             if (!state.isBandwidthChartShown) {

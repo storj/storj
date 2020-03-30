@@ -77,7 +77,9 @@ install_sim(){
     go install -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    cd ./cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+    mkdir -p .build/gateway-tmp
+	-cd .build/gateway-tmp && go mod init gatewaybuild
+	cd .build/gateway-tmp && GO111MODULE=on go get storj.io/gateway@v1.0.0-rc.8
     go install -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
     go install -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
 }
