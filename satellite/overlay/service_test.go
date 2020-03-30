@@ -254,7 +254,7 @@ func TestNodeInfo(t *testing.T) {
 	})
 }
 
-func TestGetNodes(t *testing.T) {
+func TestGetOnlineNodesForGetDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -269,25 +269,30 @@ func TestGetNodes(t *testing.T) {
 		}
 
 		// should not return anything if nodeIDs aren't in the nodes table
-		actualNodes, err := planet.Satellites[0].Overlay.Service.GetNodes(ctx, []storj.NodeID{})
+		actualNodes, err := planet.Satellites[0].Overlay.Service.GetOnlineNodesForGetDelete(ctx, []storj.NodeID{})
 		require.NoError(t, err)
 		require.Equal(t, 0, len(actualNodes))
-		actualNodes, err = planet.Satellites[0].Overlay.Service.GetNodes(ctx, []storj.NodeID{testrand.NodeID()})
+		actualNodes, err = planet.Satellites[0].Overlay.Service.GetOnlineNodesForGetDelete(ctx, []storj.NodeID{testrand.NodeID()})
 		require.NoError(t, err)
 		require.Equal(t, 0, len(actualNodes))
 
-		expectedNodes := make(map[storj.NodeID]*overlay.NodeDossier, len(planet.StorageNodes))
+		expectedNodes := make(map[storj.NodeID]*overlay.SelectedNode, len(planet.StorageNodes))
 		nodeIDs := make([]storj.NodeID, len(planet.StorageNodes)+1)
 		for i, node := range planet.StorageNodes {
 			nodeIDs[i] = node.ID()
-			node, err := planet.Satellites[0].Overlay.Service.Get(ctx, node.ID())
+			dossier, err := planet.Satellites[0].Overlay.Service.Get(ctx, node.ID())
 			require.NoError(t, err)
-			expectedNodes[node.Id] = node
+			expectedNodes[dossier.Id] = &overlay.SelectedNode{
+				ID:         dossier.Id,
+				Address:    dossier.Address,
+				LastNet:    dossier.LastNet,
+				LastIPPort: dossier.LastIPPort,
+			}
 		}
-		// add a fake node ID to make sure GetNodes doesn't error and still returns the expected nodes.
+		// add a fake node ID to make sure GetOnlineNodesForGetDelete doesn't error and still returns the expected nodes.
 		nodeIDs[len(planet.StorageNodes)] = testrand.NodeID()
 
-		actualNodes, err = planet.Satellites[0].Overlay.Service.GetNodes(ctx, nodeIDs)
+		actualNodes, err = planet.Satellites[0].Overlay.Service.GetOnlineNodesForGetDelete(ctx, nodeIDs)
 		require.NoError(t, err)
 
 		require.True(t, reflect.DeepEqual(expectedNodes, actualNodes))
