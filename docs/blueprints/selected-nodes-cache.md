@@ -44,7 +44,7 @@ Here are some other design that were considered:
 
 1) cache the entire nodes table
 
-This approach would allow more services to use this cache and benefit from the performance gains. However, it would also add a lot of complexity. Since the nodes table is the source, we need to update the cache anytime it becomes out of sync. It we are caching the entire table, it will become outdated very often since so many services write to the table ( see background section above for a list). A fix to this could be to have the cache be the source of truth and frequently sync the cache to the nodes table. However this would be a big undertaking since it would require changing all the services that interact with the nodes table.
+This approach would allow more services to use this cache and benefit from the performance gains. However, it would also add a lot of complexity. Since the nodes table is the source, we need to update the cache anytime it becomes out of sync. If the entire table is cached it will become outdated very often since so many services write to the table ( see background section above for a list). A fix to this could be to have the cache be the source of truth and frequently sync the cache to the nodes table. However this would be a big undertaking since it would require changing all the services that interact with the nodes table.
 
 ## Implementation
 
