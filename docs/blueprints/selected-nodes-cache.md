@@ -1,0 +1,55 @@
+# Selected Nodes Cache
+
+## Abstract
+
+When an uplink uploads a file, the satellite selects which storage nodes to store that data on. This involves querying the nodes table in the satellitedb and it is a time intensive query resulting in slow upload times. This design doc explores caching node table data to improve upload performance.
+
+## Background
+
+The size of nodes table for the largest satellite currently has about 10,830 rows and is approximately 10MB in size.
+
+Many satellite services write and read to the nodes table. Including the following:
+- the contact service, every 1-2 hr every storage node checks-in and updates its row in the nodes table
+- garbage collection, updates node piece count
+- metainfo service, to select nodes for uploads and deletes
+- audit
+- repair
+- gracefulexit
+
+When selecting nodes to store files to, the following criteria must be met:
+- the node is not disqualified
+- the node is not suspended
+- the node has not exited
+- the node has sufficent free disk space
+- the node has been contacted recently
+- the node has participated in a sufficient number of audit
+- the nodes has sufficient uptime counts
+- it is a storage node type
+
+## Design
+
+We want to create a read-only cache that contains data from the nodes table that will be used to select storage nodes to upload files to.
+
+The cache should contain the following data:
+- already selected nodes and already selected **new** nodes (this may need to be 2 caches so we can select a smaller percentage of new nodes)
+
+The nodes table is the source of truth for the node data and should remain that way. The cache needs to be updated when it becomes stale. The cache should be updated when the following occur:
+- a node in the cache is no longer in good condition to be storing data, this node needs to be removed from the cache
+- a new node becomes vetted and should be in the cache that contains the vetted nodes, this node needs to be moved from the unvetted group to the vetted group
+- a node that was not previously able to store data changes and becomes able to, this node needs to be added to the cache
+
+## Rationale
+
+Here are some other design that were considered:
+
+1) cache the entire nodes table
+
+This approach would allow more services to use this cache and benefit from the performance gains. However, it would also add a lot of complexity. Since the nodes table is the source, we need to update the cache anytime it becomes out of sync. It we are caching the entire table, it will become outdated very often since so many services write to the table ( see background section above for a list). A fix to this could be to have the cache be the source of truth and frequently sync the cache to the nodes table. However this would be a big undertaking since it would require changing all the services that interact with the nodes table.
+
+## Implementation
+
+wip
+
+## Open issues
+
+- Should this cache only be used for selecting groups of storage nodes to upload files to? Or do we want to use it for other use cases as well right now.
