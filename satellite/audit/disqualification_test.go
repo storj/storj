@@ -183,8 +183,8 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 
 		assert.Len(t, nodes, 3)
 		for _, node := range nodes {
-			assert.False(t, isDisqualified(t, ctx, satellitePeer, node.Id))
-			assert.NotEqual(t, node.Id, disqualifiedNode)
+			assert.False(t, isDisqualified(t, ctx, satellitePeer, node.ID))
+			assert.NotEqual(t, node.ID, disqualifiedNode)
 		}
 
 	})

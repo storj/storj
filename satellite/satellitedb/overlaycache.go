@@ -33,7 +33,7 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
-func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*overlay.NodeDossier, err error) {
+func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeType := int(pb.NodeType_STORAGE)
@@ -77,7 +77,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		}
 		for _, n := range moreNodes {
 			nodes = append(nodes, n)
-			criteria.ExcludedIDs = append(criteria.ExcludedIDs, n.Id)
+			criteria.ExcludedIDs = append(criteria.ExcludedIDs, n.ID)
 			criteria.ExcludedNetworks = append(criteria.ExcludedNetworks, n.LastNet)
 		}
 		if len(nodes) == count {
@@ -88,7 +88,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 	return nodes, nil
 }
 
-func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*overlay.NodeDossier, err error) {
+func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeType := int(pb.NodeType_STORAGE)
@@ -130,7 +130,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		}
 		for _, n := range moreNodes {
 			nodes = append(nodes, n)
-			criteria.ExcludedIDs = append(criteria.ExcludedIDs, n.Id)
+			criteria.ExcludedIDs = append(criteria.ExcludedIDs, n.ID)
 			criteria.ExcludedNetworks = append(criteria.ExcludedNetworks, n.LastNet)
 		}
 		if len(nodes) == count {
@@ -167,7 +167,7 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 	return nodeNets, Error.Wrap(rows.Err())
 }
 
-func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*overlay.NodeDossier, err error) {
+func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if count == 0 {
@@ -185,10 +185,8 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	args = append(args, count)
 
 	var rows *sql.Rows
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(`SELECT id, type, address, last_net, last_ip_port,
-		free_disk, total_audit_count, audit_success_count,
-		total_uptime_count, uptime_success_count, disqualified, suspended,
-		audit_reputation_alpha, audit_reputation_beta
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT last_net, id, address, last_ip_port
 		FROM nodes
 		`+safeQuery+safeExcludeNodes+`
 		ORDER BY RANDOM()
@@ -199,29 +197,23 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var nodes []*overlay.NodeDossier
+	var nodes []*overlay.SelectedNode
 	for rows.Next() {
-		dbNode := &dbx.Node{}
-		err = rows.Scan(&dbNode.Id, &dbNode.Type, &dbNode.Address, &dbNode.LastNet, &dbNode.LastIpPort,
-			&dbNode.FreeDisk, &dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
-			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified, &dbNode.Suspended,
-			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
-		)
+		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort)
 		if err != nil {
 			return nil, err
 		}
 
-		dossier, err := convertDBNode(ctx, dbNode)
-		if err != nil {
-			return nil, err
-		}
-		nodes = append(nodes, dossier)
+		nodes = append(nodes, &node)
 	}
 
 	return nodes, Error.Wrap(rows.Err())
 }
 
-func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedIDs []storj.NodeID, excludedNodeNetworks []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*overlay.NodeDossier, err error) {
+func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedIDs []storj.NodeID, excludedNodeNetworks []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if count == 0 {
@@ -249,9 +241,7 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedIDs [
 		SELECT *
 		FROM (
 			SELECT DISTINCT ON (last_net) last_net,    -- choose at most 1 node from this network
-			id, type, address, last_ip_port, free_disk, total_audit_count,
-			audit_success_count, total_uptime_count, uptime_success_count,
-			audit_reputation_alpha, audit_reputation_beta
+			id, address, last_ip_port
 			FROM nodes
 			`+safeQuery+safeExcludeNodes+safeExcludeNetworks+`
 			AND last_net <> ''                         -- select nodes with a network set
@@ -264,22 +254,17 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedIDs [
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var nodes []*overlay.NodeDossier
+	var nodes []*overlay.SelectedNode
 	for rows.Next() {
-		dbNode := &dbx.Node{}
-		err = rows.Scan(&dbNode.LastNet,
-			&dbNode.Id, &dbNode.Type, &dbNode.Address, &dbNode.LastIpPort, &dbNode.FreeDisk, &dbNode.TotalAuditCount,
-			&dbNode.AuditSuccessCount, &dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
-			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
-		)
+		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort)
 		if err != nil {
 			return nil, err
 		}
-		dossier, err := convertDBNode(ctx, dbNode)
-		if err != nil {
-			return nil, err
-		}
-		nodes = append(nodes, dossier)
+
+		nodes = append(nodes, &node)
 	}
 
 	return nodes, Error.Wrap(rows.Err())
@@ -304,48 +289,33 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay
 	return convertDBNode(ctx, node)
 }
 
-// GetNodes returns a map of nodes for the supplied nodeIDs
-func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*overlay.NodeDossier, err error) {
+// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
+func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows *sql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT nodes.id, address, last_net, last_ip_port, protocol, type, email, wallet,
-			free_disk, piece_count, major, minor, patch, hash, timestamp,
-			release, latency_90, audit_success_count, total_audit_count, uptime_success_count, total_uptime_count,
-			created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified,
-			suspended, audit_reputation_alpha, audit_reputation_beta, unknown_audit_reputation_alpha,
-			unknown_audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
-			exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
+		SELECT last_net, id, address, last_ip_port
 		FROM nodes
 		WHERE id = any($1::bytea[])
-		`), postgresNodeIDList(nodeIDs),
-	)
+			AND disqualified IS NULL
+			AND last_contact_success > $2
+	`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow))
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	nodes := make(map[storj.NodeID]*overlay.NodeDossier)
+	nodes := make(map[storj.NodeID]*overlay.SelectedNode)
 	for rows.Next() {
-		dbNode := &dbx.Node{}
-		err = rows.Scan(&dbNode.Id, &dbNode.Address, &dbNode.LastNet, &dbNode.LastIpPort, &dbNode.Protocol, &dbNode.Type, &dbNode.Email, &dbNode.Wallet,
-			&dbNode.FreeDisk, &dbNode.PieceCount, &dbNode.Major, &dbNode.Minor, &dbNode.Patch, &dbNode.Hash, &dbNode.Timestamp,
-			&dbNode.Release, &dbNode.Latency90, &dbNode.AuditSuccessCount, &dbNode.TotalAuditCount, &dbNode.UptimeSuccessCount, &dbNode.TotalUptimeCount,
-			&dbNode.CreatedAt, &dbNode.UpdatedAt, &dbNode.LastContactSuccess, &dbNode.LastContactFailure, &dbNode.Contained, &dbNode.Disqualified,
-			&dbNode.Suspended, &dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta, &dbNode.UnknownAuditReputationAlpha,
-			&dbNode.UnknownAuditReputationBeta, &dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
-			&dbNode.ExitInitiatedAt, &dbNode.ExitLoopCompletedAt, &dbNode.ExitFinishedAt, &dbNode.ExitSuccess,
-		)
-		if err != nil {
-			return nil, err
-		}
+		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
 
-		dossier, err := convertDBNode(ctx, dbNode)
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort)
 		if err != nil {
 			return nil, err
 		}
-		nodes[dossier.Id] = dossier
+		nodes[node.ID] = &node
 	}
 
 	return nodes, Error.Wrap(rows.Err())
