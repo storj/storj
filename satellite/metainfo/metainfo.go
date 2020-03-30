@@ -25,7 +25,6 @@ import (
 	"storj.io/common/storj"
 	lrucache "storj.io/storj/pkg/cache"
 	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
@@ -840,30 +839,11 @@ func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.Buck
 	return &pb.BucketSetAttributionResponse{}, err
 }
 
-// resolvePartnerID returns partnerIDBytes as parsed or UUID corresponding to header.UserAgent.
-// returns empty uuid when neither is defined.
-func (endpoint *Endpoint) resolvePartnerID(ctx context.Context, header *pb.RequestHeader, partnerIDBytes []byte) (uuid.UUID, error) {
-	if len(partnerIDBytes) > 0 {
-		partnerID, err := dbutil.BytesToUUID(partnerIDBytes)
-		if err != nil {
-			return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
-		}
-		return partnerID, nil
-	}
-
-	if len(header.UserAgent) == 0 {
-		return uuid.UUID{}, nil
-	}
-
-	partner, err := endpoint.partners.ByUserAgent(ctx, string(header.UserAgent))
-	if err != nil || partner.UUID == nil {
-		return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to resolve user agent %q: %v", string(header.UserAgent), err)
-	}
-
-	return *partner.UUID, nil
-}
-
 func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, partnerIDBytes []byte) error {
+	if header == nil {
+		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        bucketName,
@@ -874,7 +854,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return err
 	}
 
-	partnerID, err := endpoint.resolvePartnerID(ctx, header, partnerIDBytes)
+	partnerID, err := endpoint.ResolvePartnerID(ctx, header, partnerIDBytes)
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}

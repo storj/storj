@@ -159,6 +159,8 @@ func TestBucket_UserAgent(t *testing.T) {
 			config := uplink.Config{}
 			config.Volatile.Log = zaptest.NewLogger(t)
 			config.Volatile.TLS.SkipPeerCAWhitelist = true
+			// we include the uplink version, which should be ignored by partner id handling
+			config.Volatile.UserAgent = "uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"
 
 			up, err := uplink.NewUplink(ctx, &config)
 			require.NoError(t, err)
@@ -181,7 +183,8 @@ func TestBucket_UserAgent(t *testing.T) {
 			config := uplink.Config{}
 			config.Volatile.Log = zaptest.NewLogger(t)
 			config.Volatile.TLS.SkipPeerCAWhitelist = true
-			config.Volatile.UserAgent = "Zenko"
+			// we also include the uplink version, which should be ignored by partner id handling
+			config.Volatile.UserAgent = "Zenko uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"
 
 			up, err := uplink.NewUplink(ctx, &config)
 			require.NoError(t, err)
