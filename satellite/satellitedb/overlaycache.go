@@ -88,6 +88,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 	receivedNodeNetworks := make(map[string]struct{})
 
 	for i := 0; i < 3; i++ {
+		finalQuery := ""
 		finalArgs := []interface{}{}
 
 		// temporary arg slices are needed for each iteration, otherwise we'll end up with too many args appended
@@ -96,18 +97,16 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 		tempReputableNodeArgs := []interface{}{}
 		tempReputableNodeArgs = append(tempReputableNodeArgs, reputableNodeArgs...)
 
-		newNodeQuery := ""
-		moreNewNodeArgs := []interface{}{}
 		if receivedNewNodeCount < newNodeCount {
-			newNodeQuery, moreNewNodeArgs = buildSelectionDistinct(ctx, criteria.ExcludedNetworks, newNodeCount, safeNewNodeQuery, true)
+			newNodeQuery, moreNewNodeArgs := buildSelectionDistinct(ctx, criteria.ExcludedNetworks, newNodeCount, safeNewNodeQuery, true)
 			tempNewNodeArgs = append(tempNewNodeArgs, moreNewNodeArgs...)
 			finalArgs = append(finalArgs, tempNewNodeArgs...)
-			newNodeQuery += "  UNION ALL "
+			finalQuery = newNodeQuery + "  UNION ALL "
 		}
 		reputableNodeQuery, moreReputableNodeArgs := buildSelectionDistinct(ctx, criteria.ExcludedNetworks, reputableNodeCount, safeReputableNodeQuery, false)
 		tempReputableNodeArgs = append(tempReputableNodeArgs, moreReputableNodeArgs...)
 
-		finalQuery := newNodeQuery + reputableNodeQuery
+		finalQuery += reputableNodeQuery
 		finalArgs = append(finalArgs, tempReputableNodeArgs...)
 
 		rows, err := cache.db.Query(ctx, cache.db.Rebind(finalQuery), finalArgs...)
