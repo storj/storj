@@ -222,17 +222,19 @@ type NodeLastContact struct {
 //
 // architecture: Service
 type Service struct {
-	log    *zap.Logger
-	db     DB
-	config Config
+	log                      *zap.Logger
+	db                       DB
+	config                   Config
+	selectedStoragenodeQueue *selectedStorageNodeQueue
 }
 
 // NewService returns a new Service
 func NewService(log *zap.Logger, db DB, config Config) *Service {
 	return &Service{
-		log:    log,
-		db:     db,
-		config: config,
+		log:                      log,
+		db:                       db,
+		config:                   config,
+		selectedStoragenodeQueue: newQueue(log, config.QueueMaxSize, config.QueueExpiredTime),
 	}
 }
 
@@ -270,7 +272,11 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
+	selectedStorageNodes, err := service.selectedStoragenodeQueue.Pop(ctx)
+	if err != nil || len(selectedStorageNodes) == 0 {
+		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
+	}
+	return selectedStorageNodes, nil
 }
 
 // FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria

@@ -21,7 +21,9 @@ var (
 // Config is a configuration for overlay service.
 type Config struct {
 	Node                 NodeSelectionConfig
-	UpdateStatsBatchSize int `help:"number of update requests to process per transaction" default:"100"`
+	UpdateStatsBatchSize int       `help:"number of update requests to process per transaction" default:"100"`
+	QueueMaxSize         int       `help:"the max size of the select storage node queue" default:"1000"`
+	QueueExpiredTime     time.Time `help:"how long until items in the select storaage node queue are stale" default:"60s"`
 }
 
 // NodeSelectionConfig is a configuration struct to determine the minimum
