@@ -105,7 +105,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		if storj.ErrObjectNotFound.Has(err) {
 			mon.Meter("repair_unnecessary").Mark(1)            //locked
 			mon.Meter("segment_deleted_before_repair").Mark(1) //locked
-			repairer.log.Debug("segment was deleted", zap.Binary("Segment", []byte(path)))
+			repairer.log.Debug("segment was deleted")
 			return true, nil
 		}
 		return false, metainfoGetError.Wrap(err)
