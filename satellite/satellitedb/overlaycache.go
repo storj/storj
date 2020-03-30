@@ -105,16 +105,13 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 			newNodeQuery += "  UNION ALL "
 		}
 		reputableNodeQuery, moreReputableNodeArgs := buildSelectionDistinct(ctx, criteria.ExcludedNetworks, reputableNodeCount, safeReputableNodeQuery, false)
-		fmt.Printf("***distinct more reputable args:\n%#v\n", moreReputableNodeArgs)
 		tempReputableNodeArgs = append(tempReputableNodeArgs, moreReputableNodeArgs...)
-		fmt.Printf("***distinctreputable:\n\nreputable query:\n%s\nreputable args:\n%#v\n", reputableNodeQuery, reputableNodeArgs)
 
 		finalQuery := newNodeQuery + reputableNodeQuery
 		finalArgs = append(finalArgs, tempReputableNodeArgs...)
 
 		rows, err := cache.db.Query(ctx, cache.db.Rebind(finalQuery), finalArgs...)
 		if err != nil {
-			fmt.Printf("***distinct:\n\nfinal query:\n%s\nfinal args:\n%#v\n", finalQuery, finalArgs)
 			return nil, Error.Wrap(err)
 		}
 		defer func() { err = errs.Combine(err, rows.Close()) }()
