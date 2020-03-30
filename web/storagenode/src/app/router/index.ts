@@ -35,11 +35,11 @@ export const router = new Router({
             name: RouteConfig.Notifications.name,
             component: NotificationsArea
         },
-        // {
-        //     path: RouteConfig.Payout.path,
-        //     name: RouteConfig.Payout.name,
-        //     component: PayoutArea
-        // },
+        {
+            path: RouteConfig.Payout.path,
+            name: RouteConfig.Payout.name,
+            component: PayoutArea
+        },
         {
             path: '*',
             name: '404',
