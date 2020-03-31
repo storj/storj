@@ -93,11 +93,6 @@ install_sim(){
     local bin_dir="$2"
     mkdir -p ${bin_dir}
 
-    go build -race -v -tags=grpc -o ${bin_dir}/storagenode-grpc storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -v -tags=drpc -o ${bin_dir}/storagenode-drpc storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -v -tags=grpc -o ${bin_dir}/satellite-grpc storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go build -race -v -tags=drpc -o ${bin_dir}/satellite-drpc storj.io/storj/cmd/satellite >/dev/null 2>&1
-
     go build -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
     go build -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
     go build -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
@@ -210,10 +205,9 @@ for version in ${unique_versions}; do
     then
         echo "Installing storj-sim for ${version} in ${dir}."
         pushd ${dir}
-        # uncomment for Jenkins testing:
+
         install_sim ${dir} ${bin_dir}
-        # uncomment for local testing:
-        # GOBIN=${bin_dir} make -C "${dir}" install-sim > /dev/null 2>&1
+
         echo "finished installing"
         popd
         echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
@@ -228,10 +222,9 @@ for version in ${unique_versions}; do
         echo "Installing uplink for ${version} in ${dir}."
         pushd ${dir}
         mkdir -p ${bin_dir}
-        # uncomment for Jenkins testing:
-        go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-        # uncomment for local testing:
-        # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink > /dev/null 2>&1
+
+        go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+
         popd
         echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
         echo "Binary shasums:"
