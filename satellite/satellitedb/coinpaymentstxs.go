@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -238,20 +237,15 @@ func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int6
 
 	for rows.Next() {
 		var id, address string
-		var userIDB []byte
+		var userID uuid.UUID
 		var amountB, receivedB []byte
 		var status int
 		var key string
 		var createdAt time.Time
 
-		err := rows.Scan(&id, &userIDB, &address, &amountB, &receivedB, &status, &key, &createdAt)
+		err := rows.Scan(&id, &userID, &address, &amountB, &receivedB, &status, &key, &createdAt)
 		if err != nil {
 			return stripecoinpayments.TransactionsPage{}, err
-		}
-
-		userID, err := dbutil.BytesToUUID(userIDB)
-		if err != nil {
-			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
 		}
 
 		var amount, received big.Float
@@ -321,20 +315,15 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 
 	for rows.Next() {
 		var id, address string
-		var userIDB []byte
+		var userID uuid.UUID
 		var amountB, receivedB []byte
 		var status int
 		var key string
 		var createdAt time.Time
 
-		err := rows.Scan(&id, &userIDB, &address, &amountB, &receivedB, &status, &key, &createdAt)
+		err := rows.Scan(&id, &userID, &address, &amountB, &receivedB, &status, &key, &createdAt)
 		if err != nil {
 			return stripecoinpayments.TransactionsPage{}, err
-		}
-
-		userID, err := dbutil.BytesToUUID(userIDB)
-		if err != nil {
-			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
 		}
 
 		var amount, received big.Float
@@ -374,7 +363,7 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 
 // fromDBXCoinpaymentsTransaction converts *dbx.CoinpaymentsTransaction to *stripecoinpayments.Transaction.
 func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stripecoinpayments.Transaction, error) {
-	userID, err := dbutil.BytesToUUID(dbxCPTX.UserId)
+	userID, err := uuid.FromBytes(dbxCPTX.UserId)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

@@ -16,7 +16,6 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 )
 
@@ -88,7 +87,7 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (token
 
 	tokens = make([]uuid.UUID, len(tokensInBytes))
 	for i := range tokensInBytes {
-		token, err := dbutil.BytesToUUID(tokensInBytes[i])
+		token, err := uuid.FromBytes(tokensInBytes[i])
 		if err != nil {
 			service.log.Debug("failed to convert bytes to UUID", zap.Error(err))
 			continue

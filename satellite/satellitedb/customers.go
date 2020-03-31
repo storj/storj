@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -89,7 +88,7 @@ func (customers *customers) List(ctx context.Context, offset int64, limit int, b
 
 // fromDBXCustomer converts *dbx.StripeCustomer to *stripecoinpayments.Customer.
 func fromDBXCustomer(dbxCustomer *dbx.StripeCustomer) (*stripecoinpayments.Customer, error) {
-	userID, err := dbutil.BytesToUUID(dbxCustomer.UserId)
+	userID, err := uuid.FromBytes(dbxCustomer.UserId)
 	if err != nil {
 		return nil, err
 	}

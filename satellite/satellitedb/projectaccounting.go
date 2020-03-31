@@ -79,7 +79,7 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 	}
 
 	for _, dbxTally := range dbxTallies {
-		projectID, err := dbutil.BytesToUUID(dbxTally.ProjectId)
+		projectID, err := uuid.FromBytes(dbxTally.ProjectId)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

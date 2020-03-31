@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -170,11 +169,11 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 }
 
 func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {
-	partnerID, err := dbutil.BytesToUUID(info.PartnerId)
+	partnerID, err := uuid.FromBytes(info.PartnerId)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	projectID, err := dbutil.BytesToUUID(info.ProjectId)
+	projectID, err := uuid.FromBytes(info.ProjectId)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

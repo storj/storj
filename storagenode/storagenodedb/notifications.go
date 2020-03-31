@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/storagenode/notifications"
 )
 
@@ -118,11 +117,9 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Cursor)
 
 	for rows.Next() {
 		notification := notifications.Notification{}
-		var notificationIDBytes []uint8
-		var notificationID uuid.UUID
 
 		err = rows.Scan(
-			&notificationIDBytes,
+			&notification.ID,
 			&notification.SenderID,
 			&notification.Type,
 			&notification.Title,
@@ -133,13 +130,6 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Cursor)
 		if err = rows.Err(); err != nil {
 			return notifications.Page{}, ErrNotificationsDB.Wrap(err)
 		}
-
-		notificationID, err = dbutil.BytesToUUID(notificationIDBytes)
-		if err != nil {
-			return notifications.Page{}, ErrNotificationsDB.Wrap(err)
-		}
-
-		notification.ID = notificationID
 
 		page.Notifications = append(page.Notifications, notification)
 	}

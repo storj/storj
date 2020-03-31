@@ -11,7 +11,6 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/useragent"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 )
 
 // ResolvePartnerID returns partnerIDBytes as parsed or UUID corresponding to header.UserAgent.
@@ -22,7 +21,7 @@ func (endpoint *Endpoint) ResolvePartnerID(ctx context.Context, header *pb.Reque
 	}
 
 	if len(partnerIDBytes) > 0 {
-		partnerID, err := dbutil.BytesToUUID(partnerIDBytes)
+		partnerID, err := uuid.FromBytes(partnerIDBytes)
 		if err != nil {
 			return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
 		}
