@@ -101,7 +101,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 			newNodeQuery, moreNewNodeArgs := buildSelectionDistinct(ctx, criteria.ExcludedNetworks, newNodeCount, safeNewNodeQuery, true)
 			tempNewNodeArgs = append(tempNewNodeArgs, moreNewNodeArgs...)
 			finalArgs = append(finalArgs, tempNewNodeArgs...)
-			finalQuery = newNodeQuery + "  UNION ALL "
+			finalQuery = newNodeQuery + " UNION ALL "
 		}
 		reputableNodeQuery, moreReputableNodeArgs := buildSelectionDistinct(ctx, criteria.ExcludedNetworks, reputableNodeCount, safeReputableNodeQuery, false)
 		tempReputableNodeArgs = append(tempReputableNodeArgs, moreReputableNodeArgs...)
@@ -147,7 +147,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 }
 
 func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, isNewNodeQuery bool) (query string, args []interface{}, err error) {
-
+	defer mon.Task()(&ctx)(&err)
 	nodeType := int(pb.NodeType_STORAGE)
 
 	// initiated with reputable node conditions
@@ -155,10 +155,13 @@ func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, isNewN
 	AND total_audit_count >= ?
 	AND total_uptime_count >= ?`
 
+	uptimeCount := criteria.UptimeCount
+
 	if isNewNodeQuery {
 		reputationCondition = `
 		AND (total_audit_count < ? OR total_uptime_count < ?)
 		`
+		uptimeCount = 0
 	}
 
 	safeNodeQuery := `
@@ -171,7 +174,7 @@ func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, isNewN
 	AND last_contact_success > ?`
 	args = append(make([]interface{}, 0),
 		nodeType, criteria.FreeDisk, criteria.AuditCount,
-		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
+		uptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
