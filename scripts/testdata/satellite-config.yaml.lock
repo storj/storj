@@ -37,6 +37,30 @@
 # override value for repair threshold
 # checker.repair-override: 0
 
+# percent of held amount disposed to node after leaving withheld
+compensation.dispose-percent: 50
+
+# rate for data at rest per GB/hour
+compensation.rates.at-rest-gb-hours: "0.00000205"
+
+# rate for audit egress bandwidth per TB
+compensation.rates.get-audit-tb: "10"
+
+# rate for repair egress bandwidth per TB
+compensation.rates.get-repair-tb: "10"
+
+# rate for egress bandwidth per TB
+compensation.rates.get-tb: "20"
+
+# rate for repair ingress bandwidth per TB
+compensation.rates.put-repair-tb: "0"
+
+# rate for ingress bandwidth per TB
+compensation.rates.put-tb: "0"
+
+# comma separated monthly withheld percentage rates
+compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
+
 # server address of the graphql api gateway and frontend app
 # console.address: :10100
 

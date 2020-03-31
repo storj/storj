@@ -64,8 +64,6 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path sto
 		zap.Int("unknowns", len(unknowns)),
 		zap.Int("offlines", len(offlines)),
 		zap.Int("pending", len(pendingAudits)),
-		zap.Binary("Segment", []byte(path)),
-		zap.String("Segment Path", path),
 	)
 
 	var errlist errs.Group

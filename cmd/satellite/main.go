@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"text/tabwriter"
@@ -27,6 +28,7 @@ import (
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb"
@@ -138,6 +140,31 @@ var (
 		Long:  "Ensures that we have a stripe customer for every satellite user",
 		RunE:  cmdStripeCustomer,
 	}
+	compensationCmd = &cobra.Command{
+		Use:   "compensation",
+		Short: "Storage Node Compensation commands",
+	}
+	generateInvoicesCmd = &cobra.Command{
+		Use:   "generate-invoices [period]",
+		Short: "Generate storage node invoices",
+		Long:  "Generate storage node invoices for a pay period. Period is a UTC date formatted like YYYY-MM.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdGenerateInvoices,
+	}
+	recordPeriodCmd = &cobra.Command{
+		Use:   "record-period [paystubs-csv] [payments-csv]",
+		Short: "Record storage node pay period",
+		Long:  "Record storage node paystubs and payments for a pay period",
+		Args:  cobra.ExactArgs(2),
+		RunE:  cmdRecordPeriod,
+	}
+	recordOneOffPaymentsCmd = &cobra.Command{
+		Use:   "record-one-off-payments [payments-csv]",
+		Short: "Record one-off storage node payments",
+		Long:  "Record one-off storage node payments outside of a pay period",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdRecordOneOffPayments,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -149,6 +176,18 @@ var (
 	nodeUsageCfg struct {
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output   string `help:"destination of report output" default:""`
+	}
+	generateInvoicesCfg struct {
+		Database     string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
+		Output       string `help:"destination of report output" default:""`
+		Compensation compensation.Config
+		SurgePercent int `help:"surge percent for payments" default:"0"`
+	}
+	recordPeriodCfg struct {
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
+	}
+	recordOneOffPaymentsCfg struct {
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 	}
 	partnerAttribtionCfg struct {
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
@@ -180,11 +219,15 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
+	rootCmd.AddCommand(compensationCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(gracefulExitCmd)
 	reportsCmd.AddCommand(verifyGracefulExitReceiptCmd)
 	reportsCmd.AddCommand(stripeCustomerCmd)
+	compensationCmd.AddCommand(generateInvoicesCmd)
+	compensationCmd.AddCommand(recordPeriodCmd)
+	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -194,6 +237,9 @@ func init() {
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(generateInvoicesCmd, &generateInvoicesCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(recordPeriodCmd, &recordPeriodCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(recordOneOffPaymentsCmd, &recordOneOffPaymentsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(verifyGracefulExitReceiptCmd, &verifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -433,6 +479,49 @@ func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	return generateStripeCustomers(ctx)
+}
+
+func cmdGenerateInvoices(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := compensation.PeriodFromString(args[0])
+	if err != nil {
+		return err
+	}
+
+	if err := runWithOutput(generateInvoicesCfg.Output, func(out io.Writer) error {
+		return generateInvoicesCSV(ctx, period, out)
+	}); err != nil {
+		return err
+	}
+
+	if generateInvoicesCfg.Output != "" {
+		fmt.Println("Generated invoices")
+	}
+	return nil
+}
+
+func cmdRecordPeriod(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	paystubsCount, paymentsCount, err := recordPeriod(ctx, args[0], args[1])
+	if err != nil {
+		return err
+	}
+	fmt.Println(paystubsCount, "paystubs recorded")
+	fmt.Println(paymentsCount, "payments recorded")
+	return nil
+}
+
+func cmdRecordOneOffPayments(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	count, err := recordOneOffPayments(ctx, args[0])
+	if err != nil {
+		return err
+	}
+	fmt.Println(count, "payments recorded")
+	return nil
 }
 
 func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
