@@ -44,7 +44,7 @@ func TestGenerateStatements(t *testing.T) {
 	nodeID := testrand.NodeID()
 	for _, tt := range []struct {
 		name         string
-		surgePercent int
+		surgePercent int64
 		node         compensation.NodeInfo
 		statement    compensation.Statement
 	}{
