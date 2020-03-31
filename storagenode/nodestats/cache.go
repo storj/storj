@@ -150,7 +150,14 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
-		payStub, err := cache.heldamountService.GetPaystubStats(ctx, satellite, time.Now().AddDate(0, -1, 0).String())
+		now := time.Now().String()
+		yearAndMonth, err := date.PeriodToTime(now)
+		if err != nil {
+			return err
+		}
+
+		previousMonth := yearAndMonth.AddDate(0, -1, 0).String()
+		payStub, err := cache.heldamountService.GetPaystubStats(ctx, satellite, previousMonth)
 		if err != nil {
 			if heldamount.ErrNoPayStubForPeriod.Has(err) {
 				return nil
