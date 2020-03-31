@@ -60,7 +60,7 @@ type Statement struct {
 	GetRepair    currency.MicroUnit
 	PutRepair    currency.MicroUnit
 	GetAudit     currency.MicroUnit
-	SurgePercent int
+	SurgePercent int64
 	Owed         currency.MicroUnit
 	Held         currency.MicroUnit
 	Disposed     currency.MicroUnit
@@ -93,7 +93,7 @@ type PeriodInfo struct {
 
 	// SurgePercent is the percent to adjust final amounts owed. For example,
 	// to pay 150%, set to 150. Zero means no surge.
-	SurgePercent int
+	SurgePercent int64
 }
 
 // GenerateStatements generates all of the Statements for the given PeriodInfo.
@@ -109,7 +109,7 @@ func GenerateStatements(info PeriodInfo) ([]Statement, error) {
 		withheldPercents = DefaultWithheldPercents
 	}
 
-	surgePercent := decimal.NewFromInt(int64(info.SurgePercent))
+	surgePercent := decimal.NewFromInt(info.SurgePercent)
 	disposePercent := decimal.NewFromInt(int64(info.DisposePercent))
 
 	// Intermediate calculations (especially at-rest related) can overflow an

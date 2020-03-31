@@ -182,7 +182,7 @@ var (
 		Database     string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output       string `help:"destination of report output" default:""`
 		Compensation compensation.Config
-		SurgePercent int `help:"surge percent for payments" default:"0"`
+		SurgePercent int64 `help:"surge percent for payments" default:"0"`
 	}
 	recordPeriodCfg struct {
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
