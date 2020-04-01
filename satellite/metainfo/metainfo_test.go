@@ -760,6 +760,23 @@ func TestInlineSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		{ // test max inline segment size 4KiB
+			beginObjectResp, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+				Bucket:        []byte(bucket.Name),
+				EncryptedPath: []byte("too-large-inline-segment"),
+			})
+			require.NoError(t, err)
+
+			data := testrand.Bytes(5 * memory.KiB)
+			err = metainfoClient.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
+				StreamID: beginObjectResp.StreamID,
+				Position: storj.SegmentPosition{
+					Index: 0,
+				},
+				EncryptedInlineData: data,
+			})
+			require.Error(t, err)
+		}
 		{ // test listing inline segments
 			for _, test := range []struct {
 				Index  int32

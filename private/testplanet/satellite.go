@@ -332,11 +332,11 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 			Metainfo: metainfo.Config{
 				DatabaseURL:          "", // not used
 				MinRemoteSegmentSize: 0,  // TODO: fix tests to work with 1024
-				MaxInlineSegmentSize: 8000,
+				MaxInlineSegmentSize: 4 * memory.KiB,
+				MaxSegmentSize:       64 * memory.MiB,
 				MaxCommitInterval:    1 * time.Hour,
 				Overlay:              true,
 				RS: metainfo.RSConfig{
-					MaxSegmentSize:   64 * memory.MiB,
 					MaxBufferMem:     memory.Size(256),
 					ErasureShareSize: memory.Size(256),
 					MinThreshold:     atLeastOne(planet.config.StorageNodeCount * 1 / 5),

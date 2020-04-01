@@ -83,11 +83,9 @@ type Endpoint struct {
 	projects            console.Projects
 	apiKeys             APIKeys
 	createRequests      *createRequests
-	requiredRSConfig    RSConfig
 	satellite           signing.Signer
-	maxCommitInterval   time.Duration
 	limiterCache        *lrucache.ExpiringLRU
-	limiterConfig       RateLimiterConfig
+	config              Config
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -95,8 +93,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB,
 	partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
-	rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration,
-	limiterConfig RateLimiterConfig) *Endpoint {
+	satellite signing.Signer, config Config) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:                 log,
@@ -111,14 +108,12 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 		projectUsage:        projectUsage,
 		projects:            projects,
 		createRequests:      newCreateRequests(),
-		requiredRSConfig:    rsConfig,
 		satellite:           satellite,
-		maxCommitInterval:   maxCommitInterval,
 		limiterCache: lrucache.New(lrucache.Options{
-			Capacity:   limiterConfig.CacheCapacity,
-			Expiration: limiterConfig.CacheExpiration,
+			Capacity:   config.RateLimiter.CacheCapacity,
+			Expiration: config.RateLimiter.CacheExpiration,
 		}),
-		limiterConfig: limiterConfig,
+		config: config,
 	}
 }
 
@@ -1053,11 +1048,13 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	mon.Meter("req_put_object").Mark(1)
 
 	return &pb.ObjectBeginResponse{
-		Bucket:           req.Bucket,
-		EncryptedPath:    req.EncryptedPath,
-		Version:          req.Version,
-		StreamId:         streamID,
-		RedundancyScheme: pbRS,
+		Bucket:               req.Bucket,
+		EncryptedPath:        req.EncryptedPath,
+		Version:              req.Version,
+		StreamId:             streamID,
+		RedundancyScheme:     pbRS,
+		MaxInlineSegmentSize: endpoint.config.MaxInlineSegmentSize.Int64(),
+		MaxSegmentSize:       endpoint.config.MaxSegmentSize.Int64(),
 	}, nil
 }
 
@@ -1697,6 +1694,11 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
 	}
 
+	inlineUsed := int64(len(req.EncryptedInlineData))
+	if inlineUsed > endpoint.config.MaxInlineSegmentSize.Int64() {
+		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize))
+	}
+
 	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
 	if err != nil {
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1707,8 +1709,6 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		)
 		return nil, nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
-
-	inlineUsed := int64(len(req.EncryptedInlineData))
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
 		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
@@ -2502,10 +2502,10 @@ func (endpoint *Endpoint) findIndexPreviousLastSegmentWhenNotKnowingNumSegments(
 func (endpoint *Endpoint) redundancyScheme() *pb.RedundancyScheme {
 	return &pb.RedundancyScheme{
 		Type:             pb.RedundancyScheme_RS,
-		MinReq:           int32(endpoint.requiredRSConfig.MinThreshold),
-		RepairThreshold:  int32(endpoint.requiredRSConfig.RepairThreshold),
-		SuccessThreshold: int32(endpoint.requiredRSConfig.SuccessThreshold),
-		Total:            int32(endpoint.requiredRSConfig.TotalThreshold),
-		ErasureShareSize: endpoint.requiredRSConfig.ErasureShareSize.Int32(),
+		MinReq:           int32(endpoint.config.RS.MinThreshold),
+		RepairThreshold:  int32(endpoint.config.RS.RepairThreshold),
+		SuccessThreshold: int32(endpoint.config.RS.SuccessThreshold),
+		Total:            int32(endpoint.config.RS.TotalThreshold),
+		ErasureShareSize: endpoint.config.RS.ErasureShareSize.Int32(),
 	}
 }

@@ -43,7 +43,7 @@ require (
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.28.0
-	storj.io/common v0.0.0-20200401062549-3fa2945ebe52
+	storj.io/common v0.0.0-20200401122855-4ad28fd2218f
 	storj.io/drpc v0.0.11
 	storj.io/private v0.0.0-20200327035409-e9d82e7e0c6b
 	storj.io/uplink v1.0.3
