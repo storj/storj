@@ -64,8 +64,8 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, self *overlay.NodeDossier, t
 }
 
 // PingSatellites attempts to ping all satellites in trusted list until backoff reaches maxInterval
-func (service *Service) PingSatellites(ctx context.Context, maxInterval time.Duration) error {
-	defer mon.Task()(&ctx)
+func (service *Service) PingSatellites(ctx context.Context, maxInterval time.Duration) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	satellites := service.trust.GetSatellites(ctx)
 	var group errgroup.Group
 	for _, satellite := range satellites {
