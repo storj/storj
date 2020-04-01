@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/pkg/cache"
 	"storj.io/storj/pkg/revocation"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/compensation"
