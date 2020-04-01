@@ -33,7 +33,7 @@ When selecting nodes to store files to, the following criteria must be met:
 
 ## Design
 
-We want to create a read-only cache that contains data from the nodes table that will be used to select storage nodes to upload files to.
+We want to create a read-only in-memory (see "rationale" section on why not use redis) cache that contains data from the nodes table that will be used to select storage nodes to upload files to.
 
 The cache should contain the following data:
 - already selected nodes and already selected **new** nodes (this may need to be 2 caches so we can select a smaller percentage of new nodes)
@@ -53,9 +53,6 @@ A node should be added to the cache when:
 A node should move from the unvetted to vetted cache when:
 - when it has completed enough audits and uptime checks to be vetted
 
-Using Redis:
-Using a remote cache like redis, might be preferred versus in memory since this cache will be used in each satellite api replica (which can currently scale up to 12).  The more api replicas we have, the more caches if we store in memory. 3 concerns about not using a remote cache are: 1) that this will cause more load on the database to keep all replica caches in sync (bandwidth and load), 2) every time we update the cache we need to lock it and potentially block other work, 3) every replica will use up this much more space in memory which will increase over time and add up with each new replica. We need to know the size this cache will be since our current redis instance handles up to 1 GB so we might need to increase the size. Currently about 80% of the nodes table qualifies to be selected for uploads, so the size of the cache for the largest cache should be about 8MB if we store the entire row in the cache, but if we only store the address and storagenode id should be less than a KB.
-
 ## Rationale
 
 Here are some other design that were considered:
@@ -63,6 +60,22 @@ Here are some other design that were considered:
 1) cache the entire nodes table
 
 This approach would allow more services to use this cache and benefit from the performance gains. However, it would also add a lot of complexity. Since the nodes table is the source, we need to update the cache anytime it becomes out of sync. Some queries might be able to be stale if it doesn't impact anything else, however it might get complex keeping track of what can and can't be stale. If the entire table is cached it will become outdated very often since so many services write to the table ( see background section above for a list). A fix to this could be to have the cache be the source of truth and frequently sync the cache to the nodes table. However this would be a big undertaking since it would require changing all the services that interact with the nodes table.
+
+2) Using Redis instead of in memory cache
+
+Using a remote cache like redis, might be preferred versus in memory since this cache will be used in each satellite api replica (which can currently scale up to 12).  The more api replicas we have, the more caches if we store in memory.
+
+Concerns about using a remote cache are:
+- the network latency retrieving data from the cache. Using the cache, selecting nodes should be very fast (estimating 0.1-0.5ms), so adding a network call out to redis will make this fast cache dramtically slower.
+
+Concerns about **not** using a remote cache are:
+- that this will cause more load on the database to keep all replica caches in sync (bandwidth and load),
+- every time we update the cache we may need to lock it and potentially block other work,
+- every replica will use up this much more space in memory which will increase over time and add up with each new replica.
+
+We need to know the size this cache will be since our current redis instance handles up to 1 GB so we might need to increase the size. Currently about 80% of the nodes table qualifies to be selected for uploads, so the size of the cache for the largest cache should be about 8MB if we store the entire row in the cache, but if we only store the address and storagenode id the cache should be less than a MB.
+
+For now, lets try out using an in-memory cache for the performanace gains. If we encounter any of the concerns outlined above then we can change in the future.
 
 ## Implementation
 
