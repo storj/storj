@@ -35,42 +35,32 @@ type overlaycache struct {
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	if newNodeCount == 0 && reputableNodeCount == 0 {
 		return nil, nil
 	}
-	safeNewNodeQuery := ""
-	newNodeArgs := []interface{}{}
-	if newNodeCount > 0 {
-		safeNewNodeQuery, newNodeArgs, err = buildConditions(ctx, criteria, true)
+	if !criteria.DistinctIP {
+		newNodesCondition, err := buildConditions(ctx, criteria, true)
 		if err != nil {
 			return nil, err
 		}
-	}
-	safeReputableNodeQuery, reputableNodeArgs, err := buildConditions(ctx, criteria, false)
-	if err != nil {
-		return nil, err
-	}
+		reputableNodesCondition, err := buildConditions(ctx, criteria, false)
+		if err != nil {
+			return nil, err
+		}
 
-	if !criteria.DistinctIP {
-		newNodeQuery, moreNewNodeArgs := buildSelection(ctx, newNodeCount, safeNewNodeQuery)
-		newNodeArgs = append(newNodeArgs, moreNewNodeArgs...)
+		selection := `SELECT last_net, id, address, last_ip_port FROM nodes`
 
-		reputableNodeQuery, moreReputableNodeArgs := buildSelection(ctx, reputableNodeCount, safeReputableNodeQuery)
-		reputableNodeArgs = append(reputableNodeArgs, moreReputableNodeArgs...)
+		query := union(
+			partialQuery{selection: selection, condition: newNodesCondition, random: true, limit: newNodeCount},
+			partialQuery{selection: selection, condition: reputableNodesCondition, random: true, limit: reputableNodeCount},
+		)
 
-		finalQuery := newNodeQuery + " UNION ALL " + reputableNodeQuery
-		finalArgs := []interface{}{}
-		finalArgs = append(finalArgs, newNodeArgs...)
-		finalArgs = append(finalArgs, reputableNodeArgs...)
-
-		rows, err := cache.db.Query(ctx, cache.db.Rebind(finalQuery), finalArgs...)
+		rows, err := cache.db.Query(ctx, cache.db.Rebind(query.query), query.args...)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 		defer func() { err = errs.Combine(err, rows.Close()) }()
 
-		var nodes []*overlay.SelectedNode
 		for rows.Next() {
 			var node overlay.SelectedNode
 			node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
@@ -86,36 +76,40 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 	totalCount := newNodeCount + reputableNodeCount
 	receivedNewNodeCount := 0
 	receivedNodeNetworks := make(map[string]struct{})
+	requestedNewCount := newNodeCount
 
 	for i := 0; i < 3; i++ {
-		finalQuery := ""
-		finalArgs := []interface{}{}
-
-		// temporary arg slices are needed for each iteration, otherwise we'll end up with too many args appended
-		tempNewNodeArgs := []interface{}{}
-		tempNewNodeArgs = append(tempNewNodeArgs, newNodeArgs...)
-		tempReputableNodeArgs := []interface{}{}
-		tempReputableNodeArgs = append(tempReputableNodeArgs, reputableNodeArgs...)
-
+		var newNodeSelection string
+		var newNodesCondition condition
 		if receivedNewNodeCount < newNodeCount {
-			newNodeQuery, moreNewNodeArgs := buildSelectionDistinct(ctx, criteria.ExcludedNetworks, newNodeCount, safeNewNodeQuery, true)
-			tempNewNodeArgs = append(tempNewNodeArgs, moreNewNodeArgs...)
-			finalArgs = append(finalArgs, tempNewNodeArgs...)
-			finalQuery = newNodeQuery + " UNION ALL "
+			requestedNewCount = 0
+		} else {
+			newNodesCondition, err = buildConditions(ctx, criteria, true)
+			if err != nil {
+				return nil, err
+			}
+			newNodeSelection = `(SELECT * FROM (SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, true FROM nodes`
+			requestedNewCount = newNodeCount - receivedNewNodeCount
 		}
-		reputableNodeQuery, moreReputableNodeArgs := buildSelectionDistinct(ctx, criteria.ExcludedNetworks, reputableNodeCount, safeReputableNodeQuery, false)
-		tempReputableNodeArgs = append(tempReputableNodeArgs, moreReputableNodeArgs...)
 
-		finalQuery += reputableNodeQuery
-		finalArgs = append(finalArgs, tempReputableNodeArgs...)
+		reputableNodesCondition, err := buildConditions(ctx, criteria, false)
+		if err != nil {
+			return nil, err
+		}
+		reputableNodeSelection := `(SELECT * FROM (SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, false FROM nodes`
 
-		rows, err := cache.db.Query(ctx, cache.db.Rebind(finalQuery), finalArgs...)
+		query := union(
+			partialQuery{selection: newNodeSelection, condition: newNodesCondition, random: true, limit: requestedNewCount},
+			partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, random: true, limit: reputableNodeCount},
+		)
+		rows, err := cache.db.Query(ctx, cache.db.Rebind(query.query), query.args...)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 		defer func() { err = errs.Combine(err, rows.Close()) }()
 
 		var moreNodes []*overlay.SelectedNode
+
 		for rows.Next() {
 			var isNew bool
 			var node overlay.SelectedNode
@@ -146,57 +140,138 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 	return nodes, nil
 }
 
-func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, isNewNodeQuery bool) (query string, args []interface{}, err error) {
-	defer mon.Task()(&ctx)(&err)
-	nodeType := int(pb.NodeType_STORAGE)
-
-	// initiated with reputable node conditions
-	reputationCondition := `
-	AND total_audit_count >= ?
-	AND total_uptime_count >= ?`
-
-	uptimeCount := criteria.UptimeCount
-
+func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, isNewNodeQuery bool) (condition, error) {
+	var conds conditions
 	if isNewNodeQuery {
-		reputationCondition = `
-		AND (total_audit_count < ? OR total_uptime_count < ?)
-		`
-		uptimeCount = 0
+		conds.add(
+			"total_audit_count < ?",
+			criteria.AuditCount,
+		)
+	} else {
+		conds.add(
+			"total_audit_count >= ? AND total_uptime_count >= ?",
+			criteria.AuditCount, criteria.UptimeCount,
+		)
 	}
+	conds.add(`disqualified is null
+			AND suspended is null
+			AND exit_initiated_at is null`)
 
-	safeNodeQuery := `
-	WHERE disqualified IS NULL
-	AND suspended IS NULL
-	AND exit_initiated_at IS NULL
-	AND type = ?
-	AND free_disk >= ?
-	` + reputationCondition + `
-	AND last_contact_success > ?`
-	args = append(make([]interface{}, 0),
-		nodeType, criteria.FreeDisk, criteria.AuditCount,
-		uptimeCount, time.Now().Add(-criteria.OnlineWindow))
+	conds.add("type = ?", int(pb.NodeType_STORAGE))
+	conds.add("free_disk >= ?", criteria.FreeDisk)
+	conds.add("last_contact_success > ?", time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
 		if err != nil {
-			return "", nil, Error.New("invalid node selection criteria version: %v", err)
+			return condition{}, Error.New("invalid node selection criteria version: %v", err)
 		}
-		safeNodeQuery += `
-				AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?))))
-				AND release`
-		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
+		conds.add(
+			"AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))) AND release",
+			v.Major, v.Major, v.Minor, v.Minor, v.Patch,
+		)
 	}
+	cond := combine(conds...)
 
-	safeExcludeNodes := ""
 	if len(criteria.ExcludedIDs) > 0 {
-		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(criteria.ExcludedIDs)-1) + `)`
+		excludedIDs := " AND id NOT IN (?" + strings.Repeat(", ?", len(criteria.ExcludedIDs)-1) + ")"
+		cond.addQuery(excludedIDs)
 		for _, id := range criteria.ExcludedIDs {
-			args = append(args, id.Bytes())
+			cond.addArg(id)
 		}
 	}
-	safeNodeQuery += safeExcludeNodes
+	if criteria.DistinctIP {
+		if len(criteria.ExcludedNetworks) > 0 {
+			excludedNetworks := " AND last_net NOT IN (?" + strings.Repeat(", ?", len(criteria.ExcludedIDs)-1) + ")"
+			cond.addQuery(excludedNetworks)
+			for _, subnet := range criteria.ExcludedNetworks {
+				cond.addArg(subnet)
+			}
+		}
+		cond.addQuery(
+			`AND last_net <> ''
+			ORDER BY last_net, RANDOM()
+			) filteredcandidates`)
+	}
+	return cond, nil
+}
 
-	return safeNodeQuery, args, nil
+func union(selects ...partialQuery) query {
+	var q strings.Builder
+	var args []interface{}
+
+	for _, s := range selects {
+		if s.limit == 0 {
+			continue
+		}
+
+		if len(q.String()) != 0 {
+			fmt.Fprint(&q, " UNION ALL ")
+		}
+
+		fmt.Fprint(&q, "(")
+		fmt.Fprint(&q, s.selection)
+
+		fmt.Fprintf(&q, " WHERE %s ", s.condition.query)
+		args = append(args, s.condition.args...)
+		if s.random {
+			fmt.Fprintf(&q, " ORDER BY RANDOM() ")
+		}
+		fmt.Fprintf(&q, " LIMIT ? ")
+		args = append(args, s.limit)
+		fmt.Fprint(&q, ")")
+	}
+	return query{
+		query: q.String(),
+		args:  args,
+	}
+}
+
+type partialQuery struct {
+	selection string
+	condition condition
+	random    bool
+	limit     int
+}
+
+type condition struct {
+	query string
+	args  []interface{}
+}
+
+func (cond *condition) addQuery(q string) {
+	cond.query += q
+}
+
+func (cond *condition) addArg(arg interface{}) {
+	cond.args = append(cond.args, arg)
+}
+
+type conditions []condition
+
+func (xs *conditions) add(q string, args ...interface{}) {
+	*xs = append(*xs, cond(q, args...))
+}
+
+func cond(query string, args ...interface{}) condition {
+	return condition{
+		query: query,
+		args:  args,
+	}
+}
+func combine(conditions ...condition) condition {
+	var qs []string
+	var args []interface{}
+	for _, c := range conditions {
+		qs = append(qs, c.query)
+		args = append(args, c.args...)
+	}
+	return cond(strings.Join(qs, " AND "), args...)
+}
+
+type query struct {
+	query string
+	args  []interface{}
 }
 
 // GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
@@ -223,53 +298,6 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 		nodeNets = append(nodeNets, ip)
 	}
 	return nodeNets, Error.Wrap(rows.Err())
-}
-
-func buildSelection(ctx context.Context, count int, safeQuery string) (query string, args []interface{}) {
-	defer mon.Task()(&ctx)(nil)
-
-	args = append(args, count)
-
-	query = `(SELECT last_net, id, address, last_ip_port
-		FROM nodes
-		` + safeQuery + `
-		ORDER BY RANDOM()
-		LIMIT ?)`
-
-	return query, args
-}
-
-func buildSelectionDistinct(ctx context.Context, excludedNodeNetworks []string, count int, safeQuery string, isNewNodeRequest bool) (query string, args []interface{}) {
-	defer mon.Task()(&ctx)(nil)
-
-	isNewNodeFlag := "false"
-	if isNewNodeRequest {
-		isNewNodeFlag = "true"
-	}
-
-	safeExcludeNetworks := ""
-	if len(excludedNodeNetworks) > 0 {
-		safeExcludeNetworks = ` AND last_net NOT IN (?` + strings.Repeat(", ?", len(excludedNodeNetworks)-1) + `)`
-		for _, ip := range excludedNodeNetworks {
-			args = append(args, ip)
-		}
-	}
-	args = append(args, count)
-
-	query = `
-		(SELECT *
-		FROM (
-			SELECT DISTINCT ON (last_net) last_net,    -- choose at most 1 node from this network
-			id, address, last_ip_port, ` + isNewNodeFlag + `
-			FROM nodes
-			` + safeQuery + safeExcludeNetworks + `
-			AND last_net <> ''                         -- select nodes with a network set
-			ORDER BY last_net, RANDOM()                -- equal chance of choosing any qualified node at this network
-		) filteredcandidates
-		ORDER BY RANDOM()                                  -- do the actual node selection from filtered pool
-		LIMIT ?)`
-
-	return query, args
 }
 
 // Get looks up the node by nodeID
