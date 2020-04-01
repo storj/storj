@@ -37,16 +37,24 @@ We want to create a read-only cache that contains data from the nodes table that
 
 The cache should contain the following data:
 - already selected nodes and already selected **new** nodes (this may need to be 2 caches so we can select a smaller percentage of new nodes)
+- The only data that is sent to the uplink about the storage nodes is its address, typically being the IP and port. So the data that the cache should store is the storage node id, ip, port.
 
 The nodes table is the source of truth for the node data and should remain that way. The cache needs to be updated when it becomes stale. The cache should be updated when the following occur:
-- a node in the cache is no longer in good condition to be storing data, this node needs to be removed from the cache
-- a node that was previously able to store data changes and doesn't want to get data anymore (i.e. out of space or graceful exit), this node needs to be removed from the cache
-- a new node becomes vetted and should be in the cache that contains the vetted nodes, this node needs to be moved from the unvetted group to the vetted group
-- a node that was not previously able to store data changes and becomes able to, this node needs to be added to the cache
-- a node changes its external address or port, this node needs to be updated in the cache
+
+A node should be removed from the cache when the following happen:
+- a node is disqualified, suspended, exited, out of space, hasn't been contacted recently
+
+A node should be updated in the cache when the following happen:
+- a node's address, port, or ip changes
+
+A node should be added to the cache when:
+- it is a new node on the network and is added to the nodes table for the first time (add to the unvetted selected nodes cache)
+
+A node should move from the unvetted to vetted cache when:
+- when it has completed enough audits and uptime checks to be vetted
 
 Using Redis:
-Using a remote cache like redis, would be preferred versus in memory since this cache will be used in each satellite api replica (which can currently scale up to 12).  The more api replicas we have, the more we caches will need to be updated. I’m worried of 2 things, that this will cause more load on the database and also that every time we update the cache we need to lock it and i want to reduce that. We need to know the size this cache will be since our current redis instance handles up to 1 Gb so we might need to increase the size. Currently about 80% of the nodes table qualifies to be selected, so the size of the cache for the largest cache should be about 8MB right now.
+Using a remote cache like redis, might be preferred versus in memory since this cache will be used in each satellite api replica (which can currently scale up to 12).  The more api replicas we have, the more caches if we store in memory. 3 concerns about not using a remote cache are: 1) that this will cause more load on the database to keep all replica caches in sync (bandwidth and load), 2) every time we update the cache we need to lock it and potentially block other work, 3) every replica will use up this much more space in memory which will increase over time and add up with each new replica. We need to know the size this cache will be since our current redis instance handles up to 1 GB so we might need to increase the size. Currently about 80% of the nodes table qualifies to be selected for uploads, so the size of the cache for the largest cache should be about 8MB if we store the entire row in the cache, but if we only store the address and storagenode id should be less than a KB.
 
 ## Rationale
 
@@ -61,10 +69,14 @@ This approach would allow more services to use this cache and benefit from the p
 Steps for implementation:
 - create a selected nodes cache in the satellite/overlay pkg
 - add redis support for this selected nodes cache
-- populate the selected nodes cache with data from the nodes table
-- update the selected nodes cache when node table data changes
-- have the upload operation to use the selected nodes cache
+- populate the selected nodes cache with all valida nodes from the nodes table when it is initialized
+- update the selected nodes cache when node table data changes (see list from design section above)
+- have the upload operation use the selected nodes cache
 
 ## Open issues
 
 - Should this cache only be used for selecting groups of storage nodes to upload files to? Or do we want to use it for other use cases as well right now.
+
+- Is it sufficient to only store the minimum data needed to send back to the uplink? Versus all the data needing to confirm the node is valid? Meaning should we only store the address and storagenode id *or* store also store all the fields needed to determine if the node is valid to upload data to?
+
+- Should we intermittenly re-initialize the cache since it might get out of sync over time?
