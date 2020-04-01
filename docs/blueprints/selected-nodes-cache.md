@@ -17,7 +17,7 @@ Many satellite services **write** to the nodes table. This includes:
 Many satellite services **read** from the nodes table. Including the following:
 - metainfo service, to select nodes for uploads and deletes
 - satellite inspector, finding known offline nodes
-- repair, finding missing pieces from nodes that are offline or unreliable and also finding reliable nodes
+- repair, finding missing pieces from nodes that are offline or unreliable and also finding reliable nodes (repair uses the ReliabilityCache of this data)
 - garbage collection, reads node pieces counts
 - gracefulexit, getting exited nodes
 
