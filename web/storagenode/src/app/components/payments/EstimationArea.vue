@@ -49,7 +49,19 @@
                     <p class="estimation-table-container__info-area__text">{{ item.payout | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__held-area">
+            <div class="estimation-table-container__info-area" v-if="isCurrentPeriod">
+                <div class="column justify-start column-1">
+                    <p class="estimation-table-container__info-area__text">Gross Total</p>
+                </div>
+                <div class="column justify-start column-2"></div>
+                <div class="column justify-start column-3"></div>
+                <div class="column justify-start column-4"></div>
+                <div class="column justify-start column-5"></div>
+                <div class="column justify-end column-6">
+                    <p class="estimation-table-container__info-area__text">{{ grossTotal | centsToDollars }}</p>
+                </div>
+            </div>
+            <div class="estimation-table-container__held-area" v-if="isSomeSatelliteSelected">
                 <p class="estimation-table-container__held-area__text">{{ heldInfo.surgePercent }}% Held back</p>
                 <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
             </div>
@@ -72,7 +84,7 @@
         </div>
         <div class="estimation-container__payout-area" v-if="isCurrentPeriod">
             <div class="estimation-container__payout-area__left-area">
-                <p class="title-text">Estimated Payout</p>
+                <p class="title-text">Estimated {{ !isSomeSatelliteSelected ? 'Gross' : null }} Payout</p>
                 <p class="additional-text">At the end of the month if the load keeps the same for the rest of the month.</p>
             </div>
             <div class="estimation-container__payout-area__right-area">
@@ -104,6 +116,7 @@ class EstimationTableRow {
     ) {}
 }
 
+// TODO: change calculations.
 @Component ({
     components: {
         EstimationPeriodDropdown,
@@ -124,6 +137,10 @@ export default class EstimationArea extends Vue {
         const isCurrentMonthSelected = end.year === this.now.getUTCFullYear() && end.month === this.now.getUTCMonth();
 
         return !this.$store.state.payoutModule.periodRange.start && isCurrentMonthSelected;
+    }
+
+    public get isSomeSatelliteSelected(): boolean {
+        return !!this.$store.state.node.selectedSatellite.id;
     }
 
     /**
@@ -160,10 +177,12 @@ export default class EstimationArea extends Vue {
     @Watch('isCurrentPeriod')
     @Watch('heldInfo')
     public get held(): number {
+        if (this.isSomeSatelliteSelected) {
+            return 0;
+        }
+
         if (this.isCurrentPeriod) {
-            return (this.currentBandwidthDownload * this.BANDWIDTH_DOWNLOAD_PRICE_PER_TB
-                + this.currentBandwidthAuditAndRepair * this.BANDWIDTH_REPAIR_PRICE_PER_TB
-                + this.currentDiskSpace * this.DISK_SPACE_PRICE_PER_TB) / TB * this.heldInfo.surgePercent / 100;
+            return this.grossTotal * this.heldInfo.surgePercent / 100;
         }
 
         return this.heldInfo.held;
@@ -176,13 +195,21 @@ export default class EstimationArea extends Vue {
     @Watch('heldInfo')
     public get totalPayout(): number {
         if (this.isCurrentPeriod) {
-            return (this.currentBandwidthDownload * this.BANDWIDTH_DOWNLOAD_PRICE_PER_TB
-                + this.currentBandwidthAuditAndRepair * this.BANDWIDTH_REPAIR_PRICE_PER_TB
-                + this.currentDiskSpace * this.DISK_SPACE_PRICE_PER_TB) / TB
-                - this.held;
+            return this.grossTotal - this.held;
         }
 
         return this.$store.getters.totalPeriodPayout;
+    }
+
+    /**
+     * Returns calculated gross payout by selected period.
+     */
+    @Watch('isCurrentPeriod')
+    @Watch('heldInfo')
+    public get grossTotal(): number {
+        return (this.currentBandwidthDownload * this.BANDWIDTH_DOWNLOAD_PRICE_PER_TB
+            + this.currentBandwidthAuditAndRepair * this.BANDWIDTH_REPAIR_PRICE_PER_TB
+            + this.currentDiskSpace * this.DISK_SPACE_PRICE_PER_TB) / TB;
     }
 
     /**
@@ -205,7 +232,7 @@ export default class EstimationArea extends Vue {
     @Watch('heldInfo')
     public get totalBandwidth(): string {
         if (this.isCurrentPeriod) {
-            return formatBytes(this.currentBandwidthAuditAndRepair + this.currentBandwidthDownload);
+            return formatBytes((this.currentBandwidthAuditAndRepair + this.currentBandwidthDownload));
         }
 
         const bandwidthSum = this.heldInfo.usageGet + this.heldInfo.usageGetRepair + this.heldInfo.usageGetAudit;
@@ -238,7 +265,9 @@ export default class EstimationArea extends Vue {
     private get currentDiskSpace(): number {
         if (!this.$store.state.node.storageChartData) return 0;
 
-        return this.$store.state.node.storageChartData.map(data => data.atRestTotal).reduce((previous, current) => previous + current, 0);
+        const approxHourInMonth = 730;
+
+        return this.$store.state.node.storageChartData.map(data => data.atRestTotal).reduce((previous, current) => previous + current, 0) / approxHourInMonth;
     }
 
     /**
