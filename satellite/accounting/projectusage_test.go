@@ -162,7 +162,7 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
-func createBucketBandwidthRollups(ctx *testcontext.Context, satelliteDB satellite.DB, projectID uuid.UUID) (int64, error) {
+func createBucketBandwidthRollupsForPast4Days(ctx *testcontext.Context, satelliteDB satellite.DB, projectID uuid.UUID) (int64, error) {
 	var expectedSum int64
 	ordersDB := satelliteDB.Orders()
 	amount := int64(1000)
@@ -211,15 +211,15 @@ func TestProjectBandwidthTotal(t *testing.T) {
 		projectID := testrand.UUID2()
 
 		// Setup: create bucket bandwidth rollup records
-		expectedTotal, err := createBucketBandwidthRollups(ctx, db, projectID)
+		expectedTotal, err := createBucketBandwidthRollupsForPast4Days(ctx, db, projectID)
 		require.NoError(t, err)
 
 		// Execute test: get project bandwidth total
-		year, month, _ := time.Now().Date()
-		from := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
-		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, projectID, from)
+		since := time.Now().AddDate(0, -1, 0)
+
+		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, projectID, since)
 		require.NoError(t, err)
-		require.Equal(t, actualBandwidthTotal, expectedTotal)
+		require.Equal(t, expectedTotal, actualBandwidthTotal)
 	})
 }
 
