@@ -34,6 +34,7 @@ import (
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/private/version"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/private/version/checker"
 )
 
