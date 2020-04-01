@@ -42,7 +42,7 @@ type UTCDate time.Time
 
 // String formats the date into YYYY-MM-DD.
 func (date UTCDate) String() string {
-	return time.Time(date).Format("2006-01-02")
+	return time.Time(date).In(time.UTC).Format("2006-01-02")
 }
 
 // UnmarshalCSV reads the YYYY-MM-DD date into the date.

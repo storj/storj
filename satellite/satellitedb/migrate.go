@@ -1026,6 +1026,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes DROP COLUMN free_bandwidth;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Set NOT NULL on storagenode_payments period.",
+				Version:     103,
+				Action: migrate.SQL{
+					`ALTER TABLE storagenode_payments ALTER COLUMN period SET NOT NULL;`,
+				},
+			},
 		},
 	}
 }

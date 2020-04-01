@@ -176,7 +176,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 	var sqlStmt = `SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total,
 		r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
 		FROM (
-			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
+			SELECT node_id, SUM(at_rest_total::decimal) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
 			SUM(put_repair_total) AS put_repair_total, SUM(get_audit_total) AS get_audit_total,
 			SUM(put_total) AS put_total, SUM(get_total) AS get_total
 			FROM accounting_rollups
@@ -224,7 +224,7 @@ func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context
 	stmt := db.db.Rebind(`
 		SELECT
 			node_id,
-			SUM(at_rest_total) AS at_rest_total,
+			SUM(at_rest_total::decimal) AS at_rest_total,
 			SUM(get_total) AS get_total,
 			SUM(put_total) AS put_total,
 			SUM(get_repair_total) AS get_repair_total,
