@@ -7,7 +7,7 @@
 //
 // sc.exe create storagenode-updater binpath= "C:\Users\MyUser\storagenode-updater.exe run ..."
 
-// +build windows,!unittest
+// +build windows
 
 package main
 
@@ -22,33 +22,25 @@ import (
 	"storj.io/private/process"
 )
 
-func init() {
-	// Check if session is interactive
-	interactive, err := svc.IsAnInteractiveSession()
+func isRunCmd() bool {
+	return len(os.Args) > 1 && os.Args[1] == "run"
+}
+
+func main() {
+	isInteractive, err := svc.IsAnInteractiveSession()
 	if err != nil {
 		zap.L().Fatal("Failed to determine if session is interactive.", zap.Error(err))
 	}
 
-	if interactive {
+	if isInteractive || !isRunCmd() {
+		process.Exec(rootCmd)
 		return
 	}
 
-	// Check if the 'run' command is invoked
-	if len(os.Args) < 2 {
-		return
-	}
-
-	if os.Args[1] != "run" {
-		return
-	}
-
-	// Initialize the Windows Service handler
 	err = svc.Run("storagenode-updater", &service{})
 	if err != nil {
 		zap.L().Fatal("Service failed.", zap.Error(err))
 	}
-	// avoid starting main() when service was stopped
-	os.Exit(0)
 }
 
 type service struct{}
@@ -87,5 +79,6 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 			zap.L().Info("Unexpected control request.", zap.Uint32("Event Type", c.EventType))
 		}
 	}
+
 	return
 }
