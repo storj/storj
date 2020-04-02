@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/private/process"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 )
 
 var (

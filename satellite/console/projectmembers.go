@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
 // ProjectMembers exposes methods to manage ProjectMembers table in database.

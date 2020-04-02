@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -18,6 +17,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -42,7 +42,7 @@ func TestRollupsWriteCacheBatchLimitReached(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		useBatchSize := 10
 		amount := (memory.MB * 500).Int64()
-		projectID := testrand.UUID()
+		projectID := testrand.UUID2()
 		startTime := time.Now()
 
 		rwc := orders.NewRollupsWriteCache(zaptest.NewLogger(t), db.Orders(), useBatchSize)
@@ -89,7 +89,7 @@ func TestRollupsWriteCacheBatchChore(t *testing.T) {
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			useBatchSize := 10
 			amount := (memory.MB * 500).Int64()
-			projectID := testrand.UUID()
+			projectID := testrand.UUID2()
 			startTime := time.Now()
 
 			planet.Satellites[0].Orders.Chore.Loop.Pause()
@@ -145,7 +145,7 @@ func TestUpdateBucketBandwidthAllocation(t *testing.T) {
 			require.Equal(t, size, 0)
 
 			// setup: add one item to the cache
-			projectID := testrand.UUID()
+			projectID := testrand.UUID2()
 			bucketName := []byte("testbucketname")
 			amount := (memory.MB * 500).Int64()
 			err := ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, pb.PieceAction_GET, amount, time.Now())
@@ -169,7 +169,7 @@ func TestUpdateBucketBandwidthAllocation(t *testing.T) {
 			require.Equal(t, projectMap, expected)
 
 			// setup: add another item to the cache but with a different projectID
-			projectID2 := testrand.UUID()
+			projectID2 := testrand.UUID2()
 			amount2 := (memory.MB * 10).Int64()
 			err = ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, time.Now())
 			require.NoError(t, err)

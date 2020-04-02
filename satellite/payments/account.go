@@ -7,8 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
 
 // ErrAccountNotSetup is an error type which indicates that payment account is not created.

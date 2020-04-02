@@ -26,7 +26,7 @@ func TestProjectMembersRepository(t *testing.T) {
 		createdUsers, createdProjects := prepareUsersAndProjects(ctx, t, users, projects)
 
 		t.Run("Can't insert projectMember without memberID", func(t *testing.T) {
-			missingUserID := testrand.UUID()
+			missingUserID := testrand.UUID2()
 
 			projMember, err := projectMembers.Insert(ctx, missingUserID, createdProjects[0].ID)
 			assert.Nil(t, projMember)
@@ -34,7 +34,7 @@ func TestProjectMembersRepository(t *testing.T) {
 		})
 
 		t.Run("Can't insert projectMember without projectID", func(t *testing.T) {
-			missingProjectID := testrand.UUID()
+			missingProjectID := testrand.UUID2()
 
 			projMember, err := projectMembers.Insert(ctx, createdUsers[0].ID, missingProjectID)
 			assert.Nil(t, projMember)
@@ -156,37 +156,37 @@ func TestProjectMembersRepository(t *testing.T) {
 
 func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Users, projects console.Projects) ([]*console.User, []*console.Project) {
 	usersList := []*console.User{{
-		ID:           testrand.UUID(),
+		ID:           testrand.UUID2(),
 		Email:        "2email2@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Liam",
 		FullName:     "Liam Jameson",
 	}, {
-		ID:           testrand.UUID(),
+		ID:           testrand.UUID2(),
 		Email:        "1email1@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "William",
 		FullName:     "Noahson William",
 	}, {
-		ID:           testrand.UUID(),
+		ID:           testrand.UUID2(),
 		Email:        "email3@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Mason",
 		FullName:     "Mason Elijahson",
 	}, {
-		ID:           testrand.UUID(),
+		ID:           testrand.UUID2(),
 		Email:        "email4@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Oliver",
 		FullName:     "Oliver Jacobson",
 	}, {
-		ID:           testrand.UUID(),
+		ID:           testrand.UUID2(),
 		Email:        "email5@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Lucas",
 		FullName:     "Michaelson Lucas",
 	}, {
-		ID:           testrand.UUID(),
+		ID:           testrand.UUID2(),
 		Email:        "email6@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Alexander",

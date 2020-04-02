@@ -35,7 +35,7 @@ func TestNewRegistrationSecret(t *testing.T) {
 		t.Run("Insert reset password token successfully", func(t *testing.T) {
 			var err error
 			owner, err = users.Insert(ctx, &console.User{
-				ID:           testrand.UUID(),
+				ID:           testrand.UUID2(),
 				FullName:     userFullName,
 				ShortName:    shortName,
 				Email:        email,

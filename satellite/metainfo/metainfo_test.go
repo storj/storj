@@ -280,11 +280,11 @@ func TestSetBucketAttribution(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		partnerID := testrand.UUID()
+		partnerID := testrand.UUID2()
 		{ // bucket with no items
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "alpha",
-				PartnerID: partnerID,
+				PartnerID: storj.DeprecatedUUID(partnerID),
 			})
 			require.NoError(t, err)
 		}
@@ -292,7 +292,7 @@ func TestSetBucketAttribution(t *testing.T) {
 		{ // setting attribution on a bucket that doesn't exist should fail
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "beta",
-				PartnerID: partnerID,
+				PartnerID: storj.DeprecatedUUID(partnerID),
 			})
 			require.Error(t, err)
 		}
@@ -304,7 +304,7 @@ func TestSetBucketAttribution(t *testing.T) {
 			// trying to set attribution should be ignored
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "alpha",
-				PartnerID: partnerID,
+				PartnerID: storj.DeprecatedUUID(partnerID),
 			})
 			require.NoError(t, err)
 		}
@@ -316,7 +316,7 @@ func TestSetBucketAttribution(t *testing.T) {
 			// bucket with items
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "alpha-new",
-				PartnerID: partnerID,
+				PartnerID: storj.DeprecatedUUID(partnerID),
 			})
 			require.Error(t, err)
 		}
@@ -499,7 +499,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 
 		bucket := storj.Bucket{
 			Name:       "initial-bucket",
-			ProjectID:  projectID,
+			ProjectID:  storj.DeprecatedUUID(projectID),
 			PathCipher: config.GetEncryptionParameters().CipherSuite,
 		}
 		_, err = metainfoService.CreateBucket(ctx, bucket)
@@ -694,7 +694,7 @@ func TestInlineSegment(t *testing.T) {
 
 		bucket := storj.Bucket{
 			Name:       "inline-segments-bucket",
-			ProjectID:  projectID,
+			ProjectID:  storj.DeprecatedUUID(projectID),
 			PathCipher: config.GetEncryptionParameters().CipherSuite,
 		}
 		_, err = metainfoService.CreateBucket(ctx, bucket)
@@ -760,6 +760,23 @@ func TestInlineSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		{ // test max inline segment size 4KiB
+			beginObjectResp, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+				Bucket:        []byte(bucket.Name),
+				EncryptedPath: []byte("too-large-inline-segment"),
+			})
+			require.NoError(t, err)
+
+			data := testrand.Bytes(5 * memory.KiB)
+			err = metainfoClient.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
+				StreamID: beginObjectResp.StreamID,
+				Position: storj.SegmentPosition{
+					Index: 0,
+				},
+				EncryptedInlineData: data,
+			})
+			require.Error(t, err)
+		}
 		{ // test listing inline segments
 			for _, test := range []struct {
 				Index  int32
@@ -1357,5 +1374,51 @@ func TestBucketEmptinessBeforeDelete(t *testing.T) {
 
 		err := planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
+	})
+}
+
+func TestDeleteBatchWithoutPermission(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		require.NoError(t, err)
+
+		apiKey, err = apiKey.Restrict(macaroon.Caveat{
+			DisallowLists: true,
+			DisallowReads: true,
+		})
+		require.NoError(t, err)
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		responses, err := metainfoClient.Batch(ctx,
+			// this request was causing panic becase for deleting object
+			// its possible to return no error and empty response for
+			// specific set of permissions, see `apiKey.Restrict` from above
+			&metainfo.BeginDeleteObjectParams{
+				Bucket:        []byte("test-bucket"),
+				EncryptedPath: []byte("not-existing-object"),
+			},
+
+			// TODO this code should be enabled then issue with read permissions in
+			// DeleteBucket method currently user have always permission to read bucket
+			// https://storjlabs.atlassian.net/browse/USR-603
+			// when it will be fixed commented code from bellow should replace existing DeleteBucketParams
+			// the same situation like above
+			// &metainfo.DeleteBucketParams{
+			// 	Name: []byte("not-existing-bucket"),
+			// },
+
+			&metainfo.DeleteBucketParams{
+				Name: []byte("test-bucket"),
+			},
+		)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(responses))
 	})
 }

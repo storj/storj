@@ -6,13 +6,13 @@ package metainfo_test
 import (
 	"testing"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -20,9 +20,9 @@ import (
 
 func newTestBucket(name string, projectID uuid.UUID) storj.Bucket {
 	return storj.Bucket{
-		ID:                  testrand.UUID(),
+		ID:                  storj.DeprecatedUUID(testrand.UUID2()),
 		Name:                name,
-		ProjectID:           projectID,
+		ProjectID:           storj.DeprecatedUUID(projectID),
 		PathCipher:          storj.EncAESGCM,
 		DefaultSegmentsSize: 65536,
 		DefaultRedundancyScheme: storj.RedundancyScheme{

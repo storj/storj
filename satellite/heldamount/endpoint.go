@@ -61,6 +61,9 @@ func (e *Endpoint) GetPayStub(ctx context.Context, req *pb.GetHeldAmountRequest)
 	period := req.Period.String()[0:7]
 	stub, err := e.service.GetPayStub(ctx, node.Id, period)
 	if err != nil {
+		if ErrNoDataForPeriod.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.OutOfRange, err.Error())
+		}
 		return nil, err
 	}
 
@@ -112,6 +115,9 @@ func (e *Endpoint) GetPayment(ctx context.Context, req *pb.GetPaymentRequest) (_
 
 	payment, err := e.service.GetPayment(ctx, node.Id, req.Period.String())
 	if err != nil {
+		if ErrNoDataForPeriod.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.OutOfRange, err.Error())
+		}
 		return nil, err
 	}
 

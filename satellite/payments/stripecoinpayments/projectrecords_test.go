@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -33,7 +33,7 @@ func TestProjectRecords(t *testing.T) {
 			err = projectRecordsDB.Create(ctx,
 				[]stripecoinpayments.CreateProjectRecord{
 					{
-						ProjectID: *prjID,
+						ProjectID: prjID,
 						Storage:   1,
 						Egress:    2,
 						Objects:   3,
@@ -47,7 +47,7 @@ func TestProjectRecords(t *testing.T) {
 		})
 
 		t.Run("check", func(t *testing.T) {
-			err = projectRecordsDB.Check(ctx, *prjID, start, end)
+			err = projectRecordsDB.Check(ctx, prjID, start, end)
 			require.Error(t, err)
 			assert.Equal(t, stripecoinpayments.ErrProjectRecordExists, err)
 		})
@@ -86,7 +86,7 @@ func TestProjectRecordsList(t *testing.T) {
 
 			createProjectRecords = append(createProjectRecords,
 				stripecoinpayments.CreateProjectRecord{
-					ProjectID: *projID,
+					ProjectID: projID,
 					Storage:   float64(i) + 1,
 					Egress:    int64(i) + 2,
 					Objects:   float64(i) + 3,

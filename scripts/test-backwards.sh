@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -ueo pipefail
 
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
 : "${STORJ_NETWORK_DIR?Environment variable STORJ_NETWORK_DIR needs to be set}"
 
 BUCKET=bucket-123
@@ -21,6 +23,9 @@ setup(){
 
     echo "setup test successfully"
 }
+
+# override configured access with access where address is node ID + satellite addess
+export STORJ_ACCESS=$(go run "$SCRIPTDIR"/update-access.go $SATELLITE_0_DIR $GATEWAY_0_ACCESS)
 
 if [[ "$1" == "upload" ]]; then
     setup

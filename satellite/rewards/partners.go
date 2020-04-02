@@ -3,7 +3,7 @@
 
 package rewards
 
-import "github.com/skyrings/skyring-common/tools/uuid"
+import "storj.io/common/uuid"
 
 // DefaultPartnersDB is current default settings.
 var DefaultPartnersDB = func() PartnersDB {
@@ -16,8 +16,8 @@ var DefaultPartnersDB = func() PartnersDB {
 }()
 
 // parseUUID parse string to UUID, should be used ONLY with hardcoded partner UUID's.
-func parseUUID(s string) *uuid.UUID {
-	u, err := uuid.Parse(s)
+func parseUUID(s string) uuid.UUID {
+	u, err := uuid.FromString(s)
 	if err != nil {
 		panic(err)
 	}

@@ -25,7 +25,7 @@ func TestUserCredits(t *testing.T) {
 		consoleDB := db.Console()
 
 		user, referrer, activeOffer, defaultOffer := setupData(ctx, t, db)
-		randomID := testrand.UUID()
+		randomID := testrand.UUID2()
 		invalidOffer := rewards.Offer{
 			ID: 10,
 		}
@@ -290,7 +290,7 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 
 	// create an user
 	user, err = consoleDB.Users().Insert(ctx, &console.User{
-		ID:           testrand.UUID(),
+		ID:           testrand.UUID2(),
 		FullName:     "John Doe",
 		Email:        "john@mail.test",
 		PasswordHash: userPassHash,
@@ -300,7 +300,7 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 
 	//create an user as referrer
 	referrer, err = consoleDB.Users().Insert(ctx, &console.User{
-		ID:           testrand.UUID(),
+		ID:           testrand.UUID2(),
 		FullName:     "referrer",
 		Email:        "referrer@mail.test",
 		PasswordHash: referrerPassHash,

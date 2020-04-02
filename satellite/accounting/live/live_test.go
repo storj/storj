@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -16,6 +15,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/storage/redis/redisserver"
@@ -85,7 +85,7 @@ func TestRedisCacheConcurrency(t *testing.T) {
 	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
 
-	projectID := testrand.UUID()
+	projectID := testrand.UUID2()
 
 	const (
 		numConcurrent = 100
@@ -123,7 +123,7 @@ func populateCache(ctx context.Context, cache accounting.Cache) (projectIDs []uu
 	// make up some project IDs
 	projectIDs = make([]uuid.UUID, numProjects)
 	for i := range projectIDs {
-		projectIDs[i] = testrand.UUID()
+		projectIDs[i] = testrand.UUID2()
 	}
 
 	// send lots of space used updates for all of these projects to the live
@@ -179,7 +179,7 @@ func TestGetAllProjectTotals(t *testing.T) {
 
 		projectIDs := make([]uuid.UUID, 1000)
 		for i := range projectIDs {
-			projectIDs[i] = testrand.UUID()
+			projectIDs[i] = testrand.UUID2()
 			err := cache.AddProjectStorageUsage(ctx, projectIDs[i], int64(i))
 			require.NoError(t, err)
 		}

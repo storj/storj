@@ -10,7 +10,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	monkit "github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -21,6 +20,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 )
 
 // DB implements saving order after receiving from storage node

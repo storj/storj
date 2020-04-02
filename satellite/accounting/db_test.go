@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,6 +16,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
@@ -26,7 +26,7 @@ import (
 func TestSaveBucketTallies(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		// Setup: create bucket storage tallies
-		projectID := testrand.UUID()
+		projectID := testrand.UUID2()
 
 		bucketTallies, expectedTallies, err := createBucketStorageTallies(projectID)
 		require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestStorageNodeUsage(t *testing.T) {
 
 func TestProjectLimits(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		proj, err := db.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})
+		proj, err := db.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID2()})
 		require.NoError(t, err)
 
 		err = db.ProjectAccounting().UpdateProjectUsageLimit(ctx, proj.ID, 1)

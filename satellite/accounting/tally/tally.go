@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -15,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metainfo"
 )

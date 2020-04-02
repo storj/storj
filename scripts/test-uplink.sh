@@ -56,7 +56,7 @@ uplink cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/" --progress=fal
 
 cat "$SRC_DIR/put-file" | uplink put "sj://$BUCKET/put-file"
 
-uplink --config-dir "$UPLINK_DIR" import named-access $GATEWAY_0_ACCESS
+uplink --config-dir "$UPLINK_DIR" import named-access $STORJ_ACCESS
 FILES=$(STORJ_ACCESS= uplink --config-dir "$UPLINK_DIR" --access named-access ls "sj://$BUCKET" | tee $TMPDIR/list | wc -l)
 EXPECTED_FILES="5"
 if [ "$FILES" == $EXPECTED_FILES ]
