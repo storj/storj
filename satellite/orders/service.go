@@ -206,7 +206,7 @@ func (service *Service) CreateGetOrderLimitsOld(ctx context.Context, bucketID []
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -319,7 +319,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -405,7 +405,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byt
 	if err != nil {
 		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -574,7 +574,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 	if err != nil {
 		return limits, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -641,7 +641,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 	if err != nil {
 		return limit, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limit); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limit); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -737,7 +737,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 	if err != nil {
 		return limits, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -839,7 +839,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 	if err != nil {
 		return limits, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -914,7 +914,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 	if err != nil {
 		return limit, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limit); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limit); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -940,14 +940,14 @@ func (service *Service) UpdatePutInlineOrder(ctx context.Context, projectID uuid
 }
 
 // SplitBucketID takes a bucketID, splits on /, and returns a projectID and bucketName
-func SplitBucketID(bucketID []byte) (projectID *uuid.UUID, bucketName []byte, err error) {
+func SplitBucketID(bucketID []byte) (projectID uuid.UUID, bucketName []byte, err error) {
 	pathElements := bytes.Split(bucketID, []byte("/"))
 	if len(pathElements) > 1 {
 		bucketName = pathElements[1]
 	}
-	projectID, err = uuid.Parse(string(pathElements[0]))
+	projectID, err = uuid.FromString(string(pathElements[0]))
 	if err != nil {
-		return nil, nil, err
+		return uuid.UUID{}, nil, err
 	}
 	return projectID, bucketName, nil
 }

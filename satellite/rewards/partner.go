@@ -22,7 +22,7 @@ type PartnerList struct {
 type PartnerInfo struct {
 	Name string
 	ID   string
-	UUID *uuid.UUID
+	UUID uuid.UUID
 }
 
 // UserAgent returns canonical user agent.

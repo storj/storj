@@ -47,11 +47,11 @@ func (endpoint *Endpoint) ResolvePartnerID(ctx context.Context, header *pb.Reque
 	for _, entry := range entries {
 		if entry.Product != "" {
 			partner, err := endpoint.partners.ByUserAgent(ctx, entry.Product)
-			if err != nil || partner.UUID == nil {
+			if err != nil || partner.UUID.IsZero() {
 				continue
 			}
 
-			return *partner.UUID, nil
+			return partner.UUID, nil
 		}
 	}
 

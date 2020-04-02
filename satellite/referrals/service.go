@@ -160,7 +160,7 @@ func (service *Service) redeemToken(ctx context.Context, userID *uuid.UUID, toke
 		return errs.New("invalid argument")
 	}
 
-	referralToken, err := uuid.Parse(token)
+	referralToken, err := uuid.FromString(token)
 	if err != nil {
 		return errs.Wrap(err)
 	}

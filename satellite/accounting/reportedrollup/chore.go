@@ -157,7 +157,7 @@ func (chore *Chore) readWork(ctx context.Context, now time.Time, queue orders.Qu
 
 			// Update our batch state to include it.
 			byBucket[bucketKey{
-				projectID:  *projectID,
+				projectID:  projectID,
 				bucketName: string(bucketName),
 				action:     action,
 			}] += settled

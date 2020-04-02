@@ -330,11 +330,10 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 					EncryptedObjectPath: storj.JoinPaths(pathElements[3:]...),
 				}
 
-				projectID, err := uuid.Parse(path.ProjectIDString)
+				path.ProjectID, err = uuid.FromString(path.ProjectIDString)
 				if err != nil {
 					return LoopError.Wrap(err)
 				}
-				path.ProjectID = *projectID
 
 				nextObservers := observers[:0]
 				for _, observer := range observers {

@@ -458,11 +458,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			Status:       Inactive,
 		}
 		if user.PartnerID != "" {
-			partnerID, err := uuid.Parse(user.PartnerID)
+			newUser.PartnerID, err = uuid.FromString(user.PartnerID)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			newUser.PartnerID = *partnerID
 		}
 
 		u, err = tx.Users().Insert(ctx,
@@ -484,7 +483,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			// NB: Uncomment this block when UserCredits().Create is cockroach compatible
 			// var refID *uuid.UUID
 			// if refUserID != "" {
-			// 	refID, err = uuid.Parse(refUserID)
+			// 	refID, err = uuid.FromString(refUserID)
 			// 	if err != nil {
 			// 		return Error.Wrap(err)
 			// 	}

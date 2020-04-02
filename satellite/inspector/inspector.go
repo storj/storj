@@ -115,12 +115,12 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 
 	health := &pb.SegmentHealth{}
 
-	projectID, err := uuid.Parse(string(in.GetProjectId()))
+	projectID, err := uuid.FromString(string(in.GetProjectId()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	path, err := metainfo.CreatePath(ctx, *projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
+	path, err := metainfo.CreatePath(ctx, projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

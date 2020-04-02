@@ -332,13 +332,13 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := uuid.Parse(id)
+	userID, err := uuid.FromString(id)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	user, err := a.service.GetUser(ctx, *userID)
+	user, err := a.service.GetUser(ctx, userID)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return

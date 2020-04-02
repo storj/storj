@@ -99,11 +99,10 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 
 	var partnerID uuid.UUID
 	if p.uplinkCfg.Volatile.PartnerID != "" {
-		id, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		partnerID, err = uuid.FromString(p.uplinkCfg.Volatile.PartnerID)
 		if err != nil {
 			return storj.Bucket{}, Error.Wrap(err)
 		}
-		partnerID = *id
 	}
 
 	bucket = storj.Bucket{
@@ -231,11 +230,10 @@ func (p *Project) trySetBucketAttribution(ctx context.Context, bucketName string
 
 	var partnerID uuid.UUID
 	if p.uplinkCfg.Volatile.PartnerID != "" {
-		id, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		partnerID, err = uuid.FromString(p.uplinkCfg.Volatile.PartnerID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		partnerID = *id
 	}
 
 	// UserAgent is sent via RequestHeader

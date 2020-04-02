@@ -76,7 +76,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 
 					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
 					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
 
@@ -145,7 +145,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 
 					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
 					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
 
@@ -221,7 +221,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 
 					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
 					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
 
@@ -301,13 +301,13 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					}
 
 					err := satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
 
 					// confirm that the object was deleted
 					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.Error(t, err)
 					require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
@@ -408,7 +408,7 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					}
 
 					err := satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					if tc.expectedNotFoundErr {
 						require.Error(t, err)
@@ -420,7 +420,7 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 
 					// confirm that the object was deleted
 					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.Error(t, err)
 					require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
@@ -447,14 +447,15 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 
 func getProjectIDAndEncPathFirstObject(
 	ctx context.Context, t *testing.T, satellite *testplanet.Satellite,
-) (projectID *uuid.UUID, encryptedPath []byte) {
+) (projectID uuid.UUID, encryptedPath []byte) {
 	t.Helper()
 
 	keys, err := satellite.Metainfo.Database.List(ctx, storage.Key{}, 1)
 	require.NoError(t, err)
 	keyParts := storj.SplitPath(keys[0].String())
 	require.Len(t, keyParts, 4)
-	projectID, err = uuid.Parse(keyParts[0])
+
+	projectID, err = uuid.FromString(keyParts[0])
 	require.NoError(t, err)
 	encryptedPath = []byte(keyParts[3])
 
@@ -465,7 +466,7 @@ func uploadFirstObjectWithoutLastSegmentPointer(
 	ctx context.Context, t *testing.T, uplnk *testplanet.Uplink,
 	satelliteSys *testplanet.Satellite, segmentSize memory.Size,
 	bucketName string, objectName string, objectData []byte,
-) (projectID *uuid.UUID, encryptedPath []byte) {
+) (projectID uuid.UUID, encryptedPath []byte) {
 	t.Helper()
 
 	return uploadFirstObjectWithoutSomeSegmentsPointers(
@@ -477,7 +478,7 @@ func uploadFirstObjectWithoutSomeSegmentsPointers(
 	ctx context.Context, t *testing.T, uplnk *testplanet.Uplink,
 	satelliteSys *testplanet.Satellite, segmentSize memory.Size,
 	bucketName string, objectName string, objectData []byte, noSegmentsIndexes []int64,
-) (projectID *uuid.UUID, encryptedPath []byte) {
+) (projectID uuid.UUID, encryptedPath []byte) {
 	t.Helper()
 
 	if len(noSegmentsIndexes) < 1 {
@@ -494,9 +495,8 @@ func uploadFirstObjectWithoutSomeSegmentsPointers(
 	require.NoError(t, err)
 
 	projectID, encryptedPath = getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
-
 	for _, segIndx := range noSegmentsIndexes {
-		path, err := metainfo.CreatePath(ctx, *projectID, segIndx, []byte(bucketName), encryptedPath)
+		path, err := metainfo.CreatePath(ctx, projectID, segIndx, []byte(bucketName), encryptedPath)
 		require.NoError(t, err)
 		err = satelliteSys.Metainfo.Service.UnsynchronizedDelete(ctx, path)
 		require.NoError(t, err)
