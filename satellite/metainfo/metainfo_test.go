@@ -1359,3 +1359,49 @@ func TestBucketEmptinessBeforeDelete(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestDeleteBatchWithoutPermission(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		require.NoError(t, err)
+
+		apiKey, err = apiKey.Restrict(macaroon.Caveat{
+			DisallowLists: true,
+			DisallowReads: true,
+		})
+		require.NoError(t, err)
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		responses, err := metainfoClient.Batch(ctx,
+			// this request was causing panic becase for deleting object
+			// its possible to return no error and empty response for
+			// specific set of permissions, see `apiKey.Restrict` from above
+			&metainfo.BeginDeleteObjectParams{
+				Bucket:        []byte("test-bucket"),
+				EncryptedPath: []byte("not-existing-object"),
+			},
+
+			// TODO this code should be enabled then issue with read permissions in
+			// DeleteBucket method currently user have always permission to read bucket
+			// https://storjlabs.atlassian.net/browse/USR-603
+			// when it will be fixed commented code from bellow should replace existing DeleteBucketParams
+			// the same situation like above
+			// &metainfo.DeleteBucketParams{
+			// 	Name: []byte("not-existing-bucket"),
+			// },
+
+			&metainfo.DeleteBucketParams{
+				Name: []byte("test-bucket"),
+			},
+		)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(responses))
+	})
+}
