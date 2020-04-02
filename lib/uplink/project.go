@@ -106,7 +106,7 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 	}
 
 	bucket = storj.Bucket{
-		PartnerID:                   storj.DeprecatedUUID(partnerID),
+		PartnerID:                   partnerID,
 		PathCipher:                  cfg.PathCipher,
 		DefaultEncryptionParameters: cfg.EncryptionParameters,
 		DefaultRedundancyScheme:     cfg.Volatile.RedundancyScheme,
@@ -239,6 +239,6 @@ func (p *Project) trySetBucketAttribution(ctx context.Context, bucketName string
 	// UserAgent is sent via RequestHeader
 	return p.metainfo.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 		Bucket:    bucketName,
-		PartnerID: storj.DeprecatedUUID(partnerID),
+		PartnerID: partnerID,
 	})
 }

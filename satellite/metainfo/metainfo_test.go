@@ -280,11 +280,11 @@ func TestSetBucketAttribution(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		partnerID := testrand.UUID2()
+		partnerID := testrand.UUID()
 		{ // bucket with no items
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "alpha",
-				PartnerID: storj.DeprecatedUUID(partnerID),
+				PartnerID: partnerID,
 			})
 			require.NoError(t, err)
 		}
@@ -292,7 +292,7 @@ func TestSetBucketAttribution(t *testing.T) {
 		{ // setting attribution on a bucket that doesn't exist should fail
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "beta",
-				PartnerID: storj.DeprecatedUUID(partnerID),
+				PartnerID: partnerID,
 			})
 			require.Error(t, err)
 		}
@@ -304,7 +304,7 @@ func TestSetBucketAttribution(t *testing.T) {
 			// trying to set attribution should be ignored
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "alpha",
-				PartnerID: storj.DeprecatedUUID(partnerID),
+				PartnerID: partnerID,
 			})
 			require.NoError(t, err)
 		}
@@ -316,7 +316,7 @@ func TestSetBucketAttribution(t *testing.T) {
 			// bucket with items
 			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 				Bucket:    "alpha-new",
-				PartnerID: storj.DeprecatedUUID(partnerID),
+				PartnerID: partnerID,
 			})
 			require.Error(t, err)
 		}
@@ -499,7 +499,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 
 		bucket := storj.Bucket{
 			Name:       "initial-bucket",
-			ProjectID:  storj.DeprecatedUUID(projectID),
+			ProjectID:  projectID,
 			PathCipher: config.GetEncryptionParameters().CipherSuite,
 		}
 		_, err = metainfoService.CreateBucket(ctx, bucket)
@@ -694,7 +694,7 @@ func TestInlineSegment(t *testing.T) {
 
 		bucket := storj.Bucket{
 			Name:       "inline-segments-bucket",
-			ProjectID:  storj.DeprecatedUUID(projectID),
+			ProjectID:  projectID,
 			PathCipher: config.GetEncryptionParameters().CipherSuite,
 		}
 		_, err = metainfoService.CreateBucket(ctx, bucket)

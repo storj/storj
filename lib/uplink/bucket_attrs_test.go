@@ -69,7 +69,7 @@ func TestBucket_PartnerAttribution(t *testing.T) {
 		apikey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[satellite.ID()].Serialize())
 		require.NoError(t, err)
 
-		partnerID := testrand.UUID2()
+		partnerID := testrand.UUID()
 
 		t.Run("without partner id", func(t *testing.T) {
 			config := uplink.Config{}
@@ -120,7 +120,7 @@ func TestBucket_PartnerAttribution(t *testing.T) {
 			config := uplink.Config{}
 			config.Volatile.Log = zaptest.NewLogger(t)
 			config.Volatile.TLS.SkipPeerCAWhitelist = true
-			config.Volatile.PartnerID = testrand.UUID2().String()
+			config.Volatile.PartnerID = testrand.UUID().String()
 
 			up, err := uplink.NewUplink(ctx, &config)
 			require.NoError(t, err)
@@ -202,7 +202,7 @@ func TestBucket_UserAgent(t *testing.T) {
 			require.NoError(t, err)
 			partnerID, err := uuid.FromString("8cd605fa-ad00-45b6-823e-550eddc611d6")
 			require.NoError(t, err)
-			assert.Equal(t, partnerID, uuid.UUID(bucketInfo.PartnerID))
+			assert.Equal(t, partnerID, bucketInfo.PartnerID)
 		})
 
 		t.Run("open with different user agent", func(t *testing.T) {
@@ -227,7 +227,7 @@ func TestBucket_UserAgent(t *testing.T) {
 			require.NoError(t, err)
 			partnerID, err := uuid.FromString("8cd605fa-ad00-45b6-823e-550eddc611d6")
 			require.NoError(t, err)
-			assert.Equal(t, partnerID, uuid.UUID(bucketInfo.PartnerID))
+			assert.Equal(t, partnerID, bucketInfo.PartnerID)
 		})
 	})
 }

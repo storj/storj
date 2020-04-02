@@ -32,7 +32,7 @@ func TestResolvePartnerID(t *testing.T) {
 		_, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{}, []byte{1, 2, 3})
 		require.Error(t, err)
 
-		randomUUID := testrand.UUID2()
+		randomUUID := testrand.UUID()
 
 		// good uuid
 		result, err := endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{}, randomUUID[:])

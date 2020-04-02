@@ -208,7 +208,7 @@ func createBucketBandwidthRollupsForPast4Days(ctx *testcontext.Context, satellit
 func TestProjectBandwidthTotal(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		pdb := db.ProjectAccounting()
-		projectID := testrand.UUID2()
+		projectID := testrand.UUID()
 
 		// Setup: create bucket bandwidth rollup records
 		expectedTotal, err := createBucketBandwidthRollupsForPast4Days(ctx, db, projectID)
@@ -290,8 +290,8 @@ func TestUsageRollups(t *testing.T) {
 		now := time.Now()
 		start := now.Add(tallyInterval * time.Duration(-tallyIntervals))
 
-		project1 := testrand.UUID2()
-		project2 := testrand.UUID2()
+		project1 := testrand.UUID()
+		project2 := testrand.UUID()
 
 		p1base := binary.BigEndian.Uint64(project1[:8]) >> 48
 		p2base := binary.BigEndian.Uint64(project2[:8]) >> 48

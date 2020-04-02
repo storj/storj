@@ -20,9 +20,9 @@ import (
 
 func newTestBucket(name string, projectID uuid.UUID) storj.Bucket {
 	return storj.Bucket{
-		ID:                  storj.DeprecatedUUID(testrand.UUID2()),
+		ID:                  testrand.UUID(),
 		Name:                name,
-		ProjectID:           storj.DeprecatedUUID(projectID),
+		ProjectID:           projectID,
 		PathCipher:          storj.EncAESGCM,
 		DefaultSegmentsSize: 65536,
 		DefaultRedundancyScheme: storj.RedundancyScheme{

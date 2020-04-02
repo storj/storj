@@ -37,7 +37,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 			ErasureShareSize: int32(256),
 		}
 
-		projectID := testrand.UUID2()
+		projectID := testrand.UUID()
 		pointerPathPrefix := storj.JoinPaths(projectID.String(), "l", "bucket") + "/"
 
 		// add some valid pointers
@@ -100,7 +100,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			expectedLostPieces[int32(i)] = true
 		}
 
-		projectID := testrand.UUID2()
+		projectID := testrand.UUID()
 		pointerPath := storj.JoinPaths(projectID.String(), "l", "bucket", "piece")
 		pieceID := testrand.PieceID()
 

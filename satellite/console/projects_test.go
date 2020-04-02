@@ -44,7 +44,7 @@ func TestProjectsRepository(t *testing.T) {
 		t.Run("Insert project successfully", func(t *testing.T) {
 			var err error
 			owner, err = users.Insert(ctx, &console.User{
-				ID:           testrand.UUID2(),
+				ID:           testrand.UUID(),
 				FullName:     userFullName,
 				ShortName:    shortName,
 				Email:        email,
@@ -53,7 +53,7 @@ func TestProjectsRepository(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, owner)
 			owner, err := users.Insert(ctx, &console.User{
-				ID:           testrand.UUID2(),
+				ID:           testrand.UUID(),
 				FullName:     userFullName,
 				ShortName:    shortName,
 				Email:        email,
@@ -178,7 +178,7 @@ func TestProjectsList(t *testing.T) {
 		// create owner
 		owner, err := db.Console().Users().Insert(ctx,
 			&console.User{
-				ID:           testrand.UUID2(),
+				ID:           testrand.UUID(),
 				FullName:     "Billy H",
 				Email:        "billyh@example.com",
 				PasswordHash: []byte("example_password"),

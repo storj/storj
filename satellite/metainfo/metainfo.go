@@ -893,7 +893,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 	}
 
 	// update bucket information
-	bucket.PartnerID = storj.DeprecatedUUID(partnerID)
+	bucket.PartnerID = partnerID
 	_, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
 	if err != nil {
 		endpoint.log.Error("error while updating bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
@@ -934,10 +934,10 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	}
 
 	return storj.Bucket{
-		ID:                  storj.DeprecatedUUID(bucketID),
+		ID:                  bucketID,
 		Name:                string(req.GetName()),
-		ProjectID:           storj.DeprecatedUUID(projectID),
-		PartnerID:           storj.DeprecatedUUID(partnerID),
+		ProjectID:           projectID,
+		PartnerID:           partnerID,
 		PathCipher:          storj.CipherSuite(req.GetPathCipher()),
 		DefaultSegmentsSize: req.GetDefaultSegmentSize(),
 		DefaultRedundancyScheme: storj.RedundancyScheme{

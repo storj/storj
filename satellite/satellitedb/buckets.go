@@ -200,9 +200,9 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 	}
 
 	bucket = storj.Bucket{
-		ID:                  storj.DeprecatedUUID(id),
+		ID:                  id,
 		Name:                string(dbxBucket.Name),
-		ProjectID:           storj.DeprecatedUUID(project),
+		ProjectID:           project,
 		Created:             dbxBucket.CreatedAt,
 		PathCipher:          storj.CipherSuite(dbxBucket.PathCipher),
 		DefaultSegmentsSize: int64(dbxBucket.DefaultSegmentSize),
@@ -225,7 +225,7 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 		if err != nil {
 			return bucket, storj.ErrBucket.Wrap(err)
 		}
-		bucket.PartnerID = storj.DeprecatedUUID(partnerID)
+		bucket.PartnerID = partnerID
 	}
 
 	return bucket, nil
