@@ -37,4 +37,8 @@ if [ "${SATELLITE_REPAIR:-}" = "true" ]; then
   exec ./satellite run repair $RUN_PARAMS "$@"
 fi
 
+if [ "${SATELLITE_GC:-}" = "true" ]; then
+  exec ./satellite run garbage-collection $RUN_PARAMS "$@"
+fi
+
 exec ./satellite run $RUN_PARAMS "$@"
