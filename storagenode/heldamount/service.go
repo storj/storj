@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/date"
 	"storj.io/storj/storagenode/trust"
@@ -79,18 +80,20 @@ func (service *Service) GetPaystubStats(ctx context.Context, satelliteID storj.N
 
 	requestedPeriod, err := date.PeriodToTime(period)
 	if err != nil {
-		service.log.Error("stringToTime", zap.Error(err))
 		return nil, ErrHeldAmountService.Wrap(err)
 	}
 
 	resp, err := client.GetPayStub(ctx, &pb.GetHeldAmountRequest{Period: requestedPeriod})
 	if err != nil {
-		service.log.Error("GetPayStub", zap.Error(err))
+		if rpcstatus.Code(err) == rpcstatus.OutOfRange {
+			return nil, ErrNoPayStubForPeriod.Wrap(err)
+		}
+
 		return nil, ErrHeldAmountService.Wrap(err)
 	}
-	service.log.Error("paystub = = = =", zap.Any("", resp))
+
 	return &PayStub{
-		Period:         period,
+		Period:         period[0:7],
 		SatelliteID:    satelliteID,
 		Created:        resp.CreatedAt,
 		Codes:          resp.Codes,
@@ -131,6 +134,10 @@ func (service *Service) GetPayment(ctx context.Context, satelliteID storj.NodeID
 
 	resp, err := client.GetPayment(ctx, &pb.GetPaymentRequest{Period: requestedPeriod})
 	if err != nil {
+		if rpcstatus.Code(err) == rpcstatus.OutOfRange {
+			return nil, nil
+		}
+
 		return nil, ErrHeldAmountService.Wrap(err)
 	}
 
@@ -138,7 +145,7 @@ func (service *Service) GetPayment(ctx context.Context, satelliteID storj.NodeID
 		ID:          resp.Id,
 		Created:     resp.CreatedAt,
 		SatelliteID: satelliteID,
-		Period:      period,
+		Period:      period[0:7],
 		Amount:      resp.Amount,
 		Receipt:     resp.Receipt,
 		Notes:       resp.Notes,

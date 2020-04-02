@@ -34,7 +34,7 @@ type Invoice struct {
 	CompGetRepair    currency.MicroUnit `csv:"comp-get-repair"`   // Compensation for usage-get-repair
 	CompPutRepair    currency.MicroUnit `csv:"comp-put-repair"`   // Compensation for usage-put-repair
 	CompGetAudit     currency.MicroUnit `csv:"comp-get-audit"`    // Compensation for usage-get-audit
-	SurgePercent     int                `csv:"surge-percent"`     // Surge percent used to calculate compensation, or 0 if no surge
+	SurgePercent     int64              `csv:"surge-percent"`     // Surge percent used to calculate compensation, or 0 if no surge
 	Owed             currency.MicroUnit `csv:"owed"`              // Amount we intend to pay to the node (sum(comp-*) - held + disposed)
 	Held             currency.MicroUnit `csv:"held"`              // Amount held from sum(comp-*) for this period
 	Disposed         currency.MicroUnit `csv:"disposed"`          // Amount of owed that is due to graceful-exit or held period ending

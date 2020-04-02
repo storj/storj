@@ -12,7 +12,6 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -20,12 +19,14 @@ import (
 	"storj.io/common/context2"
 	"storj.io/common/fpath"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/private/version"
 	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/pkg/cache"
 	"storj.io/storj/pkg/revocation"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/compensation"
@@ -181,7 +182,7 @@ var (
 		Database     string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output       string `help:"destination of report output" default:""`
 		Compensation compensation.Config
-		SurgePercent int `help:"surge percent for payments" default:"0"`
+		SurgePercent int64 `help:"surge percent for payments" default:"0"`
 	}
 	recordPeriodCfg struct {
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
@@ -527,8 +528,8 @@ func cmdRecordOneOffPayments(cmd *cobra.Command, args []string) (err error) {
 func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L().Named("satellite-cli")
-	// Parse the UUID
-	partnerID, err := uuid.Parse(args[0])
+
+	partnerID, err := uuid.FromString(args[0])
 	if err != nil {
 		return errs.Combine(errs.New("Invalid Partner ID format. %s", args[0]), err)
 	}
@@ -540,7 +541,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 
 	// send output to stdout
 	if partnerAttribtionCfg.Output == "" {
-		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, *partnerID, start, end, os.Stdout)
+		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, start, end, os.Stdout)
 	}
 
 	// send output to file
@@ -556,7 +557,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
-	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, *partnerID, start, end, file)
+	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, start, end, file)
 }
 
 func main() {

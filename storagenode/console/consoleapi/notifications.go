@@ -9,10 +9,10 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/storagenode/notifications"
 )
 
@@ -59,13 +59,13 @@ func (notification *Notifications) ReadNotification(w http.ResponseWriter, r *ht
 		return
 	}
 
-	notificationID, err := uuid.Parse(id)
+	notificationID, err := uuid.FromString(id)
 	if err != nil {
 		notification.serveJSONError(w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
 
-	err = notification.service.Read(ctx, *notificationID)
+	err = notification.service.Read(ctx, notificationID)
 	if err != nil {
 		notification.serveJSONError(w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return

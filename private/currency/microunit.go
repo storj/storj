@@ -5,6 +5,7 @@ package currency
 
 import (
 	"math"
+	"strconv"
 
 	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
@@ -58,4 +59,17 @@ func MicroUnitFromDecimal(d decimal.Decimal) (MicroUnit, error) {
 		return MicroUnit{}, errs.New("%s overflows micro-unit", d)
 	}
 	return MicroUnit{v: m.IntPart()}, nil
+}
+
+// MarshalCSV does the custom marshaling of MicroUnits.
+func (m MicroUnit) MarshalCSV() (string, error) { return strconv.FormatInt(m.v, 10), nil }
+
+// UnmarshalCSV reads the MicroUnit in CSV form.
+func (m *MicroUnit) UnmarshalCSV(s string) (err error) {
+	v, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return err
+	}
+	m.v = v
+	return nil
 }

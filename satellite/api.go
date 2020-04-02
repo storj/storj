@@ -425,10 +425,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
 			peer.DB.Console().Projects(),
-			config.Metainfo.RS,
 			signing.SignerFromFullIdentity(peer.Identity),
-			config.Metainfo.MaxCommitInterval,
-			config.Metainfo.RateLimiter,
+			config.Metainfo,
 		)
 		pbgrpc.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 		if err := pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2); err != nil {

@@ -10,9 +10,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
-	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 )
 
 func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
@@ -25,19 +25,19 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectUUID, err := uuid.Parse(projectUUIDString)
+	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("invalid project-uuid: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	limit, err := server.db.ProjectAccounting().GetProjectStorageLimit(ctx, *projectUUID)
+	limit, err := server.db.ProjectAccounting().GetProjectStorageLimit(ctx, projectUUID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get usage limit: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	project, err := server.db.Console().Projects().Get(ctx, *projectUUID)
+	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get project: %v", err), http.StatusInternalServerError)
 		return
@@ -78,7 +78,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectUUID, err := uuid.Parse(projectUUIDString)
+	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("invalid project-uuid: %v", err), http.StatusBadRequest)
 		return
@@ -107,7 +107,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = server.db.ProjectAccounting().UpdateProjectUsageLimit(ctx, *projectUUID, *arguments.Usage)
+		err = server.db.ProjectAccounting().UpdateProjectUsageLimit(ctx, projectUUID, *arguments.Usage)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to update usage: %v", err), http.StatusInternalServerError)
 			return
@@ -120,7 +120,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = server.db.Console().Projects().UpdateRateLimit(ctx, *projectUUID, *arguments.Rate)
+		err = server.db.Console().Projects().UpdateRateLimit(ctx, projectUUID, *arguments.Rate)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to update rate: %v", err), http.StatusInternalServerError)
 			return

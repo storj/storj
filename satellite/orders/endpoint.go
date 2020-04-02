@@ -10,7 +10,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	monkit "github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -21,6 +20,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 )
 
 // DB implements saving order after receiving from storage node
@@ -311,6 +311,15 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 		}
 
 		rejectErr := func() error {
+			// check expiration first before the signatures so that we can throw out the large
+			// amount of expired orders being sent to us before doing expensive signature
+			// verification.
+			if orderLimit.OrderExpiration.Before(time.Now()) {
+				mon.Event("order_verification_failed_expired")
+				expirationCount++
+				return errExpiredOrder.New("order limit expired")
+			}
+
 			// satellite verifies that it signed the order limit
 			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
 				mon.Event("order_verification_failed_satellite_signature")
@@ -327,12 +336,6 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 			if orderLimit.SerialNumber != order.SerialNumber {
 				mon.Event("order_verification_failed_serial_mismatch")
 				return Error.New("invalid serial number")
-			}
-
-			if orderLimit.OrderExpiration.Before(time.Now()) {
-				mon.Event("order_verification_failed_expired")
-				expirationCount++
-				return errExpiredOrder.New("order limit expired")
 			}
 			return nil
 		}()

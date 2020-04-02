@@ -281,7 +281,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.max-commit-interval: 48h0m0s
 
 # maximum inline segment size
-# metainfo.max-inline-segment-size: 8.0 KB
+# metainfo.max-inline-segment-size: 4.0 KiB
+
+# maximum segment size
+# metainfo.max-segment-size: 64.0 MiB
 
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
@@ -324,9 +327,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # maximum buffer memory to be allocated for read buffers
 # metainfo.rs.max-buffer-mem: 4.0 MiB
-
-# maximum segment size
-# metainfo.rs.max-segment-size: 64.0 MiB
 
 # the largest amount of pieces to encode to. n (upper bound for validation).
 # metainfo.rs.max-total-threshold: 130

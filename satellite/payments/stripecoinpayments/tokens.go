@@ -6,8 +6,7 @@ package stripecoinpayments
 import (
 	"context"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 )

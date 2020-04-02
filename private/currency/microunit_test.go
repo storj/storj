@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"storj.io/common/strictcsv"
 )
 
 func TestMicroUnitToFloatString(t *testing.T) {
@@ -17,4 +19,22 @@ func TestMicroUnitFromFloatString(t *testing.T) {
 	m, err := MicroUnitFromFloatString("0.012340")
 	require.NoError(t, err)
 	require.Equal(t, NewMicroUnit(12340), m)
+}
+
+func TestMicroUnitCSV(t *testing.T) {
+	type row struct {
+		Foo MicroUnit `csv:"foo"`
+		Bar MicroUnit `csv:"bar"`
+	}
+	exp := row{
+		Foo: NewMicroUnit(1),
+		Bar: NewMicroUnit(2),
+	}
+
+	csv, err := strictcsv.MarshalString(exp)
+	require.NoError(t, err)
+
+	var got row
+	require.NoError(t, strictcsv.UnmarshalString(csv, &got))
+	require.Equal(t, exp, got)
 }

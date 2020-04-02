@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -21,6 +20,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 )
@@ -168,11 +168,11 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 
 func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if !endpoint.limiterConfig.Enabled {
+	if !endpoint.config.RateLimiter.Enabled {
 		return nil
 	}
 	limiter, err := endpoint.limiterCache.Get(projectID.String(), func() (interface{}, error) {
-		limit := rate.Limit(endpoint.limiterConfig.Rate)
+		limit := rate.Limit(endpoint.config.RateLimiter.Rate)
 
 		project, err := endpoint.projects.Get(ctx, projectID)
 		if err != nil {
@@ -320,7 +320,7 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			return Error.New("invalid no order limit for piece")
 		}
 
-		maxAllowed, err := encryption.CalcEncryptedSize(endpoint.requiredRSConfig.MaxSegmentSize.Int64(), storj.EncryptionParameters{
+		maxAllowed, err := encryption.CalcEncryptedSize(endpoint.config.MaxSegmentSize.Int64(), storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
 			BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
 		})
@@ -351,8 +351,8 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 			}
 
 			// expect that too much time has not passed between order limit creation and now
-			if time.Since(limit.OrderCreation) > endpoint.maxCommitInterval {
-				return Error.New("Segment not committed before max commit interval of %f minutes.", endpoint.maxCommitInterval.Minutes())
+			if time.Since(limit.OrderCreation) > endpoint.config.MaxCommitInterval {
+				return Error.New("Segment not committed before max commit interval of %f minutes.", endpoint.config.MaxCommitInterval.Minutes())
 			}
 
 			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
@@ -382,20 +382,20 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb.RedundancyScheme) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if endpoint.requiredRSConfig.Validate {
-		if endpoint.requiredRSConfig.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
-			endpoint.requiredRSConfig.MinTotalThreshold > int(redundancy.Total) ||
-			endpoint.requiredRSConfig.MaxTotalThreshold < int(redundancy.Total) ||
-			endpoint.requiredRSConfig.MinThreshold != int(redundancy.MinReq) ||
-			endpoint.requiredRSConfig.RepairThreshold != int(redundancy.RepairThreshold) ||
-			endpoint.requiredRSConfig.SuccessThreshold != int(redundancy.SuccessThreshold) {
+	if endpoint.config.RS.Validate {
+		if endpoint.config.RS.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
+			endpoint.config.RS.MinTotalThreshold > int(redundancy.Total) ||
+			endpoint.config.RS.MaxTotalThreshold < int(redundancy.Total) ||
+			endpoint.config.RS.MinThreshold != int(redundancy.MinReq) ||
+			endpoint.config.RS.RepairThreshold != int(redundancy.RepairThreshold) ||
+			endpoint.config.RS.SuccessThreshold != int(redundancy.SuccessThreshold) {
 			return Error.New("provided redundancy scheme parameters not allowed: want [%d, %d, %d, %d-%d, %d] got [%d, %d, %d, %d, %d]",
-				endpoint.requiredRSConfig.MinThreshold,
-				endpoint.requiredRSConfig.RepairThreshold,
-				endpoint.requiredRSConfig.SuccessThreshold,
-				endpoint.requiredRSConfig.MinTotalThreshold,
-				endpoint.requiredRSConfig.MaxTotalThreshold,
-				endpoint.requiredRSConfig.ErasureShareSize.Int32(),
+				endpoint.config.RS.MinThreshold,
+				endpoint.config.RS.RepairThreshold,
+				endpoint.config.RS.SuccessThreshold,
+				endpoint.config.RS.MinTotalThreshold,
+				endpoint.config.RS.MaxTotalThreshold,
+				endpoint.config.RS.ErasureShareSize.Int32(),
 
 				redundancy.MinReq,
 				redundancy.RepairThreshold,

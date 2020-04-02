@@ -6,12 +6,11 @@ package uplink
 import (
 	"context"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/common/encryption"
 	"storj.io/common/memory"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/uplink/private/ecclient"
 	"storj.io/uplink/private/metainfo"
 	"storj.io/uplink/private/metainfo/kvmetainfo"
@@ -100,11 +99,10 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 
 	var partnerID uuid.UUID
 	if p.uplinkCfg.Volatile.PartnerID != "" {
-		id, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		partnerID, err = uuid.FromString(p.uplinkCfg.Volatile.PartnerID)
 		if err != nil {
 			return storj.Bucket{}, Error.Wrap(err)
 		}
-		partnerID = *id
 	}
 
 	bucket = storj.Bucket{
@@ -232,11 +230,10 @@ func (p *Project) trySetBucketAttribution(ctx context.Context, bucketName string
 
 	var partnerID uuid.UUID
 	if p.uplinkCfg.Volatile.PartnerID != "" {
-		id, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		partnerID, err = uuid.FromString(p.uplinkCfg.Volatile.PartnerID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		partnerID = *id
 	}
 
 	// UserAgent is sent via RequestHeader

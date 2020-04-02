@@ -23,6 +23,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/process"
 	"storj.io/storj/private/prompt"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/uplink/private/eestream"
 )
 
