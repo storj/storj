@@ -292,7 +292,7 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 		// Preflight stage 1: test schema correctness
 		schema, err := sqliteutil.QuerySchema(ctx, nextDB)
 		if err != nil {
-			return ErrPreflight.Wrap(err)
+			return ErrPreflight.New("%s: schema check failed: %v", dbName, err)
 		}
 		// we don't care about changes in versions table
 		schema.DropTable("versions")
