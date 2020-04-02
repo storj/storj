@@ -22,12 +22,6 @@ type DB interface {
 	GetPayStub(ctx context.Context, satelliteID storj.NodeID, period string) (*PayStub, error)
 	// AllPayStubs retrieves paystub data from all satellites in specific period from DB.
 	AllPayStubs(ctx context.Context, period string) ([]PayStub, error)
-	// StorePayment inserts or updates payment into the DB
-	StorePayment(ctx context.Context, payment Payment) error
-	// GetPayment retrieves payment stats for specific satellite in specific period.
-	GetPayment(ctx context.Context, satelliteID storj.NodeID, period string) (*Payment, error)
-	// AllPayments retrieves payment stats from all satellites in specific period from DB.
-	AllPayments(ctx context.Context, period string) ([]Payment, error)
 }
 
 // ErrNoPayStubForPeriod represents errors from the heldamount database.
@@ -56,15 +50,4 @@ type PayStub struct {
 	Owed           int64        `json:"owed"`
 	Disposed       int64        `json:"disposed"`
 	Paid           int64        `json:"paid"`
-}
-
-// Payment is node payment data for specific period.
-type Payment struct {
-	ID          int64        `json:"id"`
-	Created     time.Time    `json:"created"`
-	SatelliteID storj.NodeID `json:"satelliteId"`
-	Period      string       `json:"period"`
-	Amount      int64        `json:"amount"`
-	Receipt     string       `json:"receipt"`
-	Notes       string       `json:"notes"`
 }

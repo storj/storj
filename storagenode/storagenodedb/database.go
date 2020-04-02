@@ -1191,6 +1191,14 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`ALTER TABLE reputation ADD COLUMN joined_at TIMESTAMP`,
 				},
 			},
+			{
+				DB:          db.heldamountDB,
+				Description: "Drop payments table as unused",
+				Version:     37,
+				Action: migrate.SQL{
+					`DROP TABLE payments;`,
+				},
+			},
 		},
 	}
 }

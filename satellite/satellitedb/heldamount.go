@@ -109,31 +109,6 @@ func (paystubs *paymentStubs) GetAllPaystubs(ctx context.Context, nodeID storj.N
 	return payStubs, Error.Wrap(rows.Err())
 }
 
-// GetPayment returns payment by nodeID and period.
-func (paystubs *paymentStubs) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (payment heldamount.StoragenodePayment, err error) {
-	query := `SELECT * FROM storagenode_payments WHERE node_id = $1 AND period = $2;`
-
-	row := paystubs.db.QueryRowContext(ctx, query, nodeID, period)
-	err = row.Scan(
-		&payment.ID,
-		&payment.Created,
-		&payment.NodeID,
-		&payment.Period,
-		&payment.Amount,
-		&payment.Receipt,
-		&payment.Notes,
-	)
-	if err != nil {
-		if sql.ErrNoRows == err {
-			return heldamount.StoragenodePayment{}, heldamount.ErrNoDataForPeriod.Wrap(err)
-		}
-
-		return heldamount.StoragenodePayment{}, Error.Wrap(err)
-	}
-
-	return payment, nil
-}
-
 // CreatePaystub inserts storagenode_paystub into database.
 func (paystubs *paymentStubs) CreatePaystub(ctx context.Context, stub heldamount.PayStub) (err error) {
 	return paystubs.db.CreateNoReturn_StoragenodePaystub(
@@ -158,19 +133,5 @@ func (paystubs *paymentStubs) CreatePaystub(ctx context.Context, stub heldamount
 		dbx.StoragenodePaystub_Owed(stub.Owed),
 		dbx.StoragenodePaystub_Disposed(stub.Disposed),
 		dbx.StoragenodePaystub_Paid(stub.Paid),
-	)
-}
-
-// CreatePayment inserts storagenode_payment into database.
-func (paystubs *paymentStubs) CreatePayment(ctx context.Context, payment heldamount.StoragenodePayment) (err error) {
-	return paystubs.db.CreateNoReturn_StoragenodePayment(
-		ctx,
-		dbx.StoragenodePayment_NodeId(payment.NodeID[:]),
-		dbx.StoragenodePayment_Period(payment.Period),
-		dbx.StoragenodePayment_Amount(payment.Amount),
-		dbx.StoragenodePayment_Create_Fields{
-			Receipt: dbx.StoragenodePayment_Receipt(payment.Receipt),
-			Notes:   dbx.StoragenodePayment_Notes(payment.Notes),
-		},
 	)
 }

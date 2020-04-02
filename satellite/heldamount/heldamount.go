@@ -21,12 +21,8 @@ type DB interface {
 	GetPaystub(ctx context.Context, nodeID storj.NodeID, period string) (PayStub, error)
 	// GetAllPaystubs return all payStubs by nodeID.
 	GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) ([]PayStub, error)
-	// GetPayment return storagenode payment by nodeID and period.
-	GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (StoragenodePayment, error)
 	// CreatePaystub insert paystub into db.
 	CreatePaystub(ctx context.Context, stub PayStub) (err error)
-	// CreatePayment insert payment into db.
-	CreatePayment(ctx context.Context, payment StoragenodePayment) (err error)
 }
 
 // ErrNoDataForPeriod represents errors from the heldamount database.
@@ -55,17 +51,6 @@ type PayStub struct {
 	Owed           int64        `json:"owed"`
 	Disposed       int64        `json:"disposed"`
 	Paid           int64        `json:"paid"`
-}
-
-// StoragenodePayment is an entity that holds payment to storagenode operator parameters.
-type StoragenodePayment struct {
-	ID      int64        `json:"id"`
-	Created time.Time    `json:"created"`
-	NodeID  storj.NodeID `json:"nodeId"`
-	Period  string       `json:"period"`
-	Amount  int64        `json:"amount"`
-	Receipt string       `json:"receipt"`
-	Notes   string       `json:"notes"`
 }
 
 // Service is used to store and handle node paystub information
@@ -102,14 +87,4 @@ func (service *Service) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID)
 	}
 
 	return payStubs, nil
-}
-
-// GetPayment returns storagenode payment data by nodeID and period.
-func (service *Service) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (StoragenodePayment, error) {
-	payment, err := service.db.GetPayment(ctx, nodeID, period)
-	if err != nil {
-		return StoragenodePayment{}, err
-	}
-
-	return payment, nil
 }

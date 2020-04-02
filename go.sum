@@ -626,6 +626,8 @@ storj.io/common v0.0.0-20200402141523-7780ee0cca0d/go.mod h1:pZyXiIE7bGETIRXtfs0
 storj.io/common v0.0.0-20200408133928-c307b675fdaa/go.mod h1:pZyXiIE7bGETIRXtfs0nICqMwp7PM8HqnDuyUeldNA0=
 storj.io/common v0.0.0-20200419143955-e54806ee8c56 h1:SACDryIjBnW4sqkHbzEpAmB0PhJYv5/mmJCHsuStsKY=
 storj.io/common v0.0.0-20200419143955-e54806ee8c56/go.mod h1:pZyXiIE7bGETIRXtfs0nICqMwp7PM8HqnDuyUeldNA0=
+storj.io/common v0.0.0-20200421162605-a5c301738c6a h1:B4PX8Kt0fVKg0EyJ01PcaaSfYnJXCFFtVB/9kTuh15E=
+storj.io/common v0.0.0-20200421162605-a5c301738c6a/go.mod h1:pZyXiIE7bGETIRXtfs0nICqMwp7PM8HqnDuyUeldNA0=
 storj.io/drpc v0.0.11 h1:6vLxfpSbwCLtqzAoXzXx/SxBqBtbzbmquXPqfcWKqfw=
 storj.io/drpc v0.0.11 h1:6vLxfpSbwCLtqzAoXzXx/SxBqBtbzbmquXPqfcWKqfw=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=

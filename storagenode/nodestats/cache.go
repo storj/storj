@@ -200,17 +200,6 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 			}
 		}
 
-		payment, err := cache.heldamountService.GetPayment(ctx, satellite, time.Now().AddDate(0, -1, 0).String())
-		if err != nil {
-			return err
-		}
-
-		if payment != nil {
-			if err = cache.db.HeldAmount.StorePayment(ctx, *payment); err != nil {
-				return err
-			}
-		}
-
 		return nil
 	})
 }

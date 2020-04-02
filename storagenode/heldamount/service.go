@@ -165,41 +165,6 @@ func (service *Service) GetAllPaystubs(ctx context.Context, satelliteID storj.No
 	return payStubs, nil
 }
 
-// GetPayment retrieves payment data from particular satellite using grpc.
-func (service *Service) GetPayment(ctx context.Context, satelliteID storj.NodeID, period string) (_ *Payment, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	client, err := service.dial(ctx, satelliteID)
-	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, client.Close()) }()
-
-	requestedPeriod, err := date.PeriodToTime(period)
-	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
-
-	resp, err := client.GetPayment(ctx, &pb.GetPaymentRequest{Period: requestedPeriod})
-	if err != nil {
-		if rpcstatus.Code(err) == rpcstatus.OutOfRange {
-			return nil, nil
-		}
-
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
-
-	return &Payment{
-		ID:          resp.Id,
-		Created:     resp.CreatedAt,
-		SatelliteID: satelliteID,
-		Period:      period[0:7],
-		Amount:      resp.Amount,
-		Receipt:     resp.Receipt,
-		Notes:       resp.Notes,
-	}, nil
-}
-
 // SatellitePayStubMonthlyCached retrieves held amount for particular satellite for selected month from storagenode database.
 func (service *Service) SatellitePayStubMonthlyCached(ctx context.Context, satelliteID storj.NodeID, period string) (payStub *PayStub, err error) {
 	defer mon.Task()(&ctx, &satelliteID, &period)(&err)
@@ -272,75 +237,6 @@ func (service *Service) AllPayStubsPeriodCached(ctx context.Context, periodStart
 	}
 
 	return payStubs, nil
-}
-
-// SatellitePaymentMonthlyCached retrieves payment data from particular satellite from storagenode database.
-func (service *Service) SatellitePaymentMonthlyCached(ctx context.Context, satelliteID storj.NodeID, period string) (_ *Payment, err error) {
-	defer mon.Task()(&ctx, &satelliteID, &period)(&err)
-
-	payment, err := service.db.GetPayment(ctx, satelliteID, period)
-	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
-
-	return payment, nil
-}
-
-// AllPaymentsMonthlyCached retrieves payments for all satellites per selected period from storagenode database.
-func (service *Service) AllPaymentsMonthlyCached(ctx context.Context, period string) (payments []Payment, err error) {
-	defer mon.Task()(&ctx, &period)(&err)
-
-	payments, err = service.db.AllPayments(ctx, period)
-	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
-
-	return payments, nil
-}
-
-// SatellitePaymentPeriodCached retrieves payment for all satellites for selected months from storagenode database.
-func (service *Service) SatellitePaymentPeriodCached(ctx context.Context, satelliteID storj.NodeID, periodStart, periodEnd string) (payments []*Payment, err error) {
-	defer mon.Task()(&ctx, &satelliteID, &periodStart, &periodEnd)(&err)
-
-	periods, err := parsePeriodRange(periodStart, periodEnd)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, period := range periods {
-		payment, err := service.db.GetPayment(ctx, satelliteID, period)
-		if err != nil {
-			if ErrNoPayStubForPeriod.Has(err) {
-				continue
-			}
-			return nil, ErrHeldAmountService.Wrap(err)
-		}
-
-		payments = append(payments, payment)
-	}
-
-	return payments, nil
-}
-
-// AllPaymentsPeriodCached retrieves payment for all satellites for selected range of months from storagenode database.
-func (service *Service) AllPaymentsPeriodCached(ctx context.Context, periodStart, periodEnd string) (payments []Payment, err error) {
-	defer mon.Task()(&ctx, &periodStart, &periodEnd)(&err)
-
-	periods, err := parsePeriodRange(periodStart, periodEnd)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, period := range periods {
-		payment, err := service.db.AllPayments(ctx, period)
-		if err != nil {
-			return nil, ErrHeldAmountService.Wrap(err)
-		}
-
-		payments = append(payments, payment...)
-	}
-
-	return payments, nil
 }
 
 // dial dials the HeldAmount client for the satellite by id
