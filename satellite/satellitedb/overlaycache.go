@@ -76,19 +76,17 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 	totalCount := newNodeCount + reputableNodeCount
 	receivedNewNodeCount := 0
 	receivedNodeNetworks := make(map[string]struct{})
-	requestedNewCount := newNodeCount
 
 	for i := 0; i < 3; i++ {
+		requestedNewCount := 0
 		var newNodeSelection string
 		var newNodesCondition condition
 		if receivedNewNodeCount < newNodeCount {
-			requestedNewCount = 0
-		} else {
 			newNodesCondition, err = buildConditions(ctx, criteria, true)
 			if err != nil {
 				return nil, err
 			}
-			newNodeSelection = `(SELECT * FROM (SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, true FROM nodes`
+			newNodeSelection = `SELECT * FROM (SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, true FROM nodes`
 			requestedNewCount = newNodeCount - receivedNewNodeCount
 		}
 
@@ -96,7 +94,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 		if err != nil {
 			return nil, err
 		}
-		reputableNodeSelection := `(SELECT * FROM (SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, false FROM nodes`
+		reputableNodeSelection := `SELECT * FROM (SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, false FROM nodes`
 
 		query := union(
 			partialQuery{selection: newNodeSelection, condition: newNodesCondition, random: true, limit: requestedNewCount},
@@ -167,14 +165,14 @@ func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, isNewN
 			return condition{}, Error.New("invalid node selection criteria version: %v", err)
 		}
 		conds.add(
-			"AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))) AND release",
+			"(major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?)))) AND release ",
 			v.Major, v.Major, v.Minor, v.Minor, v.Patch,
 		)
 	}
 	cond := combine(conds...)
 
 	if len(criteria.ExcludedIDs) > 0 {
-		excludedIDs := " AND id NOT IN (?" + strings.Repeat(", ?", len(criteria.ExcludedIDs)-1) + ")"
+		excludedIDs := " AND id NOT IN (?" + strings.Repeat(", ?", len(criteria.ExcludedIDs)-1) + ") "
 		cond.addQuery(excludedIDs)
 		for _, id := range criteria.ExcludedIDs {
 			cond.addArg(id)
@@ -182,7 +180,7 @@ func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, isNewN
 	}
 	if criteria.DistinctIP {
 		if len(criteria.ExcludedNetworks) > 0 {
-			excludedNetworks := " AND last_net NOT IN (?" + strings.Repeat(", ?", len(criteria.ExcludedIDs)-1) + ")"
+			excludedNetworks := " AND last_net NOT IN (?" + strings.Repeat(", ?", len(criteria.ExcludedIDs)-1) + ") "
 			cond.addQuery(excludedNetworks)
 			for _, subnet := range criteria.ExcludedNetworks {
 				cond.addArg(subnet)
