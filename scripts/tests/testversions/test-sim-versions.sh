@@ -27,7 +27,7 @@ RUN_TYPE=${RUN_TYPE:-"jenkins"}
 # in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are split into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
 git fetch --tags
-major_release_tags=$(git tag -l --sort -version:refname | grep -v "rc" | sort -n -k2,2 -t'.' --unique | awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 {print $0}')
+major_release_tags=$(git tag -l --sort -version:refname | grep -v "rc" | sort -n -k2,2 -t'.' --unique | awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 || $2 >= 1 {print $0}')
 current_release_version=$(echo $major_release_tags | xargs -n 1 | tail -1)
 stage1_sat_version=$current_release_version
 stage1_uplink_versions=$major_release_tags
@@ -175,6 +175,12 @@ for version in ${unique_versions}; do
         fi
         rm -f ${dir}/private/version/release.go
         rm -f ${dir}/internal/version/release.go
+        # clear out release information
+        cat > ${dir}/private/version/release.go <<EOF
+        // Copyright (C) 2020 Storj Labs, Inc.
+        // See LICENSE for copying information.
+        package version
+EOF
         if [[ $version = $current_release_version || $version = "master" ]]
         then
             echo "Installing storj-sim for ${version} in ${dir}."
