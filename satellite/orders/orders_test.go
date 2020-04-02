@@ -285,14 +285,14 @@ func TestSplitBucketIDValid(t *testing.T) {
 	for _, tt := range testCases {
 		tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
 		t.Run(tt.name, func(t *testing.T) {
-			expectedProjectID, err := uuid.Parse(tt.project)
+			expectedProjectID, err := uuid.FromString(tt.project)
 			assert.NoError(t, err)
 			bucketID := expectedProjectID.String() + "/" + tt.bucketName
 
 			actualProjectID, actualBucketName, err := orders.SplitBucketID([]byte(bucketID))
 			assert.NoError(t, err)
-			assert.Equal(t, actualProjectID, expectedProjectID)
-			assert.Equal(t, actualBucketName, []byte(tt.expectedBucketName))
+			assert.Equal(t, expectedProjectID, actualProjectID)
+			assert.Equal(t, []byte(tt.expectedBucketName), actualBucketName)
 		})
 	}
 }

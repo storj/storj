@@ -66,7 +66,7 @@ func (user *CreateUser) IsValid() error {
 	errs.AddWrap(err)
 
 	if user.PartnerID != "" {
-		_, err := uuid.Parse(user.PartnerID)
+		_, err := uuid.FromString(user.PartnerID)
 		if err != nil {
 			errs.AddWrap(err)
 		}

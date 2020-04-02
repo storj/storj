@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -196,20 +195,20 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		return nil, errs.New("project parameter is nil")
 	}
 
-	id, err := dbutil.BytesToUUID(project.Id)
+	id, err := uuid.FromBytes(project.Id)
 	if err != nil {
 		return nil, err
 	}
 
 	var partnerID uuid.UUID
 	if len(project.PartnerId) > 0 {
-		partnerID, err = dbutil.BytesToUUID(project.PartnerId)
+		partnerID, err = uuid.FromBytes(project.PartnerId)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	ownerID, err := dbutil.BytesToUUID(project.OwnerId)
+	ownerID, err := uuid.FromBytes(project.OwnerId)
 	if err != nil {
 		return nil, err
 	}

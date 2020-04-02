@@ -9,7 +9,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -97,7 +96,7 @@ func registrationTokenFromDBX(ctx context.Context, regToken *dbx.RegistrationTok
 	}
 
 	if regToken.OwnerId != nil {
-		ownerID, err := dbutil.BytesToUUID(regToken.OwnerId)
+		ownerID, err := uuid.FromBytes(regToken.OwnerId)
 		if err != nil {
 			return nil, err
 		}

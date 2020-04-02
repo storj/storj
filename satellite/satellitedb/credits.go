@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -211,7 +210,7 @@ func (credits *credit) Balance(ctx context.Context, userID uuid.UUID) (balance i
 // fromDBXCredit converts *dbx.Credit to *payments.Credit.
 func fromDBXCredit(dbxCredit *dbx.Credit) (credit payments.Credit, err error) {
 	credit.TransactionID = coinpayments.TransactionID(dbxCredit.TransactionId)
-	credit.UserID, err = dbutil.BytesToUUID(dbxCredit.UserId)
+	credit.UserID, err = uuid.FromBytes(dbxCredit.UserId)
 	if err != nil {
 		return payments.Credit{}, err
 	}
@@ -243,12 +242,12 @@ func creditsFromDbxSlice(creditsDbx []*dbx.Credit) (_ []payments.Credit, err err
 
 // fromDBXCreditsSpending converts *dbx.Spending to *payments.Spending.
 func fromDBXSpending(dbxSpending *dbx.CreditsSpending) (spending stripecoinpayments.CreditsSpending, err error) {
-	spending.UserID, err = dbutil.BytesToUUID(dbxSpending.UserId)
+	spending.UserID, err = uuid.FromBytes(dbxSpending.UserId)
 	if err != nil {
 		return stripecoinpayments.CreditsSpending{}, err
 	}
 
-	spending.ProjectID, err = dbutil.BytesToUUID(dbxSpending.ProjectId)
+	spending.ProjectID, err = uuid.FromBytes(dbxSpending.ProjectId)
 	if err != nil {
 		return stripecoinpayments.CreditsSpending{}, err
 	}
@@ -256,7 +255,7 @@ func fromDBXSpending(dbxSpending *dbx.CreditsSpending) (spending stripecoinpayme
 	spending.Status = stripecoinpayments.CreditsSpendingStatus(dbxSpending.Status)
 	spending.Created = dbxSpending.CreatedAt
 	spending.Amount = dbxSpending.Amount
-	spendingID, err := dbutil.BytesToUUID(dbxSpending.Id)
+	spendingID, err := uuid.FromBytes(dbxSpending.Id)
 	if err != nil {
 		return stripecoinpayments.CreditsSpending{}, err
 	}

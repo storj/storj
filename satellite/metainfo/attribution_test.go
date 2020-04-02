@@ -21,7 +21,7 @@ func TestResolvePartnerID(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		endpoint := planet.Satellites[0].Metainfo.Endpoint2
 
-		zenkoPartnerID, err := uuid.Parse("8cd605fa-ad00-45b6-823e-550eddc611d6")
+		zenkoPartnerID, err := uuid.FromString("8cd605fa-ad00-45b6-823e-550eddc611d6")
 		require.NoError(t, err)
 
 		// no header
@@ -48,25 +48,25 @@ func TestResolvePartnerID(t *testing.T) {
 			UserAgent: []byte("Zenko"),
 		}, nil)
 		require.NoError(t, err)
-		require.Equal(t, *zenkoPartnerID, partnerID)
+		require.Equal(t, zenkoPartnerID, partnerID)
 
 		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("Zenko uplink/v1.0.0"),
 		}, nil)
 		require.NoError(t, err)
-		require.Equal(t, *zenkoPartnerID, partnerID)
+		require.Equal(t, zenkoPartnerID, partnerID)
 
 		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("Zenko uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"),
 		}, nil)
 		require.NoError(t, err)
-		require.Equal(t, *zenkoPartnerID, partnerID)
+		require.Equal(t, zenkoPartnerID, partnerID)
 
 		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("Zenko uplink/v1.0.0 (drpc/v0.10.0) (common/v0.0.0-00010101000000-000000000000)"),
 		}, nil)
 		require.NoError(t, err)
-		require.Equal(t, *zenkoPartnerID, partnerID)
+		require.Equal(t, zenkoPartnerID, partnerID)
 
 		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"),

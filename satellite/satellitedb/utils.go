@@ -7,8 +7,6 @@ import (
 	"database/sql/driver"
 
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 )
 
 type postgresNodeIDList storj.NodeIDList
@@ -51,25 +49,4 @@ func (nodes postgresNodeIDList) Value() (driver.Value, error) {
 	}
 
 	return out, nil
-}
-
-// uuidScan used to represent uuid scan struct
-type uuidScan struct {
-	uuid *uuid.UUID
-}
-
-// Scan is used to wrap logic of db scan with uuid conversion
-func (s *uuidScan) Scan(src interface{}) (err error) {
-	b, ok := src.([]byte)
-
-	if !ok {
-		return Error.New("unexpected type %T for uuid", src)
-	}
-
-	*s.uuid, err = dbutil.BytesToUUID(b)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
 }

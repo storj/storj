@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -123,7 +122,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		return nil, errs.New("user parameter is nil")
 	}
 
-	id, err := dbutil.BytesToUUID(user.Id)
+	id, err := uuid.FromBytes(user.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +137,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 	}
 
 	if user.PartnerId != nil {
-		result.PartnerID, err = dbutil.BytesToUUID(user.PartnerId)
+		result.PartnerID, err = uuid.FromBytes(user.PartnerId)
 		if err != nil {
 			return nil, err
 		}

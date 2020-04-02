@@ -59,13 +59,13 @@ func (notification *Notifications) ReadNotification(w http.ResponseWriter, r *ht
 		return
 	}
 
-	notificationID, err := uuid.Parse(id)
+	notificationID, err := uuid.FromString(id)
 	if err != nil {
 		notification.serveJSONError(w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return
 	}
 
-	err = notification.service.Read(ctx, *notificationID)
+	err = notification.service.Read(ctx, notificationID)
 	if err != nil {
 		notification.serveJSONError(w, http.StatusInternalServerError, ErrNotificationsAPI.Wrap(err))
 		return

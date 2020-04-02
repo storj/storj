@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -117,26 +116,11 @@ func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uui
 	var projectMembers []console.ProjectMember
 	for rows.Next() {
 		pm := console.ProjectMember{}
-		var memberIDBytes, projectIDBytes []uint8
-		var memberID, projectID uuid.UUID
 
-		err = rows.Scan(&memberIDBytes, &projectIDBytes, &pm.CreatedAt)
+		err = rows.Scan(&pm.MemberID, &pm.ProjectID, &pm.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
-
-		memberID, err := dbutil.BytesToUUID(memberIDBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		projectID, err = dbutil.BytesToUUID(projectIDBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		pm.ProjectID = projectID
-		pm.MemberID = memberID
 
 		projectMembers = append(projectMembers, pm)
 	}
@@ -189,12 +173,12 @@ func projectMemberFromDBX(ctx context.Context, projectMember *dbx.ProjectMember)
 		return nil, errs.New("projectMember parameter is nil")
 	}
 
-	memberID, err := dbutil.BytesToUUID(projectMember.MemberId)
+	memberID, err := uuid.FromBytes(projectMember.MemberId)
 	if err != nil {
 		return nil, err
 	}
 
-	projectID, err := dbutil.BytesToUUID(projectMember.ProjectId)
+	projectID, err := uuid.FromBytes(projectMember.ProjectId)
 	if err != nil {
 		return nil, err
 	}

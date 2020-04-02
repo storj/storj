@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -187,11 +186,11 @@ func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64
 
 // fromDBXInvoiceProjectRecord converts *dbx.StripecoinpaymentsInvoiceProjectRecord to *stripecoinpayments.ProjectRecord
 func fromDBXInvoiceProjectRecord(dbxRecord *dbx.StripecoinpaymentsInvoiceProjectRecord) (*stripecoinpayments.ProjectRecord, error) {
-	id, err := dbutil.BytesToUUID(dbxRecord.Id)
+	id, err := uuid.FromBytes(dbxRecord.Id)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	projectID, err := dbutil.BytesToUUID(dbxRecord.ProjectId)
+	projectID, err := uuid.FromBytes(dbxRecord.ProjectId)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

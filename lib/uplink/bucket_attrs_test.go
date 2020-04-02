@@ -200,9 +200,9 @@ func TestBucket_UserAgent(t *testing.T) {
 
 			bucketInfo, _, err := project.GetBucketInfo(ctx, bucketName)
 			require.NoError(t, err)
-			partnerID, err := uuid.Parse("8cd605fa-ad00-45b6-823e-550eddc611d6")
+			partnerID, err := uuid.FromString("8cd605fa-ad00-45b6-823e-550eddc611d6")
 			require.NoError(t, err)
-			assert.Equal(t, storj.DeprecatedUUID(*partnerID), bucketInfo.PartnerID)
+			assert.Equal(t, partnerID, uuid.UUID(bucketInfo.PartnerID))
 		})
 
 		t.Run("open with different user agent", func(t *testing.T) {
@@ -225,9 +225,9 @@ func TestBucket_UserAgent(t *testing.T) {
 
 			bucketInfo, _, err := project.GetBucketInfo(ctx, bucketName)
 			require.NoError(t, err)
-			partnerID, err := uuid.Parse("8cd605fa-ad00-45b6-823e-550eddc611d6")
+			partnerID, err := uuid.FromString("8cd605fa-ad00-45b6-823e-550eddc611d6")
 			require.NoError(t, err)
-			assert.Equal(t, storj.DeprecatedUUID(*partnerID), bucketInfo.PartnerID)
+			assert.Equal(t, partnerID, uuid.UUID(bucketInfo.PartnerID))
 		})
 	})
 }

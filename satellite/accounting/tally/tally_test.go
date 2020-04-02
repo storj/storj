@@ -176,7 +176,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 			tt := tt // avoid scopelint error
 
 			t.Run(tt.name, func(t *testing.T) {
-				projectID, err := uuid.Parse(tt.project)
+				projectID, err := uuid.FromString(tt.project)
 				require.NoError(t, err)
 
 				// setup: create a pointer and save it to pointerDB
@@ -189,7 +189,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				bucketID := fmt.Sprintf("%s/%s", tt.project, tt.bucketName)
 				newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
 				newTally.BucketName = []byte(tt.bucketName)
-				newTally.ProjectID = *projectID
+				newTally.ProjectID = projectID
 				expectedBucketTallies[bucketID] = newTally
 
 				obs := tally.NewObserver(satellitePeer.Log.Named("observer"))
