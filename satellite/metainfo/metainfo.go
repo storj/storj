@@ -757,7 +757,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	if err != nil {
 		if !canRead && !canList {
 			// No error info is returned if neither Read, nor List permission is granted
-			return nil, nil
+			return &pb.BucketDeleteResponse{}, nil
 		}
 		if ErrBucketNotEmpty.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
@@ -1393,7 +1393,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	if err != nil {
 		if !canRead && !canList {
 			// No error info is returned if neither Read, nor List permission is granted
-			return nil, nil
+			return &pb.ObjectBeginDeleteResponse{}, nil
 		}
 		return nil, err
 	}
