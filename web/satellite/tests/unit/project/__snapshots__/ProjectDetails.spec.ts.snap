@@ -20,12 +20,8 @@ exports[`ProjectDetails.vue editing works correctly 1`] = `
       <!---->
     </div>
     <div class="project-details__description-container__editing__buttons-area">
-      <div class="container white" style="width: 180px; height: 48px;">
-        <h1 class="label">Cancel</h1>
-      </div>
-      <div class="save-button container" style="width: 180px; height: 48px;">
-        <h1 class="label">Save</h1>
-      </div>
+      <div class="container white" style="width: 180px; height: 48px;"><span class="label">Cancel</span></div>
+      <div class="save-button container" style="width: 180px; height: 48px;"><span class="label">Save</span></div>
     </div>
   </div>
 </div>
