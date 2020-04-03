@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
 // Projects exposes methods to manage Project table in database.
@@ -32,6 +32,9 @@ type Projects interface {
 	Update(ctx context.Context, project *Project) error
 	// List returns paginated projects, created before provided timestamp.
 	List(ctx context.Context, offset int64, limit int, before time.Time) (ProjectsPage, error)
+
+	// UpdateRateLimit is a method for updating projects rate limit.
+	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit int) error
 }
 
 // Project is a database object that describes Project entity

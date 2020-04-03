@@ -285,7 +285,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
 		},
@@ -413,7 +413,7 @@ func TestVerifierExpired(t *testing.T) {
 		newPointer := &pb.Pointer{}
 		err = proto.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
-		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
+		newPointer.ExpirationDate = time.Now().Add(-1 * time.Hour)
 		newPointerBytes, err := proto.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
@@ -501,7 +501,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -552,7 +552,7 @@ func TestVerifierMissingPieceHashesNotVerified(t *testing.T) {
 		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -660,6 +660,42 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		queue := audits.Queue
+		metainfo := satellite.Metainfo.Service
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		path, err := queue.Next()
+		require.NoError(t, err)
+
+		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
+			// remove one piece from the segment so that checkIfSegmentAltered fails
+			pointer, err := metainfo.Get(ctx, path)
+			require.NoError(t, err)
+			pieceToRemove := pointer.Remote.RemotePieces[0]
+			_, err = metainfo.UpdatePieces(ctx, path, pointer, nil, []*pb.RemotePiece{pieceToRemove})
+			require.NoError(t, err)
+		}
+
+		report, err := audits.Verifier.Verify(ctx, path, nil)
+		require.True(t, audit.ErrSegmentModified.Has(err))
+		assert.Empty(t, report)
+	})
+}
+
+func TestVerifierReplacedSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 
@@ -712,7 +748,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -733,7 +769,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
@@ -796,7 +832,7 @@ func TestVerifierUnknownError(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewBadDB(log.Named("baddb"), db), nil
 			},
 			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),

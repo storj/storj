@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -15,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metainfo"
 )
@@ -83,7 +83,6 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
 	// Fetch when the last tally happened so we can roughly calculate the byte-hours.
 	lastTime, err := service.storagenodeAccountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
@@ -130,12 +129,21 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		for projectID, latest := range latestLiveTotals {
-			delta := latest - initialLiveTotals[projectID]
+		// empty projects are not returned by the metainfo observer. If a project exists
+		// in live accounting, but not in tally projects, we would not update it in live accounting.
+		// Thus, we add them and set the total to 0.
+		for projectID := range latestLiveTotals {
+			if _, ok := tallyProjectTotals[projectID]; !ok {
+				tallyProjectTotals[projectID] = 0
+			}
+		}
+
+		for projectID, tallyTotal := range tallyProjectTotals {
+			delta := latestLiveTotals[projectID] - initialLiveTotals[projectID]
 			if delta < 0 {
 				delta = 0
 			}
-			err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latest+tallyProjectTotals[projectID]+(delta/2))
+			err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID]+tallyTotal+(delta/2))
 			if err != nil {
 				return Error.Wrap(err)
 			}

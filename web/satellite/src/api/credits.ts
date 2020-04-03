@@ -30,6 +30,11 @@ export class CreditsApiGql extends BaseGql implements CreditsApi {
         return this.fromJson(response.data.creditUsage);
     }
 
+    /**
+     * Method for mapping credit usage from json to CreditUsage type.
+     *
+     * @param jsonCredits anonymous object from json
+     */
     private fromJson(jsonCredits): CreditUsage {
         return new CreditUsage(jsonCredits.referred, jsonCredits.usedCredit, jsonCredits.availableCredit);
     }

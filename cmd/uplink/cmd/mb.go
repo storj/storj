@@ -7,13 +7,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/fpath"
-	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/process"
 )
 
 func init() {
@@ -26,7 +21,7 @@ func init() {
 }
 
 func makeBucket(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	if len(args) == 0 {
 		return fmt.Errorf("no bucket specified for creation")
@@ -45,29 +40,13 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("nested buckets not supported, use format sj://bucket/")
 	}
 
-	project, err := cfg.GetProject(ctx)
+	project, err := cfg.getProject(ctx, false)
 	if err != nil {
-		return errs.New("error setting up project: %+v", err)
+		return err
 	}
-	defer func() {
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
+	defer closeProject(project)
 
-	bucketCfg := &uplink.BucketConfig{}
-	bucketCfg.PathCipher = cfg.GetPathCipherSuite()
-	bucketCfg.EncryptionParameters = cfg.GetEncryptionParameters()
-	bucketCfg.Volatile = struct {
-		RedundancyScheme storj.RedundancyScheme
-		SegmentsSize     memory.Size
-	}{
-		RedundancyScheme: cfg.GetRedundancyScheme(),
-		SegmentsSize:     cfg.GetSegmentSize(),
-	}
-
-	_, err = project.CreateBucket(ctx, dst.Bucket(), bucketCfg)
-	if err != nil {
+	if _, err := project.CreateBucket(ctx, dst.Bucket()); err != nil {
 		return err
 	}
 

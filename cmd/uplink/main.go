@@ -7,8 +7,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"storj.io/private/process"
 	"storj.io/storj/cmd/uplink/cmd"
-	"storj.io/storj/pkg/process"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 )
 
 func main() {

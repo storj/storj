@@ -6,7 +6,7 @@ package payments
 import (
 	"context"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
 // CreditCards exposes all needed functionality to manage account credit cards.

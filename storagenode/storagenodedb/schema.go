@@ -67,6 +67,162 @@ func Schema() map[string]*dbschema.Schema {
 				&dbschema.Index{Name: "idx_bandwidth_usage_satellite", Table: "bandwidth_usage", Columns: []string{"satellite_id"}, Unique: false, Partial: ""},
 			},
 		},
+		"heldamount": &dbschema.Schema{
+			Tables: []*dbschema.Table{
+				&dbschema.Table{
+					Name:       "payments",
+					PrimaryKey: []string{"id"},
+					Columns: []*dbschema.Column{
+						&dbschema.Column{
+							Name:       "amount",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "created_at",
+							Type:       "timestamp",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "id",
+							Type:       "bigserial",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "notes",
+							Type:       "text",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "period",
+							Type:       "text",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "receipt",
+							Type:       "text",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "satellite_id",
+							Type:       "bytea",
+							IsNullable: false,
+						},
+					},
+				},
+				&dbschema.Table{
+					Name:       "paystubs",
+					PrimaryKey: []string{"period", "satellite_id"},
+					Columns: []*dbschema.Column{
+						&dbschema.Column{
+							Name:       "codes",
+							Type:       "text",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "comp_at_rest",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "comp_get",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "comp_get_audit",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "comp_get_repair",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "comp_put",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "comp_put_repair",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "created_at",
+							Type:       "timestamp",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "disposed",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "held",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "owed",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "paid",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "period",
+							Type:       "text",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "satellite_id",
+							Type:       "bytea",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "surge_percent",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "usage_at_rest",
+							Type:       "double precision",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "usage_get",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "usage_get_audit",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "usage_get_repair",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "usage_put",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "usage_put_repair",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+					},
+				},
+			},
+		},
 		"info": &dbschema.Schema{},
 		"notifications": &dbschema.Schema{
 			Tables: []*dbschema.Table{

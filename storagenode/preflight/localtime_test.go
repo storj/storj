@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -29,7 +30,7 @@ import (
 
 type mockServer struct {
 	localTime time.Time
-	pb.NodeServer
+	pbgrpc.NodeServer
 }
 
 func TestLocalTime_InSync(t *testing.T) {
@@ -80,9 +81,10 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(contactServer.Close)
 
-		pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
-			localTime: time.Now().UTC().Add(-25 * time.Minute),
+		err = pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
+			localTime: time.Now().Add(-25 * time.Minute),
 		})
+		require.NoError(t, err)
 
 		group.Go(func() error {
 			return contactServer.Run(ctx)
@@ -135,9 +137,10 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(contactServer.Close)
 
-		pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
-			localTime: time.Now().UTC().Add(-31 * time.Minute),
+		err = pb.DRPCRegisterNode(contactServer.DRPC(), &mockServer{
+			localTime: time.Now().Add(-31 * time.Minute),
 		})
+		require.NoError(t, err)
 
 		group.Go(func() error {
 			return contactServer.Run(ctx)

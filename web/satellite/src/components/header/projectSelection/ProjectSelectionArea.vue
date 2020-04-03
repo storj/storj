@@ -44,6 +44,9 @@ import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
 export default class ProjectSelectionArea extends Vue {
     private isLoading: boolean = false;
 
+    /**
+     * Fetches projects related information and than toggles selection popup.
+     */
     public async toggleSelection(): Promise<void> {
         if (this.isLoading) return;
 
@@ -61,16 +64,25 @@ export default class ProjectSelectionArea extends Vue {
         this.isLoading = false;
     }
 
+    /**
+     * Return selected project name if it is, if not returns default label.
+     */
     public get name(): string {
         const selectedProject: Project = this.$store.state.projectsModule.selectedProject;
 
         return selectedProject.id ? selectedProject.name : 'Choose project';
     }
 
+    /**
+     * Indicates if project selection dropdown should be rendered.
+     */
     public get isDropdownShown(): boolean {
         return this.$store.state.appStateModule.appState.isProjectsDropdownShown;
     }
 
+    /**
+     * Indicates if user has projects.
+     */
     public get hasProjects(): boolean {
         return !!this.$store.state.projectsModule.projects.length;
     }
@@ -108,7 +120,6 @@ export default class ProjectSelectionArea extends Vue {
             color: rgba(56, 75, 101, 0.4);
             opacity: 0.7;
             cursor: pointer;
-            user-select: none;
             margin-right: 5px;
         }
 
@@ -130,7 +141,7 @@ export default class ProjectSelectionArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 1024px) {
+    @media screen and (max-width: 1280px) {
 
         .project-selection-container {
             margin-right: 30px;

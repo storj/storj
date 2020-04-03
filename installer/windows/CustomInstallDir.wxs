@@ -12,7 +12,6 @@ First-time install dialog sequence:
  - PublicAddressConfigDlg
  - StorageDirConfigDlg
  - AllocatedStorageConfigDlg
- - AllocatedBandwidthConfigDlg
  - WixUI_VerifyReadyDlg
 
 Maintenance dialog sequence:
@@ -31,7 +30,6 @@ Patch dialog sequence:
         <CustomAction Id="CA.ValidateWallet" BinaryKey="StorjDLL" DllEntry="ValidateWallet" Return="check" />
         <CustomAction Id="CA.ValidateStorageDir" BinaryKey="StorjDLL" DllEntry="ValidateStorageDir" Return="check" />
         <CustomAction Id="CA.ValidateStorage" BinaryKey="StorjDLL" DllEntry="ValidateStorage" Return="check" />
-        <CustomAction Id="CA.ValidateBandwidth" BinaryKey="StorjDLL" DllEntry="ValidateBandwidth" Return="check" />
 
         <UI Id="CustomInstallDir">
             <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
@@ -105,15 +103,9 @@ Patch dialog sequence:
             <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateStorage" Order="1">1</Publish>
             <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_STORAGE_VALID]" Order="2">1</Publish>
             <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_STORAGE_VALID<>"1"]]></Publish>
-            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="NewDialog" Value="AllocatedBandwidthConfigDlg" Order="4">STORJ_STORAGE_VALID="1"</Publish>
+            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="4">STORJ_STORAGE_VALID="1"</Publish>
 
-            <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Back" Event="NewDialog" Value="AllocatedStorageConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateBandwidth" Order="1">1</Publish>
-            <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_BANDWIDTH_VALID]" Order="2">1</Publish>
-            <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_BANDWIDTH_VALID<>"1"]]></Publish>
-            <Publish Dialog="AllocatedBandwidthConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="4">STORJ_BANDWIDTH_VALID="1"</Publish>
-          
-            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="AllocatedBandwidthConfigDlg" Order="1">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Publish>
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="AllocatedStorageConfigDlg" Order="1">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Publish>
             <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2">Installed AND NOT PATCH AND NOT WIX_UPGRADE_DETECTED</Publish>
             <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="StorjWelcomeDlg" Order="2">Installed AND PATCH AND NOT WIX_UPGRADE_DETECTED</Publish>
 

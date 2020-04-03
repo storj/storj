@@ -78,8 +78,8 @@ func TestNotificationsDB(t *testing.T) {
 			page, err = notificationsdb.List(ctx, notificationCursor)
 			assert.NoError(t, err)
 			assert.Equal(t, 2, len(page.Notifications))
-			assert.Equal(t, notificationFromDB0, page.Notifications[0])
 			assert.Equal(t, notificationFromDB1, page.Notifications[1])
+			assert.Equal(t, notificationFromDB2, page.Notifications[0])
 			assert.Equal(t, notificationCursor.Limit, page.Limit)
 			assert.Equal(t, uint64(0), page.Offset)
 			assert.Equal(t, uint(2), page.PageCount)
@@ -99,7 +99,7 @@ func TestNotificationsDB(t *testing.T) {
 
 			page, err = notificationsdb.List(ctx, notificationCursor)
 			assert.NoError(t, err)
-			assert.NotEqual(t, page.Notifications[0].ReadAt, (*time.Time)(nil))
+			assert.NotEqual(t, page.Notifications[2].ReadAt, (*time.Time)(nil))
 
 			err = notificationsdb.Read(ctx, notificationFromDB1.ID)
 			assert.NoError(t, err)
@@ -108,7 +108,7 @@ func TestNotificationsDB(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotEqual(t, page.Notifications[1].ReadAt, (*time.Time)(nil))
 
-			assert.Equal(t, page.Notifications[2].ReadAt, (*time.Time)(nil))
+			assert.Equal(t, page.Notifications[0].ReadAt, (*time.Time)(nil))
 		})
 
 		// test ReadAll method to make all notifications' status as read.
@@ -118,9 +118,9 @@ func TestNotificationsDB(t *testing.T) {
 
 			page, err = notificationsdb.List(ctx, notificationCursor)
 			assert.NoError(t, err)
-			assert.NotEqual(t, page.Notifications[0].ReadAt, (*time.Time)(nil))
-			assert.NotEqual(t, page.Notifications[1].ReadAt, (*time.Time)(nil))
 			assert.NotEqual(t, page.Notifications[2].ReadAt, (*time.Time)(nil))
+			assert.NotEqual(t, page.Notifications[1].ReadAt, (*time.Time)(nil))
+			assert.NotEqual(t, page.Notifications[0].ReadAt, (*time.Time)(nil))
 		})
 	})
 }

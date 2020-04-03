@@ -9,9 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
-	"storj.io/common/storj"
-	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/process"
 )
 
 var (
@@ -30,7 +27,7 @@ func init() {
 }
 
 func deleteObject(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	if len(args) == 0 {
 		return fmt.Errorf("no object specified for deletion")
@@ -45,43 +42,14 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no bucket specified, use format sj://bucket/")
 	}
 
-	project, err := cfg.GetProject(ctx)
+	project, err := cfg.getProject(ctx, *rmEncryptedFlag)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
+	defer closeProject(project)
 
-	access, err := cfg.GetAccess()
-	if err != nil {
-		return err
-	}
-
-	encAccess := access.EncryptionAccess
-	if *rmEncryptedFlag {
-		encAccess = libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
-		encAccess.Store().EncryptionBypass = true
-	}
-
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), encAccess)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			fmt.Printf("error closing bucket: %+v\n", err)
-		}
-	}()
-
-	if err = bucket.DeleteObject(ctx, dst.Path()); err != nil {
+	if _, err = project.DeleteObject(ctx, dst.Bucket(), dst.Path()); err != nil {
 		return convertError(err, dst)
-	}
-
-	if err := project.Close(); err != nil {
-		return err
 	}
 
 	fmt.Printf("Deleted %s\n", dst)

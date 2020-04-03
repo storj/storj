@@ -8,10 +8,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -116,12 +115,34 @@ func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripe
 func (db *coinPaymentsTransactions) Consume(ctx context.Context, id coinpayments.TransactionID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.db.Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx,
-		dbx.StripecoinpaymentsApplyBalanceIntent_TxId(id.String()),
-		dbx.StripecoinpaymentsApplyBalanceIntent_Update_Fields{
-			State: dbx.StripecoinpaymentsApplyBalanceIntent_State(applyBalanceIntentStateConsumed.Int()),
-		},
-	)
+	query := db.db.Rebind(` 
+		WITH intent AS (
+			SELECT tx_id, state FROM stripecoinpayments_apply_balance_intents WHERE tx_id = ? 
+		), updated AS (
+			UPDATE stripecoinpayments_apply_balance_intents AS ints
+				SET 
+					state = ? 
+				FROM intent
+				WHERE intent.tx_id = ints.tx_id  AND ints.state = ?
+			RETURNING 1
+		)
+		SELECT EXISTS(SELECT 1 FROM intent) AS intent_exists, EXISTS(SELECT 1 FROM updated) AS intent_consumed;
+	`)
+
+	row := db.db.QueryRowContext(ctx, query, id, applyBalanceIntentStateConsumed, applyBalanceIntentStateUnapplied)
+
+	var exists, consumed bool
+	if err = row.Scan(&exists, &consumed); err != nil {
+		return err
+	}
+
+	if !exists {
+		return errs.New("can not consume transaction without apply balance intent")
+	}
+	if !consumed {
+		return stripecoinpayments.ErrTransactionConsumed
+	}
+
 	return err
 }
 
@@ -216,20 +237,15 @@ func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int6
 
 	for rows.Next() {
 		var id, address string
-		var userIDB []byte
+		var userID uuid.UUID
 		var amountB, receivedB []byte
 		var status int
 		var key string
 		var createdAt time.Time
 
-		err := rows.Scan(&id, &userIDB, &address, &amountB, &receivedB, &status, &key, &createdAt)
+		err := rows.Scan(&id, &userID, &address, &amountB, &receivedB, &status, &key, &createdAt)
 		if err != nil {
 			return stripecoinpayments.TransactionsPage{}, err
-		}
-
-		userID, err := dbutil.BytesToUUID(userIDB)
-		if err != nil {
-			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
 		}
 
 		var amount, received big.Float
@@ -299,20 +315,15 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 
 	for rows.Next() {
 		var id, address string
-		var userIDB []byte
+		var userID uuid.UUID
 		var amountB, receivedB []byte
 		var status int
 		var key string
 		var createdAt time.Time
 
-		err := rows.Scan(&id, &userIDB, &address, &amountB, &receivedB, &status, &key, &createdAt)
+		err := rows.Scan(&id, &userID, &address, &amountB, &receivedB, &status, &key, &createdAt)
 		if err != nil {
 			return stripecoinpayments.TransactionsPage{}, err
-		}
-
-		userID, err := dbutil.BytesToUUID(userIDB)
-		if err != nil {
-			return stripecoinpayments.TransactionsPage{}, errs.Wrap(err)
 		}
 
 		var amount, received big.Float
@@ -352,7 +363,7 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 
 // fromDBXCoinpaymentsTransaction converts *dbx.CoinpaymentsTransaction to *stripecoinpayments.Transaction.
 func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stripecoinpayments.Transaction, error) {
-	userID, err := dbutil.BytesToUUID(dbxCPTX.UserId)
+	userID, err := uuid.FromBytes(dbxCPTX.UserId)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

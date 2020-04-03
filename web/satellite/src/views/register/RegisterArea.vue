@@ -8,7 +8,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
-import RegistrationSuccessPopup from '@/components/common/RegistrationSuccessPopup.vue';
+import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
 import InfoIcon from '@/../static/images/info.svg';
@@ -18,15 +18,13 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
-import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { LocalData } from '@/utils/localData';
 import { validateEmail, validatePassword } from '@/utils/validation';
 
 @Component({
     components: {
         HeaderlessInput,
-        RegistrationSuccessPopup,
+        RegistrationSuccess,
         AuthIcon,
         LogoIcon,
         InfoIcon,
@@ -53,12 +51,14 @@ export default class RegisterArea extends Vue {
     private isTermsAcceptedError: boolean = false;
     private isLoading: boolean = false;
 
-    private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
-
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public isPasswordStrengthShown: boolean = false;
 
+    /**
+     * Lifecycle hook after initial render.
+     * Sets up variables from route params.
+     */
     async mounted(): Promise<void> {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
@@ -74,7 +74,6 @@ export default class RegisterArea extends Vue {
             decoded = atob(ids);
         } catch (error) {
             await this.$notify.error('Invalid Referral URL');
-            this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
 
             return;
         }
@@ -85,14 +84,37 @@ export default class RegisterArea extends Vue {
         }
     }
 
+    /**
+     * Indicates if registration successful area shown.
+     */
+    public get isRegistrationSuccessful(): boolean {
+        return this.$store.state.appStateModule.appState.isSuccessfulRegistrationShown;
+    }
+
+    /**
+     * Checks if page is inside iframe.
+     */
+    public get isInsideIframe(): boolean {
+        return window.self !== window.top;
+    }
+
+    /**
+     * Makes password strength container visible.
+     */
     public showPasswordStrength(): void {
         this.isPasswordStrengthShown = true;
     }
 
+    /**
+     * Hides password strength container.
+     */
     public hidePasswordStrength(): void {
         this.isPasswordStrengthShown = false;
     }
 
+    /**
+     * Validates input fields and proceeds user creation.
+     */
     public async onCreateClick(): Promise<void> {
         if (this.isLoading) {
             return;
@@ -106,38 +128,61 @@ export default class RegisterArea extends Vue {
             return;
         }
 
-        this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
-
         await this.createUser();
-
-        this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
 
         this.isLoading = false;
     }
+
+    /**
+     * Reloads page.
+     */
     public onLogoClick(): void {
         location.reload();
     }
+
+    /**
+     * Changes location to login route.
+     */
     public onLoginClick(): void {
         this.$router.push(RouteConfig.Login.path);
     }
+
+    /**
+     * Sets user's email field from value string.
+     */
     public setEmail(value: string): void {
         this.user.email = value.trim();
         this.emailError = '';
     }
+
+    /**
+     * Sets user's full name field from value string.
+     */
     public setFullName(value: string): void {
         this.user.fullName = value.trim();
         this.fullNameError = '';
     }
+
+    /**
+     * Sets user's password field from value string.
+     */
     public setPassword(value: string): void {
         this.user.password = value.trim();
         this.password = value;
         this.passwordError = '';
     }
+
+    /**
+     * Sets user's repeat password field from value string.
+     */
     public setRepeatedPassword(value: string): void {
         this.repeatedPassword = value;
         this.repeatedPasswordError = '';
     }
 
+    /**
+     * Validates input values to satisfy expected rules.
+     */
     private validateFields(): boolean {
         let isNoErrors = true;
 
@@ -169,6 +214,9 @@ export default class RegisterArea extends Vue {
         return isNoErrors;
     }
 
+    /**
+     * Creates user and toggles successful registration area visibility.
+     */
     private async createUser(): Promise<void> {
         try {
             this.userId = this.referralToken ?
@@ -182,16 +230,9 @@ export default class RegisterArea extends Vue {
                 referralToken: this.referralToken,
             });
 
-            // TODO: improve it
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION_POPUP);
-            const registrationSuccessPopupRef = this.$refs['register_success_popup'];
-
-            if (registrationSuccessPopupRef) {
-                (registrationSuccessPopupRef as any).startResendEmailCountdown();
-            }
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         } catch (error) {
             await this.$notify.error(error.message);
-            this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
             this.isLoading = false;
         }
     }

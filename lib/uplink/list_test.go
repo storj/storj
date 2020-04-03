@@ -187,6 +187,7 @@ func runTest(ctx context.Context, t *testing.T, apiKey, satelliteAddr string, te
 
 	// Make an encryption context
 	access := uplink.NewEncryptionAccessWithDefaultKey(*encKey)
+	access.SetDefaultPathCipher(storj.EncAESGCM)
 
 	bu, err := p.OpenBucket(ctx, test.bucket, access)
 	require.NoError(t, err)

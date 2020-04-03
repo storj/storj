@@ -7,7 +7,7 @@ import (
 	"context"
 )
 
-// ListOptions are items that are optional for the LIST method
+// ListOptions are items that are optional for the LIST method.
 type ListOptions struct {
 	Prefix       Key
 	StartAfter   Key // StartAfter is relative to Prefix
@@ -16,8 +16,8 @@ type ListOptions struct {
 	Limit        int
 }
 
-// ListV2 lists all keys corresponding to ListOptions
-// limit is capped to LookupLimit
+// ListV2 lists all keys corresponding to ListOptions.
+// limit is capped to LookupLimit.
 //
 // more indicates if the result was truncated. If false
 // then the result []ListItem includes all requested keys.

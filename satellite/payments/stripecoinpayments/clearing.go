@@ -25,7 +25,6 @@ type Chore struct {
 	log                 *zap.Logger
 	service             *Service
 	TransactionCycle    *sync2.Cycle
-	CouponUsageCycle    *sync2.Cycle
 	AccountBalanceCycle *sync2.Cycle
 }
 
@@ -37,7 +36,6 @@ func NewChore(log *zap.Logger, service *Service, txInterval, accBalanceInterval 
 		service:             service,
 		TransactionCycle:    sync2.NewCycle(txInterval),
 		AccountBalanceCycle: sync2.NewCycle(accBalanceInterval),
-		CouponUsageCycle:    sync2.NewCycle(0),
 	}
 }
 

@@ -218,7 +218,7 @@ func dqNodes(ctx *testcontext.Context, planet *testplanet.Planet) (map[storj.Nod
 		updateRequests = append(updateRequests, &overlay.UpdateRequest{
 			NodeID:       n.ID(),
 			IsUp:         true,
-			AuditSuccess: false,
+			AuditOutcome: overlay.AuditFailure,
 		})
 	}
 

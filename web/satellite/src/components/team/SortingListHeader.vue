@@ -49,12 +49,11 @@ export default class SortingListHeader extends Vue {
     public sortBy: ProjectMemberOrderBy = ProjectMemberOrderBy.NAME;
     public sortDirection: SortDirection = SortDirection.ASCENDING;
 
+    /**
+     * Used for arrow styling.
+     */
     public get getSortDirection(): SortDirection {
-        if (this.sortDirection === SortDirection.DESCENDING) {
-            return SortDirection.ASCENDING;
-        }
-
-        return SortDirection.DESCENDING;
+        return this.sortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
     }
 
     public get areProjectMembersSortedByName(): boolean {
@@ -69,6 +68,11 @@ export default class SortingListHeader extends Vue {
         return this.sortBy === ProjectMemberOrderBy.EMAIL;
     }
 
+    /**
+     * Sets sorting kind if different from current.
+     * If same, changes sort direction.
+     * @param sortBy
+     */
     public async onHeaderItemClick(sortBy: ProjectMemberOrderBy): Promise<void> {
         if (this.sortBy !== sortBy) {
             this.sortBy = sortBy;
@@ -97,7 +101,6 @@ export default class SortingListHeader extends Vue {
         height: 40px;
         background-color: rgba(255, 255, 255, 0.3);
         margin-top: 31px;
-        user-select: none;
 
         &__name-container,
         &__added-container,

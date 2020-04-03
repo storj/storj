@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	prompt "github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
@@ -22,8 +21,10 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/process"
-	"storj.io/uplink/eestream"
+	"storj.io/private/process"
+	"storj.io/storj/private/prompt"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
+	"storj.io/uplink/private/eestream"
 )
 
 var (
@@ -100,6 +101,11 @@ var (
 		Short: "Creates stripe invoice line items for not consumed coupons",
 		RunE:  createInvoiceCoupons,
 	}
+	createInvoiceCreditsCmd = &cobra.Command{
+		Use:   "create-invoice-credits",
+		Short: "Creates stripe invoice line items for not consumed credits",
+		RunE:  createInvoiceCredits,
+	}
 	createInvoicesCmd = &cobra.Command{
 		Use:   "create-invoices",
 		Short: "Creates stripe invoices for all stripe customers known to satellite",
@@ -137,10 +143,10 @@ func NewInspector(address, path string) (*Inspector, error) {
 	return &Inspector{
 		conn:           conn,
 		identity:       id,
-		overlayclient:  pb.NewDRPCOverlayInspectorClient(conn.Raw()),
-		irrdbclient:    pb.NewDRPCIrreparableInspectorClient(conn.Raw()),
-		healthclient:   pb.NewDRPCHealthInspectorClient(conn.Raw()),
-		paymentsClient: pb.NewDRPCPaymentsClient(conn.Raw()),
+		overlayclient:  pb.NewDRPCOverlayInspectorClient(conn),
+		irrdbclient:    pb.NewDRPCIrreparableInspectorClient(conn),
+		healthclient:   pb.NewDRPCHealthInspectorClient(conn),
+		paymentsClient: pb.NewDRPCPaymentsClient(conn),
 	}, nil
 }
 
@@ -429,7 +435,11 @@ func getSegments(cmd *cobra.Command, args []string) error {
 
 		length := int32(len(res.Segments))
 		if length >= irreparableLimit {
-			if !prompt.Confirm("\nNext page? (y/n)") {
+			confirmed, err := prompt.Confirm("\nNext page? [y/n]")
+			if err != nil {
+				return err
+			}
+			if !confirmed {
 				break
 			}
 		}
@@ -514,6 +524,24 @@ func createInvoiceCoupons(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func createInvoiceCredits(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(*Addr, *IdentityPath)
+	if err != nil {
+		return ErrInspectorDial.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, i.Close()) }()
+
+	_, err = i.paymentsClient.ApplyInvoiceCredits(ctx, &pb.ApplyInvoiceCreditsRequest{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("successfully created invoice credits line items")
+	return nil
+}
+
 func createInvoices(cmd *cobra.Command, args []string) error {
 	i, err := NewInspector(*Addr, *IdentityPath)
 	if err != nil {
@@ -568,6 +596,7 @@ func init() {
 	paymentsCmd.AddCommand(prepareInvoiceRecordsCmd)
 	paymentsCmd.AddCommand(createInvoiceItemsCmd)
 	paymentsCmd.AddCommand(createInvoiceCouponsCmd)
+	paymentsCmd.AddCommand(createInvoiceCreditsCmd)
 	paymentsCmd.AddCommand(createInvoicesCmd)
 
 	objectHealthCmd.Flags().StringVar(&CSVPath, "csv-path", "stdout", "csv path where command output is written")

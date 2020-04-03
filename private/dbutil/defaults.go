@@ -26,7 +26,7 @@ type ConfigurableDB interface {
 }
 
 // Configure Sets Connection Boundaries and adds db_stats monitoring to monkit
-func Configure(db ConfigurableDB, mon *monkit.Scope) {
+func Configure(db ConfigurableDB, dbName string, mon *monkit.Scope) {
 	if *maxIdleConns >= 0 {
 		db.SetMaxIdleConns(*maxIdleConns)
 	}
@@ -38,6 +38,6 @@ func Configure(db ConfigurableDB, mon *monkit.Scope) {
 	}
 	mon.Chain(monkit.StatSourceFunc(
 		func(cb func(key monkit.SeriesKey, field string, val float64)) {
-			monkit.StatSourceFromStruct(monkit.NewSeriesKey("db_stats"), db.Stats()).Stats(cb)
+			monkit.StatSourceFromStruct(monkit.NewSeriesKey("db_stats").WithTag("db_name", dbName), db.Stats()).Stats(cb)
 		}))
 }

@@ -38,6 +38,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node0 := planet.StorageNodes[0]
 		node0.Contact.Chore.Pause(ctx)
+
 		nodeDossier := node0.Local()
 		ident := node0.Identity
 		peer := rpcpeer.Peer{
@@ -56,8 +57,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 			Address: nodeDossier.Address.GetAddress(),
 			Version: &nodeDossier.Version,
 			Capacity: &pb.NodeCapacity{
-				FreeBandwidth: 100000,
-				FreeDisk:      9 * memory.MB.Int64(),
+				FreeDisk: 9 * memory.MB.Int64(),
 			},
 			Operator: &nodeDossier.Operator,
 		})
@@ -76,8 +76,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 			Address: nodeDossier.Address.GetAddress(),
 			Version: &nodeDossier.Version,
 			Capacity: &pb.NodeCapacity{
-				FreeBandwidth: 100000,
-				FreeDisk:      11 * memory.MB.Int64(),
+				FreeDisk: 11 * memory.MB.Int64(),
 			},
 			Operator: &nodeDossier.Operator,
 		})
@@ -139,7 +138,7 @@ func TestNodeSelection(t *testing.T) {
 				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       node.ID(),
 					IsUp:         true,
-					AuditSuccess: true,
+					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				})
 				require.NoError(t, err)
@@ -164,7 +163,7 @@ func TestNodeSelectionWithBatch(t *testing.T) {
 				_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 					NodeID:       node.ID(),
 					IsUp:         true,
-					AuditSuccess: true,
+					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				}}, 1)
 				require.NoError(t, err)
@@ -251,9 +250,8 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 		}
 
 		response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-			FreeBandwidth:  0,
 			RequestedCount: tt.RequestCount,
-			ExcludedNodes:  excludedNodes,
+			ExcludedIDs:    excludedNodes,
 		}, &tt.Preferences)
 
 		t.Log(len(response), err)
@@ -285,7 +283,7 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       node.ID(),
 					IsUp:         true,
-					AuditSuccess: true,
+					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				})
 				require.NoError(t, err)
@@ -348,7 +346,6 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 			t.Logf("#%2d. %+v", i, tt)
 
 			response, err := satellite.Overlay.Service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-				FreeBandwidth:  0,
 				RequestedCount: tt.RequestCount,
 			}, &tt.Preferences)
 
@@ -364,13 +361,13 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 
 			// expect no exiting nodes in selection
 			for _, node := range response {
-				assert.False(t, exitingNodes[node.Id])
+				assert.False(t, exitingNodes[node.ID])
 			}
 		}
 	})
 }
 
-func TestFindStorageNodesDistinctIPs(t *testing.T) {
+func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 	if runtime.GOOS == "darwin" {
 		t.Skip("Test does not work with macOS")
 	}
@@ -401,24 +398,24 @@ func TestFindStorageNodesDistinctIPs(t *testing.T) {
 		require.Len(t, excludedNodes, 1)
 		res, err := satellite.Overlay.Service.Get(ctx, excludedNodes[0])
 		require.NoError(t, err)
-		excludedNodeAddr = res.LastIp
+		excludedNodeAddr = res.LastIPPort
 
 		req := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 2,
 			RequestedCount:       2,
-			ExcludedNodes:        excludedNodes,
+			ExcludedIDs:          excludedNodes,
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
-		require.NotEqual(t, nodes[0].LastIp, nodes[1].LastIp)
-		require.NotEqual(t, nodes[0].LastIp, excludedNodeAddr)
-		require.NotEqual(t, nodes[1].LastIp, excludedNodeAddr)
+		require.NotEqual(t, nodes[0].LastIPPort, nodes[1].LastIPPort)
+		require.NotEqual(t, nodes[0].LastIPPort, excludedNodeAddr)
+		require.NotEqual(t, nodes[1].LastIPPort, excludedNodeAddr)
 
 		req = overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 3,
 			RequestedCount:       3,
-			ExcludedNodes:        excludedNodes,
+			ExcludedIDs:          excludedNodes,
 		}
 		_, err = satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.Error(t, err)
@@ -436,7 +433,7 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 			UniqueIPCount: 2,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.DistinctIP = true
-				config.Overlay.Node.NewNodePercentage = 1
+				config.Overlay.Node.NewNodeFraction = 1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -457,19 +454,19 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 		require.Len(t, excludedNodes, 1)
 		res, err := satellite.Overlay.Service.Get(ctx, excludedNodes[0])
 		require.NoError(t, err)
-		excludedNodeAddr = res.LastIp
+		excludedNodeAddr = res.LastIPPort
 
 		req := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 2,
 			RequestedCount:       2,
-			ExcludedNodes:        excludedNodes,
+			ExcludedIDs:          excludedNodes,
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
-		require.NotEqual(t, nodes[0].LastIp, nodes[1].LastIp)
-		require.NotEqual(t, nodes[0].LastIp, excludedNodeAddr)
-		require.NotEqual(t, nodes[1].LastIp, excludedNodeAddr)
+		require.NotEqual(t, nodes[0].LastIPPort, nodes[1].LastIPPort)
+		require.NotEqual(t, nodes[0].LastIPPort, excludedNodeAddr)
+		require.NotEqual(t, nodes[1].LastIPPort, excludedNodeAddr)
 	})
 }
 
@@ -489,7 +486,7 @@ func TestDistinctIPs(t *testing.T) {
 			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       planet.StorageNodes[i].ID(),
 				IsUp:         true,
-				AuditSuccess: true,
+				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
@@ -517,7 +514,7 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 			_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 				NodeID:       planet.StorageNodes[i].ID(),
 				IsUp:         true,
-				AuditSuccess: true,
+				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
@@ -556,7 +553,6 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 
 	for _, tt := range tests {
 		response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-			FreeBandwidth:  0,
 			RequestedCount: tt.requestCount,
 		}, &tt.preferences)
 		if tt.shouldFailWith != nil {
@@ -571,8 +567,8 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 		if tt.preferences.DistinctIP {
 			ips := make(map[string]bool)
 			for _, n := range response {
-				assert.False(t, ips[n.LastIp])
-				ips[n.LastIp] = true
+				assert.False(t, ips[n.LastIPPort])
+				ips[n.LastIPPort] = true
 			}
 		}
 
@@ -585,12 +581,14 @@ func TestAddrtoNetwork_Conversion(t *testing.T) {
 	defer ctx.Cleanup()
 
 	ip := "8.8.8.8:28967"
-	network, err := overlay.GetNetwork(ctx, ip)
+	resolvedIPPort, network, err := overlay.ResolveIPAndNetwork(ctx, ip)
 	require.Equal(t, "8.8.8.0", network)
+	require.Equal(t, ip, resolvedIPPort)
 	require.NoError(t, err)
 
 	ipv6 := "[fc00::1:200]:28967"
-	network, err = overlay.GetNetwork(ctx, ipv6)
+	resolvedIPPort, network, err = overlay.ResolveIPAndNetwork(ctx, ipv6)
 	require.Equal(t, "fc00::", network)
+	require.Equal(t, ipv6, resolvedIPPort)
 	require.NoError(t, err)
 }

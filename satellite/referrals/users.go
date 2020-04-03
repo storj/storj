@@ -6,9 +6,9 @@ package referrals
 import (
 	"net/mail"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
 
@@ -36,7 +36,7 @@ func (user *CreateUser) IsValid() error {
 	errors = append(errors, err)
 
 	if user.ReferralToken != "" {
-		_, err := uuid.Parse(user.ReferralToken)
+		_, err := uuid.FromString(user.ReferralToken)
 		if err != nil {
 			errors = append(errors, err)
 		}

@@ -10,6 +10,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -28,9 +29,10 @@ var (
 
 // Config defines parameters for storage node disk and bandwidth usage monitoring.
 type Config struct {
-	Interval         time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
-	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"500GB"`
-	MinimumBandwidth memory.Size   `help:"how much bandwidth a node at minimum has to advertise" default:"500GB"`
+	Interval              time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	MinimumDiskSpace      memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"500GB"`
+	MinimumBandwidth      memory.Size   `help:"how much bandwidth a node at minimum has to advertise (deprecated)" default:"0TB"`
+	NotifyLowDiskCooldown time.Duration `help:"minimum length of time between capacity reports" default:"10m" hidden:"true"`
 }
 
 // Service which monitors disk usage
@@ -42,22 +44,20 @@ type Service struct {
 	contact            *contact.Service
 	usageDB            bandwidth.DB
 	allocatedDiskSpace int64
-	allocatedBandwidth int64
+	cooldown           *sync2.Cooldown
 	Loop               *sync2.Cycle
 	Config             Config
 }
 
-// TODO: should it be responsible for monitoring actual bandwidth as well?
-
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
+func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, usageDB bandwidth.DB, allocatedDiskSpace int64, interval time.Duration, reportCapacity func(context.Context), config Config) *Service {
 	return &Service{
 		log:                log,
 		store:              store,
 		contact:            contact,
 		usageDB:            usageDB,
 		allocatedDiskSpace: allocatedDiskSpace,
-		allocatedBandwidth: allocatedBandwidth,
+		cooldown:           sync2.NewCooldown(config.NotifyLowDiskCooldown),
 		Loop:               sync2.NewCycle(interval),
 		Config:             config,
 	}
@@ -78,17 +78,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	totalUsed, err := service.usedSpace(ctx)
 	if err != nil {
 		return err
-	}
-
-	usedBandwidth, err := service.usedBandwidth(ctx)
-	if err != nil {
-		return err
-	}
-
-	if usedBandwidth > service.allocatedBandwidth {
-		service.log.Warn("Exceed the allowed Bandwidth setting")
-	} else {
-		service.log.Info("Remaining Bandwidth", zap.Int64("bytes", service.allocatedBandwidth-usedBandwidth))
 	}
 
 	// check your hard drive is big enough
@@ -117,25 +106,42 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		service.log.Error("Total disk space less than required minimum", zap.Int64("bytes", service.Config.MinimumDiskSpace.Int64()))
 		return Error.New("disk space requirement not met")
 	}
-
-	// Ensure the bandwidth is at least 500GB
-	if service.allocatedBandwidth < service.Config.MinimumBandwidth.Int64() {
-		service.log.Error("Total Bandwidth available less than required minimum", zap.Int64("bytes", service.Config.MinimumBandwidth.Int64()))
-		return Error.New("bandwidth requirement not met")
-	}
-
-	return service.Loop.Run(ctx, func(ctx context.Context) error {
+	var group errgroup.Group
+	group.Go(func() error {
+		return service.Loop.Run(ctx, func(ctx context.Context) error {
+			err := service.updateNodeInformation(ctx)
+			if err != nil {
+				service.log.Error("error during updating node information: ", zap.Error(err))
+			}
+			return nil
+		})
+	})
+	service.cooldown.Start(ctx, &group, func(ctx context.Context) error {
 		err := service.updateNodeInformation(ctx)
 		if err != nil {
 			service.log.Error("error during updating node information: ", zap.Error(err))
+			return nil
 		}
-		return err
+
+		err = service.contact.PingSatellites(ctx, service.Config.NotifyLowDiskCooldown)
+		if err != nil {
+			service.log.Error("error notifying satellites: ", zap.Error(err))
+		}
+		return nil
 	})
+
+	return group.Wait()
+}
+
+// NotifyLowDisk reports disk space to satellites if cooldown timer has expired
+func (service *Service) NotifyLowDisk() {
+	service.cooldown.Trigger()
 }
 
 // Close stops the monitor service.
 func (service *Service) Close() (err error) {
 	service.Loop.Close()
+	service.cooldown.Close()
 	return nil
 }
 
@@ -147,14 +153,8 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	usedBandwidth, err := service.usedBandwidth(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	service.contact.UpdateSelf(&pb.NodeCapacity{
-		FreeBandwidth: service.allocatedBandwidth - usedBandwidth,
-		FreeDisk:      service.allocatedDiskSpace - usedSpace,
+		FreeDisk: service.allocatedDiskSpace - usedSpace,
 	})
 
 	return nil
@@ -169,15 +169,6 @@ func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
 	return usedSpace, nil
 }
 
-func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	usage, err := service.usageDB.MonthSummary(ctx, time.Now())
-	if err != nil {
-		return 0, err
-	}
-	return usage, nil
-}
-
 // AvailableSpace returns available disk space for upload
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -186,20 +177,10 @@ func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error)
 		return 0, Error.Wrap(err)
 	}
 	allocatedSpace := service.allocatedDiskSpace
+
+	mon.IntVal("allocated_space").Observe(allocatedSpace)
+	mon.IntVal("used_space").Observe(usedSpace)
+	mon.IntVal("available_space").Observe(allocatedSpace - usedSpace)
+
 	return allocatedSpace - usedSpace, nil
-}
-
-// AvailableBandwidth returns available bandwidth for upload/download
-func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	usage, err := service.usageDB.MonthSummary(ctx, time.Now())
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-	allocatedBandwidth := service.allocatedBandwidth
-
-	mon.IntVal("allocated_bandwidth").Observe(allocatedBandwidth) //locked
-	mon.IntVal("used_bandwidth").Observe(usage)                   //locked
-
-	return allocatedBandwidth - usage, nil
 }

@@ -31,11 +31,14 @@ export default class App extends Vue {
                 'sortTeamMemberByDropdown',
                 'sortTeamMemberByDropdownButton',
                 'notificationArea',
-                'successfulRegistrationPopup',
                 'paymentSelectButton',
                 'paymentSelect',
             ];
 
+    /**
+     * Lifecycle hook after initial render.
+     * Sets up variables from meta tags from config such satellite name, etc.
+     */
     public mounted(): void {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
         const segmentioId = MetaUtils.getMetaContent('segment-io');
@@ -49,6 +52,10 @@ export default class App extends Vue {
         }
     }
 
+    /**
+     * Uses for closing dropdowns on click outside them.
+     * @param e
+     */
     public onClick(e: Event): void {
         let target: any = e.target;
         while (target) {

@@ -92,12 +92,11 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	totalUsedBandwidth := usage.Total()
 
 	return &pb.StatSummaryResponse{
-		UsedSpace:          piecesContentSize,
-		AvailableSpace:     inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - piecesContentSize,
-		UsedIngress:        ingress,
-		UsedEgress:         egress,
-		UsedBandwidth:      totalUsedBandwidth,
-		AvailableBandwidth: inspector.pieceStoreConfig.AllocatedBandwidth.Int64() - totalUsedBandwidth,
+		UsedSpace:      piecesContentSize,
+		AvailableSpace: inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - piecesContentSize,
+		UsedIngress:    ingress,
+		UsedEgress:     egress,
+		UsedBandwidth:  totalUsedBandwidth,
 	}, nil
 }
 

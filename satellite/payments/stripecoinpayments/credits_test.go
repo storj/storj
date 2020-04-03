@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -35,7 +35,7 @@ func TestCreditsRepository(t *testing.T) {
 			ProjectID: testrand.UUID(),
 			UserID:    userID,
 			Amount:    5,
-			Status:    int(stripecoinpayments.CreditsSpendingStatusUnapplied),
+			Status:    stripecoinpayments.CreditsSpendingStatusUnapplied,
 		}
 
 		t.Run("insert", func(t *testing.T) {
@@ -53,6 +53,7 @@ func TestCreditsRepository(t *testing.T) {
 			spendings, err := creditsRepo.ListCreditsSpendings(ctx, userID)
 			assert.NoError(t, err)
 			assert.Equal(t, 1, len(spendings))
+			spending.ID = spendings[0].ID
 		})
 
 		t.Run("get credit by transactionID", func(t *testing.T) {
@@ -62,12 +63,12 @@ func TestCreditsRepository(t *testing.T) {
 		})
 
 		t.Run("update spending", func(t *testing.T) {
-			err := creditsRepo.ApplyCreditsSpending(ctx, spending.ID, int(stripecoinpayments.CreditsSpendingStatusApplied))
+			err := creditsRepo.ApplyCreditsSpending(ctx, spending.ID)
 			assert.NoError(t, err)
 
 			spendings, err := creditsRepo.ListCreditsSpendings(ctx, userID)
 			require.NoError(t, err)
-			require.Equal(t, int(stripecoinpayments.CreditsSpendingStatusApplied), spendings[0].Status)
+			require.Equal(t, stripecoinpayments.CreditsSpendingStatusApplied, spendings[0].Status)
 			spending = spendings[0]
 		})
 
@@ -94,9 +95,9 @@ func TestCreditsRepositoryList(t *testing.T) {
 			require.NoError(t, err)
 
 			spending := stripecoinpayments.CreditsSpending{
-				ID:        *spendingID,
-				ProjectID: *projectID,
-				UserID:    *userID,
+				ID:        spendingID,
+				ProjectID: projectID,
+				UserID:    userID,
 				Amount:    int64(5 + i),
 				Status:    0,
 			}
@@ -135,7 +136,7 @@ func TestCreditsRepositoryList(t *testing.T) {
 			transactionID := "transID" + strconv.Itoa(i)
 
 			credit := payments.Credit{
-				UserID:        *user2ID,
+				UserID:        user2ID,
 				Amount:        5,
 				TransactionID: coinpayments.TransactionID(transactionID),
 			}
@@ -144,21 +145,21 @@ func TestCreditsRepositoryList(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		page2, err := creditsDB.ListCreditsPaged(ctx, 0, spendLen, time.Now(), *user2ID)
+		page2, err := creditsDB.ListCreditsPaged(ctx, 0, spendLen, time.Now(), user2ID)
 		require.NoError(t, err)
 		require.Equal(t, spendLen, len(page2.Credits))
 
 		assert.True(t, page2.Next)
 		assert.Equal(t, int64(5), page2.NextOffset)
 
-		page2, err = creditsDB.ListCreditsPaged(ctx, page2.NextOffset, spendLen, time.Now(), *user2ID)
+		page2, err = creditsDB.ListCreditsPaged(ctx, page2.NextOffset, spendLen, time.Now(), user2ID)
 		require.NoError(t, err)
 		require.Equal(t, spendLen, len(page2.Credits))
 
 		assert.True(t, page2.Next)
 		assert.Equal(t, int64(10), page2.NextOffset)
 
-		page2, err = creditsDB.ListCreditsPaged(ctx, page2.NextOffset, spendLen, time.Now(), *user2ID)
+		page2, err = creditsDB.ListCreditsPaged(ctx, page2.NextOffset, spendLen, time.Now(), user2ID)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(page2.Credits))
 

@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
     char *_err = "";
     char **err = &_err;
 
-    char *scopeStr = "1ZYMge4erhJ7hSTf4UCUvtcT2e7rHBNrQvVMgxVDPgFwndj2f2tUnoqmQhaQapEvkifiu9Dwi53C8a3QKB8xMYPZkKS3yCLKbhaccpRg91iDGJuUBS7m7FKW2AmvQYNm5EM56AJrCsb95CL4jTd686sJmuGMnpQhd6NqE7bYAsQTCyADUS15kDJ2zBzt43k689TwW";
+    char *scopeStr = "17jgVrPRktsquJQFzpsFZvzCqoQLuFwjKKvn3mStMzV1pYwt2zcQjbfga85pfpYGE4jLZTwMF7oxy4iE24d5gJ9A2zY1mMrKxQNRtQFycnKybCVXhPvx89kknnh1jF5v1FY1DnsXaXbQ1UptBjX6KXnsY7oNeERTgj5ZBMuK8dJ96gvnWab8x";
     {
         ScopeRef scope = parse_scope(scopeStr, err);
         require_noerror(*err);

@@ -173,7 +173,7 @@ We should break out one process at a time from the Satellite.  Here are the thin
 - repair workers
 - audit workers
 
-We will need to add a `SatelliteSystem` in `testplanet` so that we can test continue using the same unit tests for the Satellite as we break it apart. See an example of that [here](https://github.com/storj/storj/pull/2836/files#diff-c2ce7a2c9b2f4920e2de524c0fffd2f1R70).
+We will need to add a `Satellite` in `testplanet` so that we can test continue using the same unit tests for the Satellite as we break it apart. See an example of that [here](https://github.com/storj/storj/pull/2836/files#diff-c2ce7a2c9b2f4920e2de524c0fffd2f1R70).
 
 For each new satellite process we need to do the following steps:
 - create xProcess, where x is a Satellite service, e.g. RepairProcess, AccountingProcess, etc

@@ -28,10 +28,6 @@ const {
     SET_DAILY_DATA,
 } = NODE_MUTATIONS;
 
-const {
-    GET_NODE_INFO,
-} = NODE_ACTIONS;
-
 const statusThreshHoldMinutes = 120;
 const snoAPI = new SNOApi();
 
@@ -55,8 +51,6 @@ export const node = {
         utilization: {
             bandwidth: {
                 used: 0,
-                remaining: 1,
-                available: 1,
             },
             diskSpace: {
                 used: 0,
@@ -91,12 +85,8 @@ export const node = {
             state.utilization.diskSpace.remaining = nodeInfo.diskSpace.available - nodeInfo.diskSpace.used;
             state.utilization.diskSpace.available = nodeInfo.diskSpace.available;
             state.utilization.bandwidth.used = nodeInfo.bandwidth.used;
-            state.utilization.bandwidth.remaining = nodeInfo.bandwidth.available - nodeInfo.bandwidth.used;
-            state.utilization.bandwidth.available = nodeInfo.bandwidth.available;
 
-            state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => {
-                return satellite.disqualified;
-            });
+            state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => satellite.disqualified);
 
             state.satellites = nodeInfo.satellites || [];
 
@@ -147,7 +137,7 @@ export const node = {
         },
     },
     actions: {
-        [GET_NODE_INFO]: async function ({commit}: any): Promise<void> {
+        [NODE_ACTIONS.GET_NODE_INFO]: async function ({commit}: any): Promise<void> {
             const response = await snoAPI.dashboard();
 
             commit(NODE_MUTATIONS.POPULATE_STORE, response);

@@ -7,16 +7,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
@@ -26,7 +27,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/metainfo"
+	"storj.io/uplink/private/metainfo"
 )
 
 func TestUplinksParallel(t *testing.T) {
@@ -136,10 +137,9 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 						Release:    false,
 					},
 				}
-				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info, time.Now().UTC().Add(-4*time.Hour))
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info, time.Now().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
-
 		}
 		// confirm that we marked the correct number of storage nodes as offline
 		nodes, err := satellite.Overlay.Service.Reliable(ctx)
@@ -156,10 +156,11 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 type piecestoreMock struct {
 }
 
-func (mock *piecestoreMock) Upload(server pb.Piecestore_UploadServer) error {
+func (mock *piecestoreMock) Upload(server pbgrpc.Piecestore_UploadServer) error {
 	return nil
 }
-func (mock *piecestoreMock) Download(server pb.Piecestore_DownloadServer) error {
+
+func (mock *piecestoreMock) Download(server pbgrpc.Piecestore_DownloadServer) error {
 	timoutTicker := time.NewTicker(30 * time.Second)
 	defer timoutTicker.Stop()
 
@@ -171,10 +172,6 @@ func (mock *piecestoreMock) Download(server pb.Piecestore_DownloadServer) error 
 	}
 }
 func (mock *piecestoreMock) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
-	return nil, nil
-}
-
-func (mock *piecestoreMock) DeletePiece(ctx context.Context, delete *pb.PieceDeletePieceRequest) (_ *pb.PieceDeletePieceResponse, err error) {
 	return nil, nil
 }
 
@@ -228,7 +225,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 				wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
 				require.NoError(t, err)
 				tlscfg := tlsopts.Config{
-					RevocationDBURL:     "bolt://" + filepath.Join(ctx.Dir("fakestoragenode"), "revocation.db"),
+					RevocationDBURL:     "bolt://" + ctx.File("fakestoragenode", "revocation.db"),
 					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: wl,
 					PeerIDVersions:      "*",
@@ -246,15 +243,18 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 
 				server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Addr(), storageNode.PrivateAddr(), nil)
 				require.NoError(t, err)
-				pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
-				go func() {
-					// TODO: get goroutine under control
-					err := server.Run(ctx)
-					require.NoError(t, err)
+				pbgrpc.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
 
-					err = revocationDB.Close()
-					require.NoError(t, err)
-				}()
+				defer ctx.Check(server.Close)
+
+				ctx.Go(func() error {
+					if err := server.Run(ctx); err != nil {
+						return errs.Wrap(err)
+					}
+
+					return errs.Wrap(revocationDB.Close())
+				})
+
 				stopped = true
 				break
 			}

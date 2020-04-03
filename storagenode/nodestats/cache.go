@@ -15,14 +15,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/private/date"
+	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
-)
-
-var (
-	// NodeStatsCacheErr defines node stats cache loop error
-	NodeStatsCacheErr = errs.Class("node stats cache error")
 )
 
 // Config defines nodestats cache configuration
@@ -36,6 +32,7 @@ type Config struct {
 type CacheStorage struct {
 	Reputation   reputation.DB
 	StorageUsage storageusage.DB
+	HeldAmount   heldamount.DB
 }
 
 // Cache runs cache loop and stores reputation stats
@@ -45,9 +42,10 @@ type CacheStorage struct {
 type Cache struct {
 	log *zap.Logger
 
-	db      CacheStorage
-	service *Service
-	trust   *trust.Pool
+	db                CacheStorage
+	service           *Service
+	heldamountService *heldamount.Service
+	trust             *trust.Pool
 
 	maxSleep   time.Duration
 	Reputation *sync2.Cycle
@@ -55,15 +53,16 @@ type Cache struct {
 }
 
 // NewCache creates new caching service instance
-func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, trust *trust.Pool) *Cache {
+func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, heldamountService *heldamount.Service, trust *trust.Pool) *Cache {
 	return &Cache{
-		log:        log,
-		db:         db,
-		service:    service,
-		trust:      trust,
-		maxSleep:   config.MaxSleep,
-		Reputation: sync2.NewCycle(config.ReputationSync),
-		Storage:    sync2.NewCycle(config.StorageSync),
+		log:               log,
+		db:                db,
+		service:           service,
+		heldamountService: heldamountService,
+		trust:             trust,
+		maxSleep:          config.MaxSleep,
+		Reputation:        sync2.NewCycle(config.ReputationSync),
+		Storage:           sync2.NewCycle(config.StorageSync),
 	}
 }
 
@@ -91,6 +90,11 @@ func (cache *Cache) Run(ctx context.Context) error {
 		err := cache.CacheSpaceUsage(ctx)
 		if err != nil {
 			cache.log.Error("Get disk space usage query failed", zap.Error(err))
+		}
+
+		err = cache.CacheHeldAmount(ctx)
+		if err != nil {
+			cache.log.Error("Get held amount query failed", zap.Error(err))
 		}
 
 		return nil
@@ -135,6 +139,48 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 		err = cache.db.StorageUsage.Store(ctx, spaceUsages)
 		if err != nil {
 			return err
+		}
+
+		return nil
+	})
+}
+
+// CacheHeldAmount queries held amount stats and payments from all the satellites known to the storagenode and stores info into db.
+func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
+		now := time.Now().String()
+		yearAndMonth, err := date.PeriodToTime(now)
+		if err != nil {
+			return err
+		}
+
+		previousMonth := yearAndMonth.AddDate(0, -1, 0).String()
+		payStub, err := cache.heldamountService.GetPaystubStats(ctx, satellite, previousMonth)
+		if err != nil {
+			if heldamount.ErrNoPayStubForPeriod.Has(err) {
+				return nil
+			}
+
+			return err
+		}
+
+		if payStub != nil {
+			if err = cache.db.HeldAmount.StorePayStub(ctx, *payStub); err != nil {
+				return err
+			}
+		}
+
+		payment, err := cache.heldamountService.GetPayment(ctx, satellite, time.Now().AddDate(0, -1, 0).String())
+		if err != nil {
+			return err
+		}
+
+		if payment != nil {
+			if err = cache.db.HeldAmount.StorePayment(ctx, *payment); err != nil {
+				return err
+			}
 		}
 
 		return nil

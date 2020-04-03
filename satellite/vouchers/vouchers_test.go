@@ -23,7 +23,7 @@ func TestVouchers(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		client := pb.NewDRPCVouchersClient(conn.Raw())
+		client := pb.NewDRPCVouchersClient(conn)
 
 		resp, err := client.Request(ctx, &pb.VoucherRequest{})
 		require.Nil(t, resp)

@@ -10,7 +10,7 @@ import { ApiKey, ApiKeyCursor, ApiKeysApi, ApiKeysPage } from '@/types/apiKeys';
  */
 export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
     /**
-     * Fetch apiKeys
+     * Fetch apiKeys.
      *
      * @returns ApiKey
      * @throws Error
@@ -60,7 +60,7 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
     }
 
     /**
-     * Used to create apiKey
+     * Used to create apiKey.
      *
      * @param projectId - stores current project id
      * @param name - name of apiKey that will be created
@@ -96,7 +96,7 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
     }
 
     /**
-     * Used to delete apiKey
+     * Used to delete apiKey.
      *
      * @param ids - ids of apiKeys that will be deleted
      * @throws Error
@@ -118,6 +118,11 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
         return response.data.deleteAPIKeys;
     }
 
+    /**
+     * Method for mapping api keys page from json to ApiKeysPage type.
+     *
+     * @param page anonymous object from json
+     */
     private getApiKeysPage(page: any): ApiKeysPage {
         if (!page) {
             return new ApiKeysPage();

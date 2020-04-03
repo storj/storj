@@ -74,6 +74,10 @@ export default class CardComponent extends Vue {
     @Prop({default: () => new CreditCard()})
     private readonly creditCard: CreditCard;
 
+    // TODO: move to CreditCard
+    /**
+     * Returns card logo depends of brand.
+     */
     public get cardIcon() {
         switch (this.creditCard.brand) {
             case 'jcb':
@@ -95,6 +99,9 @@ export default class CardComponent extends Vue {
         }
     }
 
+    /**
+     * Toggle card selection dialog.
+     */
     public toggleSelection(): void {
         this.$store.dispatch(TOGGLE_CARD_SELECTION, this.creditCard.id);
     }

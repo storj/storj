@@ -175,8 +175,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		request := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 4,
 			RequestedCount:       0,
-			FreeBandwidth:        0,
-			ExcludedNodes:        nil,
+			ExcludedIDs:          nil,
 			MinimumVersion:       "", // semver or empty
 		}
 		nodes, err := satellitePeer.Overlay.Service.FindStorageNodes(ctx, request)
@@ -184,8 +183,8 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 
 		assert.Len(t, nodes, 3)
 		for _, node := range nodes {
-			assert.False(t, isDisqualified(t, ctx, satellitePeer, node.Id))
-			assert.NotEqual(t, node.Id, disqualifiedNode)
+			assert.False(t, isDisqualified(t, ctx, satellitePeer, node.ID))
+			assert.NotEqual(t, node.ID, disqualifiedNode)
 		}
 
 	})
@@ -220,7 +219,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 				Release:    false,
 			},
 		}
-		err = satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		err = satellitePeer.DB.OverlayCache().UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
@@ -228,7 +227,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		_, err = satellitePeer.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 			NodeID:       disqualifiedNode.ID(),
 			IsUp:         true,
-			AuditSuccess: true,
+			AuditOutcome: overlay.AuditSuccess,
 			AuditLambda:  0, // forget about history
 			AuditWeight:  1,
 			AuditDQ:      0, // make sure new reputation scores are larger than the DQ thresholds
@@ -239,7 +238,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 	})
 }
 
-func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.SatelliteSystem, nodeID storj.NodeID) bool {
+func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *testplanet.Satellite, nodeID storj.NodeID) bool {
 	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
 	require.NoError(t, err)
 

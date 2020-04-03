@@ -23,7 +23,7 @@ export interface PaymentsApi {
     /**
      * projectsCharges returns how much money current user will be charged for each project which he owns.
      */
-    projectsCharges(): Promise<ProjectCharge[]>;
+    projectsCharges(since: Date, before: Date): Promise<ProjectCharge[]>;
 
     /**
      * Add credit card
@@ -132,7 +132,9 @@ export class BillingHistoryItem {
     }
 }
 
-// BillingHistoryItemType indicates type of billing history item.
+/**
+ * BillingHistoryItemType indicates type of billing history item.
+  */
 export enum BillingHistoryItemType {
     // Invoice is a Stripe invoice billing item.
     Invoice = 0,
@@ -142,7 +144,19 @@ export enum BillingHistoryItemType {
     Charge = 2,
 }
 
-// TokenDeposit holds public information about token deposit
+/**
+ * BillingHistoryStatusType indicates status of billing history item.
+ */
+export enum BillingHistoryItemStatus {
+    /**
+     * Status showed if transaction successfully completed.
+     */
+    Completed = 'completed',
+}
+
+/**
+ * TokenDeposit holds public information about token deposit.
+ */
 export class TokenDeposit {
     constructor(
         public amount: number,
@@ -151,7 +165,9 @@ export class TokenDeposit {
     ) {}
 }
 
-// Amount holds information for displaying billing item payment
+/**
+ * Amount holds information for displaying billing item payment.
+ */
 class Amount {
     public constructor(
         public currency: string = '',
@@ -165,18 +181,36 @@ class Amount {
   */
 export class ProjectCharge {
     public constructor(
+        public since: Date = new Date(),
+        public before: Date = new Date(),
+        public egress: number = 0,
+        public storage: number = 0,
+        public objectCount: number = 0,
         public projectId: string = '',
         // storage shows how much cents we should pay for storing GB*Hrs.
-        public storage: number = 0,
+        public storagePrice: number = 0,
         // egress shows how many cents we should pay for Egress.
-        public egress: number = 0,
+        public egressPrice: number = 0,
         // objectCount shows how many cents we should pay for objects count.
-        public objectCount: number = 0) {}
+        public objectPrice: number = 0) {}
 
     /**
      * summary returns total price for a project in cents.
      */
     public summary(): number {
-        return this.storage + this.egress + this.objectCount;
+        return this.storagePrice + this.egressPrice + this.objectPrice;
+    }
+}
+
+/**
+ * Holds start and end dates.
+ */
+export class DateRange {
+    public startDate: Date = new Date();
+    public endDate: Date = new Date();
+
+    public constructor(startDate: Date, endDate: Date) {
+        this.startDate = startDate;
+        this.endDate = endDate;
     }
 }

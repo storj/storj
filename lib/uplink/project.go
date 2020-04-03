@@ -6,17 +6,16 @@ package uplink
 import (
 	"context"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/common/encryption"
 	"storj.io/common/memory"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/uplink/ecclient"
-	"storj.io/uplink/metainfo"
-	"storj.io/uplink/metainfo/kvmetainfo"
-	"storj.io/uplink/storage/segments"
-	"storj.io/uplink/storage/streams"
+	"storj.io/common/uuid"
+	"storj.io/uplink/private/ecclient"
+	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/metainfo/kvmetainfo"
+	"storj.io/uplink/private/storage/segments"
+	"storj.io/uplink/private/storage/streams"
 )
 
 // Project represents a specific project access session.
@@ -100,11 +99,10 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 
 	var partnerID uuid.UUID
 	if p.uplinkCfg.Volatile.PartnerID != "" {
-		id, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		partnerID, err = uuid.FromString(p.uplinkCfg.Volatile.PartnerID)
 		if err != nil {
 			return storj.Bucket{}, Error.Wrap(err)
 		}
-		partnerID = *id
 	}
 
 	bucket = storj.Bucket{
@@ -121,7 +119,8 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 // Objects at the time of deletion, they may be lost permanently.
 func (p *Project) DeleteBucket(ctx context.Context, bucket string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return p.project.DeleteBucket(ctx, bucket)
+	_, err = p.project.DeleteBucket(ctx, bucket)
+	return err
 }
 
 // BucketListOptions controls options to the ListBuckets() call.
@@ -231,11 +230,10 @@ func (p *Project) trySetBucketAttribution(ctx context.Context, bucketName string
 
 	var partnerID uuid.UUID
 	if p.uplinkCfg.Volatile.PartnerID != "" {
-		id, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		partnerID, err = uuid.FromString(p.uplinkCfg.Volatile.PartnerID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		partnerID = *id
 	}
 
 	// UserAgent is sent via RequestHeader

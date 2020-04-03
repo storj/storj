@@ -11,12 +11,12 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
 	"storj.io/storj/cmd/internal/wizard"
-	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
+	"storj.io/uplink"
+	"storj.io/uplink/backcomp"
 )
 
 var (
@@ -39,7 +39,7 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	if cmd.Flag("access").Changed {
 		return ErrAccessFlag
@@ -92,38 +92,25 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return Error.Wrap(err)
 	}
 
-	apiKey, err := libuplink.ParseAPIKey(apiKeyString)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	passphrase, err := wizard.PromptForEncryptionPassphrase()
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	uplink, err := setupCfg.NewUplink(ctx)
+	uplinkConfig := uplink.Config{
+		DialTimeout: setupCfg.Client.DialTimeout,
+	}
+
+	var access *uplink.Access
+	if setupCfg.PBKDFConcurrency == 0 {
+		access, err = uplinkConfig.RequestAccessWithPassphrase(ctx, satelliteAddress, apiKeyString, passphrase)
+	} else {
+		access, err = backcomp.RequestAccessWithPassphraseAndConcurrency(ctx, uplinkConfig, satelliteAddress, apiKeyString, passphrase, uint8(setupCfg.PBKDFConcurrency))
+	}
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, uplink.Close()) }()
-
-	project, err := uplink.OpenProject(ctx, satelliteAddress, apiKey)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, project.Close()) }()
-
-	key, err := project.SaltedKeyFromPassphrase(ctx, passphrase)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	accessData, err := (&libuplink.Scope{
-		SatelliteAddr:    satelliteAddress,
-		APIKey:           apiKey,
-		EncryptionAccess: libuplink.NewEncryptionAccessWithDefaultKey(*key),
-	}).Serialize()
+	accessData, err := access.Serialize()
 	if err != nil {
 		return Error.Wrap(err)
 	}

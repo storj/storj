@@ -8,15 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/trust"
 )
 
 // Chore is the contact chore for nodes announcing themselves to their trusted satellites
@@ -25,9 +21,6 @@ import (
 type Chore struct {
 	log     *zap.Logger
 	service *Service
-	dialer  rpc.Dialer
-
-	trust *trust.Pool
 
 	mu       sync.Mutex
 	cycles   map[storj.NodeID]*sync2.Cycle
@@ -35,20 +28,11 @@ type Chore struct {
 	interval time.Duration
 }
 
-var (
-	errPingSatellite = errs.Class("ping satellite error")
-)
-
-const initialBackOff = time.Second
-
 // NewChore creates a new contact chore
-func NewChore(log *zap.Logger, interval time.Duration, trust *trust.Pool, dialer rpc.Dialer, service *Service) *Chore {
+func NewChore(log *zap.Logger, interval time.Duration, service *Service) *Chore {
 	return &Chore{
 		log:     log,
 		service: service,
-		dialer:  dialer,
-
-		trust: trust,
 
 		cycles:   make(map[storj.NodeID]*sync2.Cycle),
 		interval: interval,
@@ -65,12 +49,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	}
 
 	// configure the satellite ping cycles
-	chore.updateCycles(ctx, &group, chore.trust.GetSatellites(ctx))
+	chore.updateCycles(ctx, &group, chore.service.trust.GetSatellites(ctx))
 
 	// set up a cycle to update ping cycles on a frequent interval
 	refreshCycle := sync2.NewCycle(time.Minute)
 	refreshCycle.Start(ctx, &group, func(ctx context.Context) error {
-		chore.updateCycles(ctx, &group, chore.trust.GetSatellites(ctx))
+		chore.updateCycles(ctx, &group, chore.service.trust.GetSatellites(ctx))
 		return nil
 	})
 
@@ -100,7 +84,7 @@ func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, sat
 		cycle := sync2.NewCycle(chore.interval)
 		chore.cycles[satellite] = cycle
 		cycle.Start(ctx, group, func(ctx context.Context) error {
-			return chore.pingSatellite(ctx, satellite)
+			return chore.service.pingSatellite(ctx, satellite, chore.interval)
 		})
 	}
 
@@ -114,61 +98,6 @@ func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, sat
 	}
 }
 
-func (chore *Chore) pingSatellite(ctx context.Context, satellite storj.NodeID) error {
-	interval := initialBackOff
-	attempts := 0
-	for {
-
-		mon.Meter("satellite_contact_request").Mark(1) //locked
-
-		err := chore.pingSatelliteOnce(ctx, satellite)
-		attempts++
-		if err == nil {
-			return nil
-		}
-		chore.log.Error("ping satellite failed ", zap.Stringer("Satellite ID", satellite), zap.Int("attempts", attempts), zap.Error(err))
-
-		// Sleeps until interval times out, then continue. Returns if context is cancelled.
-		if !sync2.Sleep(ctx, interval) {
-			chore.log.Info("context cancelled", zap.Stringer("Satellite ID", satellite))
-			return nil
-		}
-		interval *= 2
-		if interval >= chore.interval {
-			chore.log.Info("retries timed out for this cycle", zap.Stringer("Satellite ID", satellite))
-			return nil
-		}
-	}
-
-}
-
-func (chore *Chore) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err error) {
-	defer mon.Task()(&ctx, id)(&err)
-
-	self := chore.service.Local()
-	address, err := chore.trust.GetAddress(ctx, id)
-	if err != nil {
-		return errPingSatellite.Wrap(err)
-	}
-
-	conn, err := chore.dialer.DialAddressID(ctx, address, id)
-	if err != nil {
-		return errPingSatellite.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, conn.Close()) }()
-
-	_, err = pb.NewDRPCNodeClient(conn.Raw()).CheckIn(ctx, &pb.CheckInRequest{
-		Address:  self.Address.GetAddress(),
-		Version:  &self.Version,
-		Capacity: &self.Capacity,
-		Operator: &self.Operator,
-	})
-	if err != nil {
-		return errPingSatellite.Wrap(err)
-	}
-	return nil
-}
-
 // Pause stops all the cycles in the contact chore.
 func (chore *Chore) Pause(ctx context.Context) {
 	chore.started.Wait(ctx)
@@ -176,6 +105,20 @@ func (chore *Chore) Pause(ctx context.Context) {
 	defer chore.mu.Unlock()
 	for _, cycle := range chore.cycles {
 		cycle.Pause()
+	}
+}
+
+// Trigger ensures that each cycle is done at least once.
+// If the cycle is currently running it waits for the previous to complete and then runs.
+func (chore *Chore) Trigger(ctx context.Context) {
+	chore.started.Wait(ctx)
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+	for _, cycle := range chore.cycles {
+		cycle := cycle
+		go func() {
+			cycle.Trigger()
+		}()
 	}
 }
 

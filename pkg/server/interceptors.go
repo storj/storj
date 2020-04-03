@@ -19,6 +19,16 @@ import (
 	"storj.io/storj/storage"
 )
 
+func (server *Server) monkitStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+	mon.IntVal("grpc_stream").Observe(1)
+	return handler(srv, ss)
+}
+
+func (server *Server) monkitUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+	mon.IntVal("grpc_call").Observe(1)
+	return handler(ctx, req)
+}
+
 func (server *Server) logOnErrorStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 	err = handler(srv, ss)
 	if err != nil {
@@ -44,18 +54,6 @@ func (server *Server) logOnErrorUnaryInterceptor(ctx context.Context, req interf
 		server.log.Error("gRPC unary error response", zap.Error(err))
 	}
 	return resp, err
-}
-
-// CombineInterceptors combines two UnaryServerInterceptors so they act as one
-// (because grpc only allows you to pass one in).
-func CombineInterceptors(a, b grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		return a(ctx, req, info, func(actx context.Context, areq interface{}) (interface{}, error) {
-			return b(actx, areq, info, func(bctx context.Context, breq interface{}) (interface{}, error) {
-				return handler(bctx, breq)
-			})
-		})
-	}
 }
 
 type nodeRequestLog struct {

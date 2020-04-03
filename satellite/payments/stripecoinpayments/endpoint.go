@@ -67,3 +67,15 @@ func (endpoint *Endpoint) CreateInvoices(ctx context.Context, req *pb.CreateInvo
 
 	return &pb.CreateInvoicesResponse{}, nil
 }
+
+// ApplyInvoiceCredits creates stripe line items for all credits.
+func (endpoint *Endpoint) ApplyInvoiceCredits(ctx context.Context, req *pb.ApplyInvoiceCreditsRequest) (_ *pb.ApplyInvoiceCreditsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.service.InvoiceApplyCredits(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.ApplyInvoiceCreditsResponse{}, nil
+}

@@ -29,7 +29,6 @@ type EncryptionAccess struct {
 // NewEncryptionAccess creates an encryption access context
 func NewEncryptionAccess() *EncryptionAccess {
 	store := encryption.NewStore()
-	store.SetDefaultPathCipher(defaultCipher)
 	return &EncryptionAccess{store: store}
 }
 
@@ -53,6 +52,11 @@ func (s *EncryptionAccess) SetDefaultKey(defaultKey storj.Key) {
 	s.store.SetDefaultKey(&defaultKey)
 }
 
+// SetDefaultPathCipher sets the default path cipher for the encryption access context.
+func (s *EncryptionAccess) SetDefaultPathCipher(defaultPathCipher storj.CipherSuite) {
+	s.store.SetDefaultPathCipher(defaultPathCipher)
+}
+
 // Import merges the other encryption access context into this one. In cases
 // of conflicting path decryption settings (including if both accesses have
 // a default key), the new settings are kept.
@@ -60,6 +64,7 @@ func (s *EncryptionAccess) Import(other *EncryptionAccess) error {
 	if key := other.store.GetDefaultKey(); key != nil {
 		s.store.SetDefaultKey(key)
 	}
+	s.store.SetDefaultPathCipher(other.store.GetDefaultPathCipher())
 	return other.store.Iterate(s.store.Add)
 }
 
@@ -82,13 +87,14 @@ func (s *EncryptionAccess) Restrict(apiKey APIKey, restrictions ...EncryptionRes
 	}
 
 	caveat := macaroon.Caveat{}
+
 	access := NewEncryptionAccess()
+	access.SetDefaultPathCipher(s.store.GetDefaultPathCipher())
 
 	for _, res := range restrictions {
 		unencPath := paths.NewUnencrypted(res.PathPrefix)
-		cipher := storj.EncAESGCM // TODO(jeff): pick the right path cipher
 
-		encPath, err := encryption.EncryptPath(res.Bucket, unencPath, cipher, s.store)
+		encPath, err := encryption.EncryptPathWithStoreCipher(res.Bucket, unencPath, s.store)
 		if err != nil {
 			return APIKey{}, nil, err
 		}
@@ -106,12 +112,12 @@ func (s *EncryptionAccess) Restrict(apiKey APIKey, restrictions ...EncryptionRes
 		})
 	}
 
-	apiKey, err := apiKey.Restrict(caveat)
+	restrictedAPIKey, err := apiKey.Restrict(caveat)
 	if err != nil {
 		return APIKey{}, nil, err
 	}
 
-	return apiKey, access, nil
+	return restrictedAPIKey, access, nil
 }
 
 // Serialize turns an EncryptionAccess into base58
@@ -131,12 +137,13 @@ func (s *EncryptionAccess) Serialize() (string, error) {
 
 func (s *EncryptionAccess) toProto() (*pb.EncryptionAccess, error) {
 	var storeEntries []*pb.EncryptionAccess_StoreEntry
-	err := s.store.Iterate(func(bucket string, unenc paths.Unencrypted, enc paths.Encrypted, key storj.Key) error {
+	err := s.store.IterateWithCipher(func(bucket string, unenc paths.Unencrypted, enc paths.Encrypted, key storj.Key, pathCipher storj.CipherSuite) error {
 		storeEntries = append(storeEntries, &pb.EncryptionAccess_StoreEntry{
 			Bucket:          []byte(bucket),
 			UnencryptedPath: []byte(unenc.Raw()),
 			EncryptedPath:   []byte(enc.Raw()),
 			Key:             key[:],
+			PathCipher:      pb.CipherSuite(pathCipher),
 		})
 		return nil
 	})
@@ -150,8 +157,9 @@ func (s *EncryptionAccess) toProto() (*pb.EncryptionAccess, error) {
 	}
 
 	return &pb.EncryptionAccess{
-		DefaultKey:   defaultKey,
-		StoreEntries: storeEntries,
+		DefaultKey:        defaultKey,
+		StoreEntries:      storeEntries,
+		DefaultPathCipher: pb.CipherSuite(s.store.GetDefaultPathCipher()),
 	}, nil
 }
 
@@ -181,6 +189,11 @@ func parseEncryptionAccessFromProto(p *pb.EncryptionAccess) (*EncryptionAccess, 
 		access.SetDefaultKey(defaultKey)
 	}
 
+	access.SetDefaultPathCipher(storj.CipherSuite(p.DefaultPathCipher))
+	if p.DefaultPathCipher == pb.CipherSuite_ENC_UNSPECIFIED {
+		access.SetDefaultPathCipher(storj.EncAESGCM)
+	}
+
 	for _, entry := range p.StoreEntries {
 		if len(entry.Key) != len(storj.Key{}) {
 			return nil, errs.New("invalid key in encryption access entry")
@@ -188,11 +201,13 @@ func parseEncryptionAccessFromProto(p *pb.EncryptionAccess) (*EncryptionAccess, 
 		var key storj.Key
 		copy(key[:], entry.Key)
 
-		err := access.store.Add(
+		err := access.store.AddWithCipher(
 			string(entry.Bucket),
 			paths.NewUnencrypted(string(entry.UnencryptedPath)),
 			paths.NewEncrypted(string(entry.EncryptedPath)),
-			key)
+			key,
+			storj.CipherSuite(entry.PathCipher),
+		)
 		if err != nil {
 			return nil, errs.New("invalid encryption access entry: %v", err)
 		}

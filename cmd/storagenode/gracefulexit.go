@@ -12,7 +12,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -21,7 +20,8 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/process"
+	"storj.io/storj/private/prompt"
 )
 
 type gracefulExitClient struct {
@@ -37,15 +37,15 @@ func dialGracefulExitClient(ctx context.Context, address string) (*gracefulExitC
 }
 
 func (client *gracefulExitClient) getNonExitingSatellites(ctx context.Context) (*pb.GetNonExitingSatellitesResponse, error) {
-	return pb.NewDRPCNodeGracefulExitClient(client.conn.Raw()).GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
+	return pb.NewDRPCNodeGracefulExitClient(client.conn).GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
 }
 
 func (client *gracefulExitClient) initGracefulExit(ctx context.Context, req *pb.InitiateGracefulExitRequest) (*pb.ExitProgress, error) {
-	return pb.NewDRPCNodeGracefulExitClient(client.conn.Raw()).InitiateGracefulExit(ctx, req)
+	return pb.NewDRPCNodeGracefulExitClient(client.conn).InitiateGracefulExit(ctx, req)
 }
 
 func (client *gracefulExitClient) getExitProgress(ctx context.Context) (*pb.GetExitProgressResponse, error) {
-	return pb.NewDRPCNodeGracefulExitClient(client.conn.Raw()).GetExitProgress(ctx, &pb.GetExitProgressRequest{})
+	return pb.NewDRPCNodeGracefulExitClient(client.conn).GetExitProgress(ctx, &pb.GetExitProgressRequest{})
 }
 
 func (client *gracefulExitClient) close() error {
@@ -63,7 +63,11 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// display warning message
-	if !prompt.Confirm("Please be aware that by starting a graceful exit from a satellite, you will no longer be allowed to participate in repairs or uploads from that satellite. This action can not be undone. Are you sure you want to continue? y/n\n") {
+	confirmed, err := prompt.Confirm("By starting a graceful exit from a satellite, you will no longer receive new uploads from that satellite.\nThis action can not be undone.\nAre you sure you want to continue? [y/n]\n")
+	if err != nil {
+		return err
+	}
+	if !confirmed {
 		return nil
 	}
 

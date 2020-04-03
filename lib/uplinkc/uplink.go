@@ -8,7 +8,6 @@ import "C"
 
 import (
 	"fmt"
-
 	"time"
 
 	"storj.io/common/memory"

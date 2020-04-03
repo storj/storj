@@ -8,49 +8,13 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"golang.org/x/crypto/ssh/terminal"
+
+	"storj.io/common/storj"
 )
-
-// applyDefaultHostAndPortToAddr applies the default host and/or port if either is missing in the specified address.
-func applyDefaultHostAndPortToAddr(address, defaultAddress string) (string, error) {
-	defaultHost, defaultPort, err := net.SplitHostPort(defaultAddress)
-	if err != nil {
-		return "", err
-	}
-
-	addressParts := strings.Split(address, ":")
-	numberOfParts := len(addressParts)
-
-	if numberOfParts > 1 && len(addressParts[0]) > 0 && len(addressParts[1]) > 0 {
-		// address is host:port so skip applying any defaults.
-		return address, nil
-	}
-
-	// We are missing a host:port part. Figure out which part we are missing.
-	indexOfPortSeparator := strings.Index(address, ":")
-	lengthOfFirstPart := len(addressParts[0])
-
-	if indexOfPortSeparator < 0 {
-		if lengthOfFirstPart == 0 {
-			// address is blank.
-			return defaultAddress, nil
-		}
-		// address is host
-		return net.JoinHostPort(addressParts[0], defaultPort), nil
-	}
-
-	if indexOfPortSeparator == 0 {
-		// address is :1234
-		return net.JoinHostPort(defaultHost, addressParts[1]), nil
-	}
-
-	// address is host:
-	return net.JoinHostPort(addressParts[0], defaultPort), nil
-}
 
 // PromptForAccessName handles user input for access name to be used with wizards
 func PromptForAccessName() (string, error) {
@@ -73,7 +37,11 @@ func PromptForAccessName() (string, error) {
 
 // PromptForSatellite handles user input for a satellite address to be used with wizards
 func PromptForSatellite(cmd *cobra.Command) (string, error) {
-	satellites := []string{"us-central-1.tardigrade.io", "europe-west-1.tardigrade.io", "asia-east-1.tardigrade.io"}
+	satellites := []string{
+		"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777",
+		"12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@europe-west-1.tardigrade.io:7777",
+		"121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@asia-east-1.tardigrade.io:7777",
+	}
 
 	_, err := fmt.Print("Select your satellite:\n")
 	if err != nil {
@@ -81,13 +49,23 @@ func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	}
 
 	for iterator, value := range satellites {
-		_, err := fmt.Printf("\t[%d] %s\n", iterator+1, value)
+		nodeURL, err := storj.ParseNodeURL(value)
+		if err != nil {
+			return "", err
+		}
+
+		host, _, err := net.SplitHostPort(nodeURL.Address)
+		if err != nil {
+			return "", err
+		}
+
+		_, err = fmt.Printf("\t[%d] %s\n", iterator+1, host)
 		if err != nil {
 			return "", nil
 		}
 	}
 
-	_, err = fmt.Print("Please enter numeric choice or enter satellite address manually [1]: ")
+	_, err = fmt.Print(`Enter number or satellite address as "<nodeid>@<address>:<port>" [1]: `)
 	if err != nil {
 		return "", err
 	}
@@ -95,18 +73,18 @@ func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	var satelliteAddress string
 	n, err := fmt.Scanln(&satelliteAddress)
 	if err != nil {
-		if n == 0 {
-			// fmt.Scanln cannot handle empty input
-			satelliteAddress = satellites[0]
-		} else {
+		if n != 0 {
 			return "", err
 		}
+		// fmt.Scanln cannot handle empty input
+		satelliteAddress = satellites[0]
 	}
 
-	// TODO add better validation
-	if satelliteAddress == "" {
+	if len(satelliteAddress) == 0 {
 		return "", errs.New("satellite address cannot be empty")
-	} else if len(satelliteAddress) == 1 {
+	}
+
+	if len(satelliteAddress) == 1 {
 		switch satelliteAddress {
 		case "1":
 			satelliteAddress = satellites[0]
@@ -115,11 +93,20 @@ func PromptForSatellite(cmd *cobra.Command) (string, error) {
 		case "3":
 			satelliteAddress = satellites[2]
 		default:
-			return "", errs.New("Satellite address cannot be one character")
+			return "", errs.New("satellite address cannot be one character")
 		}
 	}
 
-	return applyDefaultHostAndPortToAddr(satelliteAddress, cmd.Flags().Lookup("satellite-addr").Value.String())
+	nodeURL, err := storj.ParseNodeURL(satelliteAddress)
+	if err != nil {
+		return "", err
+	}
+
+	if nodeURL.ID.IsZero() {
+		return "", errs.New(`missing node id, satellite address must be in the format "<nodeid>@<address>:<port>"`)
+	}
+
+	return satelliteAddress, nil
 }
 
 // PromptForAPIKey handles user input for an API key to be used with wizards

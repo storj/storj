@@ -11,16 +11,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
-	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/eestream"
+	"storj.io/uplink/private/eestream"
 )
 
 // ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces
@@ -83,7 +82,7 @@ func (service *Service) createSerial(ctx context.Context) (_ storj.SerialNumber,
 	if err != nil {
 		return storj.SerialNumber{}, Error.Wrap(err)
 	}
-	return storj.SerialNumber(*id), nil
+	return storj.SerialNumber(id), nil
 }
 
 func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, expiresAt time.Time) (err error) {
@@ -145,29 +144,23 @@ func (service *Service) CreateGetOrderLimitsOld(ctx context.Context, bucketID []
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 
-	var combinedErrs error
+	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
+	for i, piece := range pointer.GetRemote().GetRemotePieces() {
+		nodeIDs[i] = piece.NodeId
+	}
+
+	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	if err != nil {
+		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	var nodeErrors errs.Group
 	var limits []*pb.AddressedOrderLimit
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		node, err := service.overlay.Get(ctx, piece.NodeId)
-		if err != nil {
-			service.log.Debug("error getting node from overlay", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
-			continue
-		}
-
-		if node.Disqualified != nil {
-			if service.nodeStatusLogging {
-				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			}
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
-			continue
-		}
-
-		if !service.overlay.IsOnline(node) {
-			if service.nodeStatusLogging {
-				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			}
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
+		node, ok := nodes[piece.NodeId]
+		if !ok {
+			nodeErrors.Add(errs.New("node %q is not reliable", piece.NodeId))
 			continue
 		}
 
@@ -188,16 +181,20 @@ func (service *Service) CreateGetOrderLimitsOld(ctx context.Context, bucketID []
 			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}
 
+		// use the lastIP that we have on record to avoid doing extra DNS resolutions
+		if node.LastIPPort != "" {
+			node.Address.Address = node.LastIPPort
+		}
 		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		})
 	}
 
 	if len(limits) < redundancy.RequiredCount() {
 		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //locked
 		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
-		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, combinedErrs))
+		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, nodeErrors.Err()))
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -209,7 +206,7 @@ func (service *Service) CreateGetOrderLimitsOld(ctx context.Context, bucketID []
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -241,29 +238,23 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 
-	var combinedErrs error
+	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
+	for i, piece := range pointer.GetRemote().GetRemotePieces() {
+		nodeIDs[i] = piece.NodeId
+	}
+
+	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	if err != nil {
+		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	var nodeErrors errs.Group
 	var limits []*pb.AddressedOrderLimit
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		node, err := service.overlay.Get(ctx, piece.NodeId)
-		if err != nil {
-			service.log.Debug("error getting node from overlay", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
-			continue
-		}
-
-		if node.Disqualified != nil {
-			if service.nodeStatusLogging {
-				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			}
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
-			continue
-		}
-
-		if !service.overlay.IsOnline(node) {
-			if service.nodeStatusLogging {
-				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			}
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
+		node, ok := nodes[piece.NodeId]
+		if !ok {
+			nodeErrors.Add(errs.New("node %q is not reliable", piece.NodeId))
 			continue
 		}
 
@@ -281,16 +272,20 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 			OrderExpiration:  orderExpiration,
 		}
 
+		// use the lastIP that we have on record to avoid doing extra DNS resolutions
+		if node.LastIPPort != "" {
+			node.Address.Address = node.LastIPPort
+		}
 		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		})
 	}
 
 	if len(limits) < redundancy.RequiredCount() {
 		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //locked
 		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
-		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, combinedErrs))
+		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, nodeErrors.Err()))
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -301,7 +296,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 	neededLimits := pb.NewRedundancySchemeToStorj(pointer.GetRemote().GetRedundancy()).DownloadNodes()
 	if int(neededLimits) < redundancy.RequiredCount() {
 		err = Error.New("not enough needed node orderlimits: got %d, required %d", neededLimits, redundancy.RequiredCount())
-		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, combinedErrs))
+		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, nodeErrors.Err()))
 	}
 	// an orderLimit was created for each piece, but lets only use
 	// the number of orderLimits actually needed to do the download
@@ -324,7 +319,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -353,7 +348,7 @@ func (service *Service) RandomSampleOfOrderLimits(limits []*pb.AddressedOrderLim
 }
 
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
-func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byte, nodes []*pb.Node, expiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byte, nodes []*overlay.SelectedNode, expiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	orderExpiration := time.Now().Add(service.orderExpiration)
@@ -377,8 +372,8 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byt
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
 			UplinkPublicKey:  piecePublicKey,
-			StorageNodeId:    node.Id,
-			PieceId:          rootPieceID.Derive(node.Id, pieceNum),
+			StorageNodeId:    node.ID,
+			PieceId:          rootPieceID.Derive(node.ID, pieceNum),
 			Action:           pb.PieceAction_PUT,
 			Limit:            maxPieceSize,
 			PieceExpiration:  expiration,
@@ -387,11 +382,16 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byt
 		})
 		if err != nil {
 			return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+
 		}
 
+		// use the lastIP that we have on record to avoid doing extra DNS resolutions
+		if node.LastIPPort != "" {
+			node.Address.Address = node.LastIPPort
+		}
 		limits[pieceNum] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		}
 		pieceNum++
 	}
@@ -405,7 +405,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byt
 	if err != nil {
 		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -430,29 +430,23 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	var combinedErrs error
+	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
+	for i, piece := range pointer.GetRemote().GetRemotePieces() {
+		nodeIDs[i] = piece.NodeId
+	}
+
+	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	if err != nil {
+		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	var nodeErrors errs.Group
 	var limits []*pb.AddressedOrderLimit
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		node, err := service.overlay.Get(ctx, piece.NodeId)
-		if err != nil {
-			service.log.Error("error getting node from overlay", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
-			continue
-		}
-
-		if node.Disqualified != nil {
-			if service.nodeStatusLogging {
-				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			}
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
-			continue
-		}
-
-		if !service.overlay.IsOnline(node) {
-			if service.nodeStatusLogging {
-				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			}
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
+		node, ok := nodes[piece.NodeId]
+		if !ok {
+			nodeErrors.Add(errs.New("node %q is not reliable", piece.NodeId))
 			continue
 		}
 
@@ -473,15 +467,19 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}
 
+		// use the lastIP that we have on record to avoid doing extra DNS resolutions
+		if node.LastIPPort != "" {
+			node.Address.Address = node.LastIPPort
+		}
 		limits = append(limits, &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		})
 	}
 
 	if len(limits) == 0 {
 		err = Error.New("failed creating order limits for all nodes")
-		return nil, storj.PiecePrivateKey{}, errs.Combine(err, combinedErrs)
+		return nil, storj.PiecePrivateKey{}, errs.Combine(err, nodeErrors.Err())
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -513,7 +511,18 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	var combinedErrs error
+	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
+	for i, piece := range pointer.GetRemote().GetRemotePieces() {
+		nodeIDs[i] = piece.NodeId
+	}
+
+	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	if err != nil {
+		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	var nodeErrors errs.Group
 	var limitsCount int32
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
@@ -521,26 +530,9 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 			continue
 		}
 
-		node, err := service.overlay.Get(ctx, piece.NodeId)
-		if err != nil {
-			service.log.Error("error getting node from overlay", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
-			continue
-		}
-
-		if node.Disqualified != nil {
-			if service.nodeStatusLogging {
-				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			}
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
-			continue
-		}
-
-		if !service.overlay.IsOnline(node) {
-			if service.nodeStatusLogging {
-				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			}
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
+		node, ok := nodes[piece.NodeId]
+		if !ok {
+			nodeErrors.Add(errs.New("node %q is not reliable", piece.NodeId))
 			continue
 		}
 
@@ -563,14 +555,14 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 
 		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		}
 		limitsCount++
 	}
 
 	if limitsCount < redundancy.GetMinReq() {
 		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.GetMinReq())
-		return nil, storj.PiecePrivateKey{}, errs.Combine(err, combinedErrs)
+		return nil, storj.PiecePrivateKey{}, errs.Combine(err, nodeErrors.Err())
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -582,7 +574,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 	if err != nil {
 		return limits, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -637,7 +629,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 
 	limit = &pb.AddressedOrderLimit{
 		Limit:              orderLimit,
-		StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+		StorageNodeAddress: node.Address,
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -649,7 +641,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 	if err != nil {
 		return limit, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limit); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limit); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -686,30 +678,24 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	var combinedErrs error
+	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
+	for i, piece := range pointer.GetRemote().GetRemotePieces() {
+		nodeIDs[i] = piece.NodeId
+	}
+
+	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	if err != nil {
+		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	var nodeErrors errs.Group
 	var limitsCount int
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range healthy {
-		node, err := service.overlay.Get(ctx, piece.NodeId)
-		if err != nil {
-			service.log.Error("error getting node from the overlay", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
-			continue
-		}
-
-		if node.Disqualified != nil {
-			if service.nodeStatusLogging {
-				service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			}
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New("%v", node.Id))
-			continue
-		}
-
-		if !service.overlay.IsOnline(node) {
-			if service.nodeStatusLogging {
-				service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			}
-			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New("%v", node.Id))
+		node, ok := nodes[piece.NodeId]
+		if !ok {
+			nodeErrors.Add(errs.New("node %q is not reliable", piece.NodeId))
 			continue
 		}
 
@@ -732,14 +718,14 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 
 		limits[piece.GetPieceNum()] = &pb.AddressedOrderLimit{
 			Limit:              orderLimit,
-			StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+			StorageNodeAddress: node.Address,
 		}
 		limitsCount++
 	}
 
 	if limitsCount < redundancy.RequiredCount() {
 		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.RequiredCount())
-		return nil, storj.PiecePrivateKey{}, errs.Combine(err, combinedErrs)
+		return nil, storj.PiecePrivateKey{}, errs.Combine(err, nodeErrors.Err())
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -751,7 +737,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 	if err != nil {
 		return limits, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -759,7 +745,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 }
 
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of pointer to newNodes.
-func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*pb.Node) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*overlay.SelectedNode) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 	orderExpiration := time.Now().Add(service.orderExpiration)
 
@@ -819,8 +805,8 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 				SatelliteId:      service.satellite.ID(),
 				SatelliteAddress: service.satelliteAddress,
 				UplinkPublicKey:  piecePublicKey,
-				StorageNodeId:    node.Id,
-				PieceId:          rootPieceID.Derive(node.Id, pieceNum),
+				StorageNodeId:    node.ID,
+				PieceId:          rootPieceID.Derive(node.ID, pieceNum),
 				Action:           pb.PieceAction_PUT_REPAIR,
 				Limit:            pieceSize,
 				PieceExpiration:  pointer.ExpirationDate,
@@ -833,7 +819,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 
 			limits[pieceNum] = &pb.AddressedOrderLimit{
 				Limit:              orderLimit,
-				StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+				StorageNodeAddress: node.Address,
 			}
 			pieceNum++
 			totalPiecesToRepair--
@@ -853,7 +839,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 	if err != nil {
 		return limits, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -916,7 +902,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 
 	limit = &pb.AddressedOrderLimit{
 		Limit:              orderLimit,
-		StorageNodeAddress: lookupNodeAddress(ctx, node.Address),
+		StorageNodeAddress: node.Address,
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
@@ -928,7 +914,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 	if err != nil {
 		return limit, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, *projectID, bucketName, limit); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, limit); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
@@ -954,21 +940,14 @@ func (service *Service) UpdatePutInlineOrder(ctx context.Context, projectID uuid
 }
 
 // SplitBucketID takes a bucketID, splits on /, and returns a projectID and bucketName
-func SplitBucketID(bucketID []byte) (projectID *uuid.UUID, bucketName []byte, err error) {
+func SplitBucketID(bucketID []byte) (projectID uuid.UUID, bucketName []byte, err error) {
 	pathElements := bytes.Split(bucketID, []byte("/"))
 	if len(pathElements) > 1 {
 		bucketName = pathElements[1]
 	}
-	projectID, err = uuid.Parse(string(pathElements[0]))
+	projectID, err = uuid.FromString(string(pathElements[0]))
 	if err != nil {
-		return nil, nil, err
+		return uuid.UUID{}, nil, err
 	}
 	return projectID, bucketName, nil
-}
-
-// lookupNodeAddress tries to resolve node address to an IP to avoid DNS lookups on the uplink side.
-func lookupNodeAddress(ctx context.Context, address *pb.NodeAddress) *pb.NodeAddress {
-	new := *address
-	new.Address = rpc.LookupNodeAddress(ctx, address.Address)
-	return &new
 }

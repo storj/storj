@@ -7,10 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil"
+	"storj.io/common/uuid"
 	"storj.io/storj/storagenode/notifications"
 )
 
@@ -54,7 +53,7 @@ func (db *notificationDB) Insert(ctx context.Context, notification notifications
 	}
 
 	return notifications.Notification{
-		ID:        *id,
+		ID:        id,
 		SenderID:  notification.SenderID,
 		Type:      notification.Type,
 		Title:     notification.Title,
@@ -103,7 +102,7 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Cursor)
 		SELECT * FROM 
 			notifications
 		ORDER BY 
-			created_at
+			created_at DESC
 		LIMIT ? OFFSET ?
 	`
 
@@ -118,11 +117,9 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Cursor)
 
 	for rows.Next() {
 		notification := notifications.Notification{}
-		var notificationIDBytes []uint8
-		var notificationID uuid.UUID
 
 		err = rows.Scan(
-			&notificationIDBytes,
+			&notification.ID,
 			&notification.SenderID,
 			&notification.Type,
 			&notification.Title,
@@ -133,13 +130,6 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Cursor)
 		if err = rows.Err(); err != nil {
 			return notifications.Page{}, ErrNotificationsDB.Wrap(err)
 		}
-
-		notificationID, err = dbutil.BytesToUUID(notificationIDBytes)
-		if err != nil {
-			return notifications.Page{}, ErrNotificationsDB.Wrap(err)
-		}
-
-		notification.ID = notificationID
 
 		page.Notifications = append(page.Notifications, notification)
 	}

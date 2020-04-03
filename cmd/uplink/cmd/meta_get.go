@@ -8,10 +8,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/fpath"
-	"storj.io/storj/pkg/process"
 )
 
 func init() {
@@ -40,7 +38,7 @@ func metaGetMain(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("too many arguments")
 	}
 
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	src, err := fpath.New(path)
 	if err != nil {
@@ -50,17 +48,16 @@ func metaGetMain(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("the source destination must be a Storj URL")
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket())
+	project, err := cfg.getProject(ctx, false)
 	if err != nil {
 		return err
 	}
-	defer closeProjectAndBucket(project, bucket)
+	defer closeProject(project)
 
-	object, err := bucket.OpenObject(ctx, src.Path())
+	object, err := project.StatObject(ctx, src.Bucket(), src.Path())
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, object.Close()) }()
 
 	if key != nil {
 		var keyNorm string
@@ -69,7 +66,7 @@ func metaGetMain(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 
-		value, ok := object.Meta.Metadata[keyNorm]
+		value, ok := object.Custom[keyNorm]
 		if !ok {
 			return fmt.Errorf("key does not exist")
 		}
@@ -84,8 +81,8 @@ func metaGetMain(cmd *cobra.Command, args []string) (err error) {
 		return nil
 	}
 
-	if object.Meta.Metadata != nil {
-		str, err := json.MarshalIndent(object.Meta.Metadata, "", "  ")
+	if object.Custom != nil {
+		str, err := json.MarshalIndent(object.Custom, "", "  ")
 		if err != nil {
 			return err
 		}

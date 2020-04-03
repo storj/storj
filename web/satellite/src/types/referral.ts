@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 /**
- * Exposes all referral-related functionality
+ * Exposes all referral-related functionality.
  */
 export interface ReferralApi {
     /**
-     * Get referral links for account
+     * Get referral links for account.
      *
      * @returns links
      * @throws Error
@@ -15,7 +15,7 @@ export interface ReferralApi {
 }
 
 /**
- * ReferralLink creates url from token
+ * ReferralLink creates url from token.
  */
 export class ReferralLink {
     public url: string = '';

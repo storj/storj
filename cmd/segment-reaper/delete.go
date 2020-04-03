@@ -18,7 +18,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/process"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )

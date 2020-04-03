@@ -25,7 +25,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/satellites"
-	"storj.io/uplink/ecclient"
+	"storj.io/uplink/private/ecclient"
 )
 
 // Worker is responsible for completing the graceful exit for a given satellite.
@@ -74,7 +74,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
+	client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 
 	c, err := client.Process(ctx)
 	if err != nil {

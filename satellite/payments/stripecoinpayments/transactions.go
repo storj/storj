@@ -8,10 +8,14 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/coinpayments"
 )
+
+// ErrTransactionConsumed is thrown when trying to consume already consumed transaction.
+var ErrTransactionConsumed = errs.New("error transaction already consumed")
 
 // TransactionsDB is an interface which defines functionality
 // of DB which stores coinpayments transactions.

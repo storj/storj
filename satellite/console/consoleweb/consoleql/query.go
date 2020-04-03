@@ -5,8 +5,8 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
-	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/rewards"
@@ -40,12 +40,12 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					inputID, _ := p.Args[FieldID].(string)
 
-					id, err := uuid.Parse(inputID)
+					id, err := uuid.FromString(inputID)
 					if err != nil {
 						return nil, err
 					}
 
-					project, err := service.GetProject(p.Context, *id)
+					project, err := service.GetProject(p.Context, id)
 					if err != nil {
 						return nil, err
 					}

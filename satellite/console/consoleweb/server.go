@@ -22,12 +22,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/gqlerrors"
-	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/spacemonkeygo/monkit/v3"
+	monkit "github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
@@ -61,8 +61,6 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
-
 	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
 	FrameAncestors        string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
 	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
@@ -71,6 +69,8 @@ type Config struct {
 	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
 	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
 	SegmentIOPublicKey    string `help:"used to initialize segment.io at web satellite console" default:""`
+
+	console.Config
 }
 
 // Server represents console web server
@@ -154,7 +154,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
 	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
 	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
-	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost)
+	authRouter.HandleFunc("/logout", authController.Logout).Methods(http.MethodPost)
 	authRouter.HandleFunc("/token", authController.Token).Methods(http.MethodPost)
 	authRouter.HandleFunc("/register", authController.Register).Methods(http.MethodPost)
 	authRouter.HandleFunc("/forgot-password/{email}", authController.ForgotPassword).Methods(http.MethodPost)
@@ -309,7 +309,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	ctx = console.WithAuth(ctx, auth)
 
 	// parse query params
-	projectID, err := uuid.Parse(r.URL.Query().Get("projectID"))
+	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
 	if err != nil {
 		server.serveError(w, http.StatusBadRequest)
 		return
@@ -333,7 +333,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		zap.Stringer("since", since),
 		zap.Stringer("before", before))
 
-	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, *projectID, since, before)
+	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, projectID, since, before)
 	if err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
 		server.serveError(w, http.StatusInternalServerError)
@@ -441,15 +441,21 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 			zap.String("token", activationToken),
 			zap.Error(err))
 
-		// TODO: when new error pages will be created - change http.StatusNotFound on appropriate one
+		if console.ErrEmailUsed.Has(err) {
+			server.serveError(w, http.StatusConflict)
+			return
+		}
+
+		if console.Error.Has(err) {
+			server.serveError(w, http.StatusInternalServerError)
+			return
+		}
+
 		server.serveError(w, http.StatusNotFound)
 		return
 	}
 
-	if err = server.templates.activated.Execute(w, nil); err != nil {
-		server.log.Error("account activated template could not be executed", zap.Error(Error.Wrap(err)))
-		return
-	}
+	http.Redirect(w, r, server.config.ExternalAddress+"login?activated=true", http.StatusTemporaryRedirect)
 }
 
 func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
@@ -556,13 +562,13 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	projectID, err := uuid.Parse(idParam)
+	projectID, err := uuid.FromString(idParam)
 	if err != nil {
 		handleError(http.StatusBadRequest, errs.New("invalid project id: %v", err))
 		return
 	}
 
-	limits, err := server.service.GetProjectUsageLimits(ctx, *projectID)
+	limits, err := server.service.GetProjectUsageLimits(ctx, projectID)
 	if err != nil {
 		handleServiceError(err)
 		return
@@ -633,8 +639,6 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case console.ErrUnauthorized.Has(err):
 			return http.StatusUnauthorized, err
-		case console.ErrValidation.Has(err):
-			return http.StatusBadRequest, err
 		case console.Error.Has(err):
 			return http.StatusInternalServerError, err
 		}
@@ -672,7 +676,7 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		handleErrors(http.StatusBadRequest, result.Errors)
+		handleErrors(http.StatusOK, result.Errors)
 	}
 
 	if result.HasErrors() {
@@ -699,10 +703,15 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 		if err != nil {
 			server.log.Error("cannot parse internalServerError template", zap.Error(Error.Wrap(err)))
 		}
-	default:
+	case http.StatusNotFound:
 		err := server.templates.notFound.Execute(w, nil)
 		if err != nil {
 			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
+		}
+	case http.StatusConflict:
+		err := server.templates.activated.Execute(w, nil)
+		if err != nil {
+			server.log.Error("cannot parse already activated template", zap.Error(Error.Wrap(err)))
 		}
 	}
 }

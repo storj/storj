@@ -13,7 +13,7 @@
         <div class="sort-header-container__date-item" @click="onHeaderItemClick(ApiKeyOrderBy.CREATED_AT)">
             <p class="sort-header-container__date-item__title creation-date">Created</p>
             <VerticalArrows
-                :is-active="areApiKeysSortedByDate"
+                :is-active="!areApiKeysSortedByName"
                 :direction="getSortDirection"
             />
         </div>
@@ -42,22 +42,22 @@ export default class SortApiKeysHeader extends Vue {
     public sortBy: ApiKeyOrderBy = ApiKeyOrderBy.NAME;
     public sortDirection: SortDirection = SortDirection.ASCENDING;
 
+    /**
+     * Used for arrow styling.
+     */
     public get getSortDirection(): SortDirection {
-        if (this.sortDirection === SortDirection.DESCENDING) {
-            return SortDirection.ASCENDING;
-        }
-
-        return SortDirection.DESCENDING;
+        return this.sortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
     }
 
     public get areApiKeysSortedByName(): boolean {
         return this.sortBy === ApiKeyOrderBy.NAME;
     }
 
-    public get areApiKeysSortedByDate(): boolean {
-        return this.sortBy === ApiKeyOrderBy.CREATED_AT;
-    }
-
+    /**
+     * Sets sorting kind if different from current.
+     * If same, changes sort direction.
+     * @param sortBy
+     */
     public async onHeaderItemClick(sortBy: ApiKeyOrderBy): Promise<void> {
         if (this.sortBy !== sortBy) {
             this.sortBy = sortBy;
@@ -68,11 +68,9 @@ export default class SortApiKeysHeader extends Vue {
             return;
         }
 
-        if (this.sortDirection === SortDirection.DESCENDING) {
-            this.sortDirection = SortDirection.ASCENDING;
-        } else {
-            this.sortDirection = SortDirection.DESCENDING;
-        }
+        this.sortDirection = this.sortDirection === SortDirection.DESCENDING ?
+            SortDirection.ASCENDING
+            : SortDirection.DESCENDING;
 
         await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
     }
@@ -86,19 +84,10 @@ export default class SortApiKeysHeader extends Vue {
         height: 40px;
         background-color: rgba(255, 255, 255, 0.3);
         margin-top: 31px;
-        user-select: none;
-
-        &__date-item {
-            width: 60%;
-
-            &__title {
-                margin: 0;
-            }
-        }
 
         &__name-item,
         &__date-item {
-            width: 40%;
+            width: 60%;
             display: flex;
             align-items: center;
             margin: 0;
@@ -113,6 +102,14 @@ export default class SortApiKeysHeader extends Vue {
 
             .creation-date {
                 margin-left: 0;
+            }
+        }
+
+        &__date-item {
+            width: 40%;
+
+            &__title {
+                margin: 0;
             }
         }
     }

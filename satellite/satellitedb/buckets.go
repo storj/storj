@@ -8,11 +8,9 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
-	"storj.io/storj/private/dbutil"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -73,7 +71,7 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
+			return storj.Bucket{}, storj.ErrBucketNotFound.New("%s", bucketName)
 		}
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
@@ -101,12 +99,15 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 // DeleteBucket deletes a bucket
 func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.db.Delete_BucketMetainfo_By_ProjectId_And_Name(ctx,
+	deleted, err := db.db.Delete_BucketMetainfo_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
 	)
 	if err != nil {
 		return storj.ErrBucket.Wrap(err)
+	}
+	if !deleted {
+		return storj.ErrBucketNotFound.New("%s", bucketName)
 	}
 	return nil
 }
@@ -189,11 +190,11 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 }
 
 func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err error) {
-	id, err := dbutil.BytesToUUID(dbxBucket.Id)
+	id, err := uuid.FromBytes(dbxBucket.Id)
 	if err != nil {
 		return bucket, storj.ErrBucket.Wrap(err)
 	}
-	project, err := dbutil.BytesToUUID(dbxBucket.ProjectId)
+	project, err := uuid.FromBytes(dbxBucket.ProjectId)
 	if err != nil {
 		return bucket, storj.ErrBucket.Wrap(err)
 	}
@@ -220,7 +221,7 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 	}
 
 	if dbxBucket.PartnerId != nil {
-		partnerID, err := dbutil.BytesToUUID(dbxBucket.PartnerId)
+		partnerID, err := uuid.FromBytes(dbxBucket.PartnerId)
 		if err != nil {
 			return bucket, storj.ErrBucket.Wrap(err)
 		}

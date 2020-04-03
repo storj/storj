@@ -30,12 +30,21 @@ import AccountButton from './AccountButton.vue';
     },
 })
 export default class DashboardHeader extends Vue {
+    /**
+     * Indicates if navigation toggling button is visible depending on screen width.
+     */
     public isNavigationVisible: boolean = false;
 
+    /**
+     * Toggle navigation visibility.
+     */
     public toggleNavigationVisibility(): void {
         this.isNavigationVisible = !this.isNavigationVisible;
     }
 
+    /**
+     * Reloads page.
+     */
     public onLogoClick(): void {
         location.reload();
     }

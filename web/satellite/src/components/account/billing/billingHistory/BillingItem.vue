@@ -9,20 +9,20 @@
             :expiration="billingItem.end"
             :type="billingItem.type"
         />
-        <p class="container__item description">{{billingItem.description}}</p>
-        <p class="container__item status">{{billingItem.formattedStatus}}</p>
+        <p class="container__item description">{{ billingItem.description }}</p>
+        <p class="container__item status">{{ billingItem.formattedStatus }}</p>
         <p class="container__item amount">
             <b>
-                {{billingItem.quantity.currency}}
+                {{ billingItem.quantity.currency }}
                 <span v-if="billingItem.type === 1">
-                    {{billingItem.quantity.received}}
+                    {{ billingItem.quantity.received }}
                 </span>
                 <span v-else>
-                    {{billingItem.quantity.total}}
+                    {{ billingItem.quantity.total }}
                 </span>
             </b>
             <span v-if="billingItem.type === 1">
-                 of {{billingItem.quantity.total}}
+                 of {{ billingItem.quantity.total }}
             </span>
         </p>
         <p class="container__item download" v-html="billingItem.downloadLinkHtml()"></p>

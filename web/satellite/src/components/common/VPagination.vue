@@ -62,36 +62,60 @@ export default class VPagination extends Vue {
     @Prop({default: () => new Promise(() => false)})
     private readonly onPageClickCallback: OnPageClickCallback;
 
+    /**
+     * Component initialization.
+     */
     public mounted() {
         this.populatePagesArray();
     }
 
+    /**
+     * Indicates if current page is first.
+     */
     public get isFirstPage(): boolean {
         return this.currentPageNumber === 1;
     }
 
+    /**
+     * Indicates if current page is last.
+     */
     public get isLastPage(): boolean {
         return this.currentPageNumber === this.totalPageCount;
     }
 
+    /**
+     * Indicates if dots after first pages block should appear.
+     */
     public get isFirstDotsShown(): boolean {
         return this.middleBlockPages.length <= this.MAX_PAGES_PER_BLOCK
             && this.pagesArray.length > this.MAX_PAGES_OFF_BLOCKS;
     }
 
+    /**
+     * Indicates if dots after middle pages block should appear.
+     */
     public get isSecondDotsShown(): boolean {
         return !!this.middleBlockPages.length;
     }
 
+    /**
+     * Indicates page is current and should appear in different styling.
+     */
     public isSelected(page: number): boolean {
         return page === this.currentPageNumber;
     }
 
+    /**
+     * Method after total page count change.
+     */
     @Watch('totalPageCount')
     public onPageCountChange(val: number, oldVal: number) {
         this.resetPageIndex();
     }
 
+    /**
+     * onPageClick fires after concrete page click.
+     */
     public async onPageClick(page: number): Promise<void> {
         if (this.isLoading) {
             return;
@@ -104,6 +128,9 @@ export default class VPagination extends Vue {
         this.isLoading = false;
     }
 
+    /**
+     * nextPage fires after 'next' arrow click.
+     */
     public async nextPage(): Promise<void> {
         if (this.isLastPage || this.isLoading) {
             return;
@@ -116,6 +143,9 @@ export default class VPagination extends Vue {
         this.isLoading = false;
     }
 
+    /**
+     * prevPage fires after 'previous' arrow click.
+     */
     public async prevPage(): Promise<void> {
         if (this.isFirstPage || this.isLoading) {
             return;
@@ -128,6 +158,9 @@ export default class VPagination extends Vue {
         this.isLoading = false;
     }
 
+    /**
+     * resetPageIndex sets current selected page as first and rebuilds page blocks after.
+     */
     public resetPageIndex(): void {
         this.pagesArray = [];
         this.firstBlockPages = [];
@@ -136,6 +169,9 @@ export default class VPagination extends Vue {
         this.populatePagesArray();
     }
 
+    /**
+     * creates pages blocks and pages depends of total page count.
+     */
     private populatePagesArray(): void {
         if (!this.totalPageCount) {
             return;
@@ -156,6 +192,10 @@ export default class VPagination extends Vue {
         this.reorganizePageBlocks();
     }
 
+    /**
+     * reorganizePageBlocks changes pages blocks organization depends of
+     * current selected page index.
+     */
     private reorganizePageBlocks(): void {
         if (this.isPagesTotalOffBlocks()) {
             return;

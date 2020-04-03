@@ -4,7 +4,7 @@
 package accounting
 
 import (
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
 // BucketTally contains information about aggregate data stored in a bucket

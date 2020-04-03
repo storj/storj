@@ -25,7 +25,7 @@ func dialNode(ctx context.Context, dialer rpc.Dialer, address string, id storj.N
 
 	return &client{
 		conn:   conn,
-		client: pb.NewDRPCContactClient(conn.Raw()),
+		client: pb.NewDRPCContactClient(conn),
 	}, nil
 }
 

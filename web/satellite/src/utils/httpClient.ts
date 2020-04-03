@@ -11,7 +11,6 @@ export class HttpClient {
      * @param method holds http method type
      * @param path
      * @param body serialized JSON
-     * @param auth indicates if authentication is needed
      */
     private async sendJSON(method: string, path: string, body: string | null): Promise<Response> {
         const request: RequestInit = {
@@ -30,7 +29,6 @@ export class HttpClient {
      * Performs POST http request with JSON body.
      * @param path
      * @param body serialized JSON
-     * @param auth indicates if authentication is needed
      */
     public async post(path: string, body: string | null): Promise<Response> {
         return this.sendJSON('POST', path, body);
@@ -40,7 +38,6 @@ export class HttpClient {
      * Performs PATCH http request with JSON body.
      * @param path
      * @param body serialized JSON
-     * @param auth indicates if authentication is needed
      */
     public async patch(path: string, body: string | null): Promise<Response> {
         return this.sendJSON('PATCH', path, body);
@@ -50,7 +47,6 @@ export class HttpClient {
      * Performs PUT http request with JSON body.
      * @param path
      * @param body serialized JSON
-     * @param auth indicates if authentication is needed
      */
     public async put(path: string, body: string | null): Promise<Response> {
         return this.sendJSON('PUT', path, body);
@@ -59,7 +55,6 @@ export class HttpClient {
     /**
      * Performs GET http request.
      * @param path
-     * @param auth indicates if authentication is needed
      */
     public async get(path: string): Promise<Response> {
         return this.sendJSON('GET', path, null);
@@ -68,7 +63,6 @@ export class HttpClient {
     /**
      * Performs DELETE http request.
      * @param path
-     * @param auth indicates if authentication is needed
      */
     public async delete(path: string): Promise<Response> {
         return this.sendJSON('DELETE', path, null);
