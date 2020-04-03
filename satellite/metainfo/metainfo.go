@@ -1704,7 +1704,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
+		endpoint.log.Sugar().Debugf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
 			limit, keyInfo.ProjectID,
 		)
 		return nil, nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
