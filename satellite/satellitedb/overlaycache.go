@@ -202,9 +202,13 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 		var node overlay.SelectedNode
 		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
 
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort)
+		var lastIPPort sql.NullString
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
 		if err != nil {
 			return nil, err
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
 		}
 
 		nodes = append(nodes, &node)
@@ -259,9 +263,13 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedIDs [
 		var node overlay.SelectedNode
 		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
 
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort)
+		var lastIPPort sql.NullString
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
 		if err != nil {
 			return nil, err
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
 		}
 
 		nodes = append(nodes, &node)
@@ -311,10 +319,15 @@ func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeI
 		var node overlay.SelectedNode
 		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
 
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort)
+		var lastIPPort sql.NullString
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
 		if err != nil {
 			return nil, err
 		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+
 		nodes[node.ID] = &node
 	}
 
