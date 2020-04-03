@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
@@ -92,6 +93,8 @@ type DB interface {
 	DowntimeTracking() downtime.DB
 	// Heldamount returns database for heldamount.
 	HeldAmount() heldamount.DB
+	// Compoensation tracks storage node compensation
+	Compensation() compensation.DB
 }
 
 // Config is the global config satellite
@@ -138,4 +141,6 @@ type Config struct {
 	Metrics metrics.Config
 
 	Downtime downtime.Config
+
+	Compensation compensation.Config
 }

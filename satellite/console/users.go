@@ -8,7 +8,7 @@ import (
 	"net/mail"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
 // Users exposes methods to manage User table in database.
@@ -66,7 +66,7 @@ func (user *CreateUser) IsValid() error {
 	errs.AddWrap(err)
 
 	if user.PartnerID != "" {
-		_, err := uuid.Parse(user.PartnerID)
+		_, err := uuid.FromString(user.PartnerID)
 		if err != nil {
 			errs.AddWrap(err)
 		}

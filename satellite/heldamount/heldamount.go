@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
@@ -25,6 +26,9 @@ type DB interface {
 	// CreatePayment insert payment into db.
 	CreatePayment(ctx context.Context, payment StoragenodePayment) (err error)
 }
+
+// ErrNoDataForPeriod represents errors from the heldamount database.
+var ErrNoDataForPeriod = errs.Class("no payStub/payments for period error")
 
 // PayStub is an entity that holds held amount of cash that will be paid to storagenode operator after some period.
 type PayStub struct {

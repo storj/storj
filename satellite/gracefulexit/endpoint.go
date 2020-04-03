@@ -409,7 +409,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	newNode := newNodes[0]
-	endpoint.log.Debug("found new node for piece transfer", zap.Stringer("original node ID", nodeID), zap.Stringer("replacement node ID", newNode.Id),
+	endpoint.log.Debug("found new node for piece transfer", zap.Stringer("original node ID", nodeID), zap.Stringer("replacement node ID", newNode.ID),
 		zap.ByteString("path", incomplete.Path), zap.Int32("piece num", incomplete.PieceNum))
 
 	pieceID := remote.RootPieceId.Derive(nodeID, incomplete.PieceNum)
@@ -420,7 +420,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	}
 
 	bucketID := []byte(storj.JoinPaths(parts[0], parts[2]))
-	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.Id, incomplete.PieceNum, remote.RootPieceId, int32(pieceSize))
+	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.ID, incomplete.PieceNum, remote.RootPieceId, int32(pieceSize))
 	if err != nil {
 		return Error.Wrap(err)
 	}

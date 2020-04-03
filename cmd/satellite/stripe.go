@@ -9,6 +9,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments"
@@ -19,7 +20,7 @@ import (
 
 // UserData contains the uuid and email of a satellite user.
 type UserData struct {
-	ID    []byte
+	ID    uuid.UUID
 	Email string
 }
 
@@ -70,15 +71,11 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 		n++
 		var user UserData
 		err := rows.Scan(&user.ID, &user.Email)
+		if err != nil {
+			return err
+		}
 
-		if err != nil {
-			return err
-		}
-		uid, err := dbutil.BytesToUUID(user.ID)
-		if err != nil {
-			return err
-		}
-		err = handler.Setup(ctx, uid, user.Email)
+		err = handler.Setup(ctx, user.ID, user.Email)
 		if err != nil {
 			return err
 		}

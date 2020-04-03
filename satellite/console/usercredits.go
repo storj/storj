@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/currency"
 	"storj.io/storj/satellite/rewards"
 )

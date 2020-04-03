@@ -7,11 +7,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
 )
 

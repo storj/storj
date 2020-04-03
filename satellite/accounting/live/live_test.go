@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -16,6 +15,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/storage/redis/redisserver"

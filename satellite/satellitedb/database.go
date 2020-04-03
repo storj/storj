@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gracefulexit"
@@ -181,4 +182,9 @@ func (db *satelliteDB) DowntimeTracking() downtime.DB {
 // HeldAmount returns database for storagenode payStubs and payments info
 func (db *satelliteDB) HeldAmount() heldamount.DB {
 	return &paymentStubs{db: db}
+}
+
+// Compenstation returns database for storage node compensation
+func (db *satelliteDB) Compensation() compensation.DB {
+	return &compensationDB{db: db}
 }

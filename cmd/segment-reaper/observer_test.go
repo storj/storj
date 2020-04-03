@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -26,6 +25,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"

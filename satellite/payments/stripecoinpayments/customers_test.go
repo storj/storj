@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -27,17 +27,17 @@ func TestCustomersRepository(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("Insert", func(t *testing.T) {
-			err = customers.Insert(ctx, *userID, customerID)
+			err = customers.Insert(ctx, userID, customerID)
 			assert.NoError(t, err)
 		})
 
 		t.Run("Can not insert duplicate customerID", func(t *testing.T) {
-			err = customers.Insert(ctx, *userID, customerID)
+			err = customers.Insert(ctx, userID, customerID)
 			assert.Error(t, err)
 		})
 
 		t.Run("GetCustomerID", func(t *testing.T) {
-			id, err := customers.GetCustomerID(ctx, *userID)
+			id, err := customers.GetCustomerID(ctx, userID)
 			assert.NoError(t, err)
 			assert.Equal(t, id, customerID)
 		})
@@ -56,7 +56,7 @@ func TestCustomersRepositoryList(t *testing.T) {
 
 			cus := stripecoinpayments.Customer{
 				ID:     "customerID" + strconv.Itoa(i),
-				UserID: *userID,
+				UserID: userID,
 			}
 
 			err = customersDB.Insert(ctx, cus.UserID, cus.ID)

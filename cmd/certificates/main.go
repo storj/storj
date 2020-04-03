@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/certificate"
 	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/pkg/revocation"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 )
 
 var (

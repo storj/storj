@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -79,7 +79,7 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 	}
 
 	for _, dbxTally := range dbxTallies {
-		projectID, err := dbutil.BytesToUUID(dbxTally.ProjectId)
+		projectID, err := uuid.FromBytes(dbxTally.ProjectId)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -122,7 +122,7 @@ func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, pro
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
 	query := `SELECT SUM(allocated) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start > ?;`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], pb.PieceAction_GET, from).Scan(&sum)
+	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], pb.PieceAction_GET, from.UTC()).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}
