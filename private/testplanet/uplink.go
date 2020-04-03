@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -23,6 +22,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/satellite/console"

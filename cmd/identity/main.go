@@ -25,6 +25,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/certificate/certificateclient"
 	"storj.io/storj/pkg/revocation"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/private/version/checker"
 )
 
@@ -145,7 +146,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Unsigned identity is located in %q\n", serviceDir)
-	fmt.Println("Please *move* CA key to secure storage - it is only needed for identity management!")
+	fmt.Println("Please *move* CA key to secure storage - it is only needed for identity management and isn't needed to run a storage node!")
 	fmt.Printf("\t%s\n", caConfig.KeyPath)
 	return nil
 }

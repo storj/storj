@@ -22,12 +22,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/gqlerrors"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	monkit "github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
@@ -309,7 +309,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	ctx = console.WithAuth(ctx, auth)
 
 	// parse query params
-	projectID, err := uuid.Parse(r.URL.Query().Get("projectID"))
+	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
 	if err != nil {
 		server.serveError(w, http.StatusBadRequest)
 		return
@@ -333,7 +333,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		zap.Stringer("since", since),
 		zap.Stringer("before", before))
 
-	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, *projectID, since, before)
+	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, projectID, since, before)
 	if err != nil {
 		server.log.Error("bucket usage report error", zap.Error(err))
 		server.serveError(w, http.StatusInternalServerError)
@@ -562,13 +562,13 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	projectID, err := uuid.Parse(idParam)
+	projectID, err := uuid.FromString(idParam)
 	if err != nil {
 		handleError(http.StatusBadRequest, errs.New("invalid project id: %v", err))
 		return
 	}
 
-	limits, err := server.service.GetProjectUsageLimits(ctx, *projectID)
+	limits, err := server.service.GetProjectUsageLimits(ctx, projectID)
 	if err != nil {
 		handleServiceError(err)
 		return

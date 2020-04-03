@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -23,9 +22,9 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	lrucache "storj.io/storj/pkg/cache"
 	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
@@ -84,11 +83,9 @@ type Endpoint struct {
 	projects            console.Projects
 	apiKeys             APIKeys
 	createRequests      *createRequests
-	requiredRSConfig    RSConfig
 	satellite           signing.Signer
-	maxCommitInterval   time.Duration
 	limiterCache        *lrucache.ExpiringLRU
-	limiterConfig       RateLimiterConfig
+	config              Config
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -96,8 +93,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB,
 	partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
-	rsConfig RSConfig, satellite signing.Signer, maxCommitInterval time.Duration,
-	limiterConfig RateLimiterConfig) *Endpoint {
+	satellite signing.Signer, config Config) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:                 log,
@@ -112,14 +108,12 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 		projectUsage:        projectUsage,
 		projects:            projects,
 		createRequests:      newCreateRequests(),
-		requiredRSConfig:    rsConfig,
 		satellite:           satellite,
-		maxCommitInterval:   maxCommitInterval,
 		limiterCache: lrucache.New(lrucache.Options{
-			Capacity:   limiterConfig.CacheCapacity,
-			Expiration: limiterConfig.CacheExpiration,
+			Capacity:   config.RateLimiter.CacheCapacity,
+			Expiration: config.RateLimiter.CacheExpiration,
 		}),
-		limiterConfig: limiterConfig,
+		config: config,
 	}
 }
 
@@ -758,7 +752,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	if err != nil {
 		if !canRead && !canList {
 			// No error info is returned if neither Read, nor List permission is granted
-			return nil, nil
+			return &pb.BucketDeleteResponse{}, nil
 		}
 		if ErrBucketNotEmpty.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
@@ -840,30 +834,11 @@ func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.Buck
 	return &pb.BucketSetAttributionResponse{}, err
 }
 
-// resolvePartnerID returns partnerIDBytes as parsed or UUID corresponding to header.UserAgent.
-// returns empty uuid when neither is defined.
-func (endpoint *Endpoint) resolvePartnerID(ctx context.Context, header *pb.RequestHeader, partnerIDBytes []byte) (uuid.UUID, error) {
-	if len(partnerIDBytes) > 0 {
-		partnerID, err := dbutil.BytesToUUID(partnerIDBytes)
-		if err != nil {
-			return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
-		}
-		return partnerID, nil
-	}
-
-	if len(header.UserAgent) == 0 {
-		return uuid.UUID{}, nil
-	}
-
-	partner, err := endpoint.partners.ByUserAgent(ctx, string(header.UserAgent))
-	if err != nil || partner.UUID == nil {
-		return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to resolve user agent %q: %v", string(header.UserAgent), err)
-	}
-
-	return *partner.UUID, nil
-}
-
 func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, partnerIDBytes []byte) error {
+	if header == nil {
+		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        bucketName,
@@ -874,7 +849,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return err
 	}
 
-	partnerID, err := endpoint.resolvePartnerID(ctx, header, partnerIDBytes)
+	partnerID, err := endpoint.ResolvePartnerID(ctx, header, partnerIDBytes)
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
@@ -959,7 +934,7 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	}
 
 	return storj.Bucket{
-		ID:                  *bucketID,
+		ID:                  bucketID,
 		Name:                string(req.GetName()),
 		ProjectID:           projectID,
 		PartnerID:           partnerID,
@@ -1073,11 +1048,13 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	mon.Meter("req_put_object").Mark(1)
 
 	return &pb.ObjectBeginResponse{
-		Bucket:           req.Bucket,
-		EncryptedPath:    req.EncryptedPath,
-		Version:          req.Version,
-		StreamId:         streamID,
-		RedundancyScheme: pbRS,
+		Bucket:               req.Bucket,
+		EncryptedPath:        req.EncryptedPath,
+		Version:              req.Version,
+		StreamId:             streamID,
+		RedundancyScheme:     pbRS,
+		MaxInlineSegmentSize: endpoint.config.MaxInlineSegmentSize.Int64(),
+		MaxSegmentSize:       endpoint.config.MaxSegmentSize.Int64(),
 	}, nil
 }
 
@@ -1413,7 +1390,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	if err != nil {
 		if !canRead && !canList {
 			// No error info is returned if neither Read, nor List permission is granted
-			return nil, nil
+			return &pb.ObjectBeginDeleteResponse{}, nil
 		}
 		return nil, err
 	}
@@ -1717,18 +1694,21 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
 	}
 
+	inlineUsed := int64(len(req.EncryptedInlineData))
+	if inlineUsed > endpoint.config.MaxInlineSegmentSize.Int64() {
+		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize))
+	}
+
 	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
 	if err != nil {
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
+		endpoint.log.Sugar().Debugf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
 			limit, keyInfo.ProjectID,
 		)
 		return nil, nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
-
-	inlineUsed := int64(len(req.EncryptedInlineData))
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
 		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
@@ -2522,10 +2502,10 @@ func (endpoint *Endpoint) findIndexPreviousLastSegmentWhenNotKnowingNumSegments(
 func (endpoint *Endpoint) redundancyScheme() *pb.RedundancyScheme {
 	return &pb.RedundancyScheme{
 		Type:             pb.RedundancyScheme_RS,
-		MinReq:           int32(endpoint.requiredRSConfig.MinThreshold),
-		RepairThreshold:  int32(endpoint.requiredRSConfig.RepairThreshold),
-		SuccessThreshold: int32(endpoint.requiredRSConfig.SuccessThreshold),
-		Total:            int32(endpoint.requiredRSConfig.TotalThreshold),
-		ErasureShareSize: endpoint.requiredRSConfig.ErasureShareSize.Int32(),
+		MinReq:           int32(endpoint.config.RS.MinThreshold),
+		RepairThreshold:  int32(endpoint.config.RS.RepairThreshold),
+		SuccessThreshold: int32(endpoint.config.RS.SuccessThreshold),
+		Total:            int32(endpoint.config.RS.TotalThreshold),
+		ErasureShareSize: endpoint.config.RS.ErasureShareSize.Int32(),
 	}
 }

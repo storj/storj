@@ -7,9 +7,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 )
 
 // Coupons exposes all needed functionality to manage coupons.

@@ -49,7 +49,10 @@ import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
+import { NODE_ACTIONS } from '@/app/store/modules/node';
+import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import { NotificationsCursor } from '@/app/types/notifications';
 import { SatelliteInfo } from '@/storagenode/dashboard';
 
 @Component ({
@@ -69,6 +72,8 @@ export default class PayoutArea extends Vue {
      */
     public async mounted(): Promise<any> {
         try {
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, this.$store.state.node.selectedSatellite.id);
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {

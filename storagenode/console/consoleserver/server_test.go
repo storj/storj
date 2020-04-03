@@ -27,19 +27,19 @@ func TestConsole(t *testing.T) {
 			t.Run("test endpoints", func(t *testing.T) {
 				addr := console.Listener.Addr()
 
-				req, err := http.Get(fmt.Sprintf("http://%s/api/dashboard", addr))
+				req, err := http.Get(fmt.Sprintf("http://%s/api/sno", addr))
 				require.NoError(t, err)
 				require.NotNil(t, req)
 				_ = req.Body.Close()
 				require.Equal(t, http.StatusOK, req.StatusCode)
 
-				req, err = http.Get(fmt.Sprintf("http://%s/api/satellites", addr))
+				req, err = http.Get(fmt.Sprintf("http://%s/api/sno/satellites", addr))
 				require.NoError(t, err)
 				require.NotNil(t, req)
 				_ = req.Body.Close()
 				require.Equal(t, http.StatusOK, req.StatusCode)
 
-				req, err = http.Get(fmt.Sprintf("http://%s/api/satellite/%s", addr, satellite.ID()))
+				req, err = http.Get(fmt.Sprintf("http://%s/api/sno/satellite/%s", addr, satellite.ID()))
 				require.NoError(t, err)
 				require.NotNil(t, req)
 				_ = req.Body.Close()

@@ -8,8 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
 
 // PartnerList defines a json struct for defining partners.
@@ -21,7 +22,7 @@ type PartnerList struct {
 type PartnerInfo struct {
 	Name string
 	ID   string
-	UUID *uuid.UUID
+	UUID uuid.UUID
 }
 
 // UserAgent returns canonical user agent.

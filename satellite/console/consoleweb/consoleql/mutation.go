@@ -5,9 +5,9 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
@@ -87,12 +87,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					inputID := p.Args[FieldID].(string)
-					projectID, err := uuid.Parse(inputID)
+					projectID, err := uuid.FromString(inputID)
 					if err != nil {
 						return nil, err
 					}
 
-					project, err := service.GetProject(p.Context, *projectID)
+					project, err := service.GetProject(p.Context, projectID)
 					if err != nil {
 						return nil, err
 					}
@@ -119,12 +119,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					description := p.Args[FieldDescription].(string)
 
 					inputID := p.Args[FieldID].(string)
-					projectID, err := uuid.Parse(inputID)
+					projectID, err := uuid.FromString(inputID)
 					if err != nil {
 						return nil, err
 					}
 
-					project, err := service.UpdateProject(p.Context, *projectID, description)
+					project, err := service.UpdateProject(p.Context, projectID, description)
 					if err != nil {
 						return nil, err
 					}
@@ -147,7 +147,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					pID, _ := p.Args[FieldProjectID].(string)
 					emails, _ := p.Args[FieldEmail].([]interface{})
 
-					projectID, err := uuid.Parse(pID)
+					projectID, err := uuid.FromString(pID)
 					if err != nil {
 						return nil, err
 					}
@@ -157,12 +157,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						userEmails = append(userEmails, email.(string))
 					}
 
-					project, err := service.GetProject(p.Context, *projectID)
+					project, err := service.GetProject(p.Context, projectID)
 					if err != nil {
 						return nil, err
 					}
 
-					users, err := service.AddProjectMembers(p.Context, *projectID, userEmails)
+					users, err := service.AddProjectMembers(p.Context, projectID, userEmails)
 					if err != nil {
 						return nil, err
 					}
@@ -214,7 +214,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					pID, _ := p.Args[FieldProjectID].(string)
 					emails, _ := p.Args[FieldEmail].([]interface{})
 
-					projectID, err := uuid.Parse(pID)
+					projectID, err := uuid.FromString(pID)
 					if err != nil {
 						return nil, err
 					}
@@ -224,12 +224,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						userEmails = append(userEmails, email.(string))
 					}
 
-					err = service.DeleteProjectMembers(p.Context, *projectID, userEmails)
+					err = service.DeleteProjectMembers(p.Context, projectID, userEmails)
 					if err != nil {
 						return nil, err
 					}
 
-					project, err := service.GetProject(p.Context, *projectID)
+					project, err := service.GetProject(p.Context, projectID)
 					if err != nil {
 						return nil, err
 					}
@@ -249,15 +249,15 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					projectID, _ := p.Args[FieldProjectID].(string)
+					projectIDField, _ := p.Args[FieldProjectID].(string)
 					name, _ := p.Args[FieldName].(string)
 
-					pID, err := uuid.Parse(projectID)
+					projectID, err := uuid.FromString(projectIDField)
 					if err != nil {
 						return nil, err
 					}
 
-					info, key, err := service.CreateAPIKey(p.Context, *pID, name)
+					info, key, err := service.CreateAPIKey(p.Context, projectID, name)
 					if err != nil {
 						return nil, err
 					}
@@ -282,17 +282,17 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					var keyIds []uuid.UUID
 					var keys []console.APIKeyInfo
 					for _, id := range paramKeysID {
-						keyID, err := uuid.Parse(id.(string))
+						keyID, err := uuid.FromString(id.(string))
 						if err != nil {
 							return nil, err
 						}
 
-						key, err := service.GetAPIKeyInfo(p.Context, *keyID)
+						key, err := service.GetAPIKeyInfo(p.Context, keyID)
 						if err != nil {
 							return nil, err
 						}
 
-						keyIds = append(keyIds, *keyID)
+						keyIds = append(keyIds, keyID)
 						keys = append(keys, *key)
 					}
 

@@ -26,4 +26,4 @@ done
 docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj
 # fetch the remote master branch
 git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/master:refs/remotes/origin/master
-RUN_TYPE=local $SCRIPTDIR/test-sim-versions.sh
+$SCRIPTDIR/test-sim-versions.sh

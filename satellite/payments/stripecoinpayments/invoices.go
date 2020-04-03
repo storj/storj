@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
 )
 

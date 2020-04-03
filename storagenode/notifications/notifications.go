@@ -7,9 +7,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 )
 
 // DB tells how application works with notifications database.
