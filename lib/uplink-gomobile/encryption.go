@@ -16,7 +16,9 @@ type EncryptionAccess struct {
 
 // NewEncryptionAccess constructs an empty encryption context.
 func NewEncryptionAccess() *EncryptionAccess {
-	return &EncryptionAccess{lib: libuplink.NewEncryptionAccess()}
+	lib := libuplink.NewEncryptionAccess()
+	lib.SetDefaultPathCipher(storj.EncAESGCM)
+	return &EncryptionAccess{lib: lib}
 }
 
 // NewEncryptionAccessWithRoot constructs an encryption access with a key rooted at the provided path inside of a bucket.

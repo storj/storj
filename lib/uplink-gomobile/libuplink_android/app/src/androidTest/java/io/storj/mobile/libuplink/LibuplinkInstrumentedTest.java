@@ -197,6 +197,8 @@ public class LibuplinkInstrumentedTest {
                     }
                 }
 
+                bucket.deleteObject("object/path");
+
                 bucket.close();
 
                 project.deleteBucket("test");
@@ -430,7 +432,7 @@ public class LibuplinkInstrumentedTest {
 
     @Test
     public void testScope() throws Exception {
-        String scopeString = "13GRuGrv5sY16uD86rwFtnv2b28Gmz2Bzi6rQxpD5pnieKgaY3iJyrK8gUnzqcLJfesubHqFuKHp74bfMf227jPheQyjrBadEtQcmKdGKNgnbVMTfpzJAzey6pZ2V22Kd8ehrcrP29T7gFhxqDEnsereCAAqAC7eUfx4YGRhQyr17pHLSvfssvAX";
+        String scopeString = "18HGwKQevWAA3PMfY7tQ4oNf7psjPCeysmFMbvSZFcxbZzcnyUD9o6RVXrrcepyKhTWtjPWrVWTVM2odqtRwVAC9pZmpsHxYpg9qzKhVDnjpV6mUR4nV11VG8eSL65HdGXzYy4evzgzRTJHTaFtK3BQhoEd9QyUBsD5be1qirTeGZxCsJV75KZHvZbMAzzDudb5SJmb4EcVw7Gtus84AGEjU7otuu1T3t4DJcBSQqBsRmQGH7sJ2EeWJFR7k";
 
         Scope scope = Mobile.parseScope(scopeString);
 
