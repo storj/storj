@@ -444,6 +444,10 @@ public class LibuplinkInstrumentedTest {
         assertNotNull(scope.encryptionAccess());
 
         assertEquals(scopeString, scope.serialize());
+
+        byte[] key = Mobile.deriveEncryptionKey("mypass".getBytes(), "salt".getBytes());
+
+        scope.encryptionAccess().overrideEncryptionKey("bucket", "userid", key);
     }
 
 

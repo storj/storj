@@ -4,6 +4,8 @@
 package uplink
 
 import (
+	"strings"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
@@ -90,9 +92,16 @@ func (s *EncryptionAccess) Restrict(apiKey APIKey, restrictions ...EncryptionRes
 
 	access := NewEncryptionAccess()
 	access.SetDefaultPathCipher(s.store.GetDefaultPathCipher())
+	if len(restrictions) == 0 {
+		access.Store().SetDefaultKey(s.store.GetDefaultKey())
+	}
 
 	for _, res := range restrictions {
-		unencPath := paths.NewUnencrypted(res.PathPrefix)
+		// If the share prefix ends in a `/` we need to remove this final slash.
+		// Otherwise, if we the shared prefix is `/bob/`, the encrypted shared
+		// prefix results in `enc("")/enc("bob")/enc("")`. This is an incorrect
+		// encrypted prefix, what we really want is `enc("")/enc("bob")`.
+		unencPath := paths.NewUnencrypted(strings.TrimSuffix(res.PathPrefix, "/"))
 
 		encPath, err := encryption.EncryptPathWithStoreCipher(res.Bucket, unencPath, s.store)
 		if err != nil {
