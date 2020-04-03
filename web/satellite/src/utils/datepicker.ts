@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 /**
- * Options is a set of options used for VDatePicker.vue
+ * Options is a set of options used for VDatePicker.vue.
  */
 export class Options {
     public constructor(
@@ -24,7 +24,7 @@ export class Options {
 }
 
 /**
- * DayItem is used to store information about day cell in calendar
+ * DayItem is used to store information about day cell in calendar.
  */
 export class DayItem {
     public constructor(
@@ -47,7 +47,7 @@ export class DayItem {
 }
 
 /**
- * DayAction is enum represents month change direction on day click
+ * DayAction is enum represents month change direction on day click.
  */
 export enum DayAction {
     Next,
@@ -56,7 +56,7 @@ export enum DayAction {
 }
 
 /**
- * DateStamp is cozy representation of Date for view
+ * DateStamp is cozy representation of Date for view.
  */
 export class DateStamp {
     public constructor(
@@ -73,7 +73,7 @@ export class DateStamp {
 }
 
 /**
- * DisplayedType is enum represents view type to show in calendar to check
+ * DisplayedType is enum represents view type to show in calendar to check.
  */
 export enum DisplayedType {
     Day,
@@ -82,7 +82,7 @@ export enum DisplayedType {
 }
 
 /**
- * DateGenerator is utility class used for generating DayItem and year lists for calendar
+ * DateGenerator is utility class used for generating DayItem and year lists for calendar.
  */
 export class DateGenerator {
     private current: DateStamp;
@@ -199,17 +199,17 @@ export class DateGenerator {
 }
 
 /**
- * DateFormat is utils class for date formatting to string
+ * DateFormat is utils class for date formatting to string.
  */
 export class DateFormat {
 
     /**
-     * getUSDate transforms date into US date format string
+     * getUSDate transforms date into US date format string.
      * @param date - Date to format
      * @param separator - symbol for joining date string
      * @returns formatted date string
      */
-    public static getUSDate(date: Date, separator: string): string {
+    public static getUTCDate(date: Date, separator: string): string {
         const month = date.getUTCMonth() + 1;
         const day = date.getUTCDate();
         const year = date.getUTCFullYear();

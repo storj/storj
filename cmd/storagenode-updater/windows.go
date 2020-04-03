@@ -19,7 +19,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows/svc"
 
-	"storj.io/storj/pkg/process"
+	"storj.io/private/process"
 )
 
 func init() {

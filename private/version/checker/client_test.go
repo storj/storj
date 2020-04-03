@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/version"
+	"storj.io/private/version"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/versioncontrol"
 )

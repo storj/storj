@@ -14,8 +14,8 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
-	"storj.io/uplink/metainfo"
-	"storj.io/uplink/metainfo/kvmetainfo"
+	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/metainfo/kvmetainfo"
 )
 
 const defaultUplinkDialTimeout = 20 * time.Second

@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -17,16 +16,17 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/bloomfilter"
+	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/rpc/rpctimeout"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/private/context2"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -39,25 +39,26 @@ var (
 	mon = monkit.Package()
 )
 
-var _ pb.PiecestoreServer = (*Endpoint)(nil)
+var _ pbgrpc.PiecestoreServer = (*Endpoint)(nil)
 
 // OldConfig contains everything necessary for a server
 type OldConfig struct {
 	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
 	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls (unused)" devDefault:"" releaseDefault:""`
 	AllocatedDiskSpace     memory.Size    `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
-	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes" default:"2TB"`
+	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes (deprecated)" default:"0B"`
 	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
 }
 
 // Config defines parameters for piecestore endpoint.
 type Config struct {
-	ExpirationGracePeriod  time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
-	MaxConcurrentRequests  int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
-	OrderLimitGracePeriod  time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"24h0m0s"`
-	CacheSyncInterval      time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
-	StreamOperationTimeout time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
-	RetainTimeBuffer       time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
+	ExpirationGracePeriod   time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
+	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
+	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"24h0m0s"`
+	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
+	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
+	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
+	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"100MB" hidden:"true"`
 
 	Trust trust.Config
 
@@ -204,51 +205,8 @@ func (endpoint *Endpoint) DeletePieces(
 	return &pb.DeletePiecesResponse{}, nil
 }
 
-// DeletePiece handles deleting a piece on piece store requested by satellite.
-//
-// DEPRECATED in favor of DeletePieces.
-func (endpoint *Endpoint) DeletePiece(
-	ctx context.Context, req *pb.PieceDeletePieceRequest,
-) (_ *pb.PieceDeletePieceResponse, err error) {
-	defer mon.Task()(&ctx, req.PieceId.String())(&err)
-
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
-	}
-
-	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "delete piece called with untrusted ID")
-	}
-
-	err = endpoint.store.Delete(ctx, peer.ID, req.PieceId)
-	if err != nil {
-		// TODO: https://storjlabs.atlassian.net/browse/V3-3222
-		// Once this method returns error classes change the following conditional
-		if strings.Contains(err.Error(), "file does not exist") {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, "piece not found")
-		}
-
-		endpoint.log.Error("delete failed",
-			zap.Error(err),
-			zap.Stringer("Satellite ID", peer.ID),
-			zap.Stringer("Piece ID", req.PieceId),
-		)
-
-		return nil, rpcstatus.Error(rpcstatus.Internal, "delete failed")
-	}
-
-	endpoint.log.Info("deleted",
-		zap.Stringer("Satellite ID", peer.ID),
-		zap.Stringer("Piece ID", req.PieceId),
-	)
-
-	return &pb.PieceDeletePieceResponse{}, nil
-}
-
 // Upload handles uploading a piece on piece store.
-func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
+func (endpoint *Endpoint) Upload(stream pbgrpc.Piecestore_UploadServer) (err error) {
 	return endpoint.doUpload(stream, endpoint.grpcReqLimit)
 }
 
@@ -311,15 +269,17 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 		return err
 	}
 
-	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
-	if err != nil {
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
-	}
-
 	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
+
+	// if availableSpace has fallen below ReportCapacityThreshold, report capacity to satellites
+	defer func() {
+		if availableSpace < endpoint.config.ReportCapacityThreshold.Int64() {
+			endpoint.monitor.NotifyLowDisk()
+		}
+	}()
 
 	var pieceWriter *pieces.Writer
 	defer func() {
@@ -360,7 +320,6 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 		zap.Stringer("Piece ID", limit.PieceId),
 		zap.Stringer("Satellite ID", limit.SatelliteId),
 		zap.Stringer("Action", limit.Action),
-		zap.Int64("Available Bandwidth", availableBandwidth),
 		zap.Int64("Available Space", availableSpace))
 
 	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
@@ -430,15 +389,10 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 					largestOrder.Amount, pieceWriter.Size()+int64(len(message.Chunk.Data)))
 			}
 
-			availableBandwidth -= chunkSize
-			if availableBandwidth < 0 {
-				return rpcstatus.Error(rpcstatus.Internal, "out of bandwidth")
-			}
 			availableSpace -= chunkSize
 			if availableSpace < 0 {
 				return rpcstatus.Error(rpcstatus.Internal, "out of space")
 			}
-
 			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
 				return rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
@@ -503,7 +457,7 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 }
 
 // Download handles Downloading a piece on piece store.
-func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
+func (endpoint *Endpoint) Download(stream pbgrpc.Piecestore_DownloadServer) (err error) {
 	return endpoint.doDownload(stream)
 }
 
@@ -642,12 +596,6 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			chunk.Offset+chunk.ChunkSize, pieceReader.Size())
 	}
 
-	availableBandwidth, err := endpoint.monitor.AvailableBandwidth(ctx)
-	if err != nil {
-		endpoint.log.Error("error getting available bandwidth", zap.Error(err))
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
-	}
-
 	throttle := sync2.NewThrottle()
 	// TODO: see whether this can be implemented without a goroutine
 
@@ -738,11 +686,6 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			}
 
 			chunkSize := message.Order.Amount - largestOrder.Amount
-			availableBandwidth -= chunkSize
-			if availableBandwidth < 0 {
-				return rpcstatus.Error(rpcstatus.ResourceExhausted, "out of bandwidth")
-			}
-
 			if err := throttle.Produce(chunkSize); err != nil {
 				// shouldn't happen since only receiving side is calling Fail
 				return rpcstatus.Wrap(rpcstatus.Internal, err)

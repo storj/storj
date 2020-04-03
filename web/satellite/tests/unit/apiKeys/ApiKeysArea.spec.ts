@@ -14,7 +14,7 @@ import { ApiKey, ApiKeysPage } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { SegmentioPlugin } from '@/utils/plugins/segment';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 import { ApiKeysMock } from '../mock/api/apiKeys';
 import { ProjectsApiMock } from '../mock/api/projects';
@@ -218,12 +218,12 @@ describe('ApiKeysArea', () => {
     });
 
     it('renders empty screen with add key prompt', () => {
-        const wrapper = shallowMount(ApiKeysArea, {
+        store.commit(CLEAR);
+
+        const wrapper = mount(ApiKeysArea, {
             store,
             localVue,
         });
-
-        store.commit(CLEAR);
 
         expect(wrapper).toMatchSnapshot();
     });

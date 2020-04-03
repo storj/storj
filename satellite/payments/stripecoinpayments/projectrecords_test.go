@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -33,20 +33,21 @@ func TestProjectRecords(t *testing.T) {
 			err = projectRecordsDB.Create(ctx,
 				[]stripecoinpayments.CreateProjectRecord{
 					{
-						ProjectID: *prjID,
+						ProjectID: prjID,
 						Storage:   1,
 						Egress:    2,
 						Objects:   3,
 					},
 				},
 				[]stripecoinpayments.CouponUsage{},
+				[]stripecoinpayments.CreditsSpending{},
 				start, end,
 			)
 			require.NoError(t, err)
 		})
 
 		t.Run("check", func(t *testing.T) {
-			err = projectRecordsDB.Check(ctx, *prjID, start, end)
+			err = projectRecordsDB.Check(ctx, prjID, start, end)
 			require.Error(t, err)
 			assert.Equal(t, stripecoinpayments.ErrProjectRecordExists, err)
 		})
@@ -68,10 +69,10 @@ func TestProjectRecords(t *testing.T) {
 
 func TestProjectRecordsList(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		utc := time.Now().UTC()
+		now := time.Now()
 
-		start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-		end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		end := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, now.Location())
 
 		projectRecordsDB := db.StripeCoinPayments().ProjectRecords()
 
@@ -85,7 +86,7 @@ func TestProjectRecordsList(t *testing.T) {
 
 			createProjectRecords = append(createProjectRecords,
 				stripecoinpayments.CreateProjectRecord{
-					ProjectID: *projID,
+					ProjectID: projID,
 					Storage:   float64(i) + 1,
 					Egress:    int64(i) + 2,
 					Objects:   float64(i) + 3,
@@ -93,7 +94,7 @@ func TestProjectRecordsList(t *testing.T) {
 			)
 		}
 
-		err := projectRecordsDB.Create(ctx, createProjectRecords, []stripecoinpayments.CouponUsage{}, start, end)
+		err := projectRecordsDB.Create(ctx, createProjectRecords, []stripecoinpayments.CouponUsage{}, []stripecoinpayments.CreditsSpending{}, start, end)
 		require.NoError(t, err)
 
 		page, err := projectRecordsDB.ListUnapplied(ctx, 0, limit, time.Now())
@@ -124,8 +125,8 @@ func TestProjectRecordsList(t *testing.T) {
 				assert.Equal(t, createRecord.Storage, record.Storage)
 				assert.Equal(t, createRecord.Egress, record.Egress)
 				assert.Equal(t, createRecord.Objects, record.Objects)
-				assert.Equal(t, start, record.PeriodStart.UTC())
-				assert.Equal(t, end, record.PeriodEnd.UTC())
+				assert.True(t, start.Equal(record.PeriodStart))
+				assert.True(t, end.Equal(record.PeriodEnd))
 			}
 		}
 	})

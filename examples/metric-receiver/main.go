@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/telemetry"
+	"storj.io/common/telemetry"
+	"storj.io/private/process"
 )
 
 var (

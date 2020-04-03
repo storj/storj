@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
@@ -99,7 +98,7 @@ func TestUsers(t *testing.T) {
 		require.NoError(t, err)
 		bucket, err = db.Buckets().GetBucket(ctx, []byte("testbucket"), proj.ID)
 		require.NoError(t, err)
-		flag := uuid.Equal(bucket.PartnerID, proj.ID)
-		require.True(t, flag)
+
+		require.Equal(t, proj.ID, bucket.PartnerID)
 	})
 }

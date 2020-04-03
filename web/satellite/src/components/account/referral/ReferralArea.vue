@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="referral-container" :class="{collapsed: isBannerShown}">
+    <div class="referral-container" :class="{ collapsed: isBannerShown }">
         <div class="referral-container__title-container">
             <p class="referral-container__title-container__text">Refer A Friend And Help Build The</p>
             <p class="referral-container__title-container__text">Decentralized Future</p>

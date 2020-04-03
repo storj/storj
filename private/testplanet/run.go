@@ -6,12 +6,9 @@ package testplanet
 import (
 	"testing"
 
-	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -20,7 +17,10 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
 		t.Run(satelliteDB.MasterDB.Name, func(t *testing.T) {
-			t.Parallel()
+			parallel := !config.NonParallel
+			if parallel {
+				t.Parallel()
+			}
 
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
@@ -28,19 +28,12 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			if satelliteDB.MasterDB.URL == "" {
 				t.Skipf("Database %s connection string not provided. %s", satelliteDB.MasterDB.Name, satelliteDB.MasterDB.Message)
 			}
-
 			planetConfig := config
-			planetConfig.Reconfigure.NewSatelliteDB = func(log *zap.Logger, index int) (satellite.DB, error) {
-				return satellitedbtest.CreateMasterDB(ctx, t, "S", index, satelliteDB.MasterDB)
+			if planetConfig.Name == "" {
+				planetConfig.Name = t.Name()
 			}
 
-			if satelliteDB.PointerDB.URL != "" {
-				planetConfig.Reconfigure.NewSatellitePointerDB = func(log *zap.Logger, index int) (metainfo.PointerDB, error) {
-					return satellitedbtest.CreatePointerDB(ctx, t, "P", index, satelliteDB.PointerDB)
-				}
-			}
-
-			planet, err := NewCustom(zaptest.NewLogger(t), planetConfig)
+			planet, err := NewCustom(zaptest.NewLogger(t), config, satelliteDB)
 			if err != nil {
 				t.Fatalf("%+v", err)
 			}

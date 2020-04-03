@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -18,6 +17,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/private/testplanet"
 )
@@ -159,6 +159,8 @@ func TestBucket_UserAgent(t *testing.T) {
 			config := uplink.Config{}
 			config.Volatile.Log = zaptest.NewLogger(t)
 			config.Volatile.TLS.SkipPeerCAWhitelist = true
+			// we include the uplink version, which should be ignored by partner id handling
+			config.Volatile.UserAgent = "uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"
 
 			up, err := uplink.NewUplink(ctx, &config)
 			require.NoError(t, err)
@@ -181,7 +183,8 @@ func TestBucket_UserAgent(t *testing.T) {
 			config := uplink.Config{}
 			config.Volatile.Log = zaptest.NewLogger(t)
 			config.Volatile.TLS.SkipPeerCAWhitelist = true
-			config.Volatile.UserAgent = "Zenko"
+			// we also include the uplink version, which should be ignored by partner id handling
+			config.Volatile.UserAgent = "Zenko uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"
 
 			up, err := uplink.NewUplink(ctx, &config)
 			require.NoError(t, err)
@@ -197,9 +200,9 @@ func TestBucket_UserAgent(t *testing.T) {
 
 			bucketInfo, _, err := project.GetBucketInfo(ctx, bucketName)
 			require.NoError(t, err)
-			partnerID, err := uuid.Parse("8cd605fa-ad00-45b6-823e-550eddc611d6")
+			partnerID, err := uuid.FromString("8cd605fa-ad00-45b6-823e-550eddc611d6")
 			require.NoError(t, err)
-			assert.Equal(t, *partnerID, bucketInfo.PartnerID)
+			assert.Equal(t, partnerID, bucketInfo.PartnerID)
 		})
 
 		t.Run("open with different user agent", func(t *testing.T) {
@@ -222,9 +225,9 @@ func TestBucket_UserAgent(t *testing.T) {
 
 			bucketInfo, _, err := project.GetBucketInfo(ctx, bucketName)
 			require.NoError(t, err)
-			partnerID, err := uuid.Parse("8cd605fa-ad00-45b6-823e-550eddc611d6")
+			partnerID, err := uuid.FromString("8cd605fa-ad00-45b6-823e-550eddc611d6")
 			require.NoError(t, err)
-			assert.Equal(t, *partnerID, bucketInfo.PartnerID)
+			assert.Equal(t, partnerID, bucketInfo.PartnerID)
 		})
 	})
 }

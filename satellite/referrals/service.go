@@ -6,7 +6,6 @@ package referrals
 import (
 	"context"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -16,7 +15,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/storj/private/dbutil"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
 
@@ -72,7 +71,7 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (token
 		err = conn.Close()
 	}()
 
-	client := pb.NewDRPCReferralManagerClient(conn.Raw())
+	client := pb.NewDRPCReferralManagerClient(conn)
 	response, err := client.GetTokens(ctx, &pb.GetTokensRequest{
 		OwnerUserId:      userID[:],
 		OwnerSatelliteId: service.signer.ID(),
@@ -88,7 +87,7 @@ func (service *Service) GetTokens(ctx context.Context, userID *uuid.UUID) (token
 
 	tokens = make([]uuid.UUID, len(tokensInBytes))
 	for i := range tokensInBytes {
-		token, err := dbutil.BytesToUUID(tokensInBytes[i])
+		token, err := uuid.FromBytes(tokensInBytes[i])
 		if err != nil {
 			service.log.Debug("failed to convert bytes to UUID", zap.Error(err))
 			continue
@@ -120,7 +119,7 @@ func (service *Service) CreateUser(ctx context.Context, user CreateUser) (_ *con
 		return nil, errs.Wrap(err)
 	}
 
-	err = service.redeemToken(ctx, userID, user.ReferralToken)
+	err = service.redeemToken(ctx, &userID, user.ReferralToken)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -131,7 +130,7 @@ func (service *Service) CreateUser(ctx context.Context, user CreateUser) (_ *con
 	}
 
 	newUser := &console.User{
-		ID:           *userID,
+		ID:           userID,
 		Email:        user.Email,
 		FullName:     user.FullName,
 		ShortName:    user.ShortName,
@@ -161,12 +160,12 @@ func (service *Service) redeemToken(ctx context.Context, userID *uuid.UUID, toke
 		return errs.New("invalid argument")
 	}
 
-	referralToken, err := uuid.Parse(token)
+	referralToken, err := uuid.FromString(token)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 
-	client := pb.NewDRPCReferralManagerClient(conn.Raw())
+	client := pb.NewDRPCReferralManagerClient(conn)
 	_, err = client.RedeemToken(ctx, &pb.RedeemTokenRequest{
 		Token:             referralToken[:],
 		RedeemUserId:      userID[:],

@@ -5,6 +5,7 @@ package console_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -163,4 +164,89 @@ func TestProjectsRepository(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestProjectsList(t *testing.T) {
+	const (
+		limit  = 5
+		length = limit * 4
+	)
+
+	rateLimit := 100
+
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // repositories
+		// create owner
+		owner, err := db.Console().Users().Insert(ctx,
+			&console.User{
+				ID:           testrand.UUID(),
+				FullName:     "Billy H",
+				Email:        "billyh@example.com",
+				PasswordHash: []byte("example_password"),
+				Status:       1,
+			},
+		)
+		require.NoError(t, err)
+
+		projectsDB := db.Console().Projects()
+
+		//create projects
+		var projects []console.Project
+		for i := 0; i < length; i++ {
+			proj, err := projectsDB.Insert(ctx,
+				&console.Project{
+					Name:        "example",
+					Description: "example",
+					OwnerID:     owner.ID,
+					RateLimit:   &rateLimit,
+				},
+			)
+			require.NoError(t, err)
+
+			projects = append(projects, *proj)
+		}
+
+		now := time.Now()
+
+		projsPage, err := projectsDB.List(ctx, 0, limit, now)
+		require.NoError(t, err)
+
+		projectsList := projsPage.Projects
+
+		for projsPage.Next {
+			projsPage, err = projectsDB.List(ctx, projsPage.NextOffset, limit, now)
+			require.NoError(t, err)
+
+			projectsList = append(projectsList, projsPage.Projects...)
+		}
+
+		require.False(t, projsPage.Next)
+		require.Equal(t, int64(0), projsPage.NextOffset)
+		require.Equal(t, length, len(projectsList))
+		compareProjectsSlices(t, projects, projectsList)
+	})
+}
+
+func compareProjects(t *testing.T, expected, actual console.Project) {
+	require.Equal(t, expected.ID, actual.ID)
+	require.Equal(t, expected.Name, actual.Name)
+	require.Equal(t, expected.OwnerID, actual.OwnerID)
+	require.Equal(t, expected.Description, actual.Description)
+	require.Equal(t, expected.PartnerID, actual.PartnerID)
+	require.Equal(t, *expected.RateLimit, *actual.RateLimit)
+}
+
+func compareProjectsSlices(t *testing.T, expected, actual []console.Project) {
+expected:
+	for _, expProject := range expected {
+		for _, actProject := range actual {
+			if expProject.ID != actProject.ID {
+				continue
+			}
+
+			compareProjects(t, expProject, actProject)
+			continue expected
+		}
+
+		t.Fatalf("actual projects slice doesn't contain project %v", expProject)
+	}
 }

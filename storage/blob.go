@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// ErrInvalidBlobRef is returned when an blob reference is invalid
+// ErrInvalidBlobRef is returned when an blob reference is invalid.
 var ErrInvalidBlobRef = errs.Class("invalid blob ref")
 
 // FormatVersion represents differing storage format version values. Different Blobs implementors
@@ -31,7 +31,7 @@ type BlobRef struct {
 	Key       []byte
 }
 
-// IsValid returns whether both namespace and key are specified
+// IsValid returns whether both namespace and key are specified.
 func (ref *BlobRef) IsValid() bool {
 	return len(ref.Namespace) > 0 && len(ref.Key) > 0
 }
@@ -42,7 +42,7 @@ type BlobReader interface {
 	io.ReaderAt
 	io.Seeker
 	io.Closer
-	// Size returns the size of the blob
+	// Size returns the size of the blob.
 	Size() (int64, error)
 	// StorageFormatVersion returns the storage format version associated with the blob.
 	StorageFormatVersion() FormatVersion
@@ -67,37 +67,37 @@ type BlobWriter interface {
 //
 // architecture: Database
 type Blobs interface {
-	// Create creates a new blob that can be written
-	// optionally takes a size argument for performance improvements, -1 is unknown size
+	// Create creates a new blob that can be written.
+	// Optionally takes a size argument for performance improvements, -1 is unknown size.
 	Create(ctx context.Context, ref BlobRef, size int64) (BlobWriter, error)
-	// Open opens a reader with the specified namespace and key
+	// Open opens a reader with the specified namespace and key.
 	Open(ctx context.Context, ref BlobRef) (BlobReader, error)
 	// OpenWithStorageFormat opens a reader for the already-located blob, avoiding the potential
 	// need to check multiple storage formats to find the blob.
 	OpenWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobReader, error)
-	// Delete deletes the blob with the namespace and key
+	// Delete deletes the blob with the namespace and key.
 	Delete(ctx context.Context, ref BlobRef) error
-	// DeleteWithStorageFormat deletes a blob of a specific storage format
+	// DeleteWithStorageFormat deletes a blob of a specific storage format.
 	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) error
-	// Trash marks a file for pending deletion
+	// Trash marks a file for pending deletion.
 	Trash(ctx context.Context, ref BlobRef) error
-	// RestoreTrash restores all files in the trash for a given namespace and returns the keys restored
+	// RestoreTrash restores all files in the trash for a given namespace and returns the keys restored.
 	RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error)
-	// EmptyTrash removes all files in trash that were moved to trash prior to trashedBefore and returns the total bytes emptied and keys deleted
+	// EmptyTrash removes all files in trash that were moved to trash prior to trashedBefore and returns the total bytes emptied and keys deleted.
 	EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error)
-	// Stat looks up disk metadata on the blob file
+	// Stat looks up disk metadata on the blob file.
 	Stat(ctx context.Context, ref BlobRef) (BlobInfo, error)
 	// StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
 	// version. This avoids the potential need to check multiple storage formats for the blob
 	// when the format is already known.
 	StatWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
-	// FreeSpace return how much free space is available to the blobstore
+	// FreeSpace return how much free space is available to the blobstore.
 	FreeSpace() (int64, error)
-	// SpaceUsedForTrash returns the total space used by the trash
+	// SpaceUsedForTrash returns the total space used by the trash.
 	SpaceUsedForTrash(ctx context.Context) (int64, error)
-	// SpaceUsedForBlobs adds up how much is used in all namespaces
+	// SpaceUsedForBlobs adds up how much is used in all namespaces.
 	SpaceUsedForBlobs(ctx context.Context) (int64, error)
-	// SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace
+	// SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace.
 	SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error)
 	// ListNamespaces finds all namespaces in which keys might currently be stored.
 	ListNamespaces(ctx context.Context) ([][]byte, error)
@@ -111,14 +111,14 @@ type Blobs interface {
 }
 
 // BlobInfo allows lazy inspection of a blob and its underlying file during iteration with
-// WalkNamespace-type methods
+// WalkNamespace-type methods.
 type BlobInfo interface {
-	// BlobRef returns the relevant BlobRef for the blob
+	// BlobRef returns the relevant BlobRef for the blob.
 	BlobRef() BlobRef
-	// StorageFormatVersion indicates the storage format version used to store the piece
+	// StorageFormatVersion indicates the storage format version used to store the piece.
 	StorageFormatVersion() FormatVersion
-	// FullPath gives the full path to the on-disk blob file
+	// FullPath gives the full path to the on-disk blob file.
 	FullPath(ctx context.Context) (string, error)
-	// Stat does a stat on the on-disk blob file
+	// Stat does a stat on the on-disk blob file.
 	Stat(ctx context.Context) (os.FileInfo, error)
 }

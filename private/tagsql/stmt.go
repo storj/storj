@@ -7,7 +7,7 @@ import (
 	"context"
 	"database/sql"
 
-	"storj.io/storj/pkg/traces"
+	"storj.io/private/traces"
 )
 
 // Stmt is an interface for *sql.Stmt.

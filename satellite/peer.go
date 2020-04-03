@@ -9,7 +9,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/common/identity"
-	"storj.io/storj/pkg/debug"
+	"storj.io/private/debug"
 	"storj.io/storj/pkg/server"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
@@ -27,6 +28,7 @@ import (
 	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
@@ -89,6 +91,10 @@ type DB interface {
 	StripeCoinPayments() stripecoinpayments.DB
 	// DowntimeTracking returns database for downtime tracking
 	DowntimeTracking() downtime.DB
+	// Heldamount returns database for heldamount.
+	HeldAmount() heldamount.DB
+	// Compoensation tracks storage node compensation
+	Compensation() compensation.DB
 }
 
 // Config is the global config satellite
@@ -135,4 +141,6 @@ type Config struct {
 	Metrics metrics.Config
 
 	Downtime downtime.Config
+
+	Compensation compensation.Config
 }

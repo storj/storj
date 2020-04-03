@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/satellite"
 )
 
-func TestStarted(t *testing.T) {
+func TestBasic(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -29,11 +29,37 @@ func TestStarted(t *testing.T) {
 		sat := planet.Satellites[0]
 		address := sat.Admin.Admin.Listener.Addr()
 
-		response, err := http.Get("http://" + address.String())
-		require.NoError(t, err)
+		t.Run("NoAccess", func(t *testing.T) {
+			response, err := http.Get("http://" + address.String())
+			require.NoError(t, err)
 
-		// At the moment there is no main page, so it returns 404.
-		require.Equal(t, http.StatusNotFound, response.StatusCode)
-		require.NoError(t, response.Body.Close())
+			require.Equal(t, http.StatusForbidden, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+		})
+
+		t.Run("WrongAccess", func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, "http://"+address.String(), nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "wrong-key")
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+
+			require.Equal(t, http.StatusForbidden, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+		})
+
+		t.Run("WithAccess", func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, "http://"+address.String(), nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "very-secret-token")
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+
+			// currently no main page so 404
+			require.Equal(t, http.StatusNotFound, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+		})
 	})
 }

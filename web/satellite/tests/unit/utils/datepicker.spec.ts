@@ -86,8 +86,8 @@ describe('datepicker', () => {
         const expectedResult1 = '11/7/2019';
         const expectedResult2 = '2-1-2019';
 
-        const actualResult1 = DateFormat.getUSDate(testDate1, '/');
-        const actualResult2 = DateFormat.getUSDate(testDate2, '-');
+        const actualResult1 = DateFormat.getUTCDate(testDate1, '/');
+        const actualResult2 = DateFormat.getUTCDate(testDate2, '-');
 
         expect(actualResult1).toBe(expectedResult1);
         expect(actualResult2).toBe(expectedResult2);

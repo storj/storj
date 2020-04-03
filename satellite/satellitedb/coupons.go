@@ -10,11 +10,10 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
-	"storj.io/storj/private/dbutil"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -178,17 +177,17 @@ func (coupons *coupons) ListByProjectID(ctx context.Context, projectID uuid.UUID
 
 // fromDBXCoupon converts *dbx.Coupon to *payments.Coupon.
 func fromDBXCoupon(dbxCoupon *dbx.Coupon) (coupon payments.Coupon, err error) {
-	coupon.UserID, err = dbutil.BytesToUUID(dbxCoupon.UserId)
+	coupon.UserID, err = uuid.FromBytes(dbxCoupon.UserId)
 	if err != nil {
 		return payments.Coupon{}, err
 	}
 
-	coupon.ProjectID, err = dbutil.BytesToUUID(dbxCoupon.ProjectId)
+	coupon.ProjectID, err = uuid.FromBytes(dbxCoupon.ProjectId)
 	if err != nil {
 		return payments.Coupon{}, err
 	}
 
-	coupon.ID, err = dbutil.BytesToUUID(dbxCoupon.Id)
+	coupon.ID, err = uuid.FromBytes(dbxCoupon.Id)
 	if err != nil {
 		return payments.Coupon{}, err
 	}
@@ -352,7 +351,7 @@ func couponUsageFromDbxSlice(couponUsageDbx *dbx.CouponUsage) (usage stripecoinp
 	usage.Period = couponUsageDbx.Period
 	usage.Amount = couponUsageDbx.Amount
 
-	usage.CouponID, err = dbutil.BytesToUUID(couponUsageDbx.CouponId)
+	usage.CouponID, err = uuid.FromBytes(couponUsageDbx.CouponId)
 	if err != nil {
 		return stripecoinpayments.CouponUsage{}, err
 	}
@@ -385,12 +384,15 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []
 				return err
 			}
 
-			_, err = coupons.db.Update_Project_By_Id(ctx,
-				dbx.Project_Id(id.ProjectID[:]),
-				dbx.Project_Update_Fields{
-					UsageLimit: dbx.Project_UsageLimit(projectLimit.Int64()),
-				},
-			)
+			// if projectLimit specified, set it, else omit change the existing value
+			if projectLimit.Int64() > 0 {
+				_, err = coupons.db.Update_Project_By_Id(ctx,
+					dbx.Project_Id(id.ProjectID[:]),
+					dbx.Project_Update_Fields{
+						UsageLimit: dbx.Project_UsageLimit(projectLimit.Int64()),
+					},
+				)
+			}
 			if err != nil {
 				return err
 			}
@@ -439,7 +441,7 @@ func (coupons *coupons) activeUserWithProjectAndWithoutCoupon(ctx context.Contex
 
 	for rows.Next() {
 		var id userAndProject
-		err = rows.Scan(&uuidScan{&id.UserID}, &uuidScan{&id.ProjectID})
+		err = rows.Scan(&id.UserID, &id.ProjectID)
 		if err != nil {
 			return nil, err
 		}

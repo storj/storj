@@ -60,7 +60,6 @@ import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
@@ -85,6 +84,9 @@ export default class DeleteProjectPopup extends Vue {
         this.nameError = '';
     }
 
+    /**
+     * If entered project name matches tries to delete project and select another.
+     */
     public async onDeleteProjectClick(): Promise<void> {
         if (this.isLoading) {
             return;
@@ -110,17 +112,26 @@ export default class DeleteProjectPopup extends Vue {
 
         this.isLoading = false;
 
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
+        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
     }
 
+    /**
+     * Closes popup.
+     */
     public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
     }
 
+    /**
+     * Indicates if delete button is disabled when project name is not entered or incorrect.
+     */
     public get isDeleteButtonDisabled(): boolean {
         return !this.projectName || !!this.nameError;
     }
 
+    /**
+     * Checks is entered project name matches selected.
+     */
     private validateProjectName(): boolean {
         if (this.projectName === this.$store.getters.selectedProject.name) {
             return true;
@@ -137,7 +148,6 @@ export default class DeleteProjectPopup extends Vue {
             await this.$store.dispatch(PM_ACTIONS.CLEAR);
             await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
             await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
-            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.CLEAR);
 
             return;
         }
@@ -147,7 +157,6 @@ export default class DeleteProjectPopup extends Vue {
         await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
         await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
-        await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
     }
 }
 </script>

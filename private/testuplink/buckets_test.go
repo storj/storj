@@ -19,11 +19,11 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
-	"storj.io/uplink/ecclient"
-	"storj.io/uplink/eestream"
-	"storj.io/uplink/metainfo/kvmetainfo"
-	"storj.io/uplink/storage/segments"
-	"storj.io/uplink/storage/streams"
+	"storj.io/uplink/private/ecclient"
+	"storj.io/uplink/private/eestream"
+	"storj.io/uplink/private/metainfo/kvmetainfo"
+	"storj.io/uplink/private/storage/segments"
+	"storj.io/uplink/private/storage/streams"
 )
 
 const (
@@ -76,8 +76,11 @@ func TestBucketsBasic(t *testing.T) {
 		}
 
 		// Delete the bucket
-		err = db.DeleteBucket(ctx, TestBucket)
-		assert.NoError(t, err)
+		bucket, err = db.DeleteBucket(ctx, TestBucket)
+		if assert.NoError(t, err) {
+			assert.Equal(t, TestBucket, bucket.Name)
+			assert.Equal(t, storj.EncAESGCM, bucket.PathCipher)
+		}
 
 		// Check that the bucket list is empty
 		bucketList, err = db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
@@ -116,8 +119,11 @@ func TestBucketsReadWrite(t *testing.T) {
 		}
 
 		// Delete the bucket
-		err = db.DeleteBucket(ctx, TestBucket)
-		assert.NoError(t, err)
+		bucket, err = db.DeleteBucket(ctx, TestBucket)
+		if assert.NoError(t, err) {
+			assert.Equal(t, TestBucket, bucket.Name)
+			assert.Equal(t, storj.EncAESGCM, bucket.PathCipher)
+		}
 
 		// Check that the bucket list is empty
 		bucketList, err = db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
@@ -140,7 +146,7 @@ func TestErrNoBucket(t *testing.T) {
 		_, err = db.GetBucket(ctx, "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
-		err = db.DeleteBucket(ctx, "")
+		_, err = db.DeleteBucket(ctx, "")
 		assert.True(t, storj.ErrNoBucket.Has(err))
 	})
 }
@@ -162,8 +168,10 @@ func TestBucketCreateCipher(t *testing.T) {
 				assert.Equal(t, cipher, bucket.PathCipher)
 			}
 
-			err = db.DeleteBucket(ctx, "test")
-			assert.NoError(t, err)
+			bucket, err = db.DeleteBucket(ctx, "test")
+			if assert.NoError(t, err) {
+				assert.Equal(t, cipher, bucket.PathCipher)
+			}
 		})
 	})
 }

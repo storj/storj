@@ -3,21 +3,22 @@
 
 <template>
     <div class="chart">
-        <p class="egress-chart__data-dimension">{{chartDataDimension}}</p>
+        <p class="egress-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
             id="egress-chart"
             :chart-data="chartData"
-            :width="400"
-            :height="240"
+            :width="chartWidth"
+            :height="chartHeight"
             :tooltip-constructor="egressTooltip"
+            :key="chartKey"
         />
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component } from 'vue-property-decorator';
 
-import VChart from '@/app/components/VChart.vue';
+import BaseChart from '@/app/components/BaseChart.vue';
 
 import { ChartData } from '@/app/types/chartData';
 import { Tooltip, TooltipParams } from '@/app/types/tooltip';
@@ -42,12 +43,8 @@ class EgressTooltip {
     }
 }
 
-@Component ({
-    components: {
-        VChart,
-    },
-})
-export default class EgressChart extends Vue {
+@Component
+export default class EgressChart extends BaseChart {
     private get allBandwidth(): EgressUsed[] {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.node.egressChartData);
     }
@@ -114,16 +111,13 @@ export default class EgressChart extends Vue {
 </script>
 
 <style lang="scss">
-    p {
-        margin: 0;
-    }
-
     .egress-chart {
+        z-index: 102;
 
         &__data-dimension {
             font-size: 13px;
             color: #586c86;
-            margin: 0 0 5px 31px;
+            margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }
     }

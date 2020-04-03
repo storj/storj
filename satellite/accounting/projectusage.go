@@ -7,23 +7,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 )
 
 var mon = monkit.Package()
-
-const (
-	// AverageDaysInMonth is how many days in a month
-	AverageDaysInMonth = 30
-	// ExpansionFactor is the expansion for redundancy, based on the default
-	// redundancy scheme for the uplink.
-	ExpansionFactor = 3
-)
 
 var (
 	// ErrProjectUsage general error for project usage
@@ -75,8 +67,7 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 		return false, 0, ErrProjectUsage.Wrap(err)
 	}
 
-	maxUsage := limit.Int64() * int64(ExpansionFactor)
-	if bandwidthGetTotal >= maxUsage {
+	if bandwidthGetTotal >= limit.Int64() {
 		return true, limit, nil
 	}
 
@@ -127,7 +118,9 @@ func (usage *Service) GetProjectStorageTotals(ctx context.Context, projectID uui
 func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 
-	from := time.Now().AddDate(0, 0, -AverageDaysInMonth) // past 30 days
+	// from the beginning of the current month
+	year, month, _ := time.Now().Date()
+	from := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
 	total, err := usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, projectID, from)
 	return total, ErrProjectUsage.Wrap(err)

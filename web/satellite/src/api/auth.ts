@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { ErrorEmailUsed } from '@/api/errors/ErrorEmailUsed';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { UpdatedUser, User } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
@@ -178,7 +179,7 @@ export class AuthHttpApi {
 
     // TODO: remove secret after Vanguard release
     /**
-     * Used to register account
+     * Used to register account.
      *
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release
@@ -200,11 +201,14 @@ export class AuthHttpApi {
 
         const response = await this.http.post(path, JSON.stringify(body));
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized('we are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
+            switch (response.status) {
+                case 401:
+                    throw new ErrorUnauthorized('We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
+                case 409:
+                    throw new ErrorEmailUsed('This email is already in use, try another');
+                default:
+                    throw new Error('Can not register user');
             }
-
-            throw new Error('can not register user');
         }
 
         return await response.json();

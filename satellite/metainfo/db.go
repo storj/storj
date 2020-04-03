@@ -6,10 +6,9 @@ package metainfo
 import (
 	"context"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 )
 
 // BucketsDB is the interface for the database to interact with buckets

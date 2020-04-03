@@ -31,12 +31,13 @@
         <div
             id="paymentSelect"
             class="options-container"
+            :class="{ 'top-expand': isExpandingTop }"
             v-if="isSelectionShown"
             v-click-outside="close"
         >
             <div
                 class="options-container__item"
-                v-for="option in paymentOptions"
+                v-for="option in options"
                 :key="option.label"
                 @click.prevent.stop="select(option)"
             >
@@ -64,63 +65,110 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { PaymentAmountOption } from '@/types/payments';
+import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component
 export default class TokenDepositSelection extends Vue {
     /**
-     * Set of default payment options
+     * Set of default payment options.
      */
     public paymentOptions: PaymentAmountOption[] = [
-        new PaymentAmountOption(20, `USD $20`),
+        new PaymentAmountOption(50, `USD $50`),
         new PaymentAmountOption(5, `USD $5`),
         new PaymentAmountOption(10, `USD $10`),
+        new PaymentAmountOption(20, `USD $20`),
         new PaymentAmountOption(100, `USD $100`),
         new PaymentAmountOption(1000, `USD $1000`),
     ];
 
+    /**
+     * Set of payment options for the first ever transaction.
+     */
+    public initialPaymentOptions: PaymentAmountOption[] = [
+        new PaymentAmountOption(50, `USD $50`),
+        new PaymentAmountOption(100, `USD $100`),
+        new PaymentAmountOption(200, `USD $200`),
+        new PaymentAmountOption(500, `USD $500`),
+        new PaymentAmountOption(1000, `USD $1000`),
+    ];
+
+    /**
+     * current selected payment option from default ones.
+     */
     public current: PaymentAmountOption = this.paymentOptions[0];
     public customAmount: string = '';
+    /**
+     * Indicates if custom amount selection state is active.
+     */
     public isCustomAmount = false;
 
+    /**
+     * Indicates if concrete payment option is currently selected.
+     */
     public isOptionSelected(option: PaymentAmountOption): boolean {
-        return option.value === this.current.value && !this.isCustomAmount;
+        return (option.value === this.current.value) && !this.isCustomAmount;
     }
 
     /**
-     * isSelectionShown flag that indicate is token amount selection shown
+     * Indicates if dropdown expands top.
+     */
+    public get isExpandingTop(): boolean {
+        return this.$store.state.paymentsModule.billingHistory.length === 0;
+    }
+
+    /**
+     * Returns payment options depending on user having his own project.
+     */
+    public get options(): PaymentAmountOption[] {
+        if (!new ProjectOwning(this.$store).userHasOwnProject()) {
+            return this.initialPaymentOptions;
+        }
+
+        return this.paymentOptions;
+    }
+
+    /**
+     * isSelectionShown flag that indicate is token amount selection shown.
      */
     public get isSelectionShown(): boolean {
         return this.$store.state.appStateModule.appState.isPaymentSelectionShown;
     }
 
     /**
-     * opens token amount selection
+     * opens token amount selection.
      */
     public open(): void {
         setTimeout(() => this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION, true), 0);
     }
 
     /**
-     * closes token amount selection
+     * closes token amount selection.
      */
     public close(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION, false);
     }
 
     /**
-     * onCustomAmountChange input event handle that emits value to parent component
+     * onCustomAmountChange input event handle that emits value to parent component.
      */
     public onCustomAmountChange(): void {
         this.$emit('onChangeTokenValue', parseInt(this.customAmount, 10));
     }
 
+    /**
+     * Sets view state to custom amount selection.
+     */
     public openCustomAmountSelection(): void {
         this.isCustomAmount = true;
         this.close();
         this.$emit('onChangeTokenValue', 0);
     }
 
+    /**
+     * Sets view state to default.
+     */
     public closeCustomAmountSelection(): void {
         this.open();
         this.$emit('onChangeTokenValue', this.current.value);
@@ -235,7 +283,6 @@ export default class TokenDepositSelection extends Vue {
         color: #354049;
         background-color: white;
         z-index: 102;
-        margin: 0 10px 100px 0;
         border-radius: 12px;
         top: 50px;
         box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
@@ -290,5 +337,10 @@ export default class TokenDepositSelection extends Vue {
         position: absolute;
         top: 0;
         left: 0;
+    }
+
+    .top-expand {
+        top: -290px;
+        box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.25);
     }
 </style>

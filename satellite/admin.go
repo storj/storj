@@ -16,9 +16,9 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/debug"
+	"storj.io/private/debug"
+	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/metainfo"
@@ -41,7 +41,10 @@ type Admin struct {
 		Server   *debug.Server
 	}
 
-	Version *checker.Service
+	Version struct {
+		Chore   *checker.Chore
+		Service *checker.Service
+	}
 
 	Admin struct {
 		Listener net.Listener
@@ -88,11 +91,12 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version.Chore = checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "version",
-			Run:  peer.Version.Run,
+			Run:  peer.Version.Chore.Run,
 		})
 	}
 
@@ -103,7 +107,10 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, err
 		}
 
-		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, config.Admin)
+		adminConfig := config.Admin
+		adminConfig.AuthorizationToken = config.Console.AuthToken
+
+		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, adminConfig)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "admin",
 			Run:   peer.Admin.Server.Run,

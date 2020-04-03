@@ -8,10 +8,10 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -332,13 +332,13 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := uuid.Parse(id)
+	userID, err := uuid.FromString(id)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	user, err := a.service.GetUser(ctx, *userID)
+	user, err := a.service.GetUser(ctx, userID)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -395,6 +395,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusBadRequest
 	case console.ErrUnauthorized.Has(err):
 		return http.StatusUnauthorized
+	case console.ErrEmailUsed.Has(err):
+		return http.StatusConflict
 	default:
 		return http.StatusInternalServerError
 	}

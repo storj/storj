@@ -20,13 +20,14 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/debug"
+	"storj.io/private/debug"
+	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/private/version"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 )
@@ -41,8 +42,12 @@ type Repairer struct {
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
 
-	Dialer  rpc.Dialer
-	Version *version_checker.Service
+	Dialer rpc.Dialer
+
+	Version struct {
+		Chore   *version_checker.Chore
+		Service *version_checker.Service
+	}
 
 	Debug struct {
 		Listener net.Listener
@@ -64,8 +69,8 @@ type Repairer struct {
 func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	pointerDB metainfo.PointerDB,
 	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
-	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB, ordersDB orders.DB,
-	rollupsWriteCache *orders.RollupsWriteCache,
+	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB,
+	rollupsWriteCache *orders.RollupsWriteCache, irrDB irreparable.DB,
 	versionInfo version.Info, config *Config) (*Repairer, error) {
 	peer := &Repairer{
 		Log:      log,
@@ -100,11 +105,12 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "version",
-			Run:  peer.Version.Run,
+			Run:  peer.Version.Chore.Run,
 		})
 	}
 
@@ -168,9 +174,10 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			config.Repairer.MaxExcessRateOptimalThreshold,
 			config.Checker.RepairOverride,
 			config.Repairer.DownloadTimeout,
+			config.Repairer.InMemoryRepair,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
-		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
+		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer, irrDB)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "repair",

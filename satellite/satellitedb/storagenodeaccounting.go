@@ -14,6 +14,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -69,7 +70,6 @@ func (db *StoragenodeAccounting) GetTallies(ctx context.Context) (_ []*accountin
 			return nil, Error.Wrap(err)
 		}
 		out[i] = &accounting.StoragenodeStorageTally{
-			ID:              r.Id,
 			NodeID:          nodeID,
 			IntervalEndTime: r.IntervalEndTime,
 			DataTotal:       r.DataTotal,
@@ -89,7 +89,6 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRoll
 			return nil, Error.Wrap(err)
 		}
 		out[i] = &accounting.StoragenodeStorageTally{
-			ID:              r.Id,
 			NodeID:          nodeID,
 			IntervalEndTime: r.IntervalEndTime,
 			DataTotal:       r.DataTotal,
@@ -175,8 +174,8 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []*accounting.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var sqlStmt = `SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total,
-	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
-	    FROM (
+		r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
+		FROM (
 			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
 			SUM(put_repair_total) AS put_repair_total, SUM(get_audit_total) AS get_audit_total,
 			SUM(put_total) AS put_total, SUM(get_total) AS get_total
@@ -185,7 +184,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 			GROUP BY node_id
 		) r
 		LEFT JOIN nodes n ON n.id = r.node_id
-	    ORDER BY n.id`
+		ORDER BY n.id`
 
 	rows, err := db.db.DB.QueryContext(ctx, db.db.Rebind(sqlStmt), start.UTC(), end.UTC())
 	if err != nil {
@@ -216,6 +215,60 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		csv = append(csv, r)
 	}
 	return csv, rows.Err()
+}
+
+// QueryStorageNodePeriodUsage returns usage invoices for nodes for a compensation period
+func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) (_ []accounting.StorageNodePeriodUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stmt := db.db.Rebind(`
+		SELECT
+			node_id,
+			SUM(at_rest_total) AS at_rest_total,
+			SUM(get_total) AS get_total,
+			SUM(put_total) AS put_total,
+			SUM(get_repair_total) AS get_repair_total,
+			SUM(put_repair_total) AS put_repair_total,
+			SUM(get_audit_total) AS get_audit_total
+		FROM
+			accounting_rollups
+		WHERE
+			start_time >= ? AND start_time < ?
+		GROUP BY
+			node_id
+		ORDER BY
+			node_id ASC
+	`)
+
+	rows, err := db.db.DB.QueryContext(ctx, stmt, period.StartDate(), period.EndDateExclusive())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	usages := []accounting.StorageNodePeriodUsage{}
+	for rows.Next() {
+		var nodeID []byte
+		usage := accounting.StorageNodePeriodUsage{}
+		if err := rows.Scan(
+			&nodeID,
+			&usage.AtRestTotal,
+			&usage.GetTotal,
+			&usage.PutTotal,
+			&usage.GetRepairTotal,
+			&usage.PutRepairTotal,
+			&usage.GetAuditTotal,
+		); err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		usage.NodeID, err = storj.NodeIDFromBytes(nodeID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		usages = append(usages, usage)
+	}
+	return usages, rows.Err()
 }
 
 // QueryStorageNodeUsage returns slice of StorageNodeUsage for given period

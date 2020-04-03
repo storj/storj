@@ -2,11 +2,6 @@
 <!--See LICENSE for copying information.-->
 
 <div class="login-container" @keyup.enter="onLogin">
-    <div :class="loadingClassName"></div>
-    <LoadingLogoIcon
-        :class="loadingLogoClassName"
-        alt="White company logo"
-    />
     <AuthIcon
         class="image"
         alt="Authentication illustration"
@@ -24,6 +19,9 @@
         </div>
         <div class="login-area-wrapper">
             <div class="login-area">
+                <div class="login-area__activation-banner" v-if="isActivatedBannerShown">
+                    <p class="login-area__activation-banner__message"><b>Success!</b> Account Verified.</p>
+                </div>
                 <div class="login-area__title-container">
                     <h1 class="login-area__title-container__title">Login to Storj</h1>
                 </div>
@@ -53,7 +51,7 @@
                     </div>
                 </div>
                 <div class="login-area__info-area">
-                    <p class="login-area__info-area__signature">Storj Labs Inc 2019.</p>
+                    <p class="login-area__info-area__signature">Storj Labs Inc 2020.</p>
                     <a class="login-area__info-area__terms" href="https://tardigrade.io/terms-of-use/" target="_blank">Terms & Conditions</a>
                     <a class="login-area__info-area__help" href="mailto:support@storj.io" target="_blank">Support</a>
                 </div>

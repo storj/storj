@@ -89,16 +89,12 @@ func (s *EncryptionAccess) Restrict(apiKey APIKey, restrictions ...EncryptionRes
 	caveat := macaroon.Caveat{}
 
 	access := NewEncryptionAccess()
-	err := access.Import(s)
-	if err != nil {
-		return APIKey{}, nil, err
-	}
+	access.SetDefaultPathCipher(s.store.GetDefaultPathCipher())
 
 	for _, res := range restrictions {
 		unencPath := paths.NewUnencrypted(res.PathPrefix)
-		cipher := storj.EncAESGCM // TODO(jeff): pick the right path cipher
 
-		encPath, err := encryption.EncryptPath(res.Bucket, unencPath, cipher, s.store)
+		encPath, err := encryption.EncryptPathWithStoreCipher(res.Bucket, unencPath, s.store)
 		if err != nil {
 			return APIKey{}, nil, err
 		}

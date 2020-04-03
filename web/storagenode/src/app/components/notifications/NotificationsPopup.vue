@@ -11,10 +11,17 @@
         </div>
         <div
             class="notification-popup-container__content"
-            :class="{'collapsed': true}"
-            v-if="true"
-        ></div>
-        <div class="notification-popup-container__empty-state" v-if="true">
+            :class="{'collapsed': isCollapsed}"
+            v-if="latestNotifications.length"
+        >
+            <SNONotification
+                v-for="notification in latestNotifications"
+                :key="notification.id"
+                is-small="true"
+                :notification="notification"
+            />
+        </div>
+        <div class="notification-popup-container__empty-state" v-else>
             <img src="@/../static/images/notifications/EmptyState.png" alt="Empty state image">
             <p class="notification-popup-container__empty-state__label">No notifications yet</p>
         </div>
@@ -34,10 +41,23 @@ import { RouteConfig } from '@/app/router';
     }
 })
 export default class NotificationsPopup extends Vue {
+    /**
+     * Path to notifications route.
+     */
     public readonly notificationsPath: string = RouteConfig.Notifications.path;
 
-    public get latestNotifications() {
-        return [];
+    /**
+     * Represents first page of notifications.
+     */
+    public get latestNotifications(): Notification[] {
+        return this.$store.state.notificationsModule.latestNotifications;
+    }
+
+    /**
+     * Indicates if popup is smaller than with scroll.
+     */
+    public get isCollapsed(): boolean {
+        return this.latestNotifications.length < 4;
     }
 }
 </script>
@@ -52,6 +72,7 @@ export default class NotificationsPopup extends Vue {
         border-radius: 12px;
         padding: 27px 0 10px 0;
         box-shadow: 0 7px 17px #e7ebee;
+        z-index: 104;
 
         &__header {
             display: flex;
@@ -98,5 +119,13 @@ export default class NotificationsPopup extends Vue {
 
     .collapsed {
         height: auto !important;
+    }
+
+    @media screen and (max-width: 460px) {
+
+        .notification-popup-container {
+            width: 100%;
+            max-height: 350px;
+        }
     }
 </style>

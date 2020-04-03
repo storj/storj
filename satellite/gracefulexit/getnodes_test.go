@@ -42,7 +42,9 @@ func TestGetExitingNodes(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			err := cache.UpdateAddress(ctx, &pb.Node{Id: data.nodeID}, overlay.NodeSelectionConfig{})
+			n := pb.Node{Id: data.nodeID}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+			err := cache.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			req := &overlay.ExitStatusRequest{
@@ -116,7 +118,9 @@ func TestGetGracefulExitNodesByTimeframe(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			err := cache.UpdateAddress(ctx, &pb.Node{Id: data.nodeID}, overlay.NodeSelectionConfig{})
+			n := pb.Node{Id: data.nodeID}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
+			err := cache.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			req := &overlay.ExitStatusRequest{

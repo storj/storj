@@ -13,7 +13,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/uplink/eestream"
+	"storj.io/uplink/private/eestream"
 )
 
 var _ metainfo.Observer = (*PathCollector)(nil)

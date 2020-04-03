@@ -8,6 +8,6 @@ import { BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
  */
 export class BucketsMock implements BucketsApi {
     get(projectId: string, before: Date, cursor: BucketCursor): Promise<BucketPage> {
-        throw new Error('Method not implemented.');
+        return Promise.resolve(new BucketPage());
     }
 }

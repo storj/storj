@@ -17,28 +17,32 @@ func TestNewExcluderFailure(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
 		config string
-		err    string
+		errs   []string
 	}{
 		{
 			name:   "not a valid URL",
 			config: "://",
-			err:    "exclusion: node URL error: parse ://: missing protocol scheme",
+			errs: []string{
+				`exclusion: node URL error: parse ://: missing protocol scheme`,
+				`exclusion: node URL error: parse "://": missing protocol scheme`,
+			},
 		},
 		{
 			name:   "host exclusion must not include a port",
 			config: "bar.test:7777",
-			err:    "exclusion: host exclusion must not include a port",
+			errs:   []string{"exclusion: host exclusion must not include a port"},
 		},
 		{
 			name:   "satellite URL exclusion must specify a port",
 			config: "121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@bar.test",
-			err:    "exclusion: satellite URL exclusion must specify a port",
+			errs:   []string{"exclusion: satellite URL exclusion must specify a port"},
 		},
 	} {
 		tt := tt // quiet linting
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := trust.NewExcluder(tt.config)
-			require.EqualError(t, err, tt.err)
+			require.Error(t, err)
+			require.Contains(t, tt.errs, err.Error())
 		})
 	}
 

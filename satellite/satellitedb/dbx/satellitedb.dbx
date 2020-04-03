@@ -7,7 +7,7 @@ model value_attribution (
 	field project_id	blob
 	field bucket_name	blob
 	field partner_id	blob
-	field last_updated 	utimestamp  ( autoinsert, autoupdate )
+	field last_updated 	timestamp  ( autoinsert, autoupdate )
 )
 
 create value_attribution ()
@@ -97,6 +97,8 @@ read scalar (
 model accounting_rollup (
 	key id
 
+	index ( fields start_time )
+
 	field id               serial64
 	field node_id          blob
 	field start_time       timestamp
@@ -132,46 +134,58 @@ model node (
 	)
 
 	field id             blob
-	field address        text  ( updatable ) // TODO: use compressed format
+	// address is how to contact the node, this can be a hostname or IP and it contains the port
+	field address        text  ( updatable, default "" ) // TODO: use compressed format
+	// last_net is the /24 subnet of the IP
 	field last_net       text  ( updatable )
-	field protocol       int   ( updatable )
-	field type           int   ( updatable )
+	field last_ip_port   text  ( updatable, nullable )
+	field protocol       int   ( updatable, default 0 )
+	field type           int   ( updatable, default 0 )
 	field email          text  ( updatable )
 	field wallet         text  ( updatable ) // TODO: use compressed format
-	field free_bandwidth int64 ( updatable )
-	field free_disk      int64 ( updatable )
-	field piece_count    int64 ( autoinsert, updatable )
+	field free_bandwidth int64 ( updatable, default -1 )
+	field free_disk      int64 ( updatable, default -1 )
+	field piece_count    int64 ( autoinsert, updatable, default 0 )
 
- 	field major             int64 ( updatable )
-	field minor             int64 ( updatable )
-	field patch             int64 ( updatable )
-	field hash              text ( updatable )
-	field timestamp         timestamp ( updatable )
-	field release           bool ( updatable )
+ 	field major             int64 ( updatable, default 0 )
+	field minor             int64 ( updatable, default 0 )
+	field patch             int64 ( updatable, default 0 )
+	field hash              text ( updatable, default "" )
+	field timestamp         timestamp ( updatable, default "0001-01-01 00:00:00+00" )
+	field release           bool ( updatable, default false )
 
-	field latency_90           int64   ( updatable )
-	field audit_success_count  int64   ( updatable )
-	field total_audit_count    int64   ( updatable )
+	field latency_90           int64   ( updatable, default 0 )
+	field audit_success_count  int64   ( updatable, default 0 )
+	field total_audit_count    int64   ( updatable, default 0 )
+	field vetted_at            timestamp ( updatable, nullable )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
 
-	field created_at           timestamp ( autoinsert )
-	field updated_at           timestamp ( autoinsert, autoupdate )
-	field last_contact_success timestamp ( updatable )
-	field last_contact_failure timestamp ( updatable )
+	field created_at           timestamp ( autoinsert, default current_timestamp )
+	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
+	field last_contact_success timestamp ( updatable, default "epoch" )
+	field last_contact_failure timestamp ( updatable, default "epoch" )
 
-	field contained bool ( updatable )
+	field contained bool ( updatable, default false )
+    // node is disqualified when it fails too many audits or is offline for too long
 	field disqualified timestamp ( updatable, nullable )
+    // node is placed under inspection when it has too many unknown-error audits
+	field suspended timestamp ( updatable, nullable )
 
-	field audit_reputation_alpha  float64 ( updatable )
-	field audit_reputation_beta   float64 ( updatable )
-	field uptime_reputation_alpha float64 ( updatable )
-	field uptime_reputation_beta  float64 ( updatable )
+	// audit_reputation_fields track information related to successful vs. failed error audits
+	field audit_reputation_alpha  float64 ( updatable, default 1 )
+	field audit_reputation_beta   float64 ( updatable, default 0 )
+	// unknown_audit_reputation fields track information related to successful vs. unknown error audits
+	field unknown_audit_reputation_alpha  float64 ( updatable, default 1 )
+	field unknown_audit_reputation_beta   float64 ( updatable, default 0 )
+	// TODO remove uptime alpha/beta once old uptime dq code is removed
+	field uptime_reputation_alpha float64 ( updatable, default 1 )
+	field uptime_reputation_beta  float64 ( updatable, default 0 )
 
-    field exit_initiated_at         utimestamp ( updatable, nullable )
-    field exit_loop_completed_at    utimestamp ( updatable, nullable )
-    field exit_finished_at          utimestamp ( updatable, nullable )
-    field exit_success              bool ( updatable )
+    field exit_initiated_at         timestamp ( updatable, nullable )
+    field exit_loop_completed_at    timestamp ( updatable, nullable )
+    field exit_finished_at          timestamp ( updatable, nullable )
+    field exit_success              bool ( updatable, default false )
 )
 
 create node ( noreturn )
@@ -198,27 +212,20 @@ read limitoffset (
 	orderby asc node.id
 )
 
-read limitoffset (
-	select node.id node.last_net node.address node.protocol
-	where  node.id >= ?
-	where  node.disqualified = null
-	orderby asc node.id
-)
-
 read all (
     select node.id node.piece_count
     where node.piece_count != 0
 )
 
 read limitoffset (
-	select node.id node.address node.last_contact_success node.last_contact_failure
+	select node.id node.address node.last_ip_port node.last_contact_success node.last_contact_failure
     where node.last_contact_success < node.last_contact_failure
 	where  node.disqualified = null
 	orderby asc node.last_contact_failure
 )
 
 read all (
-	select node.id node.address node.last_contact_success node.last_contact_failure
+	select node.id node.address node.last_ip_port node.last_contact_success node.last_contact_failure
 	where node.last_contact_success < ?
 	where node.last_contact_success > node.last_contact_failure
 	where  node.disqualified = null
@@ -232,10 +239,15 @@ model injuredsegment (
 
 	field path blob
 	field data blob
-	field attempted utimestamp (updatable, nullable)
+	field attempted timestamp (updatable, nullable)
+    field num_healthy_pieces int (default 52)
 
 	index (
 		fields attempted
+	)
+
+	index (
+		fields num_healthy_pieces
 	)
 )
 
@@ -277,7 +289,7 @@ model project (
 
     field name           text
     field description    text      ( updatable )
-    field usage_limit    int64     ( updatable )
+    field usage_limit    int64     ( updatable, default 0 )
     field rate_limit     int       ( nullable, updatable )
     field partner_id     blob      ( nullable  )
     field owner_id       blob
@@ -419,7 +431,7 @@ read all (
 model serial_number (
 	key    id
 	index (
-	    name serial_number
+	    name serial_number_index
 	    fields serial_number
 	    unique
 	)
@@ -428,7 +440,7 @@ model serial_number (
 	field serial_number blob
 
 	field bucket_id     blob
-	field expires_at    utimestamp
+	field expires_at    timestamp
 
 	index (
 		fields expires_at
@@ -459,14 +471,11 @@ delete serial_number (
 // for preventing duplicate serial numbers
 create used_serial ( noreturn )
 
-model reported_serial (
-	// all of our access patterns care about if the serial is expired or not so we
-	// should put expires_at first in the primary key to get efficient scans. but,
-	// we also want to have rocksdb prefix compression to apply as much as possible
-	// to reduce data size for numerous benefits. so, we ceil the expires_at field
-	// to the next day so that we only have to store each storage node id only once
-	// per day. the other fields follow the same logic.
+//
+// DEPRECATED! vvvvvvvvvvvvvvvvvvvvvvvvvvv
+//
 
+model reported_serial (
 	key expires_at storage_node_id bucket_id action serial_number
 
 	field expires_at      timestamp // ceil'd to the next day
@@ -479,19 +488,57 @@ model reported_serial (
 	field observed_at timestamp
 )
 
-create reported_serial ( noreturn, replace )
-read paged ( select reported_serial, where reported_serial.expires_at <= ? )
-delete reported_serial ( where reported_serial.expires_at <= ? )
+//
+// DEPRECATED! ^^^^^^^^^^^^^^^^^^^^^^^^^^
+//
+
+model pending_serial_queue (
+	table pending_serial_queue
+
+	key   storage_node_id bucket_id serial_number
+	field storage_node_id blob
+	field bucket_id       blob
+	field serial_number   blob
+
+	field action     uint
+	field settled    uint64
+	field expires_at timestamp
+)
+
+create pending_serial_queue ( noreturn, replace )
+read paged ( select pending_serial_queue )
+
+model consumed_serial (
+	key storage_node_id serial_number
+	index ( fields expires_at )
+
+	field storage_node_id blob
+	field serial_number   blob
+	field expires_at      timestamp
+)
+
+create consumed_serial ( noreturn )
+delete consumed_serial ( where consumed_serial.expires_at <= ? )
+
+read has (
+	select consumed_serial
+	where consumed_serial.storage_node_id = ?
+	where consumed_serial.serial_number   = ?
+)
 
 // --- bucket accounting tables --- //
 
 model bucket_bandwidth_rollup (
 	key    bucket_name project_id interval_start action
+	index (
+		name bucket_bandwidth_rollups_project_id_action_interval_index
+		fields project_id action interval_start
+	)
 
 	field bucket_name       blob
 	field project_id        blob
 
-	field interval_start   utimestamp
+	field interval_start   timestamp
 	field interval_seconds uint
 	field action           uint
 
@@ -514,7 +561,7 @@ model bucket_storage_tally (
 	field bucket_name       blob
 	field project_id        blob
 
-	field interval_start   utimestamp
+	field interval_start   timestamp
 
 	field inline uint64
 	field remote uint64
@@ -553,7 +600,7 @@ model storagenode_bandwidth_rollup (
 	key    storagenode_id interval_start action
 
 	field storagenode_id   blob
-	field interval_start   utimestamp
+	field interval_start   timestamp
 	field interval_seconds uint
 	field action           uint
 
@@ -574,27 +621,86 @@ read all (
 )
 
 model storagenode_storage_tally (
-	key   id
+	// this primary key will enforce uniqueness on interval_end_time,node_id
+	// and also creates an index on interval_end_time implicitly.
+	// the interval_end_time will be the same value for many rows so
+	// we put that first so we can use cockroachdb prefix compression.
+	// node_id is also used many times but interval_end_time is more
+	// repetative and will benefit greater.
+	key interval_end_time node_id
 
-	field id								serial64
-	field node_id						blob
+	index ( fields node_id )
+
+	field node_id		blob
 	field interval_end_time	timestamp
-	field data_total				float64
+	field data_total	float64
 )
 
-create storagenode_storage_tally ( noreturn )
-delete storagenode_storage_tally ( where storagenode_storage_tally.id = ? )
-read one (
-		select storagenode_storage_tally
-		where storagenode_storage_tally.id = ?
-)
 read all (
-	select storagenode_storage_tally
+    select storagenode_storage_tally
 )
+
 read all (
-	select storagenode_storage_tally
-	where storagenode_storage_tally.interval_end_time >= ?
+    select storagenode_storage_tally
+    where storagenode_storage_tally.interval_end_time >= ?
 )
+
+// --- storage node payment tables --- //
+
+model storagenode_paystub (
+	// The (period, node_id) tuple is the primary key. The primary key index
+	// should serve for quick queries for all paystubs in a given period since
+	// it comes first but efficient queries for all paystubs with a given
+	// node_id will require a distinct index.
+
+	key period node_id
+
+	index ( fields node_id )
+
+	field period     text                     // YYYY-MM, e.g. 2020-02
+	field node_id    blob                     //
+	field created_at timestamp ( autoinsert ) //
+	field codes      text                     // colon separated list
+
+	field usage_at_rest    float64            // byte-hours of data at rest
+	field usage_get        int64              // bytes of bandwidth
+	field usage_put        int64              // bytes of bandwidth
+	field usage_get_repair int64              // bytes of bandwidth
+	field usage_put_repair int64              // bytes of bandwidth
+	field usage_get_audit  int64              // bytes of bandwidth
+
+	field comp_at_rest    int64               // in micro-units of currency
+	field comp_get        int64               // in micro-units of currency
+	field comp_put        int64               // in micro-units of currency
+	field comp_get_repair int64               // in micro-units of currency
+	field comp_put_repair int64               // in micro-units of currency
+	field comp_get_audit  int64               // in micro-units of currency
+
+	field surge_percent int64                 // percentage
+
+	field held     int64                      // in micro-units of currency
+	field owed     int64                      // in micro-units of currency
+	field disposed int64                      // in micro-units of currency
+	field paid     int64                      // in micro-units of currency
+)
+
+create storagenode_paystub ( noreturn )
+
+model storagenode_payment (
+	key id
+
+	index ( fields node_id period )
+
+	field id         serial64                 //
+	field created_at timestamp ( autoinsert ) //
+	field node_id    blob                     //
+	field period     text      ( nullable )   // YYYY-MM, e.g. 2020-02
+	field amount     int64                    // in micro-units of currency
+	field receipt    text      ( nullable )   //
+	field notes      text      ( nullable )   //
+)
+
+create storagenode_payment ( noreturn )
 
 //--- peer_identity ---//
 
@@ -680,8 +786,8 @@ model offer (
 	field name text ( updatable )
 	field description text ( updatable )
 
-	field award_credit_in_cents int ( updatable )
-	field invitee_credit_in_cents int ( updatable )
+	field award_credit_in_cents int ( updatable, default 0 )
+	field invitee_credit_in_cents int ( updatable, default 0 )
 
 	field award_credit_duration_days int ( updatable, nullable )
 	field invitee_credit_duration_days int ( updatable, nullable )
@@ -818,13 +924,13 @@ read limitoffset ( // After
 
 model graceful_exit_progress (
 	table graceful_exit_progress
-    key node_id
+	key node_id
 
-    field node_id              blob
-    field bytes_transferred    int64 ( updatable )
-	field pieces_transferred   int64 ( autoinsert, updatable )
-	field pieces_failed        int64 ( autoinsert, updatable )
-    field updated_at           utimestamp ( autoinsert, autoupdate )
+	field node_id            blob
+	field bytes_transferred  int64     ( updatable )
+	field pieces_transferred int64     ( autoinsert, updatable, default 0 )
+	field pieces_failed      int64     ( autoinsert, updatable, default 0 )
+	field updated_at         timestamp ( autoinsert, autoupdate )
 )
 
 create graceful_exit_progress ( noreturn )
@@ -842,20 +948,20 @@ read one (
 
 model graceful_exit_transfer_queue (
 	table graceful_exit_transfer_queue
-    key node_id path piece_num
+	key node_id path piece_num
 
-    field node_id                blob
-    field path                   blob
-    field piece_num              int
-    field root_piece_id          blob       ( nullable )
-    field durability_ratio       float64    ( updatable )
-    field queued_at              utimestamp ( autoinsert )
-    field requested_at           utimestamp ( updatable, nullable )
-    field last_failed_at         utimestamp ( updatable, nullable )
-    field last_failed_code       int        ( updatable, nullable )
-    field failed_count           int        ( updatable, nullable )
-    field finished_at            utimestamp ( updatable, nullable )
-    field order_limit_send_count int        ( updatable )
+	field node_id                blob
+	field path                   blob
+	field piece_num              int
+	field root_piece_id          blob      ( nullable )
+	field durability_ratio       float64   ( updatable )
+	field queued_at              timestamp ( autoinsert )
+	field requested_at           timestamp ( updatable, nullable )
+	field last_failed_at         timestamp ( updatable, nullable )
+	field last_failed_code       int       ( updatable, nullable )
+	field failed_count           int       ( updatable, nullable )
+	field finished_at            timestamp ( updatable, nullable )
+	field order_limit_send_count int       ( updatable, default 0 )
 )
 
 create graceful_exit_transfer_queue ( noreturn )

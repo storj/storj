@@ -34,14 +34,15 @@ func TestDB_PieceCounts(t *testing.T) {
 		}
 
 		for _, node := range nodes {
-			require.NoError(t, overlaydb.UpdateAddress(ctx, &pb.Node{
+			n := pb.Node{
 				Id: node.ID,
 				Address: &pb.NodeAddress{
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
 					Address:   "0.0.0.0",
 				},
-				LastIp: "0.0.0.0",
-			}, overlay.NodeSelectionConfig{}))
+			}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "0.0.0.0", LastNet: "0.0.0.0"}
+			require.NoError(t, overlaydb.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{}))
 		}
 
 		// check that they are initialized to zero
@@ -85,14 +86,15 @@ func BenchmarkDB_PieceCounts(b *testing.B) {
 		}
 
 		for nodeID := range counts {
-			require.NoError(b, overlaydb.UpdateAddress(ctx, &pb.Node{
+			n := pb.Node{
 				Id: nodeID,
 				Address: &pb.NodeAddress{
 					Transport: pb.NodeTransport_TCP_TLS_GRPC,
 					Address:   "0.0.0.0",
 				},
-				LastIp: "0.0.0.0",
-			}, overlay.NodeSelectionConfig{}))
+			}
+			d := overlay.NodeDossier{Node: n, LastIPPort: "0.0.0.0", LastNet: "0.0.0.0"}
+			require.NoError(b, overlaydb.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{}))
 		}
 
 		b.Run("Update", func(b *testing.B) {

@@ -46,19 +46,28 @@ export default class VSearch extends Vue {
         return this.searchQuery;
     }
 
+    /**
+     * Expands search input.
+     */
     public onMouseEnter(): void {
-        this.inputWidth = '602px';
+        this.inputWidth = '540px';
 
         this.$refs.input.focus();
     }
 
+    /**
+     * Collapses search input if no search query.
+     */
     public onMouseLeave(): void {
-        if (!this.searchString) {
+        if (!this.searchQuery) {
             this.inputWidth = '56px';
             this.$refs.input.blur();
         }
     }
 
+    /**
+     * Clears search query and collapses input.
+     */
     public clearSearch() {
         this.searchQuery = '';
         this.processSearchQuery();
@@ -66,7 +75,7 @@ export default class VSearch extends Vue {
     }
 
     private async processSearchQuery() {
-        await this.search(this.searchString);
+        await this.search(this.searchQuery);
     }
 }
 </script>

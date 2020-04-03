@@ -20,11 +20,12 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/pkcrypto"
 	"storj.io/common/rpc"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
+	"storj.io/private/version"
 	"storj.io/storj/certificate/certificateclient"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/private/version"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/private/version/checker"
 )
 

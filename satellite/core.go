@@ -20,9 +20,9 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/debug"
+	"storj.io/private/debug"
+	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/private/version"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/reportedrollup"
@@ -58,7 +58,10 @@ type Core struct {
 
 	Dialer rpc.Dialer
 
-	Version *version_checker.Service
+	Version struct {
+		Chore   *version_checker.Chore
+		Service *version_checker.Service
+	}
 
 	Debug struct {
 		Listener net.Listener
@@ -178,11 +181,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
+		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "version",
-			Run:  peer.Version.Run,
+			Run:  peer.Version.Chore.Run,
 		})
 	}
 
@@ -222,7 +226,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup overlay
-		peer.Overlay.DB = overlay.NewCombinedCache(peer.DB.OverlayCache())
+		peer.Overlay.DB = peer.DB.OverlayCache()
 		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
@@ -355,20 +359,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			debug.Cycle("Audit Chore", peer.Audit.Chore.Loop))
 	}
 
-	{ // setup garbage collection
-		peer.GarbageCollection.Service = gc.NewService(
-			peer.Log.Named("garbage-collection"),
-			config.GarbageCollection,
-			peer.Dialer,
-			peer.Overlay.DB,
-			peer.Metainfo.Loop,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name: "garbage-collection",
-			Run:  peer.GarbageCollection.Service.Run,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Garbage Collection", peer.GarbageCollection.Service.Loop))
+	{ // setup garbage collection if configured to run with the core
+		if config.GarbageCollection.RunInCore {
+			peer.GarbageCollection.Service = gc.NewService(
+				peer.Log.Named("core-garbage-collection"),
+				config.GarbageCollection,
+				peer.Dialer,
+				peer.Overlay.DB,
+				peer.Metainfo.Loop,
+			)
+			peer.Services.Add(lifecycle.Item{
+				Name: "core-garbage-collection",
+				Run:  peer.GarbageCollection.Service.Run,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Core Garbage Collection", peer.GarbageCollection.Service.Loop))
+		}
 	}
 
 	{ // setup db cleanup
@@ -428,7 +434,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				pc.StorageTBPrice,
 				pc.EgressTBPrice,
 				pc.ObjectPrice,
-				pc.BonusRate)
+				pc.BonusRate,
+				pc.CouponValue,
+				pc.CouponDuration,
+				pc.CouponProjectLimit,
+				pc.MinCoinPayment)
 
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
@@ -448,7 +458,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			})
 			peer.Debug.Server.Panel.Add(
 				debug.Cycle("Payments Stripe Transactions", peer.Payments.Chore.TransactionCycle),
-				debug.Cycle("Payments Stripe Coupons", peer.Payments.Chore.CouponUsageCycle),
 				debug.Cycle("Payments Stripe Account Balance", peer.Payments.Chore.AccountBalanceCycle),
 			)
 		}

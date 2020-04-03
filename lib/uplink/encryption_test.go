@@ -4,6 +4,7 @@
 package uplink_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -76,5 +77,54 @@ func TestAllowedPathPrefixListing(t *testing.T) {
 			require.Equal(t, 1, len(list.Items))
 		}()
 
+	})
+}
+
+func TestUploadNotAllowedPath(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		testUplink := planet.Uplinks[0]
+		testSatellite := planet.Satellites[0]
+		err := testUplink.CreateBucket(ctx, testSatellite, "testbucket")
+		require.NoError(t, err)
+
+		err = testUplink.Upload(ctx, testSatellite, "testbucket", "videos/status.mp4", testrand.Bytes(1*memory.KiB))
+		require.NoError(t, err)
+
+		upCfg := &uplink.Config{}
+		upCfg.Volatile.TLS.SkipPeerCAWhitelist = true
+
+		up, err := uplink.NewUplink(ctx, upCfg)
+		require.NoError(t, err)
+		defer ctx.Check(up.Close)
+
+		uplinkConfig := testUplink.GetConfig(testSatellite)
+		access, err := uplinkConfig.GetAccess()
+		require.NoError(t, err)
+
+		encryptionAccess := access.EncryptionAccess
+		restrictedAPIKey, restrictedEa, err := encryptionAccess.Restrict(access.APIKey, uplink.EncryptionRestriction{
+			Bucket:     "testbucket",
+			PathPrefix: "videos",
+		})
+		require.NoError(t, err)
+
+		proj, err := up.OpenProject(ctx, access.SatelliteAddr, restrictedAPIKey)
+		require.NoError(t, err)
+		defer ctx.Check(proj.Close)
+
+		bucket, err := proj.OpenBucket(ctx, "testbucket", restrictedEa)
+		require.NoError(t, err)
+		defer ctx.Check(bucket.Close)
+
+		reader := bytes.NewReader(testrand.Bytes(1 * memory.KiB))
+
+		// upload should fail because we have access only to sj://testbucket/videos
+		err = bucket.UploadObject(ctx, "first-level-object", reader, nil)
+		require.Error(t, err)
+
+		err = bucket.UploadObject(ctx, "videos/second-level-object", reader, nil)
+		require.NoError(t, err)
 	})
 }

@@ -12,7 +12,6 @@ import { PaymentsHttpApi } from '@/api/payments';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
 import { ReferralHttpApi } from '@/api/referral';
-import { ProjectUsageApiGql } from '@/api/usage';
 import { notProjectRelatedRoutes, router } from '@/router';
 import { ApiKeysState, makeApiKeysModule } from '@/store/modules/apiKeys';
 import { appStateModule } from '@/store/modules/appState';
@@ -23,8 +22,7 @@ import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
 import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
 import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
 import { makeReferralModule, ReferralState } from '@/store/modules/referral';
-import { makeUsageModule, UsageState } from '@/store/modules/usage';
-import { makeUsersModule, USER_ACTIONS } from '@/store/modules/users';
+import { makeUsersModule } from '@/store/modules/users';
 import { CreditUsage } from '@/types/credits';
 import { User } from '@/types/users';
 
@@ -44,7 +42,6 @@ const creditsApi = new CreditsApiGql();
 const bucketsApi = new BucketsApiGql();
 const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
-const projectUsageApi = new ProjectUsageApiGql();
 const paymentsApi = new PaymentsHttpApi();
 const referralApi = new ReferralHttpApi();
 
@@ -57,7 +54,6 @@ class ModulesState {
     public paymentsModule: PaymentsState;
     public usersModule: User;
     public projectsModule: ProjectsState;
-    public usageModule: UsageState;
     public referralModule: ReferralState;
 }
 
@@ -72,7 +68,6 @@ export const store = new Vuex.Store<ModulesState>({
         paymentsModule: makePaymentsModule(paymentsApi),
         usersModule: makeUsersModule(authApi),
         projectsModule: makeProjectsModule(projectsApi),
-        usageModule: makeUsageModule(projectUsageApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
         referralModule: makeReferralModule(referralApi),
     },

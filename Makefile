@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.13.7
+GO_VERSION ?= 1.13.8
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -82,9 +82,13 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/storj-sim \
 		storj.io/storj/cmd/versioncontrol \
 		storj.io/storj/cmd/uplink \
-		storj.io/storj/cmd/gateway \
 		storj.io/storj/cmd/identity \
 		storj.io/storj/cmd/certificates
+
+	## install exact version of storj/gateway
+	mkdir -p .build/gateway-tmp
+	-cd .build/gateway-tmp && go mod init gatewaybuild
+	cd .build/gateway-tmp && GO111MODULE=on go get storj.io/gateway@v1.0.0-rc.8
 
 ##@ Test
 
@@ -116,18 +120,6 @@ test-libuplink-gomobile: ## Run gomobile tests
 check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
 	@echo "Running ${@}"
 	@cd scripts; ./check-satellite-config-lock.sh
-
-.PHONY: all-in-one
-all-in-one: ## Deploy docker images with one storagenode locally
-	export VERSION="${TAG}${CUSTOMTAG}" \
-	&& $(MAKE) satellite-image storagenode-image gateway-image \
-	&& docker-compose up --scale storagenode=1 satellite gateway
-
-.PHONY: test-all-in-one
-test-all-in-one: ## Test docker images locally
-	export VERSION="${TAG}${CUSTOMTAG}" \
-	&& $(MAKE) satellite-image storagenode-image gateway-image \
-	&& ./scripts/test-aio.sh
 
 .PHONY: test-sim-backwards-compatible
 test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
@@ -162,19 +154,9 @@ storagenode-console:
 	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
 
 .PHONY: images
-images: gateway-image satellite-image storagenode-image uplink-image versioncontrol-image ## Build gateway, satellite, storagenode, uplink, and versioncontrol Docker images
+images: satellite-image storagenode-image uplink-image versioncontrol-image ## Build satellite, storagenode, uplink, and versioncontrol Docker images
 	echo Built version: ${TAG}
 
-.PHONY: gateway-image
-gateway-image: gateway_linux_arm gateway_linux_arm64 gateway_linux_amd64 ## Build gateway Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG}-amd64 \
-		-f cmd/gateway/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
-		-f cmd/gateway/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG}-aarch64 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
-		-f cmd/gateway/Dockerfile .
 .PHONY: satellite-image
 satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64 ## Build satellite Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64 \
@@ -260,18 +242,12 @@ binary-check:
 .PHONY: certificates_%
 certificates_%:
 	$(MAKE) binary-check COMPONENT=certificates GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: gateway_%
-gateway_%:
-	$(MAKE) binary-check COMPONENT=gateway GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: identity_%
 identity_%:
 	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: inspector_%
 inspector_%:
 	$(MAKE) binary-check COMPONENT=inspector GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: linksharing_%
-linksharing_%:
-	$(MAKE) binary-check COMPONENT=linksharing GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: satellite_%
 satellite_%:
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -289,11 +265,11 @@ versioncontrol_%:
 	$(MAKE) binary-check COMPONENT=versioncontrol GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates gateway identity inspector linksharing satellite storagenode storagenode-updater uplink versioncontrol
+COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol
 OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build certificates, gateway, identity, inspector, linksharing, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
+binaries: ${BINARIES} ## Build certificates, identity, inspector, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
 
 .PHONY: sign-windows-installer
 sign-windows-installer:
@@ -314,7 +290,7 @@ libuplink-gomobile:
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
 	# satellite
-	for c in gateway satellite storagenode uplink versioncontrol ; do \
+	for c in satellite storagenode uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-aarch64 \
@@ -357,7 +333,6 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 
 .PHONY: clean-images
 clean-images:
-	-docker rmi storjlabs/gateway:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/storagenode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/uplink:${TAG}${CUSTOMTAG}

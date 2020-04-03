@@ -26,7 +26,6 @@ func TestInspectorStats(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(requiredShares, 3, 4, 5),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		var availableBandwidth int64
 		var availableSpace int64
 		for _, storageNode := range planet.StorageNodes {
 			response, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
@@ -36,11 +35,9 @@ func TestInspectorStats(t *testing.T) {
 			assert.Zero(t, response.UsedSpace)
 			assert.Zero(t, response.UsedEgress)
 			assert.Zero(t, response.UsedIngress)
-			assert.True(t, response.AvailableBandwidth > 0)
 			assert.True(t, response.AvailableSpace > 0)
 
 			// assume that all storage node should have the same initial values
-			availableBandwidth = response.AvailableBandwidth
 			availableSpace = response.AvailableSpace
 		}
 
@@ -74,7 +71,6 @@ func TestInspectorStats(t *testing.T) {
 			if response.UsedSpace > 0 {
 				assert.NotZero(t, response.UsedBandwidth)
 				assert.Equal(t, response.UsedBandwidth, response.UsedIngress+response.UsedEgress)
-				assert.Equal(t, availableBandwidth-response.UsedBandwidth, response.AvailableBandwidth)
 				assert.Equal(t, availableSpace-response.UsedSpace, response.AvailableSpace)
 
 				assert.Equal(t, response.UsedSpace, response.UsedBandwidth-response.UsedEgress)
@@ -84,8 +80,6 @@ func TestInspectorStats(t *testing.T) {
 				}
 			} else {
 				assert.Zero(t, response.UsedSpace)
-				// TODO track why this is failing
-				//assert.Equal(t, availableBandwidth, response.AvailableBandwidth)
 				assert.Equal(t, availableSpace, response.AvailableSpace)
 			}
 		}

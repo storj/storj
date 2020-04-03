@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
+	"storj.io/private/process"
 	"storj.io/storj/certificate/authorization"
-	"storj.io/storj/pkg/process"
 )
 
 var (

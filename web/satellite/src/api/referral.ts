@@ -13,7 +13,7 @@ export class ReferralHttpApi {
     private readonly ROOT_PATH: string = '/api/v0/referrals';
 
     /**
-     * Used to get referral tokens
+     * Used to get referral tokens.
      *
      * @throws Error
      */

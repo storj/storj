@@ -2,18 +2,18 @@
 // See LICENSE for copying information.
 
 /**
- * Exposes all user-related functionality
+ * Exposes all user-related functionality.
  */
 export interface UsersApi {
     /**
-     * Updates users full name and short name
+     * Updates users full name and short name.
      *
      * @param user - contains information that should be updated
      * @throws Error
      */
     update(user: UpdatedUser): Promise<void>;
     /**
-     * Fetch user
+     * Fetch user.
      *
      * @returns User
      * @throws Error

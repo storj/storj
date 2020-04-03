@@ -31,10 +31,10 @@ export class ProjectsApiMock implements ProjectsApi {
     }
 
     update(projectId: string, description: string): Promise<void> {
-        throw new Error('not implemented');
+        return Promise.resolve();
     }
 
     getLimits(projectId: string): Promise<ProjectLimits> {
-        throw Promise.resolve(this.mockLimits);
+        return Promise.resolve(this.mockLimits);
     }
 }

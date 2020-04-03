@@ -63,6 +63,8 @@ export default class HeaderedInput extends HeaderlessInput {
     @Prop({default: false})
     private readonly isMultiline: boolean;
 
+    public value: string;
+
     public constructor() {
         super();
 
@@ -90,7 +92,6 @@ export default class HeaderedInput extends HeaderlessInput {
             font-size: 16px;
             line-height: 21px;
             color: #354049;
-            user-select: none;
         }
 
         &__error {

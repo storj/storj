@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 /**
- * Exposes all credits-related functionality
+ * Exposes all credits-related functionality.
  */
 export interface CreditsApi {
     get(): Promise<CreditUsage>;
 }
 
 /**
- * CreditUsage stores information about users credits
+ * CreditUsage stores information about users credits.
  * Tardigrade related logic
  */
 export class CreditUsage {

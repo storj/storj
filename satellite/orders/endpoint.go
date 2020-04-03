@@ -10,30 +10,35 @@ import (
 	"sort"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/spacemonkeygo/monkit/v3"
+	monkit "github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/identity"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 )
 
 // DB implements saving order after receiving from storage node
 //
 // architecture: Database
 type DB interface {
-	// CreateSerialInfo creates serial number entry in database
+	// CreateSerialInfo creates serial number entry in database.
 	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
-	// UseSerialNumber creates serial number entry in database
+	// UseSerialNumber creates a used serial number entry in database from an
+	// existing serial number.
+	// It returns the bucket ID associated to serialNumber.
 	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
 	// UnuseSerialNumber removes pair serial number -> storage node id from database
 	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
-	// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
+	// DeleteExpiredSerials deletes all expired serials in serial_number, used_serials, and consumed_serials table.
 	DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error)
+	// DeleteExpiredConsumedSerials deletes all expired serials in the consumed_serials table.
+	DeleteExpiredConsumedSerials(ctx context.Context, now time.Time) (_ int, err error)
 
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
@@ -51,23 +56,53 @@ type DB interface {
 	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
 
 	// ProcessOrders takes a list of order requests and processes them in a batch
-	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest, observedAt time.Time) (responses []*ProcessOrderResponse, err error)
-
-	// GetBillableBandwidth gets total billable (expired reported serial) bandwidth for nodes and buckets for all actions.
-	GetBillableBandwidth(ctx context.Context, now time.Time) (bucketRollups []BucketBandwidthRollup, storagenodeRollups []StoragenodeBandwidthRollup, err error)
+	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest) (responses []*ProcessOrderResponse, err error)
 
 	// WithTransaction runs the callback and provides it with a Transaction.
 	WithTransaction(ctx context.Context, cb func(ctx context.Context, tx Transaction) error) error
+	// WithQueue runs the callback and provides it with a Queue. When the callback returns with
+	// no error, any pending serials returned by the queue are removed from it.
+	WithQueue(ctx context.Context, cb func(ctx context.Context, queue Queue) error) error
 }
 
 // Transaction represents a database transaction but with higher level actions.
 type Transaction interface {
 	// UpdateBucketBandwidthBatch updates all the bandwidth rollups in the database
 	UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []BucketBandwidthRollup) error
+
 	// UpdateStoragenodeBandwidthBatch updates all the bandwidth rollups in the database
 	UpdateStoragenodeBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []StoragenodeBandwidthRollup) error
-	// DeleteExpiredReportedSerials deletes any expired reported serials as of now.
-	DeleteExpiredReportedSerials(ctx context.Context, now time.Time) (err error)
+
+	// CreateConsumedSerialsBatch creates the batch of ConsumedSerials.
+	CreateConsumedSerialsBatch(ctx context.Context, consumedSerials []ConsumedSerial) (err error)
+
+	// HasConsumedSerial returns true if the node and serial number have been consumed.
+	HasConsumedSerial(ctx context.Context, nodeID storj.NodeID, serialNumber storj.SerialNumber) (bool, error)
+}
+
+// Queue is an abstraction around a queue of pending serials.
+type Queue interface {
+	// GetPendingSerialsBatch returns a batch of pending serials containing at most size
+	// entries. It returns a boolean indicating true if the queue is empty.
+	GetPendingSerialsBatch(ctx context.Context, size int) ([]PendingSerial, bool, error)
+}
+
+// ConsumedSerial is a serial that has been consumed and its bandwidth recorded.
+type ConsumedSerial struct {
+	NodeID       storj.NodeID
+	SerialNumber storj.SerialNumber
+	ExpiresAt    time.Time
+}
+
+// PendingSerial is a serial number reported by a storagenode waiting to be
+// settled
+type PendingSerial struct {
+	NodeID       storj.NodeID
+	BucketID     []byte
+	Action       uint
+	SerialNumber storj.SerialNumber
+	ExpiresAt    time.Time
+	Settled      uint64
 }
 
 var (
@@ -75,6 +110,8 @@ var (
 	Error = errs.Class("orders error")
 	// ErrUsingSerialNumber error class for serial number
 	ErrUsingSerialNumber = errs.Class("serial number")
+
+	errExpiredOrder = errs.Class("order limit expired")
 
 	mon = monkit.Package()
 )
@@ -196,7 +233,7 @@ func monitoredSettlementStreamSend(ctx context.Context, stream settlementStream,
 }
 
 // Settlement receives orders and handles them in batches
-func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err error) {
+func (endpoint *Endpoint) Settlement(stream pbgrpc.Orders_SettlementServer) (err error) {
 	return endpoint.doSettlement(stream)
 }
 
@@ -243,6 +280,13 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 		}
 	}()
 
+	var expirationCount int64
+	defer func() {
+		if expirationCount > 0 {
+			log.Debug("order verification found expired orders", zap.Int64("amount", expirationCount))
+		}
+	}()
+
 	for {
 		request, err := monitoredSettlementStreamReceive(ctx, stream)
 		if err != nil {
@@ -267,28 +311,39 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 		}
 
 		rejectErr := func() error {
+			// check expiration first before the signatures so that we can throw out the large
+			// amount of expired orders being sent to us before doing expensive signature
+			// verification.
+			if orderLimit.OrderExpiration.Before(time.Now()) {
+				mon.Event("order_verification_failed_expired")
+				expirationCount++
+				return errExpiredOrder.New("order limit expired")
+			}
+
 			// satellite verifies that it signed the order limit
 			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
+				mon.Event("order_verification_failed_satellite_signature")
 				return Error.New("unable to verify order limit")
 			}
 
 			// satellite verifies that the order signature matches pub key in order limit
 			if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
+				mon.Event("order_verification_failed_uplink_signature")
 				return Error.New("unable to verify order")
 			}
 
 			// TODO should this reject or just error ??
 			if orderLimit.SerialNumber != order.SerialNumber {
+				mon.Event("order_verification_failed_serial_mismatch")
 				return Error.New("invalid serial number")
-			}
-
-			if orderLimit.OrderExpiration.Before(time.Now()) {
-				return Error.New("order limit expired")
 			}
 			return nil
 		}()
 		if rejectErr != nil {
-			log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(rejectErr))
+			mon.Event("order_verification_failed")
+			if !errExpiredOrder.Has(rejectErr) {
+				log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(rejectErr))
+			}
 			err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
 				SerialNumber: orderLimit.SerialNumber,
 				Status:       pb.SettlementResponse_REJECTED,
@@ -314,7 +369,7 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 func (endpoint *Endpoint) processOrders(ctx context.Context, stream settlementStream, requests []*ProcessOrderRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	responses, err := endpoint.DB.ProcessOrders(ctx, requests, time.Now())
+	responses, err := endpoint.DB.ProcessOrders(ctx, requests)
 	if err != nil {
 		return err
 	}

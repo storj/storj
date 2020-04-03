@@ -11,7 +11,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     private readonly ROOT_PATH: string = '/api/v0/projects';
 
     /**
-     * Creates project
+     * Creates project.
      *
      * @param createProjectModel - contains project information
      * @throws Error
@@ -34,11 +34,11 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
 
         const response = await this.mutate(query, variables);
 
-        return new Project(response.data.createProject.id, variables.name, variables.description, '');
+        return new Project(response.data.createProject.id, variables.name, variables.description, '', createProjectModel.ownerId);
     }
 
     /**
-     * Fetch projects
+     * Fetch projects.
      *
      * @returns Project[]
      * @throws Error
@@ -68,7 +68,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     }
 
     /**
-     * Update project description
+     * Update project description.
      *
      * @param projectId - project ID
      * @param description - project description
@@ -93,7 +93,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     }
 
     /**
-     * Delete project
+     * Delete project.
      *
      * @param projectId - project ID
      * @throws Error
@@ -114,7 +114,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     }
 
     /**
-     * Get project limits
+     * Get project limits.
      *
      * @param projectId- project ID
      * throws Error

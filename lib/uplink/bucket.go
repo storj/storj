@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/uplink/metainfo/kvmetainfo"
-	"storj.io/uplink/storage/streams"
-	"storj.io/uplink/stream"
+	"storj.io/uplink/private/metainfo/kvmetainfo"
+	"storj.io/uplink/private/storage/streams"
+	"storj.io/uplink/private/stream"
 )
 
 // Bucket represents operations you can perform on a bucket
@@ -113,7 +113,8 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 // DeleteObject removes an object, if authorized.
 func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return b.metainfo.DeleteObject(ctx, b.bucket, path)
+	_, err = b.metainfo.DeleteObject(ctx, b.bucket, path)
+	return err
 }
 
 // ListOptions controls options for the ListObjects() call.

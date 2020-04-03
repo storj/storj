@@ -26,11 +26,11 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
+	"storj.io/common/processgroup"
 	"storj.io/common/storj"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/processgroup"
 )
 
 const (
@@ -68,6 +68,7 @@ const (
 	debugAdminHTTP    = 6
 	debugPeerHTTP     = 7
 	debugRepairerHTTP = 8
+	debugGCHTTP       = 10
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -372,6 +373,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
 			},
 		})
+		apiProcess.WaitForExited(migrationProcess)
 
 		coreProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-core/%d", i),
@@ -413,7 +415,18 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 		repairProcess.WaitForExited(migrationProcess)
 
-		apiProcess.WaitForExited(migrationProcess)
+		garbageCollectionProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-garbage-collection/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+		})
+		garbageCollectionProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
+			"run": {
+				"garbage-collection",
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugGCHTTP)),
+			},
+		})
+		garbageCollectionProcess.WaitForExited(migrationProcess)
 	}
 
 	// Create gateways for each satellite
@@ -445,16 +458,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--non-interactive",
 
 				"--access", accessData,
-				"--identity-dir", process.Directory,
 				"--server.address", process.Address,
-
-				"--rs.min-threshold", strconv.Itoa(1 * flags.StorageNodeCount / 5),
-				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),
-				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
-				"--rs.max-threshold", strconv.Itoa(4 * flags.StorageNodeCount / 5),
-
-				"--tls.extensions.revocation=false",
-				"--tls.use-peer-ca-whitelist=false",
 
 				"--debug.addr", net.JoinHostPort(host, port(gatewayPeer, i, debugHTTP)),
 			},
@@ -504,6 +508,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				if err != nil {
 					return err
 				}
+
+				satNodeID, err := identity.NodeIDFromCertPath(filepath.Join(satellite.Directory, "identity.cert"))
+				if err != nil {
+					return err
+				}
+				nodeURL := storj.NodeURL{
+					ID:      satNodeID,
+					Address: access.SatelliteAddr,
+				}
+				access.SatelliteAddr = nodeURL.String()
+
 				accessData, err := access.Serialize()
 				if err != nil {
 					return err
@@ -557,7 +572,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--operator.wallet", "0x0123456789012345678901234567890123456789",
 
 				"--storage2.monitor.minimum-disk-space", "0",
-				"--storage2.monitor.minimum-bandwidth", "0",
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",

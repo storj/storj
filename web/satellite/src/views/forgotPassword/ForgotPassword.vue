@@ -13,8 +13,6 @@ import LogoIcon from '@/../static/images/Logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
-import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail } from '@/utils/validation';
 
 @Component({
@@ -25,17 +23,26 @@ import { validateEmail } from '@/utils/validation';
     },
 })
 export default class ForgotPassword extends Vue {
-    public loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
     private email: string = '';
     private emailError: string = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    /**
+     * Checks if page is inside iframe
+     */
+    public get isInsideIframe(): boolean {
+        return window.self !== window.top;
+    }
 
     public setEmail(value: string): void {
         this.email = value;
         this.emailError = '';
     }
 
+    /**
+     * Sends recovery password email.
+     */
     public async onSendConfigurations(): Promise<void> {
         const self = this;
 
@@ -51,6 +58,9 @@ export default class ForgotPassword extends Vue {
         }
     }
 
+    /**
+     * Changes location to Login route.
+     */
     public onBackToLoginClick(): void {
       this.$router.push(RouteConfig.Login.path);
     }

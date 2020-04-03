@@ -32,10 +32,16 @@ import { BillingHistoryItem } from '@/types/payments';
     },
 })
 export default class DepositAndBilling extends Vue {
+    /**
+     * Changes location to billing history route.
+     */
     public onViewAllClick(): void {
         this.$router.push(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
     }
 
+    /**
+     * Returns first 3 of billing history items.
+     */
     public get billingHistoryItems(): BillingHistoryItem[] {
         return this.$store.state.paymentsModule.billingHistory.slice(0, 3);
     }
@@ -64,9 +70,8 @@ export default class DepositAndBilling extends Vue {
             font-family: 'font_bold', sans-serif;
 
             &__title {
-                font-size: 32px;
-                line-height: 48px;
-                user-select: none;
+                font-size: 28px;
+                line-height: 42px;
             }
 
             .button {
