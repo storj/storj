@@ -201,6 +201,12 @@ for version in ${unique_versions}; do
     git worktree add -f "$dir" "${version}"
     rm -f ${dir}/private/version/release.go
     rm -f ${dir}/internal/version/release.go
+    # clear out release information
+    cat > ${dir}/private/version/release.go <<EOF
+    // Copyright (C) 2020 Storj Labs, Inc.
+    // See LICENSE for copying information.
+    package version 
+EOF
     if [[ $version = $previous_release_version || $version = $current_commit ]]
     then
         echo "Installing storj-sim for ${version} in ${dir}."
