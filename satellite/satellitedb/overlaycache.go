@@ -130,12 +130,16 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		var isNew bool
 		var node overlay.SelectedNode
 		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+		var lastIPPort sql.NullString
+		var isNew bool
 		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort, &isNew)
 		if err != nil {
 			return nil, nil, err
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
 		}
 		if isNew {
 			newNodes = append(newNodes, &node)
@@ -384,10 +388,15 @@ func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeI
 		var node overlay.SelectedNode
 		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
 
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort)
+		var lastIPPort sql.NullString
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
 		if err != nil {
 			return nil, err
 		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+
 		nodes[node.ID] = &node
 	}
 
