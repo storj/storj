@@ -111,13 +111,15 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 	}
 
 	var newNodeQuery, reputableNodeQuery query
-	newNodeQuery = assemble(partialQuery{selection: newNodeSelection, condition: newNodesCondition, random: true, limit: newNodeCount})
+	newNodeQuery = assemble(partialQuery{selection: newNodeSelection, condition: newNodesCondition, limit: newNodeCount})
 	if criteria.DistinctIP {
+		newNodeQuery = assemble(partialQuery{selection: newNodeSelection, condition: newNodesCondition, orderBy: "last_net", limit: newNodeCount})
 		newNodeQuery = selectRandomFrom(newNodeQuery, "filteredcandidates", newNodeCount)
 	}
 
-	reputableNodeQuery = assemble(partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, random: true, limit: reputableNodeCount})
+	reputableNodeQuery = assemble(partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, limit: reputableNodeCount})
 	if criteria.DistinctIP {
+		reputableNodeQuery = assemble(partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, orderBy: "last_net", limit: reputableNodeCount})
 		reputableNodeQuery = selectRandomFrom(reputableNodeQuery, "filteredcandidates", reputableNodeCount)
 	}
 
@@ -219,12 +221,10 @@ func assemble(partial partialQuery) query {
 	fmt.Fprintf(&q, " WHERE %s ", partial.condition.query)
 	args = append(args, partial.condition.args...)
 
-	if partial.random {
-		fmt.Fprintf(&q, " ORDER BY RANDOM() ")
-
-		if partial.orderBy != "" {
-			fmt.Fprintf(&q, ", %s ", partial.orderBy)
-		}
+	if partial.orderBy != "" {
+		fmt.Fprintf(&q, " ORDER BY %s, RANDOM() ", partial.orderBy)
+	} else {
+		fmt.Fprint(&q, " ORDER BY RANDOM() ")
 	}
 
 	fmt.Fprintf(&q, " LIMIT ? ")
@@ -283,7 +283,6 @@ type partialQuery struct {
 	selection string
 	condition condition
 	orderBy   string
-	random    bool
 	limit     int
 }
 
