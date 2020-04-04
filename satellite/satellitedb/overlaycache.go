@@ -218,9 +218,15 @@ func assemble(partial partialQuery) query {
 
 	fmt.Fprintf(&q, " WHERE %s ", partial.condition.query)
 	args = append(args, partial.condition.args...)
-	if partial.orderBy != "" {
-		fmt.Fprintf(&q, " ORDER BY %s ", partial.orderBy)
+
+	if partial.random {
+		fmt.Fprintf(&q, " ORDER BY RANDOM() ")
+
+		if partial.orderBy != "" {
+			fmt.Fprintf(&q, ", %s ", partial.orderBy)
+		}
 	}
+
 	fmt.Fprintf(&q, " LIMIT ? ")
 	args = append(args, partial.limit)
 
