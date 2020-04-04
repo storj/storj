@@ -342,7 +342,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 					MinimumRequiredNodes: SelectCount,
 					RequestedCount:       0,
 					ExcludedIDs:          nil,
-					MinimumVersion:       "v1.0.0",
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
@@ -355,7 +354,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 					MinimumRequiredNodes: SelectCount,
 					RequestedCount:       0,
 					ExcludedIDs:          excludedIDs,
-					MinimumVersion:       "v1.0.0",
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)

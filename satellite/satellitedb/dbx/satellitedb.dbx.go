@@ -8466,6 +8466,12 @@ type Id_Address_LastIpPort_LastContactSuccess_LastContactFailure_Row struct {
 	LastContactFailure time.Time
 }
 
+type Id_LastNet_LastIpPort_Row struct {
+	Id         []byte
+	LastNet    string
+	LastIpPort *string
+}
+
 type Id_PieceCount_Row struct {
 	Id         []byte
 	PieceCount int64
@@ -10297,6 +10303,82 @@ func (obj *postgresImpl) All_Node_Id_Node_Address_Node_LastIpPort_Node_LastConta
 	for __rows.Next() {
 		row := &Id_Address_LastIpPort_LastContactSuccess_LastContactFailure_Row{}
 		err = __rows.Scan(&row.Id, &row.Address, &row.LastIpPort, &row.LastContactSuccess, &row.LastContactFailure)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_SelectAllVettedStorageNodes(ctx context.Context,
+	node_type Node_Type_Field,
+	node_free_disk_greater_or_equal Node_FreeDisk_Field,
+	node_last_contact_success_greater Node_LastContactSuccess_Field,
+	node_total_audit_count_greater_or_equal Node_TotalAuditCount_Field,
+	node_total_uptime_count_greater_or_equal Node_TotalUptimeCount_Field) (
+	rows []*Id_LastNet_LastIpPort_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.last_net, nodes.last_ip_port FROM nodes WHERE nodes.disqualified is NULL AND nodes.suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.type = ? AND nodes.free_disk >= ? AND nodes.last_contact_success > ? AND nodes.total_audit_count >= ? AND nodes.total_uptime_count >= ? ORDER BY nodes.id")
+
+	var __values []interface{}
+	__values = append(__values, node_type.value(), node_free_disk_greater_or_equal.value(), node_last_contact_success_greater.value(), node_total_audit_count_greater_or_equal.value(), node_total_uptime_count_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Id_LastNet_LastIpPort_Row{}
+		err = __rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_SelectAllUnvettedStorageNodes(ctx context.Context,
+	node_type Node_Type_Field,
+	node_free_disk_greater_or_equal Node_FreeDisk_Field,
+	node_last_contact_success_greater Node_LastContactSuccess_Field,
+	node_total_audit_count_less Node_TotalAuditCount_Field,
+	node_total_uptime_count_less Node_TotalUptimeCount_Field) (
+	rows []*Id_LastNet_LastIpPort_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.last_net, nodes.last_ip_port FROM nodes WHERE nodes.disqualified is NULL AND nodes.suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.type = ? AND nodes.free_disk >= ? AND nodes.last_contact_success > ? AND (nodes.total_audit_count < ? OR nodes.total_uptime_count < ?) ORDER BY nodes.id")
+
+	var __values []interface{}
+	__values = append(__values, node_type.value(), node_free_disk_greater_or_equal.value(), node_last_contact_success_greater.value(), node_total_audit_count_less.value(), node_total_uptime_count_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Id_LastNet_LastIpPort_Row{}
+		err = __rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -16398,6 +16480,82 @@ func (obj *cockroachImpl) All_Node_Id_Node_Address_Node_LastIpPort_Node_LastCont
 
 }
 
+func (obj *cockroachImpl) All_SelectAllVettedStorageNodes(ctx context.Context,
+	node_type Node_Type_Field,
+	node_free_disk_greater_or_equal Node_FreeDisk_Field,
+	node_last_contact_success_greater Node_LastContactSuccess_Field,
+	node_total_audit_count_greater_or_equal Node_TotalAuditCount_Field,
+	node_total_uptime_count_greater_or_equal Node_TotalUptimeCount_Field) (
+	rows []*Id_LastNet_LastIpPort_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.last_net, nodes.last_ip_port FROM nodes WHERE nodes.disqualified is NULL AND nodes.suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.type = ? AND nodes.free_disk >= ? AND nodes.last_contact_success > ? AND nodes.total_audit_count >= ? AND nodes.total_uptime_count >= ? ORDER BY nodes.id")
+
+	var __values []interface{}
+	__values = append(__values, node_type.value(), node_free_disk_greater_or_equal.value(), node_last_contact_success_greater.value(), node_total_audit_count_greater_or_equal.value(), node_total_uptime_count_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Id_LastNet_LastIpPort_Row{}
+		err = __rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *cockroachImpl) All_SelectAllUnvettedStorageNodes(ctx context.Context,
+	node_type Node_Type_Field,
+	node_free_disk_greater_or_equal Node_FreeDisk_Field,
+	node_last_contact_success_greater Node_LastContactSuccess_Field,
+	node_total_audit_count_less Node_TotalAuditCount_Field,
+	node_total_uptime_count_less Node_TotalUptimeCount_Field) (
+	rows []*Id_LastNet_LastIpPort_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.last_net, nodes.last_ip_port FROM nodes WHERE nodes.disqualified is NULL AND nodes.suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.type = ? AND nodes.free_disk >= ? AND nodes.last_contact_success > ? AND (nodes.total_audit_count < ? OR nodes.total_uptime_count < ?) ORDER BY nodes.id")
+
+	var __values []interface{}
+	__values = append(__values, node_type.value(), node_free_disk_greater_or_equal.value(), node_last_contact_success_greater.value(), node_total_audit_count_less.value(), node_total_uptime_count_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		row := &Id_LastNet_LastIpPort_Row{}
+		err = __rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, row)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *cockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	user *User, err error) {
@@ -20935,6 +21093,34 @@ func (rx *Rx) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx
 	return tx.All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx, project_member_member_id)
 }
 
+func (rx *Rx) All_SelectAllUnvettedStorageNodes(ctx context.Context,
+	node_type Node_Type_Field,
+	node_free_disk_greater_or_equal Node_FreeDisk_Field,
+	node_last_contact_success_greater Node_LastContactSuccess_Field,
+	node_total_audit_count_less Node_TotalAuditCount_Field,
+	node_total_uptime_count_less Node_TotalUptimeCount_Field) (
+	rows []*Id_LastNet_LastIpPort_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_SelectAllUnvettedStorageNodes(ctx, node_type, node_free_disk_greater_or_equal, node_last_contact_success_greater, node_total_audit_count_less, node_total_uptime_count_less)
+}
+
+func (rx *Rx) All_SelectAllVettedStorageNodes(ctx context.Context,
+	node_type Node_Type_Field,
+	node_free_disk_greater_or_equal Node_FreeDisk_Field,
+	node_last_contact_success_greater Node_LastContactSuccess_Field,
+	node_total_audit_count_greater_or_equal Node_TotalAuditCount_Field,
+	node_total_uptime_count_greater_or_equal Node_TotalUptimeCount_Field) (
+	rows []*Id_LastNet_LastIpPort_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_SelectAllVettedStorageNodes(ctx, node_type, node_free_disk_greater_or_equal, node_last_contact_success_greater, node_total_audit_count_greater_or_equal, node_total_uptime_count_greater_or_equal)
+}
+
 func (rx *Rx) All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
 	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field) (
 	rows []*StoragenodeBandwidthRollup, err error) {
@@ -22579,6 +22765,22 @@ type Methods interface {
 	All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*Project, err error)
+
+	All_SelectAllUnvettedStorageNodes(ctx context.Context,
+		node_type Node_Type_Field,
+		node_free_disk_greater_or_equal Node_FreeDisk_Field,
+		node_last_contact_success_greater Node_LastContactSuccess_Field,
+		node_total_audit_count_less Node_TotalAuditCount_Field,
+		node_total_uptime_count_less Node_TotalUptimeCount_Field) (
+		rows []*Id_LastNet_LastIpPort_Row, err error)
+
+	All_SelectAllVettedStorageNodes(ctx context.Context,
+		node_type Node_Type_Field,
+		node_free_disk_greater_or_equal Node_FreeDisk_Field,
+		node_last_contact_success_greater Node_LastContactSuccess_Field,
+		node_total_audit_count_greater_or_equal Node_TotalAuditCount_Field,
+		node_total_uptime_count_greater_or_equal Node_TotalUptimeCount_Field) (
+		rows []*Id_LastNet_LastIpPort_Row, err error)
 
 	All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
 		storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field) (

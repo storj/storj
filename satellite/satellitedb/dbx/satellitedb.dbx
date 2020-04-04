@@ -232,6 +232,33 @@ read all (
 	orderby asc node.last_contact_success
 )
 
+read all (
+	suffix SelectAllVettedStorageNodes
+	select node.id node.last_net node.last_ip_port
+	where node.disqualified = null
+	where node.suspended = null
+	where node.exit_initiated_at = null
+	where node.type = ?
+	where node.free_disk >= ?
+	where node.last_contact_success > ?
+	where node.total_audit_count >= ?
+	where node.total_uptime_count >= ?
+	orderby asc node.id
+)
+
+read all (
+	suffix SelectAllUnvettedStorageNodes
+	select node.id node.last_net node.last_ip_port
+	where node.disqualified = null
+	where node.suspended = null
+	where node.exit_initiated_at = null
+	where node.type = ?
+	where node.free_disk >= ?
+	where node.last_contact_success > ?
+	where ( node.total_audit_count < ?, node.total_uptime_count < ?)
+	orderby asc node.id
+)
+
 //--- repairqueue ---//
 
 model injuredsegment (

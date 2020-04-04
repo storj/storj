@@ -33,6 +33,67 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
+// SelectAllVettedStorageNodes is used to populate the selectedNodeCache upon initialization
+func (cache *overlaycache) SelectAllVettedStorageNodes(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (nodes []overlay.CachedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := cache.db.All_SelectAllVettedStorageNodes(ctx,
+		dbx.Node_Type(int(pb.NodeType_STORAGE)),
+		dbx.Node_FreeDisk(selectionCfg.MinimumDiskSpace.Int64()),
+		dbx.Node_LastContactSuccess(time.Now().Add(-selectionCfg.OnlineWindow)),
+		dbx.Node_TotalAuditCount(selectionCfg.AuditCount),
+		dbx.Node_TotalUptimeCount(selectionCfg.UptimeCount),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var results = []overlay.CachedNode{}
+	for _, row := range rows {
+		var nodeID = storj.NodeID{}
+		copy(nodeID[:], row.Id)
+
+		newSelectedNode := overlay.CachedNode{
+			ID:         nodeID,
+			LastNet:    row.LastNet,
+			LastIPPort: *row.LastIpPort,
+		}
+		results = append(results, newSelectedNode)
+	}
+
+	return results, nil
+}
+
+func (cache *overlaycache) SelectAllUnvettedStorageNodes(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (nodes []overlay.CachedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := cache.db.All_SelectAllUnvettedStorageNodes(ctx,
+		dbx.Node_Type(int(pb.NodeType_STORAGE)),
+		dbx.Node_FreeDisk(selectionCfg.MinimumDiskSpace.Int64()),
+		dbx.Node_LastContactSuccess(time.Now().Add(-selectionCfg.OnlineWindow)),
+		dbx.Node_TotalAuditCount(selectionCfg.AuditCount),
+		dbx.Node_TotalUptimeCount(selectionCfg.UptimeCount),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var results = []overlay.CachedNode{}
+	for _, row := range rows {
+		var nodeID = storj.NodeID{}
+		copy(nodeID[:], row.Id)
+
+		newSelectedNode := overlay.CachedNode{
+			ID:         nodeID,
+			LastNet:    row.LastNet,
+			LastIPPort: *row.LastIpPort,
+		}
+		results = append(results, newSelectedNode)
+	}
+
+	return results, nil
+}
+
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
