@@ -122,6 +122,10 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 	}
 
 	query := unionAll(newNodeQuery, reputableNodeQuery)
+	if query.query == "" {
+		return nil, nil, Error.New("requested 0 rows")
+	}
+
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(query.query), query.args...)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
@@ -152,6 +156,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 	return reputableNodes, newNodes, Error.Wrap(rows.Err())
 }
 
+// nodeSelectionCondition creates a condition with arguments that corresponds to the arguments.
 func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
 	var conds conditions
 
@@ -206,6 +211,7 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 	return conds.combine(), nil
 }
 
+// unionAll combines multiple partial queries into a single query.
 func unionAll(partials ...partialQuery) query {
 	var queries []string
 	var args []interface{}
@@ -219,17 +225,23 @@ func unionAll(partials ...partialQuery) query {
 		args = append(args, q.args...)
 	}
 
+	if len(queries) == 0 {
+		return query{}
+	}
+
 	return query{
 		query: "(" + strings.Join(queries, ") UNION ALL (") + ")",
 		args:  args,
 	}
 }
 
+// condition represents a single condition in a SQL query.
 type condition struct {
 	query string
 	args  []interface{}
 }
 
+// partialQuery represents a selection with a condition, limiting and ordering.
 type partialQuery struct {
 	selection string
 	condition condition
@@ -238,21 +250,22 @@ type partialQuery struct {
 	limit     int
 }
 
+// isEmpty returns whether the result for the query is definitely empty.
 func (q partialQuery) isEmpty() bool {
 	return q.limit == 0
 }
 
+// asQuery combines partialQuery parameters into a single select query.
 func (partial partialQuery) asQuery() query {
 	var q strings.Builder
 	var args []interface{}
 
 	if partial.distinct {
+		// For distinct queries we need to redo randomized ordering.
 		fmt.Fprintf(&q, "SELECT * FROM (")
 	}
 
-	fmt.Fprint(&q, partial.selection)
-
-	fmt.Fprintf(&q, " WHERE %s ", partial.condition.query)
+	fmt.Fprint(&q, partial.selection, " WHERE ", partial.condition.query)
 	args = append(args, partial.condition.args...)
 
 	if partial.orderBy != "" {
@@ -261,18 +274,15 @@ func (partial partialQuery) asQuery() query {
 		fmt.Fprint(&q, " ORDER BY RANDOM() ")
 	}
 
-	fmt.Fprintf(&q, " LIMIT ? ")
+	fmt.Fprint(&q, " LIMIT ? ")
 	args = append(args, partial.limit)
 
 	if partial.distinct {
-		fmt.Fprintf(&q, ") ORDER BY RANDOM() LIMIT ?")
+		fmt.Fprint(&q, ") ORDER BY RANDOM() LIMIT ?")
 		args = append(args, partial.limit)
 	}
 
-	return query{
-		query: q.String(),
-		args:  args,
-	}
+	return query{query: q.String(), args: args}
 }
 
 type query struct {
@@ -283,7 +293,7 @@ type query struct {
 type conditions []condition
 
 func (xs *conditions) add(q string, args ...interface{}) {
-	*xs = append(*xs, cond(q, args...))
+	*xs = append(*xs, condition{query: q, args: args})
 }
 
 func (xs *conditions) addWithStrings(q string, args ...string) {
@@ -309,5 +319,5 @@ func (conditions conditions) combine() condition {
 		qs = append(qs, c.query)
 		args = append(args, c.args...)
 	}
-	return condition{query: strings.Join(qs, " AND "), args: args})
+	return condition{query: strings.Join(qs, " AND "), args: args}
 }
