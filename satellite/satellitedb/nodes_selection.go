@@ -24,18 +24,16 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 		return nil, nil
 	}
 
-	receivedNewNodeCount := 0
-	receivedReputableNodeCount := 0
+	needReputableNodes := reputableNodeCount
+	needNewNodes := newNodeCount
+
 	receivedNodeNetworks := make(map[string]struct{})
 
-	var excludedIDs []storj.NodeID
-	excludedIDs = append(excludedIDs, criteria.ExcludedIDs...)
-
-	var excludedNetworks []string
-	excludedNetworks = append(excludedNetworks, criteria.ExcludedNetworks...)
+	excludedIDs := append([]storj.NodeID{}, criteria.ExcludedIDs...)
+	excludedNetworks := append([]string{}, criteria.ExcludedNetworks...)
 
 	for i := 0; i < 3; i++ {
-		reputableNodes, newNodes, err := cache.selectStorageNodesOnce(ctx, reputableNodeCount-receivedReputableNodeCount, newNodeCount-receivedNewNodeCount, criteria, excludedIDs, excludedNetworks)
+		reputableNodes, newNodes, err := cache.selectStorageNodesOnce(ctx, needReputableNodes, needNewNodes, criteria, excludedIDs, excludedNetworks)
 		if err != nil {
 			return nil, err
 		}
@@ -45,33 +43,39 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 			if _, ok := receivedNodeNetworks[node.LastNet]; ok {
 				continue
 			}
+
 			excludedIDs = append(excludedIDs, node.ID)
 			excludedNetworks = append(excludedNetworks, node.LastNet)
+
+			needNewNodes--
 			nodes = append(nodes, node)
-			receivedNewNodeCount++
 
 			if criteria.DistinctIP {
 				receivedNodeNetworks[node.LastNet] = struct{}{}
 			}
 		}
+
 		for _, node := range reputableNodes {
 			if _, ok := receivedNodeNetworks[node.LastNet]; ok {
 				continue
 			}
+
 			excludedIDs = append(excludedIDs, node.ID)
 			excludedNetworks = append(excludedNetworks, node.LastNet)
+
+			needReputableNodes--
 			nodes = append(nodes, node)
-			receivedReputableNodeCount++
 
 			if criteria.DistinctIP {
 				receivedNodeNetworks[node.LastNet] = struct{}{}
 			}
 		}
 
-		if receivedNewNodeCount >= newNodeCount && receivedReputableNodeCount >= reputableNodeCount {
+		if needReputableNodes <= 0 && needNewNodes <= 0 {
 			break
 		}
 	}
+
 	return nodes, nil
 }
 
@@ -90,6 +94,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 	if err != nil {
 		return nil, nil, err
 	}
+
 	reputableNodesCondition, err := nodeSelectionCondition(ctx, criteria, excludedIDs, excludedNetworks, false)
 	if err != nil {
 		return nil, nil, err
