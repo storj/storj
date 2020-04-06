@@ -100,14 +100,13 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 		return nil, nil, err
 	}
 
-	var newNodeQuery, reputableNodeQuery query
-	newNodeQuery = assemble(partialQuery{selection: newNodeSelection, condition: newNodesCondition, limit: newNodeCount})
+	newNodeQuery := assemble(partialQuery{selection: newNodeSelection, condition: newNodesCondition, limit: newNodeCount})
 	if criteria.DistinctIP {
 		newNodeQuery = assemble(partialQuery{selection: newNodeSelection, condition: newNodesCondition, orderBy: "last_net", limit: newNodeCount})
 		newNodeQuery = selectRandomFrom(newNodeQuery, "filteredcandidates", newNodeCount)
 	}
 
-	reputableNodeQuery = assemble(partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, limit: reputableNodeCount})
+	reputableNodeQuery := assemble(partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, limit: reputableNodeCount})
 	if criteria.DistinctIP {
 		reputableNodeQuery = assemble(partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, orderBy: "last_net", limit: reputableNodeCount})
 		reputableNodeQuery = selectRandomFrom(reputableNodeQuery, "filteredcandidates", reputableNodeCount)
@@ -126,6 +125,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
 		var lastIPPort sql.NullString
 		var isNew bool
+
 		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort, &isNew)
 		if err != nil {
 			return nil, nil, err
@@ -133,16 +133,14 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
+
 		if isNew {
 			newNodes = append(newNodes, &node)
 		} else {
 			reputableNodes = append(reputableNodes, &node)
 		}
-		if len(newNodes)+len(reputableNodes) == reputableNodeCount+newNodeCount {
-			break
-		}
 	}
-	return reputableNodes, newNodes, nil
+	return reputableNodes, newNodes, Error.Wrap(rows.Err())
 }
 
 func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
@@ -243,7 +241,7 @@ func selectRandomFrom(q query, alias string, limit int) query {
 	}
 }
 
-func isEmpty(q query) bool {
+func (q query) isEmpty() bool {
 	if q.query == "" && len(q.args) == 0 {
 		return true
 	}
@@ -251,10 +249,10 @@ func isEmpty(q query) bool {
 }
 
 func union(q1, q2 query) query {
-	if isEmpty(q1) {
+	if q1.isEmpty() {
 		return q2
 	}
-	if isEmpty(q2) {
+	if q2.isEmpty() {
 		return q1
 	}
 
