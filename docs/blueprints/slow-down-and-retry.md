@@ -53,14 +53,14 @@ In case of `Too Many Requests` during download operation we should be able to re
 
 As an addition to retry logic we need to implement at least basic backoff mechanism that will increase the waiting time (between retries) up to a certain threshold. This will prevent from overwhelming satellite with retry requests. For our needs exponential backoff looks to be reasonable solution. 
 
-As an alternative for implementing exponential backoff on client side we can also consider to return with `To Many Request` error information when client should try to repeat request. The HTTP protocol defines that is such situation server may include a `Retry-After` header ([429](https://httpstatuses.com/429)). We can use similar approach and return delay value more attached to current satellite load.
+As an alternative for implementing exponential backoff on client side we can also consider to return with `To Many Request` error information when client should try to repeat request. The HTTP protocol defines that is such situation server may include a `Retry-After` header ([429](https://httpstatuses.com/429)). We can use similar approach and return delay value more attached to current satellite load. One of major challenges with this approach is how correctly return `Retry-After` header for multiple concurrent connections for the same API key.
 
 To avoid satellite side larger development for providing accurate `Retry-After` values we may start start with client side exponential backoff implementation and later migrate into retry interval defined by satellite.
 
 Additional rules:
 * Every retried request should be processed by backoff logic.
 * Retry and slow mechanism should be transient from libuplink consumer perspective except several necessary configurable options (see Implementation) and logging (see next point).
-* Every retry should be logged (severity WARNING or lower) to give details why retry occurs and how long it will take to repeat request.
+* Every retry should be logged (severity WARNING or lower) to give client details why retry occurs and how long it will take to repeat request. Logging is mandatory on client side. In case of satellite side retry logic logging all retries can generate substantial amount of entries so it needs to be well thought out.
 * Applying retry and slow down logic shouldn't degrade libuplink overall performance and increase number of round trips to satellite.
 
 ## Implementation
@@ -77,9 +77,9 @@ Implementation can be divided into several steps:
 
 Client side options:
 * initial interval
-* max elapsed time or number of retries ??
+* number of retries
 * multipliter
-* randomization factor
+* jitter (`sleep(interval + random(0, jitter))`)
 * max interval
 
 ## Open issues
