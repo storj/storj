@@ -143,7 +143,6 @@ model node (
 	field type           int   ( updatable, default 0 )
 	field email          text  ( updatable )
 	field wallet         text  ( updatable ) // TODO: use compressed format
-	field free_bandwidth int64 ( updatable, default -1 )
 	field free_disk      int64 ( updatable, default -1 )
 	field piece_count    int64 ( autoinsert, updatable, default 0 )
 
