@@ -188,7 +188,7 @@ func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, exclud
 				cond.addArg(subnet)
 			}
 		}
-		cond.addQuery("AND last_net <> ''")
+		cond.addQuery(" AND last_net <> ''")
 	}
 	return cond, nil
 }
