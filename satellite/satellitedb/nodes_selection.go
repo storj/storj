@@ -82,14 +82,6 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string) (reputableNodes, newNodes []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	newNodeSelection := `SELECT last_net, id, address, last_ip_port, true FROM nodes`
-	reputableNodeSelection := `SELECT last_net, id, address, last_ip_port, false FROM nodes`
-
-	if criteria.DistinctIP {
-		newNodeSelection = `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, true FROM nodes`
-		reputableNodeSelection = `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, false FROM nodes`
-	}
-
 	newNodesCondition, err := nodeSelectionCondition(ctx, criteria, excludedIDs, excludedNetworks, true)
 	if err != nil {
 		return nil, nil, err
@@ -100,20 +92,36 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 		return nil, nil, err
 	}
 
-	newNodeQuery := assemble(partialQuery{selection: newNodeSelection, condition: newNodesCondition, limit: newNodeCount})
-	if criteria.DistinctIP {
-		newNodeQuery = assemble(partialQuery{selection: newNodeSelection, condition: newNodesCondition, orderBy: "last_net", limit: newNodeCount})
-		newNodeQuery = selectRandomFrom(newNodeQuery, "filteredcandidates", newNodeCount)
+	var reputableNodeQuery, newNodeQuery partialQuery
+	if !criteria.DistinctIP {
+		reputableNodeQuery = partialQuery{
+			selection: `SELECT last_net, id, address, last_ip_port, true FROM nodes`,
+			condition: reputableNodesCondition,
+			limit:     reputableNodeCount,
+		}
+		newNodeQuery = partialQuery{
+			selection: `SELECT last_net, id, address, last_ip_port, false FROM nodes`,
+			condition: newNodesCondition,
+			limit:     newNodeCount,
+		}
+	} else {
+		reputableNodeQuery = partialQuery{
+			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, true FROM nodes`,
+			condition: reputableNodesCondition,
+			distinct:  true,
+			limit:     reputableNodeCount,
+			orderBy:   "last_net",
+		}
+		newNodeQuery = partialQuery{
+			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, false FROM nodes`,
+			condition: newNodesCondition,
+			distinct:  true,
+			limit:     newNodeCount,
+			orderBy:   "last_net",
+		}
 	}
 
-	reputableNodeQuery := assemble(partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, limit: reputableNodeCount})
-	if criteria.DistinctIP {
-		reputableNodeQuery = assemble(partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, orderBy: "last_net", limit: reputableNodeCount})
-		reputableNodeQuery = selectRandomFrom(reputableNodeQuery, "filteredcandidates", reputableNodeCount)
-	}
-
-	query := union(newNodeQuery, reputableNodeQuery)
-
+	query := unionAll(newNodeQuery, reputableNodeQuery)
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(query.query), query.args...)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
@@ -140,6 +148,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 			reputableNodes = append(reputableNodes, &node)
 		}
 	}
+
 	return reputableNodes, newNodes, Error.Wrap(rows.Err())
 }
 
@@ -197,12 +206,48 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 	return conds.combine(), nil
 }
 
-func assemble(partial partialQuery) query {
+func unionAll(partials ...partialQuery) query {
+	var queries []string
+	var args []interface{}
+	for _, partial := range partials {
+		if partial.isEmpty() {
+			continue
+		}
+
+		q := partial.asQuery()
+		queries = append(queries, q.query)
+		args = append(args, q.args...)
+	}
+
+	return query{
+		query: "(" + strings.Join(queries, ") UNION ALL (") + ")",
+		args:  args,
+	}
+}
+
+type condition struct {
+	query string
+	args  []interface{}
+}
+
+type partialQuery struct {
+	selection string
+	condition condition
+	distinct  bool
+	orderBy   string
+	limit     int
+}
+
+func (q partialQuery) isEmpty() bool {
+	return q.limit == 0
+}
+
+func (partial partialQuery) asQuery() query {
 	var q strings.Builder
 	var args []interface{}
 
-	if partial.limit == 0 {
-		return query{}
+	if partial.distinct {
+		fmt.Fprintf(&q, "SELECT * FROM (")
 	}
 
 	fmt.Fprint(&q, partial.selection)
@@ -219,65 +264,15 @@ func assemble(partial partialQuery) query {
 	fmt.Fprintf(&q, " LIMIT ? ")
 	args = append(args, partial.limit)
 
+	if partial.distinct {
+		fmt.Fprintf(&q, ") ORDER BY RANDOM() LIMIT ?")
+		args = append(args, partial.limit)
+	}
+
 	return query{
 		query: q.String(),
 		args:  args,
 	}
-}
-
-func selectRandomFrom(q query, alias string, limit int) query {
-	if limit == 0 {
-		return query{}
-	}
-	queryString := fmt.Sprintf("SELECT * FROM (%s) %s ORDER BY RANDOM() LIMIT ?", q.query, alias)
-
-	newArgs := make([]interface{}, len(q.args)+1)
-	copy(newArgs[:len(q.args)], q.args)
-	newArgs[len(q.args)] = limit
-
-	return query{
-		query: queryString,
-		args:  newArgs,
-	}
-}
-
-func (q query) isEmpty() bool {
-	if q.query == "" && len(q.args) == 0 {
-		return true
-	}
-	return false
-}
-
-func union(q1, q2 query) query {
-	if q1.isEmpty() {
-		return q2
-	}
-	if q2.isEmpty() {
-		return q1
-	}
-
-	finalQuery := "(" + q1.query + ") UNION ALL (" + q2.query + ")"
-
-	var args []interface{}
-	args = append(args, q1.args...)
-	args = append(args, q2.args...)
-
-	return query{
-		query: finalQuery,
-		args:  args,
-	}
-}
-
-type partialQuery struct {
-	selection string
-	condition condition
-	orderBy   string
-	limit     int
-}
-
-type condition struct {
-	query string
-	args  []interface{}
 }
 
 type query struct {
