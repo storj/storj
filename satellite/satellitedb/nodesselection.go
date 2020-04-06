@@ -193,7 +193,7 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 
 	if len(excludedIDs) > 0 {
 		conds.addWithIDs(
-			" AND id NOT IN (?"+strings.Repeat(", ?", len(excludedIDs)-1)+")",
+			"id NOT IN (?"+strings.Repeat(", ?", len(excludedIDs)-1)+")",
 			excludedIDs...,
 		)
 	}
@@ -201,11 +201,11 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 	if criteria.DistinctIP {
 		if len(excludedNetworks) > 0 {
 			conds.addWithStrings(
-				" AND last_net NOT IN (?"+strings.Repeat(", ?", len(excludedIDs)-1)+") ",
+				"last_net NOT IN (?"+strings.Repeat(", ?", len(excludedIDs)-1)+")",
 				excludedNetworks...,
 			)
 		}
-		conds.add("AND last_net <> ''")
+		conds.add("last_net <> ''")
 	}
 
 	return conds.combine(), nil
@@ -319,5 +319,5 @@ func (conditions conditions) combine() condition {
 		qs = append(qs, c.query)
 		args = append(args, c.args...)
 	}
-	return condition{query: strings.Join(qs, " AND "), args: args}
+	return condition{query: " " + strings.Join(qs, " AND ") + " ", args: args}
 }
