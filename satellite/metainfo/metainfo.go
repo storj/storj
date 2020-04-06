@@ -1048,13 +1048,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	mon.Meter("req_put_object").Mark(1)
 
 	return &pb.ObjectBeginResponse{
-		Bucket:               req.Bucket,
-		EncryptedPath:        req.EncryptedPath,
-		Version:              req.Version,
-		StreamId:             streamID,
-		RedundancyScheme:     pbRS,
-		MaxInlineSegmentSize: endpoint.config.MaxInlineSegmentSize.Int64(),
-		MaxSegmentSize:       endpoint.config.MaxSegmentSize.Int64(),
+		Bucket:           req.Bucket,
+		EncryptedPath:    req.EncryptedPath,
+		Version:          req.Version,
+		StreamId:         streamID,
+		RedundancyScheme: pbRS,
 	}, nil
 }
 
