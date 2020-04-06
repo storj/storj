@@ -291,7 +291,7 @@ func (xs *conditions) addWithStrings(q string, args ...string) {
 	for _, arg := range args {
 		values = append(values, arg)
 	}
-	*xs = append(*xs, cond(q, values...))
+	*xs = append(*xs, condition{query: q, args: values})
 }
 
 func (xs *conditions) addWithIDs(q string, args ...storj.NodeID) {
@@ -299,14 +299,7 @@ func (xs *conditions) addWithIDs(q string, args ...storj.NodeID) {
 	for _, arg := range args {
 		values = append(values, arg)
 	}
-	*xs = append(*xs, cond(q, values...))
-}
-
-func cond(query string, args ...interface{}) condition {
-	return condition{
-		query: query,
-		args:  args,
-	}
+	*xs = append(*xs, condition{query: q, args: values})
 }
 
 func (conditions conditions) combine() condition {
@@ -316,5 +309,5 @@ func (conditions conditions) combine() condition {
 		qs = append(qs, c.query)
 		args = append(args, c.args...)
 	}
-	return cond(strings.Join(qs, " AND "), args...)
+	return condition{query: strings.Join(qs, " AND "), args: args})
 }
