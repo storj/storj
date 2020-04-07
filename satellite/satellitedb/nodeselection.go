@@ -98,13 +98,13 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 	var newNodeQuery, reputableNodeQuery query
 	newNodeQuery = assemble(partialQuery{selection: newNodeSelection, condition: newNodesCondition, limit: newNodeCount})
 	if criteria.DistinctIP {
-		newNodeQuery = assemble(partialQuery{selection: newNodeSelection, condition: newNodesCondition, orderBy: "last_net", limit: newNodeCount})
+		newNodeQuery = assemble(partialQuery{selection: newNodeSelection, condition: newNodesCondition, orderBy: "last_net", distinct: true, limit: newNodeCount})
 		newNodeQuery = selectRandomFrom(newNodeQuery, "filteredcandidates", newNodeCount)
 	}
 
 	reputableNodeQuery = assemble(partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, limit: reputableNodeCount})
 	if criteria.DistinctIP {
-		reputableNodeQuery = assemble(partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, orderBy: "last_net", limit: reputableNodeCount})
+		reputableNodeQuery = assemble(partialQuery{selection: reputableNodeSelection, condition: reputableNodesCondition, orderBy: "last_net", distinct: true, limit: reputableNodeCount})
 		reputableNodeQuery = selectRandomFrom(reputableNodeQuery, "filteredcandidates", reputableNodeCount)
 	}
 
@@ -212,8 +212,10 @@ func assemble(partial partialQuery) query {
 		fmt.Fprint(&q, " ORDER BY RANDOM() ")
 	}
 
-	fmt.Fprintf(&q, " LIMIT ? ")
-	args = append(args, partial.limit)
+	if !partial.distinct {
+		fmt.Fprintf(&q, " LIMIT ? ")
+		args = append(args, partial.limit)
+	}
 
 	return query{
 		query: q.String(),
@@ -269,6 +271,7 @@ type partialQuery struct {
 	condition condition
 	orderBy   string
 	limit     int
+	distinct  bool
 }
 
 type condition struct {
