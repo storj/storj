@@ -153,12 +153,36 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
+
+		// pause chores that might update node data
+		satellite.Audit.Chore.Loop.Pause()
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.DowntimeTracking.DetectionChore.Loop.Pause()
+		satellite.DowntimeTracking.EstimationChore.Loop.Pause()
+		for _, node := range planet.StorageNodes {
+			node.Contact.Chore.Pause(ctx)
+		}
+
 		service := satellite.Overlay.Service
+
+		reputable := map[storj.NodeID]bool{}
+
+		countReputable := func(selected []*overlay.SelectedNode) (count int) {
+			for _, n := range selected {
+				if reputable[n.ID] {
+					count++
+				}
+			}
+			return count
+		}
 
 		// update half of nodes to be reputable
 		for i := 0; i < 5; i++ {
+			node := planet.StorageNodes[i]
+			reputable[node.ID()] = true
 			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-				NodeID:       planet.StorageNodes[i].ID(),
+				NodeID:       node.ID(),
 				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
@@ -166,15 +190,58 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		requestedCount := 5
-		newNodeFraction := 0.2
-		preferences := testNodeSelectionConfig(0, newNodeFraction, false)
+		t.Run("request 5, where 1 new", func(t *testing.T) {
+			requestedCount, newCount := 5, 1
+			newNodeFraction := float64(newCount) / float64(requestedCount)
+			preferences := testNodeSelectionConfig(1, newNodeFraction, false)
 
-		nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-			RequestedCount: requestedCount,
-		}, &preferences)
-		require.NoError(t, err)
-		require.Len(t, nodes, requestedCount)
+			nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
+				RequestedCount: requestedCount,
+			}, &preferences)
+			require.NoError(t, err)
+			require.Len(t, nodes, requestedCount)
+			require.Equal(t, requestedCount-newCount, countReputable(nodes))
+		})
+
+		t.Run("request 5, all new", func(t *testing.T) {
+			requestedCount, newCount := 5, 5
+			newNodeFraction := float64(newCount) / float64(requestedCount)
+			preferences := testNodeSelectionConfig(1, newNodeFraction, false)
+
+			nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
+				RequestedCount: requestedCount,
+			}, &preferences)
+			require.NoError(t, err)
+			require.Len(t, nodes, requestedCount)
+			require.Equal(t, 0, countReputable(nodes))
+		})
+
+		// update all of them to be reputable
+		for i := 5; i < 10; i++ {
+			node := planet.StorageNodes[i]
+			reputable[node.ID()] = true
+			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+				NodeID:       node.ID(),
+				IsUp:         true,
+				AuditOutcome: overlay.AuditSuccess,
+				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
+			})
+			require.NoError(t, err)
+		}
+
+		t.Run("no new nodes", func(t *testing.T) {
+			requestedCount, newCount := 5, 1.0
+			newNodeFraction := float64(newCount) / float64(requestedCount)
+			preferences := testNodeSelectionConfig(1, newNodeFraction, false)
+
+			nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
+				RequestedCount: requestedCount,
+			}, &preferences)
+			require.NoError(t, err)
+			require.Len(t, nodes, requestedCount)
+			// all of them should be reputable because there are no new nodes
+			require.Equal(t, 5, countReputable(nodes))
+		})
 	})
 }
 
