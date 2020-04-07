@@ -39,7 +39,7 @@ type DB interface {
 	// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
 	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*SelectedNode, error)
 	// SelectStorageNodes looks up nodes based on criteria
-	SelectStorageNodes(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *NodeCriteria) ([]*SelectedNode, error)
+	SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *NodeCriteria) ([]*SelectedNode, error)
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
 	// KnownOffline filters a set of nodes to offline nodes
@@ -284,9 +284,9 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
-	reputableNodeCount := req.MinimumRequiredNodes
-	if reputableNodeCount <= 0 {
-		reputableNodeCount = req.RequestedCount
+	totalNeededNodes := req.MinimumRequiredNodes
+	if totalNeededNodes <= 0 {
+		totalNeededNodes = req.RequestedCount
 	}
 
 	excludedIDs := req.ExcludedIDs
@@ -302,7 +302,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	newNodeCount := 0
 	if preferences.NewNodeFraction > 0 {
-		newNodeCount = int(float64(reputableNodeCount) * preferences.NewNodeFraction)
+		newNodeCount = int(float64(totalNeededNodes) * preferences.NewNodeFraction)
 	}
 
 	criteria := NodeCriteria{
@@ -315,13 +315,13 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		OnlineWindow:     preferences.OnlineWindow,
 		DistinctIP:       preferences.DistinctIP,
 	}
-	nodes, err = service.db.SelectStorageNodes(ctx, reputableNodeCount, newNodeCount, &criteria)
+	nodes, err = service.db.SelectStorageNodes(ctx, totalNeededNodes, newNodeCount, &criteria)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	if len(nodes) < reputableNodeCount {
-		return nodes, ErrNotEnoughNodes.New("requested %d found %d; %+v ", reputableNodeCount, len(nodes), criteria)
+	if len(nodes) < totalNeededNodes {
+		return nodes, ErrNotEnoughNodes.New("requested %d found %d; %+v ", totalNeededNodes, len(nodes), criteria)
 	}
 
 	return nodes, nil

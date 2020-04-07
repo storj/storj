@@ -18,14 +18,16 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
+func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if newNodeCount == 0 && reputableNodeCount == 0 {
+	if totalNeededNodes == 0 {
 		return nil, nil
 	}
 
-	receivedNewNodeCount := 0
-	receivedReputableNodeCount := 0
+	needNewNodes := newNodeCount
+	needReputableNodes := totalNeededNodes - needNewNodes
+
+	receivedNewNodes := 0
 	receivedNodeNetworks := make(map[string]struct{})
 
 	var excludedIDs []storj.NodeID
@@ -35,7 +37,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 	excludedNetworks = append(excludedNetworks, criteria.ExcludedNetworks...)
 
 	for i := 0; i < 3; i++ {
-		reputableNodes, newNodes, err := cache.selectStorageNodesOnce(ctx, reputableNodeCount-receivedReputableNodeCount, newNodeCount-receivedNewNodeCount, criteria, excludedIDs, excludedNetworks)
+		reputableNodes, newNodes, err := cache.selectStorageNodesOnce(ctx, needReputableNodes, needNewNodes, criteria, excludedIDs, excludedNetworks)
 		if err != nil {
 			return nil, err
 		}
@@ -48,7 +50,8 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 			excludedIDs = append(excludedIDs, node.ID)
 			excludedNetworks = append(excludedNetworks, node.LastNet)
 			nodes = append(nodes, node)
-			receivedNewNodeCount++
+			needNewNodes--
+			receivedNewNodes++
 
 			if criteria.DistinctIP {
 				receivedNodeNetworks[node.LastNet] = struct{}{}
@@ -61,14 +64,19 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, reputableNode
 			excludedIDs = append(excludedIDs, node.ID)
 			excludedNetworks = append(excludedNetworks, node.LastNet)
 			nodes = append(nodes, node)
-			receivedReputableNodeCount++
+			needReputableNodes--
 
 			if criteria.DistinctIP {
 				receivedNodeNetworks[node.LastNet] = struct{}{}
 			}
 		}
 
-		if receivedNewNodeCount >= newNodeCount && receivedReputableNodeCount >= reputableNodeCount {
+		if needNewNodes > 0 && receivedNewNodes == 0 {
+			needReputableNodes += needNewNodes
+			needNewNodes = 0
+		}
+
+		if needReputableNodes <= 0 && needNewNodes <= 0 {
 			break
 		}
 	}
