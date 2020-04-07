@@ -97,6 +97,9 @@ type DB interface {
 	SuspendNode(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 	// UnsuspendNode unsuspends a storage node.
 	UnsuspendNode(ctx context.Context, nodeID storj.NodeID) (err error)
+
+	// SelectStorageNodesFromView selects nodes that can store data from the vetted and unvetted nodes materialized view
+	SelectStorageNodesFromView(ctx context.Context, vettedcount, unvettedcount int, criteria *NodeCriteria) (nodes []*SelectedNode, err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins

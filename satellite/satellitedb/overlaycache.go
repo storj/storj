@@ -33,6 +33,56 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
+func (cache *overlaycache) SelectStorageNodesFromView(ctx context.Context, vettedcount, unvettedcount int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
+	query := `
+		WITH 
+			cte_distinct_net_vetted AS (
+				SELECT * FROM (SELECT DISTINCT ON (net) * FROM vetted_storage_nodes) v
+				ORDER BY RANDOM() LIMIT $1
+			),
+			cte_distinct_net_unvetted AS (
+				SELECT * FROM (SELECT DISTINCT ON (net) * FROM unvetted_storage_nodes) v
+				ORDER BY RANDOM()
+			)
+		SELECT * FROM cte_distinct_net_vetted
+		UNION
+		(
+			SELECT * FROM cte_distinct_net_unvetted
+			WHERE (net NOT IN (SELECT net FROM cte_distinct_net_vetted))
+			LIMIT $1
+		);
+	`
+	// TODO: log or track if distinct net unvetted count is less than unvettedcount count
+
+	rows, err := cache.db.Query(ctx, query, vettedcount, unvettedcount)
+	if err != nil {
+		return nil, err
+	}
+	var result = []*overlay.SelectedNode{}
+	for rows.Next() {
+		var id []byte
+		var address, lastNet string
+		var lastIPPort sql.NullString
+		err = rows.Scan(&id, &address, &lastNet, &lastIPPort)
+		if err != nil {
+			return nil, err
+		}
+		var nodeID = storj.NodeID{}
+		copy(nodeID[:], id)
+		if lastIPPort.Valid {
+			address = lastIPPort.String
+		}
+		newNode := overlay.SelectedNode{
+			ID:         nodeID,
+			Address:    &pb.NodeAddress{Address: address},
+			LastNet:    lastNet,
+			LastIPPort: lastIPPort.String,
+		}
+		result = append(result, &newNode)
+	}
+	return result, nil
+}
+
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -511,7 +561,9 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *overlay.Node
 				address=$2,
 				last_net=$3,
 				protocol=$4,
-				last_ip_port=$9
+				last_ip_port=$9;
+			REFRESH MATERIALIZED VIEW vetted_storage_nodes;
+			REFRESH MATERIALIZED VIEW unvetted_storage_nodes;
 			`
 	_, err = cache.db.ExecContext(ctx, query,
 		// args $1 - $5
@@ -565,6 +617,12 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 
 				allSQL += sql
 			}
+
+			// TODO: add logic to only update when a node changes state
+			allSQL += `	
+				REFRESH MATERIALIZED VIEW vetted_storage_nodes;
+				REFRESH MATERIALIZED VIEW unvetted_storage_nodes;
+			`
 
 			if allSQL != "" {
 				results, err := tx.Tx.Exec(ctx, allSQL)
@@ -644,6 +702,12 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	if dbNode == nil {
 		return nil, Error.New("unable to get node by ID: %v", nodeID)
 	}
+
+	// TODO: add logic to update the materialized views
+	// when a node changes state
+	// REFRESH MATERIALIZED VIEW vetted_storage_nodes;
+	// REFRESH MATERIALIZED VIEW unvetted_storage_nodes;
+
 	return getNodeStats(dbNode), nil
 }
 
@@ -682,6 +746,11 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
+	// TODO: add logic to update the materialized views
+	// when a node changes state
+	// REFRESH MATERIALIZED VIEW vetted_storage_nodes;
+	// REFRESH MATERIALIZED VIEW unvetted_storage_nodes;
 
 	return convertDBNode(ctx, updatedDBNode)
 }
@@ -750,6 +819,11 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		return nil, Error.New("unable to get node by ID: %v", nodeID)
 	}
 
+	// TODO: add logic to update the materialized views
+	// when a node changes state
+	// REFRESH MATERIALIZED VIEW vetted_storage_nodes;
+	// REFRESH MATERIALIZED VIEW unvetted_storage_nodes;
+
 	return getNodeStats(dbNode), nil
 }
 
@@ -766,6 +840,12 @@ func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.Node
 	if dbNode == nil {
 		return errs.New("unable to get node by ID: %v", nodeID)
 	}
+
+	// TODO: add logic to update the materialized views
+	// when a node changes state
+	// REFRESH MATERIALIZED VIEW vetted_storage_nodes;
+	// REFRESH MATERIALIZED VIEW unvetted_storage_nodes;
+
 	return nil
 }
 
@@ -782,6 +862,12 @@ func (cache *overlaycache) SuspendNode(ctx context.Context, nodeID storj.NodeID,
 	if dbNode == nil {
 		return errs.New("unable to get node by ID: %v", nodeID)
 	}
+
+	// TODO: add logic to update the materialized views
+	// when a node changes state
+	// REFRESH MATERIALIZED VIEW vetted_storage_nodes;
+	// REFRESH MATERIALIZED VIEW unvetted_storage_nodes;
+
 	return nil
 }
 
@@ -798,6 +884,12 @@ func (cache *overlaycache) UnsuspendNode(ctx context.Context, nodeID storj.NodeI
 	if dbNode == nil {
 		return errs.New("unable to get node by ID: %v", nodeID)
 	}
+
+	// TODO: add logic to update the materialized views
+	// when a node changes state
+	// REFRESH MATERIALIZED VIEW vetted_storage_nodes;
+	// REFRESH MATERIALIZED VIEW unvetted_storage_nodes;
+
 	return nil
 }
 
@@ -995,6 +1087,11 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 	if dbNode == nil {
 		return nil, Error.Wrap(errs.New("unable to get node by ID: %v", nodeID))
 	}
+
+	// TODO: add logic to update the materialized views
+	// when a node changes state
+	// REFRESH MATERIALIZED VIEW vetted_storage_nodes;
+	// REFRESH MATERIALIZED VIEW unvetted_storage_nodes;
 
 	return convertDBNode(ctx, dbNode)
 }
@@ -1550,6 +1647,11 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	// TODO: add logic to update the materialized views
+	// when a node changes state
+	// REFRESH MATERIALIZED VIEW vetted_storage_nodes;
+	// REFRESH MATERIALIZED VIEW unvetted_storage_nodes;
 
 	return nil
 }

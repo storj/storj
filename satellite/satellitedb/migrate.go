@@ -1018,6 +1018,34 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Create materialized view for selected nodes",
+				Version:     102,
+				Action: migrate.SQL{
+					`CREATE MATERIALIZED VIEW unvetted_storage_nodes AS
+						SELECT id, address, last_net, last_ip_port
+						FROM nodes
+						WHERE disqualified IS NULL
+						AND suspended IS NULL
+						AND exit_initiated_at IS NULL
+						AND free_disk >= 100000000
+						AND total_audit_count >= 100
+						AND total_uptime_count >= 100
+						AND last_net <> '';
+					CREATE MATERIALIZED VIEW unvetted_storage_nodes AS
+						SELECT id, address, last_net, last_ip_port
+						FROM nodes
+						WHERE disqualified IS NULL
+						AND suspended IS NULL
+						AND exit_initiated_at IS NULL
+						AND free_disk >= 100000000
+						AND last_contact_success > now() - interval '4 hour'
+						AND total_audit_count < 100 OR total_uptime_count < 100
+						AND last_net <> ''
+					`,
+				},
+			},
 		},
 	}
 }
