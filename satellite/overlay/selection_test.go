@@ -231,7 +231,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 
 		t.Run("no new nodes", func(t *testing.T) {
 			requestedCount, newCount := 5, 1.0
-			newNodeFraction := float64(newCount) / float64(requestedCount)
+			newNodeFraction := newCount / float64(requestedCount)
 			preferences := testNodeSelectionConfig(1, newNodeFraction, false)
 
 			nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
