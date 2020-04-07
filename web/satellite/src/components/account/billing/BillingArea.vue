@@ -97,7 +97,7 @@ export default class BillingArea extends Vue {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
             if (this.$store.getters.canUserCreateFirstProject && !this.userHasOwnProject) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-                await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CONTENT_BLUR);
+                await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
             }
         } catch (error) {
             await this.$notify.error(error.message);

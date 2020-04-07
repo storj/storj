@@ -23,6 +23,45 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
+func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
+	t.Skip("disable until the bug SM-102 is fixed")
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			bucketName = "testbucket"
+			filePath   = "test/path"
+		)
+
+		var (
+			satelliteSys = planet.Satellites[0]
+			uplink       = planet.Uplinks[0]
+			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			since        = time.Now()
+		)
+
+		satelliteSys.Accounting.Tally.Loop.Pause()
+
+		data := testrand.Bytes(10 * memory.KiB)
+		err := uplink.Upload(ctx, satelliteSys, bucketName, filePath, data)
+		require.NoError(t, err)
+
+		_, err = uplink.Download(ctx, satelliteSys, bucketName, filePath)
+		require.NoError(t, err)
+
+		// trigger tally so it gets all set up and can return a storage usage
+		satelliteSys.Accounting.Tally.Loop.TriggerWait()
+
+		usage := getProjectTotal(ctx, t, planet, 0, projectID, since)
+
+		// TODO: this assertion fails due to the bug SM-102
+		require.Equal(t, len(data), int(usage.Egress), "Egress should be equal to the downloaded file size")
+	})
+}
+
 func TestBilling_InlineFiles(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
@@ -59,8 +98,7 @@ func TestBilling_InlineFiles(t *testing.T) {
 		_, err = uplink.Download(ctx, satelliteSys, bucketName, firstPath)
 		require.NoError(t, err)
 
-		// We need to call tally twice, it calculates the estimated time
-		// using the difference in the generation time of the two tallies
+		// trigger tally so it gets all set up and can return a storage usage
 		satelliteSys.Accounting.Tally.Loop.TriggerWait()
 
 		usage := getProjectTotal(ctx, t, planet, 0, projectID, since)
@@ -100,8 +138,7 @@ func TestBilling_FilesAfterDeletion(t *testing.T) {
 		err := uplink.Upload(ctx, satelliteSys, bucketName, filePath, uploadData)
 		require.NoError(t, err)
 
-		// We need to call tally twice, it calculates the estimated time
-		// using the difference in the generation time of the two tallies
+		// trigger tally so it gets all set up and can return a storage usage
 		satelliteSys.Accounting.Tally.Loop.TriggerWait()
 
 		// Get usage for uploaded file before we delete it

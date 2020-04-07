@@ -4,6 +4,7 @@
 package mobile
 
 import (
+	"storj.io/common/encryption"
 	"storj.io/common/paths"
 	"storj.io/common/storj"
 	libuplink "storj.io/storj/lib/uplink"
@@ -27,12 +28,12 @@ func NewEncryptionAccessWithRoot(bucket, unencryptedPath, encryptedPath string, 
 	if err != nil {
 		return nil, safeError(err)
 	}
-	encAccess := libuplink.NewEncryptionAccess()
-	err = encAccess.Store().Add(bucket, paths.NewUnencrypted(unencryptedPath), paths.NewEncrypted(encryptedPath), *key)
+	encAccess := NewEncryptionAccess()
+	err = encAccess.lib.Store().Add(bucket, paths.NewUnencrypted(unencryptedPath), paths.NewEncrypted(encryptedPath), *key)
 	if err != nil {
 		return nil, safeError(err)
 	}
-	return &EncryptionAccess{lib: encAccess}, nil
+	return &EncryptionAccess{lib: encAccess.lib}, nil
 }
 
 // SetDefaultKey sets the default key to use when no matching keys are found
@@ -94,6 +95,23 @@ func (e *EncryptionAccess) Import(other *EncryptionAccess) error {
 	return e.lib.Import(other.lib)
 }
 
+// OverrideEncryptionKey overrides the root encryption key for the prefix with encryptionKey.
+func (e *EncryptionAccess) OverrideEncryptionKey(bucket, prefix string, encryptionKey []byte) error {
+	store := e.lib.Store()
+
+	unencPath := paths.NewUnencrypted(prefix)
+	encPath, err := encryption.EncryptPathWithStoreCipher(bucket, unencPath, store)
+	if err != nil {
+		return err
+	}
+
+	key, err := storj.NewKey(encryptionKey)
+	if err != nil {
+		return err
+	}
+	return store.Add(bucket, unencPath, encPath, *key)
+}
+
 // EncryptionRestriction represents a scenario where some set of objects
 // may need to be encrypted/decrypted
 type EncryptionRestriction struct {
@@ -125,4 +143,13 @@ func NewEncryptionRestrictions() *EncryptionRestrictions {
 // Add adds EncryptionRestriction
 func (e *EncryptionRestrictions) Add(restriction *EncryptionRestriction) {
 	e.restrictions = append(e.restrictions, *restriction.lib)
+}
+
+// DeriveEncryptionKey derives a salted root key for password using the salt.
+func DeriveEncryptionKey(password, salt []byte) ([]byte, error) {
+	key, err := encryption.DeriveRootKey(password, salt, "", 1)
+	if err != nil {
+		return nil, err
+	}
+	return key[:], nil
 }

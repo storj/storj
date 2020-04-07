@@ -143,7 +143,7 @@ export default class NewProjectPopup extends Vue {
         } catch (error) {
             this.isLoading = false;
             await this.$notify.error(error.message);
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
             return;
         }

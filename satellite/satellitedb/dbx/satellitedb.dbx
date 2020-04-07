@@ -693,7 +693,7 @@ model storagenode_payment (
 	field id         serial64                 //
 	field created_at timestamp ( autoinsert ) //
 	field node_id    blob                     //
-	field period     text      ( nullable )   // YYYY-MM, e.g. 2020-02
+	field period     text                     // YYYY-MM, e.g. 2020-02
 	field amount     int64                    // in micro-units of currency
 	field receipt    text      ( nullable )   //
 	field notes      text      ( nullable )   //

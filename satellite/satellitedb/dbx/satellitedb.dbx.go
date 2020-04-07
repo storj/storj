@@ -368,8 +368,8 @@ CREATE TABLE credits_spendings (
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint DEFAULT 0 NOT NULL,
-	pieces_failed bigint DEFAULT 0 NOT NULL,
+	pieces_transferred bigint NOT NULL DEFAULT 0,
+	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -385,14 +385,14 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp with time zone,
-	order_limit_send_count integer DEFAULT 0 NOT NULL,
+	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp with time zone,
-	num_healthy_pieces integer DEFAULT 52 NOT NULL,
+	num_healthy_pieces integer NOT NULL DEFAULT 52,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -405,44 +405,44 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
-	address text DEFAULT '' NOT NULL,
+	address text NOT NULL DEFAULT '',
 	last_net text NOT NULL,
 	last_ip_port text,
-	protocol integer DEFAULT 0 NOT NULL,
-	type integer DEFAULT 0 NOT NULL,
+	protocol integer NOT NULL DEFAULT 0,
+	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
 	wallet text NOT NULL,
-	free_disk bigint DEFAULT -1 NOT NULL,
-	piece_count bigint DEFAULT 0 NOT NULL,
-	major bigint DEFAULT 0 NOT NULL,
-	minor bigint DEFAULT 0 NOT NULL,
-	patch bigint DEFAULT 0 NOT NULL,
-	hash text DEFAULT '' NOT NULL,
-	timestamp timestamp with time zone DEFAULT '0001-01-01 00:00:00+00' NOT NULL,
-	release boolean DEFAULT false NOT NULL,
-	latency_90 bigint DEFAULT 0 NOT NULL,
-	audit_success_count bigint DEFAULT 0 NOT NULL,
-	total_audit_count bigint DEFAULT 0 NOT NULL,
+	free_disk bigint NOT NULL DEFAULT -1,
+	piece_count bigint NOT NULL DEFAULT 0,
+	major bigint NOT NULL DEFAULT 0,
+	minor bigint NOT NULL DEFAULT 0,
+	patch bigint NOT NULL DEFAULT 0,
+	hash text NOT NULL DEFAULT '',
+	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+	release boolean NOT NULL DEFAULT false,
+	latency_90 bigint NOT NULL DEFAULT 0,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
-	created_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	updated_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	last_contact_success timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	last_contact_failure timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	contained boolean DEFAULT false NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
+	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
+	contained boolean NOT NULL DEFAULT false,
 	disqualified timestamp with time zone,
 	suspended timestamp with time zone,
-	audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	unknown_audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	uptime_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	uptime_reputation_beta double precision DEFAULT 0 NOT NULL,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
+	uptime_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
-	exit_success boolean DEFAULT false NOT NULL,
+	exit_success boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE nodes_offline_times (
@@ -455,8 +455,8 @@ CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	award_credit_in_cents integer DEFAULT 0 NOT NULL,
-	invitee_credit_in_cents integer DEFAULT 0 NOT NULL,
+	award_credit_in_cents integer NOT NULL DEFAULT 0,
+	invitee_credit_in_cents integer NOT NULL DEFAULT 0,
 	award_credit_duration_days integer,
 	invitee_credit_duration_days integer,
 	redeemable_cap integer,
@@ -496,7 +496,7 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint DEFAULT 0 NOT NULL,
+	usage_limit bigint NOT NULL DEFAULT 0,
 	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
@@ -548,7 +548,7 @@ CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	node_id bytea NOT NULL,
-	period text,
+	period text NOT NULL,
 	amount bigint NOT NULL,
 	receipt text,
 	notes text,
@@ -871,8 +871,8 @@ CREATE TABLE credits_spendings (
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint DEFAULT 0 NOT NULL,
-	pieces_failed bigint DEFAULT 0 NOT NULL,
+	pieces_transferred bigint NOT NULL DEFAULT 0,
+	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -888,14 +888,14 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp with time zone,
-	order_limit_send_count integer DEFAULT 0 NOT NULL,
+	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp with time zone,
-	num_healthy_pieces integer DEFAULT 52 NOT NULL,
+	num_healthy_pieces integer NOT NULL DEFAULT 52,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -908,44 +908,44 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
-	address text DEFAULT '' NOT NULL,
+	address text NOT NULL DEFAULT '',
 	last_net text NOT NULL,
 	last_ip_port text,
-	protocol integer DEFAULT 0 NOT NULL,
-	type integer DEFAULT 0 NOT NULL,
+	protocol integer NOT NULL DEFAULT 0,
+	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
 	wallet text NOT NULL,
-	free_disk bigint DEFAULT -1 NOT NULL,
-	piece_count bigint DEFAULT 0 NOT NULL,
-	major bigint DEFAULT 0 NOT NULL,
-	minor bigint DEFAULT 0 NOT NULL,
-	patch bigint DEFAULT 0 NOT NULL,
-	hash text DEFAULT '' NOT NULL,
-	timestamp timestamp with time zone DEFAULT '0001-01-01 00:00:00+00' NOT NULL,
-	release boolean DEFAULT false NOT NULL,
-	latency_90 bigint DEFAULT 0 NOT NULL,
-	audit_success_count bigint DEFAULT 0 NOT NULL,
-	total_audit_count bigint DEFAULT 0 NOT NULL,
+	free_disk bigint NOT NULL DEFAULT -1,
+	piece_count bigint NOT NULL DEFAULT 0,
+	major bigint NOT NULL DEFAULT 0,
+	minor bigint NOT NULL DEFAULT 0,
+	patch bigint NOT NULL DEFAULT 0,
+	hash text NOT NULL DEFAULT '',
+	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+	release boolean NOT NULL DEFAULT false,
+	latency_90 bigint NOT NULL DEFAULT 0,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
-	created_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	updated_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	last_contact_success timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	last_contact_failure timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	contained boolean DEFAULT false NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
+	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
+	contained boolean NOT NULL DEFAULT false,
 	disqualified timestamp with time zone,
 	suspended timestamp with time zone,
-	audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	unknown_audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	uptime_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	uptime_reputation_beta double precision DEFAULT 0 NOT NULL,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
+	uptime_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
-	exit_success boolean DEFAULT false NOT NULL,
+	exit_success boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE nodes_offline_times (
@@ -958,8 +958,8 @@ CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	award_credit_in_cents integer DEFAULT 0 NOT NULL,
-	invitee_credit_in_cents integer DEFAULT 0 NOT NULL,
+	award_credit_in_cents integer NOT NULL DEFAULT 0,
+	invitee_credit_in_cents integer NOT NULL DEFAULT 0,
 	award_credit_duration_days integer,
 	invitee_credit_duration_days integer,
 	redeemable_cap integer,
@@ -999,7 +999,7 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint DEFAULT 0 NOT NULL,
+	usage_limit bigint NOT NULL DEFAULT 0,
 	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
@@ -1051,7 +1051,7 @@ CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	node_id bytea NOT NULL,
-	period text,
+	period text NOT NULL,
 	amount bigint NOT NULL,
 	receipt text,
 	notes text,
@@ -5774,7 +5774,7 @@ type StoragenodePayment struct {
 	Id        int64
 	CreatedAt time.Time
 	NodeId    []byte
-	Period    *string
+	Period    string
 	Amount    int64
 	Receipt   *string
 	Notes     *string
@@ -5783,7 +5783,6 @@ type StoragenodePayment struct {
 func (StoragenodePayment) _Table() string { return "storagenode_payments" }
 
 type StoragenodePayment_Create_Fields struct {
-	Period  StoragenodePayment_Period_Field
 	Receipt StoragenodePayment_Receipt_Field
 	Notes   StoragenodePayment_Notes_Field
 }
@@ -5851,25 +5850,12 @@ func (StoragenodePayment_NodeId_Field) _Column() string { return "node_id" }
 type StoragenodePayment_Period_Field struct {
 	_set   bool
 	_null  bool
-	_value *string
+	_value string
 }
 
 func StoragenodePayment_Period(v string) StoragenodePayment_Period_Field {
-	return StoragenodePayment_Period_Field{_set: true, _value: &v}
+	return StoragenodePayment_Period_Field{_set: true, _value: v}
 }
-
-func StoragenodePayment_Period_Raw(v *string) StoragenodePayment_Period_Field {
-	if v == nil {
-		return StoragenodePayment_Period_Null()
-	}
-	return StoragenodePayment_Period(*v)
-}
-
-func StoragenodePayment_Period_Null() StoragenodePayment_Period_Field {
-	return StoragenodePayment_Period_Field{_set: true, _null: true}
-}
-
-func (f StoragenodePayment_Period_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f StoragenodePayment_Period_Field) value() interface{} {
 	if !f._set || f._null {
@@ -9218,6 +9204,7 @@ func (obj *postgresImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 
 func (obj *postgresImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
 	storagenode_payment_amount StoragenodePayment_Amount_Field,
 	optional StoragenodePayment_Create_Fields) (
 	err error) {
@@ -9226,7 +9213,7 @@ func (obj *postgresImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__created_at_val := __now
 	__node_id_val := storagenode_payment_node_id.value()
-	__period_val := optional.Period.value()
+	__period_val := storagenode_payment_period.value()
 	__amount_val := storagenode_payment_amount.value()
 	__receipt_val := optional.Receipt.value()
 	__notes_val := optional.Notes.value()
@@ -15291,6 +15278,7 @@ func (obj *cockroachImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 
 func (obj *cockroachImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
 	storagenode_payment_amount StoragenodePayment_Amount_Field,
 	optional StoragenodePayment_Create_Fields) (
 	err error) {
@@ -15299,7 +15287,7 @@ func (obj *cockroachImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__created_at_val := __now
 	__node_id_val := storagenode_payment_node_id.value()
-	__period_val := optional.Period.value()
+	__period_val := storagenode_payment_period.value()
 	__amount_val := storagenode_payment_amount.value()
 	__receipt_val := optional.Receipt.value()
 	__notes_val := optional.Notes.value()
@@ -21078,6 +21066,7 @@ func (rx *Rx) CreateNoReturn_SerialNumber(ctx context.Context,
 
 func (rx *Rx) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
 	storagenode_payment_amount StoragenodePayment_Amount_Field,
 	optional StoragenodePayment_Create_Fields) (
 	err error) {
@@ -21085,7 +21074,7 @@ func (rx *Rx) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.CreateNoReturn_StoragenodePayment(ctx, storagenode_payment_node_id, storagenode_payment_amount, optional)
+	return tx.CreateNoReturn_StoragenodePayment(ctx, storagenode_payment_node_id, storagenode_payment_period, storagenode_payment_amount, optional)
 
 }
 
@@ -22623,6 +22612,7 @@ type Methods interface {
 
 	CreateNoReturn_StoragenodePayment(ctx context.Context,
 		storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+		storagenode_payment_period StoragenodePayment_Period_Field,
 		storagenode_payment_amount StoragenodePayment_Amount_Field,
 		optional StoragenodePayment_Create_Fields) (
 		err error)

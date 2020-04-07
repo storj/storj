@@ -389,7 +389,7 @@ export default class PaymentMethods extends Vue {
 
             setTimeout(() => {
                 if (!this.userHasOwnProject) {
-                    this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CONTENT_BLUR);
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
                 }
             }, 500);
         }, 2000);
