@@ -122,6 +122,7 @@ Implementation Options:
 1. don't implement a cache now, but instead see how optimized we can make the current select node queries. (i.e. reduce the 2 queries into one (in progress: [PR](https://github.com/storj/storj/pull/3831)), add an index to expression, possibly use materialized view, move distinctIP logic into application code or whatever part is slowest)
 2. create in-memory cache as described in #Design
 3. create a cache using redis (see #rationale 2.)
+4. use a queue to store selections computed ahead of time (see prototype [PR](https://github.com/storj/storj/pull/3835)), this can be combined with 1 to reduce load on db as well
 
 Steps for implementation creating an in-memory cache for each Satellite API:
 - create a selected nodes cache in the satellite/overlay pkg
