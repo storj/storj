@@ -148,6 +148,36 @@ func TestNodeSelection(t *testing.T) {
 	})
 }
 
+func TestEnsureMinimumRequested(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		service := satellite.Overlay.Service
+
+		// update half of nodes to be reputable
+		for i := 0; i < 5; i++ {
+			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+				NodeID:       planet.StorageNodes[i].ID(),
+				IsUp:         true,
+				AuditOutcome: overlay.AuditSuccess,
+				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
+			})
+			require.NoError(t, err)
+		}
+
+		requestedCount := 5
+		newNodeFraction := 0.2
+		preferences := testNodeSelectionConfig(0, newNodeFraction, false)
+
+		nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
+			RequestedCount: requestedCount,
+		}, &preferences)
+		require.NoError(t, err)
+		require.Len(t, nodes, requestedCount)
+	})
+}
+
 func TestNodeSelectionWithBatch(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
