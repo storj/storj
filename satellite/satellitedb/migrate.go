@@ -1020,16 +1020,35 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          db.DB,
-				Description: "Create materialized view for selected nodes",
+				Description: "Create materialized view for selected nodes with indexes",
 				Version:     102,
 				Action: migrate.SQL{
-					`CREATE MATERIALIZED VIEW unvetted_storage_nodes AS
-						SELECT id, address, last_net, last_ip_port
+					`CREATE INDEX last_contact_success_idx ON nodes ( last_contact_success );
+					CREATE INDEX vetted_nodes_criteria_idx ON nodes (
+						disqualified IS NULL
+						AND suspended IS NULL
+						AND exit_initiated_at IS NULL
+						AND free_disk >= 100000000
+						AND total_audit_count >= 100
+						AND total_uptime_count >= 100
+						AND last_net <> ''
+					);
+					CREATE INDEX unvetted_nodes_criteria_idx ON nodes (
+						disqualified IS NULL
+						AND suspended IS NULL
+						AND exit_initiated_at IS NULL
+						AND free_disk >= 100000000
+						AND total_audit_count < 100 OR total_uptime_count < 100
+						AND last_net <> ''
+					);
+					CREATE MATERIALIZED VIEW unvetted_storage_nodes AS
+					SELECT id, address, last_net, last_ip_port
 						FROM nodes
 						WHERE disqualified IS NULL
 						AND suspended IS NULL
 						AND exit_initiated_at IS NULL
 						AND free_disk >= 100000000
+						AND last_contact_success > now() - interval '4 hour'
 						AND total_audit_count >= 100
 						AND total_uptime_count >= 100
 						AND last_net <> '';

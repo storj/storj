@@ -706,6 +706,7 @@ CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at 
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
 CREATE INDEX node_last_ip ON nodes ( last_net );
+CREATE INDEX last_contact_success_idx ON nodes ( last_contact_success );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
@@ -1210,6 +1211,7 @@ CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at 
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
 CREATE INDEX node_last_ip ON nodes ( last_net );
+CREATE INDEX last_contact_success_idx ON nodes ( last_contact_success );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );

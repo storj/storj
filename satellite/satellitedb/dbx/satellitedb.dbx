@@ -133,6 +133,11 @@ model node (
 		fields last_net
 	)
 
+	index (
+		name last_contact_success_idx
+		fields last_contact_success
+	)
+
 	field id             blob
 	// address is how to contact the node, this can be a hostname or IP and it contains the port
 	field address        text  ( updatable, default "" ) // TODO: use compressed format
