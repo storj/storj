@@ -17,7 +17,6 @@ require (
 	github.com/gorilla/mux v1.7.1
 	github.com/gorilla/schema v1.1.0
 	github.com/graphql-go/graphql v0.7.9
-	github.com/jackc/pgx v3.2.0+incompatible
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-isatty v0.0.9 // indirect
 	github.com/mattn/go-sqlite3 v2.0.2+incompatible
