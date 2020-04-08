@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/encryption"
@@ -136,7 +135,7 @@ func (s *EncryptionAccess) Serialize() (string, error) {
 		return "", err
 	}
 
-	data, err := proto.Marshal(p)
+	data, err := pb.Marshal(p)
 	if err != nil {
 		return "", errs.New("unable to marshal encryption access: %v", err)
 	}
@@ -180,7 +179,7 @@ func ParseEncryptionAccess(serialized string) (*EncryptionAccess, error) {
 	}
 
 	p := new(pb.EncryptionAccess)
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := pb.Unmarshal(data, p); err != nil {
 		return nil, errs.New("unable to unmarshal encryption access: %v", err)
 	}
 

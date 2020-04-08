@@ -10,7 +10,6 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.1
 	github.com/fatih/color v1.7.0
 	github.com/go-redis/redis v6.14.1+incompatible
-	github.com/gogo/protobuf v1.2.1
 	github.com/golang-migrate/migrate/v4 v4.7.0
 	github.com/golang/protobuf v1.3.3
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
@@ -48,6 +47,4 @@ require (
 	storj.io/monkit-jaeger v0.0.0-20200403204040-f5a746eeacca
 	storj.io/private v0.0.0-20200403212157-26f222c154f0
 	storj.io/uplink v1.0.4-0.20200406100056-baa89e6fe434
-
-// storj/gatway for storj-sim is installed via makefile `install-sim` target
 )
