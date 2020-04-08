@@ -454,6 +454,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum value of coin payments in cents before coupon is applied
 # payments.min-coin-payment: 5000
 
+# price node receive for storing TB of audit in cents
+# payments.node-audit-bandwidth-price: 1000
+
+# price node receive for storing disk space in cents/TB
+# payments.node-disk-space-price: 150
+
+# price node receive for storing TB of egress in cents
+# payments.node-egress-bandwidth-price: 2000
+
+# price node receive for storing TB of repair in cents
+# payments.node-repair-bandwidth-price: 1000
+
 # price user should pay for each object stored in network per month
 # payments.object-price: "0.0000022"
 
