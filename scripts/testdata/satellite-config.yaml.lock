@@ -88,6 +88,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # enable open registration
 # console.open-registration-enabled: false
 
+# number of events before the limit kicks in
+# console.rate-limit.burst: 3
+
+# the rate at which request are allowed
+# console.rate-limit.duration: 5m0s
+
+# number of IPs whose rate limits we store
+# console.rate-limit.num-limits: 1000
+
 # used to display at web satellite console
 # console.satellite-name: Storj
 

@@ -32,6 +32,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/uuid"
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -75,6 +76,8 @@ type Config struct {
 	AccountActivationRedirectURL string `help:"url link for account activation redirect" default:""`
 	VerificationPageURL          string `help:"url link to sign up verification page" default:"https://tardigrade.io/satellites/verify"`
 
+	RateLimit web.IPRateLimiterConfig
+
 	console.Config
 }
 
@@ -89,9 +92,10 @@ type Server struct {
 	mailService      *mailservice.Service
 	referralsService *referrals.Service
 
-	listener   net.Listener
-	server     http.Server
-	cookieAuth *consolewebauth.CookieAuth
+	listener    net.Listener
+	server      http.Server
+	cookieAuth  *consolewebauth.CookieAuth
+	rateLimiter *web.IPRateLimiter
 
 	stripePublicKey string
 
@@ -117,6 +121,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		mailService:      mailService,
 		referralsService: referralsService,
 		stripePublicKey:  stripePublicKey,
+		rateLimiter:      web.NewIPRateLimiter(config.RateLimit),
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -164,10 +169,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
 	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
 	authRouter.HandleFunc("/logout", authController.Logout).Methods(http.MethodPost)
-	authRouter.HandleFunc("/token", authController.Token).Methods(http.MethodPost)
-	authRouter.HandleFunc("/register", authController.Register).Methods(http.MethodPost)
-	authRouter.HandleFunc("/forgot-password/{email}", authController.ForgotPassword).Methods(http.MethodPost)
-	authRouter.HandleFunc("/resend-email/{id}", authController.ResendEmail).Methods(http.MethodPost)
+	authRouter.Handle("/token", server.rateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
+	authRouter.Handle("/register", server.rateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost)
+	authRouter.Handle("/forgot-password/{email}", server.rateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
+	authRouter.Handle("/resend-email/{id}", server.rateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
 
 	paymentController := consoleapi.NewPayments(logger, service)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
@@ -219,6 +224,10 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		<-ctx.Done()
 		return server.server.Shutdown(context.Background())
+	})
+	group.Go(func() error {
+		server.rateLimiter.Run(ctx)
+		return nil
 	})
 	group.Go(func() error {
 		defer cancel()
