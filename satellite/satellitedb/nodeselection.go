@@ -24,6 +24,10 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNo
 		return nil, nil
 	}
 
+	if newNodeCount > totalNeededNodes {
+		return nil, Error.New("requested new node count can't exceed requested total node count")
+	}
+
 	needNewNodes := newNodeCount
 	needReputableNodes := totalNeededNodes - needNewNodes
 
@@ -141,7 +145,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 		} else {
 			reputableNodes = append(reputableNodes, &node)
 		}
-		if len(newNodes)+len(reputableNodes) == reputableNodeCount+newNodeCount {
+		if len(newNodes) >= newNodeCount && len(reputableNodes) >= reputableNodeCount {
 			break
 		}
 	}
@@ -152,8 +156,8 @@ func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, exclud
 	var conds conditions
 	if isNewNodeQuery {
 		conds.add(
-			"total_audit_count < ?",
-			criteria.AuditCount,
+			"AND (total_audit_count < ? OR total_uptime_count < ?)",
+			criteria.AuditCount, criteria.UptimeCount,
 		)
 	} else {
 		conds.add(
@@ -190,7 +194,7 @@ func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, exclud
 	}
 	if criteria.DistinctIP {
 		if len(excludedNetworks) > 0 {
-			excludedNetworksQuery := " AND last_net NOT IN (?" + strings.Repeat(", ?", len(excludedIDs)-1) + ") "
+			excludedNetworksQuery := " AND last_net NOT IN (?" + strings.Repeat(", ?", len(excludedNetworks)-1) + ") "
 			cond.addQuery(excludedNetworksQuery)
 			for _, subnet := range excludedNetworks {
 				cond.addArg(subnet)
