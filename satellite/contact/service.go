@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -20,7 +21,8 @@ import (
 
 // Config contains configurable values for contact service
 type Config struct {
-	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
+	ExternalAddress string        `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
+	Timeout         time.Duration `help:"timeout for pinging storage nodes" default:"10m0s"`
 }
 
 // Service is the contact service between storage nodes and satellites.
@@ -37,16 +39,19 @@ type Service struct {
 	overlay *overlay.Service
 	peerIDs overlay.PeerIdentities
 	dialer  rpc.Dialer
+
+	timeout time.Duration
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer) *Service {
+func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer, timeout time.Duration) *Service {
 	return &Service{
 		log:     log,
 		self:    self,
 		overlay: overlay,
 		peerIDs: peerIDs,
 		dialer:  dialer,
+		timeout: timeout,
 	}
 }
 
@@ -63,6 +68,12 @@ func (service *Service) Close() error { return nil }
 // PingBack pings the node to test connectivity.
 func (service *Service) PingBack(ctx context.Context, address string, peerID storj.NodeID) (_ bool, _ string, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if service.timeout > 0 {
+		var cancel func()
+		ctx, cancel = context.WithTimeout(ctx, service.timeout)
+		defer cancel()
+	}
 
 	pingNodeSuccess := true
 	var pingErrorMessage string

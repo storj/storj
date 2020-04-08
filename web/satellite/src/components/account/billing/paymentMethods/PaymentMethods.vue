@@ -294,7 +294,7 @@ export default class PaymentMethods extends Vue {
 
         this.isLoading = true;
 
-        if ((this.tokenDepositValue < 50 || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !this.userHasOwnProject) {
+        if ((this.tokenDepositValue < 50 || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !this.userHasOwnProject && this.noCreditCards) {
             await this.$notify.error('First deposit amount must be more than 50 and less than 1000000');
             this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
             this.areaState = PaymentMethodsBlockState.DEFAULT;
@@ -389,7 +389,7 @@ export default class PaymentMethods extends Vue {
 
             setTimeout(() => {
                 if (!this.userHasOwnProject) {
-                    this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CONTENT_BLUR);
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
                 }
             }, 500);
         }, 2000);

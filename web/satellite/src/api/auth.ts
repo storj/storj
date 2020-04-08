@@ -84,7 +84,12 @@ export class AuthHttpApi {
      */
     public async forgotPassword(email: string): Promise<void> {
         const path = `${this.ROOT_PATH}/forgot-password/${email}`;
-        await this.http.post(path, email);
+        const response = await this.http.post(path, email);
+        if (response.ok) {
+            return;
+        }
+
+        throw new Error('There is no such email');
     }
 
     /**

@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -1048,13 +1047,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	mon.Meter("req_put_object").Mark(1)
 
 	return &pb.ObjectBeginResponse{
-		Bucket:               req.Bucket,
-		EncryptedPath:        req.EncryptedPath,
-		Version:              req.Version,
-		StreamId:             streamID,
-		RedundancyScheme:     pbRS,
-		MaxInlineSegmentSize: endpoint.config.MaxInlineSegmentSize.Int64(),
-		MaxSegmentSize:       endpoint.config.MaxSegmentSize.Int64(),
+		Bucket:           req.Bucket,
+		EncryptedPath:    req.EncryptedPath,
+		Version:          req.Version,
+		StreamId:         streamID,
+		RedundancyScheme: pbRS,
 	}, nil
 }
 
@@ -1070,7 +1067,7 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 	defer mon.Task()(&ctx)(&err)
 
 	streamID := &pb.SatStreamID{}
-	err = proto.Unmarshal(req.StreamId, streamID)
+	err = pb.Unmarshal(req.StreamId, streamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1095,7 +1092,7 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 
 	streamMeta := pb.StreamMeta{}
-	err = proto.Unmarshal(req.EncryptedMetadata, &streamMeta)
+	err = pb.Unmarshal(req.EncryptedMetadata, &streamMeta)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "invalid metadata structure")
 	}
@@ -1186,7 +1183,7 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 	}
 
 	streamMeta := &pb.StreamMeta{}
-	err = proto.Unmarshal(pointer.Metadata, streamMeta)
+	err = pb.Unmarshal(pointer.Metadata, streamMeta)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1351,7 +1348,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	encodedStreamID, err := proto.Marshal(satStreamID)
+	encodedStreamID, err := pb.Marshal(satStreamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1409,7 +1406,7 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 	defer mon.Task()(&ctx)(&err)
 
 	streamID := &pb.SatStreamID{}
-	err = proto.Unmarshal(req.StreamId, streamID)
+	err = pb.Unmarshal(req.StreamId, streamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1567,7 +1564,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		RemotePieces: pieces,
 	}
 
-	metadata, err := proto.Marshal(&pb.SegmentMeta{
+	metadata, err := pb.Marshal(&pb.SegmentMeta{
 		EncryptedKey: req.EncryptedKey,
 		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
 	})
@@ -1716,7 +1713,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
-	metadata, err := proto.Marshal(&pb.SegmentMeta{
+	metadata, err := pb.Marshal(&pb.SegmentMeta{
 		EncryptedKey: req.EncryptedKey,
 		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
 	})
@@ -1870,7 +1867,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	}
 
 	streamMeta := &pb.StreamMeta{}
-	err = proto.Unmarshal(pointer.Metadata, streamMeta)
+	err = pb.Unmarshal(pointer.Metadata, streamMeta)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -2049,14 +2046,14 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		var segmentMeta *pb.SegmentMeta
 		if req.CursorPosition.Index == lastSegment {
 			streamMeta := &pb.StreamMeta{}
-			err = proto.Unmarshal(pointer.Metadata, streamMeta)
+			err = pb.Unmarshal(pointer.Metadata, streamMeta)
 			if err != nil {
 				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			segmentMeta = streamMeta.LastSegmentMeta
 		} else {
 			segmentMeta = &pb.SegmentMeta{}
-			err = proto.Unmarshal(pointer.Metadata, segmentMeta)
+			err = pb.Unmarshal(pointer.Metadata, segmentMeta)
 			if err != nil {
 				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
@@ -2159,7 +2156,7 @@ func (endpoint *Endpoint) getObjectNumberOfSegments(ctx context.Context, project
 	}
 
 	meta := &pb.StreamMeta{}
-	err = proto.Unmarshal(pointer.Metadata, meta)
+	err = pb.Unmarshal(pointer.Metadata, meta)
 	if err != nil {
 		endpoint.log.Error("error unmarshaling pointer metadata", zap.Error(err))
 		return 0, rpcstatus.Error(rpcstatus.Internal, "unable to unmarshal metadata")
@@ -2198,7 +2195,7 @@ func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *pb.SatS
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	encodedStreamID, err := proto.Marshal(signedStreamID)
+	encodedStreamID, err := pb.Marshal(signedStreamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -2218,7 +2215,7 @@ func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *pb.Sa
 		return nil, err
 	}
 
-	encodedSegmentID, err := proto.Marshal(signedSegmentID)
+	encodedSegmentID, err := pb.Marshal(signedSegmentID)
 	if err != nil {
 		return nil, err
 	}
@@ -2234,7 +2231,7 @@ func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID sto
 	defer mon.Task()(&ctx)(&err)
 
 	satStreamID := &pb.SatStreamID{}
-	err = proto.Unmarshal(streamID, satStreamID)
+	err = pb.Unmarshal(streamID, satStreamID)
 	if err != nil {
 		return nil, err
 	}
@@ -2255,7 +2252,7 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	defer mon.Task()(&ctx)(&err)
 
 	satSegmentID := &pb.SatSegmentID{}
-	err = proto.Unmarshal(segmentID, satSegmentID)
+	err = pb.Unmarshal(segmentID, satSegmentID)
 	if err != nil {
 		return nil, err
 	}

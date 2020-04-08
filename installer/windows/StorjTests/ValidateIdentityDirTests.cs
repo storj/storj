@@ -36,20 +36,6 @@ namespace StorjTests
         {
             var fs = new MockFileSystem(new Dictionary<string, MockFileData>
             {
-                { @"X:\\Some\\Identity\\Folder\\ca.key", new MockFileData("") },
-                { @"X:\\Some\\Identity\\Folder\\identity.cert", new MockFileData("") },
-                { @"X:\\Some\\Identity\\Folder\\identity.key", new MockFileData("") }
-            });
-            new CustomActionRunner(fs).ValidateIdentityDir("X:\\Some\\Identity\\Folder");
-        }
-
-        [TestMethod]
-        [ExpectedExceptionWithMessage(typeof(ArgumentException), "File 'ca.key' not found in the selected folder.")]
-        public void MissingCAKeyFile()
-        {
-            var fs = new MockFileSystem(new Dictionary<string, MockFileData>
-            {
-                { @"X:\\Some\\Identity\\Folder\\ca.cert", new MockFileData("") },
                 { @"X:\\Some\\Identity\\Folder\\identity.cert", new MockFileData("") },
                 { @"X:\\Some\\Identity\\Folder\\identity.key", new MockFileData("") }
             });
@@ -63,7 +49,6 @@ namespace StorjTests
             var fs = new MockFileSystem(new Dictionary<string, MockFileData>
             {
                 { @"X:\\Some\\Identity\\Folder\\ca.cert", new MockFileData("") },
-                { @"X:\\Some\\Identity\\Folder\\ca.key", new MockFileData("") },
                 { @"X:\\Some\\Identity\\Folder\\identity.key", new MockFileData("") }
             });
             new CustomActionRunner(fs).ValidateIdentityDir("X:\\Some\\Identity\\Folder");
@@ -76,7 +61,6 @@ namespace StorjTests
             var fs = new MockFileSystem(new Dictionary<string, MockFileData>
             {
                 { @"X:\\Some\\Identity\\Folder\\ca.cert", new MockFileData("") },
-                { @"X:\\Some\\Identity\\Folder\\ca.key", new MockFileData("") },
                 { @"X:\\Some\\Identity\\Folder\\identity.cert", new MockFileData("") }
             });
             new CustomActionRunner(fs).ValidateIdentityDir("X:\\Some\\Identity\\Folder");
@@ -88,7 +72,6 @@ namespace StorjTests
             var fs = new MockFileSystem(new Dictionary<string, MockFileData>
             {
                 { @"X:\\Some\\Identity\\Folder\\ca.cert", new MockFileData("") },
-                { @"X:\\Some\\Identity\\Folder\\ca.key", new MockFileData("") },
                 { @"X:\\Some\\Identity\\Folder\\identity.cert", new MockFileData("") },
                 { @"X:\\Some\\Identity\\Folder\\identity.key", new MockFileData("") },
             });

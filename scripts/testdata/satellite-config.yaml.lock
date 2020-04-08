@@ -106,6 +106,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
 
+# timeout for pinging storage nodes
+# contact.timeout: 10m0s
+
 # satellite database connection string
 # database: postgres://
 
@@ -451,6 +454,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum value of coin payments in cents before coupon is applied
 # payments.min-coin-payment: 5000
 
+# price node receive for storing TB of audit in cents
+# payments.node-audit-bandwidth-price: 1000
+
+# price node receive for storing disk space in cents/TB
+# payments.node-disk-space-price: 150
+
+# price node receive for storing TB of egress in cents
+# payments.node-egress-bandwidth-price: 2000
+
+# price node receive for storing TB of repair in cents
+# payments.node-repair-bandwidth-price: 1000
+
 # price user should pay for each object stored in network per month
 # payments.object-price: "0.0000022"
 
@@ -551,6 +566,24 @@ server.private-address: 127.0.0.1:7778
 
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
+
+# address for jaeger agent
+# tracing.agent-addr: ""
+
+# application name for tracing identification
+# tracing.app: satellite
+
+# application suffix
+# tracing.app-suffix: -release
+
+# buffer size for collector batch packet size
+# tracing.buffer-size: 0
+
+# buffer size for collector queue size
+# tracing.queue-size: 0
+
+# how frequently to send up telemetry
+# tracing.sample: 0
 
 # Interval to check the version
 # version.check-interval: 15m0s

@@ -3,11 +3,11 @@
 
 import Vuex from 'vuex';
 
-import UsageChargeItem from '@/components/account/billing/estimatedCostsAndCredits/UsageChargeItem.vue';
+import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
 
 import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
-import { ProjectCharge } from '@/types/payments';
+import { ProjectUsageAndCharges } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
@@ -26,14 +26,14 @@ const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);
 const store = new Vuex.Store({ modules: { projectsModule, paymentsModule }});
 
-describe('UsageChargeItem', () => {
+describe('UsageAndChargesItem', () => {
     const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);
     projectsApi.setMockProjects([project]);
     const date = new Date(Date.UTC(1970, 1, 1));
-    const projectCharge = new ProjectCharge(date, date, 100, 100, 100, 'id', 100, 100, 100);
+    const projectCharge = new ProjectUsageAndCharges(date, date, 100, 100, 100, 'id', 100, 100, 100);
 
     it('renders correctly', () => {
-        const wrapper = shallowMount(UsageChargeItem, {
+        const wrapper = shallowMount(UsageAndChargesItem, {
             store,
             localVue,
         });
@@ -42,7 +42,7 @@ describe('UsageChargeItem', () => {
     });
 
     it('toggling dropdown works correctly', async () => {
-        const wrapper = shallowMount(UsageChargeItem, {
+        const wrapper = shallowMount(UsageAndChargesItem, {
             store,
             localVue,
             propsData: {
@@ -50,11 +50,11 @@ describe('UsageChargeItem', () => {
             },
         });
 
-        await wrapper.find('.usage-charge-item-container__summary').trigger('click');
+        await wrapper.find('.usage-charges-item-container__summary').trigger('click');
 
         expect(wrapper).toMatchSnapshot();
 
-        await wrapper.find('.usage-charge-item-container__summary').trigger('click');
+        await wrapper.find('.usage-charges-item-container__summary').trigger('click');
 
         expect(wrapper).toMatchSnapshot();
     });

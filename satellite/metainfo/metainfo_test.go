@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -92,7 +91,7 @@ func TestInvalidAPIKey(t *testing.T) {
 			signedStreamID, err := signing.SignStreamID(ctx, signer, satStreamID)
 			require.NoError(t, err)
 
-			encodedStreamID, err := proto.Marshal(signedStreamID)
+			encodedStreamID, err := pb.Marshal(signedStreamID)
 			require.NoError(t, err)
 
 			streamID, err := storj.StreamIDFromBytes(encodedStreamID)
@@ -121,7 +120,7 @@ func TestInvalidAPIKey(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			encodedSegmentID, err := proto.Marshal(signedSegmentID)
+			encodedSegmentID, err := pb.Marshal(signedSegmentID)
 			require.NoError(t, err)
 
 			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
@@ -572,7 +571,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		metadata, err := proto.Marshal(&pb.StreamMeta{
+		metadata, err := pb.Marshal(&pb.StreamMeta{
 			NumberOfSegments: 1,
 		})
 		require.NoError(t, err)
@@ -735,7 +734,7 @@ func TestInlineSegment(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		metadata, err := proto.Marshal(&pb.StreamMeta{
+		metadata, err := pb.Marshal(&pb.StreamMeta{
 			NumberOfSegments: int64(len(segments)),
 		})
 		require.NoError(t, err)
@@ -957,7 +956,7 @@ func TestIDs(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			encodedStreamID, err := proto.Marshal(signedStreamID)
+			encodedStreamID, err := pb.Marshal(signedStreamID)
 			require.NoError(t, err)
 
 			streamID, err := storj.StreamIDFromBytes(encodedStreamID)
@@ -975,7 +974,7 @@ func TestIDs(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			encodedSegmentID, err := proto.Marshal(signedSegmentID)
+			encodedSegmentID, err := pb.Marshal(signedSegmentID)
 			require.NoError(t, err)
 
 			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
@@ -996,7 +995,7 @@ func TestIDs(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			encodedSegmentID, err := proto.Marshal(signedSegmentID)
+			encodedSegmentID, err := pb.Marshal(signedSegmentID)
 			require.NoError(t, err)
 
 			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
@@ -1076,7 +1075,7 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
-			metadata, err := proto.Marshal(&pb.StreamMeta{
+			metadata, err := pb.Marshal(&pb.StreamMeta{
 				NumberOfSegments: int64(numOfSegments),
 			})
 			require.NoError(t, err)
@@ -1140,7 +1139,7 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
-			metadata, err := proto.Marshal(&pb.StreamMeta{
+			metadata, err := pb.Marshal(&pb.StreamMeta{
 				NumberOfSegments: int64(numOfSegments),
 			})
 			require.NoError(t, err)

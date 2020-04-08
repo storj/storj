@@ -5,26 +5,26 @@
     <div class="current-month-area">
         <div class="current-month-area__title-area">
             <h1 class="current-month-area__title-area__title">Estimated Costs for This Billing Period</h1>
-            <span class="current-month-area__title-area__costs">{{ chargesSummary | centsToDollars }}</span>
+            <span class="current-month-area__title-area__costs">{{ priceSummary | centsToDollars }}</span>
         </div>
         <div class="current-month-area__content">
             <h2 class="current-month-area__content__title">DETAILS</h2>
             <div class="current-month-area__content__usage-charges" @click="toggleUsageChargesPopup">
                 <div class="current-month-area__content__usage-charges__head">
                     <div class="current-month-area__content__usage-charges__head__name-area">
-                        <div class="current-month-area__content__usage-charges__head__name-area__image-container" v-if="usageCharges.length > 0">
-                            <ArrowRightIcon v-if="!areUsageChargesShown"/>
-                            <ArrowDownIcon v-if="areUsageChargesShown"/>
+                        <div class="current-month-area__content__usage-charges__head__name-area__image-container" v-if="projectUsageAndCharges.length > 0">
+                            <ArrowRightIcon v-if="!areProjectUsageAndChargesShown"/>
+                            <ArrowDownIcon v-else/>
                         </div>
                         <span class="current-month-area__content__usage-charges__head__name-area__title">Usage Charges</span>
                     </div>
-                    <span>Estimated total <span class="summary">{{ chargesSummary | centsToDollars }}</span></span>
+                    <span>Estimated total <span class="summary">{{ priceSummary | centsToDollars }}</span></span>
                 </div>
-                <div class="current-month-area__content__usage-charges__content" v-if="areUsageChargesShown" @click.stop>
-                    <UsageChargeItem
-                        v-for="usageCharge in usageCharges"
-                        :item="usageCharge"
-                        :key="usageCharge.projectId"
+                <div class="current-month-area__content__usage-charges__content" v-if="areProjectUsageAndChargesShown" @click.stop>
+                    <UsageAndChargesItem
+                        v-for="usageAndCharges in projectUsageAndCharges"
+                        :item="usageAndCharges"
+                        :key="usageAndCharges.projectId"
                         class="item"
                     />
                 </div>
@@ -40,6 +40,14 @@
                     {{ balance | centsToDollars }}
                 </span>
             </div>
+            <div class="current-month-area__content__credits-area">
+                <div class="current-month-area__content__credits-area__title-area">
+                    <span class="current-month-area__content__credits-area__title-area__title">Available Credits</span>
+                </div>
+                <span class="current-month-area__content__credits-area__balance">
+                    {{ availableBalance | centsToDollars }}
+                </span>
+            </div>
         </div>
     </div>
 </template>
@@ -47,19 +55,19 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import UsageChargeItem from '@/components/account/billing/estimatedCostsAndCredits/UsageChargeItem.vue';
+import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import ArrowRightIcon from '@/../static/images/common/BlueArrowRight.svg';
 import ArrowDownIcon from '@/../static/images/common/BlueExpand.svg';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { ProjectCharge } from '@/types/payments';
+import { ProjectUsageAndCharges } from '@/types/payments';
 
 @Component({
     components: {
         VButton,
-        UsageChargeItem,
+        UsageAndChargesItem,
         ArrowRightIcon,
         ArrowDownIcon,
     },
@@ -72,35 +80,29 @@ export default class EstimatedCostsAndCredits extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(error.message);
         }
     }
 
     /**
-     * areUsageChargesShown indicates if area with all projects is expanded.
+     * areProjectUsageAndChargesShown indicates if area with all projects is expanded.
      */
-    private areUsageChargesShown: boolean = false;
+    public areProjectUsageAndChargesShown: boolean = false;
 
     /**
-     * usageCharges is an array of all stored ProjectCharges.
+     * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
      */
-    public get usageCharges(): ProjectCharge[] {
-        return this.$store.state.paymentsModule.charges;
+    public get projectUsageAndCharges(): ProjectUsageAndCharges[] {
+        return this.$store.state.paymentsModule.usageAndCharges;
     }
 
     /**
-     * chargesSummary returns summary of all projects.
+     * priceSummary returns price summary of usages for all the projects.
      */
-    public get chargesSummary(): number {
-        if (!this.usageCharges.length) {
-            return 0;
-        }
-
-        const usageItemSummaries = this.usageCharges.map(item => item.summary());
-
-        return usageItemSummaries.reduce((accumulator, current) => accumulator + current);
+    public get priceSummary(): number {
+        return this.$store.state.paymentsModule.priceSummary;
     }
 
     /**
@@ -108,6 +110,22 @@ export default class EstimatedCostsAndCredits extends Vue {
      */
     public get balance(): number {
         return this.$store.state.paymentsModule.balance;
+    }
+
+    /**
+     * Returns available balance in cents.
+     */
+    public get availableBalance(): number {
+        const total = this.previousRollupPrice + this.currentRollupPrice;
+
+        switch (true) {
+            case this.balance <= total:
+                return 0;
+            case this.$store.getters.isInvoiceForPreviousRollup:
+                return this.balance - this.currentRollupPrice;
+            default:
+                return this.balance - total;
+        }
     }
 
     /**
@@ -121,11 +139,25 @@ export default class EstimatedCostsAndCredits extends Vue {
      * toggleUsageChargesPopup is used to open/close area with list of project charges.
      */
     public toggleUsageChargesPopup(): void {
-        if (this.usageCharges.length === 0) {
+        if (this.projectUsageAndCharges.length === 0) {
             return;
         }
 
-        this.areUsageChargesShown = !this.areUsageChargesShown;
+        this.areProjectUsageAndChargesShown = !this.areProjectUsageAndChargesShown;
+    }
+
+    /**
+     * previousRollupPrice is a price of previous rollup.
+     */
+    private get previousRollupPrice(): number {
+        return this.$store.state.paymentsModule.previousRollupPrice;
+    }
+
+    /**
+     * currentRollupPrice is a price of current rollup.
+     */
+    private get currentRollupPrice(): number {
+        return this.$store.state.paymentsModule.currentRollupPrice;
     }
 }
 </script>

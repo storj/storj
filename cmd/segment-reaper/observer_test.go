@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -610,10 +609,10 @@ func TestObserver_processSegment_single_project(t *testing.T) {
 						streamMeta.NumberOfSegments = int64(ttObject.numberOfSegments)
 					}
 					path := storj.JoinPaths(project1, segmentIndex, ttObject.bucket, "path"+strconv.Itoa(i))
-					metadata, err := proto.Marshal(streamMeta)
+					metadata, err := pb.Marshal(streamMeta)
 					require.NoError(t, err)
 
-					pointerBytes, err := proto.Marshal(&pb.Pointer{
+					pointerBytes, err := pb.Marshal(&pb.Pointer{
 						Metadata: metadata,
 					})
 					require.NoError(t, err)
@@ -804,7 +803,7 @@ func createNewObjectSegments(
 		pointerNumSegments = int64(numSegments)
 	}
 
-	metadata, err := proto.Marshal(&pb.StreamMeta{
+	metadata, err := pb.Marshal(&pb.StreamMeta{
 		NumberOfSegments: pointerNumSegments,
 	})
 	require.NoError(t, err)

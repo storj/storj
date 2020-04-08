@@ -9,7 +9,6 @@ import (
 	"hash"
 	"io"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -153,7 +152,7 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 		return nil
 	}
 	pieceHeader.FormatVersion = pb.PieceHeader_FormatVersion(formatVer)
-	headerBytes, err := proto.Marshal(pieceHeader)
+	headerBytes, err := pb.Marshal(pieceHeader)
 	if err != nil {
 		return err
 	}
@@ -283,7 +282,7 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 
 	// Deserialize and return.
 	header := &pb.PieceHeader{}
-	if err := proto.Unmarshal(pieceHeaderBytes, header); err != nil {
+	if err := pb.Unmarshal(pieceHeaderBytes, header); err != nil {
 		return nil, Error.New("piece header: %w", err)
 	}
 	return header, nil
