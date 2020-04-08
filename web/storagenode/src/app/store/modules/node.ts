@@ -111,18 +111,13 @@ export const node = {
                 return;
             }
 
-            const audit = calculateSuccessRatio(
-                satelliteInfo.audit.successCount,
-                satelliteInfo.audit.totalCount
-            );
-
             const uptime = calculateSuccessRatio(
                 satelliteInfo.uptime.successCount,
                 satelliteInfo.uptime.totalCount,
             );
 
             state.selectedSatellite = selectedSatellite;
-            state.checks.audit = audit;
+            state.checks.audit = parseFloat(parseFloat(`${satelliteInfo.audit.score * 100}`).toFixed(1));
             state.checks.uptime = uptime;
         },
         [SELECT_ALL_SATELLITES](state: any): void {
