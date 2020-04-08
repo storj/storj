@@ -156,7 +156,7 @@ func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, exclud
 	var conds conditions
 	if isNewNodeQuery {
 		conds.add(
-			"AND (total_audit_count < ? OR total_uptime_count < ?)",
+			"(total_audit_count < ? OR total_uptime_count < ?)",
 			criteria.AuditCount, criteria.UptimeCount,
 		)
 	} else {
