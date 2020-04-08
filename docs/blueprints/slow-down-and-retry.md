@@ -53,9 +53,9 @@ In case of `Too Many Requests` during download operation we should be able to re
 
 As an addition to retry logic we need to implement at least basic backoff mechanism that will increase the waiting time (between retries) up to a certain threshold. This will prevent from overwhelming satellite with retry requests. For our needs exponential backoff looks to be reasonable solution. 
 
-As an alternative for implementing exponential backoff on client side we can also consider to return with `To Many Request` error information when client should try to repeat request. The HTTP protocol defines that is such situation server may include a `Retry-After` header ([429](https://httpstatuses.com/429)). We can use similar approach and return delay value more attached to current satellite load. One of major challenges with this approach is how correctly return `Retry-After` header for multiple concurrent connections for the same API key.
+As an alternative for implementing exponential backoff on client side we can also consider to return with `Too Many Request` error information when client should try to repeat request. The HTTP protocol defines that in such situation server may include a `Retry-After` header ([429](https://httpstatuses.com/429)). We can use similar approach and return delay value more attached to current satellite load. One of major challenges with this approach is how correctly return `Retry-After` header for multiple concurrent connections for the same API key.
 
-To avoid satellite side larger development for providing accurate `Retry-After` values we may start start with client side exponential backoff implementation and later migrate into retry interval defined by satellite.
+To avoid satellite side larger development for providing accurate `Retry-After` values we may start with client side exponential backoff implementation and later migrate into retry interval defined by satellite.
 
 Additional rules:
 * Every retried request should be processed by backoff logic.
