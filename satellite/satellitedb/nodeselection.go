@@ -149,7 +149,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 			break
 		}
 	}
-	return reputableNodes, newNodes, nil
+	return reputableNodes, newNodes, Error.Wrap(rows.Err())
 }
 
 func buildConditions(ctx context.Context, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
