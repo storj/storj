@@ -90,6 +90,8 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNo
 func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string) (reputableNodes, newNodes []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// Note: the true/false at the end of each selection string indicates if the selection is for new nodes or not.
+	// Later, the flag allows us to distinguish if a node is new when scanning the db rows.
 	newNodeSelection := `SELECT last_net, id, address, last_ip_port, true FROM nodes`
 	reputableNodeSelection := `SELECT last_net, id, address, last_ip_port, false FROM nodes`
 
