@@ -14,6 +14,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -340,7 +341,8 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 					continue
 				}
 
-				updateNodeStats := populateUpdateNodeStats(dbNode, updateReq)
+				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq)
+
 				sql := buildUpdateStatement(updateNodeStats)
 
 				allSQL += sql
@@ -403,7 +405,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 			return nil
 		}
 
-		updateFields := populateUpdateFields(dbNode, updateReq)
+		updateFields := cache.populateUpdateFields(dbNode, updateReq)
 
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 		if err != nil {
@@ -1086,7 +1088,7 @@ type updateNodeStats struct {
 	Contained                   boolField
 }
 
-func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) updateNodeStats {
+func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) updateNodeStats {
 	// there are three audit outcomes: success, failure, and unknown
 	// if a node fails enough audits, it gets disqualified
 	// if a node gets enough "unknown" audits, it gets put into suspension
@@ -1164,15 +1166,22 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
 	if auditRep <= updateReq.AuditDQ {
+		cache.db.log.Info("Disqualified", zap.String("Node ID", updateReq.NodeID.String()))
 		updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
 	}
 
 	// if unknown audit rep goes below threshold, suspend node. Otherwise unsuspend node.
 	unknownAuditRep := unknownAuditAlpha / (unknownAuditAlpha + unknownAuditBeta)
 	if unknownAuditRep <= updateReq.AuditDQ {
-		updateFields.Suspended = timeField{set: true, value: time.Now().UTC()}
+		if dbNode.Suspended == nil {
+			cache.db.log.Info("Suspended", zap.String("Node ID", updateFields.NodeID.String()), zap.String("Category", "Unknown Audits"))
+			updateFields.Suspended = timeField{set: true, value: time.Now().UTC()}
+		}
 	} else {
-		updateFields.Suspended = timeField{set: true, isNil: true}
+		if dbNode.Suspended != nil {
+			cache.db.log.Info("Suspension lifted", zap.String("Category", "Unknown Audits"), zap.String("Node ID", updateFields.NodeID.String()))
+			updateFields.Suspended = timeField{set: true, isNil: true}
+		}
 	}
 
 	// TODO if node has been suspended for longer than threshold, and audit outcome is failure or unknown, disqualify node.
@@ -1194,9 +1203,9 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 	return updateFields
 }
 
-func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) dbx.Node_Update_Fields {
+func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) dbx.Node_Update_Fields {
 
-	update := populateUpdateNodeStats(dbNode, updateReq)
+	update := cache.populateUpdateNodeStats(dbNode, updateReq)
 	updateFields := dbx.Node_Update_Fields{}
 	if update.TotalAuditCount.set {
 		updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(update.TotalAuditCount.value)

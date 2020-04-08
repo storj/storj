@@ -142,3 +142,38 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 		require.Nil(t, node.Suspended)
 	})
 }
+
+func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		audits.Worker.Loop.Pause()
+
+		suspendedNode := planet.StorageNodes[0].ID()
+
+		failed, err := audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}}, "")
+		require.NoError(t, err)
+		require.Zero(t, failed)
+
+		overlay := satellite.Overlay.Service
+
+		node, err := overlay.Get(ctx, suspendedNode)
+		require.NoError(t, err)
+		require.Nil(t, node.Disqualified)
+		require.NotNil(t, node.Suspended)
+
+		suspendedAt := node.Suspended
+
+		failed, err = audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}}, "")
+		require.NoError(t, err)
+		require.Zero(t, failed)
+
+		node, err = overlay.Get(ctx, suspendedNode)
+		require.NoError(t, err)
+		require.Nil(t, node.Disqualified)
+		require.NotNil(t, node.Suspended)
+		require.Equal(t, suspendedAt, node.Suspended)
+	})
+}
