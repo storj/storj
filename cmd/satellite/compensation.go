@@ -81,18 +81,19 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 		}
 
 		nodeInfo := compensation.NodeInfo{
-			ID:             usage.NodeID,
-			CreatedAt:      node.CreatedAt,
-			Disqualified:   node.Disqualified,
-			GracefulExit:   gracefulExit,
-			UsageAtRest:    usage.AtRestTotal,
-			UsageGet:       usage.GetTotal,
-			UsagePut:       usage.PutTotal,
-			UsageGetRepair: usage.GetRepairTotal,
-			UsagePutRepair: usage.PutRepairTotal,
-			UsageGetAudit:  usage.GetAuditTotal,
-			TotalHeld:      withheldAmounts.TotalHeld,
-			TotalDisposed:  withheldAmounts.TotalDisposed,
+			ID:                 usage.NodeID,
+			CreatedAt:          node.CreatedAt,
+			LastContactSuccess: node.Reputation.LastContactSuccess,
+			Disqualified:       node.Disqualified,
+			GracefulExit:       gracefulExit,
+			UsageAtRest:        usage.AtRestTotal,
+			UsageGet:           usage.GetTotal,
+			UsagePut:           usage.PutTotal,
+			UsageGetRepair:     usage.GetRepairTotal,
+			UsagePutRepair:     usage.PutRepairTotal,
+			UsageGetAudit:      usage.GetAuditTotal,
+			TotalHeld:          withheldAmounts.TotalHeld,
+			TotalDisposed:      withheldAmounts.TotalDisposed,
 		}
 
 		invoice := compensation.Invoice{

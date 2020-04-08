@@ -36,18 +36,19 @@ var (
 // NodeInfo contains all of the information about a node and the operations
 // it performed in some period.
 type NodeInfo struct {
-	ID             storj.NodeID
-	CreatedAt      time.Time
-	Disqualified   *time.Time
-	GracefulExit   *time.Time
-	UsageAtRest    float64
-	UsageGet       int64
-	UsagePut       int64
-	UsageGetRepair int64
-	UsagePutRepair int64
-	UsageGetAudit  int64
-	TotalHeld      currency.MicroUnit
-	TotalDisposed  currency.MicroUnit
+	ID                 storj.NodeID
+	CreatedAt          time.Time
+	LastContactSuccess time.Time
+	Disqualified       *time.Time
+	GracefulExit       *time.Time
+	UsageAtRest        float64
+	UsageGet           int64
+	UsagePut           int64
+	UsageGetRepair     int64
+	UsagePutRepair     int64
+	UsageGetAudit      int64
+	TotalHeld          currency.MicroUnit
+	TotalDisposed      currency.MicroUnit
 }
 
 // Statement is the computed amounts and codes from a node.
@@ -98,6 +99,7 @@ type PeriodInfo struct {
 
 // GenerateStatements generates all of the Statements for the given PeriodInfo.
 func GenerateStatements(info PeriodInfo) ([]Statement, error) {
+	startDate := info.Period.StartDate()
 	endDate := info.Period.EndDateExclusive()
 
 	rates := info.Rates
@@ -150,6 +152,11 @@ func GenerateStatements(info PeriodInfo) ([]Statement, error) {
 			codes = append(codes, GracefulExit)
 		}
 
+		offline := node.LastContactSuccess.Before(startDate)
+		if offline {
+			codes = append(codes, Offline)
+		}
+
 		withheldPercent, inWithholding := NodeWithheldPercent(withheldPercents, node.CreatedAt, endDate)
 		held := PercentOf(total, decimal.NewFromInt(int64(withheldPercent)))
 		owed := total.Sub(held)
@@ -177,9 +184,16 @@ func GenerateStatements(info PeriodInfo) ([]Statement, error) {
 			owed = owed.Add(disposed)
 		}
 
-		// If the node is disqualified nothing is owed/held/disposed.
+		// If the node is disqualified but not gracefully exited, nothing is owed/held/disposed.
 		if node.Disqualified != nil && node.Disqualified.Before(endDate) && !gracefullyExited {
 			codes = append(codes, Disqualified)
+			disposed = decimal.Zero
+			held = decimal.Zero
+			owed = decimal.Zero
+		}
+
+		// If the node is offline, nothing is owed/held/disposed.
+		if offline {
 			disposed = decimal.Zero
 			held = decimal.Zero
 			owed = decimal.Zero
