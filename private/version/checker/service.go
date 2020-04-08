@@ -126,11 +126,12 @@ func (service *Service) checkVersion(ctx context.Context) (latestVersion version
 	service.log.Sugar().Debugf("allowed minimum version from control server is: %s", minimum.String())
 
 	if isAcceptedVersion(service.Info.Version, minimumOld) {
-		service.log.Sugar().Infof("running on version %s", service.Info.Version.String())
+		// todo: check this gets logged one time on start up
+		service.log.Sugar().Debugf("running on version %s", service.Info.Version.String())
 		return suggestedVersion, true
 	}
 
-	service.log.Sugar().Errorf("running on not allowed/outdated version %s", service.Info.Version.String())
+	service.log.Sugar().Warnf("running on not allowed/outdated version. Currently running version: %s, desired version: %s", service.Info.Version.String(), minimumOld)
 
 	return suggestedVersion, false
 }
