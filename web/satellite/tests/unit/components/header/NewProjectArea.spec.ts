@@ -76,6 +76,7 @@ describe('NewProjectArea', () => {
             BillingHistoryItemStatus.Completed, 'test', new Date(), new Date(), BillingHistoryItemType.Transaction);
         store.commit(PAYMENTS_MUTATIONS.CLEAR);
         store.commit(PAYMENTS_MUTATIONS.SET_BILLING_HISTORY, [billingTransactionItem]);
+        store.commit(PAYMENTS_MUTATIONS.SET_BALANCE, 50);
 
         const wrapper = mount(NewProjectArea, {
             store,

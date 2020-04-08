@@ -262,10 +262,10 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
         },
         getters: {
             canUserCreateFirstProject: (state: PaymentsState): boolean => {
-                return state.billingHistory.some((billingItem: BillingHistoryItem) => {
+                return (state.billingHistory.some((billingItem: BillingHistoryItem) => {
                     return billingItem.amount >= 50 && billingItem.type === BillingHistoryItemType.Transaction
                         && billingItem.status === BillingHistoryItemStatus.Completed;
-                }) || state.creditCards.length > 0;
+                }) && state.balance > 0) || state.creditCards.length > 0;
             },
             isInvoiceForPreviousRollup: (state: PaymentsState): boolean => {
                 const now = new Date();
