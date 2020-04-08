@@ -2,49 +2,49 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="usage-charges-item-container">
-        <div class="usage-charges-item-container__summary" @click.self="toggleDetailedInfo">
-            <div class="usage-charges-item-container__summary__name-container" @click="toggleDetailedInfo">
-                <svg class="usage-charges-item-container__summary__name-container__expand-image" v-if="!isDetailedInfoShown" width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div class="usage-charge-item-container">
+        <div class="usage-charge-item-container__summary" @click.self="toggleDetailedInfo">
+            <div class="usage-charge-item-container__summary__name-container" @click="toggleDetailedInfo">
+                <svg class="usage-charge-item-container__summary__name-container__expand-image" v-if="!isDetailedInfoShown" width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M0.328889 13.6272C-0.10963 13.1302 -0.10963 12.3243 0.328889 11.8273L4.58792 7L0.328889 2.17268C-0.10963 1.67565 -0.10963 0.869804 0.328889 0.372774C0.767408 -0.124258 1.47839 -0.124258 1.91691 0.372774L7.76396 7L1.91691 13.6272C1.47839 14.1243 0.767409 14.1243 0.328889 13.6272Z" fill="#2683FF"/>
                 </svg>
-                <svg class="usage-charges-item-container__summary__name-container__expand-image" v-if="isDetailedInfoShown" width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg class="usage-charge-item-container__summary__name-container__expand-image" v-if="isDetailedInfoShown" width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
                 </svg>
                 <span>{{ projectName }}</span>
             </div>
-            <div class="usage-charges-item-container__summary__report-link" @click="onReportClick">Advanced Report -></div>
+            <div class="usage-charge-item-container__summary__report-link" @click="onReportClick">Advanced Report -></div>
         </div>
-        <div class="usage-charges-item-container__detailed-info-container" v-if="isDetailedInfoShown">
-            <div class="usage-charges-item-container__detailed-info-container__info-header">
+        <div class="usage-charge-item-container__detailed-info-container" v-if="isDetailedInfoShown">
+            <div class="usage-charge-item-container__detailed-info-container__info-header">
                 <span class="resource-header">RESOURCE</span>
                 <span class="period-header">PERIOD</span>
                 <span class="usage-header">USAGE</span>
                 <span class="cost-header">COST</span>
             </div>
-            <div class="usage-charges-item-container__detailed-info-container__content-area">
-                <div class="usage-charges-item-container__detailed-info-container__content-area__resource-container">
+            <div class="usage-charge-item-container__detailed-info-container__content-area">
+                <div class="usage-charge-item-container__detailed-info-container__content-area__resource-container">
                     <p>Storage ($0.010 per Gigabyte-Month)</p>
                     <p>Egress ($0.045 per GB)</p>
                     <p>Objects ($0.0000022 per Object-Month)</p>
                 </div>
-                <div class="usage-charges-item-container__detailed-info-container__content-area__period-container">
+                <div class="usage-charge-item-container__detailed-info-container__content-area__period-container">
                     <p>{{ period }}</p>
                     <p>{{ period }}</p>
                     <p>{{ period }}</p>
                 </div>
-                <div class="usage-charges-item-container__detailed-info-container__content-area__usage-container">
+                <div class="usage-charge-item-container__detailed-info-container__content-area__usage-container">
                     <p>{{ storageFormatted }} Gigabyte-month</p>
                     <p>{{ egressAmountAndDimension }}</p>
                     <p>{{ objectCountFormatted }} Object-month</p>
                 </div>
-                <div class="usage-charges-item-container__detailed-info-container__content-area__cost-container">
+                <div class="usage-charge-item-container__detailed-info-container__content-area__cost-container">
                     <p class="price">{{ item.storagePrice | centsToDollars }}</p>
                     <p class="price">{{ item.egressPrice | centsToDollars }}</p>
                     <p class="price">{{ item.objectPrice | centsToDollars }}</p>
                 </div>
             </div>
-            <span class="usage-charges-item-container__detailed-info-container__summary">{{ item.summary() | centsToDollars }}</span>
+            <span class="usage-charge-item-container__detailed-info-container__summary">{{ item.summary() | centsToDollars }}</span>
         </div>
     </div>
 </template>
@@ -52,19 +52,19 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { ProjectUsageAndCharges } from '@/types/payments';
+import { ProjectCharge } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { toUnixTimestamp } from '@/utils/time';
 
 @Component
-export default class UsageAndChargesItem extends Vue {
+export default class UsageChargeItem extends Vue {
     /**
-     * item represents usage and charges of current project by period.
+     * item is an instance of ProjectCharge.
      */
-    @Prop({default: () => new ProjectUsageAndCharges()})
-    private readonly item: ProjectUsageAndCharges;
+    @Prop({default: () => new ProjectCharge()})
+    private readonly item: ProjectCharge;
 
     /**
      * HOURS_IN_MONTH constant shows amount of hours in 30-day month.
@@ -165,7 +165,7 @@ export default class UsageAndChargesItem extends Vue {
         margin: 0;
     }
 
-    .usage-charges-item-container {
+    .usage-charge-item-container {
         font-size: 16px;
         line-height: 21px;
         padding: 20px 0;

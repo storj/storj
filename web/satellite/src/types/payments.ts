@@ -21,9 +21,9 @@ export interface PaymentsApi {
     getBalance(): Promise<number>;
 
     /**
-     * projectsUsagesAndCharges returns usage and how much money current user will be charged for each project which he owns.
+     * projectsCharges returns how much money current user will be charged for each project which he owns.
      */
-    projectsUsageAndCharges(since: Date, before: Date): Promise<ProjectUsageAndCharges[]>;
+    projectsCharges(since: Date, before: Date): Promise<ProjectCharge[]>;
 
     /**
      * Add credit card
@@ -177,9 +177,9 @@ class Amount {
 }
 
 /**
- * ProjectUsageAndCharges shows usage and how much money current project will charge in the end of the month.
+ * ProjectCharge shows how much money current project will charge in the end of the month.
   */
-export class ProjectUsageAndCharges {
+export class ProjectCharge {
     public constructor(
         public since: Date = new Date(),
         public before: Date = new Date(),

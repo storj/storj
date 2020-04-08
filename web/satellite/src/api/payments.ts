@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectUsageAndCharges, TokenDeposit } from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { toUnixTimestamp } from '@/utils/time';
 
@@ -56,9 +56,9 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * projectsUsageAndCharges returns usage and how much money current user will be charged for each project which he owns.
+     * projectsCharges returns how much money current user will be charged for each project which he owns.
      */
-    public async projectsUsageAndCharges(start: Date, end: Date): Promise<ProjectUsageAndCharges[]> {
+    public async projectsCharges(start: Date, end: Date): Promise<ProjectCharge[]> {
         const since = toUnixTimestamp(start).toString();
         const before = toUnixTimestamp(end).toString();
         const path = `${this.ROOT_PATH}/account/charges?from=${since}&to=${before}`;
@@ -75,7 +75,7 @@ export class PaymentsHttpApi implements PaymentsApi {
         const charges = await response.json();
         if (charges) {
             return charges.map(charge =>
-                new ProjectUsageAndCharges(
+                new ProjectCharge(
                     new Date(charge.since),
                     new Date(charge.before),
                     charge.egress,
@@ -84,8 +84,7 @@ export class PaymentsHttpApi implements PaymentsApi {
                     charge.projectId,
                     charge.storagePrice,
                     charge.egressPrice,
-                    charge.objectPrice,
-                ),
+                    charge.objectPrice),
             );
         }
 

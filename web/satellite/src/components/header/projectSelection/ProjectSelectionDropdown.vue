@@ -50,7 +50,7 @@ export default class ProjectSelectionDropdown extends Vue {
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
         try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }
