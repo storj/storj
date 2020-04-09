@@ -190,13 +190,13 @@ func TestRandomizedSelection(t *testing.T) {
 			var err error
 
 			if i%2 == 0 {
-				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, 0, &overlay.NodeCriteria{
 					OnlineWindow: time.Hour,
 					AuditCount:   1,
 				})
 				require.NoError(t, err)
 			} else {
-				nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, numNodesToSelect, &overlay.NodeCriteria{
 					OnlineWindow: time.Hour,
 					AuditCount:   1,
 				})
@@ -589,7 +589,7 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 	})
 }
 
-// TestSuspendedSelection ensures that suspended nodes are not selected by SelectStorageNodes or SelectNewStorageNodes
+// TestSuspendedSelection ensures that suspended nodes are not selected by SelectStorageNodes
 func TestSuspendedSelection(t *testing.T) {
 	totalNodes := 10
 
@@ -640,7 +640,7 @@ func TestSuspendedSelection(t *testing.T) {
 		numNodesToSelect := 10
 
 		// select 10 vetted nodes - 5 vetted, 2 suspended, so expect 3
-		nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+		nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, 0, &overlay.NodeCriteria{
 			OnlineWindow: time.Hour,
 			AuditCount:   1,
 		})
@@ -651,7 +651,7 @@ func TestSuspendedSelection(t *testing.T) {
 		}
 
 		// select 10 new nodes - 5 new, 2 suspended, so expect 3
-		nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+		nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, numNodesToSelect, &overlay.NodeCriteria{
 			OnlineWindow: time.Hour,
 			AuditCount:   1,
 		})
