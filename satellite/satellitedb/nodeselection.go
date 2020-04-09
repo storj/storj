@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
@@ -204,16 +205,16 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 	}
 
 	if len(excludedIDs) > 0 {
-		conds.addWithIDs(
-			"id NOT IN (?"+strings.Repeat(", ?", len(excludedIDs)-1)+")",
-			excludedIDs...,
+		conds.add(
+			`not (id = any(?::bytea[]))`,
+			postgresNodeIDList(excludedIDs),
 		)
 	}
 	if criteria.DistinctIP {
 		if len(excludedNetworks) > 0 {
-			conds.addWithStrings(
-				`last_net NOT IN (?`+strings.Repeat(`, ?`, len(excludedNetworks)-1)+`)`,
-				excludedNetworks...,
+			conds.add(
+				`not (last_net = any(?::text[]))`,
+				pq.Array(excludedNetworks),
 			)
 		}
 		conds.add(`last_net <> ''`)
@@ -310,22 +311,6 @@ type conditions []condition
 
 func (conds *conditions) add(q string, args ...interface{}) {
 	*conds = append(*conds, condition{query: q, args: args})
-}
-
-func (conds *conditions) addWithStrings(q string, args ...string) {
-	var values []interface{}
-	for _, arg := range args {
-		values = append(values, arg)
-	}
-	*conds = append(*conds, condition{query: q, args: values})
-}
-
-func (conds *conditions) addWithIDs(q string, args ...storj.NodeID) {
-	var values []interface{}
-	for _, arg := range args {
-		values = append(values, arg)
-	}
-	*conds = append(*conds, condition{query: q, args: values})
 }
 
 func (conds conditions) combine() condition {
