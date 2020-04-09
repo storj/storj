@@ -106,5 +106,7 @@ This implementation still exhibits the problem that, for nodes whose last contac
 
 ## Open issues
 
+- There is a way to get around downtime tracking in its current implementation. Only come online long enough to check in then immediately shut down. Repeat this process frequently enough and a node can effectively remain offline and never be punished for it. This is due to the way downtime tracking selects nodes where last contact success < last contact failure. By checking in frequently enough, a node can reduce the risk that its last contact was a failure when the estimation chore runs.
+
 - It is possible for a node to continuously cycle through suspension and reinstatement. How frequently this could happen depends upon the length of the tracking and grace periods. Should there be a maximum number suspensions before disqualification?
 
