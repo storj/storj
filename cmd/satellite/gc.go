@@ -65,6 +65,10 @@ func cmdGCRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher on satellite GC: ", err)
 	}
 
+	if err := process.InitTracingWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Warn("Failed to initialize tracing collector on satellite GC: ", err)
+	}
+
 	err = db.CheckVersion(ctx)
 	if err != nil {
 		zap.S().Fatal("failed satellite database version check for GC: ", err)

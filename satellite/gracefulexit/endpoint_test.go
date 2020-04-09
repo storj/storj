@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -1148,13 +1147,13 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 
 		// replace pointer with non-piece-hash-verified pointer
 		require.NotNil(t, oldPointer)
-		oldPointerBytes, err := proto.Marshal(oldPointer)
+		oldPointerBytes, err := pb.Marshal(oldPointer)
 		require.NoError(t, err)
 		newPointer := &pb.Pointer{}
-		err = proto.Unmarshal(oldPointerBytes, newPointer)
+		err = pb.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
 		newPointer.PieceHashesVerified = false
-		newPointerBytes, err := proto.Marshal(newPointer)
+		newPointerBytes, err := pb.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)

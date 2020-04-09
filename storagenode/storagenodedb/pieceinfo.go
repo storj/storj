@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
@@ -32,12 +31,12 @@ type v0PieceInfoDB struct {
 func (db *v0PieceInfoDB) Add(ctx context.Context, info *pieces.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	orderLimit, err := proto.Marshal(info.OrderLimit)
+	orderLimit, err := pb.Marshal(info.OrderLimit)
 	if err != nil {
 		return ErrPieceInfo.Wrap(err)
 	}
 
-	uplinkPieceHash, err := proto.Marshal(info.UplinkPieceHash)
+	uplinkPieceHash, err := pb.Marshal(info.UplinkPieceHash)
 	if err != nil {
 		return ErrPieceInfo.Wrap(err)
 	}
@@ -137,13 +136,13 @@ func (db *v0PieceInfoDB) Get(ctx context.Context, satelliteID storj.NodeID, piec
 	}
 
 	info.OrderLimit = &pb.OrderLimit{}
-	err = proto.Unmarshal(orderLimit, info.OrderLimit)
+	err = pb.Unmarshal(orderLimit, info.OrderLimit)
 	if err != nil {
 		return nil, ErrPieceInfo.Wrap(err)
 	}
 
 	info.UplinkPieceHash = &pb.PieceHash{}
-	err = proto.Unmarshal(uplinkPieceHash, info.UplinkPieceHash)
+	err = pb.Unmarshal(uplinkPieceHash, info.UplinkPieceHash)
 	if err != nil {
 		return nil, ErrPieceInfo.Wrap(err)
 	}

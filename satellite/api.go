@@ -634,6 +634,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("nodestats:endpoint"),
 			peer.Overlay.DB,
 			peer.DB.StoragenodeAccounting(),
+			config.Payments,
 		)
 		pbgrpc.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 		if err := pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint); err != nil {
