@@ -103,6 +103,7 @@ type SatelliteInfo struct {
 	ID           storj.NodeID `json:"id"`
 	URL          string       `json:"url"`
 	Disqualified *time.Time   `json:"disqualified"`
+	Suspended    *time.Time   `json:"suspended"`
 }
 
 // Dashboard encapsulates dashboard stale data.
@@ -154,6 +155,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 			SatelliteInfo{
 				ID:           rep.SatelliteID,
 				Disqualified: rep.Disqualified,
+				Suspended:    rep.Suspended,
 				URL:          url,
 			},
 		)

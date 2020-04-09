@@ -93,6 +93,7 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 			Score:        audit.GetReputationScore(),
 		},
 		Disqualified: resp.GetDisqualified(),
+		Suspended:    resp.GetSuspended(),
 		UpdatedAt:    time.Now(),
 	}, nil
 }

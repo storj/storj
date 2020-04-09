@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
+	"storj.io/common/encryption"
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -70,21 +71,22 @@ type Revocations interface {
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log                 *zap.Logger
-	metainfo            *Service
-	deletePieces        *piecedeletion.Service
-	orders              *orders.Service
-	overlay             *overlay.Service
-	attributions        attribution.DB
-	partners            *rewards.PartnersService
-	pointerVerification *pointerverification.Service
-	projectUsage        *accounting.Service
-	projects            console.Projects
-	apiKeys             APIKeys
-	createRequests      *createRequests
-	satellite           signing.Signer
-	limiterCache        *lrucache.ExpiringLRU
-	config              Config
+	log                  *zap.Logger
+	metainfo             *Service
+	deletePieces         *piecedeletion.Service
+	orders               *orders.Service
+	overlay              *overlay.Service
+	attributions         attribution.DB
+	partners             *rewards.PartnersService
+	pointerVerification  *pointerverification.Service
+	projectUsage         *accounting.Service
+	projects             console.Projects
+	apiKeys              APIKeys
+	createRequests       *createRequests
+	satellite            signing.Signer
+	limiterCache         *lrucache.ExpiringLRU
+	encInlineSegmentSize int64 // max inline segment size + encryption overhead
+	config               Config
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -92,8 +94,16 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB,
 	partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
-	satellite signing.Signer, config Config) *Endpoint {
+	satellite signing.Signer, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
+
+	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storj.EncryptionParameters{
+		CipherSuite: storj.EncAESGCM,
+		BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &Endpoint{
 		log:                 log,
 		metainfo:            metainfo,
@@ -112,8 +122,9 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 			Capacity:   config.RateLimiter.CacheCapacity,
 			Expiration: config.RateLimiter.CacheExpiration,
 		}),
-		config: config,
-	}
+		encInlineSegmentSize: encInlineSegmentSize,
+		config:               config,
+	}, nil
 }
 
 // Close closes resources
@@ -1692,7 +1703,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 	}
 
 	inlineUsed := int64(len(req.EncryptedInlineData))
-	if inlineUsed > endpoint.config.MaxInlineSegmentSize.Int64() {
+	if inlineUsed > endpoint.encInlineSegmentSize {
 		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize))
 	}
 
