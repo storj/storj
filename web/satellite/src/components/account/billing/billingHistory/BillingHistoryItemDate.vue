@@ -54,17 +54,10 @@ export default class BillingHistoryDate extends Vue {
     }
 
     /**
-     * String representation of creation and expiration dates range.
+     * String representation of creation date.
      */
     public get date(): string {
-        const start = this.start.toLocaleString('default', { month: 'long', day: '2-digit', year: 'numeric' });
-        const expiration = this.expiration.toLocaleString('default', { month: 'long', day: '2-digit', year: 'numeric' });
-
-        if (this.type === BillingHistoryItemType.Invoice) {
-            return `${start}`;
-        }
-
-        return start;
+        return this.start.toLocaleString('default', { month: 'long', day: '2-digit', year: 'numeric' });
     }
 
     /**
