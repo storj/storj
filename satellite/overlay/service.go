@@ -98,11 +98,8 @@ type DB interface {
 	// UnsuspendNode unsuspends a storage node.
 	UnsuspendNode(ctx context.Context, nodeID storj.NodeID) (err error)
 
-	// SelectAllVettedStorageNodes is used to populate the selectedNodeCache with vetted nodes upon initialization
-	SelectAllVettedStorageNodes(ctx context.Context, selectionCfg NodeSelectionConfig) (nodes []CachedNode, err error)
-
-	// SelectAllUnvettedStorageNodes is used to populate the selectedNodeCache with unvetted nodes upon initialization
-	SelectAllUnvettedStorageNodes(ctx context.Context, selectionCfg NodeSelectionConfig) (nodes []CachedNode, err error)
+	// SelectAllStorageNodes returns all nodes that qualify to store data, organized as reputable nodes and new nodes
+	SelectAllStorageNodes(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []CachedNode, err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -122,8 +119,7 @@ type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
 	ExcludedIDs          []storj.NodeID
-	// TODO: remove the duplicate slice once we add to code
-	ExcludedIDsMap map[storj.NodeID]struct{}
+	MinimumVersion       string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes

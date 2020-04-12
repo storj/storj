@@ -33,65 +33,76 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
-// SelectAllVettedStorageNodes is used to populate the selectedNodeCache upon initialization
-func (cache *overlaycache) SelectAllVettedStorageNodes(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (nodes []overlay.CachedNode, err error) {
+// SelectAllStorageNodes returns all nodes that qualify to store data organized as reputable nodes and new nodes
+func (cache *overlaycache) SelectAllStorageNodes(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []overlay.CachedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	rows, err := cache.db.All_SelectAllVettedStorageNodes(ctx,
-		dbx.Node_Type(int(pb.NodeType_STORAGE)),
-		dbx.Node_FreeDisk(selectionCfg.MinimumDiskSpace.Int64()),
-		dbx.Node_LastContactSuccess(time.Now().Add(-selectionCfg.OnlineWindow)),
-		dbx.Node_TotalAuditCount(selectionCfg.AuditCount),
-		dbx.Node_TotalUptimeCount(selectionCfg.UptimeCount),
+	version, err := version.NewSemVer(selectionCfg.MinimumVersion)
+	if err != nil {
+		return nil, nil, err
+	}
+	query := `
+		SELECT id, address, last_net, last_ip_port, true as reputable
+			FROM nodes
+			WHERE disqualified IS NULL
+			AND suspended IS NULL
+			AND exit_initiated_at IS NULL
+			AND type = $1
+			AND free_disk >= $2
+			AND last_contact_success > $3
+			AND total_audit_count >=$4
+			AND total_uptime_count >= $5
+			AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10))))
+			AND release;
+		SELECT id, address, last_net, last_ip_port, false as reputable
+			FROM nodes
+			WHERE disqualified IS NULL
+			AND suspended IS NULL
+			AND exit_initiated_at IS NULL
+			AND type = $1
+			AND free_disk >= $2
+			AND last_contact_success > $3
+			AND ( total_audit_count >= $4 OR total_uptime_count >= $5 )
+			AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10))))
+			AND release;
+	`
+	rows, err := cache.db.Query(ctx, query,
+		// $1
+		int(pb.NodeType_STORAGE),
+		// $2
+		selectionCfg.MinimumDiskSpace.Int64(),
+		// $3
+		time.Now().Add(-selectionCfg.OnlineWindow),
+		// $4, $5
+		selectionCfg.AuditCount, selectionCfg.UptimeCount,
+		// $6 - $10
+		version.Major, version.Major, version.Minor, version.Minor, version.Patch,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	var results = []overlay.CachedNode{}
-	for _, row := range rows {
-		var nodeID = storj.NodeID{}
-		copy(nodeID[:], row.Id)
-
-		newSelectedNode := overlay.CachedNode{
-			ID:         nodeID,
-			LastNet:    row.LastNet,
-			LastIPPort: *row.LastIpPort,
+	var reputableNodes []overlay.CachedNode
+	var newNodes []overlay.CachedNode
+	for rows.Next() {
+		var node overlay.CachedNode
+		var lastIPPort sql.NullString
+		var reputable bool
+		err = rows.Scan(&node.ID, &node.Address, &node.LastNet, &lastIPPort, &reputable)
+		if err != nil {
+			return nil, nil, err
 		}
-		results = append(results, newSelectedNode)
-	}
-
-	return results, nil
-}
-
-func (cache *overlaycache) SelectAllUnvettedStorageNodes(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (nodes []overlay.CachedNode, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	rows, err := cache.db.All_SelectAllUnvettedStorageNodes(ctx,
-		dbx.Node_Type(int(pb.NodeType_STORAGE)),
-		dbx.Node_FreeDisk(selectionCfg.MinimumDiskSpace.Int64()),
-		dbx.Node_LastContactSuccess(time.Now().Add(-selectionCfg.OnlineWindow)),
-		dbx.Node_TotalAuditCount(selectionCfg.AuditCount),
-		dbx.Node_TotalUptimeCount(selectionCfg.UptimeCount),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	var results = []overlay.CachedNode{}
-	for _, row := range rows {
-		var nodeID = storj.NodeID{}
-		copy(nodeID[:], row.Id)
-
-		newSelectedNode := overlay.CachedNode{
-			ID:         nodeID,
-			LastNet:    row.LastNet,
-			LastIPPort: *row.LastIpPort,
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
 		}
-		results = append(results, newSelectedNode)
+
+		if reputable {
+			reputableNodes = append(reputableNodes, node)
+			continue
+		}
+		newNodes = append(newNodes, node)
 	}
 
-	return results, nil
+	return reputableNodes, newNodes, nil
 }
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
