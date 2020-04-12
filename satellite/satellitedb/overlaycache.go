@@ -61,7 +61,7 @@ func (cache *overlaycache) SelectAllStorageNodes(ctx context.Context, selectionC
 			AND type = $1
 			AND free_disk >= $2
 			AND last_contact_success > $3
-			AND ( total_audit_count >= $4 OR total_uptime_count >= $5 )
+			AND ( total_audit_count < $4 OR total_uptime_count < $5 )
 			AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10))))
 			AND release;
 	`

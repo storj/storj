@@ -119,7 +119,9 @@ type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
 	ExcludedIDs          []storj.NodeID
-	MinimumVersion       string // semver or empty
+	// todo: remove duplicate once tests are fixed
+	ExcludedIDsMap map[storj.NodeID]struct{}
+	MinimumVersion string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes

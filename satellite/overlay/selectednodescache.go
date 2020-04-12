@@ -31,8 +31,8 @@ type SelectedNodesCache struct {
 	reputableMu    sync.Mutex
 	reputableNodes []CachedNode
 
-	newNodeMu sync.Mutex
-	newNode   []CachedNode
+	newNodesMu sync.Mutex
+	newNodes   []CachedNode
 }
 
 // NewSelectedNodesCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data
@@ -42,7 +42,7 @@ func NewSelectedNodesCache(ctx context.Context, log *zap.Logger, db DB, cfg Node
 		db:               db,
 		nodeSelectionCfg: cfg,
 		reputableNodes:   []CachedNode{},
-		newNode:          []CachedNode{},
+		newNodes:         []CachedNode{},
 	}
 }
 
@@ -58,9 +58,12 @@ func (c *SelectedNodesCache) Init(ctx context.Context) (err error) {
 	c.reputableNodes = reputableNodes
 	c.reputableMu.Unlock()
 
-	c.newNodeMu.Lock()
-	c.newNode = newNodes
-	c.newNodeMu.Unlock()
+	c.newNodesMu.Lock()
+	c.newNodes = newNodes
+	c.newNodesMu.Unlock()
+
+	mon.IntVal("selected_nodes_cache_reputable_size").Observe(int64(len(reputableNodes)))
+	mon.IntVal("selected_nodes_cache_new_size").Observe(int64(len(newNodes)))
 	return nil
 }
 
@@ -68,67 +71,56 @@ func (c *SelectedNodesCache) Init(ctx context.Context) (err error) {
 func (c *SelectedNodesCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []CachedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// calculate how many reputableNodes versus newNode nodes are needed
+	// how many reputableNodes versus newNode nodes are needed
 	totalcount := req.RequestedCount
-	newNodecount := float64(req.RequestedCount) * c.nodeSelectionCfg.NewNodeFraction
-	reputableNodescount := totalcount - int(newNodecount)
+	newNodeCount := int(float64(req.RequestedCount) * c.nodeSelectionCfg.NewNodeFraction)
+	reputableNodeCount := totalcount - newNodeCount
 
 	var selectedNodeResults = []CachedNode{}
 	var distinctNetworks = map[string]struct{}{}
-	var callCount int
-	const maxDepth = 100
-	// we need to select reputableNodescount number of nodes from the cache.
-	// however we want to make sure that the nodes are from distinct networks
-	// and also not in the excluded list. We keep looping to find more nodes
-	// until we have reputableNodescount number of nodes that fulfil that criteria.
-	for len(selectedNodeResults) < reputableNodescount {
-		if callCount > maxDepth {
-			return nil, Error.New("unable to select enough reputableNodes nodes")
-		}
-		callCount++
-		// randomly select reputableNodescount number of nodes from the cache
-		randomIdexes := rand.Perm(len(c.reputableNodes))
-		for _, reputableNodesIdx := range randomIdexes {
-			currNode := c.reputableNodes[reputableNodesIdx]
-			// don't select a node if we've already selected another node from the same network
-			if _, ok := distinctNetworks[currNode.LastNet]; ok {
-				continue
-			}
-			// don't select a node listed in the excluded list
-			if _, ok := req.ExcludedIDsMap[currNode.ID]; ok {
-				continue
-			}
 
-			selectedNodeResults = append(selectedNodeResults, currNode)
-			distinctNetworks[currNode.LastNet] = struct{}{}
-			if len(selectedNodeResults) >= reputableNodescount {
-				break
-			}
+	// randomly select nodes from the cache
+	randomIdexes := rand.Perm(len(c.reputableNodes))
+	for _, idx := range randomIdexes {
+		currNode := c.reputableNodes[idx]
+
+		// don't select a node if we've already selected another node from the same network
+		if _, ok := distinctNetworks[currNode.LastNet]; ok {
+			continue
+		}
+		// don't select a node listed in the excluded list
+		if _, ok := req.ExcludedIDsMap[currNode.ID]; ok {
+			continue
+		}
+
+		selectedNodeResults = append(selectedNodeResults, currNode)
+		distinctNetworks[currNode.LastNet] = struct{}{}
+		if len(selectedNodeResults) >= reputableNodeCount {
+			break
 		}
 	}
 
-	callCount = 0
-	for len(selectedNodeResults) < reputableNodescount+int(newNodecount) {
-		if callCount > maxDepth {
-			return nil, Error.New("unable to select enough newNode nodes")
+	randomIdexes = rand.Perm(len(c.newNodes))
+	for _, idx := range randomIdexes {
+		currNode := c.newNodes[idx]
+		if _, ok := distinctNetworks[currNode.LastNet]; ok {
+			continue
 		}
-		callCount++
-		randomIdexes := rand.Perm(len(c.newNode))
-		for _, newNodeIdx := range randomIdexes {
-			currNode := c.newNode[newNodeIdx]
-			if _, ok := distinctNetworks[currNode.LastNet]; ok {
-				continue
-			}
-			if _, ok := req.ExcludedIDsMap[currNode.ID]; ok {
-				continue
-			}
+		if _, ok := req.ExcludedIDsMap[currNode.ID]; ok {
+			continue
+		}
 
-			selectedNodeResults = append(selectedNodeResults, currNode)
-			distinctNetworks[currNode.LastNet] = struct{}{}
-			if len(selectedNodeResults) >= reputableNodescount+int(newNodecount) {
-				break
-			}
+		selectedNodeResults = append(selectedNodeResults, currNode)
+		distinctNetworks[currNode.LastNet] = struct{}{}
+		if len(selectedNodeResults) >= reputableNodeCount+newNodeCount {
+			break
 		}
+	}
+	if len(selectedNodeResults) < reputableNodeCount+newNodeCount {
+		c.log.Error("not enough nodes for a selection from the selected nodes cache",
+			zap.Int("needed", reputableNodeCount+newNodeCount),
+			zap.Int("actual", len(selectedNodeResults)),
+		)
 	}
 
 	return selectedNodeResults, nil
@@ -143,17 +135,17 @@ func (c *SelectedNodesCache) RemoveNode(ctx context.Context, nodeID storj.NodeID
 			c.reputableMu.Lock()
 			c.reputableNodes = append(c.reputableNodes[:i], c.reputableNodes[:i+1]...)
 			c.reputableMu.Unlock()
-			// could there be more than 1 node in the cache with this id?
-			// should we keep a map of node ids that keeps a count of how many are in the cache with that id
+			mon.IntVal("remove_reputable_new_cache_size").Observe(int64(len(c.reputableNodes)))
 			return
 		}
 	}
 
-	for i, node := range c.newNode {
+	for i, node := range c.newNodes {
 		if node.ID == nodeID {
-			c.newNodeMu.Lock()
-			c.newNode = append(c.newNode[:i], c.newNode[:i+1]...)
-			c.newNodeMu.Unlock()
+			c.newNodesMu.Lock()
+			c.newNodes = append(c.newNodes[:i], c.newNodes[:i+1]...)
+			c.newNodesMu.Unlock()
+			mon.IntVal("remove_new__node_new_cache_size").Observe(int64(len(c.newNodes)))
 			return
 		}
 	}
@@ -168,13 +160,15 @@ func (c *SelectedNodesCache) AddReputableNode(ctx context.Context, node CachedNo
 	c.reputableMu.Lock()
 	c.reputableNodes = append(c.reputableNodes, node)
 	c.reputableMu.Unlock()
+	mon.IntVal("added_reputable_new_cache_size").Observe(int64(len(c.reputableNodes)))
 }
 
 // AddNewNode adds a new node to the selected nodes cache
 func (c *SelectedNodesCache) AddNewNode(ctx context.Context, node CachedNode) {
 	defer mon.Task()(&ctx)(nil)
 
-	c.newNodeMu.Lock()
-	c.newNode = append(c.newNode, node)
-	c.newNodeMu.Unlock()
+	c.newNodesMu.Lock()
+	c.newNodes = append(c.newNodes, node)
+	c.newNodesMu.Unlock()
+	mon.IntVal("added_new_node_new_cache_size").Observe(int64(len(c.newNodes)))
 }
