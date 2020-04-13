@@ -15,7 +15,7 @@ import (
 
 // SelectedNodesCache keeps a list of all the storage nodes that are qualified to store data
 // We organize the nodes by if they are reputable or a new node on the network.
-// The cache will get refreshed once the staleness time is past.
+// The cache will get refreshed once the staleness time has past.
 type SelectedNodesCache struct {
 	log              *zap.Logger
 	db               DB
@@ -59,7 +59,8 @@ func (c *SelectedNodesCache) Init(ctx context.Context) (err error) {
 }
 
 // Refresh calls out to the database and refreshes the cache with the current data
-// from the node table
+// from the nodes table, then sets time that the last refresh occurred so we know when
+// to refresh again in the future
 func (c *SelectedNodesCache) Refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	reputableNodes, newNodes, err := c.db.SelectAllStorageNodesUpload(ctx, c.nodeSelectionCfg)
@@ -88,6 +89,7 @@ func (c *SelectedNodesCache) SetLastRefresh(ctx context.Context, lastRefresh tim
 
 // GetNodes selects nodes from the cache that will be used to upload a file.
 // Every node selected will be from a distinct network.
+// If the cache has no been refreshed recently, then refresh first.
 func (c *SelectedNodesCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []CachedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -154,6 +156,6 @@ func (c *SelectedNodesCache) GetNodes(ctx context.Context, req FindStorageNodesR
 }
 
 // Size returns the size of the reputable nodes and new nodes in the cache
-func (c *SelectedNodesCache) Size(ctx context.Context) (int, int) {
+func (c *SelectedNodesCache) Size(ctx context.Context) (reputableNodeCount int, newNodeCount int) {
 	return len(c.reputableNodes), len(c.newNodes)
 }

@@ -20,17 +20,18 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestRefresh(t *testing.T) {
+var nodeCfg = overlay.NodeSelectionConfig{
+	AuditCount:       0,
+	UptimeCount:      0,
+	NewNodeFraction:  0.2,
+	MinimumVersion:   "v1.0.0",
+	OnlineWindow:     4 * time.Hour,
+	DistinctIP:       true,
+	MinimumDiskSpace: 100 * memory.MiB,
+}
+
+func TestInit(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		var nodeCfg = overlay.NodeSelectionConfig{
-			AuditCount:       1,
-			UptimeCount:      1,
-			NewNodeFraction:  0.2,
-			MinimumVersion:   "v1.0.0",
-			OnlineWindow:     4 * time.Hour,
-			DistinctIP:       true,
-			MinimumDiskSpace: 100 * memory.MiB,
-		}
 		cache := overlay.NewSelectedNodesCache(ctx, zap.NewNop(),
 			db.OverlayCache(), time.Hour,
 			nodeCfg,
@@ -43,18 +44,49 @@ func TestRefresh(t *testing.T) {
 		require.Equal(t, 0, new)
 
 		// add some nodes to the database
-		addNodesToNodesTable(ctx, t, db.OverlayCache())
-		// set the last refresh as 2 hrs ago and check that refresh hits when we call GetNodes
-		cache.SetLastRefresh(ctx, time.Now().UTC().Add(2*-time.Hour))
-		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
+		const nodeCount = 2
+		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount)
+
+		// confirm nodes are in the cache once initialized
+		err = cache.Init(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(nodes))
+		reputable, new = cache.Size(ctx)
+		require.Equal(t, 2, reputable)
+		require.Equal(t, 0, new)
 	})
 }
 
-func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB) {
-	const reputableNodeCount = 5
-	for i := 0; i <= reputableNodeCount; i++ {
+func TestRefresh(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := overlay.NewSelectedNodesCache(ctx, zap.NewNop(),
+			db.OverlayCache(), time.Hour,
+			nodeCfg,
+		)
+		// the cache should have no nodes to start
+		err := cache.Init(ctx)
+		require.NoError(t, err)
+		reputable, new := cache.Size(ctx)
+		require.Equal(t, 0, reputable)
+		require.Equal(t, 0, new)
+
+		// add some nodes to the database
+		const nodeCount = 5
+		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount)
+
+		// set the last refresh as 2 hrs ago and check that refresh hits when we call GetNodes
+		cache.SetLastRefresh(ctx, time.Now().UTC().Add(2*-time.Hour))
+		const nodesCount = 2
+		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: nodesCount})
+		require.NoError(t, err)
+		require.Equal(t, nodesCount, len(nodes))
+		actualReputable, new := cache.Size(ctx)
+		require.Equal(t, 0, new)
+		require.Equal(t, nodeCount, actualReputable)
+	})
+}
+
+func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, count int) {
+	for i := 0; i < count; i++ {
 		subnet := strconv.Itoa(i) + ".1.2"
 		addr := subnet + ".3:8080"
 		n := overlay.NodeCheckInInfo{
