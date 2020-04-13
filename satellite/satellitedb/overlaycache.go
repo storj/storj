@@ -298,7 +298,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *overlay.Node
 		// args $1 - $5
 		info.Id.Bytes(), address.Address, info.LastNet, int(address.Transport), int(pb.NodeType_INVALID),
 		// args $6 - $7
-		defaults.AuditReputationAlpha0, defaults.AuditReputationBeta0,
+		1, 0,
 		// args $8
 		time.Now(),
 		// args $9
@@ -1328,7 +1328,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		// args $9
 		node.IsUp,
 		// args $10 - $11
-		config.AuditReputationAlpha0, config.AuditReputationBeta0,
+		1, 0,
 		// args $12 - $17
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
 		// args $18

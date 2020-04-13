@@ -41,10 +41,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			{storj.NodeID{3}, true, false, false},  // suspended
 			{storj.NodeID{4}, false, false, true},  // offline
 		} {
-			startingRep := overlay.NodeSelectionConfig{
-				AuditReputationAlpha0: 1,
-				AuditReputationBeta0:  0,
-			}
+			startingRep := overlay.NodeSelectionConfig{}
 			n := pb.Node{Id: tt.nodeID}
 			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
 

@@ -397,12 +397,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 100
 
-# the initial shape 'alpha' used to calculate audit SNs reputation
-# overlay.node.audit-reputation-alpha0: 1
-
-# the initial shape 'beta' value used to calculate audit SNs reputation
-# overlay.node.audit-reputation-beta0: 0
-
 # the reputation cut-off for disqualifying SNs based on audit history
 # overlay.node.audit-reputation-dq: 0.6
 

@@ -324,8 +324,6 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 
 					AuditReputationRepairWeight: 1,
 					AuditReputationUplinkWeight: 1,
-					AuditReputationAlpha0:       1,
-					AuditReputationBeta0:        0,
 					AuditReputationLambda:       0.95,
 					AuditReputationWeight:       1,
 					AuditReputationDQ:           0.6,

@@ -37,8 +37,6 @@ type NodeSelectionConfig struct {
 
 	AuditReputationRepairWeight float64 `help:"weight to apply to audit reputation for total repair reputation calculation" default:"1.0"`
 	AuditReputationUplinkWeight float64 `help:"weight to apply to audit reputation for total uplink reputation calculation" default:"1.0"`
-	AuditReputationAlpha0       float64 `help:"the initial shape 'alpha' used to calculate audit SNs reputation" default:"1.0"`
-	AuditReputationBeta0        float64 `help:"the initial shape 'beta' value used to calculate audit SNs reputation" default:"0.0"`
 	AuditReputationLambda       float64 `help:"the forgetting factor used to calculate the audit SNs reputation" default:"0.95"`
 	AuditReputationWeight       float64 `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
 	AuditReputationDQ           float64 `help:"the reputation cut-off for disqualifying SNs based on audit history" default:"0.6"`
