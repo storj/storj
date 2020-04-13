@@ -42,6 +42,8 @@ type DB interface {
 	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*SelectedNode, error)
 	// SelectNewStorageNodes looks up nodes based on new node criteria
 	SelectNewStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*SelectedNode, error)
+	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
+	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*SelectedNode, err error)
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
@@ -115,8 +117,8 @@ type NodeCheckInInfo struct {
 type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
-	MinimumVersion       string // semver or empty
 	ExcludedIDs          []storj.NodeID
+	MinimumVersion       string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes

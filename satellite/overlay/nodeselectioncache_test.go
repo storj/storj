@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package nodeselection_test
+package overlay_test
 
 import (
 	"context"
@@ -17,13 +17,12 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/overlay/nodeselection"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 var nodeCfg = overlay.NodeSelectionConfig{
-	AuditCount:       0,
-	UptimeCount:      0,
+	AuditCount:       1,
+	UptimeCount:      1,
 	NewNodeFraction:  0.2,
 	MinimumVersion:   "v1.0.0",
 	OnlineWindow:     4 * time.Hour,

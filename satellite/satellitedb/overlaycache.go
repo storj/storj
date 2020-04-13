@@ -20,7 +20,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/version"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/overlay/nodeselection"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -34,14 +33,8 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
-var _ nodeselection.DB = (*nodeselectioncache)(nil)
-
-type nodeselectioncache struct {
-	db *satelliteDB
-}
-
 // SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
-func (cache *nodeselectioncache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []nodeselection.CachedNode, err error) {
+func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if selectionCfg.MinimumVersion == "" {
@@ -80,13 +73,13 @@ func (cache *nodeselectioncache) SelectAllStorageNodesUpload(ctx context.Context
 		return nil, nil, err
 	}
 
-	var reputableNodes []nodeselection.CachedNode
-	var newNodes []nodeselection.CachedNode
+	var reputableNodes []*overlay.SelectedNode
+	var newNodes []*overlay.SelectedNode
 	for rows.Next() {
-		var node nodeselection.CachedNode
+		var node overlay.SelectedNode
 		var lastIPPort sql.NullString
 		var reputable bool
-		err = rows.Scan(&node.ID, &node.Address, &node.LastNet, &lastIPPort, &reputable)
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &reputable)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -95,10 +88,10 @@ func (cache *nodeselectioncache) SelectAllStorageNodesUpload(ctx context.Context
 		}
 
 		if reputable {
-			reputableNodes = append(reputableNodes, node)
+			reputableNodes = append(reputableNodes, &node)
 			continue
 		}
-		newNodes = append(newNodes, node)
+		newNodes = append(newNodes, &node)
 	}
 
 	return reputableNodes, newNodes, nil
