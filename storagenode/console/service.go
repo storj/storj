@@ -292,6 +292,7 @@ type Satellites struct {
 	BandwidthSummary int64                   `json:"bandwidthSummary"`
 	EgressSummary    int64                   `json:"egressSummary"`
 	IngressSummary   int64                   `json:"ingressSummary"`
+	EarliestJoinedAt time.Time               `json:"earliestJoinedAt"`
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
@@ -330,6 +331,19 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
+	satellitesIDs := s.trust.GetSatellites(ctx)
+	joinedAt := time.Now().UTC()
+	for i := 0; i < len(satellitesIDs); i++ {
+		satellite, err := s.satelliteDB.GetSatellite(ctx, satellitesIDs[i])
+		if err != nil {
+			return nil, SNOServiceErr.Wrap(err)
+		}
+
+		if satellite.AddedAt.Before(joinedAt) {
+			joinedAt = satellite.AddedAt
+		}
+	}
+
 	return &Satellites{
 		StorageDaily:     storageDaily,
 		BandwidthDaily:   bandwidthDaily,
@@ -337,6 +351,7 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		BandwidthSummary: bandwidthSummary.Total(),
 		EgressSummary:    egressSummary.Total(),
 		IngressSummary:   ingressSummary.Total(),
+		EarliestJoinedAt: joinedAt,
 	}, nil
 }
 
