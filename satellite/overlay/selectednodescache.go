@@ -15,10 +15,13 @@ import (
 
 // SelectedNodesCache keeps a list of all the storage nodes that are qualified to store data
 // We organize the nodes by if they are reputable or a new node on the network.
+// The cache will get refreshed once the staleness time is past.
 type SelectedNodesCache struct {
 	log              *zap.Logger
 	db               DB
 	nodeSelectionCfg NodeSelectionConfig
+	staleness        time.Duration
+	lastRefresh      time.Time
 
 	reputableMu    sync.Mutex
 	reputableNodes []CachedNode
@@ -37,11 +40,11 @@ type CachedNode struct {
 }
 
 // NewSelectedNodesCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data
-func NewSelectedNodesCache(ctx context.Context, log *zap.Logger, db DB, cfg NodeSelectionConfig) *SelectedNodesCache {
-	rand.Seed(time.Now().UnixNano())
+func NewSelectedNodesCache(ctx context.Context, log *zap.Logger, db DB, staleness time.Duration, cfg NodeSelectionConfig) *SelectedNodesCache {
 	return &SelectedNodesCache{
 		log:              log,
 		db:               db,
+		staleness:        staleness,
 		nodeSelectionCfg: cfg,
 		reputableNodes:   []CachedNode{},
 		newNodes:         []CachedNode{},
@@ -51,6 +54,13 @@ func NewSelectedNodesCache(ctx context.Context, log *zap.Logger, db DB, cfg Node
 // Init populates the cache with all of the reputableNodes and newNode nodes
 // that qualify to upload data from the nodes table in the overlay database
 func (c *SelectedNodesCache) Init(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return c.Refresh(ctx)
+}
+
+// Refresh calls out to the database and refreshes the cache with the current data
+// from the node table
+func (c *SelectedNodesCache) Refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	reputableNodes, newNodes, err := c.db.SelectAllStorageNodesUpload(ctx, c.nodeSelectionCfg)
 	if err != nil {
@@ -64,15 +74,29 @@ func (c *SelectedNodesCache) Init(ctx context.Context) (err error) {
 	c.newNodes = newNodes
 	c.newNodesMu.Unlock()
 
-	mon.IntVal("selected_nodes_cache_reputable_size").Observe(int64(len(reputableNodes)))
-	mon.IntVal("selected_nodes_cache_new_size").Observe(int64(len(newNodes)))
+	c.SetLastRefresh(ctx, time.Now().UTC())
+	mon.IntVal("refresh_cache_size_reputable").Observe(int64(len(c.reputableNodes)))
+	mon.IntVal("refresh_cache_size_new").Observe(int64(len(c.newNodes)))
 	return nil
+}
+
+// SetLastRefresh stores when the last refresh occured
+func (c *SelectedNodesCache) SetLastRefresh(ctx context.Context, lastRefresh time.Time) {
+	defer mon.Task()(&ctx)(nil)
+	c.lastRefresh = lastRefresh
 }
 
 // GetNodes selects nodes from the cache that will be used to upload a file.
 // Every node selected will be from a distinct network.
 func (c *SelectedNodesCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []CachedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if time.Since(c.lastRefresh) > c.staleness {
+		err := c.Refresh(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// how many reputableNodes versus newNode nodes are needed
 	totalcount := req.RequestedCount
@@ -127,55 +151,6 @@ func (c *SelectedNodesCache) GetNodes(ctx context.Context, req FindStorageNodesR
 	}
 
 	return selectedNodeResults, nil
-}
-
-// RemoveNode removes a node from the selected nodes cache
-func (c *SelectedNodesCache) RemoveNode(ctx context.Context, nodeID storj.NodeID) {
-	defer mon.Task()(&ctx)(nil)
-
-	for i, node := range c.reputableNodes {
-		if node.ID == nodeID {
-			c.reputableMu.Lock()
-			c.reputableNodes[len(c.reputableNodes)-1], c.reputableNodes[i] = c.reputableNodes[i], c.reputableNodes[len(c.reputableNodes)-1]
-			c.reputableNodes = c.reputableNodes[:len(c.reputableNodes)-1]
-			c.reputableMu.Unlock()
-			mon.IntVal("remove_reputable_new_cache_size").Observe(int64(len(c.reputableNodes)))
-			return
-		}
-	}
-
-	for i, node := range c.newNodes {
-		if node.ID == nodeID {
-			c.newNodesMu.Lock()
-			c.newNodes[len(c.newNodes)-1], c.newNodes[i] = c.newNodes[i], c.newNodes[len(c.newNodes)-1]
-			c.newNodes = c.newNodes[:len(c.newNodes)-1]
-			c.newNodesMu.Unlock()
-			mon.IntVal("remove_new__node_new_cache_size").Observe(int64(len(c.newNodes)))
-			return
-		}
-	}
-	c.log.Debug("nodeID not found in cache", zap.String("node id", nodeID.String()))
-	return
-}
-
-// AddReputableNode adds a reputable node to the selected nodes cache
-func (c *SelectedNodesCache) AddReputableNode(ctx context.Context, node CachedNode) {
-	defer mon.Task()(&ctx)(nil)
-
-	c.reputableMu.Lock()
-	c.reputableNodes = append(c.reputableNodes, node)
-	c.reputableMu.Unlock()
-	mon.IntVal("added_reputable_new_cache_size").Observe(int64(len(c.reputableNodes)))
-}
-
-// AddNewNode adds a new node to the selected nodes cache
-func (c *SelectedNodesCache) AddNewNode(ctx context.Context, node CachedNode) {
-	defer mon.Task()(&ctx)(nil)
-
-	c.newNodesMu.Lock()
-	c.newNodes = append(c.newNodes, node)
-	c.newNodesMu.Unlock()
-	mon.IntVal("added_new_node_new_cache_size").Observe(int64(len(c.newNodes)))
 }
 
 // Size returns the size of the reputable nodes and new nodes in the cache

@@ -20,8 +20,9 @@ var (
 
 // Config is a configuration for overlay service.
 type Config struct {
-	Node                 NodeSelectionConfig
-	UpdateStatsBatchSize int `help:"number of update requests to process per transaction" default:"100"`
+	Node                        NodeSelectionConfig
+	UpdateStatsBatchSize        int           `help:"number of update requests to process per transaction" default:"100"`
+	SelectedNodesCacheStaleness time.Duration `help:"how stale the selected nodes cache can be" releaseDefault:"3m" devDefault:"5m"`
 }
 
 // NodeSelectionConfig is a configuration struct to determine the minimum
