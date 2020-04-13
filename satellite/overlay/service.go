@@ -98,8 +98,8 @@ type DB interface {
 	// UnsuspendNode unsuspends a storage node.
 	UnsuspendNode(ctx context.Context, nodeID storj.NodeID) (err error)
 
-	// SelectAllStorageNodes returns all nodes that qualify to store data, organized as reputable nodes and new nodes
-	SelectAllStorageNodes(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []CachedNode, err error)
+	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
+	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []CachedNode, err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins

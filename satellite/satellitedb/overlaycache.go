@@ -33,13 +33,14 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
-// SelectAllStorageNodes returns all nodes that qualify to store data organized as reputable nodes and new nodes
-func (cache *overlaycache) SelectAllStorageNodes(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []overlay.CachedNode, err error) {
+// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
+func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []overlay.CachedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	version, err := version.NewSemVer(selectionCfg.MinimumVersion)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	query := `
 		SELECT id, address, last_net, last_ip_port, true as reputable
 			FROM nodes
@@ -52,7 +53,8 @@ func (cache *overlaycache) SelectAllStorageNodes(ctx context.Context, selectionC
 			AND total_audit_count >=$4
 			AND total_uptime_count >= $5
 			AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10))))
-			AND release;
+			AND release
+		UNION ALL
 		SELECT id, address, last_net, last_ip_port, false as reputable
 			FROM nodes
 			WHERE disqualified IS NULL
