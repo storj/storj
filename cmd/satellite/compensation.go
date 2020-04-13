@@ -39,7 +39,7 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	if err := db.CheckVersion(ctx); err != nil {
-		zap.S().Fatal("failed satellite database version check: ", err)
+		zap.L().Fatal("Failed satellite database version check.", zap.Error(err))
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
@@ -147,7 +147,7 @@ func recordPeriod(ctx context.Context, paystubsCSV, paymentsCSV string) (int, in
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	if err := db.CheckVersion(ctx); err != nil {
-		zap.S().Fatal("failed satellite database version check: ", err)
+		zap.L().Fatal("Failed satellite database version check.", zap.Error(err))
 		return 0, 0, errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
@@ -171,7 +171,7 @@ func recordOneOffPayments(ctx context.Context, paymentsCSV string) (int, error) 
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	if err := db.CheckVersion(ctx); err != nil {
-		zap.S().Fatal("failed satellite database version check: ", err)
+		zap.L().Fatal("Failed satellite database version check.", zap.Error(err))
 		return 0, errs.New("Error checking version for satellitedb: %+v", err)
 	}
 

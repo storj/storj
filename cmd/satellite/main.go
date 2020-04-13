@@ -257,7 +257,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		log.Fatal("Failed to load identity.", zap.Error(err))
 	}
 
 	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
@@ -311,15 +311,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
+		log.Warn("Failed to initialize telemetry batcher", zap.Error(err))
 	}
 
 	if err := process.InitTracingWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize tracing collector: ", err)
+		log.Warn("Failed to initialize tracing collector", zap.Error(err))
 	}
 	err = db.CheckVersion(ctx)
 	if err != nil {
-		zap.S().Fatal("failed satellite database version check: ", err)
+		log.Fatal("Failed satellite database version check.", zap.Error(err))
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
@@ -415,7 +415,7 @@ func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error)
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	}
 
 	// Check the node ID is valid
@@ -556,7 +556,10 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	defer func() {
 		err = errs.Combine(err, file.Close())
 		if err != nil {
-			log.Sugar().Errorf("error closing the file %v after retrieving partner value attribution data: %+v", partnerAttribtionCfg.Output, err)
+			log.Error("Error closing the output file after retrieving partner value attribution data.",
+				zap.String("Output File", partnerAttribtionCfg.Output),
+				zap.Error(err),
+			)
 		}
 	}()
 

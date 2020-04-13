@@ -72,7 +72,7 @@ func NewServer(logger *zap.Logger, config Config, rewards rewards.DB, partners *
 		partners: partners,
 	}
 
-	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
+	logger.Debug("Starting Marketing Admin UI.", zap.Stringer("Address", s.listener.Addr()))
 	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.config.StaticDir)))
 	mux := mux.NewRouter()
 	if s.config.StaticDir != "" {

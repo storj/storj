@@ -764,19 +764,19 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from us-central-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa")) // europe-west1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from europe-west-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa")) // asia-east1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from asia-east-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from tothemoon.", zap.Error(err))
 					}
 					// To prevent the node from starting up, we just log errors and return nil
 					return nil
@@ -789,7 +789,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "tmp"))
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing orphaned tmp data.", zap.Error(err))
 					}
 					// To prevent the node from starting up, we just log errors and return nil
 					return nil

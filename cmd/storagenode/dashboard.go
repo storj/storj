@@ -52,9 +52,9 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 
 	ident, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
-		zap.S().Info("Node ID: ", ident.ID)
+		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
 	}
 
 	client, err := dialDashboardClient(ctx, dashboardCfg.Address)
@@ -63,7 +63,7 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 	}
 	defer func() {
 		if err := client.close(); err != nil {
-			zap.S().Debug("closing dashboard client failed", err)
+			zap.L().Debug("Closing dashboard client failed.", zap.Error(err))
 		}
 	}()
 

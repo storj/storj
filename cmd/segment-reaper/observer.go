@@ -139,7 +139,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 			// ins't tracked in it.
 			if streamMeta.NumberOfSegments > (int64(maxNumOfSegments) + 1) {
 				object.skip = true
-				zap.S().Warn("unsupported number of segments", zap.Int64("index", streamMeta.NumberOfSegments))
+				zap.L().Warn("Unsupported number of segments", zap.Int64("Segments", streamMeta.NumberOfSegments))
 			}
 			object.expectedNumberOfSegments = byte(streamMeta.NumberOfSegments)
 		}
@@ -150,7 +150,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		}
 		if segmentIndex >= int(maxNumOfSegments) {
 			object.skip = true
-			zap.S().Warn("unsupported segment index", zap.Int("index", segmentIndex))
+			zap.L().Warn("Unsupported segment index", zap.Int("Index", segmentIndex))
 		} else {
 			ok, err := object.segments.Has(segmentIndex)
 			if err != nil {

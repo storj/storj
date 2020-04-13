@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"mime"
 	"net"
@@ -115,7 +116,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		stripePublicKey:  stripePublicKey,
 	}
 
-	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
+	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
 
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_tokenKey",
@@ -695,7 +696,7 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.log.Sugar().Debug(result)
+	server.log.Debug(fmt.Sprintf("%s", result))
 }
 
 // serveError serves error static pages.
