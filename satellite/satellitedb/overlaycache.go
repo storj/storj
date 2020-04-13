@@ -20,6 +20,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/version"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/nodeselection"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -33,49 +34,45 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
+var _ nodeselection.DB = (*nodeselectioncache)(nil)
+
+type nodeselectioncache struct {
+	db *satelliteDB
+}
+
 // SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
-func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []overlay.CachedNode, err error) {
+func (cache *nodeselectioncache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []nodeselection.CachedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if selectionCfg.MinimumVersion == "" {
+		return nil, nil, Error.New("NodeSelectionConfig.MinimumVersion must be provided")
+	}
 	version, err := version.NewSemVer(selectionCfg.MinimumVersion)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	query := `
-		SELECT id, address, last_net, last_ip_port, true as reputable
+		SELECT id, address, last_net, last_ip_port, (total_audit_count < $1 OR total_uptime_count < $2) as isnew
 			FROM nodes
 			WHERE disqualified IS NULL
 			AND suspended IS NULL
 			AND exit_initiated_at IS NULL
-			AND type = $1
-			AND free_disk >= $2
-			AND last_contact_success > $3
-			AND total_audit_count >=$4
-			AND total_uptime_count >= $5
+			AND type = $3
+			AND free_disk >= $4
+			AND last_contact_success > $5
 			AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10))))
 			AND release
-		UNION ALL
-		SELECT id, address, last_net, last_ip_port, false as reputable
-			FROM nodes
-			WHERE disqualified IS NULL
-			AND suspended IS NULL
-			AND exit_initiated_at IS NULL
-			AND type = $1
-			AND free_disk >= $2
-			AND last_contact_success > $3
-			AND ( total_audit_count < $4 OR total_uptime_count < $5 )
-			AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10))))
-			AND release;
 	`
 	rows, err := cache.db.Query(ctx, query,
-		// $1
-		int(pb.NodeType_STORAGE),
-		// $2
-		selectionCfg.MinimumDiskSpace.Int64(),
-		// $3
-		time.Now().Add(-selectionCfg.OnlineWindow),
-		// $4, $5
+		// $1, $2
 		selectionCfg.AuditCount, selectionCfg.UptimeCount,
+		// $3
+		int(pb.NodeType_STORAGE),
+		// $4
+		selectionCfg.MinimumDiskSpace.Int64(),
+		// $5
+		time.Now().Add(-selectionCfg.OnlineWindow),
 		// $6 - $10
 		version.Major, version.Major, version.Minor, version.Minor, version.Patch,
 	)
@@ -83,10 +80,10 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 		return nil, nil, err
 	}
 
-	var reputableNodes []overlay.CachedNode
-	var newNodes []overlay.CachedNode
+	var reputableNodes []nodeselection.CachedNode
+	var newNodes []nodeselection.CachedNode
 	for rows.Next() {
-		var node overlay.CachedNode
+		var node nodeselection.CachedNode
 		var lastIPPort sql.NullString
 		var reputable bool
 		err = rows.Scan(&node.ID, &node.Address, &node.LastNet, &lastIPPort, &reputable)

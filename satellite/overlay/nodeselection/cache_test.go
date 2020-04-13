@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package overlay_test
+package nodeselection_test
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/nodeselection"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -32,8 +33,9 @@ var nodeCfg = overlay.NodeSelectionConfig{
 
 func TestInit(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		cache := overlay.NewSelectedNodesCache(ctx, zap.NewNop(),
-			db.OverlayCache(), time.Hour,
+
+		cache := nodeselection.NewCache(ctx, zap.NewNop(),
+			db.NodeSelectionCache(), time.Hour,
 			nodeCfg,
 		)
 		// the cache should have no nodes to start
@@ -58,8 +60,8 @@ func TestInit(t *testing.T) {
 
 func TestRefresh(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		cache := overlay.NewSelectedNodesCache(ctx, zap.NewNop(),
-			db.OverlayCache(), time.Hour,
+		cache := nodeselection.NewCache(ctx, zap.NewNop(),
+			db.NodeSelectionCache(), time.Hour,
 			nodeCfg,
 		)
 		// the cache should have no nodes to start

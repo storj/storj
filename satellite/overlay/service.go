@@ -97,9 +97,6 @@ type DB interface {
 	SuspendNode(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 	// UnsuspendNode unsuspends a storage node.
 	UnsuspendNode(ctx context.Context, nodeID storj.NodeID) (err error)
-
-	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
-	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []CachedNode, err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -120,9 +117,6 @@ type FindStorageNodesRequest struct {
 	RequestedCount       int
 	MinimumVersion       string // semver or empty
 	ExcludedIDs          []storj.NodeID
-	// TODO(jg): once the selected node cache is used in uploads
-	// remove the list of ExcludedIDs
-	ExcludedIDsMap map[storj.NodeID]struct{}
 }
 
 // NodeCriteria are the requirements for selecting nodes

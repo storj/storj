@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/nodeselection"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
@@ -111,6 +112,11 @@ func (db *satelliteDB) Attribution() attribution.DB {
 // OverlayCache is a getter for overlay cache repository
 func (db *satelliteDB) OverlayCache() overlay.DB {
 	return &overlaycache{db: db}
+}
+
+// NodeSelectionCache is a getter for overlay node selection cache repository
+func (db *satelliteDB) NodeSelectionCache() nodeselection.DB {
+	return &nodeselectioncache{db: db}
 }
 
 // RepairQueue is a getter for RepairQueue repository

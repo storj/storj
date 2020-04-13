@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/nodeselection"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/referrals"
@@ -65,6 +66,8 @@ type DB interface {
 	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
+	// NodeSelectionCache returns database for caching overlay node selection information
+	NodeSelectionCache() nodeselection.DB
 	// Attribution returns database for partner keys information
 	Attribution() attribution.DB
 	// StoragenodeAccounting returns database for storing information about storagenode use
