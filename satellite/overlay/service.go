@@ -118,10 +118,11 @@ type NodeCheckInInfo struct {
 type FindStorageNodesRequest struct {
 	MinimumRequiredNodes int
 	RequestedCount       int
+	MinimumVersion       string // semver or empty
 	ExcludedIDs          []storj.NodeID
-	// todo: remove duplicate once tests are fixed
+	// TODO(jg): once the selected node cache is used in uploads
+	// remove the list of ExcludedIDs
 	ExcludedIDsMap map[storj.NodeID]struct{}
-	MinimumVersion string // semver or empty
 }
 
 // NodeCriteria are the requirements for selecting nodes
