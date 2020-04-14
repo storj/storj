@@ -129,6 +129,7 @@ func recordPayments(ctx context.Context, tx *dbx.Tx, payments []compensation.Pay
 		}
 		err := tx.CreateNoReturn_StoragenodePayment(ctx,
 			dbx.StoragenodePayment_NodeId(payment.NodeID.Bytes()),
+			dbx.StoragenodePayment_Period(payment.Period.String()),
 			dbx.StoragenodePayment_Amount(payment.Amount.Value()),
 			opts,
 		)

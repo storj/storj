@@ -522,6 +522,11 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
+							Name:       "suspended",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
+						},
+						&dbschema.Column{
 							Name:       "updated_at",
 							Type:       "TIMESTAMP",
 							IsNullable: false,
@@ -671,3 +676,4 @@ func Schema() map[string]*dbschema.Schema {
 		},
 	}
 }
+

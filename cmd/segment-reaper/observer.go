@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -130,7 +129,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		object.hasLastSegment = true
 
 		streamMeta := pb.StreamMeta{}
-		err := proto.Unmarshal(pointer.Metadata, &streamMeta)
+		err := pb.Unmarshal(pointer.Metadata, &streamMeta)
 		if err != nil {
 			return errs.New("unexpected error unmarshalling pointer metadata %s", err)
 		}
@@ -308,7 +307,7 @@ func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID, 
 	}
 
 	pointer := &pb.Pointer{}
-	err = proto.Unmarshal(pointerBytes, pointer)
+	err = pb.Unmarshal(pointerBytes, pointer)
 	if err != nil {
 		return "", err
 	}

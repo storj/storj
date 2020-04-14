@@ -30,6 +30,7 @@ type Stats struct {
 	Audit  Metric
 
 	Disqualified *time.Time
+	Suspended    *time.Time
 
 	UpdatedAt time.Time
 }

@@ -292,7 +292,7 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 		// Preflight stage 1: test schema correctness
 		schema, err := sqliteutil.QuerySchema(ctx, nextDB)
 		if err != nil {
-			return ErrPreflight.Wrap(err)
+			return ErrPreflight.New("%s: schema check failed: %v", dbName, err)
 		}
 		// we don't care about changes in versions table
 		schema.DropTable("versions")
@@ -1143,6 +1143,14 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 						  notes text,
 						  PRIMARY KEY ( id )
      				);`,
+				},
+			},
+			{
+				DB:          db.reputationDB,
+				Description: "Add suspended field to satellites db",
+				Version:     34,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN suspended TIMESTAMP`,
 				},
 			},
 		},

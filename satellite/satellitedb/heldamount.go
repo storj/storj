@@ -115,9 +115,9 @@ func (paystubs *paymentStubs) CreatePayment(ctx context.Context, payment heldamo
 	return paystubs.db.CreateNoReturn_StoragenodePayment(
 		ctx,
 		dbx.StoragenodePayment_NodeId(payment.NodeID[:]),
+		dbx.StoragenodePayment_Period(payment.Period),
 		dbx.StoragenodePayment_Amount(payment.Amount),
 		dbx.StoragenodePayment_Create_Fields{
-			Period:  dbx.StoragenodePayment_Period(payment.Period),
 			Receipt: dbx.StoragenodePayment_Receipt(payment.Receipt),
 			Notes:   dbx.StoragenodePayment_Notes(payment.Notes),
 		},

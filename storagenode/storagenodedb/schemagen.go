@@ -30,7 +30,7 @@ func main() {
 
 	err := runSchemaGen(ctx, log)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+w", err)
+		fmt.Fprintf(os.Stderr, "%v", err)
 		os.Exit(1)
 	}
 }

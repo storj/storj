@@ -310,6 +310,9 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 			Admin: admin.Config{
 				Address: "127.0.0.1:0",
 			},
+			Contact: contact.Config{
+				Timeout: 1 * time.Minute,
+			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
 					UptimeCount:      0,

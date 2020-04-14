@@ -11,12 +11,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
+	"storj.io/common/encryption"
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -71,21 +71,22 @@ type Revocations interface {
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log                 *zap.Logger
-	metainfo            *Service
-	deletePieces        *piecedeletion.Service
-	orders              *orders.Service
-	overlay             *overlay.Service
-	attributions        attribution.DB
-	partners            *rewards.PartnersService
-	pointerVerification *pointerverification.Service
-	projectUsage        *accounting.Service
-	projects            console.Projects
-	apiKeys             APIKeys
-	createRequests      *createRequests
-	satellite           signing.Signer
-	limiterCache        *lrucache.ExpiringLRU
-	config              Config
+	log                  *zap.Logger
+	metainfo             *Service
+	deletePieces         *piecedeletion.Service
+	orders               *orders.Service
+	overlay              *overlay.Service
+	attributions         attribution.DB
+	partners             *rewards.PartnersService
+	pointerVerification  *pointerverification.Service
+	projectUsage         *accounting.Service
+	projects             console.Projects
+	apiKeys              APIKeys
+	createRequests       *createRequests
+	satellite            signing.Signer
+	limiterCache         *lrucache.ExpiringLRU
+	encInlineSegmentSize int64 // max inline segment size + encryption overhead
+	config               Config
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -93,8 +94,16 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB,
 	partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
-	satellite signing.Signer, config Config) *Endpoint {
+	satellite signing.Signer, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
+
+	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storj.EncryptionParameters{
+		CipherSuite: storj.EncAESGCM,
+		BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &Endpoint{
 		log:                 log,
 		metainfo:            metainfo,
@@ -113,8 +122,9 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 			Capacity:   config.RateLimiter.CacheCapacity,
 			Expiration: config.RateLimiter.CacheExpiration,
 		}),
-		config: config,
-	}
+		encInlineSegmentSize: encInlineSegmentSize,
+		config:               config,
+	}, nil
 }
 
 // Close closes resources
@@ -1048,13 +1058,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	mon.Meter("req_put_object").Mark(1)
 
 	return &pb.ObjectBeginResponse{
-		Bucket:               req.Bucket,
-		EncryptedPath:        req.EncryptedPath,
-		Version:              req.Version,
-		StreamId:             streamID,
-		RedundancyScheme:     pbRS,
-		MaxInlineSegmentSize: endpoint.config.MaxInlineSegmentSize.Int64(),
-		MaxSegmentSize:       endpoint.config.MaxSegmentSize.Int64(),
+		Bucket:           req.Bucket,
+		EncryptedPath:    req.EncryptedPath,
+		Version:          req.Version,
+		StreamId:         streamID,
+		RedundancyScheme: pbRS,
 	}, nil
 }
 
@@ -1070,7 +1078,7 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 	defer mon.Task()(&ctx)(&err)
 
 	streamID := &pb.SatStreamID{}
-	err = proto.Unmarshal(req.StreamId, streamID)
+	err = pb.Unmarshal(req.StreamId, streamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1095,7 +1103,7 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 
 	streamMeta := pb.StreamMeta{}
-	err = proto.Unmarshal(req.EncryptedMetadata, &streamMeta)
+	err = pb.Unmarshal(req.EncryptedMetadata, &streamMeta)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "invalid metadata structure")
 	}
@@ -1186,7 +1194,7 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 	}
 
 	streamMeta := &pb.StreamMeta{}
-	err = proto.Unmarshal(pointer.Metadata, streamMeta)
+	err = pb.Unmarshal(pointer.Metadata, streamMeta)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1351,7 +1359,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	encodedStreamID, err := proto.Marshal(satStreamID)
+	encodedStreamID, err := pb.Marshal(satStreamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1409,7 +1417,7 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 	defer mon.Task()(&ctx)(&err)
 
 	streamID := &pb.SatStreamID{}
-	err = proto.Unmarshal(req.StreamId, streamID)
+	err = pb.Unmarshal(req.StreamId, streamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1567,7 +1575,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		RemotePieces: pieces,
 	}
 
-	metadata, err := proto.Marshal(&pb.SegmentMeta{
+	metadata, err := pb.Marshal(&pb.SegmentMeta{
 		EncryptedKey: req.EncryptedKey,
 		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
 	})
@@ -1695,7 +1703,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 	}
 
 	inlineUsed := int64(len(req.EncryptedInlineData))
-	if inlineUsed > endpoint.config.MaxInlineSegmentSize.Int64() {
+	if inlineUsed > endpoint.encInlineSegmentSize {
 		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize))
 	}
 
@@ -1704,7 +1712,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
+		endpoint.log.Sugar().Debugf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
 			limit, keyInfo.ProjectID,
 		)
 		return nil, nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
@@ -1716,7 +1724,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
-	metadata, err := proto.Marshal(&pb.SegmentMeta{
+	metadata, err := pb.Marshal(&pb.SegmentMeta{
 		EncryptedKey: req.EncryptedKey,
 		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
 	})
@@ -1870,7 +1878,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	}
 
 	streamMeta := &pb.StreamMeta{}
-	err = proto.Unmarshal(pointer.Metadata, streamMeta)
+	err = pb.Unmarshal(pointer.Metadata, streamMeta)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -2049,14 +2057,14 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		var segmentMeta *pb.SegmentMeta
 		if req.CursorPosition.Index == lastSegment {
 			streamMeta := &pb.StreamMeta{}
-			err = proto.Unmarshal(pointer.Metadata, streamMeta)
+			err = pb.Unmarshal(pointer.Metadata, streamMeta)
 			if err != nil {
 				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			segmentMeta = streamMeta.LastSegmentMeta
 		} else {
 			segmentMeta = &pb.SegmentMeta{}
-			err = proto.Unmarshal(pointer.Metadata, segmentMeta)
+			err = pb.Unmarshal(pointer.Metadata, segmentMeta)
 			if err != nil {
 				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
@@ -2159,7 +2167,7 @@ func (endpoint *Endpoint) getObjectNumberOfSegments(ctx context.Context, project
 	}
 
 	meta := &pb.StreamMeta{}
-	err = proto.Unmarshal(pointer.Metadata, meta)
+	err = pb.Unmarshal(pointer.Metadata, meta)
 	if err != nil {
 		endpoint.log.Error("error unmarshaling pointer metadata", zap.Error(err))
 		return 0, rpcstatus.Error(rpcstatus.Internal, "unable to unmarshal metadata")
@@ -2198,7 +2206,7 @@ func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *pb.SatS
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	encodedStreamID, err := proto.Marshal(signedStreamID)
+	encodedStreamID, err := pb.Marshal(signedStreamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -2218,7 +2226,7 @@ func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *pb.Sa
 		return nil, err
 	}
 
-	encodedSegmentID, err := proto.Marshal(signedSegmentID)
+	encodedSegmentID, err := pb.Marshal(signedSegmentID)
 	if err != nil {
 		return nil, err
 	}
@@ -2234,7 +2242,7 @@ func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID sto
 	defer mon.Task()(&ctx)(&err)
 
 	satStreamID := &pb.SatStreamID{}
-	err = proto.Unmarshal(streamID, satStreamID)
+	err = pb.Unmarshal(streamID, satStreamID)
 	if err != nil {
 		return nil, err
 	}
@@ -2255,7 +2263,7 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	defer mon.Task()(&ctx)(&err)
 
 	satSegmentID := &pb.SatSegmentID{}
-	err = proto.Unmarshal(segmentID, satSegmentID)
+	err = pb.Unmarshal(segmentID, satSegmentID)
 	if err != nil {
 		return nil, err
 	}

@@ -93,11 +93,11 @@ export class ApiKey {
     public formattedName(): string {
         const name = this.name;
 
-        if (name.length < 12) {
+        if (name.length < 20) {
             return name;
         }
 
-        return name.slice(0, 12) + '...';
+        return name.slice(0, 20) + '...';
     }
 
     public getDate(): string {

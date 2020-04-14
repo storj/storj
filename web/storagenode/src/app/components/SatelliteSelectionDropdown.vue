@@ -18,7 +18,12 @@
                     v-if="satellite.disqualified"
                     alt="disqualified image"
                 />
-                <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified}">{{satellite.url}}</p>
+                <SuspensionIcon
+                    class="satellite-selection-overflow-container__satellite-choice__image"
+                    v-if="satellite.suspended && !satellite.disqualified"
+                    alt="suspended image"
+                />
+                <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified, suspended: satellite.suspended}">{{satellite.url}}</p>
             </div>
         </div>
     </div>
@@ -28,6 +33,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import DisqualificationIcon from '@/../static/images/disqualify.svg';
+import SuspensionIcon from '@/../static/images/suspend.svg';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
@@ -37,6 +43,7 @@ import { SatelliteInfo } from '@/storagenode/dashboard';
 @Component({
     components: {
         DisqualificationIcon,
+        SuspensionIcon,
     },
 })
 export default class SatelliteSelectionDropdown extends Vue {
@@ -122,7 +129,8 @@ export default class SatelliteSelectionDropdown extends Vue {
         }
     }
 
-    .disqualified {
+    .disqualified,
+    .suspended {
         margin-left: 20px;
     }
 

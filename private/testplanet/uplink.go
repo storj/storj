@@ -38,8 +38,10 @@ type Uplink struct {
 	Dialer           rpc.Dialer
 	StorageNodeCount int
 
-	APIKey    map[storj.NodeID]*macaroon.APIKey
-	ProjectID map[storj.NodeID]uuid.UUID
+	APIKey            map[storj.NodeID]*macaroon.APIKey
+	ProjectID         map[storj.NodeID]uuid.UUID
+	ProjectOwnerID    map[storj.NodeID]uuid.UUID
+	ProjectOwnerEmail map[storj.NodeID]string
 }
 
 // newUplinks creates initializes uplinks, requires peer to have at least one satellite
@@ -58,6 +60,8 @@ func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]
 
 // newUplink creates a new uplink
 func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, error) {
+	ctx := context.TODO()
+
 	identity, err := planet.NewIdentity()
 	if err != nil {
 		return nil, err
@@ -71,11 +75,13 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 	}
 
 	uplink := &Uplink{
-		Log:              planet.log.Named(name),
-		Identity:         identity,
-		StorageNodeCount: storageNodeCount,
-		APIKey:           map[storj.NodeID]*macaroon.APIKey{},
-		ProjectID:        map[storj.NodeID]uuid.UUID{},
+		Log:               planet.log.Named(name),
+		Identity:          identity,
+		StorageNodeCount:  storageNodeCount,
+		APIKey:            map[storj.NodeID]*macaroon.APIKey{},
+		ProjectID:         map[storj.NodeID]uuid.UUID{},
+		ProjectOwnerID:    map[storj.NodeID]uuid.UUID{},
+		ProjectOwnerEmail: map[storj.NodeID]string{},
 	}
 
 	uplink.Log.Debug("id=" + identity.ID.String())
@@ -102,18 +108,44 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 			return nil, err
 		}
 
-		project, err := consoleDB.Projects().Insert(
-			context.Background(),
-			&console.Project{
-				Name: projectName,
+		ownerID, err := uuid.New()
+		if err != nil {
+			return nil, err
+		}
+
+		owner, err := consoleDB.Users().Insert(ctx,
+			&console.User{
+				ID:       ownerID,
+				FullName: fmt.Sprintf("User %s", projectName),
+				Email:    fmt.Sprintf("user@%s.test", projectName),
 			},
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		_, err = consoleDB.APIKeys().Create(
-			context.Background(),
+		owner.Status = console.Active
+		err = consoleDB.Users().Update(ctx, owner)
+		if err != nil {
+			return nil, err
+		}
+
+		project, err := consoleDB.Projects().Insert(ctx,
+			&console.Project{
+				Name:    projectName,
+				OwnerID: owner.ID,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = consoleDB.ProjectMembers().Insert(ctx, owner.ID, project.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = consoleDB.APIKeys().Create(ctx,
 			key.Head(),
 			console.APIKeyInfo{
 				Name:      "root",
@@ -127,6 +159,8 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 		uplink.APIKey[satellite.ID()] = key
 		uplink.ProjectID[satellite.ID()] = project.ID
+		uplink.ProjectOwnerID[satellite.ID()] = owner.ID
+		uplink.ProjectOwnerEmail[satellite.ID()] = owner.Email
 	}
 
 	planet.uplinks = append(planet.uplinks, uplink)

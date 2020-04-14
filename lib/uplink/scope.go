@@ -5,7 +5,6 @@ package uplink
 
 import (
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
@@ -31,7 +30,7 @@ func ParseScope(scopeb58 string) (*Scope, error) {
 	}
 
 	p := new(pb.Scope)
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := pb.Unmarshal(data, p); err != nil {
 		return nil, errs.New("unable to unmarshal scope: %v", err)
 	}
 
@@ -72,7 +71,7 @@ func (s *Scope) Serialize() (string, error) {
 		return "", err
 	}
 
-	data, err := proto.Marshal(&pb.Scope{
+	data, err := pb.Marshal(&pb.Scope{
 		SatelliteAddr:    s.SatelliteAddr,
 		ApiKey:           s.APIKey.serializeRaw(),
 		EncryptionAccess: access,

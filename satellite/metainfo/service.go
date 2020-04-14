@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -45,7 +44,7 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 	// Update the pointer with the creation date
 	pointer.CreationDate = time.Now()
 
-	pointerBytes, err := proto.Marshal(pointer)
+	pointerBytes, err := pb.Marshal(pointer)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -62,7 +61,7 @@ func (s *Service) UnsynchronizedPut(ctx context.Context, path string, pointer *p
 	// Update the pointer with the creation date
 	pointer.CreationDate = time.Now()
 
-	pointerBytes, err := proto.Marshal(pointer)
+	pointerBytes, err := pb.Marshal(pointer)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -101,7 +100,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 
 		// unmarshal the pointer
 		pointer = &pb.Pointer{}
-		err = proto.Unmarshal(oldPointerBytes, pointer)
+		err = pb.Unmarshal(oldPointerBytes, pointer)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -168,7 +167,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 		pointer.RepairCount = ref.RepairCount
 
 		// marshal the pointer
-		newPointerBytes, err := proto.Marshal(pointer)
+		newPointerBytes, err := pb.Marshal(pointer)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -212,7 +211,7 @@ func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes [
 	}
 
 	pointer = &pb.Pointer{}
-	err = proto.Unmarshal(pointerBytes, pointer)
+	err = pb.Unmarshal(pointerBytes, pointer)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
@@ -277,7 +276,7 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 	}
 
 	pr := &pb.Pointer{}
-	err = proto.Unmarshal(data, pr)
+	err = pb.Unmarshal(data, pr)
 	if err != nil {
 		return Error.Wrap(err)
 	}

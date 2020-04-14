@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -224,7 +223,7 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 			return Error.New("missing create request or request expired")
 		case !createRequest.Expiration.Equal(req.Pointer.ExpirationDate):
 			return Error.New("pointer expiration date does not match requested one")
-		case !proto.Equal(createRequest.Redundancy, req.Pointer.Remote.Redundancy):
+		case !pb.Equal(createRequest.Redundancy, req.Pointer.Remote.Redundancy):
 			return Error.New("pointer redundancy scheme date does not match requested one")
 		}
 	}

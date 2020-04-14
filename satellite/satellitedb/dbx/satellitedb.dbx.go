@@ -368,8 +368,8 @@ CREATE TABLE credits_spendings (
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint DEFAULT 0 NOT NULL,
-	pieces_failed bigint DEFAULT 0 NOT NULL,
+	pieces_transferred bigint NOT NULL DEFAULT 0,
+	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -385,14 +385,14 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp with time zone,
-	order_limit_send_count integer DEFAULT 0 NOT NULL,
+	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp with time zone,
-	num_healthy_pieces integer DEFAULT 52 NOT NULL,
+	num_healthy_pieces integer NOT NULL DEFAULT 52,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -405,45 +405,44 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
-	address text DEFAULT '' NOT NULL,
+	address text NOT NULL DEFAULT '',
 	last_net text NOT NULL,
 	last_ip_port text,
-	protocol integer DEFAULT 0 NOT NULL,
-	type integer DEFAULT 0 NOT NULL,
+	protocol integer NOT NULL DEFAULT 0,
+	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
 	wallet text NOT NULL,
-	free_bandwidth bigint DEFAULT -1 NOT NULL,
-	free_disk bigint DEFAULT -1 NOT NULL,
-	piece_count bigint DEFAULT 0 NOT NULL,
-	major bigint DEFAULT 0 NOT NULL,
-	minor bigint DEFAULT 0 NOT NULL,
-	patch bigint DEFAULT 0 NOT NULL,
-	hash text DEFAULT '' NOT NULL,
-	timestamp timestamp with time zone DEFAULT '0001-01-01 00:00:00+00' NOT NULL,
-	release boolean DEFAULT false NOT NULL,
-	latency_90 bigint DEFAULT 0 NOT NULL,
-	audit_success_count bigint DEFAULT 0 NOT NULL,
-	total_audit_count bigint DEFAULT 0 NOT NULL,
+	free_disk bigint NOT NULL DEFAULT -1,
+	piece_count bigint NOT NULL DEFAULT 0,
+	major bigint NOT NULL DEFAULT 0,
+	minor bigint NOT NULL DEFAULT 0,
+	patch bigint NOT NULL DEFAULT 0,
+	hash text NOT NULL DEFAULT '',
+	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+	release boolean NOT NULL DEFAULT false,
+	latency_90 bigint NOT NULL DEFAULT 0,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
-	created_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	updated_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	last_contact_success timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	last_contact_failure timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	contained boolean DEFAULT false NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
+	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
+	contained boolean NOT NULL DEFAULT false,
 	disqualified timestamp with time zone,
 	suspended timestamp with time zone,
-	audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	unknown_audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	uptime_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	uptime_reputation_beta double precision DEFAULT 0 NOT NULL,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
+	uptime_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
-	exit_success boolean DEFAULT false NOT NULL,
+	exit_success boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE nodes_offline_times (
@@ -456,8 +455,8 @@ CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	award_credit_in_cents integer DEFAULT 0 NOT NULL,
-	invitee_credit_in_cents integer DEFAULT 0 NOT NULL,
+	award_credit_in_cents integer NOT NULL DEFAULT 0,
+	invitee_credit_in_cents integer NOT NULL DEFAULT 0,
 	award_credit_duration_days integer,
 	invitee_credit_duration_days integer,
 	redeemable_cap integer,
@@ -497,7 +496,7 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint DEFAULT 0 NOT NULL,
+	usage_limit bigint NOT NULL DEFAULT 0,
 	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
@@ -549,7 +548,7 @@ CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	node_id bytea NOT NULL,
-	period text,
+	period text NOT NULL,
 	amount bigint NOT NULL,
 	receipt text,
 	notes text,
@@ -872,8 +871,8 @@ CREATE TABLE credits_spendings (
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint DEFAULT 0 NOT NULL,
-	pieces_failed bigint DEFAULT 0 NOT NULL,
+	pieces_transferred bigint NOT NULL DEFAULT 0,
+	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -889,14 +888,14 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp with time zone,
-	order_limit_send_count integer DEFAULT 0 NOT NULL,
+	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp with time zone,
-	num_healthy_pieces integer DEFAULT 52 NOT NULL,
+	num_healthy_pieces integer NOT NULL DEFAULT 52,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -909,45 +908,44 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
-	address text DEFAULT '' NOT NULL,
+	address text NOT NULL DEFAULT '',
 	last_net text NOT NULL,
 	last_ip_port text,
-	protocol integer DEFAULT 0 NOT NULL,
-	type integer DEFAULT 0 NOT NULL,
+	protocol integer NOT NULL DEFAULT 0,
+	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
 	wallet text NOT NULL,
-	free_bandwidth bigint DEFAULT -1 NOT NULL,
-	free_disk bigint DEFAULT -1 NOT NULL,
-	piece_count bigint DEFAULT 0 NOT NULL,
-	major bigint DEFAULT 0 NOT NULL,
-	minor bigint DEFAULT 0 NOT NULL,
-	patch bigint DEFAULT 0 NOT NULL,
-	hash text DEFAULT '' NOT NULL,
-	timestamp timestamp with time zone DEFAULT '0001-01-01 00:00:00+00' NOT NULL,
-	release boolean DEFAULT false NOT NULL,
-	latency_90 bigint DEFAULT 0 NOT NULL,
-	audit_success_count bigint DEFAULT 0 NOT NULL,
-	total_audit_count bigint DEFAULT 0 NOT NULL,
+	free_disk bigint NOT NULL DEFAULT -1,
+	piece_count bigint NOT NULL DEFAULT 0,
+	major bigint NOT NULL DEFAULT 0,
+	minor bigint NOT NULL DEFAULT 0,
+	patch bigint NOT NULL DEFAULT 0,
+	hash text NOT NULL DEFAULT '',
+	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+	release boolean NOT NULL DEFAULT false,
+	latency_90 bigint NOT NULL DEFAULT 0,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
-	created_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	updated_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	last_contact_success timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	last_contact_failure timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	contained boolean DEFAULT false NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
+	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
+	contained boolean NOT NULL DEFAULT false,
 	disqualified timestamp with time zone,
 	suspended timestamp with time zone,
-	audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	unknown_audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	uptime_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	uptime_reputation_beta double precision DEFAULT 0 NOT NULL,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
+	uptime_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
-	exit_success boolean DEFAULT false NOT NULL,
+	exit_success boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE nodes_offline_times (
@@ -960,8 +958,8 @@ CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	award_credit_in_cents integer DEFAULT 0 NOT NULL,
-	invitee_credit_in_cents integer DEFAULT 0 NOT NULL,
+	award_credit_in_cents integer NOT NULL DEFAULT 0,
+	invitee_credit_in_cents integer NOT NULL DEFAULT 0,
 	award_credit_duration_days integer,
 	invitee_credit_duration_days integer,
 	redeemable_cap integer,
@@ -1001,7 +999,7 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint DEFAULT 0 NOT NULL,
+	usage_limit bigint NOT NULL DEFAULT 0,
 	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
@@ -1053,7 +1051,7 @@ CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	node_id bytea NOT NULL,
-	period text,
+	period text NOT NULL,
 	amount bigint NOT NULL,
 	receipt text,
 	notes text,
@@ -3324,7 +3322,6 @@ type Node struct {
 	Type                        int
 	Email                       string
 	Wallet                      string
-	FreeBandwidth               int64
 	FreeDisk                    int64
 	PieceCount                  int64
 	Major                       int64
@@ -3365,7 +3362,6 @@ type Node_Create_Fields struct {
 	LastIpPort                  Node_LastIpPort_Field
 	Protocol                    Node_Protocol_Field
 	Type                        Node_Type_Field
-	FreeBandwidth               Node_FreeBandwidth_Field
 	FreeDisk                    Node_FreeDisk_Field
 	Major                       Node_Major_Field
 	Minor                       Node_Minor_Field
@@ -3402,7 +3398,6 @@ type Node_Update_Fields struct {
 	Type                        Node_Type_Field
 	Email                       Node_Email_Field
 	Wallet                      Node_Wallet_Field
-	FreeBandwidth               Node_FreeBandwidth_Field
 	FreeDisk                    Node_FreeDisk_Field
 	PieceCount                  Node_PieceCount_Field
 	Major                       Node_Major_Field
@@ -3598,25 +3593,6 @@ func (f Node_Wallet_Field) value() interface{} {
 }
 
 func (Node_Wallet_Field) _Column() string { return "wallet" }
-
-type Node_FreeBandwidth_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Node_FreeBandwidth(v int64) Node_FreeBandwidth_Field {
-	return Node_FreeBandwidth_Field{_set: true, _value: v}
-}
-
-func (f Node_FreeBandwidth_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_FreeBandwidth_Field) _Column() string { return "free_bandwidth" }
 
 type Node_FreeDisk_Field struct {
 	_set   bool
@@ -5798,7 +5774,7 @@ type StoragenodePayment struct {
 	Id        int64
 	CreatedAt time.Time
 	NodeId    []byte
-	Period    *string
+	Period    string
 	Amount    int64
 	Receipt   *string
 	Notes     *string
@@ -5807,7 +5783,6 @@ type StoragenodePayment struct {
 func (StoragenodePayment) _Table() string { return "storagenode_payments" }
 
 type StoragenodePayment_Create_Fields struct {
-	Period  StoragenodePayment_Period_Field
 	Receipt StoragenodePayment_Receipt_Field
 	Notes   StoragenodePayment_Notes_Field
 }
@@ -5875,25 +5850,12 @@ func (StoragenodePayment_NodeId_Field) _Column() string { return "node_id" }
 type StoragenodePayment_Period_Field struct {
 	_set   bool
 	_null  bool
-	_value *string
+	_value string
 }
 
 func StoragenodePayment_Period(v string) StoragenodePayment_Period_Field {
-	return StoragenodePayment_Period_Field{_set: true, _value: &v}
+	return StoragenodePayment_Period_Field{_set: true, _value: v}
 }
-
-func StoragenodePayment_Period_Raw(v *string) StoragenodePayment_Period_Field {
-	if v == nil {
-		return StoragenodePayment_Period_Null()
-	}
-	return StoragenodePayment_Period(*v)
-}
-
-func StoragenodePayment_Period_Null() StoragenodePayment_Period_Field {
-	return StoragenodePayment_Period_Field{_set: true, _null: true}
-}
-
-func (f StoragenodePayment_Period_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f StoragenodePayment_Period_Field) value() interface{} {
 	if !f._set || f._null {
@@ -8703,12 +8665,6 @@ func (obj *postgresImpl) CreateNoReturn_Node(ctx context.Context,
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
-	if optional.FreeBandwidth._set {
-		__values = append(__values, optional.FreeBandwidth.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_bandwidth"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
 	if optional.FreeDisk._set {
 		__values = append(__values, optional.FreeDisk.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_disk"))
@@ -9248,6 +9204,7 @@ func (obj *postgresImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 
 func (obj *postgresImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
 	storagenode_payment_amount StoragenodePayment_Amount_Field,
 	optional StoragenodePayment_Create_Fields) (
 	err error) {
@@ -9256,7 +9213,7 @@ func (obj *postgresImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__created_at_val := __now
 	__node_id_val := storagenode_payment_node_id.value()
-	__period_val := optional.Period.value()
+	__period_val := storagenode_payment_period.value()
 	__amount_val := storagenode_payment_amount.value()
 	__receipt_val := optional.Receipt.value()
 	__notes_val := optional.Notes.value()
@@ -10122,7 +10079,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -10131,7 +10088,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -10177,7 +10134,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 	rows []*Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id_greater_or_equal.value())
@@ -10195,7 +10152,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 
 	for __rows.Next() {
 		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -12400,7 +12357,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -12439,11 +12396,6 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	if update.Wallet._set {
 		__values = append(__values, update.Wallet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
-	}
-
-	if update.FreeBandwidth._set {
-		__values = append(__values, update.FreeBandwidth.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
 	}
 
 	if update.FreeDisk._set {
@@ -12605,7 +12557,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -12661,11 +12613,6 @@ func (obj *postgresImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.Wallet._set {
 		__values = append(__values, update.Wallet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
-	}
-
-	if update.FreeBandwidth._set {
-		__values = append(__values, update.FreeBandwidth.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
 	}
 
 	if update.FreeDisk._set {
@@ -14792,12 +14739,6 @@ func (obj *cockroachImpl) CreateNoReturn_Node(ctx context.Context,
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
-	if optional.FreeBandwidth._set {
-		__values = append(__values, optional.FreeBandwidth.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_bandwidth"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
 	if optional.FreeDisk._set {
 		__values = append(__values, optional.FreeDisk.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_disk"))
@@ -15337,6 +15278,7 @@ func (obj *cockroachImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 
 func (obj *cockroachImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
 	storagenode_payment_amount StoragenodePayment_Amount_Field,
 	optional StoragenodePayment_Create_Fields) (
 	err error) {
@@ -15345,7 +15287,7 @@ func (obj *cockroachImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__created_at_val := __now
 	__node_id_val := storagenode_payment_node_id.value()
-	__period_val := optional.Period.value()
+	__period_val := storagenode_payment_period.value()
 	__amount_val := storagenode_payment_amount.value()
 	__receipt_val := optional.Receipt.value()
 	__notes_val := optional.Notes.value()
@@ -16211,7 +16153,7 @@ func (obj *cockroachImpl) Get_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -16220,7 +16162,7 @@ func (obj *cockroachImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -16266,7 +16208,7 @@ func (obj *cockroachImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx c
 	rows []*Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id_greater_or_equal.value())
@@ -16284,7 +16226,7 @@ func (obj *cockroachImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx c
 
 	for __rows.Next() {
 		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -18489,7 +18431,7 @@ func (obj *cockroachImpl) Update_Node_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -18528,11 +18470,6 @@ func (obj *cockroachImpl) Update_Node_By_Id(ctx context.Context,
 	if update.Wallet._set {
 		__values = append(__values, update.Wallet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
-	}
-
-	if update.FreeBandwidth._set {
-		__values = append(__values, update.FreeBandwidth.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
 	}
 
 	if update.FreeDisk._set {
@@ -18694,7 +18631,7 @@ func (obj *cockroachImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -18750,11 +18687,6 @@ func (obj *cockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.Wallet._set {
 		__values = append(__values, update.Wallet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
-	}
-
-	if update.FreeBandwidth._set {
-		__values = append(__values, update.FreeBandwidth.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
 	}
 
 	if update.FreeDisk._set {
@@ -21134,6 +21066,7 @@ func (rx *Rx) CreateNoReturn_SerialNumber(ctx context.Context,
 
 func (rx *Rx) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
 	storagenode_payment_amount StoragenodePayment_Amount_Field,
 	optional StoragenodePayment_Create_Fields) (
 	err error) {
@@ -21141,7 +21074,7 @@ func (rx *Rx) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.CreateNoReturn_StoragenodePayment(ctx, storagenode_payment_node_id, storagenode_payment_amount, optional)
+	return tx.CreateNoReturn_StoragenodePayment(ctx, storagenode_payment_node_id, storagenode_payment_period, storagenode_payment_amount, optional)
 
 }
 
@@ -22679,6 +22612,7 @@ type Methods interface {
 
 	CreateNoReturn_StoragenodePayment(ctx context.Context,
 		storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+		storagenode_payment_period StoragenodePayment_Period_Field,
 		storagenode_payment_amount StoragenodePayment_Amount_Field,
 		optional StoragenodePayment_Create_Fields) (
 		err error)

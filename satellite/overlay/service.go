@@ -39,9 +39,7 @@ type DB interface {
 	// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
 	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*SelectedNode, error)
 	// SelectStorageNodes looks up nodes based on criteria
-	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*SelectedNode, error)
-	// SelectNewStorageNodes looks up nodes based on new node criteria
-	SelectNewStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*SelectedNode, error)
+	SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *NodeCriteria) ([]*SelectedNode, error)
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*SelectedNode, err error)
 
@@ -289,9 +287,9 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
-	reputableNodeCount := req.MinimumRequiredNodes
-	if reputableNodeCount <= 0 {
-		reputableNodeCount = req.RequestedCount
+	totalNeededNodes := req.MinimumRequiredNodes
+	if totalNeededNodes <= 0 {
+		totalNeededNodes = req.RequestedCount
 	}
 
 	excludedIDs := req.ExcludedIDs
@@ -307,31 +305,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	newNodeCount := 0
 	if preferences.NewNodeFraction > 0 {
-		newNodeCount = int(float64(reputableNodeCount) * preferences.NewNodeFraction)
-	}
-
-	var newNodes []*SelectedNode
-	if newNodeCount > 0 {
-		newNodes, err = service.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
-			FreeDisk:         preferences.MinimumDiskSpace.Int64(),
-			AuditCount:       preferences.AuditCount,
-			ExcludedIDs:      excludedIDs,
-			MinimumVersion:   preferences.MinimumVersion,
-			OnlineWindow:     preferences.OnlineWindow,
-			DistinctIP:       preferences.DistinctIP,
-			ExcludedNetworks: excludedNetworks,
-		})
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-	}
-
-	// add selected new nodes ID and network to the excluded lists for reputable node selection
-	for _, newNode := range newNodes {
-		excludedIDs = append(excludedIDs, newNode.ID)
-		if preferences.DistinctIP {
-			excludedNetworks = append(excludedNetworks, newNode.LastNet)
-		}
+		newNodeCount = int(float64(totalNeededNodes) * preferences.NewNodeFraction)
 	}
 
 	criteria := NodeCriteria{
@@ -344,16 +318,13 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		OnlineWindow:     preferences.OnlineWindow,
 		DistinctIP:       preferences.DistinctIP,
 	}
-	reputableNodes, err := service.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
+	nodes, err = service.db.SelectStorageNodes(ctx, totalNeededNodes, newNodeCount, &criteria)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	nodes = append(nodes, newNodes...)
-	nodes = append(nodes, reputableNodes...)
-
-	if len(nodes) < reputableNodeCount {
-		return nodes, ErrNotEnoughNodes.New("requested %d found %d; %+v ", reputableNodeCount, len(nodes), criteria)
+	if len(nodes) < totalNeededNodes {
+		return nodes, ErrNotEnoughNodes.New("requested %d found %d; %+v ", totalNeededNodes, len(nodes), criteria)
 	}
 
 	return nodes, nil

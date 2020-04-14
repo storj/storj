@@ -16,7 +16,7 @@ export class Dashboard {
         public version: string,
         public allowedVersion: string,
         public isUpToDate: boolean,
-    ) {}
+    ) { }
 }
 
 /**
@@ -27,7 +27,8 @@ export class SatelliteInfo {
         public id: string,
         public url: string,
         public disqualified: Date | null,
-    ) {}
+        public suspended: Date | null,
+    ) { }
 }
 
 /**
@@ -50,5 +51,5 @@ export class DiskSpaceInfo {
 export class BandwidthInfo {
     public constructor(
         public used: number,
-    ) {}
+    ) { }
 }

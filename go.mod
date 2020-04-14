@@ -10,7 +10,6 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.1
 	github.com/fatih/color v1.7.0
 	github.com/go-redis/redis v6.14.1+incompatible
-	github.com/gogo/protobuf v1.2.1
 	github.com/golang-migrate/migrate/v4 v4.7.0
 	github.com/golang/protobuf v1.3.3
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
@@ -18,7 +17,6 @@ require (
 	github.com/gorilla/mux v1.7.1
 	github.com/gorilla/schema v1.1.0
 	github.com/graphql-go/graphql v0.7.9
-	github.com/jackc/pgx v3.2.0+incompatible
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-isatty v0.0.9 // indirect
 	github.com/mattn/go-sqlite3 v2.0.2+incompatible
@@ -27,7 +25,7 @@ require (
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
 	github.com/sirupsen/logrus v1.4.2 // indirect
-	github.com/spacemonkeygo/monkit/v3 v3.0.5
+	github.com/spacemonkeygo/monkit/v3 v3.0.6-0.20200327233048-76480079049a
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
@@ -43,10 +41,9 @@ require (
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.28.0
-	storj.io/common v0.0.0-20200402141439-ea355ebf34e9
+	storj.io/common v0.0.0-20200413160743-f212d3029dbf
 	storj.io/drpc v0.0.11
-	storj.io/private v0.0.0-20200327035409-e9d82e7e0c6b
-	storj.io/uplink v1.0.4-0.20200402121754-b505de28b00e
-
-// storj/gatway for storj-sim is installed via makefile `install-sim` target
+	storj.io/monkit-jaeger v0.0.0-20200403204040-f5a746eeacca
+	storj.io/private v0.0.0-20200403212157-26f222c154f0
+	storj.io/uplink v1.0.4-0.20200406100056-baa89e6fe434
 )

@@ -67,9 +67,12 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 		if err != nil {
 			return errs.New("unable to split node %q address %q", usage.NodeID, node.Address.Address)
 		}
-		nodeLastIP, _, err := net.SplitHostPort(node.LastIPPort)
-		if err != nil {
-			return errs.New("unable to split node %q last ip:port %q", usage.NodeID, node.LastIPPort)
+		var nodeLastIP string
+		if node.LastIPPort != "" {
+			nodeLastIP, _, err = net.SplitHostPort(node.LastIPPort)
+			if err != nil {
+				return errs.New("unable to split node %q last ip:port %q", usage.NodeID, node.LastIPPort)
+			}
 		}
 
 		paidYTD, err := db.Compensation().QueryPaidInYear(ctx, usage.NodeID, period.Year)

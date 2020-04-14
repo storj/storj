@@ -24,7 +24,6 @@ export const appStateModule = {
             isChangePasswordPopupShown: false,
             isPaymentSelectionShown: false,
             isCreateProjectButtonShown: false,
-            isContentBlurShown: false,
         },
         satelliteName: '',
     },
@@ -86,12 +85,6 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.HIDE_CREATE_PROJECT_BUTTON](state: any): void {
             state.appState.isCreateProjectButtonShown = false;
-        },
-        [APP_STATE_MUTATIONS.SHOW_CONTENT_BLUR](state: any): void {
-            state.appState.isContentBlurShown = true;
-        },
-        [APP_STATE_MUTATIONS.HIDE_CONTENT_BLUR](state: any): void {
-            state.appState.isContentBlurShown = false;
         },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
@@ -201,12 +194,6 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.HIDE_CREATE_PROJECT_BUTTON);
-        },
-        [APP_STATE_ACTIONS.SHOW_CONTENT_BLUR]: function ({commit}: any): void {
-            commit(APP_STATE_MUTATIONS.SHOW_CONTENT_BLUR);
-        },
-        [APP_STATE_ACTIONS.HIDE_CONTENT_BLUR]: function ({commit}: any): void {
-            commit(APP_STATE_MUTATIONS.HIDE_CONTENT_BLUR);
         },
         [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);

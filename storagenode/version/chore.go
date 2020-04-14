@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
-	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
 	"storj.io/storj/pkg/storj"
@@ -22,7 +21,6 @@ var (
 
 // Chore contains the information and variables to ensure the Software is up to date for storagenode.
 type Chore struct {
-	log     *zap.Logger
 	service *checker.Service
 
 	Loop          *sync2.Cycle
@@ -52,34 +50,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	}
 
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
-		suggested, err := chore.service.CheckVersion(ctx)
-		if err != nil {
-			notification := notifications.NewNotification{
-				SenderID: chore.nodeID,
-				Type:     notifications.TypeCustom,
-				Title:    "It’s time to update your Node’s software, you are running outdated version " + chore.service.Info.Version.String(),
-				Message:  "Failure to update your software soon will impact your reputation and payout amount because your Node could potentially be disqualified shortly",
-			}
-
-			_, err = chore.notifications.Receive(ctx, notification)
-			if err != nil {
-				chore.log.Sugar().Errorf("Failed to insert notification", err.Error())
-			}
-		}
-
-		if chore.service.Info.Version.Compare(suggested) < 0 {
-			notification := notifications.NewNotification{
-				SenderID: chore.nodeID,
-				Type:     notifications.TypeCustom,
-				Title:    "Update your Node to Version " + suggested.String(),
-				Message:  "It's time to update your Node's software, you are running outdated version " + chore.service.Info.Version.String(),
-			}
-
-			_, err = chore.notifications.Receive(ctx, notification)
-			if err != nil {
-				chore.log.Sugar().Errorf("Failed to insert notification", err.Error())
-			}
-		}
+		_, _ = chore.service.CheckVersion(ctx)
 
 		return nil
 	})
