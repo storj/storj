@@ -33,3 +33,5 @@
 resource.syso
 
 *.resource.go
+
+.build

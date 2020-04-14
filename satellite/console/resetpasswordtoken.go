@@ -9,8 +9,9 @@ import (
 	"encoding/base64"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
 
 // ResetPasswordTokens is interface for working with reset password tokens

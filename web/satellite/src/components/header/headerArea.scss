@@ -11,7 +11,6 @@
     justify-content: space-between;
     padding: 0 65px;
     position: relative;
-    user-select: none;
 
     &__left-area,
     &__right-area {
@@ -53,7 +52,7 @@
 
 .navigation-blur {
     height: 100vh;
-    width: 744px;
+    width: 1000px;
     position: absolute;
     top: 100px;
     left: 280px;
@@ -61,7 +60,7 @@
     background: rgba(134, 134, 148, 0.4);
 }
 
-@media screen and (min-width: 1025px) {
+@media screen and (min-width: 1281px) {
 
     .adapted-navigation,
     .navigation-blur,
@@ -70,7 +69,7 @@
     }
 }
 
-@media screen and (max-width: 1024px) {
+@media screen and (max-width: 1280px) {
 
     .dashboard-header-container {
         padding: 0 40px;

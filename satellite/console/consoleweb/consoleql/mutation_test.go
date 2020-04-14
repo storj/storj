@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	"github.com/graphql-go/graphql"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite"
@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage/redis/redisserver"
@@ -57,16 +57,6 @@ func TestGrapqhlMutation(t *testing.T) {
 			},
 		)
 
-		payments, err := stripecoinpayments.NewService(
-			log.Named("payments"),
-			stripecoinpayments.Config{},
-			db.StripeCoinPayments(),
-			db.Console().Projects(),
-			db.ProjectAccounting(),
-			"0", "0", "0", 10,
-		)
-		require.NoError(t, err)
-
 		redis, err := redisserver.Mini()
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
@@ -84,8 +74,9 @@ func TestGrapqhlMutation(t *testing.T) {
 			projectUsage,
 			db.Rewards(),
 			partnersService,
-			payments.Accounts(),
-			console.TestPasswordCost,
+			mockpayments.Accounts(),
+			console.Config{PasswordCost: console.TestPasswordCost},
+			5000,
 		)
 		require.NoError(t, err)
 
@@ -158,7 +149,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		authCtx = console.WithAuth(ctx, sauth)
 
-		var projectID string
+		var projectIDField string
 		t.Run("Create project mutation", func(t *testing.T) {
 			projectInfo := console.ProjectInfo{
 				Name:        "Project name",
@@ -179,13 +170,13 @@ func TestGrapqhlMutation(t *testing.T) {
 			assert.Equal(t, projectInfo.Name, project[consoleql.FieldName])
 			assert.Equal(t, projectInfo.Description, project[consoleql.FieldDescription])
 
-			projectID = project[consoleql.FieldID].(string)
+			projectIDField = project[consoleql.FieldID].(string)
 		})
 
-		pID, err := uuid.Parse(projectID)
+		projectID, err := uuid.FromString(projectIDField)
 		require.NoError(t, err)
 
-		project, err := service.GetProject(authCtx, *pID)
+		project, err := service.GetProject(authCtx, projectID)
 		require.NoError(t, err)
 		require.Equal(t, rootUser.PartnerID, project.PartnerID)
 
@@ -326,10 +317,10 @@ func TestGrapqhlMutation(t *testing.T) {
 		})
 
 		t.Run("Delete api key mutation", func(t *testing.T) {
-			id, err := uuid.Parse(keyID)
+			id, err := uuid.FromString(keyID)
 			require.NoError(t, err)
 
-			info, err := service.GetAPIKeyInfo(authCtx, *id)
+			info, err := service.GetAPIKeyInfo(authCtx, id)
 			require.NoError(t, err)
 
 			query := fmt.Sprintf(

@@ -8,8 +8,8 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
     <div class="dashboard-container__wrap__column">
       <dashboardheader-stub></dashboardheader-stub>
       <div class="dashboard-container__main-area">
-        <div class="dashboard-container__main-area__banner-area">
-          <vbanner-stub text="We’ve Now Added Billing!" additionaltext="Your attention is required. Add a credit card to set up your account." path="/account/billing"></vbanner-stub>
+        <div class="dashboard-container__main-area__bar-area">
+          <!---->
         </div>
         <div class="dashboard-container__main-area__content">
           <router-view-stub name="default"></router-view-stub>

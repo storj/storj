@@ -2,13 +2,15 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="new-project-popup-container" @keyup.enter="createProjectClick" @keyup.esc="onCloseClick">
+    <div v-if="isPopupShown" class="new-project-popup-container" @keyup.enter="createProjectClick" @keyup.esc="onCloseClick">
         <div class="new-project-popup" id="newProjectPopup" >
-            <div class="new-project-popup__info-panel-container">
-                <h2 class="new-project-popup__info-panel-container__main-label-text">Create New Project</h2>
-                <img src="@/../static/images/project/createProject.jpg" alt="create project image">
-            </div>
+            <img class="new-project-popup__image" src="@/../static/images/project/createProject.jpg" alt="create project image">
             <div class="new-project-popup__form-container">
+                <div class="new-project-popup__form-container__success-title-area">
+                    <SuccessIcon/>
+                    <p class="new-project-popup__form-container__success-title-area__title">Payment Method Added</p>
+                </div>
+                <h2 class="new-project-popup__form-container__main-title">Next, let’s create a project.</h2>
                 <HeaderedInput
                     label="Project Name"
                     additional-label="Up To 20 Characters"
@@ -31,7 +33,7 @@
                 />
                 <div class="new-project-popup__form-container__button-container">
                     <VButton
-                        label="Cancel"
+                        label="Back to Billing"
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
@@ -59,11 +61,11 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import SuccessIcon from '@/../static/images/project/success.svg';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { CreateProjectModel, Project } from '@/types/projects';
 import {
     API_KEYS_ACTIONS,
@@ -77,6 +79,7 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
         HeaderedInput,
         VButton,
         CloseCrossIcon,
+        SuccessIcon,
     },
 })
 export default class NewProjectPopup extends Vue {
@@ -86,21 +89,37 @@ export default class NewProjectPopup extends Vue {
     private createdProjectId: string = '';
     private isLoading: boolean = false;
 
+    /**
+     * Indicates if popup is shown.
+     */
+    public get isPopupShown(): boolean {
+        return this.$store.state.appStateModule.appState.isNewProjectPopupShown;
+    }
+
+    /**
+     * Sets project name from input value.
+     */
     public setProjectName(value: string): void {
         this.projectName = value;
         this.nameError = '';
     }
 
+    /**
+     * Sets project description from input value.
+     */
     public setProjectDescription(value: string): void {
         this.description = value;
     }
 
+    /**
+     * Closes popup.
+     */
     public onCloseClick(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
     }
 
     /**
-     * Creates project.
+     * Creates project and refreshes store.
      */
     public async createProjectClick(): Promise<void> {
         if (this.isLoading) {
@@ -124,7 +143,7 @@ export default class NewProjectPopup extends Vue {
         } catch (error) {
             this.isLoading = false;
             await this.$notify.error(error.message);
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
             return;
         }
@@ -140,21 +159,26 @@ export default class NewProjectPopup extends Vue {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.createdProjectId);
         } catch (error) {
             await this.$notify.error(error.message);
         }
 
         this.clearApiKeys();
 
-        this.clearUsage();
-
         this.clearBucketUsage();
 
-        this.checkIfsFirstProject();
+        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+
+        this.checkIfUsersFirstProject();
 
         this.isLoading = false;
     }
 
+    /**
+     * Validates input value to satisfy project name rules.
+     */
     private validateProjectName(): boolean {
         this.projectName = this.projectName.trim();
 
@@ -174,52 +198,62 @@ export default class NewProjectPopup extends Vue {
         return true;
     }
 
+    /**
+     * Makes create project request.
+     */
     private async createProject(): Promise<Project> {
         const project: CreateProjectModel = {
             name: this.projectName,
             description: this.description,
+            ownerId: this.$store.getters.user.id,
         };
 
         return await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
     }
 
+    /**
+     * Selects just created project.
+     */
     private selectCreatedProject(): void {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
 
-        this.$emit('hideNewProjectButton');
-
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+        this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
     }
 
-    private checkIfsFirstProject(): void {
-        const isFirstProject = this.$store.state.projectsModule.projects.length === 1;
+    /**
+     * Indicates if user created his first project.
+     */
+    private checkIfUsersFirstProject(): void {
+        const usersProjects: Project[] = this.$store.getters.projects.filter((project: Project) => project.ownerId === this.$store.getters.user.id);
+        const isUsersFirstProject = usersProjects.length === 1;
 
-        isFirstProject
+        isUsersFirstProject
             ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
-            : this.notifySuccess('Project created successfully!');
+            : this.$notify.success('Project created successfully!');
     }
 
+    /**
+     * Clears project members store and fetches new.
+     */
     private async fetchProjectMembers(): Promise<void> {
         await this.$store.dispatch(PM_ACTIONS.CLEAR);
         const fistPage = 1;
         await this.$store.dispatch(PM_ACTIONS.FETCH, fistPage);
     }
 
+    /**
+     * Clears api keys store.
+     */
     private clearApiKeys(): void {
         this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
     }
 
-    private clearUsage(): void {
-        this.$store.dispatch(PROJECT_USAGE_ACTIONS.CLEAR);
-    }
-
+    /**
+     * Clears bucket usage store.
+     */
     private clearBucketUsage(): void {
         this.$store.dispatch(BUCKET_ACTIONS.SET_SEARCH, '');
         this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
-    }
-
-    private async notifySuccess(message: string): Promise<void> {
-        await this.$notify.success(message);
     }
 }
 </script>
@@ -243,9 +277,8 @@ export default class NewProjectPopup extends Vue {
     }
 
     .new-project-popup {
-        width: 100%;
-        max-width: 845px;
-        height: 400px;
+        max-width: 970px;
+        height: auto;
         background-color: #fff;
         border-radius: 6px;
         display: flex;
@@ -253,7 +286,12 @@ export default class NewProjectPopup extends Vue {
         align-items: center;
         position: relative;
         justify-content: center;
-        padding: 100px 100px 100px 80px;
+        padding: 70px 80px 70px 50px;
+
+        &__image {
+            min-height: 400px;
+            min-width: 500px;
+        }
 
         &__info-panel-container {
             display: flex;
@@ -276,6 +314,25 @@ export default class NewProjectPopup extends Vue {
         &__form-container {
             width: 100%;
             max-width: 520px;
+
+            &__success-title-area {
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+
+                &__title {
+                    font-size: 20px;
+                    line-height: 24px;
+                    color: #34bf89;
+                    margin: 0 0 0 5px;
+                }
+            }
+
+            &__main-title {
+                font-size: 32px;
+                line-height: 39px;
+                color: #384b65;
+            }
 
             &__button-container {
                 width: 100%;

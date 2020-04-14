@@ -15,9 +15,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console/consoleauth"
 )
 
@@ -254,12 +254,12 @@ func (ce *consoleEndpoints) createUser(regToken string) (string, error) {
 }
 
 func (ce *consoleEndpoints) activateUser(userID string) error {
-	userUUID, err := uuid.Parse(userID)
+	userUUID, err := uuid.FromString(userID)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 
-	activationToken, err := generateActivationKey(*userUUID, "alice@mail.test", time.Now())
+	activationToken, err := generateActivationKey(userUUID, "alice@mail.test", time.Now())
 	if err != nil {
 		return err
 	}

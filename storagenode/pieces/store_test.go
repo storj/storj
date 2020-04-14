@@ -169,7 +169,7 @@ func verifyPieceHandle(t testing.TB, reader *pieces.Reader, expectDataLen int, e
 		pieceHeader, err := reader.GetPieceHeader()
 		require.NoError(t, err)
 		assert.Equal(t, expectFormat, storage.FormatVersion(pieceHeader.FormatVersion))
-		assert.Equal(t, expectCreateTime.UTC(), pieceHeader.CreationTime.UTC())
+		assert.True(t, expectCreateTime.Equal(pieceHeader.CreationTime))
 	}
 }
 
@@ -521,7 +521,7 @@ func TestPieceVersionMigrate(t *testing.T) {
 			data        = testrand.Bytes(pieceSize)
 			satelliteID = testrand.NodeID()
 			pieceID     = testrand.PieceID()
-			now         = time.Now().UTC()
+			now         = time.Now().UTC() // we use UTC here to make struct equality testing easier
 		)
 
 		// Initialize pub/priv keys for signing piece hash
@@ -647,7 +647,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 		satellite = testrand.NodeID()
 		v0PieceID = testrand.PieceID()
 		v1PieceID = testrand.PieceID()
-		now       = time.Now().UTC()
+		now       = time.Now()
 	)
 
 	// write a V0 piece
@@ -692,7 +692,7 @@ func TestGetExpired(t *testing.T) {
 
 		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), v0PieceInfo, expirationInfo, db.PieceSpaceUsedDB())
 
-		now := time.Now().UTC()
+		now := time.Now()
 		testDates := []struct {
 			years, months, days int
 		}{
@@ -766,7 +766,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 
 		// write the piece as V0. We can't provide the expireTime via writeAPiece, because
 		// BlobWriter.Commit only knows how to store expiration times in piece_expirations.
-		v0CreateTime := time.Now().UTC()
+		v0CreateTime := time.Now()
 		v0ExpireTime := v0CreateTime.AddDate(5, 0, 0)
 		writeAPiece(ctx, t, store, satelliteID, pieceID, v0Data, v0CreateTime, nil, filestore.FormatV0)
 		// now put the piece in the pieceinfo db directly, because store won't do that for us.
@@ -801,7 +801,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			require.Equal(t, 1, calledTimes)
 			gotCreateTime, err := access.CreationTime(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, v0CreateTime, gotCreateTime)
+			assert.True(t, v0CreateTime.Equal(gotCreateTime))
 			_, gotSize, err := access.Size(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v0Data)), gotSize)
@@ -810,7 +810,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		require.NoError(t, err)
 
 		// now "overwrite" the piece (write a new blob with the same id, but with V1 storage)
-		v1CreateTime := time.Now().UTC()
+		v1CreateTime := time.Now()
 		v1ExpireTime := v1CreateTime.AddDate(5, 0, 0)
 		writeAPiece(ctx, t, store, satelliteID, pieceID, v1Data, v1CreateTime, &v1ExpireTime, filestore.FormatV1)
 
@@ -844,7 +844,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 				assert.Equal(t, filestore.FormatV1, access.StorageFormatVersion())
 				gotCreateTime, err := access.CreationTime(ctx)
 				require.NoError(t, err)
-				assert.Equal(t, v1CreateTime, gotCreateTime)
+				assert.True(t, v1CreateTime.Equal(gotCreateTime))
 				_, gotSize, err := access.Size(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, int64(len(v1Data)), gotSize)
@@ -854,7 +854,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 				assert.Equal(t, filestore.FormatV0, access.StorageFormatVersion())
 				gotCreateTime, err := access.CreationTime(ctx)
 				require.NoError(t, err)
-				assert.Equal(t, v0CreateTime, gotCreateTime)
+				assert.True(t, v0CreateTime.Equal(gotCreateTime))
 				_, gotSize, err := access.Size(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, int64(len(v0Data)), gotSize)

@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/boltdb/bolt"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.etcd.io/bbolt"
 
 	"storj.io/storj/storage"
 )
@@ -23,7 +23,7 @@ var Error = errs.Class("boltdb error")
 
 // Client is the entrypoint into a bolt data store
 type Client struct {
-	db     *bolt.DB
+	db     *bbolt.DB
 	Path   string
 	Bucket []byte
 
@@ -39,12 +39,12 @@ const (
 
 // New instantiates a new BoltDB client given db file path, and a bucket name
 func New(path, bucket string) (*Client, error) {
-	db, err := bolt.Open(path, fileMode, &bolt.Options{Timeout: defaultTimeout})
+	db, err := bbolt.Open(path, fileMode, &bbolt.Options{Timeout: defaultTimeout})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	err = Error.Wrap(db.Update(func(tx *bolt.Tx) error {
+	err = Error.Wrap(db.Update(func(tx *bbolt.Tx) error {
 		_, err = tx.CreateBucketIfNotExists([]byte(bucket))
 		return err
 	}))
@@ -73,20 +73,20 @@ func (client *Client) SetLookupLimit(v int) { client.lookupLimit = v }
 // LookupLimit returns the maximum limit that is allowed.
 func (client *Client) LookupLimit() int { return client.lookupLimit }
 
-func (client *Client) update(fn func(*bolt.Bucket) error) error {
-	return Error.Wrap(client.db.Update(func(tx *bolt.Tx) error {
+func (client *Client) update(fn func(*bbolt.Bucket) error) error {
+	return Error.Wrap(client.db.Update(func(tx *bbolt.Tx) error {
 		return fn(tx.Bucket(client.Bucket))
 	}))
 }
 
-func (client *Client) batch(fn func(*bolt.Bucket) error) error {
-	return Error.Wrap(client.db.Batch(func(tx *bolt.Tx) error {
+func (client *Client) batch(fn func(*bbolt.Bucket) error) error {
+	return Error.Wrap(client.db.Batch(func(tx *bbolt.Tx) error {
 		return fn(tx.Bucket(client.Bucket))
 	}))
 }
 
-func (client *Client) view(fn func(*bolt.Bucket) error) error {
-	return Error.Wrap(client.db.View(func(tx *bolt.Tx) error {
+func (client *Client) view(fn func(*bbolt.Bucket) error) error {
+	return Error.Wrap(client.db.View(func(tx *bbolt.Tx) error {
 		return fn(tx.Bucket(client.Bucket))
 	}))
 }
@@ -103,7 +103,7 @@ func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Va
 		return storage.ErrEmptyKey.New("")
 	}
 
-	err = client.batch(func(bucket *bolt.Bucket) error {
+	err = client.batch(func(bucket *bbolt.Bucket) error {
 		return bucket.Put(key, value)
 	})
 	mon.IntVal("boltdb_batch_time_elapsed").Observe(int64(time.Since(start)))
@@ -117,7 +117,7 @@ func (client *Client) PutAndCommit(ctx context.Context, key storage.Key, value s
 		return storage.ErrEmptyKey.New("")
 	}
 
-	return client.update(func(bucket *bolt.Bucket) error {
+	return client.update(func(bucket *bbolt.Bucket) error {
 		return bucket.Put(key, value)
 	})
 }
@@ -130,7 +130,7 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 	}
 
 	var value storage.Value
-	err = client.view(func(bucket *bolt.Bucket) error {
+	err = client.view(func(bucket *bbolt.Bucket) error {
 		data := bucket.Get([]byte(key))
 		if len(data) == 0 {
 			return storage.ErrKeyNotFound.New("%q", key)
@@ -148,7 +148,7 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 		return storage.ErrEmptyKey.New("")
 	}
 
-	return client.update(func(bucket *bolt.Bucket) error {
+	return client.update(func(bucket *bbolt.Bucket) error {
 		return bucket.Delete(key)
 	})
 }
@@ -158,7 +158,7 @@ func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_
 	defer mon.Task()(&ctx, len(keys))(&err)
 
 	var items storage.Items
-	err = client.update(func(bucket *bolt.Bucket) error {
+	err = client.update(func(bucket *bbolt.Bucket) error {
 		for _, key := range keys {
 			value := bucket.Get(key)
 			if len(value) == 0 {
@@ -205,7 +205,7 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 	}
 
 	vals := make(storage.Values, 0, len(keys))
-	err = client.view(func(bucket *bolt.Bucket) error {
+	err = client.view(func(bucket *bbolt.Bucket) error {
 		for _, key := range keys {
 			val := bucket.Get([]byte(key))
 			if val == nil {
@@ -227,7 +227,7 @@ func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, 
 		opts.Limit = client.lookupLimit
 	}
 
-	return client.view(func(bucket *bolt.Bucket) error {
+	return client.view(func(bucket *bbolt.Bucket) error {
 		var cursor advancer = forward{bucket.Cursor()}
 
 		start := true
@@ -286,7 +286,7 @@ type advancer interface {
 }
 
 type forward struct {
-	*bolt.Cursor
+	*bbolt.Cursor
 }
 
 func (cursor forward) PositionToFirst(prefix, first storage.Key) (key, value []byte) {
@@ -311,7 +311,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 		return storage.ErrEmptyKey.New("")
 	}
 
-	return client.update(func(bucket *bolt.Bucket) error {
+	return client.update(func(bucket *bbolt.Bucket) error {
 		data := bucket.Get([]byte(key))
 		if len(data) == 0 {
 			if oldValue != nil {

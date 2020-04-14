@@ -21,9 +21,9 @@ export interface PaymentsApi {
     getBalance(): Promise<number>;
 
     /**
-     * projectsCharges returns how much money current user will be charged for each project which he owns.
+     * projectsUsagesAndCharges returns usage and how much money current user will be charged for each project which he owns.
      */
-    projectsCharges(): Promise<ProjectCharge[]>;
+    projectsUsageAndCharges(since: Date, before: Date): Promise<ProjectUsageAndCharges[]>;
 
     /**
      * Add credit card
@@ -145,6 +145,16 @@ export enum BillingHistoryItemType {
 }
 
 /**
+ * BillingHistoryStatusType indicates status of billing history item.
+ */
+export enum BillingHistoryItemStatus {
+    /**
+     * Status showed if transaction successfully completed.
+     */
+    Completed = 'completed',
+}
+
+/**
  * TokenDeposit holds public information about token deposit.
  */
 export class TokenDeposit {
@@ -167,22 +177,40 @@ class Amount {
 }
 
 /**
- * ProjectCharge shows how much money current project will charge in the end of the month.
+ * ProjectUsageAndCharges shows usage and how much money current project will charge in the end of the month.
   */
-export class ProjectCharge {
+export class ProjectUsageAndCharges {
     public constructor(
+        public since: Date = new Date(),
+        public before: Date = new Date(),
+        public egress: number = 0,
+        public storage: number = 0,
+        public objectCount: number = 0,
         public projectId: string = '',
         // storage shows how much cents we should pay for storing GB*Hrs.
-        public storage: number = 0,
+        public storagePrice: number = 0,
         // egress shows how many cents we should pay for Egress.
-        public egress: number = 0,
+        public egressPrice: number = 0,
         // objectCount shows how many cents we should pay for objects count.
-        public objectCount: number = 0) {}
+        public objectPrice: number = 0) {}
 
     /**
      * summary returns total price for a project in cents.
      */
     public summary(): number {
-        return this.storage + this.egress + this.objectCount;
+        return this.storagePrice + this.egressPrice + this.objectPrice;
+    }
+}
+
+/**
+ * Holds start and end dates.
+ */
+export class DateRange {
+    public startDate: Date = new Date();
+    public endDate: Date = new Date();
+
+    public constructor(startDate: Date, endDate: Date) {
+        this.startDate = startDate;
+        this.endDate = endDate;
     }
 }

@@ -576,8 +576,8 @@ func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, storageNode storj.
 
 // uploadPiece uploads piece to storageNode.
 func uploadPiece(
-	t *testing.T, ctx *testcontext.Context, piece storj.PieceID, storageNode *storagenode.Peer,
-	uplink *testplanet.Uplink, satellite *testplanet.SatelliteSystem,
+	t *testing.T, ctx *testcontext.Context, piece storj.PieceID, storageNode *testplanet.StorageNode,
+	uplink *testplanet.Uplink, satellite *testplanet.Satellite,
 ) (uploadedData []byte, _ *pb.OrderLimit, _ *pb.PieceHash) {
 	t.Helper()
 
@@ -618,7 +618,7 @@ func uploadPiece(
 // downloadPiece downlodads piece from storageNode.
 func downloadPiece(
 	t *testing.T, ctx *testcontext.Context, piece storj.PieceID, limit int64,
-	storageNode *storagenode.Peer, uplink *testplanet.Uplink, satellite *testplanet.SatelliteSystem,
+	storageNode *testplanet.StorageNode, uplink *testplanet.Uplink, satellite *testplanet.Satellite,
 ) (pieceData []byte, err error) {
 	t.Helper()
 

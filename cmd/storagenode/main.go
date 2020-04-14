@@ -18,10 +18,11 @@ import (
 	"storj.io/common/fpath"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
+	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/private/version"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )
@@ -176,7 +177,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	// okay, start doing stuff ====
 
-	err = peer.Version.CheckVersion(ctx)
+	_, err = peer.Version.Service.CheckVersion(ctx)
 	if err != nil {
 		return err
 	}
@@ -185,6 +186,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
 	}
 
+	if err := process.InitTracingWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Warn("Failed to initialize tracing collector: ", err)
+	}
 	err = db.CreateTables(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)

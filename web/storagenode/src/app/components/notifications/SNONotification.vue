@@ -41,7 +41,36 @@ export default class SNONotification extends Vue {
      * isSmall props indicates if component used in popup.
      */
     @Prop({default: false})
-    public readonly isSmall: boolean;
+    public isSmall: boolean;
+
+    /**
+     * Minimal window width in pixels for normal notification.
+     */
+    private readonly MIN_WINDOW_WIDTH = 640;
+
+    /**
+     * Tracks window width for changing notification isSmall type.
+     */
+    public changeNotificationSize(): void {
+        this.isSmall = window.innerWidth < this.MIN_WINDOW_WIDTH;
+    }
+
+    /**
+     * Lifecycle hook after initial render.
+     * Adds event on window resizing to change notification isSmall prop.
+     */
+    public mounted(): void {
+        window.addEventListener('resize', this.changeNotificationSize);
+        this.changeNotificationSize();
+    }
+
+    /**
+     * Lifecycle hook before component destruction.
+     * Removes event on window resizing.
+     */
+    public beforeDestroy(): void {
+        window.removeEventListener('resize', this.changeNotificationSize);
+    }
 
     /**
      * Fires on hover on notification. If notification is new, marks it as read.

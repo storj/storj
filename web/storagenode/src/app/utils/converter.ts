@@ -21,14 +21,14 @@ export function formatBytes(bytes): string {
 
     switch (true) {
         case _bytes < MB:
-            return `${(bytes / KB).toFixed(decimals)}KB`;
+            return `${parseFloat((bytes / KB).toFixed(decimals))}KB`;
         case _bytes < GB:
-            return `${(bytes / MB).toFixed(decimals)}MB`;
+            return `${parseFloat((bytes / MB).toFixed(decimals))}MB`;
         case _bytes < TB:
-            return `${(bytes / GB).toFixed(decimals)}GB`;
+            return `${parseFloat((bytes / GB).toFixed(decimals))}GB`;
         case _bytes < PB:
-            return `${(bytes / TB).toFixed(decimals)}TB`;
+            return `${parseFloat((bytes / TB).toFixed(decimals))}TB`;
         default:
-            return `${(bytes / PB).toFixed(decimals)}PB`;
+            return `${parseFloat((bytes / PB).toFixed(decimals))}PB`;
     }
 }

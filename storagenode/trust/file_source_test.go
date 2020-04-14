@@ -51,18 +51,21 @@ func TestFileSourceFetchEntries(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
 		path    string
-		err     string
+		errs    []string
 		entries []trust.Entry
 	}{
 		{
 			name: "bad list",
 			path: badPath,
-			err:  "file source: invalid satellite URL: must contain an ID",
+			errs: []string{"file source: invalid satellite URL: must contain an ID"},
 		},
 		{
 			name: "missing list",
 			path: missingPath,
-			err:  fmt.Sprintf("file source: open %s: no such file or directory", missingPath),
+			errs: []string{
+				fmt.Sprintf("file source: open %s: no such file or directory", missingPath),
+				fmt.Sprintf("file source: open %s: The system cannot find the file specified.", missingPath),
+			},
 		},
 		{
 			name: "good list",
@@ -83,8 +86,9 @@ func TestFileSourceFetchEntries(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			source := trust.NewFileSource(tt.path)
 			entries, err := source.FetchEntries(context.Background())
-			if tt.err != "" {
-				require.EqualError(t, err, tt.err)
+			if len(tt.errs) > 0 {
+				require.Error(t, err)
+				require.Contains(t, tt.errs, err.Error())
 				return
 			}
 			require.NoError(t, err)

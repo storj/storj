@@ -62,6 +62,9 @@ export class Notification {
             case NotificationTypes.Disqualification:
                 this.icon = NotificationIcon.SOFTWARE_UPDATE;
                 break;
+            case NotificationTypes.Suspension:
+                this.icon = NotificationIcon.SUSPENDED;
+                break;
             default:
                 this.icon = NotificationIcon.INFO;
         }
@@ -76,6 +79,7 @@ export enum NotificationTypes {
     AuditCheckFailure = 1,
     UptimeCheckFailure = 2,
     Disqualification = 3,
+    Suspension = 4,
 }
 
 /**
@@ -85,7 +89,7 @@ export class NotificationsCursor {
     public constructor(
         public page: number = 0,
         public limit: number = 7,
-    ) {}
+    ) { }
 }
 
 /**
@@ -94,11 +98,11 @@ export class NotificationsCursor {
 export class NotificationsState {
     public latestNotifications: Notification[] = [];
 
-    public constructor (
+    public constructor(
         public notifications: Notification[] = [],
         public pageCount: number = 0,
         public unreadCount: number = 0,
-    ) {}
+    ) { }
 }
 
 /**

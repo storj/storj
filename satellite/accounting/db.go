@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
+	"storj.io/storj/satellite/compensation"
 )
 
 // RollupStats is a convenience alias
@@ -45,6 +45,17 @@ type Rollup struct {
 	AtRestTotal    float64
 }
 
+// StorageNodePeriodUsage represents a statement for a node for a compensation period
+type StorageNodePeriodUsage struct {
+	NodeID         storj.NodeID
+	AtRestTotal    float64
+	GetTotal       int64
+	PutTotal       int64
+	GetRepairTotal int64
+	PutRepairTotal int64
+	GetAuditTotal  int64
+}
+
 // StorageNodeUsage is node at rest space usage over a period of time
 type StorageNodeUsage struct {
 	NodeID      storj.NodeID
@@ -56,12 +67,12 @@ type StorageNodeUsage struct {
 // ProjectUsage consist of period total storage, egress
 // and objects count per hour for certain Project in bytes
 type ProjectUsage struct {
-	Storage     float64
-	Egress      int64
-	ObjectCount float64
+	Storage     float64 `json:"storage"`
+	Egress      int64   `json:"egress"`
+	ObjectCount float64 `json:"objectCount"`
 
-	Since  time.Time
-	Before time.Time
+	Since  time.Time `json:"since"`
+	Before time.Time `json:"before"`
 }
 
 // BucketUsage consist of total bucket usage for period
@@ -138,6 +149,8 @@ type StoragenodeAccounting interface {
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
 	// QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
+	// QueryStorageNodePeriodUsage returns accounting statements for nodes for a given compensation period
+	QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) ([]StorageNodePeriodUsage, error)
 	// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
 	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time

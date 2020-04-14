@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -26,6 +25,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -127,7 +127,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if testCase.expectedResource == "bandwidth" {
-					now := time.Now().UTC()
+					now := time.Now()
 					err := setUpBucketBandwidthAllocations(ctx, projectID, orderDB, now)
 					require.NoError(t, err)
 				}
@@ -162,7 +162,7 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
-func createBucketBandwidthRollups(ctx *testcontext.Context, satelliteDB satellite.DB, projectID uuid.UUID) (int64, error) {
+func createBucketBandwidthRollupsForPast4Days(ctx *testcontext.Context, satelliteDB satellite.DB, projectID uuid.UUID) (int64, error) {
 	var expectedSum int64
 	ordersDB := satelliteDB.Orders()
 	amount := int64(1000)
@@ -211,14 +211,15 @@ func TestProjectBandwidthTotal(t *testing.T) {
 		projectID := testrand.UUID()
 
 		// Setup: create bucket bandwidth rollup records
-		expectedTotal, err := createBucketBandwidthRollups(ctx, db, projectID)
+		expectedTotal, err := createBucketBandwidthRollupsForPast4Days(ctx, db, projectID)
 		require.NoError(t, err)
 
 		// Execute test: get project bandwidth total
-		from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
-		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, projectID, from)
+		since := time.Now().AddDate(0, -1, 0)
+
+		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, projectID, since)
 		require.NoError(t, err)
-		require.Equal(t, actualBandwidthTotal, expectedTotal)
+		require.Equal(t, expectedTotal, actualBandwidthTotal)
 	})
 }
 
@@ -228,8 +229,8 @@ func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UU
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
 
 		// In order to exceed the project limits, create bandwidth allocation records
-		// that sum greater than the maxAlphaUsage * expansionFactor
-		amount := 10 * memory.GB.Int64() * accounting.ExpansionFactor
+		// that sum greater than the maxAlphaUsage
+		amount := 10 * memory.GB.Int64()
 		action := pb.PieceAction_GET
 		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 		err := orderDB.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), action, amount, intervalStart)

@@ -95,27 +95,6 @@ namespace Storj
         }
 
         [CustomAction]
-        public static ActionResult ValidateBandwidth(Session session)
-        {
-            string bandwidthStr = session["STORJ_BANDWIDTH"];
-
-            try
-            {
-                new CustomActionRunner().ValidateBandwidth(bandwidthStr);
-            }
-            catch (ArgumentException e)
-            {
-                // Allocated Bandwidth is invalid
-                session["STORJ_BANDWIDTH_VALID"] = e.Message;
-                return ActionResult.Success;
-            }
-
-            // Allocated Bandwidth value is valid
-            session["STORJ_BANDWIDTH_VALID"] = "1";
-            return ActionResult.Success;
-        }
-
-        [CustomAction]
         public static ActionResult ExtractInstallDir(Session session)
         {
             string line = session["STORJ_SERVICE_COMMAND"];
@@ -161,11 +140,6 @@ namespace Storj
             if (!fs.File.Exists(Path.Combine(identityDir, "ca.cert")))
             {
                 throw new ArgumentException("File 'ca.cert' not found in the selected folder.");
-            }
-
-            if (!fs.File.Exists(Path.Combine(identityDir, "ca.key")))
-            {
-                throw new ArgumentException("File 'ca.key' not found in the selected folder.");
             }
 
             if (!fs.File.Exists(Path.Combine(identityDir, "identity.cert")))
@@ -260,24 +234,6 @@ namespace Storj
             {
                 throw new ArgumentException(string.Format("The disk size ({0:0.##} TB) on the selected drive {1} is less than the allocated disk space plus the 10% overhead ({2:0.##} TB total).",
                     decimal.Divide(drive.TotalSize, TB), drive.Name, decimal.Divide(storagePlusOverhead, TB)));
-            }
-        }
-
-        public void ValidateBandwidth(string bandwidthStr)
-        {
-            if (string.IsNullOrEmpty(bandwidthStr))
-            {
-                throw new ArgumentException("The value cannot be empty.");
-            }
-
-            if (!double.TryParse(bandwidthStr, NumberStyles.Number, CultureInfo.CreateSpecificCulture("en-US"), out double bandwidth))
-            {
-                throw new ArgumentException(string.Format("'{0}' is not a valid number.", bandwidthStr));
-            }
-
-            if (bandwidth < 2.0)
-            {
-                throw new ArgumentException("The allocated bandwidth cannot be less than 2 TB.");
             }
         }
 

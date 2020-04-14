@@ -84,7 +84,6 @@
     <Compile Include="ValidateStorageDirTests.cs" />
     <Compile Include="MockHelpers.cs" />
     <Compile Include="ValidateStorageTests.cs" />
-    <Compile Include="ValidateBandwidthTests.cs" />
     <Compile Include="ValidateWalletTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

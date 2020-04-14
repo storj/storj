@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -18,11 +17,11 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/tally"
-	"storj.io/storj/storagenode"
 )
 
 func TestDeleteTalliesBefore(t *testing.T) {
@@ -97,7 +96,7 @@ func TestOnlyInline(t *testing.T) {
 
 		// run multiple times to ensure we add tallies
 		for i := 0; i < 2; i++ {
-			obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"))
+			obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"), time.Now())
 			err := planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
 			require.NoError(t, err)
 
@@ -134,7 +133,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 		require.NoError(t, err)
 
-		obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"))
+		obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"), time.Now())
 		err = planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
 		require.NoError(t, err)
 
@@ -177,7 +176,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 			tt := tt // avoid scopelint error
 
 			t.Run(tt.name, func(t *testing.T) {
-				projectID, err := uuid.Parse(tt.project)
+				projectID, err := uuid.FromString(tt.project)
 				require.NoError(t, err)
 
 				// setup: create a pointer and save it to pointerDB
@@ -190,15 +189,43 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				bucketID := fmt.Sprintf("%s/%s", tt.project, tt.bucketName)
 				newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
 				newTally.BucketName = []byte(tt.bucketName)
-				newTally.ProjectID = *projectID
+				newTally.ProjectID = projectID
 				expectedBucketTallies[bucketID] = newTally
 
-				obs := tally.NewObserver(satellitePeer.Log.Named("observer"))
+				obs := tally.NewObserver(satellitePeer.Log.Named("observer"), time.Now())
 				err = satellitePeer.Metainfo.Loop.Join(ctx, obs)
 				require.NoError(t, err)
 				require.Equal(t, expectedBucketTallies, obs.Bucket)
 			})
 		}
+	})
+}
+
+func TestTallyIgnoresExpiredPointers(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellitePeer := planet.Satellites[0]
+		redundancyScheme := planet.Uplinks[0].GetConfig(satellitePeer).GetRedundancyScheme()
+
+		project := "9656af6e-2d9c-42fa-91f2-bfd516a722d7"
+		bucket := "bucket"
+
+		// setup: create an expired pointer and save it to pointerDB
+		pointer := makePointer(planet.StorageNodes, redundancyScheme, int64(2), false)
+		pointer.ExpirationDate = time.Now().Add(-24 * time.Hour)
+
+		metainfo := satellitePeer.Metainfo.Service
+		objectPath := fmt.Sprintf("%s/%s/%s/%s", project, "l", bucket, "object/name")
+		err := metainfo.Put(ctx, objectPath, pointer)
+		require.NoError(t, err)
+
+		obs := tally.NewObserver(satellitePeer.Log.Named("observer"), time.Now())
+		err = satellitePeer.Metainfo.Loop.Join(ctx, obs)
+		require.NoError(t, err)
+
+		// there should be no observed buckets because all of the pointers are expired
+		require.Equal(t, obs.Bucket, map[string]*accounting.BucketTally{})
 	})
 }
 
@@ -321,7 +348,7 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 }
 
 // makePointer creates a pointer
-func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme, segmentSize int64, inline bool) *pb.Pointer {
+func makePointer(storageNodes []*testplanet.StorageNode, rs storj.RedundancyScheme, segmentSize int64, inline bool) *pb.Pointer {
 	if inline {
 		inlinePointer := &pb.Pointer{
 			CreationDate:  time.Now(),

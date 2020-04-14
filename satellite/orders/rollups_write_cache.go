@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
+	"storj.io/common/uuid"
 )
 
 // CacheData stores the amount of inline and allocated data

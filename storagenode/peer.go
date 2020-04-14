@@ -17,15 +17,16 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/debug"
+	"storj.io/private/debug"
+	"storj.io/private/version"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/private/version"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
@@ -36,6 +37,7 @@ import (
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -49,6 +51,7 @@ import (
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
+	version2 "storj.io/storj/storagenode/version"
 )
 
 var (
@@ -76,9 +79,12 @@ type DB interface {
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
 	Notifications() notifications.DB
+	HeldAmount() heldamount.DB
+
+	Preflight(ctx context.Context) error
 }
 
-// Config is all the configuration parameters for a Storage Node
+// Config is all the configuration parameters for a Storage Node.
 type Config struct {
 	Identity identity.Config
 
@@ -163,7 +169,10 @@ type Peer struct {
 
 	Server *server.Server
 
-	Version *checker.Service
+	Version struct {
+		Chore   *version2.Chore
+		Service *checker.Service
+	}
 
 	Debug struct {
 		Listener net.Listener
@@ -221,6 +230,10 @@ type Peer struct {
 		Service *notifications.Service
 	}
 
+	Heldamount struct {
+		Service *heldamount.Service
+	}
+
 	Bandwidth *bandwidth.Service
 }
 
@@ -233,6 +246,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
+	}
+
+	{ // setup notification service.
+		peer.Notifications.Service = notifications.NewService(peer.Log, peer.DB.Notifications())
 	}
 
 	{ // setup debug
@@ -262,11 +279,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
 				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
 		}
-		peer.Version = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
 
+		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
+		versionCheckInterval := 24 * time.Hour
+		peer.Version.Chore = version2.NewChore(peer.Version.Service, peer.Notifications.Service, peer.Identity.ID, versionCheckInterval)
 		peer.Services.Add(lifecycle.Item{
 			Name: "version",
-			Run:  peer.Version.Run,
+			Run:  peer.Version.Chore.Run,
 		})
 	}
 
@@ -312,10 +331,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Preflight.LocalTime = preflight.NewLocalTime(peer.Log.Named("preflight:localtime"), config.Preflight, peer.Storage2.Trust, peer.Dialer)
 	}
 
-	{ // setup notification service.
-		peer.Notifications.Service = notifications.NewService(peer.Log, peer.DB.Notifications())
-	}
-
 	{ // setup contact service
 		c := config.Contact
 		if c.ExternalAddress == "" {
@@ -342,9 +357,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Version: *pbVersion,
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), peer.Dialer, self, peer.Storage2.Trust)
 
-		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Storage2.Trust, peer.Dialer, peer.Contact.Service)
+		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Contact.Service)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "contact:chore",
 			Run:   peer.Contact.Chore.Run,
@@ -352,8 +367,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		})
 
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.PingStats)
-		pb.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
-		pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint)
+		pbgrpc.RegisterContactServer(peer.Server.GRPC(), peer.Contact.Endpoint)
+		if err := pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 
 	}
 
@@ -400,9 +417,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.Service,
 			peer.DB.Bandwidth(),
 			config.Storage.AllocatedDiskSpace.Int64(),
-			config.Storage.AllocatedBandwidth.Int64(),
 			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
+			peer.Contact.Chore.Trigger,
 			config.Storage2.Monitor,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -435,14 +452,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
 			peer.DB.UsedSerials(),
-			peer.Contact.Chore.Trigger,
 			config.Storage2,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
-		pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint.DRPC())
+
+		pbgrpc.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
+		if err := pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint.DRPC()); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 
 		// TODO workaround for custom timeout for order sending request (read/write)
 		sc := config.Server
@@ -473,6 +492,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Orders Cleanup", peer.Storage2.Orders.Cleanup))
 	}
 
+	{ // setup heldamount service.
+		peer.Heldamount.Service = heldamount.NewService(
+			peer.Log.Named("heldamount:service"),
+			peer.DB.HeldAmount(),
+			peer.Dialer,
+			peer.Storage2.Trust,
+		)
+	}
+
 	{ // setup node stats service
 		peer.NodeStats.Service = nodestats.NewService(
 			peer.Log.Named("nodestats:service"),
@@ -486,8 +514,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			nodestats.CacheStorage{
 				Reputation:   peer.DB.Reputation(),
 				StorageUsage: peer.DB.StorageUsage(),
+				HeldAmount:   peer.DB.HeldAmount(),
 			},
 			peer.NodeStats.Service,
+			peer.Heldamount.Service,
 			peer.Storage2.Trust,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -506,8 +536,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Named("console:service"),
 			peer.DB.Bandwidth(),
 			peer.Storage2.Store,
-			peer.Version,
-			config.Storage.AllocatedBandwidth,
+			peer.Version.Service,
 			config.Storage.AllocatedDiskSpace,
 			config.Operator.Wallet,
 			versionInfo,
@@ -537,6 +566,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			assets,
 			peer.Notifications.Service,
 			peer.Console.Service,
+			peer.Heldamount.Service,
 			peer.Console.Listener,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -557,8 +587,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Console.Listener.Addr(),
 			config.Contact.ExternalAddress,
 		)
-		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
-		pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector)
+		pbgrpc.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
+		if err := pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{ // setup graceful exit service
@@ -568,8 +600,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Satellites(),
 			peer.Storage2.BlobsCache,
 		)
-		pb.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
-		pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint)
+		pbgrpc.RegisterNodeGracefulExitServer(peer.Server.PrivateGRPC(), peer.GracefulExit.Endpoint)
+		if err := pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 
 		peer.GracefulExit.Chore = gracefulexit.NewChore(
 			peer.Log.Named("gracefulexit:chore"),

@@ -19,14 +19,21 @@ RELEASE_DIR="$STORJ_NETWORK_DIR/release"
 # and for the current branch code
 git worktree add -f "$BRANCH_DIR" HEAD
 
-latestReleaseTag=$(git describe --tags `git rev-list --tags --max-count=1`)
-latestReleaseCommit=$(git rev-list -n 1 "$latestReleaseTag")
+latestReleaseCommit="$(git rev-list --exclude='*rc*' --tags --max-count=1)"
+latestReleaseTag=$(git describe --tags "$latestReleaseCommit")
 echo "Checking out latest release tag: $latestReleaseTag"
 git worktree add -f "$RELEASE_DIR" "$latestReleaseCommit"
 
 # delete this file that forces production config settings
-rm -f "$RELEASE_DIR/private/version/release.go"
 rm -f "$RELEASE_DIR/internal/version/release.go"
+
+# clear out release information
+cat > $RELEASE_DIR/private/version/release.go <<EOF
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package version
+EOF
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
@@ -49,9 +56,6 @@ PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network --p
 
 # run upload part of backward compatibility tests from the lastest release branch
 PATH=$RELEASE_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh upload
-
-# set the segment size lower to make test run faster
-echo client.segment-size: 6 MiB >> `storj-sim network env GATEWAY_0_DIR`/config.yaml
 
 SATELLITE_CONFIG=$(storj-sim network env SATELLITE_0_DIR)/config.yaml
 
@@ -95,9 +99,6 @@ sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim
 sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim network env STORAGENODE_7_DIR`/config.yaml
 sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim network env STORAGENODE_8_DIR`/config.yaml
 sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" `storj-sim network env STORAGENODE_9_DIR`/config.yaml
-
-# override configured access with access where address is node ID + satellite addess
-export STORJ_ACCESS=$(go run "$SCRIPTDIR"/update-access.go `storj-sim network env SATELLITE_0_DIR` `storj-sim network env GATEWAY_0_ACCESS`)
 
 # run download part of backward compatibility tests from the current branch, using new uplink
 PATH=$BRANCH_DIR/bin:$PATH storj-sim -x --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-backwards.sh download

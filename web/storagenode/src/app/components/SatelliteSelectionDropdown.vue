@@ -18,7 +18,12 @@
                     v-if="satellite.disqualified"
                     alt="disqualified image"
                 />
-                <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified}">{{satellite.url}}</p>
+                <SuspensionIcon
+                    class="satellite-selection-overflow-container__satellite-choice__image"
+                    v-if="satellite.suspended && !satellite.disqualified"
+                    alt="suspended image"
+                />
+                <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified, suspended: satellite.suspended}">{{satellite.url}}</p>
             </div>
         </div>
     </div>
@@ -28,14 +33,17 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import DisqualificationIcon from '@/../static/images/disqualify.svg';
+import SuspensionIcon from '@/../static/images/suspend.svg';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
+import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { SatelliteInfo } from '@/storagenode/dashboard';
 
 @Component({
     components: {
         DisqualificationIcon,
+        SuspensionIcon,
     },
 })
 export default class SatelliteSelectionDropdown extends Vue {
@@ -43,6 +51,8 @@ export default class SatelliteSelectionDropdown extends Vue {
         try {
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
             await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, id);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, id);
         } catch (error) {
             console.error(`${error.message} satellite data.`);
         }
@@ -52,6 +62,8 @@ export default class SatelliteSelectionDropdown extends Vue {
         try {
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
             await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {
             console.error(`${error.message} satellite data.`);
         }
@@ -81,7 +93,7 @@ export default class SatelliteSelectionDropdown extends Vue {
         padding: 7px 0 7px 0;
         box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
         background-color: #fff;
-        z-index: 1120;
+        z-index: 103;
     }
 
     .satellite-selection-overflow-container {
@@ -117,7 +129,8 @@ export default class SatelliteSelectionDropdown extends Vue {
         }
     }
 
-    .disqualified {
+    .disqualified,
+    .suspended {
         margin-left: 20px;
     }
 

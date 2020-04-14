@@ -120,7 +120,6 @@ export default class ProjectSelectionArea extends Vue {
             color: rgba(56, 75, 101, 0.4);
             opacity: 0.7;
             cursor: pointer;
-            user-select: none;
             margin-right: 5px;
         }
 
@@ -142,7 +141,7 @@ export default class ProjectSelectionArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 1024px) {
+    @media screen and (max-width: 1280px) {
 
         .project-selection-container {
             margin-right: 30px;

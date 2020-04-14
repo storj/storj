@@ -42,7 +42,6 @@ export default class SortingHeader extends Vue {}
                 font-size: 16px;
                 line-height: 10px;
                 color: #afb7c1;
-                user-select: none;
             }
         }
     }

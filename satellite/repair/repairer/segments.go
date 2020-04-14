@@ -5,6 +5,7 @@ package repairer
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -21,8 +22,29 @@ import (
 	"storj.io/uplink/private/eestream"
 )
 
-// IrreparableError is the errs class of irreparable segment errors
-var IrreparableError = errs.Class("irreparable error")
+var (
+	metainfoGetError       = errs.Class("metainfo db get error")
+	metainfoPutError       = errs.Class("metainfo db put error")
+	invalidRepairError     = errs.Class("invalid repair")
+	overlayQueryError      = errs.Class("overlay query failure")
+	orderLimitFailureError = errs.Class("order limits failure")
+	repairReconstructError = errs.Class("repair reconstruction failure")
+	repairPutError         = errs.Class("repair could not store repaired pieces")
+)
+
+// irreparableError identifies situations where a segment could not be repaired due to reasons
+// which are hopefully transient (e.g. too many pieces unavailable). The segment should be added
+// to the irreparableDB.
+type irreparableError struct {
+	path            storj.Path
+	piecesAvailable int32
+	piecesRequired  int32
+	segmentInfo     *pb.Pointer
+}
+
+func (ie *irreparableError) Error() string {
+	return fmt.Sprintf("%d available pieces < %d required", ie.piecesAvailable, ie.piecesRequired)
+}
 
 // SegmentRepairer for segments
 type SegmentRepairer struct {
@@ -51,7 +73,7 @@ func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
 	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
 	excessOptimalThreshold float64, repairOverride int,
-	downloadTimeout time.Duration,
+	downloadTimeout time.Duration, inMemoryRepair bool,
 	satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
@@ -64,7 +86,7 @@ func NewSegmentRepairer(
 		metainfo:                   metainfo,
 		orders:                     orders,
 		overlay:                    overlay,
-		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout),
+		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout, inMemoryRepair),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 		repairOverride:             repairOverride,
@@ -81,15 +103,16 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	pointer, err := repairer.metainfo.Get(ctx, path)
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
-			mon.Meter("repair_unnecessary").Mark(1) //locked
-			repairer.log.Debug("segment was deleted", zap.Binary("Segment", []byte(path)))
+			mon.Meter("repair_unnecessary").Mark(1)            //locked
+			mon.Meter("segment_deleted_before_repair").Mark(1) //locked
+			repairer.log.Debug("segment was deleted")
 			return true, nil
 		}
-		return false, Error.Wrap(err)
+		return false, metainfoGetError.Wrap(err)
 	}
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
-		return true, Error.New("cannot repair inline segment")
+		return true, invalidRepairError.New("cannot repair inline segment")
 	}
 
 	mon.Meter("repair_attempts").Mark(1)                                //locked
@@ -97,10 +120,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
-		return true, Error.Wrap(err)
+		return true, invalidRepairError.New("invalid redundancy strategy: %w", err)
 	}
-
-	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 
 	var excludeNodeIDs storj.NodeIDList
 	var healthyPieces, unhealthyPieces []*pb.RemotePiece
@@ -108,14 +129,19 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	pieces := pointer.GetRemote().GetRemotePieces()
 	missingPieces, err := repairer.overlay.GetMissingPieces(ctx, pieces)
 	if err != nil {
-		return false, Error.New("error getting missing pieces %s", err)
+		return false, overlayQueryError.New("error identifying missing pieces: %w", err)
 	}
 
 	numHealthy := len(pieces) - len(missingPieces)
 	// irreparable piece
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
 		mon.Meter("repair_nodes_unavailable").Mark(1) //locked
-		return true, Error.Wrap(IrreparableError.New("segment cannot be repaired: only %d healthy pieces, %d required", numHealthy, pointer.Remote.Redundancy.MinReq+1))
+		return true, &irreparableError{
+			path:            path,
+			piecesAvailable: int32(numHealthy),
+			piecesRequired:  pointer.Remote.Redundancy.MinReq,
+			segmentInfo:     pointer,
+		}
 	}
 
 	repairThreshold := pointer.Remote.Redundancy.RepairThreshold
@@ -151,13 +177,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 
 	bucketID, err := createBucketID(path)
 	if err != nil {
-		return true, Error.Wrap(err)
+		return true, invalidRepairError.New("invalid path; cannot repair segment: %w", err)
 	}
 
 	// Create the order limits for the GET_REPAIR action
 	getOrderLimits, getPrivateKey, err := repairer.orders.CreateGetRepairOrderLimits(ctx, bucketID, pointer, healthyPieces)
 	if err != nil {
-		return false, Error.Wrap(err)
+		return false, orderLimitFailureError.New("could not create GET_REPAIR order limits: %w", err)
 	}
 
 	var requestCount int
@@ -171,18 +197,17 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: requestCount,
-		FreeBandwidth:  pieceSize,
-		ExcludedNodes:  excludeNodeIDs,
+		ExcludedIDs:    excludeNodeIDs,
 	}
 	newNodes, err := repairer.overlay.FindStorageNodes(ctx, request)
 	if err != nil {
-		return false, Error.Wrap(err)
+		return false, overlayQueryError.Wrap(err)
 	}
 
 	// Create the order limits for the PUT_REPAIR action
 	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucketID, pointer, getOrderLimits, newNodes)
 	if err != nil {
-		return false, Error.Wrap(err)
+		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}
 
 	// Download the segment using just the healthy pieces
@@ -201,15 +226,23 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		repairer.log.Debug("failed to update audit fail status", zap.Int("Failed Update Number", failedNum), zap.Error(err))
 	}
 	if err != nil {
-		// .Get() seems to only fail from input validation, so it would keep failing
-		return true, Error.Wrap(err)
+		// If Get failed because of input validation, then it will keep failing. But if it
+		// gave us irreparableError, then we failed to download enough pieces and must try
+		// to wait for nodes to come back online.
+		if irreparableErr, ok := err.(*irreparableError); ok {
+			mon.Meter("repair_too_many_nodes_failed").Mark(1) //locked
+			irreparableErr.segmentInfo = pointer
+			return true, irreparableErr
+		}
+		// The segment's redundancy strategy is invalid, or else there was an internal error.
+		return true, repairReconstructError.New("segment could not be reconstructed: %w", err)
 	}
 	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
 
 	// Upload the repaired pieces
 	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, repairer.timeout, path)
 	if err != nil {
-		return false, Error.Wrap(err)
+		return false, repairPutError.Wrap(err)
 	}
 
 	// Add the successfully uploaded pieces to repairedPieces
@@ -231,6 +264,11 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	healthyAfterRepair := int32(len(healthyPieces) + len(repairedPieces))
 	switch {
 	case healthyAfterRepair <= pointer.Remote.Redundancy.RepairThreshold:
+		// Important: this indicates a failure to PUT enough pieces to the network to pass
+		// the repair threshold, and _not_ a failure to reconstruct the segment. But we
+		// put at least one piece, else ec.Repair() would have returned an error. So the
+		// repair "succeeded" in that the segment is now healthier than it was, but it is
+		// not as healthy as we want it to be.
 		mon.Meter("repair_failed").Mark(1) //locked
 	case healthyAfterRepair < pointer.Remote.Redundancy.SuccessThreshold:
 		mon.Meter("repair_partial").Mark(1) //locked
@@ -275,7 +313,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// Update the segment pointer in the metainfo
 	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
 	if err != nil {
-		return false, err
+		return false, metainfoPutError.Wrap(err)
 	}
 
 	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds())) //locked
@@ -290,7 +328,7 @@ func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, fail
 		updateRequests[i] = &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			IsUp:         true,
-			AuditSuccess: false,
+			AuditOutcome: overlay.AuditFailure,
 		}
 	}
 	if len(updateRequests) > 0 {

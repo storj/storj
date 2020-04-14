@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -ueo pipefail
 
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
 : "${STORJ_NETWORK_DIR?Environment variable STORJ_NETWORK_DIR needs to be set}"
 
 BUCKET=bucket-123
@@ -17,10 +19,13 @@ setup(){
     }
     random_bytes_file "2KiB"   "$TEST_FILES_DIR/small-upload-testfile"         # create 2kb file of random bytes (inline)
     random_bytes_file "5MiB"   "$TEST_FILES_DIR/big-upload-testfile"           # create 5mb file of random bytes (remote)
-    random_bytes_file "12MiB"  "$TEST_FILES_DIR/multisegment-upload-testfile"  # create 12mb file of random bytes (remote)
+    random_bytes_file "64MiB"  "$TEST_FILES_DIR/multisegment-upload-testfile"  # create 65mb file of random bytes (remote)
 
     echo "setup test successfully"
 }
+
+# override configured access with access where address is node ID + satellite addess
+export STORJ_ACCESS=$(go run "$SCRIPTDIR"/update-access.go $SATELLITE_0_DIR $GATEWAY_0_ACCESS)
 
 if [[ "$1" == "upload" ]]; then
     setup

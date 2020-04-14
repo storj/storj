@@ -5,9 +5,11 @@ package payments
 
 import (
 	"context"
+	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
 
 // ErrAccountNotSetup is an error type which indicates that payment account is not created.
@@ -25,7 +27,7 @@ type Accounts interface {
 	Balance(ctx context.Context, userID uuid.UUID) (int64, error)
 
 	// ProjectCharges returns how much money current user will be charged for each project.
-	ProjectCharges(ctx context.Context, userID uuid.UUID) ([]ProjectCharge, error)
+	ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) ([]ProjectCharge, error)
 
 	// Charges returns list of all credit card charges related to account.
 	Charges(ctx context.Context, userID uuid.UUID) ([]Charge, error)

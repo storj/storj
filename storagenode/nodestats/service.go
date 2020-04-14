@@ -93,6 +93,7 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 			Score:        audit.GetReputationScore(),
 		},
 		Disqualified: resp.GetDisqualified(),
+		Suspended:    resp.GetSuspended(),
 		UpdatedAt:    time.Now(),
 	}, nil
 }
@@ -131,7 +132,7 @@ func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client
 
 	return &Client{
 		conn:                conn,
-		DRPCNodeStatsClient: pb.NewDRPCNodeStatsClient(conn.Raw()),
+		DRPCNodeStatsClient: pb.NewDRPCNodeStatsClient(conn),
 	}, nil
 }
 

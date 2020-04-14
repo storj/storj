@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
-	"storj.io/storj/pkg/process"
 )
 
 func init() {
@@ -27,7 +26,7 @@ func putMain(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("no object specified for copy")
 	}
 
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	dst, err := fpath.New(args[0])
 	if err != nil {

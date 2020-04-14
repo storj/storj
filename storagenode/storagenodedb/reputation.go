@@ -41,13 +41,18 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 			audit_reputation_beta,
 			audit_reputation_score,
 			disqualified,
+			suspended,
 			updated_at
-		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	// ensure we insert utc
 	if stats.Disqualified != nil {
 		utc := stats.Disqualified.UTC()
 		stats.Disqualified = &utc
+	}
+	if stats.Suspended != nil {
+		utc := stats.Suspended.UTC()
+		stats.Suspended = &utc
 	}
 
 	_, err = db.ExecContext(ctx, query,
@@ -63,6 +68,7 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 		stats.Audit.Beta,
 		stats.Audit.Score,
 		stats.Disqualified,
+		stats.Suspended,
 		stats.UpdatedAt.UTC(),
 	)
 
@@ -89,6 +95,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 			audit_reputation_beta,
 			audit_reputation_score,
 			disqualified,
+			suspended,
 			updated_at
 		FROM reputation WHERE satellite_id = ?`,
 		satelliteID,
@@ -106,6 +113,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		&stats.Audit.Beta,
 		&stats.Audit.Score,
 		&stats.Disqualified,
+		&stats.Suspended,
 		&stats.UpdatedAt,
 	)
 
@@ -132,6 +140,7 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			audit_reputation_beta,
 			audit_reputation_score,
 			disqualified,
+			suspended,
 			updated_at
 		FROM reputation`
 
@@ -158,6 +167,7 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			&stats.Audit.Beta,
 			&stats.Audit.Score,
 			&stats.Disqualified,
+			&stats.Suspended,
 			&stats.UpdatedAt,
 		)
 

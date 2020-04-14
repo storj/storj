@@ -114,8 +114,8 @@ export class ProjectMember {
     public formattedFullName(): string {
         let fullName: string = this.user.getFullName();
 
-        if (fullName.length > 16) {
-            fullName = fullName.slice(0, 13) + '...';
+        if (fullName.length > 15) {
+            fullName = fullName.slice(0, 15) + '...';
         }
 
         return fullName;

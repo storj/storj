@@ -63,40 +63,40 @@ CREATE TABLE irreparabledbs
 CREATE TABLE nodes
 (
     id                      bytea                    NOT NULL,
-    address                 text                     NOT NULL,
+    address                 text                     NOT NULL DEFAULT '',
     last_net                text                     NOT NULL,
-    protocol                integer                  NOT NULL,
-    type                    integer                  NOT NULL,
+    protocol                integer                  NOT NULL DEFAULT 0,
+    type                    integer                  NOT NULL DEFAULT 0,
     email                   text                     NOT NULL,
     wallet                  text                     NOT NULL,
-    free_bandwidth          bigint                   NOT NULL,
-    free_disk               bigint                   NOT NULL,
-    piece_count             bigint                   NOT NULL,
-    major                   bigint                   NOT NULL,
-    minor                   bigint                   NOT NULL,
-    patch                   bigint                   NOT NULL,
-    hash                    text                     NOT NULL,
-    timestamp               timestamp with time zone NOT NULL,
-    release                 boolean                  NOT NULL,
-    latency_90              bigint                   NOT NULL,
-    audit_success_count     bigint                   NOT NULL,
-    total_audit_count       bigint                   NOT NULL,
+    free_bandwidth          bigint                   NOT NULL DEFAULT -1,
+    free_disk               bigint                   NOT NULL DEFAULT -1,
+    piece_count             bigint                   NOT NULL DEFAULT 0,
+    major                   bigint                   NOT NULL DEFAULT 0,
+    minor                   bigint                   NOT NULL DEFAULT 0,
+    patch                   bigint                   NOT NULL DEFAULT 0,
+    hash                    text                     NOT NULL DEFAULT '',
+    timestamp               timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+    release                 boolean                  NOT NULL DEFAULT FALSE,
+    latency_90              bigint                   NOT NULL DEFAULT 0,
+    audit_success_count     bigint                   NOT NULL DEFAULT 0,
+    total_audit_count       bigint                   NOT NULL DEFAULT 0,
     uptime_success_count    bigint                   NOT NULL,
     total_uptime_count      bigint                   NOT NULL,
-    created_at              timestamp with time zone NOT NULL,
-    updated_at              timestamp with time zone NOT NULL,
-    last_contact_success    timestamp with time zone NOT NULL,
-    last_contact_failure    timestamp with time zone NOT NULL,
-    contained               boolean                  NOT NULL,
+    created_at              timestamp with time zone NOT NULL DEFAULT current_timestamp,
+    updated_at              timestamp with time zone NOT NULL DEFAULT current_timestamp,
+    last_contact_success    timestamp with time zone NOT NULL DEFAULT 'epoch',
+    last_contact_failure    timestamp with time zone NOT NULL DEFAULT 'epoch',
+    contained               boolean                  NOT NULL DEFAULT FALSE,
     disqualified            timestamp with time zone,
-    audit_reputation_alpha  double precision         NOT NULL,
-    audit_reputation_beta   double precision         NOT NULL,
-    uptime_reputation_alpha double precision         NOT NULL,
-    uptime_reputation_beta  double precision         NOT NULL,
+    audit_reputation_alpha  double precision         NOT NULL DEFAULT 1,
+    audit_reputation_beta   double precision         NOT NULL DEFAULT 0,
+    uptime_reputation_alpha double precision         NOT NULL DEFAULT 1,
+    uptime_reputation_beta  double precision         NOT NULL DEFAULT 0,
     exit_initiated_at       timestamp,
     exit_loop_completed_at  timestamp,
     exit_finished_at        timestamp,
-    exit_success            boolean                 NOT NULL,
+    exit_success            boolean                 NOT NULL DEFAULT FALSE,
     PRIMARY KEY (id)
 );
 CREATE TABLE offers
@@ -104,8 +104,8 @@ CREATE TABLE offers
     id                           serial                   NOT NULL,
     name                         text                     NOT NULL,
     description                  text                     NOT NULL,
-    award_credit_in_cents        integer                  NOT NULL,
-    invitee_credit_in_cents      integer                  NOT NULL,
+    award_credit_in_cents        integer                  NOT NULL DEFAULT 0,
+    invitee_credit_in_cents      integer                  NOT NULL DEFAULT 0,
     award_credit_duration_days   integer,
     invitee_credit_duration_days integer,
     redeemable_cap               integer,
@@ -139,7 +139,7 @@ CREATE TABLE projects
     id          bytea                    NOT NULL,
     name        text                     NOT NULL,
     description text                     NOT NULL,
-    usage_limit bigint                   NOT NULL,
+    usage_limit bigint                   NOT NULL DEFAULT 0,
     partner_id  bytea,
     owner_id    bytea                    NOT NULL,
     created_at  timestamp with time zone NOT NULL,
@@ -282,8 +282,8 @@ CREATE TABLE graceful_exit_progress
 (
     node_id             bytea                    NOT NULL,
     bytes_transferred   bigint                   NOT NULL,
-    pieces_transferred  bigint                   NOT NULL,
-    pieces_failed       bigint                   NOT NULL,
+    pieces_transferred  bigint                   NOT NULL DEFAULT 0,
+    pieces_failed       bigint                   NOT NULL DEFAULT 0,
     updated_at          timestamp                NOT NULL,
     PRIMARY KEY ( node_id )
 );
@@ -300,7 +300,7 @@ CREATE TABLE graceful_exit_transfer_queue
     last_failed_code   integer,
     failed_count       integer,
     finished_at        timestamp,
-    order_limit_send_count integer NOT NULL,
+    order_limit_send_count integer NOT NULL DEFAULT 0,
     PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE stripe_customers
@@ -381,10 +381,11 @@ CREATE TABLE nodes_offline_times (
 );
 
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
+CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
-CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
+CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );
+CREATE INDEX storagenode_id_interval_start_interval_seconds_index ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id);
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 

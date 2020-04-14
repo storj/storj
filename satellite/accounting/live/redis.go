@@ -7,9 +7,9 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/redis"
 )

@@ -4,16 +4,86 @@
 package admin
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
-	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 )
+
+func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		http.Error(w, "user-email missing", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, fmt.Sprintf("user with email %q not found", userEmail), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get user %q: %v", userEmail, err), http.StatusInternalServerError)
+		return
+	}
+	user.PasswordHash = nil
+
+	projects, err := server.db.Console().Projects().GetByUserID(ctx, user.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get user projects %q: %v", userEmail, err), http.StatusInternalServerError)
+		return
+	}
+
+	type User struct {
+		ID       uuid.UUID `json:"id"`
+		FullName string    `json:"fullName"`
+		Email    string    `json:"email"`
+	}
+	type Project struct {
+		ID          uuid.UUID `json:"id"`
+		Name        string    `json:"name"`
+		Description string    `json:"description"`
+		OwnerID     uuid.UUID `json:"ownerId"`
+	}
+
+	var output struct {
+		User     User      `json:"user"`
+		Projects []Project `json:"projects"`
+	}
+
+	output.User = User{
+		ID:       user.ID,
+		FullName: user.FullName,
+		Email:    user.Email,
+	}
+	for _, p := range projects {
+		output.Projects = append(output.Projects, Project{
+			ID:          p.ID,
+			Name:        p.Name,
+			Description: p.Description,
+			OwnerID:     p.OwnerID,
+		})
+	}
+
+	data, err := json.Marshal(output)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disapperaed
+}
 
 func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -25,19 +95,19 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectUUID, err := uuid.Parse(projectUUIDString)
+	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("invalid project-uuid: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	limit, err := server.db.ProjectAccounting().GetProjectStorageLimit(ctx, *projectUUID)
+	limit, err := server.db.ProjectAccounting().GetProjectStorageLimit(ctx, projectUUID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get usage limit: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	project, err := server.db.Console().Projects().Get(ctx, *projectUUID)
+	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get project: %v", err), http.StatusInternalServerError)
 		return
@@ -78,7 +148,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectUUID, err := uuid.Parse(projectUUIDString)
+	projectUUID, err := uuid.FromString(projectUUIDString)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("invalid project-uuid: %v", err), http.StatusBadRequest)
 		return
@@ -107,7 +177,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = server.db.ProjectAccounting().UpdateProjectUsageLimit(ctx, *projectUUID, *arguments.Usage)
+		err = server.db.ProjectAccounting().UpdateProjectUsageLimit(ctx, projectUUID, *arguments.Usage)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to update usage: %v", err), http.StatusInternalServerError)
 			return
@@ -120,7 +190,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = server.db.Console().Projects().UpdateRateLimit(ctx, *projectUUID, *arguments.Rate)
+		err = server.db.Console().Projects().UpdateRateLimit(ctx, projectUUID, *arguments.Rate)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to update rate: %v", err), http.StatusInternalServerError)
 			return

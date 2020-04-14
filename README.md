@@ -1,7 +1,7 @@
 # Storj V3 Network
 
 [![Go Report Card](https://goreportcard.com/badge/storj.io/storj)](https://goreportcard.com/report/storj.io/storj)
-[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://godoc.org/storj.io/storj)
+[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/storj)
 [![Coverage Status](https://img.shields.io/badge/coverage-master-green.svg)](https://build.dev.storj.io/job/storj/job/master/cobertura)
 ![Alpha](https://img.shields.io/badge/version-alpha-green.svg)
 
@@ -96,6 +96,14 @@ git push origin master
 ```
 
 Use Github to open a pull request!
+
+### A Note about Versioning
+
+While we are practicing [semantic versioning](https://semver.org/) for our client 
+libraries such as [uplink](https://github.com/storj/uplink), we are *not* practicing 
+semantic versioning in this repo, as we do not intend for it to be used via 
+[Go modules](https://blog.golang.org/using-go-modules). We may have 
+backwards-incompatible changes between minor and patch releases in this repo.
 
 # Start using Storj
 

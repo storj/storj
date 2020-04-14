@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -101,6 +100,14 @@ func TestReverifySuccess(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Successes, 1)
 		require.Equal(t, report.Successes[0], pieces[0].NodeId)
+
+		// record  audit
+		_, err = audits.Reporter.RecordAudits(ctx, report, path)
+		require.NoError(t, err)
+
+		// make sure that pending audit is removed by the reporter when audit is recorded
+		_, err = containment.Get(ctx, pending.NodeID)
+		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
 
@@ -171,7 +178,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		// delete the piece from the first node
 		piece := pointer.GetRemote().GetRemotePieces()[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -183,6 +190,14 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Fails, 1)
 		require.Equal(t, report.Fails[0], pieces[0].NodeId)
+
+		// record  audit
+		_, err = audits.Reporter.RecordAudits(ctx, report, path)
+		require.NoError(t, err)
+
+		// make sure that pending audit is removed by the reporter when audit is recorded
+		_, err = containment.Get(ctx, pending.NodeID)
+		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
 
@@ -255,7 +270,7 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		// delete the piece from the first node
 		piece := pieces[0]
 		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := getStorageNode(planet, piece.NodeId)
+		node := planet.FindNode(piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -267,6 +282,10 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		// expect no failed audit
 		require.Len(t, report.Fails, 0)
+
+		// make sure that pending audit is removed
+		_, err = containment.Get(ctx, pending.NodeID)
+		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
 
@@ -329,6 +348,15 @@ func TestReverifyFailBadData(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Fails, 1)
 		require.Equal(t, report.Fails[0], nodeID)
+
+		// record  audit
+		_, err = audits.Reporter.RecordAudits(ctx, report, path)
+		require.NoError(t, err)
+
+		// make sure that pending audit is removed by the reporter when audit is recorded
+		containment := satellite.DB.Containment()
+		_, err = containment.Get(ctx, pending.NodeID)
+		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
 
@@ -393,6 +421,11 @@ func TestReverifyOffline(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Offlines, 1)
 		require.Equal(t, report.Offlines[0], pieces[0].NodeId)
+
+		// make sure that pending audit is not removed
+		containment := satellite.DB.Containment()
+		_, err = containment.Get(ctx, pending.NodeID)
+		require.NoError(t, err)
 	})
 }
 
@@ -479,6 +512,11 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Offlines, 1)
 		require.Equal(t, report.Offlines[0], pending.NodeID)
+
+		// make sure that pending audit is not removed
+		containment := satellite.DB.Containment()
+		_, err = containment.Get(ctx, pending.NodeID)
+		require.NoError(t, err)
 	})
 }
 
@@ -570,6 +608,93 @@ func TestReverifyDeletedSegment(t *testing.T) {
 }
 
 func TestReverifyModifiedSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// - uploads random data to a file on all nodes
+		// - creates a pending audit for a particular node in that file
+		// - removes a piece from the file so that the segment is modified
+		// - uploads a new file to all nodes and calls reverify on it
+		// - expects reverification to pass successufully and the storage node to be not in containment mode
+
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		queue := audits.Queue
+		metainfo := satellite.Metainfo.Service
+
+		audits.Worker.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData1 := testrand.Bytes(8 * memory.KiB)
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testData1)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		pendingPath, err := queue.Next()
+		require.NoError(t, err)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, pendingPath)
+		require.NoError(t, err)
+
+		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		require.NoError(t, err)
+
+		nodeID := pointer.GetRemote().GetRemotePieces()[0].NodeId
+		pending := &audit.PendingAudit{
+			NodeID:            nodeID,
+			PieceID:           pointer.GetRemote().RootPieceId,
+			StripeIndex:       randomIndex,
+			ShareSize:         pointer.GetRemote().GetRedundancy().GetErasureShareSize(),
+			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
+			ReverifyCount:     0,
+			Path:              pendingPath,
+		}
+
+		containment := satellite.DB.Containment()
+
+		err = containment.IncrementPending(ctx, pending)
+		require.NoError(t, err)
+
+		// remove a piece from the file (a piece that the contained node isn't holding)
+		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
+			pieceToRemove := pointer.Remote.RemotePieces[1]
+			_, err = metainfo.UpdatePieces(ctx, pendingPath, pointer, nil, []*pb.RemotePiece{pieceToRemove})
+			require.NoError(t, err)
+		}
+
+		// upload another file to call reverify on
+		testData2 := testrand.Bytes(8 * memory.KiB)
+		err = ul.Upload(ctx, satellite, "testbucket", "test/path2", testData2)
+		require.NoError(t, err)
+
+		// select the encrypted path that was not used for the pending audit
+		audits.Chore.Loop.TriggerWait()
+		path1, err := queue.Next()
+		require.NoError(t, err)
+		path2, err := queue.Next()
+		require.NoError(t, err)
+		reverifyPath := path1
+		if path1 == pendingPath {
+			reverifyPath = path2
+		}
+
+		// reverify the path that was not modified
+		report, err := audits.Verifier.Reverify(ctx, reverifyPath)
+		require.NoError(t, err)
+		assert.Empty(t, report.Fails)
+		assert.Empty(t, report.Successes)
+		assert.Empty(t, report.PendingAudits)
+
+		// expect that the node was removed from containment since the segment it was contained for has been changed
+		_, err = containment.Get(ctx, nodeID)
+		require.True(t, audit.ErrContainedNotFound.Has(err))
+	})
+}
+
+func TestReverifyReplacedSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -749,7 +874,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 
 		// delete the piece for pointer1 from the selected node
 		pieceID := pointer1.GetRemote().RootPieceId.Derive(selectedNode, selectedPieceNum)
-		node := getStorageNode(planet, selectedNode)
+		node := planet.FindNode(selectedNode)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
@@ -763,6 +888,14 @@ func TestReverifyDifferentShare(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Fails, 1)
 		require.Equal(t, report.Fails[0], selectedNode)
+
+		// record  audit
+		_, err = audits.Reporter.RecordAudits(ctx, report, path2)
+		require.NoError(t, err)
+
+		// make sure that pending audit is removed by the reporter when audit is recorded
+		_, err = containment.Get(ctx, pending.NodeID)
+		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
 
@@ -790,13 +923,13 @@ func TestReverifyExpired1(t *testing.T) {
 		// set pointer's expiration date to be already expired
 		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
-		oldPointerBytes, err := proto.Marshal(pointer)
+		oldPointerBytes, err := pb.Marshal(pointer)
 		require.NoError(t, err)
 		newPointer := &pb.Pointer{}
-		err = proto.Unmarshal(oldPointerBytes, newPointer)
+		err = pb.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
-		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
-		newPointerBytes, err := proto.Marshal(newPointer)
+		newPointer.ExpirationDate = time.Now().Add(-1 * time.Hour)
+		newPointerBytes, err := pb.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
@@ -906,13 +1039,13 @@ func TestReverifyExpired2(t *testing.T) {
 		require.NoError(t, err)
 
 		// update pointer1 to be expired
-		oldPointerBytes, err := proto.Marshal(pointer1)
+		oldPointerBytes, err := pb.Marshal(pointer1)
 		require.NoError(t, err)
 		newPointer := &pb.Pointer{}
-		err = proto.Unmarshal(oldPointerBytes, newPointer)
+		err = pb.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
-		newPointer.ExpirationDate = time.Now().UTC().Add(-1 * time.Hour)
-		newPointerBytes, err := proto.Marshal(newPointer)
+		newPointer.ExpirationDate = time.Now().Add(-1 * time.Hour)
+		newPointerBytes, err := pb.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path1), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
@@ -946,7 +1079,7 @@ func TestReverifySlowDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
@@ -1034,6 +1167,9 @@ func TestReverifySlowDownload(t *testing.T) {
 		require.Len(t, report.PendingAudits, 1)
 		require.Len(t, report.Unknown, 0)
 		require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
+
+		_, err = containment.Get(ctx, slowNode)
+		require.NoError(t, err)
 	})
 }
 
@@ -1042,7 +1178,7 @@ func TestReverifyUnknownError(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewBadDB(log.Named("baddb"), db), nil
 			},
 			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
@@ -1120,5 +1256,13 @@ func TestReverifyUnknownError(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Unknown, 1)
 		require.Equal(t, report.Unknown[0], badNode)
+
+		// record  audit
+		_, err = audits.Reporter.RecordAudits(ctx, report, path)
+		require.NoError(t, err)
+
+		// make sure that pending audit is removed by the reporter when audit is recorded
+		_, err = containment.Get(ctx, pending.NodeID)
+		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }

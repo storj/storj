@@ -17,6 +17,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
@@ -136,10 +137,9 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 						Release:    false,
 					},
 				}
-				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info, time.Now().UTC().Add(-4*time.Hour))
+				err = satellite.Overlay.Service.UpdateCheckIn(ctx, info, time.Now().Add(-4*time.Hour))
 				require.NoError(t, err)
 			}
-
 		}
 		// confirm that we marked the correct number of storage nodes as offline
 		nodes, err := satellite.Overlay.Service.Reliable(ctx)
@@ -156,10 +156,11 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 type piecestoreMock struct {
 }
 
-func (mock *piecestoreMock) Upload(server pb.Piecestore_UploadServer) error {
+func (mock *piecestoreMock) Upload(server pbgrpc.Piecestore_UploadServer) error {
 	return nil
 }
-func (mock *piecestoreMock) Download(server pb.Piecestore_DownloadServer) error {
+
+func (mock *piecestoreMock) Download(server pbgrpc.Piecestore_DownloadServer) error {
 	timoutTicker := time.NewTicker(30 * time.Second)
 	defer timoutTicker.Stop()
 
@@ -242,7 +243,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 
 				server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Addr(), storageNode.PrivateAddr(), nil)
 				require.NoError(t, err)
-				pb.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
+				pbgrpc.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
 
 				defer ctx.Check(server.Close)
 

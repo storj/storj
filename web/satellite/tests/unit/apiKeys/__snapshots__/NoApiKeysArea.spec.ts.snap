@@ -1,0 +1,29 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`NoApiKeysArea.vue renders correctly 1`] = `
+<div class="no-api-keys-area">
+  <h1 class="no-api-keys-area__title">Create Your First API Key</h1>
+  <p class="no-api-keys-area__sub-title">API keys give access to the project to create buckets, upload objects</p>
+  <vbutton-stub label="Create API Key" width="180px" height="48px" class="no-api-keys-area__button"></vbutton-stub>
+  <div class="no-api-keys-area__steps-area">
+    <div class="no-api-keys-area__steps-area__numbers">
+      <firststepicon-stub class="no-api-keys-area__steps-area__numbers__icon"></firststepicon-stub>
+      <div class="no-api-keys-area-divider"></div>
+      <secondstepicon-stub class="no-api-keys-area__steps-area__numbers__icon"></secondstepicon-stub>
+      <div class="no-api-keys-area-divider"></div>
+      <thirdstepicon-stub class="no-api-keys-area__steps-area__numbers__icon"></thirdstepicon-stub>
+    </div>
+    <div class="no-api-keys-area__steps-area__items">
+      <div class="no-api-keys-area__steps-area__items__create-api-key">
+        <h2 class="no-api-keys-area__steps-area__items__create-api-key__title">Create &amp; Save API Key</h2> <img src="@/../static/images/apiKeys/noApiKeysArea/apiKey.jpg" alt="api key image" class="no-api-keys-area-image">
+      </div>
+      <div class="no-api-keys-area__steps-area__items__setup-uplink">
+        <h2 class="no-api-keys-area__steps-area__items__setup-uplink__title">Setup Uplink CLI</h2> <img src="@/../static/images/apiKeys/noApiKeysArea/uplink.jpg" alt="setup uplink image" class="no-api-keys-area-image">
+      </div>
+      <div class="no-api-keys-area__steps-area__items__store-data">
+        <h2 class="no-api-keys-area__steps-area__items__store-data__title">Store Data</h2> <img src="@/../static/images/apiKeys/noApiKeysArea/store.jpg" alt="store data image" class="no-api-keys-area-image">
+      </div>
+    </div>
+  </div>
+</div>
+`;

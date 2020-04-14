@@ -13,8 +13,6 @@ import LogoIcon from '@/../static/images/Logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
-import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { validateEmail } from '@/utils/validation';
 
 @Component({
@@ -25,7 +23,6 @@ import { validateEmail } from '@/utils/validation';
     },
 })
 export default class ForgotPassword extends Vue {
-    public loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
     private email: string = '';
     private emailError: string = '';
 
@@ -55,21 +52,24 @@ export default class ForgotPassword extends Vue {
 
         try {
             await this.auth.forgotPassword(this.email);
-            await this.$notify.success('Please look for instructions at your email');
         } catch (error) {
             await this.$notify.error(error.message);
+
+            return;
         }
+
+        await this.$notify.success('Please look for instructions at your email');
     }
 
     /**
      * Changes location to Login route.
      */
     public onBackToLoginClick(): void {
-      this.$router.push(RouteConfig.Login.path);
+        this.$router.push(RouteConfig.Login.path);
     }
 
     public onLogoClick(): void {
-      location.reload();
+        location.reload();
     }
 
     private validateFields(): boolean {

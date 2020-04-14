@@ -7,10 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -97,12 +96,12 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		createFields.PartnerId = dbx.Project_PartnerId(project.PartnerID[:])
 	}
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
+	createFields.UsageLimit = dbx.Project_UsageLimit(0)
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
 		dbx.Project_Name(project.Name),
 		dbx.Project_Description(project.Description),
-		dbx.Project_UsageLimit(0),
 		dbx.Project_OwnerId(project.OwnerID[:]),
 		createFields,
 	)
@@ -196,20 +195,20 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		return nil, errs.New("project parameter is nil")
 	}
 
-	id, err := dbutil.BytesToUUID(project.Id)
+	id, err := uuid.FromBytes(project.Id)
 	if err != nil {
 		return nil, err
 	}
 
 	var partnerID uuid.UUID
 	if len(project.PartnerId) > 0 {
-		partnerID, err = dbutil.BytesToUUID(project.PartnerId)
+		partnerID, err = uuid.FromBytes(project.PartnerId)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	ownerID, err := dbutil.BytesToUUID(project.OwnerId)
+	ownerID, err := uuid.FromBytes(project.OwnerId)
 	if err != nil {
 		return nil, err
 	}

@@ -8,10 +8,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/process"
+	"storj.io/common/context2"
+	"storj.io/private/process"
+	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/private/context2"
-	"storj.io/storj/private/version"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/metainfo"
@@ -74,13 +74,16 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	err = peer.Version.CheckVersion(ctx)
+	_, err = peer.Version.Service.CheckVersion(ctx)
 	if err != nil {
 		return err
 	}
 
 	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
 		zap.S().Warn("Failed to initialize telemetry batcher on satellite api: ", err)
+	}
+	if err := process.InitTracingWithHostname(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
+		zap.S().Warn("Failed to initialize tracing collector on satellite api: ", err)
 	}
 
 	err = db.CheckVersion(ctx)

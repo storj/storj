@@ -13,6 +13,7 @@ import (
 	"storj.io/common/pkcrypto"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
 )
@@ -74,5 +75,105 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 		node, err := overlay.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.EqualValues(t, 1, node.Reputation.AuditCount)
+	})
+}
+
+// TestRecordAuditsCorrectOutcome ensures that audit successes, failures, and unknown audits result in the correct disqualification/suspension state.
+func TestRecordAuditsCorrectOutcome(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		audits.Worker.Loop.Pause()
+
+		goodNode := planet.StorageNodes[0].ID()
+		dqNode := planet.StorageNodes[1].ID()
+		suspendedNode := planet.StorageNodes[2].ID()
+		pendingNode := planet.StorageNodes[3].ID()
+		offlineNode := planet.StorageNodes[4].ID()
+
+		report := audit.Report{
+			Successes: []storj.NodeID{goodNode},
+			Fails:     []storj.NodeID{dqNode},
+			Unknown:   []storj.NodeID{suspendedNode},
+			PendingAudits: []*audit.PendingAudit{
+				{
+					NodeID:            pendingNode,
+					PieceID:           testrand.PieceID(),
+					StripeIndex:       0,
+					ShareSize:         10,
+					ExpectedShareHash: []byte{},
+					ReverifyCount:     0,
+					Path:              "",
+				},
+			},
+			Offlines: []storj.NodeID{offlineNode},
+		}
+
+		failed, err := audits.Reporter.RecordAudits(ctx, report, "")
+		require.NoError(t, err)
+		require.Zero(t, failed)
+
+		overlay := satellite.Overlay.Service
+		node, err := overlay.Get(ctx, goodNode)
+		require.NoError(t, err)
+		require.Nil(t, node.Disqualified)
+		require.Nil(t, node.Suspended)
+
+		node, err = overlay.Get(ctx, dqNode)
+		require.NoError(t, err)
+		require.NotNil(t, node.Disqualified)
+		require.Nil(t, node.Suspended)
+
+		node, err = overlay.Get(ctx, suspendedNode)
+		require.NoError(t, err)
+		require.Nil(t, node.Disqualified)
+		require.NotNil(t, node.Suspended)
+
+		node, err = overlay.Get(ctx, pendingNode)
+		require.NoError(t, err)
+		require.Nil(t, node.Disqualified)
+		require.Nil(t, node.Suspended)
+
+		node, err = overlay.Get(ctx, offlineNode)
+		require.NoError(t, err)
+		require.Nil(t, node.Disqualified)
+		require.Nil(t, node.Suspended)
+	})
+}
+
+func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		audits.Worker.Loop.Pause()
+
+		suspendedNode := planet.StorageNodes[0].ID()
+
+		failed, err := audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}}, "")
+		require.NoError(t, err)
+		require.Zero(t, failed)
+
+		overlay := satellite.Overlay.Service
+
+		node, err := overlay.Get(ctx, suspendedNode)
+		require.NoError(t, err)
+		require.Nil(t, node.Disqualified)
+		require.NotNil(t, node.Suspended)
+
+		suspendedAt := node.Suspended
+
+		failed, err = audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}}, "")
+		require.NoError(t, err)
+		require.Zero(t, failed)
+
+		node, err = overlay.Get(ctx, suspendedNode)
+		require.NoError(t, err)
+		require.Nil(t, node.Disqualified)
+		require.NotNil(t, node.Suspended)
+		require.Equal(t, suspendedAt, node.Suspended)
 	})
 }

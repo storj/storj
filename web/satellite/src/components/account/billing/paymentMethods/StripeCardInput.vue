@@ -23,6 +23,8 @@ export default class StripeCardInput extends Vue {
     @Prop({default: () => console.error('onStripeResponse is not reinitialized')})
     private readonly onStripeResponseCallback: (result: any) => void;
 
+    private isLoading: boolean = false;
+
     /**
      * Stripe elements is using to create 'Add Card' form.
      */
@@ -112,7 +114,13 @@ export default class StripeCardInput extends Vue {
      * Fires stripe event after all inputs are filled.
      */
     public async onSubmit(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
         await this.stripe.createToken(this.cardElement).then(this.onStripeResponse);
+
+        this.isLoading = false;
     }
 }
 </script>

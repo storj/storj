@@ -48,7 +48,7 @@ type Values []Value
 type Items []ListItem
 
 // DefaultLookupLimit is the default lookup limit for storage implementations.
-const DefaultLookupLimit = 10000
+const DefaultLookupLimit = 500
 
 // ListItem returns Key, Value, IsPrefix.
 type ListItem struct {

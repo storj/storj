@@ -7,10 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stripe/stripe-go"
 
-	"storj.io/storj/private/date"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -96,8 +95,8 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.
-func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) (charges []payments.ProjectCharge, err error) {
-	defer mon.Task()(&ctx, userID)(&err)
+func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges []payments.ProjectCharge, err error) {
+	defer mon.Task()(&ctx, userID, since, before)(&err)
 
 	// to return empty slice instead of nil if there are no projects
 	charges = make([]payments.ProjectCharge, 0)
@@ -107,11 +106,8 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 		return nil, Error.Wrap(err)
 	}
 
-	start, end := date.MonthBoundary(time.Now().UTC())
-
-	// TODO: we should improve performance of this block of code. It takes ~4-5 sec to get project charges.
 	for _, project := range projects {
-		usage, err := accounts.service.usageDB.GetProjectTotal(ctx, project.ID, start, end)
+		usage, err := accounts.service.usageDB.GetProjectTotal(ctx, project.ID, since, before)
 		if err != nil {
 			return charges, Error.Wrap(err)
 		}
@@ -119,6 +115,8 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID) 
 		projectPrice := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount)
 
 		charges = append(charges, payments.ProjectCharge{
+			ProjectUsage: *usage,
+
 			ProjectID:    project.ID,
 			Egress:       projectPrice.Egress.IntPart(),
 			ObjectCount:  projectPrice.Objects.IntPart(),

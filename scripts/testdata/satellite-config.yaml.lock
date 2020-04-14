@@ -37,6 +37,30 @@
 # override value for repair threshold
 # checker.repair-override: 0
 
+# percent of held amount disposed to node after leaving withheld
+compensation.dispose-percent: 50
+
+# rate for data at rest per GB/hour
+compensation.rates.at-rest-gb-hours: "0.00000205"
+
+# rate for audit egress bandwidth per TB
+compensation.rates.get-audit-tb: "10"
+
+# rate for repair egress bandwidth per TB
+compensation.rates.get-repair-tb: "10"
+
+# rate for egress bandwidth per TB
+compensation.rates.get-tb: "20"
+
+# rate for repair ingress bandwidth per TB
+compensation.rates.put-repair-tb: "0"
+
+# rate for ingress bandwidth per TB
+compensation.rates.put-tb: "0"
+
+# comma separated monthly withheld percentage rates
+compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
+
 # server address of the graphql api gateway and frontend app
 # console.address: :10100
 
@@ -58,6 +82,9 @@
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
+# enable open registration
+# console.open-registration-enabled: false
+
 # used to display at web satellite console
 # console.satellite-name: Storj
 
@@ -78,6 +105,9 @@
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
+
+# timeout for pinging storage nodes
+# contact.timeout: 10m0s
 
 # satellite database connection string
 # database: postgres://
@@ -105,6 +135,9 @@ contact.external-address: ""
 
 # expose control panel
 # debug.control: false
+
+# provide the name of the peer to enable continuous cpu/mem profiling for
+# debug.profilername: ""
 
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
@@ -135,6 +168,9 @@ contact.external-address: ""
 
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s
+
+# if true, run garbage collection as part of the core
+# garbage-collection.run-in-core: false
 
 # if true, skip the first run of GC
 # garbage-collection.skip-first: true
@@ -238,12 +274,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the database connection string to use
 # metainfo.database-url: postgres://
 
-# maximum number of concurrent connection for the entire service.
-# metainfo.delete-pieces-service.max-concurrent-connection: 100
-
-# how long to wait for a node to complete a delete request.
-# metainfo.delete-pieces-service.node-operation-timeout: 5m0s
-
 # how long to wait for new observers before starting iteration
 # metainfo.loop.coalesce-duration: 5s
 
@@ -254,13 +284,34 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.max-commit-interval: 48h0m0s
 
 # maximum inline segment size
-# metainfo.max-inline-segment-size: 8.0 KB
+# metainfo.max-inline-segment-size: 4.0 KiB
+
+# maximum segment size
+# metainfo.max-segment-size: 64.0 MiB
 
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
+
+# timeout for dialing nodes (0 means satellite default)
+# metainfo.piece-deletion.dial-timeout: 0s
+
+# threshold for retrying a failed node
+# metainfo.piece-deletion.fail-threshold: 5m0s
+
+# maximum number of concurrent requests to storage nodes
+# metainfo.piece-deletion.max-concurrency: 100
+
+# maximum number of pieces per batch
+# metainfo.piece-deletion.max-pieces-per-batch: 5000
+
+# maximum number pieces per single request
+# metainfo.piece-deletion.max-pieces-per-request: 1000
+
+# timeout for a single delete request
+# metainfo.piece-deletion.request-timeout: 1m0s
 
 # number of projects to cache.
 # metainfo.rate-limiter.cache-capacity: 10000
@@ -279,9 +330,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # maximum buffer memory to be allocated for read buffers
 # metainfo.rs.max-buffer-mem: 4.0 MiB
-
-# maximum segment size
-# metainfo.rs.max-segment-size: 64.0 MiB
 
 # the largest amount of pieces to encode to. n (upper bound for validation).
 # metainfo.rs.max-total-threshold: 130
@@ -304,7 +352,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # validate redundancy scheme configuration
 # metainfo.rs.validate: true
 
-# address to send telemetry to
+# address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
 # application name for telemetry identification
@@ -376,8 +424,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the minimum node software version for node selection queries
 # overlay.node.minimum-version: ""
 
-# the percentage of new nodes allowed per request
-# overlay.node.new-node-percentage: 0.05
+# the fraction of new nodes allowed per request
+# overlay.node.new-node-fraction: 0.05
 
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s
@@ -391,8 +439,32 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
 
+# duration a new coupon is valid in months/billing cycles
+# payments.coupon-duration: 2
+
+# project limit to which increase to after applying the coupon, 0 B means not changing it from the default
+# payments.coupon-project-limit: 0 B
+
+# coupon value in cents
+# payments.coupon-value: 30
+
 # price user should pay for each TB of egress
 # payments.egress-tb-price: "45"
+
+# minimum value of coin payments in cents before coupon is applied
+# payments.min-coin-payment: 5000
+
+# price node receive for storing TB of audit in cents
+# payments.node-audit-bandwidth-price: 1000
+
+# price node receive for storing disk space in cents/TB
+# payments.node-disk-space-price: 150
+
+# price node receive for storing TB of egress in cents
+# payments.node-egress-bandwidth-price: 2000
+
+# price node receive for storing TB of repair in cents
+# payments.node-repair-bandwidth-price: 1000
 
 # price user should pay for each object stored in network per month
 # payments.object-price: "0.0000022"
@@ -405,6 +477,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # amount of time we wait before running next account balance update loop
 # payments.stripe-coin-payments.account-balance-update-interval: 1h30m0s
+
+# toogle autoadvance feature for invoice creation
+# payments.stripe-coin-payments.auto-advance: false
 
 # coinpayments API private key key
 # payments.stripe-coin-payments.coinpayments-private-key: ""
@@ -429,6 +504,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
 
+# whether to download pieces for repair in memory (true) or download to disk (false)
+# repairer.in-memory-repair: false
+
 # how frequently repairer should try and repair more data
 # repairer.interval: 5m0s
 
@@ -444,8 +522,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # time limit for uploading repaired pieces to new storage nodes
 # repairer.timeout: 5m0s
 
+# time limit for an entire repair job, from queue pop to upload completion
+# repairer.total-timeout: 45m0s
+
 # how often to flush the reported serial rollups to the database
-# reported-rollup.interval: 24h0m0s
+# reported-rollup.interval: 5m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true
@@ -454,7 +535,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # rollup.interval: 24h0m0s
 
 # the bandwidth and storage usage limit for the alpha release
-# rollup.max-alpha-usage: 0 B
+# rollup.max-alpha-usage: 5.0 GB
 
 # public address to listen on
 server.address: :7777
@@ -485,6 +566,24 @@ server.private-address: 127.0.0.1:7778
 
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
+
+# address for jaeger agent
+# tracing.agent-addr: ""
+
+# application name for tracing identification
+# tracing.app: satellite
+
+# application suffix
+# tracing.app-suffix: -release
+
+# buffer size for collector batch packet size
+# tracing.buffer-size: 0
+
+# buffer size for collector queue size
+# tracing.queue-size: 0
+
+# how frequently to send up telemetry
+# tracing.sample: 0
 
 # Interval to check the version
 # version.check-interval: 15m0s

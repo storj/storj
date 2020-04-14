@@ -7,8 +7,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/golang/protobuf/proto"
-
 	"storj.io/common/pb"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -21,7 +19,7 @@ type irreparableDB struct {
 func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *pb.IrreparableSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		bytes, err := proto.Marshal(segmentInfo.SegmentDetail)
+		bytes, err := pb.Marshal(segmentInfo.SegmentDetail)
 		if err != nil {
 			return err
 		}
@@ -62,14 +60,14 @@ func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *pb.
 	defer mon.Task()(&ctx)(&err)
 	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
 	if err != nil {
-		return &pb.IrreparableSegment{}, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	p := &pb.Pointer{}
 
-	err = proto.Unmarshal(dbxInfo.Segmentdetail, p)
+	err = pb.Unmarshal(dbxInfo.Segmentdetail, p)
 	if err != nil {
-		return &pb.IrreparableSegment{}, err
+		return nil, Error.Wrap(err)
 	}
 
 	return &pb.IrreparableSegment{
@@ -98,7 +96,7 @@ func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegm
 
 	for _, row := range rows {
 		p := &pb.Pointer{}
-		err = proto.Unmarshal(row.Segmentdetail, p)
+		err = pb.Unmarshal(row.Segmentdetail, p)
 		if err != nil {
 			return nil, err
 		}

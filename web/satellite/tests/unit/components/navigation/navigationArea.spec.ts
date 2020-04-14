@@ -23,10 +23,9 @@ localVue.use(Vuex);
 const store = new Vuex.Store({ modules: { projectsModule } });
 
 const expectedLinks: NavigationLink[] = [
-    RouteConfig.ProjectOverview,
+    RouteConfig.ProjectDashboard,
     RouteConfig.Team,
     RouteConfig.ApiKeys,
-    RouteConfig.Buckets,
 ];
 
 describe('NavigationArea', () => {
@@ -41,8 +40,8 @@ describe('NavigationArea', () => {
         const resourcesButton = wrapper.findAll('.navigation-area__resources-title__button');
         const accountButton = wrapper.findAll('.navigation-area__account-title__button');
 
-        expect(navigationElements.length).toBe(8);
-        expect(disabledElements.length).toBe(4);
+        expect(navigationElements.length).toBe(7);
+        expect(disabledElements.length).toBe(3);
         expect(resourcesButton.length).toBe(0);
         expect(accountButton.length).toBe(0);
 
@@ -63,7 +62,7 @@ describe('NavigationArea', () => {
         const resourcesButton = wrapper.findAll('.navigation-area__resources-title__button');
         const accountButton = wrapper.findAll('.navigation-area__account-title__button');
 
-        expect(navigationElements.length).toBe(8);
+        expect(navigationElements.length).toBe(7);
         expect(disabledElements.length).toBe(0);
         expect(resourcesButton.length).toBe(0);
         expect(accountButton.length).toBe(0);
@@ -105,12 +104,12 @@ describe('NavigationArea', () => {
         expect(wrapper.find('.navigation-area__resources-title__button').text()).toMatch('Show');
         expect(wrapper.find('.navigation-area__account-title__button').text()).toMatch('Show');
 
-        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(4);
+        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(3);
 
         await wrapper.find('.navigation-area__resources-title__button').trigger('click');
         await wrapper.find('.navigation-area__account-title__button').trigger('click');
 
-        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(8);
+        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(7);
 
         await wrapper.find('.navigation-area__resources-title').trigger('mouseleave');
         await wrapper.find('.navigation-area__account-title').trigger('mouseleave');
@@ -118,6 +117,6 @@ describe('NavigationArea', () => {
         expect(wrapper.findAll('.navigation-area__resources-title__button').length).toBe(0);
         expect(wrapper.findAll('.navigation-area__account-title__button').length).toBe(0);
 
-        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(8);
+        expect(wrapper.findAll('.navigation-area__item-container').length).toBe(7);
     });
 });

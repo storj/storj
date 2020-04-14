@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -22,7 +23,8 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 
 	var lastStreamID storj.StreamID
 	var lastSegmentID storj.SegmentID
-	for _, request := range req.Requests {
+	var prevSegmentReq *pb.BatchRequestItem
+	for i, request := range req.Requests {
 		switch singleRequest := request.Request.(type) {
 		// BUCKET
 		case *pb.BatchRequestItem_BucketCreate:
@@ -92,7 +94,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectBegin: response,
 				},
 			})
-			lastStreamID = response.StreamId
+			if response != nil {
+				lastStreamID = response.StreamId
+			}
 		case *pb.BatchRequestItem_ObjectCommit:
 			singleRequest.ObjectCommit.Header = req.Header
 
@@ -100,7 +104,38 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				singleRequest.ObjectCommit.StreamId = lastStreamID
 			}
 
-			response, err := endpoint.CommitObject(ctx, singleRequest.ObjectCommit)
+			var response *pb.ObjectCommitResponse
+			var err error
+			switch {
+			case prevSegmentReq.GetSegmentMakeInline() != nil:
+				pointer, segmentResp, segmentErr := endpoint.makeInlineSegment(ctx, prevSegmentReq.GetSegmentMakeInline(), false)
+				prevSegmentReq = nil
+				if segmentErr != nil {
+					return resp, segmentErr
+				}
+
+				resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+					Response: &pb.BatchResponseItem_SegmentMakeInline{
+						SegmentMakeInline: segmentResp,
+					},
+				})
+				response, err = endpoint.commitObject(ctx, singleRequest.ObjectCommit, pointer)
+			case prevSegmentReq.GetSegmentCommit() != nil:
+				pointer, segmentResp, segmentErr := endpoint.commitSegment(ctx, prevSegmentReq.GetSegmentCommit(), false)
+				prevSegmentReq = nil
+				if segmentErr != nil {
+					return resp, segmentErr
+				}
+
+				resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+					Response: &pb.BatchResponseItem_SegmentCommit{
+						SegmentCommit: segmentResp,
+					},
+				})
+				response, err = endpoint.commitObject(ctx, singleRequest.ObjectCommit, pointer)
+			default:
+				response, err = endpoint.CommitObject(ctx, singleRequest.ObjectCommit)
+			}
 			if err != nil {
 				return resp, err
 			}
@@ -120,7 +155,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectGet: response,
 				},
 			})
-			lastStreamID = response.Object.StreamId
+			if response != nil && response.Object != nil {
+				lastStreamID = response.Object.StreamId
+			}
 		case *pb.BatchRequestItem_ObjectList:
 			singleRequest.ObjectList.Header = req.Header
 			response, err := endpoint.ListObjects(ctx, singleRequest.ObjectList)
@@ -143,7 +180,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectBeginDelete: response,
 				},
 			})
-			lastStreamID = response.StreamId
+			if response != nil {
+				lastStreamID = response.StreamId
+			}
 		case *pb.BatchRequestItem_ObjectFinishDelete:
 			singleRequest.ObjectFinishDelete.Header = req.Header
 
@@ -177,12 +216,22 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentBegin: response,
 				},
 			})
-			lastSegmentID = response.SegmentId
+			if response != nil {
+				lastSegmentID = response.SegmentId
+			}
 		case *pb.BatchRequestItem_SegmentCommit:
 			singleRequest.SegmentCommit.Header = req.Header
 
 			if singleRequest.SegmentCommit.SegmentId.IsZero() && !lastSegmentID.IsZero() {
 				singleRequest.SegmentCommit.SegmentId = lastSegmentID
+			}
+
+			segmentID, err := endpoint.unmarshalSatSegmentID(ctx, singleRequest.SegmentCommit.SegmentId)
+			if err != nil {
+				endpoint.log.Error("unable to unmarshal segment id", zap.Error(err))
+			} else if endpoint.shouldCombine(segmentID.Index, i, req.Requests) {
+				prevSegmentReq = request
+				continue
 			}
 
 			response, err := endpoint.CommitSegment(ctx, singleRequest.SegmentCommit)
@@ -217,6 +266,11 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				singleRequest.SegmentMakeInline.StreamId = lastStreamID
 			}
 
+			if endpoint.shouldCombine(singleRequest.SegmentMakeInline.Position.Index, i, req.Requests) {
+				prevSegmentReq = request
+				continue
+			}
+
 			response, err := endpoint.MakeInlineSegment(ctx, singleRequest.SegmentMakeInline)
 			if err != nil {
 				return resp, err
@@ -242,7 +296,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentDownload: response,
 				},
 			})
-			lastSegmentID = response.SegmentId
+			if response != nil {
+				lastSegmentID = response.SegmentId
+			}
 		case *pb.BatchRequestItem_SegmentBeginDelete:
 			singleRequest.SegmentBeginDelete.Header = req.Header
 
@@ -259,7 +315,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentBeginDelete: response,
 				},
 			})
-			lastSegmentID = response.SegmentId
+			if response != nil {
+				lastSegmentID = response.SegmentId
+			}
 		case *pb.BatchRequestItem_SegmentFinishDelete:
 			singleRequest.SegmentFinishDelete.Header = req.Header
 
@@ -282,4 +340,26 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 	}
 
 	return resp, nil
+}
+
+// shouldCombine returns true if we are able to combine current request with next one. Main case is
+// combining CommitSegment/MakeInlineSegment with ObjectCommmit.
+//
+// This method has a workaround for a bug in uplink where ObjectCommit was batched with
+// segment N-2 instead of N-1 if list segment was inline segment. We are checking that
+// current request segment index is last one before 'l' segment and we are not combining otherwise.
+func (endpoint *Endpoint) shouldCombine(segmentIndex int32, reqIndex int, requests []*pb.BatchRequestItem) bool {
+	if reqIndex < len(requests)-1 && requests[reqIndex+1].GetObjectCommit() != nil {
+		objCommitReq := requests[reqIndex+1].GetObjectCommit()
+
+		streamMeta := pb.StreamMeta{}
+		err := pb.Unmarshal(objCommitReq.EncryptedMetadata, &streamMeta)
+		if err != nil {
+			endpoint.log.Error("unable to unmarshal stream meta", zap.Error(err))
+			return false
+		}
+
+		return int64(segmentIndex) != streamMeta.NumberOfSegments-2
+	}
+	return false
 }

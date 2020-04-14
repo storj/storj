@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,6 +60,13 @@ func TestSetGetMeta(t *testing.T) {
 
 		// Upload file with metadata.
 		metadata := testrand.Metadata()
+
+		// TODO fix this in storj/common
+		for k, v := range metadata {
+			if strings.IndexByte(k, 0) >= 0 || strings.IndexByte(v, 0) >= 0 {
+				delete(metadata, k)
+			}
+		}
 
 		metadataBs, err := json.Marshal(metadata)
 		require.NoError(t, err)

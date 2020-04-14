@@ -10,8 +10,10 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
@@ -143,10 +145,13 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	}
 }
 
+// flattenMigration joins the migration sql queries from each migration step
+// to speed up the database setup
 func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
 	var db tagsql.DB
 	var version int
 	var statements migrate.SQL
+	var steps = []*migrate.Step{}
 
 	for _, step := range m.Steps {
 		if db == nil {
@@ -156,24 +161,42 @@ func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
 		}
 
 		version = step.Version
-		sql, ok := step.Action.(migrate.SQL)
-		if !ok {
+
+		switch action := step.Action.(type) {
+		case migrate.SQL:
+			statements = append(statements, action...)
+		case migrate.Func:
+			// if a migrate.Func is encountered then create a step with all
+			// the sql in the previous migration versions
+			if len(statements) > 0 {
+				newSQLStep := migrate.Step{
+					DB:          db,
+					Description: "Setup",
+					Version:     version - 1,
+					Action:      migrate.SQL{strings.Join(statements, ";\n")},
+				}
+				steps = append(steps, &newSQLStep)
+				statements = migrate.SQL{}
+			}
+			// then add the migrate.Func step
+			steps = append(steps, step)
+		default:
 			return nil, errs.New("unexpected action type %T", step.Action)
 		}
-
-		statements = append(statements, sql...)
 	}
 
+	if len(statements) > 0 {
+		newSQLStep := migrate.Step{
+			DB:          db,
+			Description: "Setup",
+			Version:     version,
+			Action:      migrate.SQL{strings.Join(statements, ";\n")},
+		}
+		steps = append(steps, &newSQLStep)
+	}
 	return &migrate.Migration{
 		Table: "versions",
-		Steps: []*migrate.Step{
-			{
-				DB:          db,
-				Description: "Setup",
-				Version:     version,
-				Action:      migrate.SQL{strings.Join(statements, ";\n")},
-			},
-		},
+		Steps: steps,
 	}, nil
 }
 
@@ -757,6 +780,258 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Create consumed serials tables",
+				Version:     82,
+				Action: migrate.SQL{
+					`CREATE TABLE consumed_serials (
+						storage_node_id bytea NOT NULL,
+						serial_number bytea NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( storage_node_id, serial_number )
+					);`,
+					`CREATE TABLE pending_serial_queue (
+						storage_node_id bytea NOT NULL,
+						bucket_id bytea NOT NULL,
+						serial_number bytea NOT NULL,
+						action integer NOT NULL,
+						settled bigint NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
+					);`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Clear repair queue and add healthy pieces count to repair queue",
+				Version:     83,
+				Action: migrate.SQL{
+					`TRUNCATE injuredsegments;`,
+					`ALTER TABLE injuredsegments ADD COLUMN num_healthy_pieces integer DEFAULT 52 NOT NULL;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Create storagenode payment and paystub tables",
+				Version:     84,
+				Action: migrate.SQL{
+					`CREATE TABLE storagenode_payments (
+						id bigserial NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						node_id bytea NOT NULL,
+						period text,
+						amount bigint NOT NULL,
+						receipt text,
+						notes text,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );`,
+					`CREATE TABLE storagenode_paystubs (
+						period text NOT NULL,
+						node_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						codes text NOT NULL,
+						usage_at_rest double precision NOT NULL,
+						usage_get bigint NOT NULL,
+						usage_put bigint NOT NULL,
+						usage_get_repair bigint NOT NULL,
+						usage_put_repair bigint NOT NULL,
+						usage_get_audit bigint NOT NULL,
+						comp_at_rest bigint NOT NULL,
+						comp_get bigint NOT NULL,
+						comp_put bigint NOT NULL,
+						comp_get_repair bigint NOT NULL,
+						comp_put_repair bigint NOT NULL,
+						comp_get_audit bigint NOT NULL,
+						surge_percent bigint NOT NULL,
+						held bigint NOT NULL,
+						owed bigint NOT NULL,
+						disposed bigint NOT NULL,
+						paid bigint NOT NULL,
+						PRIMARY KEY ( period, node_id )
+					);`,
+					`CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );`,
+					`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Add unknown audit reputation and suspended flag to nodes table",
+				Version:     85,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1;`,
+					`ALTER TABLE nodes ADD COLUMN unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0;`,
+					`ALTER TABLE nodes ADD COLUMN suspended timestamp with time zone;`,
+				},
+			},
+			{
+				DB: db.DB, Description: "Use time zones for bucket_bandwidth_rollups", Version: 86, Action: migrate.SQL{
+					`ALTER TABLE bucket_bandwidth_rollups ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
+				},
+			},
+			{
+				DB: db.DB, Description: "Use time zones for bucket_storage_tallies", Version: 87, Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
+				},
+			},
+			{
+				DB: db.DB, Description: "Use time zones for graceful_exit_progress", Version: 88, Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_progress ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE USING updated_at AT TIME ZONE 'UTC';`,
+				},
+			},
+			{
+				DB: db.DB, Description: "Use time zones for graceful_exit_transfer_queue", Version: 89, Action: migrate.SQL{
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN queued_at TYPE TIMESTAMP WITH TIME ZONE USING queued_at AT TIME ZONE 'UTC';`,
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN requested_at TYPE TIMESTAMP WITH TIME ZONE USING requested_at AT TIME ZONE 'UTC';`,
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN last_failed_at TYPE TIMESTAMP WITH TIME ZONE USING last_failed_at AT TIME ZONE 'UTC';`,
+					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN finished_at TYPE TIMESTAMP WITH TIME ZONE USING finished_at AT TIME ZONE 'UTC';`,
+				},
+			},
+			{
+				DB: db.DB, Description: "Use time zones for injuredsegments", Version: 90, Action: migrate.SQL{
+					`ALTER TABLE injuredsegments ALTER COLUMN attempted TYPE TIMESTAMP WITH TIME ZONE USING attempted AT TIME ZONE 'UTC';`,
+				},
+			},
+			{
+				DB: db.DB, Description: "Use time zones for nodes", Version: 91, Action: migrate.SQL{
+					`ALTER TABLE nodes ALTER COLUMN exit_initiated_at TYPE TIMESTAMP WITH TIME ZONE USING exit_initiated_at AT TIME ZONE 'UTC';`,
+					`ALTER TABLE nodes ALTER COLUMN exit_loop_completed_at TYPE TIMESTAMP WITH TIME ZONE USING exit_loop_completed_at AT TIME ZONE 'UTC';`,
+					`ALTER TABLE nodes ALTER COLUMN exit_finished_at TYPE TIMESTAMP WITH TIME ZONE USING exit_finished_at AT TIME ZONE 'UTC';`,
+				},
+			},
+			{
+				DB: db.DB, Description: "Use time zones for serial_numbers", Version: 92, Action: migrate.SQL{
+					`ALTER TABLE serial_numbers ALTER COLUMN expires_at TYPE TIMESTAMP WITH TIME ZONE USING expires_at AT TIME ZONE 'UTC';`,
+				},
+			},
+			{
+				DB: db.DB, Description: "Use time zones for storagenode_bandwidth_rollups", Version: 93, Action: migrate.SQL{
+					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
+				},
+			},
+			{
+				DB: db.DB, Description: "Use time zones for value_attributions", Version: 94, Action: migrate.SQL{
+					`ALTER TABLE value_attributions ALTER COLUMN last_updated TYPE TIMESTAMP WITH TIME ZONE USING last_updated AT TIME ZONE 'UTC';`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Add index to num_healthy_pieces column in injuredsegments table",
+				Version:     95,
+				Action: migrate.SQL{
+					`TRUNCATE injuredsegments;`,
+					`CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );`,
+				},
+			},
+			{
+				DB: db.DB, Description: "Add column last_ip_port to nodes table", Version: 96, Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN last_ip_port text`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Add missing consumed_serials_expires_at_index index",
+				Version:     97,
+				Action: migrate.SQL{
+					`CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Add vetted_at timestamp column to nodes table",
+				Version:     98,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN vetted_at timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Backfill vetted_at with time.now for nodes that have been vetted already (aka nodes that have been audited 100 times)",
+				Version:     99,
+				Action: migrate.SQL{
+					`UPDATE nodes SET vetted_at = date_trunc('day', now() at time zone 'utc') at time zone 'utc' WHERE total_audit_count >= 100;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Remove unused id field and thus change primary key for storagenode_storage_tallies table",
+				Version:     100,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+
+					// we need to handle the migration for cockroach differently than for postgres since cockroachdb 1. only
+					// allows primary key creation at table creation time and 2. table drop or rename is performed async and
+					// cannot be done in a transaction (ref: https://github.com/cockroachdb/cockroach/issues/12123).
+					// this migration step is not safe to run at the same time as any satellite core process that has data in the
+					// storagenode_storage_tallies table, but since we aren't using cockroachdb-backed satellite in prod yet this
+					// isn't a concern, meaning when this runs against cockroach there won't be any data in the table
+					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+						_, err := db.Exec(ctx,
+							`ALTER TABLE storagenode_storage_tallies RENAME TO storagenode_storage_tallies_original;`,
+						)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+
+						_, err = db.Exec(ctx,
+							`CREATE TABLE storagenode_storage_tallies (
+								node_id bytea NOT NULL,
+								interval_end_time timestamp with time zone NOT NULL,
+								data_total double precision NOT NULL,
+								CONSTRAINT storagenode_storage_tallies_pkey PRIMARY KEY ( interval_end_time, node_id )
+							);
+							CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
+							INSERT INTO storagenode_storage_tallies (node_id, interval_end_time, data_total)
+								SELECT node_id, interval_end_time, data_total
+								FROM storagenode_storage_tallies_original;
+							DROP TABLE storagenode_storage_tallies_original;`,
+						)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+						return nil
+					}
+
+					// We were not using the serial64 id field on storagenode_storage_tallies table so we are removing it
+					// to save space and performance, this means we also have to drop the existing primary key that is depenedent on the id.
+					// When we create a new primary key make sure to name it so that if we rename the table in the future the primary key name won't change.
+					_, err := tx.Exec(ctx,
+						`ALTER TABLE storagenode_storage_tallies DROP CONSTRAINT accounting_raws_pkey;
+						ALTER TABLE storagenode_storage_tallies ADD CONSTRAINT storagenode_storage_tallies_pkey PRIMARY KEY ( interval_end_time, node_id );
+						ALTER TABLE storagenode_storage_tallies DROP COLUMN id;
+						CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
+						`,
+					)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					return nil
+				}),
+			},
+			{
+				DB:          db.DB,
+				Description: "Add missing bucket_bandwidth_rollups_project_id_action_interval_index index",
+				Version:     101,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Remove free_bandwidth column from nodes table",
+				Version:     102,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN free_bandwidth;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Set NOT NULL on storagenode_payments period.",
+				Version:     103,
+				Action: migrate.SQL{
+					`ALTER TABLE storagenode_payments ALTER COLUMN period SET NOT NULL;`,
 				},
 			},
 		},

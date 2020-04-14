@@ -18,11 +18,8 @@ import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
 
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
+import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { NotificationsCursor } from '@/app/types/notifications';
-
-const {
-    SELECT_SATELLITE,
-} = NODE_ACTIONS;
 
 @Component ({
     components: {
@@ -31,10 +28,12 @@ const {
     },
 })
 export default class Dashboard extends Vue {
-    public mounted() {
+    public async mounted(): Promise<void> {
         try {
-            this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
-            this.$store.dispatch(SELECT_SATELLITE, null);
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {
             console.error(error);
         }
@@ -44,8 +43,8 @@ export default class Dashboard extends Vue {
 
 <style scoped lang="scss">
     .content-overflow {
-        width: 100%;
-        height: calc(100vh - 89px - 89px);
+        padding: 0 36px;
+        width: calc(100% - 72px);
         overflow-y: scroll;
         overflow-x: hidden;
         display: flex;
@@ -55,5 +54,20 @@ export default class Dashboard extends Vue {
     .content {
         width: 822px;
         padding-top: 44px;
+    }
+
+    @media screen and (max-width: 1000px) {
+
+        .content {
+            width: 100%;
+        }
+    }
+
+    @media screen and (max-width: 600px) {
+
+        .content-overflow {
+            padding: 0 15px;
+            width: calc(100% - 30px);
+        }
     }
 </style>

@@ -32,7 +32,7 @@ func TestDeleteExpiredSerials(t *testing.T) {
 			freshSerials = append(freshSerials, storj.SerialNumber{byte(i)})
 		}
 
-		yesterday := time.Now().UTC().Add(-24 * time.Hour)
+		yesterday := time.Now().Add(-24 * time.Hour)
 		for _, serial := range expiredSerials {
 			err := satellite.DB.Orders().CreateSerialInfo(ctx, serial, []byte("bucket"), yesterday)
 			require.NoError(t, err)

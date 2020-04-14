@@ -11,12 +11,16 @@
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader/>
                 <div class="dashboard-container__main-area">
-                    <div class="dashboard-container__main-area__banner-area">
-                        <VBanner
-                            v-if="isBannerShown"
-                            text="We’ve Now Added Billing!"
-                            additional-text="Your attention is required. Add a credit card to set up your account."
-                            :path="billingPath"
+                    <div class="dashboard-container__main-area__bar-area">
+                        <VInfoBar
+                            v-if="isInfoBarShown"
+                            :first-value="storageRemaining"
+                            :second-value="bandwidthRemaining"
+                            first-description="of Storage Remaining"
+                            second-description="of Bandwidth Remaining"
+                            :path="projectDashboardPath"
+                            link="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                            link-label="Request Limit Increase ->"
                         />
                     </div>
                     <div class="dashboard-container__main-area__content">
@@ -31,7 +35,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VBanner from '@/components/common/VBanner.vue';
+import VInfoBar from '@/components/common/VInfoBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
@@ -40,33 +44,39 @@ import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { USER_ACTIONS } from '@/store/modules/users';
+import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
+import { Size } from '@/utils/bytesSize';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+import { ProjectOwning } from '@/utils/projectOwning';
 
 const {
     SETUP_ACCOUNT,
     GET_BALANCE,
     GET_CREDIT_CARDS,
     GET_BILLING_HISTORY,
-    GET_PROJECT_CHARGES,
+    GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
+    GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
 } = PAYMENTS_ACTIONS;
 
 @Component({
     components: {
         NavigationArea,
         DashboardHeader,
-        VBanner,
+        VInfoBar,
     },
 })
 export default class DashboardArea extends Vue {
-    private readonly billingPath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
+    /**
+     * Holds router link to project dashboard page.
+     */
+    public readonly projectDashboardPath: string = RouteConfig.ProjectDashboard.path;
 
     /**
      * Lifecycle hook after initial render.
@@ -87,12 +97,16 @@ export default class DashboardArea extends Vue {
             return;
         }
 
+        let balance: number = 0;
+        let creditCards: CreditCard[] = [];
+
         try {
             await this.$store.dispatch(SETUP_ACCOUNT);
-            await this.$store.dispatch(GET_BALANCE);
-            await this.$store.dispatch(GET_CREDIT_CARDS);
+            balance = await this.$store.dispatch(GET_BALANCE);
+            creditCards = await this.$store.dispatch(GET_CREDIT_CARDS);
             await this.$store.dispatch(GET_BILLING_HISTORY);
-            await this.$store.dispatch(GET_PROJECT_CHARGES);
+            await this.$store.dispatch(GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
+            await this.$store.dispatch(GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -107,13 +121,25 @@ export default class DashboardArea extends Vue {
             return;
         }
 
+        if (!projects.length && !creditCards.length && balance === 0) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+
+            try {
+                await this.$router.push(RouteConfig.Overview.path);
+            } catch (error) {
+                return;
+            }
+
+            return;
+        }
+
         if (!projects.length) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
             if (!this.isRouteAccessibleWithoutProject()) {
                 try {
-                    await this.$router.push(RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path);
-                } catch (err) {
+                    await this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
+                } catch (error) {
                     return;
                 }
             }
@@ -143,12 +169,6 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
         } catch (error) {
             await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
@@ -158,10 +178,46 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Indicates if bonus banner should be rendered.
+     * Indicates if info bar is shown.
      */
-    public get isBannerShown(): boolean {
-        return this.$store.state.paymentsModule.creditCards.length === 0;
+    public get isInfoBarShown(): boolean {
+        const isBillingPage = this.$route.name === RouteConfig.Billing.name;
+
+        return isBillingPage && new ProjectOwning(this.$store).userHasOwnProject();
+    }
+
+    /**
+     * Returns formatted string of remaining storage.
+     */
+    public get storageRemaining(): string {
+        const storageUsed = this.$store.state.projectsModule.currentLimits.storageUsed;
+        const storageLimit = this.$store.state.projectsModule.currentLimits.storageLimit;
+
+        const difference = storageLimit - storageUsed;
+        if (difference < 0) {
+            return '0 Bytes';
+        }
+
+        const remaining = new Size(difference, 2);
+
+        return `${remaining.formattedBytes}${remaining.label}`;
+    }
+
+    /**
+     * Returns formatted string of remaining bandwidth.
+     */
+    public get bandwidthRemaining(): string {
+        const bandwidthUsed = this.$store.state.projectsModule.currentLimits.bandwidthUsed;
+        const bandwidthLimit = this.$store.state.projectsModule.currentLimits.bandwidthLimit;
+
+        const difference = bandwidthLimit - bandwidthUsed;
+        if (difference < 0) {
+            return '0 Bytes';
+        }
+
+        const remaining = new Size(difference, 2);
+
+        return `${remaining.formattedBytes}${remaining.label}`;
     }
 
     /**
@@ -177,8 +233,8 @@ export default class DashboardArea extends Vue {
     private isRouteAccessibleWithoutProject(): boolean {
         const availableRoutes = [
             RouteConfig.Account.with(RouteConfig.Billing).path,
-            RouteConfig.Account.with(RouteConfig.Profile).path,
-            RouteConfig.ProjectOverview.with(RouteConfig.ProjectDetails).path,
+            RouteConfig.Account.with(RouteConfig.Settings).path,
+            RouteConfig.Overview.path,
         ];
 
         return availableRoutes.includes(this.$router.currentRoute.path.toLowerCase());
@@ -215,7 +271,7 @@ export default class DashboardArea extends Vue {
             display: flex;
             flex-direction: column;
 
-            &__banner-area {
+            &__bar-area {
                 flex: 0 1 auto;
             }
 
@@ -225,7 +281,7 @@ export default class DashboardArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 1024px) {
+    @media screen and (max-width: 1280px) {
 
         .regular-navigation {
             display: none;

@@ -20,12 +20,21 @@ populate_sno_versions(){
     seq $number_of_nodes | xargs -n1 -I{} echo $version
 }
 
+# set this var to anything else than `jenkins` to run tests locally
+RUN_TYPE=${RUN_TYPE:-"jenkins"}
+
 # set peers' versions
 # in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are split into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
 git fetch --tags
-current_release_version=$(git describe --tags `git rev-list --tags --max-count=1`)
-major_release_tags=$(git tag -l --sort -version:refname | sort -n -k2,2 -t'.' --unique | awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 {print $0}')
+major_release_tags=$(
+    git tag -l --sort -version:refname |                             # get the tag list
+    grep -v rc |                                                     # remove release candidates
+    sort -n -k2,2 -t'.' --unique |                                   # only keep the largest patch version
+    sort -V |                                                        # resort based using "version sort"
+    awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 || $2 >= 1 {print $0}' # keep only >= v0.15.x and v1.0.0
+)
+current_release_version=$(echo $major_release_tags | xargs -n 1 | tail -1)
 stage1_sat_version=$current_release_version
 stage1_uplink_versions=$major_release_tags
 stage1_storagenode_versions=$(populate_sno_versions $current_release_version 10)
@@ -66,18 +75,30 @@ scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # mirroring install-sim from the Makefile since it won't work on private Jenkins
 install_sim(){
-    local bin_dir="$1"
+    local work_dir="$1"
+    local bin_dir="$2"
     mkdir -p ${bin_dir}
 
-    go install -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    cd ${scriptdir}/../../../cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
 
+    go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+
+    if [ -d "${work_dir}/cmd/gateway" ]; then
+        pushd ${work_dir}/cmd/gateway
+            go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+        popd
+    else
+        rm -rf .build/gateway-tmp
+        mkdir -p .build/gateway-tmp
+        pushd .build/gateway-tmp
+            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@v1.0.0-rc.8
+        popd
+    fi
 }
 
 setup_stage(){
@@ -97,6 +118,8 @@ setup_stage(){
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
+
+
 
     counter=0
     for sn_version in ${stage_sn_versions}; do
@@ -160,13 +183,17 @@ for version in ${unique_versions}; do
         rm -f ${dir}/internal/version/release.go
         if [[ $version = $current_release_version || $version = "master" ]]
         then
+            # clear out release information
+            cat > ${dir}/private/version/release.go <<-EOF
+		// Copyright (C) 2020 Storj Labs, Inc.
+		// See LICENSE for copying information.
+		package version
+		EOF
+
             echo "Installing storj-sim for ${version} in ${dir}."
-            pushd ${dir}
-            install_sim ${bin_dir}
+            install_sim ${dir} ${bin_dir}
             echo "finished installing"
-            popd
-            # uncomment for local testing
-            # GOBIN=${bin_dir} make -C ${dir} install-sim >/dev/null 2>&1
+
             echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
             PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
             echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
@@ -176,19 +203,16 @@ for version in ${unique_versions}; do
             shasum ${bin_dir}/uplink
             shasum ${bin_dir}/gateway
         else
-            echo "Installing uplink and gateway for ${version} in ${dir}."
+            echo "Installing uplink for ${version} in ${dir}."
             pushd ${dir}
             mkdir -p ${bin_dir}
-            go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-            cd ${scriptdir}/../../../cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
-            # uncomment for local testing
-            # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink >/dev/null 2>&1
-            # GOBIN=${bin_dir} cd ${scriptdir}/../../../cmd/gateway && go install -race -v storj.io/storj/cmd/gateway >/dev/null 2>&1
+
+            go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+
             popd
             echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
             echo "Binary shasums:"
             shasum ${bin_dir}/uplink
-            shasum ${bin_dir}/gateway
         fi
     ) &
 done
@@ -210,13 +234,14 @@ test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
 setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}"
+update_access_script_path="$(version_dir "master")/scripts/update-access.go"
 
 # Uploading files to the network using the latest release version for each uplink version
 for ul_version in ${stage1_uplink_versions}; do
     echo "Stage 1 Uplink version: ${ul_version}"
     src_ul_version_dir=$(version_dir ${ul_version})
     ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
-    PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network" "upload" "${ul_version}"
+    PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network" "upload" "${ul_version}" "$update_access_script_path"
 done
 # Remove current uplink config to regenerate uplink config for older uplink version
 rm -rf "${test_dir}/local-network/uplink"
@@ -230,9 +255,9 @@ for ul_version in ${stage2_uplink_versions}; do
     echo "Stage 2 Uplink version: ${ul_version}"
     src_ul_version_dir=$(version_dir ${ul_version})
     ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
-    PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network" "download" "${ul_version}" "${stage1_uplink_versions}"
+    PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network" "download" "${ul_version}" "$update_access_script_path" "${stage1_uplink_versions}"
 done
 
 
 echo -e "\nCleaning up."
-PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network" "cleanup" "${stage1_uplink_versions}"
+PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-versions.sh" "${test_dir}/local-network" "cleanup" "${stage1_uplink_versions}" ""

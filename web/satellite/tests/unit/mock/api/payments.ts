@@ -1,14 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
+import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectUsageAndCharges, TokenDeposit } from '@/types/payments';
 
 /**
  * Mock for PaymentsApi
  */
 export class PaymentsMock implements PaymentsApi {
-    private tokenDeposit: TokenDeposit;
-
     setupAccount(): Promise<void> {
         throw new Error('Method not implemented');
     }
@@ -17,7 +15,7 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve(0);
     }
 
-    projectsCharges(): Promise<ProjectCharge[]> {
+    projectsUsageAndCharges(): Promise<ProjectUsageAndCharges[]> {
         return Promise.resolve([]);
     }
 
@@ -42,6 +40,6 @@ export class PaymentsMock implements PaymentsApi {
     }
 
     makeTokenDeposit(amount: number): Promise<TokenDeposit> {
-        return Promise.resolve(this.tokenDeposit);
+        return Promise.resolve(new TokenDeposit(amount, 'testAddress', 'testLink'));
     }
 }

@@ -11,14 +11,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/process"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
@@ -131,7 +130,7 @@ func deleteSegment(ctx context.Context, db metainfo.PointerDB, path string, crea
 	}
 
 	pointer := &pb.Pointer{}
-	err = proto.Unmarshal(pointerBytes, pointer)
+	err = pb.Unmarshal(pointerBytes, pointer)
 	if err != nil {
 		return err
 	}

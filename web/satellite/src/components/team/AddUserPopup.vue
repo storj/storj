@@ -321,10 +321,6 @@ export default class AddUserPopup extends Vue {
 
             &:first-child {
                 cursor: pointer;
-                -webkit-user-select: none;
-                -moz-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
             }
         }
     }
@@ -399,7 +395,6 @@ export default class AddUserPopup extends Vue {
                 margin: 0 0 90px 0;
                 width: 130%;
                 text-align: end;
-                user-select: none;
             }
         }
 
@@ -428,7 +423,7 @@ export default class AddUserPopup extends Vue {
             &__inputs-group {
                 max-height: 35vh;
                 overflow-y: hidden;
-                padding: 0 50px;
+                padding: 3px 50px 0 50px;
 
                 &__item {
                     display: flex;
@@ -476,7 +471,6 @@ export default class AddUserPopup extends Vue {
                 font-size: 16px;
                 line-height: 25px;
                 padding-left: 50px;
-                user-select: none;
             }
 
             &__button-container {

@@ -38,18 +38,19 @@ export class SNOApi {
      * @returns dashboard - new dashboard instance filled with data from json
      */
     public async dashboard(): Promise<Dashboard> {
-        const json = (await (await httpGet('/api/dashboard')).json() as any).data;
+        const json = await (await httpGet('/api/sno')).json();
 
         const satellitesJson = json.satellites || [];
 
         const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => {
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
+            const suspended: Date | null = satellite.suspended ? new Date(satellite.suspended) : null;
 
-            return new SatelliteInfo(satellite.id, satellite.url, disqualified);
+            return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended);
         });
 
         const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available);
-        const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used, json.bandwidth.available);
+        const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used);
 
         return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
             new Date(json.lastPinged), new Date(json.startedAt), json.version, json.allowedVersion, json.upToDate);
@@ -60,9 +61,9 @@ export class SNOApi {
      * @returns satellite - new satellite instance filled with data from json
      */
     public async satellite(id: string): Promise<Satellite> {
-        const url = `/api/satellite/${id}`;
+        const url = `/api/sno/satellite/${id}`;
 
-        const json = (await (await httpGet(url)).json() as any).data;
+        const json = await (await httpGet(url)).json();
 
         const satelliteByDayInfo = new SatelliteByDayInfo(json);
 
@@ -92,7 +93,7 @@ export class SNOApi {
      * @returns satellites - new satellites instance filled with data from json
      */
     public async satellites(): Promise<Satellites> {
-        const json = (await (await httpGet('/api/satellites')).json() as any).data;
+        const json = await (await httpGet('/api/sno/satellites')).json();
 
         const satelliteByDayInfo = new SatelliteByDayInfo(json);
 

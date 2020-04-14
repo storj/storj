@@ -10,7 +10,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -74,7 +73,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	client := pb.NewDRPCSatelliteGracefulExitClient(conn.Raw())
+	client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 
 	c, err := client.Process(ctx)
 	if err != nil {
@@ -134,7 +133,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				zap.Stringer("Satellite ID", worker.satelliteID),
 				zap.Stringer("reason", msg.ExitFailed.Reason))
 
-			exitFailedBytes, err := proto.Marshal(msg.ExitFailed)
+			exitFailedBytes, err := pb.Marshal(msg.ExitFailed)
 			if err != nil {
 				worker.log.Error("failed to marshal exit failed message.")
 			}
@@ -144,7 +143,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		case *pb.SatelliteMessage_ExitCompleted:
 			worker.log.Info("graceful exit completed.", zap.Stringer("Satellite ID", worker.satelliteID))
 
-			exitCompletedBytes, err := proto.Marshal(msg.ExitCompleted)
+			exitCompletedBytes, err := pb.Marshal(msg.ExitCompleted)
 			if err != nil {
 				worker.log.Error("failed to marshal exit completed message.")
 			}

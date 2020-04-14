@@ -23,23 +23,42 @@ random_bytes_file () {
     head -c $size </dev/urandom > $output
 }
 
-random_bytes_file "2048"       "$SRC_DIR/small-upload-testfile"          # create 2kb file of random bytes (inline)
-random_bytes_file "5242880"    "$SRC_DIR/big-upload-testfile"            # create 5mb file of random bytes (remote)
-random_bytes_file "12582912"   "$SRC_DIR/multisegment-upload-testfile"   # create 2 x 6mb file of random bytes (remote)
-random_bytes_file "9437184"    "$SRC_DIR/diff-size-segments"             # create 9mb file of random bytes (remote)
+compare_files () {
+    name=$(basename $2)
+    if cmp "$1" "$2"
+    then
+        echo "$name matches uploaded file"
+    else
+        echo "$name does not match uploaded file"
+        exit 1
+    fi
+}
+
+random_bytes_file "2KiB"    "$SRC_DIR/small-upload-testfile"          # create 2KiB file of random bytes (inline)
+random_bytes_file "5MiB"    "$SRC_DIR/big-upload-testfile"            # create 5MiB file of random bytes (remote)
+# this is special case where we need to test at least one remote segment and inline segment of exact size 0
+random_bytes_file "64MiB"   "$SRC_DIR/multisegment-upload-testfile"   # create 64MiB file of random bytes (1 remote segments + inline)
+random_bytes_file "68MiB"   "$SRC_DIR/diff-size-segments"             # create 68MiB file of random bytes (2 remote segments)
+
+random_bytes_file "100KiB"  "$SRC_DIR/put-file"                       # create 100KiB file of random bytes (remote)
 
 UPLINK_DEBUG_ADDR=""
 
-uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" mb "sj://$BUCKET/"
+export STORJ_ACCESS=$GATEWAY_0_ACCESS
+export STORJ_DEBUG_ADDR=$UPLINK_DEBUG_ADDR
 
-uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/"
-uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/big-upload-testfile" "sj://$BUCKET/"
-uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/"
-uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/diff-size-segments" "sj://$BUCKET/"
+uplink mb "sj://$BUCKET/"
 
-uplink --config-dir "$UPLINK_DIR" import named-access $GATEWAY_0_ACCESS
-FILES=$(uplink --config-dir "$UPLINK_DIR" --access named-access ls "sj://$BUCKET" | wc -l)
-EXPECTED_FILES="4"
+uplink cp "$SRC_DIR/small-upload-testfile"        "sj://$BUCKET/" --progress=false
+uplink cp "$SRC_DIR/big-upload-testfile"          "sj://$BUCKET/" --progress=false
+uplink cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/" --progress=false
+uplink cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/" --progress=false
+
+cat "$SRC_DIR/put-file" | uplink put "sj://$BUCKET/put-file"
+
+uplink --config-dir "$UPLINK_DIR" import named-access $STORJ_ACCESS
+FILES=$(STORJ_ACCESS= uplink --config-dir "$UPLINK_DIR" --access named-access ls "sj://$BUCKET" | tee $TMPDIR/list | wc -l)
+EXPECTED_FILES="5"
 if [ "$FILES" == $EXPECTED_FILES ]
 then
     echo "listing returns $FILES files"
@@ -48,60 +67,36 @@ else
     exit 1
 fi
 
-uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR"
-uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/big-upload-testfile" "$DST_DIR"
-uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR"
-uplink --access "$GATEWAY_0_ACCESS" --progress=false --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/diff-size-segments" "$DST_DIR"
-
-uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/small-upload-testfile"
-uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/big-upload-testfile"
-uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/multisegment-upload-testfile"
-uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/diff-size-segments"
-
-uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" ls "sj://$BUCKET"
-
-uplink --access "$GATEWAY_0_ACCESS" --debug.addr "$UPLINK_DEBUG_ADDR" rb "sj://$BUCKET"
-
-if cmp "$SRC_DIR/small-upload-testfile" "$DST_DIR/small-upload-testfile"
+SIZE_CHECK=$(cat "$TMPDIR/list" | awk '{if($4 == "0") print "invalid size";}')
+if [ "$SIZE_CHECK" != "" ]
 then
-    echo "small upload testfile matches uploaded file"
-else
-    echo "small upload testfile does not match uploaded file"
+    echo "listing returns invalid size for one of the objects:"
+    cat "$TMPDIR/list"
     exit 1
 fi
 
-if cmp "$SRC_DIR/big-upload-testfile" "$DST_DIR/big-upload-testfile"
-then
-    echo "big upload testfile matches uploaded file"
-else
-    echo "big upload testfile does not match uploaded file"
-    exit 1
-fi
+uplink ls "sj://$BUCKET/non-existing-prefix"
 
-if cmp "$SRC_DIR/multisegment-upload-testfile" "$DST_DIR/multisegment-upload-testfile"
-then
-    echo "multisegment upload testfile matches uploaded file"
-else
-    echo "multisegment upload testfile does not match uploaded file"
-    exit 1
-fi
+uplink cp  "sj://$BUCKET/small-upload-testfile"        "$DST_DIR" --progress=false
+uplink cp  "sj://$BUCKET/big-upload-testfile"          "$DST_DIR" --progress=false
+uplink cp  "sj://$BUCKET/multisegment-upload-testfile" "$DST_DIR" --progress=false
+uplink cp  "sj://$BUCKET/diff-size-segments"           "$DST_DIR" --progress=false
+uplink cp  "sj://$BUCKET/put-file"                     "$DST_DIR" --progress=false
+uplink cat "sj://$BUCKET/put-file" >>                  "$DST_DIR/put-file-from-cat"
 
-if cmp "$SRC_DIR/diff-size-segments" "$DST_DIR/diff-size-segments"
-then
-    echo "diff-size-segments testfile matches uploaded file"
-else
-    echo "diff-size-segments testfile does not match uploaded file"
-    exit 1
-fi
+uplink rm "sj://$BUCKET/small-upload-testfile"
+uplink rm "sj://$BUCKET/big-upload-testfile"
+uplink rm "sj://$BUCKET/multisegment-upload-testfile"
+uplink rm "sj://$BUCKET/diff-size-segments"
+uplink rm "sj://$BUCKET/put-file"
 
+uplink ls "sj://$BUCKET"
 
-# check if all data files were removed
-# FILES=$(find "$STORAGENODE_0_DIR/../" -type f -path "*/blob/*" ! -name "info.*")
-# if [ -z "$FILES" ];
-# then
-#     echo "all data files removed from storage nodes"
-# else
-#     echo "not all data files removed from storage nodes:"
-#     echo $FILES
-#     exit 1
-# fi
+uplink rb "sj://$BUCKET"
+
+compare_files "$SRC_DIR/small-upload-testfile"        "$DST_DIR/small-upload-testfile"
+compare_files "$SRC_DIR/big-upload-testfile"          "$DST_DIR/big-upload-testfile"
+compare_files "$SRC_DIR/multisegment-upload-testfile" "$DST_DIR/multisegment-upload-testfile"
+compare_files "$SRC_DIR/diff-size-segments"           "$DST_DIR/diff-size-segments"
+compare_files "$SRC_DIR/put-file"                     "$DST_DIR/put-file"
+compare_files "$SRC_DIR/put-file"                     "$DST_DIR/put-file-from-cat"

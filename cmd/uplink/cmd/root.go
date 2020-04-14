@@ -23,11 +23,11 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/common/storj"
-	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/cfgstruct"
-	"storj.io/storj/pkg/process"
-	"storj.io/storj/private/version"
+	"storj.io/private/cfgstruct"
+	"storj.io/private/process"
 	"storj.io/storj/private/version/checker"
+	"storj.io/uplink"
+	privateAccess "storj.io/uplink/private/access"
 )
 
 const advancedFlagName = "advanced"
@@ -84,90 +84,30 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-// NewUplink returns a pointer to a new Client with a Config and Uplink pointer on it and an error.
-func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, error) {
-
-	// Transform the uplink cli config flags to the libuplink config object
-	libuplinkCfg := &libuplink.Config{}
-	libuplinkCfg.Volatile.Log = zap.L()
-	libuplinkCfg.Volatile.MaxInlineSize = cliCfg.Client.MaxInlineSize
-	libuplinkCfg.Volatile.MaxMemory = cliCfg.RS.MaxBufferMem
-	libuplinkCfg.Volatile.PeerIDVersion = cliCfg.TLS.PeerIDVersions
-	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !cliCfg.TLS.UsePeerCAWhitelist
-	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = cliCfg.TLS.PeerCAWhitelistPath
-	libuplinkCfg.Volatile.DialTimeout = cliCfg.Client.DialTimeout
-	libuplinkCfg.Volatile.PBKDFConcurrency = cliCfg.PBKDFConcurrency
-
-	return libuplink.NewUplink(ctx, libuplinkCfg)
-}
-
-// GetProject returns a *libuplink.Project for interacting with a specific project
-func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (_ *libuplink.Project, err error) {
-	err = checker.CheckProcessVersion(ctx, zap.L(), cliCfg.Version, version.Build, "Uplink")
+func (cliCfg *UplinkFlags) getProject(ctx context.Context, encryptionBypass bool) (_ *uplink.Project, err error) {
+	access, err := cfg.GetNewAccess()
 	if err != nil {
 		return nil, err
 	}
 
-	access, err := cliCfg.GetAccess()
-	if err != nil {
-		return nil, err
-	}
+	uplinkCfg := uplink.Config{}
+	uplinkCfg.DialTimeout = cliCfg.Client.DialTimeout
 
-	uplk, err := cliCfg.NewUplink(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
+	if encryptionBypass {
+		err = privateAccess.EnablePathEncryptionBypass(access)
 		if err != nil {
-			if err := uplk.Close(); err != nil {
-				fmt.Printf("error closing uplink: %+v\n", err)
-			}
+			return nil, Error.Wrap(err)
 		}
-	}()
+	}
+	project, err := uplinkCfg.OpenProject(ctx, access)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return uplk.OpenProject(ctx, access.SatelliteAddr, access.APIKey)
+	return project, nil
 }
 
-// GetProjectAndBucket returns a *libuplink.Bucket for interacting with a specific project's bucket
-func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
-	access, err := cliCfg.GetAccess()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	uplk, err := cliCfg.NewUplink(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer func() {
-		if err != nil {
-			if err := uplk.Close(); err != nil {
-				fmt.Printf("error closing uplink: %+v\n", err)
-			}
-		}
-	}()
-
-	project, err = uplk.OpenProject(ctx, access.SatelliteAddr, access.APIKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer func() {
-		if err != nil {
-			if err := project.Close(); err != nil {
-				fmt.Printf("error closing project: %+v\n", err)
-			}
-		}
-	}()
-
-	bucket, err = project.OpenBucket(ctx, bucketName, access.EncryptionAccess)
-	return project, bucket, err
-}
-
-func closeProjectAndBucket(project *libuplink.Project, bucket *libuplink.Bucket) {
-	if err := bucket.Close(); err != nil {
-		fmt.Printf("error closing bucket: %+v\n", err)
-	}
-
+func closeProject(project *uplink.Project) {
 	if err := project.Close(); err != nil {
 		fmt.Printf("error closing project: %+v\n", err)
 	}

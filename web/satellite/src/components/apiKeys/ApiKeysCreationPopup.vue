@@ -133,7 +133,6 @@ export default class ApiKeysCreationPopup extends Vue {
             font-size: 24px;
             line-height: 29px;
             margin-bottom: 26px;
-            user-select: none;
         }
 
         .next-button {

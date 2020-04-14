@@ -51,7 +51,7 @@ func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbut
 		return DropSchema(ctx, cleanupDB, schemaName)
 	}
 
-	dbutil.Configure(db, mon)
+	dbutil.Configure(db, "tmp_postgres", mon)
 	return &dbutil.TempDatabase{
 		DB:             db,
 		ConnStr:        connStrWithSchema,

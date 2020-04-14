@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
 // ErrNoCustomer is error class defining that there is no customer for user.
