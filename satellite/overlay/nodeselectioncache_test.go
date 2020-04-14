@@ -6,11 +6,13 @@ package overlay_test
 import (
 	"context"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -32,15 +34,15 @@ var nodeCfg = overlay.NodeSelectionConfig{
 
 func TestInit(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-
-		cache := nodeselection.NewCache(ctx, zap.NewNop(),
-			db.NodeSelectionCache(), time.Hour,
+		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+			db.OverlayCache(),
+			time.Nanosecond,
 			nodeCfg,
 		)
 		// the cache should have no nodes to start
 		err := cache.Init(ctx)
 		require.NoError(t, err)
-		reputable, new := cache.Size(ctx)
+		reputable, new := cache.Size()
 		require.Equal(t, 0, reputable)
 		require.Equal(t, 0, new)
 
@@ -51,38 +53,9 @@ func TestInit(t *testing.T) {
 		// confirm nodes are in the cache once initialized
 		err = cache.Init(ctx)
 		require.NoError(t, err)
-		reputable, new = cache.Size(ctx)
-		require.Equal(t, 2, reputable)
-		require.Equal(t, 0, new)
-	})
-}
-
-func TestRefresh(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		cache := nodeselection.NewCache(ctx, zap.NewNop(),
-			db.NodeSelectionCache(), time.Hour,
-			nodeCfg,
-		)
-		// the cache should have no nodes to start
-		err := cache.Init(ctx)
-		require.NoError(t, err)
-		reputable, new := cache.Size(ctx)
+		reputable, new = cache.Size()
+		require.Equal(t, 2, new)
 		require.Equal(t, 0, reputable)
-		require.Equal(t, 0, new)
-
-		// add some nodes to the database
-		const nodeCount = 5
-		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount)
-
-		// set the last refresh as 2 hrs ago and check that refresh hits when we call GetNodes
-		cache.SetLastRefresh(ctx, time.Now().UTC().Add(2*-time.Hour))
-		const nodesCount = 2
-		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: nodesCount})
-		require.NoError(t, err)
-		require.Equal(t, nodesCount, len(nodes))
-		actualReputable, new := cache.Size(ctx)
-		require.Equal(t, 0, new)
-		require.Equal(t, nodeCount, actualReputable)
 	})
 }
 
@@ -113,4 +86,59 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 		err := db.UpdateCheckIn(ctx, n, time.Now().UTC(), nodeCfg)
 		require.NoError(t, err)
 	}
+}
+
+type mockdb struct {
+	mu        sync.Mutex
+	callCount int
+}
+
+func (m *mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.callCount++
+	return []*overlay.SelectedNode{}, []*overlay.SelectedNode{}, nil
+}
+func TestRefreshConcurrent(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	// concurrent refresh with high staleness
+	staleWhenAfter := time.Hour
+	mockDB := mockdb{}
+	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+		&mockDB,
+		staleWhenAfter,
+		nodeCfg,
+	)
+
+	var group errgroup.Group
+	group.Go(func() error {
+		return cache.Init(ctx)
+	})
+	group.Go(func() error {
+		return cache.Init(ctx)
+	})
+	err := group.Wait()
+	require.NoError(t, err)
+
+	require.Equal(t, 1, mockDB.callCount)
+
+	// concurrent refresh with low staleness
+	staleWhenAfter = time.Nanosecond
+	mockDB = mockdb{}
+	cache = overlay.NewNodeSelectionCache(zap.NewNop(),
+		&mockDB,
+		staleWhenAfter,
+		nodeCfg,
+	)
+	group.Go(func() error {
+		return cache.Init(ctx)
+	})
+	group.Go(func() error {
+		return cache.Init(ctx)
+	})
+	err = group.Wait()
+	require.NoError(t, err)
+
+	require.Equal(t, 2, mockDB.callCount)
 }

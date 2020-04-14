@@ -77,9 +77,10 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 	var newNodes []*overlay.SelectedNode
 	for rows.Next() {
 		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
-		var reputable bool
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &reputable)
+		var isnew bool
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &isnew)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -87,11 +88,11 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 			node.LastIPPort = lastIPPort.String
 		}
 
-		if reputable {
-			reputableNodes = append(reputableNodes, &node)
+		if isnew {
+			newNodes = append(newNodes, &node)
 			continue
 		}
-		newNodes = append(newNodes, &node)
+		reputableNodes = append(reputableNodes, &node)
 	}
 
 	return reputableNodes, newNodes, nil

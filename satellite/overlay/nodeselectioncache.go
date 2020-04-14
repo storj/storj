@@ -12,6 +12,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// CacheDB implements the database for overlay node selection cache
+//
+// architecture: Database
+type CacheDB interface {
+	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
+	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*SelectedNode, err error)
+}
+
 // CacheConfig is a configuration for overlay node selection cache.
 type CacheConfig struct {
 	Staleness time.Duration `help:"how stale the node selection cache can be" releaseDefault:"3m" devDefault:"5m"`
@@ -22,7 +30,7 @@ type CacheConfig struct {
 // The cache will get refreshed once the staleness time has past.
 type NodeSelectionCache struct {
 	log             *zap.Logger
-	db              DB
+	db              CacheDB
 	selectionConfig NodeSelectionConfig
 	staleness       time.Duration
 
@@ -39,7 +47,7 @@ type state struct {
 }
 
 // NewNodeSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data
-func NewNodeSelectionCache(log *zap.Logger, db DB, staleness time.Duration, config NodeSelectionConfig) *NodeSelectionCache {
+func NewNodeSelectionCache(log *zap.Logger, db CacheDB, staleness time.Duration, config NodeSelectionConfig) *NodeSelectionCache {
 	return &NodeSelectionCache{
 		log:             log,
 		db:              db,
@@ -52,6 +60,8 @@ func NewNodeSelectionCache(log *zap.Logger, db DB, staleness time.Duration, conf
 // that qualify to upload data from the nodes table in the overlay database
 func (cache *NodeSelectionCache) Init(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
 	_, err = cache.refresh(ctx)
 	return err
 }
@@ -62,10 +72,7 @@ func (cache *NodeSelectionCache) Init(ctx context.Context) (err error) {
 func (cache *NodeSelectionCache) refresh(ctx context.Context) (cachData *state, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	if time.Since(cache.data.lastRefresh) <= cache.staleness {
+	if cache.data != nil && time.Since(cache.data.lastRefresh) <= cache.staleness {
 		return cache.data, nil
 	}
 
@@ -165,8 +172,8 @@ func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesReques
 	}
 
 	if len(selectedNodeResults) < totalcount {
-		return nil, Error.New("unable to select enough nodes from node selection cache",
-			zap.Int("needed", totalcount), zap.Int("actual", len(selectedNodeResults)),
+		return nil, Error.New("unable to select enough nodes from node selection cache, needed: %d, actual: %d",
+			totalcount, len(selectedNodeResults),
 		)
 	}
 	return selectedNodeResults, nil
