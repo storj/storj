@@ -49,7 +49,7 @@ export default class HeldProgress extends Vue {
     public get monthsOnNetwork(): number {
         const now = new Date();
         const secondsInMonthApproximately = 2628000;
-        const differenceInSeconds = (now.getTime() - this.$store.state.node.info.startedAt.getTime()) / 1000;
+        const differenceInSeconds = (now.getTime() - this.$store.state.node.selectedSatellite.joinDate.getTime()) / 1000;
 
         return Math.ceil(differenceInSeconds / secondsInMonthApproximately);
     }

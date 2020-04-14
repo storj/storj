@@ -49,7 +49,7 @@ export default class EstimationPeriodDropdown extends Vue {
         const start: PayoutPeriod = this.$store.state.payoutModule.periodRange.start;
         const end: PayoutPeriod = this.$store.state.payoutModule.periodRange.end;
 
-        return start ?
+        return start && start.period !== end.period ?
             `${monthNames[start.month]}, ${start.year} - ${monthNames[end.month]}, ${end.year}`
             : `${monthNames[end.month]}, ${end.year}`;
     }

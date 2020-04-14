@@ -31,12 +31,6 @@ const {
 const statusThreshHoldMinutes = 120;
 const snoAPI = new SNOApi();
 
-const allSatellites = {
-    id: null,
-    disqualified: null,
-    suspended: null,
-};
-
 export const node = {
     state: {
         info: {
@@ -62,7 +56,11 @@ export const node = {
         satellites: new Array<SatelliteInfo>(),
         disqualifiedSatellites: new Array<SatelliteInfo>(),
         suspendedSatellites: new Array<SatelliteInfo>(),
-        selectedSatellite: allSatellites,
+        selectedSatellite: {
+            id: null,
+            disqualified: null,
+            joinDate: new Date(),
+        },
         bandwidthChartData: new Array<BandwidthUsed>(),
         egressChartData: new Array<EgressUsed>(),
         ingressChartData: new Array<IngressUsed>(),
@@ -116,12 +114,23 @@ export const node = {
                 satelliteInfo.uptime.totalCount,
             );
 
-            state.selectedSatellite = selectedSatellite;
+            state.selectedSatellite = {
+                id: satelliteInfo.id,
+                disqualified: selectedSatellite.disqualified,
+                joinDate: satelliteInfo.joinDate,
+                url: selectedSatellite.url,
+                suspended: selectedSatellite.suspended,
+            };
+
             state.checks.audit = parseFloat(parseFloat(`${satelliteInfo.audit.score * 100}`).toFixed(1));
             state.checks.uptime = uptime;
         },
-        [SELECT_ALL_SATELLITES](state: any): void {
-            state.selectedSatellite = allSatellites;
+        [SELECT_ALL_SATELLITES](state: any, satelliteInfo: Satellites): void {
+            state.selectedSatellite = {
+                id: null,
+                disqualified: null,
+                joinDate: satelliteInfo.joinDate,
+            };
         },
         [SET_DAILY_DATA](state: any, satelliteInfo: Satellite): void {
             state.bandwidthChartData = satelliteInfo.bandwidthDaily;

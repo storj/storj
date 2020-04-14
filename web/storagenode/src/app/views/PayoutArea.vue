@@ -11,7 +11,7 @@
         </header>
         <SatelliteSelection />
         <p class="payout-area-container__section-title">Payout</p>
-        <EstimationArea class="payout-area-container__estimation" />
+        <EstimationArea class="payout-area-container__estimation"/>
         <p class="payout-area-container__section-title">Held Amount</p>
         <p class="additional-text">
             Learn more about held back
@@ -24,10 +24,10 @@
             </a>
         </p>
         <section class="payout-area-container__held-info-area">
-            <SingleInfo v-if="selectedSatellite.id" width="48%" label="Held Amount Rate" :value="heldRate + '%'" />
+            <SingleInfo v-if="selectedSatellite" width="48%" label="Held Amount Rate" :value="heldPercentage + '%'" />
             <SingleInfo width="48%" label="Total Held Amount" :value="totalHeld | centsToDollars" />
         </section>
-        <HeldProgress v-if="selectedSatellite.id" class="payout-area-container__process-area" />
+        <HeldProgress v-if="selectedSatellite" class="payout-area-container__process-area" />
 <!--        <section class="payout-area-container__held-history-container">-->
 <!--            <div class="payout-area-container__held-history-container__header">-->
 <!--                <p class="payout-area-container__held-history-container__header__title">Held Amount history</p>-->
@@ -85,8 +85,8 @@ export default class PayoutArea extends Vue {
         return this.$store.state.payoutModule.totalHeldAmount;
     }
 
-    public get heldRate(): number {
-        return this.$store.state.payoutModule.heldInfo.surgePercent;
+    public get heldPercentage(): number {
+        return this.$store.state.payoutModule.heldInfo.heldPercentage;
     }
 
     /**
@@ -94,7 +94,7 @@ export default class PayoutArea extends Vue {
      * @return SatelliteInfo - current selected satellite
      */
     public get selectedSatellite(): SatelliteInfo {
-        return this.$store.state.node.selectedSatellite;
+        return this.$store.state.node.selectedSatellite.id;
     }
 }
 </script>

@@ -80,15 +80,15 @@ class MonthButton {
     }
 })
 export default class PayoutPeriodCalendar extends Vue {
+    private now: Date = new Date();
     /**
      * Contains current months list depends on active and selected month state.
      */
     public currentDisplayedMonths: MonthButton[] = [];
-    public displayedYear: number;
-    public period: string;
+    public displayedYear: number = this.now.getUTCFullYear();
+    public period: string = '';
 
     private displayedMonths: StoredMonthsByYear = {};
-    private now: Date;
     private firstSelectedMonth: MonthButton | null;
     private secondSelectedMonth: MonthButton | null;
 
@@ -97,8 +97,6 @@ export default class PayoutPeriodCalendar extends Vue {
      * Sets up current calendar state.
      */
     public mounted(): void {
-        this.now = new Date();
-        this.displayedYear = this.now.getUTCFullYear();
         this.populateMonths(this.displayedYear);
         this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
     }
@@ -150,7 +148,7 @@ export default class PayoutPeriodCalendar extends Vue {
      * Selects period between node start and now.
      */
     public selectAllTime(): void {
-        const nodeStartedAt = this.$store.state.node.info.startedAt;
+        const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
 
         this.firstSelectedMonth = new MonthButton(nodeStartedAt.getUTCFullYear(), nodeStartedAt.getUTCMonth());
         this.secondSelectedMonth = new MonthButton(this.now.getUTCFullYear(), this.now.getUTCMonth());
@@ -218,7 +216,7 @@ export default class PayoutPeriodCalendar extends Vue {
      * Decrement year and updates current months set.
      */
     public decrementYear(): void {
-        if (this.displayedYear === this.$store.state.node.info.startedAt.getUTCFullYear()) return;
+        if (this.displayedYear === this.$store.state.node.selectedSatellite.joinDate.getUTCFullYear()) return;
 
         this.displayedYear -= 1;
         this.populateMonths(this.displayedYear);
@@ -263,7 +261,7 @@ export default class PayoutPeriodCalendar extends Vue {
         const months: MonthButton[] = [];
         const isCurrentYear = year === this.now.getUTCFullYear();
         const nowMonth = this.now.getUTCMonth();
-        const nodeStartedAt = this.$store.state.node.info.startedAt;
+        const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
 
         for (let i = 0; i < 12; i++) {
             const notBeforeNodeStart =

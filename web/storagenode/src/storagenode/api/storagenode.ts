@@ -84,7 +84,8 @@ export class SNOApi {
             json.egressSummary,
             json.ingressSummary,
             audit,
-            uptime
+            uptime,
+            new Date(json.nodeJoinedAt),
         );
     }
 
@@ -105,7 +106,8 @@ export class SNOApi {
             json.storageSummary,
             json.bandwidthSummary,
             json.egressSummary,
-            json.ingressSummary
+            json.ingressSummary,
+            new Date(json.earliestJoinedAt),
         );
     }
 }

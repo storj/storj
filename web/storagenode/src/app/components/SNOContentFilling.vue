@@ -114,7 +114,7 @@
             :wallet-address="wallet"
         />
         <section class="info-area__total-info-area">
-            <SingleInfo width="48%" label="Total Earnings" :value="totalEarnings | centsToDollars" />
+            <SingleInfo width="48%" label="Current Month Earnings" :value="totalEarnings | centsToDollars" />
             <SingleInfo width="48%" label="Total Held Amount" :value="totalHeld | centsToDollars" />
         </section>
     </div>
