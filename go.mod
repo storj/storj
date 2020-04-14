@@ -42,7 +42,7 @@ require (
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.28.0
 	storj.io/common v0.0.0-20200416175331-40469cc6b6d5
-	storj.io/drpc v0.0.11
+	storj.io/drpc v0.0.12-0.20200413163255-debb458a7474
 	storj.io/monkit-jaeger v0.0.0-20200403204040-f5a746eeacca
 	storj.io/private v0.0.0-20200403212157-26f222c154f0
 	storj.io/uplink v1.0.4-0.20200406100056-baa89e6fe434

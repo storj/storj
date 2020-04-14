@@ -6,18 +6,62 @@ package metainfo
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
+	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/useragent"
 	"storj.io/common/uuid"
+	"storj.io/drpc/drpccache"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/attribution"
 )
+
+// ensureAttribution ensures that the bucketName has the partner information specified by the header.
+//
+// Assumes that the user has permissions sufficient for authenticating.
+func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte) error {
+	if header == nil {
+		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
+	}
+	if len(header.UserAgent) == 0 {
+		return nil
+	}
+
+	if conncache := drpccache.FromContext(ctx); conncache != nil {
+		cache := conncache.LoadOrCreate(attributionCheckCacheKey{},
+			func() interface{} {
+				return &attributionCheckCache{}
+			}).(*attributionCheckCache)
+		if !cache.needsCheck(string(bucketName)) {
+			return nil
+		}
+	}
+
+	partnerID, err := endpoint.ResolvePartnerID(ctx, header, nil)
+	if err != nil {
+		return err
+	}
+	if partnerID.IsZero() {
+		return nil
+	}
+
+	keyInfo, err := endpoint.getKeyInfo(ctx, header)
+	if err != nil {
+		return err
+	}
+
+	err = endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, partnerID)
+	if errs2.IsRPC(err, rpcstatus.NotFound) || errs2.IsRPC(err, rpcstatus.AlreadyExists) {
+		return nil
+	}
+	return err
+}
 
 // ResolvePartnerID returns partnerIDBytes as parsed or UUID corresponding to header.UserAgent.
 // returns empty uuid when neither is defined.
@@ -61,7 +105,7 @@ func (endpoint *Endpoint) ResolvePartnerID(ctx context.Context, header *pb.Reque
 		}
 	}
 
-	return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to resolve user agent %q", string(header.UserAgent))
+	return uuid.UUID{}, nil
 }
 
 func removeUplinkUserAgent(entries []useragent.Entry) []useragent.Entry {
@@ -116,26 +160,33 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 
 	partnerID, err := endpoint.ResolvePartnerID(ctx, header, partnerIDBytes)
 	if err != nil {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		return err
 	}
 	if partnerID.IsZero() {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "unknown user agent or partner id")
 	}
 
-	// check if attribution is set for given bucket
-	_, err = endpoint.attributions.Get(ctx, keyInfo.ProjectID, bucketName)
-	if err == nil {
-		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
-		return nil
+	return endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, partnerID)
+}
+
+func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, partnerID uuid.UUID) error {
+	if header == nil {
+		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
 	}
 
+	// check if attribution is set for given bucket
+	_, err := endpoint.attributions.Get(ctx, projectID, bucketName)
+	if err == nil {
+		// bucket has already an attribution, no need to update
+		return nil
+	}
 	if !attribution.ErrBucketNotAttributed.Has(err) {
 		// try only to set the attribution, when it's missing
 		endpoint.log.Error("error while getting attribution from DB", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	empty, err := endpoint.metainfo.IsBucketEmpty(ctx, keyInfo.ProjectID, bucketName)
+	empty, err := endpoint.metainfo.IsBucketEmpty(ctx, projectID, bucketName)
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -144,7 +195,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
-	bucket, err := endpoint.metainfo.GetBucket(ctx, bucketName, keyInfo.ProjectID)
+	bucket, err := endpoint.metainfo.GetBucket(ctx, bucketName, projectID)
 	if err != nil {
 		if storj.ErrBucketNotFound.Has(err) {
 			return rpcstatus.Errorf(rpcstatus.NotFound, "bucket %q does not exist", bucketName)
@@ -153,8 +204,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
 	}
 	if !bucket.PartnerID.IsZero() {
-		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
-		return nil
+		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q already has attribution, PartnerID %q cannot be attributed", bucketName, partnerID)
 	}
 
 	// update bucket information
@@ -167,7 +217,7 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 
 	// update attribution table
 	_, err = endpoint.attributions.Insert(ctx, &attribution.Info{
-		ProjectID:  keyInfo.ProjectID,
+		ProjectID:  projectID,
 		BucketName: bucketName,
 		PartnerID:  partnerID,
 	})
@@ -177,4 +227,39 @@ func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.R
 	}
 
 	return nil
+}
+
+// maxAttributionCacheSize determines how many buckets attributionCheckCache remembers.
+const maxAttributionCacheSize = 10
+
+// attributionCheckCacheKey is used as a key for the connection cache.
+type attributionCheckCacheKey struct{}
+
+// attributionCheckCache implements a basic lru cache, with a constant size.
+type attributionCheckCache struct {
+	mu      sync.Mutex
+	pos     int
+	buckets []string
+}
+
+// needsCheck returns true when the bucket should be tested for setting the useragent.
+func (cache *attributionCheckCache) needsCheck(bucket string) bool {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
+	for _, b := range cache.buckets {
+		if b == bucket {
+			return false
+		}
+	}
+
+	if len(cache.buckets) >= maxAttributionCacheSize {
+		cache.pos = (cache.pos + 1) % len(cache.buckets)
+		cache.buckets[cache.pos] = bucket
+	} else {
+		cache.pos = len(cache.buckets)
+		cache.buckets = append(cache.buckets, bucket)
+	}
+
+	return true
 }
