@@ -46,7 +46,7 @@ const (
 	highStaleness = time.Hour
 )
 
-func TestInit(t *testing.T) {
+func TestRefresh(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
@@ -54,7 +54,7 @@ func TestInit(t *testing.T) {
 			nodeCfg,
 		)
 		// the cache should have no nodes to start
-		err := cache.Init(ctx)
+		err := cache.Refresh(ctx)
 		require.NoError(t, err)
 		reputable, new := cache.Size()
 		require.Equal(t, 0, reputable)
@@ -64,8 +64,8 @@ func TestInit(t *testing.T) {
 		const nodeCount = 2
 		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount)
 
-		// confirm nodes are in the cache once it is initialized
-		err = cache.Init(ctx)
+		// confirm nodes are in the cache once
+		err = cache.Refresh(ctx)
 		require.NoError(t, err)
 		reputable, new = cache.Size()
 		require.Equal(t, 2, new)
@@ -118,8 +118,8 @@ func TestRefreshConcurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	// concurrent cache.refresh with high staleness, where high staleness means the
-	// cache should only be refreshed the first time we call cache.refresh (via cache.Init)
+	// concurrent cache.Refresh with high staleness, where high staleness means the
+	// cache should only be refreshed the first time we call cache.Refresh
 	mockDB := mockdb{}
 	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
@@ -129,18 +129,18 @@ func TestRefreshConcurrent(t *testing.T) {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		return cache.Init(ctx)
+		return cache.Refresh(ctx)
 	})
 	group.Go(func() error {
-		return cache.Init(ctx)
+		return cache.Refresh(ctx)
 	})
 	err := group.Wait()
 	require.NoError(t, err)
 
 	require.Equal(t, 1, mockDB.callCount)
 
-	// concurrent cache.refresh (called via cache.Init) with low staleness, where low staleness
-	// means that the cache will refresh *every time* cache.refresh is called
+	// concurrent cache.Refresh with low staleness, where low staleness
+	// means that the cache will refresh *every time* cache.Refresh is called
 	mockDB = mockdb{}
 	cache = overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
@@ -148,10 +148,10 @@ func TestRefreshConcurrent(t *testing.T) {
 		nodeCfg,
 	)
 	group.Go(func() error {
-		return cache.Init(ctx)
+		return cache.Refresh(ctx)
 	})
 	group.Go(func() error {
-		return cache.Init(ctx)
+		return cache.Refresh(ctx)
 	})
 	err = group.Wait()
 	require.NoError(t, err)

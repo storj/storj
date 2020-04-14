@@ -57,16 +57,16 @@ func NewNodeSelectionCache(log *zap.Logger, db CacheDB, staleness time.Duration,
 	}
 }
 
-// Init populates the cache with all of the reputableNodes and newNode nodes
-// that qualify to upload data from the nodes table in the overlay database
-func (cache *NodeSelectionCache) Init(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	_, err = cache.refresh(ctx)
-	return err
-}
+// Refresh populates the cache with all of the reputableNodes and newNode nodes
+// This method is useful for tests
+func (cache *NodeSelectionCache) Refresh(ctx context.Context) (err error) {
+	       defer mon.Task()(&ctx)(&err)
+	       _, err = cache.refresh(ctx)
+	       return err
+	}
 
-// Refresh calls out to the database and refreshes the cache with the current data
-// from the nodes table, then sets time that the last refresh occurred so we know when
+// refresh calls out to the database and refreshes the cache with the most up-to-date
+// data from the nodes table, then sets time that the last refresh occurred so we know when
 // to refresh again in the future
 func (cache *NodeSelectionCache) refresh(ctx context.Context) (cachData *state, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -131,8 +131,8 @@ func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesReques
 
 	// Get a random selection of new nodes out of the cache first so that if there aren't
 	// enough new nodes on the network, we can fall back to using reputable nodes instead
-	randomIdexes := rand.Perm(len(cacheData.newNodes))
-	for _, idx := range randomIdexes {
+	randomIndexes := rand.Perm(len(cacheData.newNodes))
+	for _, idx := range randomIndexes {
 		currNode := cacheData.newNodes[idx]
 		if _, ok := distinctNetworks[currNode.LastNet]; ok {
 			continue
@@ -150,8 +150,8 @@ func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesReques
 		}
 	}
 
-	randomIdexes = rand.Perm(len(cacheData.reputableNodes))
-	for _, idx := range randomIdexes {
+	randomIndexes = rand.Perm(len(cacheData.reputableNodes))
+	for _, idx := range randomIndexes {
 		currNode := cacheData.reputableNodes[idx]
 
 		// don't select a node if we've already selected another node from the same network

@@ -36,7 +36,7 @@ type overlaycache struct {
 // SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-	
+
 	query := `
 		SELECT id, address, last_net, last_ip_port, (total_audit_count < $1 OR total_uptime_count < $2) as isnew
 			FROM nodes
@@ -73,6 +73,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 	if err != nil {
 		return nil, nil, err
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var reputableNodes []*overlay.SelectedNode
 	var newNodes []*overlay.SelectedNode
@@ -96,7 +97,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 		reputableNodes = append(reputableNodes, &node)
 	}
 
-	return reputableNodes, newNodes, nil
+	return reputableNodes, newNodes, Error.Wrap(rows.Err())
 }
 
 // GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
