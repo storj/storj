@@ -480,6 +480,41 @@ func Schema() map[string]*dbschema.Schema {
 				&dbschema.Index{Name: "pk_pieceinfo_", Table: "pieceinfo_", Columns: []string{"satellite_id", "piece_id"}, Unique: false, Partial: ""},
 			},
 		},
+		"pricing": &dbschema.Schema{
+			Tables: []*dbschema.Table{
+				&dbschema.Table{
+					Name:       "pricing",
+					PrimaryKey: []string{"satellite_id"},
+					Columns: []*dbschema.Column{
+						&dbschema.Column{
+							Name:       "audit_bandwidth_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "disk_space_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "egress_bandwidth_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "repair_bandwidth_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "satellite_id",
+							Type:       "BLOB",
+							IsNullable: false,
+						},
+					},
+				},
+			},
+		},
 		"reputation": &dbschema.Schema{
 			Tables: []*dbschema.Table{
 				&dbschema.Table{

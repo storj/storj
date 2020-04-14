@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
@@ -114,6 +115,30 @@ func (s *Service) GetDailyStorageUsage(ctx context.Context, satelliteID storj.No
 	}
 
 	return fromSpaceUsageResponse(resp, satelliteID), nil
+}
+
+// GetPricingModel returns pricing model of specific satellite.
+func (s *Service) GetPricingModel(ctx context.Context, satelliteID storj.NodeID) (_ *pricing.Pricing, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	client, err := s.dial(ctx, satelliteID)
+	if err != nil {
+		return nil, NodeStatsServiceErr.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, client.Close()) }()
+
+	pricingModel, err := client.PricingModel(ctx, &pb.PricingModelRequest{})
+	if err != nil {
+		return nil, NodeStatsServiceErr.Wrap(err)
+	}
+
+	return &pricing.Pricing{
+		SatelliteID:     satelliteID,
+		EgressBandwidth: pricingModel.EgressBandwidthPrice,
+		RepairBandwidth: pricingModel.RepairBandwidthPrice,
+		AuditBandwidth:  pricingModel.AuditBandwidthPrice,
+		DiskSpace:       pricingModel.DiskSpacePrice,
+	}, nil
 }
 
 // dial dials the NodeStats client for the satellite by id

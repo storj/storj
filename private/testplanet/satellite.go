@@ -466,9 +466,10 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				ChoreInterval: defaultInterval,
 			},
 			Downtime: downtime.Config{
-				DetectionInterval:   defaultInterval,
-				EstimationInterval:  defaultInterval,
-				EstimationBatchSize: 0,
+				DetectionInterval:          defaultInterval,
+				EstimationInterval:         defaultInterval,
+				EstimationBatchSize:        5,
+				EstimationConcurrencyLimit: 5,
 			},
 		}
 
