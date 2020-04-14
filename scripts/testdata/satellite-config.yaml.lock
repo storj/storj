@@ -439,6 +439,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s
 
+# the time period that must pass before suspended nodes will be disqualified
+# overlay.node.suspension-grace-period: 168h0m0s
+
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 100
 

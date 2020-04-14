@@ -1231,9 +1231,11 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 		UnknownAuditReputationBeta:  float64Field{set: true, value: unknownAuditBeta},
 	}
 
+	// disqualification case a
+	//   a) Success/fail audit reputation falls below audit DQ threshold
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
 	if auditRep <= updateReq.AuditDQ {
-		cache.db.log.Info("Disqualified", zap.String("Node ID", updateReq.NodeID.String()))
+		cache.db.log.Info("Disqualified", zap.String("DQ type", "audit failure"), zap.String("Node ID", updateReq.NodeID.String()))
 		updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
 	}
 
@@ -1244,14 +1246,27 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 			cache.db.log.Info("Suspended", zap.String("Node ID", updateFields.NodeID.String()), zap.String("Category", "Unknown Audits"))
 			updateFields.Suspended = timeField{set: true, value: time.Now().UTC()}
 		}
-	} else {
-		if dbNode.Suspended != nil {
-			cache.db.log.Info("Suspension lifted", zap.String("Category", "Unknown Audits"), zap.String("Node ID", updateFields.NodeID.String()))
-			updateFields.Suspended = timeField{set: true, isNil: true}
-		}
-	}
 
-	// TODO if node has been suspended for longer than threshold, and audit outcome is failure or unknown, disqualify node.
+		// disqualification case b
+		//   b) Node is suspended (success/unknown reputation below audit DQ threshold)
+		//        AND the suspended grace period has elapsed
+		//        AND audit outcome is unknown or failed
+
+		// if suspended grace period has elapsed and audit outcome was failed or unknown,
+		// disqualify node. Set suspended to nil if node is disqualified
+		// NOTE: if updateFields.Suspended is set, we just suspended the node so it will not be disqualified
+		if updateReq.AuditOutcome != overlay.AuditSuccess {
+			if dbNode.Suspended != nil && !updateFields.Suspended.set &&
+				time.Since(*dbNode.Suspended) > updateReq.SuspensionGracePeriod {
+				cache.db.log.Info("Disqualified", zap.String("DQ type", "suspension grace period expired"), zap.String("Node ID", updateReq.NodeID.String()))
+				updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
+				updateFields.Suspended = timeField{set: true, isNil: true}
+			}
+		}
+	} else if dbNode.Suspended != nil {
+		cache.db.log.Info("Suspension lifted", zap.String("Category", "Unknown Audits"), zap.String("Node ID", updateFields.NodeID.String()))
+		updateFields.Suspended = timeField{set: true, isNil: true}
+	}
 
 	if updateReq.IsUp {
 		updateFields.UptimeSuccessCount = int64Field{set: true, value: dbNode.UptimeSuccessCount + 1}

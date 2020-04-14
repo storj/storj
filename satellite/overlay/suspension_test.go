@@ -8,9 +8,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -127,5 +131,60 @@ func TestSuspendFailedAudit(t *testing.T) {
 		require.Nil(t, node.Suspended)
 		require.EqualValues(t, node.Reputation.UnknownAuditReputationAlpha, 1)
 		require.EqualValues(t, node.Reputation.UnknownAuditReputationBeta, 0)
+	})
+}
+
+// TestSuspendExceedGracePeriod ensures that a node is disqualified when it receives a failing or unknown audit after the grace period expires.
+func TestSuspendExceedGracePeriod(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.SuspensionGracePeriod = time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		successNodeID := planet.StorageNodes[0].ID()
+		failNodeID := planet.StorageNodes[1].ID()
+		offlineNodeID := planet.StorageNodes[2].ID()
+		unknownNodeID := planet.StorageNodes[3].ID()
+
+		// suspend each node two hours ago (more than grace period)
+		oc := planet.Satellites[0].DB.OverlayCache()
+		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
+			err := oc.SuspendNode(ctx, node, time.Now().Add(-2*time.Hour))
+			require.NoError(t, err)
+		}
+
+		// no nodes should be disqualified
+		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
+			n, err := oc.Get(ctx, node)
+			require.NoError(t, err)
+			require.Nil(t, n.Disqualified)
+		}
+
+		// give one node a successful audit, one a failed audit, one an offline audit, and one an unknown audit
+		report := audit.Report{
+			Successes: storj.NodeIDList{successNodeID},
+			Fails:     storj.NodeIDList{failNodeID},
+			Offlines:  storj.NodeIDList{offlineNodeID},
+			Unknown:   storj.NodeIDList{unknownNodeID},
+		}
+		auditService := planet.Satellites[0].Audit
+		_, err := auditService.Reporter.RecordAudits(ctx, report, "")
+		require.NoError(t, err)
+
+		// success and offline nodes should not be disqualified
+		// fail and unknown nodes should be disqualified
+		for _, node := range (storj.NodeIDList{successNodeID, offlineNodeID}) {
+			n, err := oc.Get(ctx, node)
+			require.NoError(t, err)
+			require.Nil(t, n.Disqualified)
+		}
+		for _, node := range (storj.NodeIDList{failNodeID, unknownNodeID}) {
+			n, err := oc.Get(ctx, node)
+			require.NoError(t, err)
+			require.NotNil(t, n.Disqualified)
+		}
 	})
 }

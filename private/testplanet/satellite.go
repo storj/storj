@@ -335,6 +335,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					AuditReputationLambda:       0.95,
 					AuditReputationWeight:       1,
 					AuditReputationDQ:           0.6,
+					SuspensionGracePeriod:       time.Hour,
 				},
 				UpdateStatsBatchSize: 100,
 			},

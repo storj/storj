@@ -1042,6 +1042,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups(action, interval_start, project_id );`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Remove all nodes from suspension mode.",
+				Version:     105,
+				Action: migrate.SQL{
+					`UPDATE nodes SET suspended=NULL;`,
+				},
+			},
 		},
 	}
 }
