@@ -194,9 +194,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 		ctx := context.Background()
 
 		nodeSelectionConfig := overlay.NodeSelectionConfig{
-			AuditReputationAlpha0: 1,
-			AuditReputationBeta0:  0,
-
 			AuditCount:       1,
 			NewNodeFraction:  0.05,
 			MinimumVersion:   "v1.0.0",
