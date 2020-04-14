@@ -53,6 +53,7 @@ func NewNodeSelectionCache(log *zap.Logger, db CacheDB, staleness time.Duration,
 		db:              db,
 		staleness:       staleness,
 		selectionConfig: config,
+		data:            &state{},
 	}
 }
 
@@ -101,6 +102,7 @@ func (cache *NodeSelectionCache) GetNodes(ctx context.Context, req FindStorageNo
 	cacheData := cache.data
 	cache.mu.RUnlock()
 
+	// if the cache is stale, then refresh it before we get nodes
 	if time.Since(cacheData.lastRefresh) > cache.staleness {
 		cacheData, err = cache.refresh(ctx)
 		if err != nil {

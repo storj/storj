@@ -142,3 +142,114 @@ func TestRefreshConcurrent(t *testing.T) {
 
 	require.Equal(t, 2, mockDB.callCount)
 }
+
+func TestGetNode(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		var nodeCfg = overlay.NodeSelectionConfig{
+			AuditCount:       0,
+			UptimeCount:      0,
+			NewNodeFraction:  0.2,
+			MinimumVersion:   "v1.0.0",
+			OnlineWindow:     4 * time.Hour,
+			DistinctIP:       true,
+			MinimumDiskSpace: 100 * memory.MiB,
+		}
+		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+			db.OverlayCache(),
+			time.Nanosecond,
+			nodeCfg,
+		)
+		// the cache should have no nodes to start
+		reputable, new := cache.Size()
+		require.Equal(t, 0, reputable)
+		require.Equal(t, 0, new)
+
+		// add some nodes to the database
+		const nodeCount = 4
+		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount)
+
+		// confirm get nodes returns those nodes
+		selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
+		require.NoError(t, err)
+		reputable, new = cache.Size()
+		require.Equal(t, 0, new)
+		require.Equal(t, 4, reputable)
+		require.Equal(t, 2, len(selectedNodes))
+		for _, node := range selectedNodes {
+			require.NotEqual(t, node.ID, "")
+			require.NotEqual(t, node.Address.Address, "")
+			require.NotEqual(t, node.LastIPPort, "")
+			require.NotEqual(t, node.LastNet, "")
+			require.NotEqual(t, node.LastNet, "")
+		}
+	})
+}
+func TestGetNodeConcurrent(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	// concurrent GetNodes with high staleness
+	staleWhenAfter := time.Hour
+	mockDB := mockdb{}
+	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+		&mockDB,
+		staleWhenAfter,
+		nodeCfg,
+	)
+
+	var group errgroup.Group
+	group.Go(func() error {
+		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{})
+		return err
+	})
+	group.Go(func() error {
+		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{})
+		return err
+	})
+	err := group.Wait()
+	require.NoError(t, err)
+	// expect only one call to GetNodes
+	require.Equal(t, 1, mockDB.callCount)
+
+	// concurrent get nodes with low staleness
+	staleWhenAfter = time.Nanosecond
+	mockDB = mockdb{}
+	cache = overlay.NewNodeSelectionCache(zap.NewNop(),
+		&mockDB,
+		staleWhenAfter,
+		nodeCfg,
+	)
+
+	group.Go(func() error {
+		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{})
+		return err
+	})
+	group.Go(func() error {
+		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{})
+		return err
+	})
+	err = group.Wait()
+	require.NoError(t, err)
+	// expect two calls to GetNodes
+	require.Equal(t, 2, mockDB.callCount)
+}
+
+func TestGetNodeError(t *testing.T) {
+	ctx := testcontext.New(t)
+	staleWhenAfter := time.Hour
+	mockDB := mockdb{}
+	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+		&mockDB,
+		staleWhenAfter,
+		nodeCfg,
+	)
+
+	// there should be 0 nodes in the cache
+	reputable, new := cache.Size()
+	require.Equal(t, 0, reputable)
+	require.Equal(t, 0, new)
+
+	// since the cache has no nodes, we should not be able
+	// to get 2 storage nodes from it
+	_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
+	require.Error(t, err)
+}
