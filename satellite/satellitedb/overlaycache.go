@@ -33,6 +33,73 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
+// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
+func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `
+		SELECT id, address, last_net, last_ip_port, (total_audit_count < $1 OR total_uptime_count < $2) as isnew
+			FROM nodes
+			WHERE disqualified IS NULL
+			AND suspended IS NULL
+			AND exit_initiated_at IS NULL
+			AND type = $3
+			AND free_disk >= $4
+			AND last_contact_success > $5
+	`
+	args := []interface{}{
+		// $1, $2
+		selectionCfg.AuditCount, selectionCfg.UptimeCount,
+		// $3
+		int(pb.NodeType_STORAGE),
+		// $4
+		selectionCfg.MinimumDiskSpace.Int64(),
+		// $5
+		time.Now().Add(-selectionCfg.OnlineWindow),
+	}
+	if selectionCfg.MinimumVersion != "" {
+		version, err := version.NewSemVer(selectionCfg.MinimumVersion)
+		if err != nil {
+			return nil, nil, err
+		}
+		query += `AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10)))) AND release`
+		args = append(args,
+			// $6 - $10
+			version.Major, version.Major, version.Minor, version.Minor, version.Patch,
+		)
+	}
+
+	rows, err := cache.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var reputableNodes []*overlay.SelectedNode
+	var newNodes []*overlay.SelectedNode
+	for rows.Next() {
+		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{}
+		var lastIPPort sql.NullString
+		var isnew bool
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &isnew)
+		if err != nil {
+			return nil, nil, err
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+
+		if isnew {
+			newNodes = append(newNodes, &node)
+			continue
+		}
+		reputableNodes = append(reputableNodes, &node)
+	}
+
+	return reputableNodes, newNodes, Error.Wrap(rows.Err())
+}
+
 // GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
 func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
 	defer mon.Task()(&ctx)(&err)
