@@ -7,7 +7,7 @@
         :class="containerClassName"
         :style="style"
         @click="onPress">
-        <h1 class="label">{{label}}</h1>
+        <span class="label">{{label}}</span>
     </div>
 </template>
 

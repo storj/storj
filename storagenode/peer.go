@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/preflight"
+	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/satellites"
@@ -80,6 +81,7 @@ type DB interface {
 	Satellites() satellites.DB
 	Notifications() notifications.DB
 	HeldAmount() heldamount.DB
+	Pricing() pricing.DB
 
 	Preflight(ctx context.Context) error
 }
@@ -515,6 +517,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				Reputation:   peer.DB.Reputation(),
 				StorageUsage: peer.DB.StorageUsage(),
 				HeldAmount:   peer.DB.HeldAmount(),
+				Pricing:      peer.DB.Pricing(),
+				Satellites:   peer.DB.Satellites(),
 			},
 			peer.NodeStats.Service,
 			peer.Heldamount.Service,
@@ -543,6 +547,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Trust,
 			peer.DB.Reputation(),
 			peer.DB.StorageUsage(),
+			peer.DB.Pricing(),
+			peer.DB.Satellites(),
 			peer.Contact.PingStats,
 			peer.Contact.Service,
 		)

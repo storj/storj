@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
@@ -104,6 +105,7 @@ type DB struct {
 	satellitesDB      *satellitesDB
 	notificationsDB   *notificationDB
 	heldamountDB      *heldamountDB
+	pricingDB         *pricingDB
 
 	SQLDBs map[string]DBContainer
 }
@@ -128,6 +130,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	satellitesDB := &satellitesDB{}
 	notificationsDB := &notificationDB{}
 	heldamountDB := &heldamountDB{}
+	pricingDB := &pricingDB{}
 
 	db := &DB{
 		log:    log,
@@ -149,6 +152,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		satellitesDB:      satellitesDB,
 		notificationsDB:   notificationsDB,
 		heldamountDB:      heldamountDB,
+		pricingDB:         pricingDB,
 
 		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -163,6 +167,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 			SatellitesDBName:      satellitesDB,
 			NotificationsDBName:   notificationsDB,
 			HeldAmountDBName:      heldamountDB,
+			PricingDBName:         pricingDB,
 		},
 	}
 
@@ -235,6 +240,11 @@ func (db *DB) openDatabases() error {
 	}
 
 	err = db.openDatabase(HeldAmountDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+
+	err = db.openDatabase(PricingDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
@@ -445,6 +455,11 @@ func (db *DB) Notifications() notifications.DB {
 // HeldAmount returns instance of the HeldAmount database.
 func (db *DB) HeldAmount() heldamount.DB {
 	return db.heldamountDB
+}
+
+// Pricing returns instance of the Pricing database.
+func (db *DB) Pricing() pricing.DB {
+	return db.pricingDB
 }
 
 // RawDatabases are required for testing purposes
@@ -1151,6 +1166,21 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Version:     34,
 				Action: migrate.SQL{
 					`ALTER TABLE reputation ADD COLUMN suspended TIMESTAMP`,
+				},
+			},
+			{
+				DB:          db.pricingDB,
+				Description: "Create pricing table",
+				Version:     35,
+				Action: migrate.SQL{
+					`CREATE TABLE pricing (
+						satellite_id BLOB NOT NULL,
+						egress_bandwidth_price bigint NOT NULL,
+						repair_bandwidth_price bigint NOT NULL,
+						audit_bandwidth_price bigint NOT NULL,
+						disk_space_price bigint NOT NULL,
+						PRIMARY KEY ( satellite_id )
+					);`,
 				},
 			},
 		},

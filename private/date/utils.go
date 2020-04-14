@@ -30,3 +30,20 @@ func PeriodToTime(period string) (_ time.Time, err error) {
 
 	return result, nil
 }
+
+// MonthsCountSince calculates the months between now and the createdAtTime time.Time value passed.
+func MonthsCountSince(from time.Time) int {
+	now := time.Now().UTC()
+	months := 0
+	month := from.Month()
+	for from.Before(now) {
+		from = from.Add(time.Hour * 24)
+		nextMonth := from.Month()
+		if nextMonth != month {
+			months++
+		}
+		month = nextMonth
+	}
+
+	return months
+}

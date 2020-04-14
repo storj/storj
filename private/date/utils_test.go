@@ -47,3 +47,22 @@ func TestPeriodToTime(t *testing.T) {
 		require.Equal(t, periodTime.String(), tc.periodTime.String())
 	}
 }
+
+func TestMonthsCountSince(t *testing.T) {
+	testCases := [...]struct {
+		date         time.Time
+		monthsAmount int
+	}{
+		{time.Date(2020, 2, 13, 0, 0, 0, 0, &time.Location{}), 2},
+		{time.Date(2015, 7, 30, 0, 0, 0, 0, &time.Location{}), 57},
+		{time.Date(2017, 1, 28, 0, 0, 0, 0, &time.Location{}), 39},
+		{time.Date(2016, 11, 1, 0, 0, 0, 0, &time.Location{}), 41},
+		{time.Date(2019, 4, 17, 0, 0, 0, 0, &time.Location{}), 12},
+		{time.Date(2018, 9, 11, 0, 0, 0, 0, &time.Location{}), 19},
+	}
+
+	for _, tc := range testCases {
+		monthDiff := date.MonthsCountSince(tc.date)
+		require.Equal(t, monthDiff, tc.monthsAmount)
+	}
+}

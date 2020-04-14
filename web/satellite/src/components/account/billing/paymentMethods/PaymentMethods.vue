@@ -288,15 +288,15 @@ export default class PaymentMethods extends Vue {
         display: flex;
         justify-content: center;
         align-items: center;
-        width: 123px;
-        height: 48px;
+        width: 125px;
+        height: 50px;
         position: absolute;
         top: 0;
         right: 0;
         cursor: pointer;
         border-radius: 6px;
         background-color: #2683ff;
-        font-family: 'font_bold', sans-serif;
+        font-family: 'font_medium', sans-serif;
         font-size: 16px;
         line-height: 23px;
         color: #fff;

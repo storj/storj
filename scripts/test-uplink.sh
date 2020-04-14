@@ -100,3 +100,10 @@ compare_files "$SRC_DIR/multisegment-upload-testfile" "$DST_DIR/multisegment-upl
 compare_files "$SRC_DIR/diff-size-segments"           "$DST_DIR/diff-size-segments"
 compare_files "$SRC_DIR/put-file"                     "$DST_DIR/put-file"
 compare_files "$SRC_DIR/put-file"                     "$DST_DIR/put-file-from-cat"
+
+# test deleting non empty bucket with --force flag
+uplink mb "sj://$BUCKET/"
+
+uplink cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/" --progress=false
+
+uplink rb "sj://$BUCKET" --force
