@@ -61,8 +61,6 @@ func NewNodeSelectionCache(log *zap.Logger, db CacheDB, staleness time.Duration,
 // that qualify to upload data from the nodes table in the overlay database
 func (cache *NodeSelectionCache) Init(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
 	_, err = cache.refresh(ctx)
 	return err
 }
@@ -72,6 +70,8 @@ func (cache *NodeSelectionCache) Init(ctx context.Context) (err error) {
 // to refresh again in the future
 func (cache *NodeSelectionCache) refresh(ctx context.Context) (cachData *state, err error) {
 	defer mon.Task()(&ctx)(&err)
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
 
 	if cache.data != nil && time.Since(cache.data.lastRefresh) <= cache.staleness {
 		return cache.data, nil

@@ -36,15 +36,7 @@ type overlaycache struct {
 // SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	if selectionCfg.MinimumVersion == "" {
-		return nil, nil, Error.New("NodeSelectionConfig.MinimumVersion must be provided")
-	}
-	version, err := version.NewSemVer(selectionCfg.MinimumVersion)
-	if err != nil {
-		return nil, nil, err
-	}
-
+	
 	query := `
 		SELECT id, address, last_net, last_ip_port, (total_audit_count < $1 OR total_uptime_count < $2) as isnew
 			FROM nodes
@@ -54,10 +46,8 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 			AND type = $3
 			AND free_disk >= $4
 			AND last_contact_success > $5
-			AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10))))
-			AND release
 	`
-	rows, err := cache.db.Query(ctx, query,
+	args := []interface{}{
 		// $1, $2
 		selectionCfg.AuditCount, selectionCfg.UptimeCount,
 		// $3
@@ -66,9 +56,20 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 		selectionCfg.MinimumDiskSpace.Int64(),
 		// $5
 		time.Now().Add(-selectionCfg.OnlineWindow),
-		// $6 - $10
-		version.Major, version.Major, version.Minor, version.Minor, version.Patch,
-	)
+	}
+	if selectionCfg.MinimumVersion != "" {
+		version, err := version.NewSemVer(selectionCfg.MinimumVersion)
+		if err != nil {
+			return nil, nil, err
+		}
+		query += `AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10)))) AND release`
+		args = append(args,
+			// $6 - $10
+			version.Major, version.Major, version.Minor, version.Minor, version.Patch,
+		)
+	}
+
+	rows, err := cache.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, nil, err
 	}

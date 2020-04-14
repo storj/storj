@@ -13,9 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
@@ -32,11 +34,23 @@ var nodeCfg = overlay.NodeSelectionConfig{
 	MinimumDiskSpace: 100 * memory.MiB,
 }
 
+const (
+	// staleness is how stale the cache can be before we sync with
+	// the database to refresh the cache
+
+	// using a negative time will force the cache to refresh every time
+	lowStaleness = -time.Hour
+
+	// using a positive time will make it so that the cache is only refreshed when
+	// it hasn't been in the past hour
+	highStaleness = time.Hour
+)
+
 func TestInit(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
-			time.Nanosecond,
+			lowStaleness,
 			nodeCfg,
 		)
 		// the cache should have no nodes to start
@@ -50,7 +64,7 @@ func TestInit(t *testing.T) {
 		const nodeCount = 2
 		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount)
 
-		// confirm nodes are in the cache once initialized
+		// confirm nodes are in the cache once it is initialized
 		err = cache.Init(ctx)
 		require.NoError(t, err)
 		reputable, new = cache.Size()
@@ -96,18 +110,20 @@ type mockdb struct {
 func (m *mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	sync2.Sleep(ctx, 500*time.Millisecond)
 	m.callCount++
 	return []*overlay.SelectedNode{}, []*overlay.SelectedNode{}, nil
 }
 func TestRefreshConcurrent(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	// concurrent refresh with high staleness
-	staleWhenAfter := time.Hour
+	// concurrent cache.refresh with high staleness, where high staleness means the
+	// cache should only be refreshed the first time we call cache.refresh (via cache.Init)
 	mockDB := mockdb{}
 	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
-		staleWhenAfter,
+		highStaleness,
 		nodeCfg,
 	)
 
@@ -123,12 +139,12 @@ func TestRefreshConcurrent(t *testing.T) {
 
 	require.Equal(t, 1, mockDB.callCount)
 
-	// concurrent refresh with low staleness
-	staleWhenAfter = time.Nanosecond
+	// concurrent cache.refresh (called via cache.Init) with low staleness, where low staleness
+	// means that the cache will refresh *every time* cache.refresh is called
 	mockDB = mockdb{}
 	cache = overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
-		staleWhenAfter,
+		lowStaleness,
 		nodeCfg,
 	)
 	group.Go(func() error {
@@ -156,7 +172,7 @@ func TestGetNode(t *testing.T) {
 		}
 		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
-			time.Nanosecond,
+			lowStaleness,
 			nodeCfg,
 		)
 		// the cache should have no nodes to start
@@ -168,7 +184,7 @@ func TestGetNode(t *testing.T) {
 		const nodeCount = 4
 		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount)
 
-		// confirm get nodes returns those nodes
+		// confirm cache.GetNodes returns the correct nodes
 		selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
 		require.NoError(t, err)
 		reputable, new = cache.Size()
@@ -186,13 +202,14 @@ func TestGetNode(t *testing.T) {
 }
 func TestGetNodeConcurrent(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-	// concurrent GetNodes with high staleness
-	staleWhenAfter := time.Hour
+	// concurrent GetNodes with high staleness, where high staleness means the
+	// cache should only be refreshed the first time we call cache.GetNodes
 	mockDB := mockdb{}
 	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
-		staleWhenAfter,
+		highStaleness,
 		nodeCfg,
 	)
 
@@ -207,15 +224,15 @@ func TestGetNodeConcurrent(t *testing.T) {
 	})
 	err := group.Wait()
 	require.NoError(t, err)
-	// expect only one call to GetNodes
+	// expect only one call to the db via cache.GetNodes
 	require.Equal(t, 1, mockDB.callCount)
 
-	// concurrent get nodes with low staleness
-	staleWhenAfter = time.Nanosecond
+	// concurrent get nodes with low staleness, where low staleness means that
+	// the cache will refresh each time cache.GetNodes is called
 	mockDB = mockdb{}
 	cache = overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
-		staleWhenAfter,
+		lowStaleness,
 		nodeCfg,
 	)
 
@@ -229,17 +246,18 @@ func TestGetNodeConcurrent(t *testing.T) {
 	})
 	err = group.Wait()
 	require.NoError(t, err)
-	// expect two calls to GetNodes
+	// expect two calls to the db via cache.GetNodes
 	require.Equal(t, 2, mockDB.callCount)
 }
 
 func TestGetNodeError(t *testing.T) {
 	ctx := testcontext.New(t)
-	staleWhenAfter := time.Hour
+	defer ctx.Cleanup()
+
 	mockDB := mockdb{}
 	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
-		staleWhenAfter,
+		highStaleness,
 		nodeCfg,
 	)
 
@@ -249,7 +267,7 @@ func TestGetNodeError(t *testing.T) {
 	require.Equal(t, 0, new)
 
 	// since the cache has no nodes, we should not be able
-	// to get 2 storage nodes from it
+	// to get 2 storage nodes from it and we expect an error
 	_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
 	require.Error(t, err)
 }
