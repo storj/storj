@@ -21,6 +21,7 @@ import (
 	"storj.io/private/debug"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
@@ -30,6 +31,7 @@ import (
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/retain"
@@ -150,6 +152,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					RefreshInterval: defaultInterval,
 				},
 			},
+			Pieces:    pieces.DefaultConfig,
+			Filestore: filestore.DefaultConfig,
 			Retain: retain.Config{
 				MaxTimeSkew: 10 * time.Second,
 				Status:      retain.Enabled,
@@ -184,15 +188,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 
 		verisonInfo := planet.NewVersionInfo()
 
-		storageConfig := storagenodedb.Config{
-			Storage: config.Storage.Path,
-			Info:    filepath.Join(config.Storage.Path, "piecestore.db"),
-			Info2:   filepath.Join(config.Storage.Path, "info.db"),
-			Pieces:  config.Storage.Path,
-		}
-
 		var db storagenode.DB
-		db, err = storagenodedb.New(log.Named("db"), storageConfig)
+		db, err = storagenodedb.New(log.Named("db"), config.DatabaseConfig())
 		if err != nil {
 			return nil, err
 		}

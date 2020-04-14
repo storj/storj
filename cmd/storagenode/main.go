@@ -124,15 +124,6 @@ func init() {
 	process.Bind(gracefulExitStatusCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 }
 
-func databaseConfig(config storagenode.Config) storagenodedb.Config {
-	return storagenodedb.Config{
-		Storage: config.Storage.Path,
-		Info:    filepath.Join(config.Storage.Path, "piecestore.db"),
-		Info2:   filepath.Join(config.Storage.Path, "info.db"),
-		Pieces:  config.Storage.Path,
-	}
-}
-
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	// inert constructors only ====
 
@@ -153,7 +144,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	db, err := storagenodedb.New(log.Named("db"), databaseConfig(runCfg.Config))
+	db, err := storagenodedb.New(log.Named("db"), runCfg.DatabaseConfig())
 	if err != nil {
 		return errs.New("Error starting master database on storagenode: %+v", err)
 	}
@@ -283,7 +274,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	db, err := storagenodedb.New(zap.L().Named("db"), databaseConfig(diagCfg))
+	db, err := storagenodedb.New(zap.L().Named("db"), diagCfg.DatabaseConfig())
 	if err != nil {
 		return errs.New("Error starting master database on storage node: %v", err)
 	}

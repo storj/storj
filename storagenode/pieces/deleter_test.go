@@ -28,10 +28,10 @@ func TestDeleter(t *testing.T) {
 	dir, err := filestore.NewDir(ctx.Dir("piecedeleter"))
 	require.NoError(t, err)
 
-	blobs := filestore.New(zaptest.NewLogger(t), dir)
+	blobs := filestore.New(zaptest.NewLogger(t), dir, filestore.DefaultConfig)
 	defer ctx.Check(blobs.Close)
 
-	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil, nil)
+	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil, nil, pieces.DefaultConfig)
 
 	// Also test that 0 works for maxWorkers
 	deleter := pieces.NewDeleter(zaptest.NewLogger(t), store, 0, 0)

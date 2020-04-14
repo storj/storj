@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
-	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/notifications"
@@ -49,8 +48,6 @@ var (
 	// ErrPreflight represents an error during the preflight check.
 	ErrPreflight = errs.Class("storage node preflight database error")
 )
-
-var _ storagenode.DB = (*DB)(nil)
 
 // DBContainer defines an interface to allow accessing and setting a SQLDB
 type DBContainer interface {
@@ -78,11 +75,12 @@ func withTx(ctx context.Context, db tagsql.DB, cb func(tx tagsql.Tx) error) erro
 // Config configures storage node database
 type Config struct {
 	// TODO: figure out better names
-	Storage string
-	Info    string
-	Info2   string
-	Driver  string // if unset, uses sqlite3
-	Pieces  string
+	Storage   string
+	Info      string
+	Info2     string
+	Driver    string // if unset, uses sqlite3
+	Pieces    string
+	Filestore filestore.Config
 }
 
 // DB contains access to different database tables
@@ -117,7 +115,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	pieces := filestore.New(log, piecesDir)
+	pieces := filestore.New(log, piecesDir, config.Filestore)
 
 	deprecatedInfoDB := &deprecatedInfoDB{}
 	v0PieceInfoDB := &v0PieceInfoDB{}

@@ -16,6 +16,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/sqliteutil"
+	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storagenodedb/testdata"
 )
@@ -82,10 +83,11 @@ func TestMigrate(t *testing.T) {
 
 	storageDir := ctx.Dir("storage")
 	cfg := storagenodedb.Config{
-		Pieces:  storageDir,
-		Storage: storageDir,
-		Info:    filepath.Join(storageDir, "piecestore.db"),
-		Info2:   filepath.Join(storageDir, "info.db"),
+		Pieces:    storageDir,
+		Storage:   storageDir,
+		Info:      filepath.Join(storageDir, "piecestore.db"),
+		Info2:     filepath.Join(storageDir, "info.db"),
+		Filestore: filestore.DefaultConfig,
 	}
 
 	// create a new satellitedb connection

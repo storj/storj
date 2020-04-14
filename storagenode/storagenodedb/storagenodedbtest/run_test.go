@@ -22,6 +22,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -66,10 +67,11 @@ func TestInMemoryConcurrency(t *testing.T) {
 
 	storageDir := ctx.Dir("storage")
 	cfg := storagenodedb.Config{
-		Pieces:  storageDir,
-		Storage: storageDir,
-		Info:    filepath.Join(storageDir, "piecestore.db"),
-		Info2:   filepath.Join(storageDir, "info.db"),
+		Pieces:    storageDir,
+		Storage:   storageDir,
+		Info:      filepath.Join(storageDir, "piecestore.db"),
+		Info2:     filepath.Join(storageDir, "info.db"),
+		Filestore: filestore.DefaultConfig,
 	}
 
 	db, err := storagenodedb.New(log, cfg)

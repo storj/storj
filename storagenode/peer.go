@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -31,6 +32,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
@@ -51,6 +53,7 @@ import (
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/satellites"
+	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 	version2 "storj.io/storj/storagenode/version"
@@ -103,6 +106,10 @@ type Config struct {
 	Storage2  piecestore.Config
 	Collector collector.Config
 
+	Filestore filestore.Config
+
+	Pieces pieces.Config
+
 	Retain retain.Config
 
 	Nodestats nodestats.Config
@@ -114,6 +121,17 @@ type Config struct {
 	Bandwidth bandwidth.Config
 
 	GracefulExit gracefulexit.Config
+}
+
+// DatabaseConfig returns the storagenodedb.Config that should be used with this Config.
+func (config *Config) DatabaseConfig() storagenodedb.Config {
+	return storagenodedb.Config{
+		Storage:   config.Storage.Path,
+		Info:      filepath.Join(config.Storage.Path, "piecestore.db"),
+		Info2:     filepath.Join(config.Storage.Path, "info.db"),
+		Pieces:    config.Storage.Path,
+		Filestore: config.Filestore,
+	}
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -391,6 +409,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.V0PieceInfo(),
 			peer.DB.PieceExpirationDB(),
 			peer.DB.PieceSpaceUsedDB(),
+			config.Pieces,
 		)
 
 		peer.Storage2.PieceDeleter = pieces.NewDeleter(log.Named("piecedeleter"), peer.Storage2.Store, config.Storage2.DeleteWorkers, config.Storage2.DeleteQueueSize)
