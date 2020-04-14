@@ -27,7 +27,7 @@ type CacheConfig struct {
 
 // NodeSelectionCache keeps a list of all the storage nodes that are qualified to store data
 // We organize the nodes by if they are reputable or a new node on the network.
-// The cache will get refreshed once the staleness time has past.
+// The cache will sync with the nodes table in the database and get refreshed once the staleness time has past.
 type NodeSelectionCache struct {
 	log             *zap.Logger
 	db              CacheDB
@@ -94,7 +94,7 @@ func (cache *NodeSelectionCache) refresh(ctx context.Context) (cachData *state, 
 
 // GetNodes selects nodes from the cache that will be used to upload a file.
 // Every node selected will be from a distinct network.
-// If the cache has no been refreshed recently, then refresh first.
+// If the cache hasn't been refreshed recently it will do so first.
 func (cache *NodeSelectionCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -114,24 +114,23 @@ func (cache *NodeSelectionCache) GetNodes(ctx context.Context, req FindStorageNo
 }
 
 // GetNodes selects nodes from the cache that will be used to upload a file.
-// Every node selected will be from a distinct network.
-// If the cache has no been refreshed recently, then refresh first.
+// If there are new nodes in the cache, we will return a small fraction of those
+// and then return mostly reputable nodes
 func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesRequest, newNodeFraction float64) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cacheData.mu.RLock()
 	defer cacheData.mu.RUnlock()
 
-	// how many reputableNodes versus newNode nodes are needed
+	// how many reputableNodes versus newNode nodes should be selected
 	totalcount := req.RequestedCount
 	newNodeCount := int(float64(req.RequestedCount) * newNodeFraction)
 
 	var selectedNodeResults = []*SelectedNode{}
 	var distinctNetworks = map[string]struct{}{}
 
-	// randomly select nodes from the cache
-	// select new nodes first so that if there aren't enough new nodes
-	// on the network, we can fall back to using reputable nodes instead
+	// Get a random selection of new nodes out of the cache first so that if there aren't
+	// enough new nodes on the network, we can fall back to using reputable nodes instead
 	randomIdexes := rand.Perm(len(cacheData.newNodes))
 	for _, idx := range randomIdexes {
 		currNode := cacheData.newNodes[idx]
@@ -181,7 +180,7 @@ func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesReques
 	return selectedNodeResults, nil
 }
 
-// Size returns the size of the reputable nodes and new nodes in the cache
+// Size returns how many reputable nodes and new nodes are in the cache
 func (cache *NodeSelectionCache) Size() (reputableNodeCount int, newNodeCount int) {
 	cache.mu.RLock()
 	cacheData := cache.data
