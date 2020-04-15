@@ -234,8 +234,12 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 	endpoint.pingStats.WasPinged(time.Now())
 
 	if requestLimit > 0 && int(liveRequests) > requestLimit {
-		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveRequests))
-		return rpcstatus.Error(rpcstatus.Unavailable, "storage node overloaded")
+		endpoint.log.Error("upload rejected, too many requests",
+			zap.Int32("live requests", liveRequests),
+			zap.Int32("requestLimit", requestLimit),
+		)
+		errMsg := fmt.Sprintf("storage node overloaded, request limit: %d", requestLimit)
+		return rpcstatus.Error(rpcstatus.Unavailable, errMsg)
 	}
 
 	startTime := time.Now().UTC()

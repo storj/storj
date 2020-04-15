@@ -364,6 +364,7 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 			}
 		}
 	}
+	log.Debug("successful order settlement")
 }
 
 func (endpoint *Endpoint) processOrders(ctx context.Context, stream settlementStream, requests []*ProcessOrderRequest) (err error) {
