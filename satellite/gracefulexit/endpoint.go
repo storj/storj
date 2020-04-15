@@ -538,7 +538,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 
 	endpoint.log.Warn("transfer failed",
 		zap.Stringer("Piece ID", message.Failed.OriginalPieceId),
-		zap.Stringer("nodeID", nodeID.String()),
+		zap.Stringer("nodeID", nodeID),
 		zap.Stringer("transfer error", message.Failed.GetError()),
 	)
 	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1) //locked

@@ -91,15 +91,6 @@ func (service *Service) PingBack(ctx context.Context, address string, peerID sto
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
-		service.log.Info("pingBack failed to dial storage node",
-			zap.Stringer("Node ID", peerID),
-			zap.String("node address", address),
-			zap.String("pingErrorMessage",
-			pingErrorMessage), zap.Error(err))
-		return pingNodeSuccess, pingErrorMessage, nil
-	}
-	defer func() { err = errs.Combine(err, client.Close()) }()
-
 	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
 	if err != nil {
 		mon.Event("failed ping node")

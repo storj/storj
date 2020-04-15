@@ -129,7 +129,10 @@ func (service *Service) checkVersion(ctx context.Context) (latestVersion version
 		service.log.Debug("Running on allowed version.", zap.Stringer("Version", service.Info.Version.Version))
 		return suggestedVersion, true
 	}
-	service.log.Warn("running on not allowed/outdated version. Currently running version: %s, desired version: %s", service.Info.Version.String(), minimumOld)
+	service.log.Warn("version not allowed/outdated",
+		zap.Stringer("current version", service.Info.Version.Version),
+		zap.Stringer("minimum allowed version", minimumOld),
+	)
 	return suggestedVersion, false
 }
 
