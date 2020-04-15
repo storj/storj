@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/pb"
@@ -76,7 +75,7 @@ func makeSegment(ctx context.Context, db metainfo.PointerDB, path string, creati
 		CreationDate: creationDate,
 	}
 
-	pointerBytes, err = proto.Marshal(pointer)
+	pointerBytes, err = pb.Marshal(pointer)
 	if err != nil {
 		return []byte{}, err
 	}

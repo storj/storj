@@ -24,7 +24,7 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		log.Fatal("Failed to load identity.", zap.Error(err))
 	}
 
 	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
@@ -64,16 +64,16 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher on satellite admin: ", err)
+		log.Warn("Failed to initialize telemetry batcher on satellite admin", zap.Error(err))
 	}
 
 	if err := process.InitTracingWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize tracing collector on satellite admin: ", err)
+		log.Warn("Failed to initialize tracing collector on satellite admin", zap.Error(err))
 	}
 
 	err = db.CheckVersion(ctx)
 	if err != nil {
-		zap.S().Fatal("failed satellite database version check: ", err)
+		log.Fatal("Failed satellite database version check.", zap.Error(err))
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 

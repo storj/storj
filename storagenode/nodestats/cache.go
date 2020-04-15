@@ -16,7 +16,9 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/storj/private/date"
 	"storj.io/storj/storagenode/heldamount"
+	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
@@ -28,11 +30,13 @@ type Config struct {
 	StorageSync    time.Duration `help:"how often to sync storage" releaseDefault:"12h" devDefault:"2m"`
 }
 
-// CacheStorage encapsulates cache DBs
+// CacheStorage encapsulates cache DBs.
 type CacheStorage struct {
 	Reputation   reputation.DB
 	StorageUsage storageusage.DB
 	HeldAmount   heldamount.DB
+	Pricing      pricing.DB
+	Satellites   satellites.DB
 }
 
 // Cache runs cache loop and stores reputation stats
@@ -69,6 +73,17 @@ func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
 // Run runs loop
 func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
+
+	err := cache.satelliteLoop(ctx, func(satelliteID storj.NodeID) error {
+		pricingModel, err := cache.service.GetPricingModel(ctx, satelliteID)
+		if err != nil {
+			return err
+		}
+		return cache.db.Pricing.Store(ctx, *pricingModel)
+	})
+	if err != nil {
+		cache.log.Error("Get pricing-model failed", zap.Error(err))
+	}
 
 	cache.Reputation.Start(ctx, &group, func(ctx context.Context) error {
 		if err := cache.sleep(ctx); err != nil {

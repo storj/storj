@@ -25,7 +25,7 @@ const testKey = 'test';
 const store = new Vuex.Store({ modules: { notificationsModule, apiKeysModule }});
 
 describe('ApiKeysCopyPopup', () => {
-    it('renders correctly', async () => {
+    it('renders correctly', async (): Promise<void> => {
         const wrapper = mount(ApiKeysCopyPopup, {
             store,
             localVue,
@@ -36,13 +36,10 @@ describe('ApiKeysCopyPopup', () => {
         });
 
         expect(wrapper).toMatchSnapshot();
-        expect(wrapper.find('.save-api-popup__copy-area__key-area__key').text()).toBe(testKey);
-
-        await wrapper.find('.copy-button').trigger('click');
-        expect(wrapper).toMatchSnapshot();
+        await expect(wrapper.find('.save-api-popup__copy-area__key-area__key').text()).toBe(testKey);
     });
 
-    it('function onCloseClick works correctly', async () => {
+    it('function onCloseClick works correctly', async (): Promise<void> => {
         const wrapper = mount(ApiKeysCopyPopup, {
             store,
             localVue,

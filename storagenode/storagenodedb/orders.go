@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
@@ -31,12 +30,12 @@ type ordersDB struct {
 func (db *ordersDB) Enqueue(ctx context.Context, info *orders.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	limitSerialized, err := proto.Marshal(info.Limit)
+	limitSerialized, err := pb.Marshal(info.Limit)
 	if err != nil {
 		return ErrOrders.Wrap(err)
 	}
 
-	orderSerialized, err := proto.Marshal(info.Order)
+	orderSerialized, err := pb.Marshal(info.Order)
 	if err != nil {
 		return ErrOrders.Wrap(err)
 	}
@@ -93,13 +92,13 @@ func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 		info.Limit = &pb.OrderLimit{}
 		info.Order = &pb.Order{}
 
-		err = proto.Unmarshal(limitSerialized, info.Limit)
+		err = pb.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
 			unmarshalErrors.Add(ErrOrders.Wrap(err))
 			continue
 		}
 
-		err = proto.Unmarshal(orderSerialized, info.Order)
+		err = pb.Unmarshal(orderSerialized, info.Order)
 		if err != nil {
 			unmarshalErrors.Add(ErrOrders.Wrap(err))
 			continue
@@ -152,13 +151,13 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 		info.Limit = &pb.OrderLimit{}
 		info.Order = &pb.Order{}
 
-		err = proto.Unmarshal(limitSerialized, info.Limit)
+		err = pb.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
 			unmarshalErrors.Add(ErrOrders.Wrap(err))
 			continue
 		}
 
-		err = proto.Unmarshal(orderSerialized, info.Order)
+		err = pb.Unmarshal(orderSerialized, info.Order)
 		if err != nil {
 			unmarshalErrors.Add(ErrOrders.Wrap(err))
 			continue
@@ -289,12 +288,12 @@ func (db *ordersDB) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 		info.Status = orders.Status(status)
 		info.ArchivedAt = archivedAt
 
-		err = proto.Unmarshal(limitSerialized, info.Limit)
+		err = pb.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
 			return nil, ErrOrders.Wrap(err)
 		}
 
-		err = proto.Unmarshal(orderSerialized, info.Order)
+		err = pb.Unmarshal(orderSerialized, info.Order)
 		if err != nil {
 			return nil, ErrOrders.Wrap(err)
 		}

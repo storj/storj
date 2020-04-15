@@ -26,9 +26,7 @@ exports[`ApiKeysArea renders empty screen with add key prompt 1`] = `
     <div class="no-api-keys-area collapsed">
       <h1 class="no-api-keys-area__title">Create Your First API Key</h1>
       <p class="no-api-keys-area__sub-title">API keys give access to the project to create buckets, upload objects</p>
-      <div class="no-api-keys-area__button container" style="width: 180px; height: 48px;">
-        <h1 class="label">Create API Key</h1>
-      </div>
+      <div class="no-api-keys-area__button container" style="width: 180px; height: 48px;"><span class="label">Create API Key</span></div>
       <div class="no-api-keys-area__steps-area">
         <div class="no-api-keys-area__steps-area__numbers"><svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" class="no-api-keys-area__steps-area__numbers__icon">
             <circle cx="15" cy="15" r="15" fill="#519CFF"></circle>

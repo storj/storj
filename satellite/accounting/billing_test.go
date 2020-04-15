@@ -332,6 +332,60 @@ func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
 	})
 }
 
+func TestBilling_ExpiredFiles(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			bucketName = "a-bucket"
+			objectKey  = "object-filename"
+		)
+
+		satelliteSys := planet.Satellites[0]
+		satelliteSys.Audit.Chore.Loop.Stop()
+		satelliteSys.Repair.Repairer.Loop.Stop()
+
+		satelliteSys.Accounting.Tally.Loop.Pause()
+
+		tallies := getTallies(ctx, t, planet, 0)
+		require.Zero(t, len(tallies), "There should be no tally at this point")
+
+		now := time.Now()
+		expirationDate := now.Add(time.Hour)
+
+		{
+			uplink := planet.Uplinks[0]
+			data := testrand.Bytes(128 * memory.KiB)
+			err := uplink.UploadWithExpiration(ctx, satelliteSys, bucketName, objectKey, data, expirationDate)
+			require.NoError(t, err)
+		}
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		tallies = getTallies(ctx, t, planet, 0)
+		require.NotZero(t, len(tallies), "There should be at least one tally")
+
+		// set the tally service to be in the future for the next get tallies call. it should
+		// not add any tallies.
+		planet.Satellites[0].Accounting.Tally.SetNow(func() time.Time {
+			return now.Add(2 * time.Hour)
+		})
+		newTallies := getTallies(ctx, t, planet, 0)
+		require.Equal(t, tallies, newTallies)
+	})
+}
+
+func getTallies(ctx context.Context, t *testing.T, planet *testplanet.Planet, satelliteIdx int) []accounting.BucketTally {
+	t.Helper()
+	sat := planet.Satellites[satelliteIdx]
+	sat.Accounting.Tally.Loop.TriggerWait()
+	sat.Accounting.Tally.Loop.Pause()
+
+	tallies, err := sat.DB.ProjectAccounting().GetTallies(ctx)
+	require.NoError(t, err)
+	return tallies
+
+}
+
 func TestBilling_ZombieSegments(t *testing.T) {
 	// failing test - see https://storjlabs.atlassian.net/browse/SM-592
 	t.Skip("Zombie segments do get billed. Wait for resolution of SM-592")

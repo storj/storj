@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
@@ -104,6 +105,7 @@ type DB struct {
 	satellitesDB      *satellitesDB
 	notificationsDB   *notificationDB
 	heldamountDB      *heldamountDB
+	pricingDB         *pricingDB
 
 	SQLDBs map[string]DBContainer
 }
@@ -128,6 +130,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	satellitesDB := &satellitesDB{}
 	notificationsDB := &notificationDB{}
 	heldamountDB := &heldamountDB{}
+	pricingDB := &pricingDB{}
 
 	db := &DB{
 		log:    log,
@@ -149,6 +152,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		satellitesDB:      satellitesDB,
 		notificationsDB:   notificationsDB,
 		heldamountDB:      heldamountDB,
+		pricingDB:         pricingDB,
 
 		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -163,6 +167,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 			SatellitesDBName:      satellitesDB,
 			NotificationsDBName:   notificationsDB,
 			HeldAmountDBName:      heldamountDB,
+			PricingDBName:         pricingDB,
 		},
 	}
 
@@ -235,6 +240,11 @@ func (db *DB) openDatabases() error {
 	}
 
 	err = db.openDatabase(HeldAmountDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
+
+	err = db.openDatabase(PricingDBName)
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
@@ -445,6 +455,11 @@ func (db *DB) Notifications() notifications.DB {
 // HeldAmount returns instance of the HeldAmount database.
 func (db *DB) HeldAmount() heldamount.DB {
 	return db.heldamountDB
+}
+
+// Pricing returns instance of the Pricing database.
+func (db *DB) Pricing() pricing.DB {
+	return db.pricingDB
 }
 
 // RawDatabases are required for testing purposes
@@ -749,19 +764,19 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from us-central-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa")) // europe-west1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from europe-west-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa")) // asia-east1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from asia-east-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from tothemoon.", zap.Error(err))
 					}
 					// To prevent the node from starting up, we just log errors and return nil
 					return nil
@@ -774,7 +789,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "tmp"))
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing orphaned tmp data.", zap.Error(err))
 					}
 					// To prevent the node from starting up, we just log errors and return nil
 					return nil
@@ -1143,6 +1158,29 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 						  notes text,
 						  PRIMARY KEY ( id )
      				);`,
+				},
+			},
+			{
+				DB:          db.reputationDB,
+				Description: "Add suspended field to satellites db",
+				Version:     34,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN suspended TIMESTAMP`,
+				},
+			},
+			{
+				DB:          db.pricingDB,
+				Description: "Create pricing table",
+				Version:     35,
+				Action: migrate.SQL{
+					`CREATE TABLE pricing (
+						satellite_id BLOB NOT NULL,
+						egress_bandwidth_price bigint NOT NULL,
+						repair_bandwidth_price bigint NOT NULL,
+						audit_bandwidth_price bigint NOT NULL,
+						disk_space_price bigint NOT NULL,
+						PRIMARY KEY ( satellite_id )
+					);`,
 				},
 			},
 		},

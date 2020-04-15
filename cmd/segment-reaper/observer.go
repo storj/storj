@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -130,7 +129,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		object.hasLastSegment = true
 
 		streamMeta := pb.StreamMeta{}
-		err := proto.Unmarshal(pointer.Metadata, &streamMeta)
+		err := pb.Unmarshal(pointer.Metadata, &streamMeta)
 		if err != nil {
 			return errs.New("unexpected error unmarshalling pointer metadata %s", err)
 		}
@@ -140,7 +139,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 			// ins't tracked in it.
 			if streamMeta.NumberOfSegments > (int64(maxNumOfSegments) + 1) {
 				object.skip = true
-				zap.S().Warn("unsupported number of segments", zap.Int64("index", streamMeta.NumberOfSegments))
+				zap.L().Warn("Unsupported number of segments", zap.Int64("Segments", streamMeta.NumberOfSegments))
 			}
 			object.expectedNumberOfSegments = byte(streamMeta.NumberOfSegments)
 		}
@@ -151,7 +150,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		}
 		if segmentIndex >= int(maxNumOfSegments) {
 			object.skip = true
-			zap.S().Warn("unsupported segment index", zap.Int("index", segmentIndex))
+			zap.L().Warn("Unsupported segment index", zap.Int("Index", segmentIndex))
 		} else {
 			ok, err := object.segments.Has(segmentIndex)
 			if err != nil {
@@ -308,7 +307,7 @@ func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID, 
 	}
 
 	pointer := &pb.Pointer{}
-	err = proto.Unmarshal(pointerBytes, pointer)
+	err = pb.Unmarshal(pointerBytes, pointer)
 	if err != nil {
 		return "", err
 	}

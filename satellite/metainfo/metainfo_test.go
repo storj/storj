@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -27,7 +26,9 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	satMetainfo "storj.io/storj/satellite/metainfo"
 	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/storage/meta"
 )
 
 func TestInvalidAPIKey(t *testing.T) {
@@ -92,7 +93,7 @@ func TestInvalidAPIKey(t *testing.T) {
 			signedStreamID, err := signing.SignStreamID(ctx, signer, satStreamID)
 			require.NoError(t, err)
 
-			encodedStreamID, err := proto.Marshal(signedStreamID)
+			encodedStreamID, err := pb.Marshal(signedStreamID)
 			require.NoError(t, err)
 
 			streamID, err := storj.StreamIDFromBytes(encodedStreamID)
@@ -121,7 +122,7 @@ func TestInvalidAPIKey(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			encodedSegmentID, err := proto.Marshal(signedSegmentID)
+			encodedSegmentID, err := pb.Marshal(signedSegmentID)
 			require.NoError(t, err)
 
 			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
@@ -259,66 +260,6 @@ func TestExpirationTimeSegment(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-		}
-	})
-}
-
-func TestSetBucketAttribution(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		uplink := planet.Uplinks[0]
-
-		err := uplink.CreateBucket(ctx, planet.Satellites[0], "alpha")
-		require.NoError(t, err)
-
-		err = uplink.CreateBucket(ctx, planet.Satellites[0], "alpha-new")
-		require.NoError(t, err)
-
-		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
-		require.NoError(t, err)
-		defer ctx.Check(metainfoClient.Close)
-
-		partnerID := testrand.UUID()
-		{ // bucket with no items
-			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
-				Bucket:    "alpha",
-				PartnerID: partnerID,
-			})
-			require.NoError(t, err)
-		}
-
-		{ // setting attribution on a bucket that doesn't exist should fail
-			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
-				Bucket:    "beta",
-				PartnerID: partnerID,
-			})
-			require.Error(t, err)
-		}
-
-		{ // add data to an attributed bucket
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha", "path", []byte{1, 2, 3})
-			assert.NoError(t, err)
-
-			// trying to set attribution should be ignored
-			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
-				Bucket:    "alpha",
-				PartnerID: partnerID,
-			})
-			require.NoError(t, err)
-		}
-
-		{ // non attributed bucket, and adding files
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha-new", "path", []byte{1, 2, 3})
-			assert.NoError(t, err)
-
-			// bucket with items
-			err = metainfoClient.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
-				Bucket:    "alpha-new",
-				PartnerID: partnerID,
-			})
-			require.Error(t, err)
 		}
 	})
 }
@@ -572,7 +513,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		metadata, err := proto.Marshal(&pb.StreamMeta{
+		metadata, err := pb.Marshal(&pb.StreamMeta{
 			NumberOfSegments: 1,
 		})
 		require.NoError(t, err)
@@ -735,7 +676,7 @@ func TestInlineSegment(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		metadata, err := proto.Marshal(&pb.StreamMeta{
+		metadata, err := pb.Marshal(&pb.StreamMeta{
 			NumberOfSegments: int64(len(segments)),
 		})
 		require.NoError(t, err)
@@ -760,14 +701,14 @@ func TestInlineSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		{ // test max inline segment size 4KiB
+		{ // Confirm data larger than our configured max inline segment size of 4 KiB cannot be inlined
 			beginObjectResp, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
 				Bucket:        []byte(bucket.Name),
 				EncryptedPath: []byte("too-large-inline-segment"),
 			})
 			require.NoError(t, err)
 
-			data := testrand.Bytes(5 * memory.KiB)
+			data := testrand.Bytes(10 * memory.KiB)
 			err = metainfoClient.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
 				StreamID: beginObjectResp.StreamID,
 				Position: storj.SegmentPosition{
@@ -957,7 +898,7 @@ func TestIDs(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			encodedStreamID, err := proto.Marshal(signedStreamID)
+			encodedStreamID, err := pb.Marshal(signedStreamID)
 			require.NoError(t, err)
 
 			streamID, err := storj.StreamIDFromBytes(encodedStreamID)
@@ -975,7 +916,7 @@ func TestIDs(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			encodedSegmentID, err := proto.Marshal(signedSegmentID)
+			encodedSegmentID, err := pb.Marshal(signedSegmentID)
 			require.NoError(t, err)
 
 			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
@@ -996,7 +937,7 @@ func TestIDs(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			encodedSegmentID, err := proto.Marshal(signedSegmentID)
+			encodedSegmentID, err := pb.Marshal(signedSegmentID)
 			require.NoError(t, err)
 
 			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
@@ -1076,7 +1017,7 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
-			metadata, err := proto.Marshal(&pb.StreamMeta{
+			metadata, err := pb.Marshal(&pb.StreamMeta{
 				NumberOfSegments: int64(numOfSegments),
 			})
 			require.NoError(t, err)
@@ -1140,7 +1081,7 @@ func TestBatch(t *testing.T) {
 				})
 			}
 
-			metadata, err := proto.Marshal(&pb.StreamMeta{
+			metadata, err := pb.Marshal(&pb.StreamMeta{
 				NumberOfSegments: int64(numOfSegments),
 			})
 			require.NoError(t, err)
@@ -1420,5 +1361,47 @@ func TestDeleteBatchWithoutPermission(t *testing.T) {
 		)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(responses))
+	})
+}
+
+func TestInlineSegmentThreshold(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
+
+		{ // limit is max inline segment size + encryption overhead
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket-inline", "inline-object", testrand.Bytes(4*memory.KiB))
+			require.NoError(t, err)
+
+			// we don't know encrypted path
+			prefix, err := satMetainfo.CreatePath(ctx, projectID, -1, []byte("test-bucket-inline"), []byte{})
+			require.NoError(t, err)
+
+			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, prefix, "", false, 0, meta.All)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(items))
+
+			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, prefix+"/"+items[0].Path)
+			require.NoError(t, err)
+			require.Equal(t, pb.Pointer_INLINE, pointer.Type)
+		}
+
+		{ // one more byte over limit should enough to create remote segment
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket-remote", "remote-object", testrand.Bytes(4*memory.KiB+1))
+			require.NoError(t, err)
+
+			// we don't know encrypted path
+			prefix, err := satMetainfo.CreatePath(ctx, projectID, -1, []byte("test-bucket-remote"), []byte{})
+			require.NoError(t, err)
+
+			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, prefix, "", false, 0, meta.All)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(items))
+
+			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, prefix+"/"+items[0].Path)
+			require.NoError(t, err)
+			require.Equal(t, pb.Pointer_REMOTE, pointer.Type)
+		}
 	})
 }

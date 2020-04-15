@@ -24,6 +24,36 @@ type ListOptions struct {
 // If true then the caller must call List again to get more
 // results by setting `StartAfter` appropriately.
 func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result Items, more bool, err error) {
+	more, err = ListV2Iterate(ctx, store, opts, func(ctx context.Context, item *ListItem) error {
+		if opts.IncludeValue {
+			result = append(result, ListItem{
+				Key:      CloneKey(item.Key),
+				Value:    CloneValue(item.Value),
+				IsPrefix: item.IsPrefix,
+			})
+		} else {
+			result = append(result, ListItem{
+				Key:      CloneKey(item.Key),
+				IsPrefix: item.IsPrefix,
+			})
+		}
+		return nil
+	})
+	return result, more, err
+}
+
+// ListV2Iterate lists all keys corresponding to ListOptions.
+// limit is capped to LookupLimit.
+//
+// more indicates if the result was truncated. If false
+// then the result []ListItem includes all requested keys.
+// If true then the caller must call List again to get more
+// results by setting `StartAfter` appropriately.
+//
+// The opts.IncludeValue is ignored for this func.
+// The callback item will be reused for next calls.
+// If the user needs the preserve the value, it must call storage.CloneValue or storage.CloneKey.
+func ListV2Iterate(ctx context.Context, store KeyValueStore, opts ListOptions, fn func(context.Context, *ListItem) error) (more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	limit := opts.Limit
@@ -54,20 +84,14 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 				}
 			}
 
-			task := mon.TaskNamed("appending_to_results")(nil)
-			if opts.IncludeValue {
-				result = append(result, ListItem{
-					Key:      CloneKey(relativeKey),
-					Value:    CloneValue(item.Value),
-					IsPrefix: item.IsPrefix,
-				})
-			} else {
-				result = append(result, ListItem{
-					Key:      CloneKey(relativeKey),
-					IsPrefix: item.IsPrefix,
-				})
-			}
+			task := mon.TaskNamed("handling_item")(nil)
+			item.Key = relativeKey
+			err := fn(ctx, &item)
 			task(nil)
+
+			if err != nil {
+				return err
+			}
 		}
 
 		// we still need to consume one item for the more flag
@@ -86,7 +110,7 @@ func ListV2(ctx context.Context, store KeyValueStore, opts ListOptions) (result 
 		Limit:   limit,
 	}, iterate)
 
-	return result, more, err
+	return more, err
 }
 
 func joinKey(a, b Key) Key {

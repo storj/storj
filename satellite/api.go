@@ -205,8 +205,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{
 		if !versionInfo.IsZero() {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
+			peer.Log.Debug("Version info",
+				zap.Stringer("Version", versionInfo.Version.Version),
+				zap.String("Commit Hash", versionInfo.CommitHash),
+				zap.Stringer("Build Timestamp", versionInfo.Timestamp),
+				zap.Bool("Release Build", versionInfo.Release),
+			)
 		}
 
 		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
@@ -243,9 +247,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name: "server",
 			Run: func(ctx context.Context) error {
 				// Don't change the format of this comment, it is used to figure out the node id.
-				peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
-				peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
-				peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
+				peer.Log.Info("Node started.", zap.Stringer("Node ID", peer.Identity.ID))
+				peer.Log.Info("Public server started.", zap.String("Address", peer.Addr()))
+				peer.Log.Info("Private server started.", zap.String("Address", peer.PrivateAddr()))
 				return peer.Server.Run(ctx)
 			},
 			Close: peer.Server.Close,
@@ -413,7 +417,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Close: peer.Metainfo.PieceDeletion.Close,
 		})
 
-		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
+		peer.Metainfo.Endpoint2, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
 			peer.Metainfo.PieceDeletion,
@@ -428,6 +432,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			config.Metainfo,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		pbgrpc.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 		if err := pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2); err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -634,6 +642,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("nodestats:endpoint"),
 			peer.Overlay.DB,
 			peer.DB.StoragenodeAccounting(),
+			config.Payments,
 		)
 		pbgrpc.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 		if err := pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint); err != nil {

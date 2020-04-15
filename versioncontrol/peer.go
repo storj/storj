@@ -106,12 +106,12 @@ func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 	if xfor = r.Header.Get("X-Forwarded-For"); xfor == "" {
 		xfor = r.RemoteAddr
 	}
-	peer.Log.Sugar().Debugf("Request from: %s for %s", r.RemoteAddr, xfor)
+	peer.Log.Debug("Request received.", zap.String("From", r.RemoteAddr), zap.String("For", xfor))
 
 	w.Header().Set("Content-Type", "application/json")
 	_, err := w.Write(peer.response)
 	if err != nil {
-		peer.Log.Sugar().Errorf("error writing response to client: %v", err)
+		peer.Log.Error("Error writing response to client.", zap.Error(err))
 	}
 }
 
@@ -184,10 +184,10 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 
 	peer.response, err = json.Marshal(peer.Versions)
 	if err != nil {
-		peer.Log.Sugar().Fatalf("Error marshalling version info: %v", err)
+		peer.Log.Fatal("Error marshalling version info.", zap.Error(err))
 	}
 
-	peer.Log.Sugar().Debugf("setting version info to: %v", string(peer.response))
+	peer.Log.Debug("Setting version info.", zap.ByteString("Value", peer.response))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", peer.HandleGet)
@@ -214,7 +214,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		peer.Log.Sugar().Infof("Versioning server started on %s", peer.Addr())
+		peer.Log.Info("Versioning server started.", zap.String("Address", peer.Addr()))
 		return errs2.IgnoreCanceled(peer.Server.Endpoint.Serve(peer.Server.Listener))
 	})
 	return group.Wait()

@@ -43,8 +43,6 @@ func testNodeSelectionConfig(auditCount int64, newNodeFraction float64, distinct
 
 		AuditReputationRepairWeight: 1,
 		AuditReputationUplinkWeight: 1,
-		AuditReputationAlpha0:       1,
-		AuditReputationBeta0:        0,
 		AuditReputationLambda:       1,
 		AuditReputationWeight:       1,
 		AuditReputationDQ:           0.5,
@@ -102,8 +100,8 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		valid1, err := service.Get(ctx, valid1ID)
 		require.NoError(t, err)
 		require.EqualValues(t, valid1.Id, valid1ID)
-		require.EqualValues(t, valid1.Reputation.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
-		require.EqualValues(t, valid1.Reputation.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
+		require.EqualValues(t, valid1.Reputation.AuditReputationAlpha, 1)
+		require.EqualValues(t, valid1.Reputation.AuditReputationBeta, 0)
 		require.Nil(t, valid1.Reputation.Disqualified)
 
 		stats, err := service.UpdateStats(ctx, &overlay.UpdateRequest{
@@ -132,8 +130,8 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		dossier, err := service.Get(ctx, valid2ID)
 
 		require.NoError(t, err)
-		require.EqualValues(t, dossier.Reputation.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
-		require.EqualValues(t, dossier.Reputation.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
+		require.EqualValues(t, dossier.Reputation.AuditReputationAlpha, 1)
+		require.EqualValues(t, dossier.Reputation.AuditReputationBeta, 0)
 		require.NotNil(t, dossier.Disqualified)
 	}
 }
@@ -150,10 +148,7 @@ func TestRandomizedSelection(t *testing.T) {
 		cache := db.OverlayCache()
 		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
-		defaults := overlay.NodeSelectionConfig{
-			AuditReputationAlpha0: 1,
-			AuditReputationBeta0:  0,
-		}
+		defaults := overlay.NodeSelectionConfig{}
 
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
@@ -190,13 +185,13 @@ func TestRandomizedSelection(t *testing.T) {
 			var err error
 
 			if i%2 == 0 {
-				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, 0, &overlay.NodeCriteria{
 					OnlineWindow: time.Hour,
 					AuditCount:   1,
 				})
 				require.NoError(t, err)
 			} else {
-				nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, numNodesToSelect, &overlay.NodeCriteria{
 					OnlineWindow: time.Hour,
 					AuditCount:   1,
 				})
@@ -429,10 +424,15 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, actualNode.Reputation.LastContactSuccess.After(startOfTest))
 		require.True(t, actualNode.Reputation.LastContactFailure.UTC().Equal(time.Time{}.UTC()))
+		actualNode.Address = expectedNode.Address
 
 		// we need to overwrite the times so that the deep equal considers them the same
 		expectedNode.Reputation.LastContactSuccess = actualNode.Reputation.LastContactSuccess
 		expectedNode.Reputation.LastContactFailure = actualNode.Reputation.LastContactFailure
+		expectedNode.Reputation.AuditReputationAlpha = 1
+		expectedNode.Reputation.UnknownAuditReputationAlpha = 1
+		expectedNode.Reputation.AuditReputationBeta = 0
+		expectedNode.Reputation.UnknownAuditReputationBeta = 0
 		expectedNode.Version.Timestamp = actualNode.Version.Timestamp
 		expectedNode.CreatedAt = actualNode.CreatedAt
 		require.Equal(t, expectedNode, actualNode)
@@ -498,10 +498,7 @@ func TestUpdateCheckIn(t *testing.T) {
 func TestCache_DowntimeTracking(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
-		defaults := overlay.NodeSelectionConfig{
-			AuditReputationAlpha0: 1,
-			AuditReputationBeta0:  0,
-		}
+		defaults := overlay.NodeSelectionConfig{}
 
 		totalNodes := 10
 		allIDs := make(storj.NodeIDList, totalNodes)
@@ -589,17 +586,14 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 	})
 }
 
-// TestSuspendedSelection ensures that suspended nodes are not selected by SelectStorageNodes or SelectNewStorageNodes
+// TestSuspendedSelection ensures that suspended nodes are not selected by SelectStorageNodes
 func TestSuspendedSelection(t *testing.T) {
 	totalNodes := 10
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache := db.OverlayCache()
 		suspendedIDs := make(map[storj.NodeID]bool)
-		defaults := overlay.NodeSelectionConfig{
-			AuditReputationAlpha0: 1,
-			AuditReputationBeta0:  0,
-		}
+		defaults := overlay.NodeSelectionConfig{}
 
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
@@ -640,7 +634,7 @@ func TestSuspendedSelection(t *testing.T) {
 		numNodesToSelect := 10
 
 		// select 10 vetted nodes - 5 vetted, 2 suspended, so expect 3
-		nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+		nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, 0, &overlay.NodeCriteria{
 			OnlineWindow: time.Hour,
 			AuditCount:   1,
 		})
@@ -651,7 +645,7 @@ func TestSuspendedSelection(t *testing.T) {
 		}
 
 		// select 10 new nodes - 5 new, 2 suspended, so expect 3
-		nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+		nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, numNodesToSelect, &overlay.NodeCriteria{
 			OnlineWindow: time.Hour,
 			AuditCount:   1,
 		})

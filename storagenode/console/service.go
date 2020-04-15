@@ -19,7 +19,9 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
@@ -40,6 +42,8 @@ type Service struct {
 	bandwidthDB    bandwidth.DB
 	reputationDB   reputation.DB
 	storageUsageDB storageusage.DB
+	pricingDB      pricing.DB
+	satelliteDB    satellites.DB
 	pieceStore     *pieces.Store
 	contact        *contact.Service
 
@@ -56,7 +60,7 @@ type Service struct {
 // NewService returns new instance of Service.
 func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *checker.Service,
 	allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
-	reputationDB reputation.DB, storageUsageDB storageusage.DB, pingStats *contact.PingStats, contact *contact.Service) (*Service, error) {
+	reputationDB reputation.DB, storageUsageDB storageusage.DB, pricingDB pricing.DB, satelliteDB satellites.DB, pingStats *contact.PingStats, contact *contact.Service) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -87,6 +91,8 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		bandwidthDB:        bandwidth,
 		reputationDB:       reputationDB,
 		storageUsageDB:     storageUsageDB,
+		pricingDB:          pricingDB,
+		satelliteDB:        satelliteDB,
 		pieceStore:         pieceStore,
 		version:            version,
 		pingStats:          pingStats,
@@ -103,6 +109,7 @@ type SatelliteInfo struct {
 	ID           storj.NodeID `json:"id"`
 	URL          string       `json:"url"`
 	Disqualified *time.Time   `json:"disqualified"`
+	Suspended    *time.Time   `json:"suspended"`
 }
 
 // Dashboard encapsulates dashboard stale data.
@@ -154,6 +161,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 			SatelliteInfo{
 				ID:           rep.SatelliteID,
 				Disqualified: rep.Disqualified,
+				Suspended:    rep.Suspended,
 				URL:          url,
 			},
 		)
@@ -181,6 +189,14 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	return data, nil
 }
 
+// PriceModel is a satellite prices for storagenode usage TB/H.
+type PriceModel struct {
+	EgressBandwidth int64
+	RepairBandwidth int64
+	AuditBandwidth  int64
+	DiskSpace       int64
+}
+
 // Satellite encapsulates satellite related data.
 type Satellite struct {
 	ID               storj.NodeID            `json:"id"`
@@ -192,6 +208,8 @@ type Satellite struct {
 	IngressSummary   int64                   `json:"ingressSummary"`
 	Audit            reputation.Metric       `json:"audit"`
 	Uptime           reputation.Metric       `json:"uptime"`
+	PriceModel       PriceModel              `json:"priceModel"`
+	NodeJoinedAt     time.Time               `json:"nodeJoinedAt"`
 }
 
 // GetSatelliteData returns satellite related data.
@@ -234,6 +252,23 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
+	pricingModel, err := s.pricingDB.Get(ctx, satelliteID)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	satellitePricing := PriceModel{
+		EgressBandwidth: pricingModel.EgressBandwidth,
+		RepairBandwidth: pricingModel.RepairBandwidth,
+		AuditBandwidth:  pricingModel.AuditBandwidth,
+		DiskSpace:       pricingModel.DiskSpace,
+	}
+
+	satellite, err := s.satelliteDB.GetSatellite(ctx, satelliteID)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
 	return &Satellite{
 		ID:               satelliteID,
 		StorageDaily:     storageDaily,
@@ -244,6 +279,8 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		IngressSummary:   ingressSummary.Total(),
 		Audit:            rep.Audit,
 		Uptime:           rep.Uptime,
+		PriceModel:       satellitePricing,
+		NodeJoinedAt:     satellite.AddedAt,
 	}, nil
 }
 
@@ -255,6 +292,7 @@ type Satellites struct {
 	BandwidthSummary int64                   `json:"bandwidthSummary"`
 	EgressSummary    int64                   `json:"egressSummary"`
 	IngressSummary   int64                   `json:"ingressSummary"`
+	EarliestJoinedAt time.Time               `json:"earliestJoinedAt"`
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
@@ -293,6 +331,19 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
+	satellitesIDs := s.trust.GetSatellites(ctx)
+	joinedAt := time.Now().UTC()
+	for i := 0; i < len(satellitesIDs); i++ {
+		satellite, err := s.satelliteDB.GetSatellite(ctx, satellitesIDs[i])
+		if err != nil {
+			return nil, SNOServiceErr.Wrap(err)
+		}
+
+		if satellite.AddedAt.Before(joinedAt) {
+			joinedAt = satellite.AddedAt
+		}
+	}
+
 	return &Satellites{
 		StorageDaily:     storageDaily,
 		BandwidthDaily:   bandwidthDaily,
@@ -300,6 +351,7 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		BandwidthSummary: bandwidthSummary.Total(),
 		EgressSummary:    egressSummary.Total(),
 		IngressSummary:   ingressSummary.Total(),
+		EarliestJoinedAt: joinedAt,
 	}, nil
 }
 

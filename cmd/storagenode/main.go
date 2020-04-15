@@ -145,11 +145,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		log.Fatal("Failed to load identity.", zap.Error(err))
 	}
 
 	if err := runCfg.Verify(log); err != nil {
-		log.Sugar().Error("Invalid configuration: ", err)
+		log.Error("Invalid configuration.", zap.Error(err))
 		return err
 	}
 
@@ -183,11 +183,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
+		log.Warn("Failed to initialize telemetry batcher.", zap.Error(err))
 	}
 
 	if err := process.InitTracingWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize tracing collector: ", err)
+		log.Warn("Failed to initialize tracing collector.", zap.Error(err))
 	}
 	err = db.CreateTables(ctx)
 	if err != nil {
@@ -206,7 +206,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := peer.Storage2.CacheService.Init(ctx); err != nil {
-		zap.S().Error("Failed to initialize CacheService: ", err)
+		log.Error("Failed to initialize CacheService.", zap.Error(err))
 	}
 
 	runError := peer.Run(ctx)

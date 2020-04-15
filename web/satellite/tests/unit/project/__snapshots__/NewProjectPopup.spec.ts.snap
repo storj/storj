@@ -34,12 +34,8 @@ exports[`NewProjectPopup.vue renders correctly 1`] = `
         <!---->
       </div>
       <div class="new-project-popup__form-container__button-container">
-        <div class="container white" style="width: 205px; height: 48px;">
-          <h1 class="label">Back to Billing</h1>
-        </div>
-        <div class="container" style="width: 205px; height: 48px;">
-          <h1 class="label">Next</h1>
-        </div>
+        <div class="container white" style="width: 205px; height: 48px;"><span class="label">Back to Billing</span></div>
+        <div class="container" style="width: 205px; height: 48px;"><span class="label">Next</span></div>
       </div>
     </div>
     <div class="new-project-popup__close-cross-container"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

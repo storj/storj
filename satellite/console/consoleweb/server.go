@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"mime"
 	"net"
@@ -61,14 +62,15 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors        string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
-	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SegmentIOPublicKey    string `help:"used to initialize segment.io at web satellite console" default:""`
+	ContactInfoURL               string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors               string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
+	LetUsKnowURL                 string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                          string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName                string `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator            string `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL        string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
+	SegmentIOPublicKey           string `help:"used to initialize segment.io at web satellite console" default:""`
+	AccountActivationRedirectURL string `help:"url link for account activation redirect" default:""`
 
 	console.Config
 }
@@ -114,7 +116,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		stripePublicKey:  stripePublicKey,
 	}
 
-	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
+	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
 
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_tokenKey",
@@ -127,6 +129,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		}
 	} else {
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
+	}
+
+	if server.config.AccountActivationRedirectURL == "" {
+		server.config.AccountActivationRedirectURL = server.config.ExternalAddress + "login?activated=true"
 	}
 
 	router := mux.NewRouter()
@@ -455,7 +461,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	http.Redirect(w, r, server.config.ExternalAddress+"login?activated=true", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, server.config.AccountActivationRedirectURL, http.StatusTemporaryRedirect)
 }
 
 func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
@@ -690,7 +696,7 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.log.Sugar().Debug(result)
+	server.log.Debug(fmt.Sprintf("%s", result))
 }
 
 // serveError serves error static pages.

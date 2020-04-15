@@ -29,7 +29,7 @@ func init() {
 	// Check if session is interactive
 	interactive, err := svc.IsAnInteractiveSession()
 	if err != nil {
-		zap.S().Fatalf("Failed to determine if session is interactive: %v", err)
+		zap.L().Fatal("Failed to determine if session is interactive.", zap.Error(err))
 	}
 
 	if interactive {
@@ -48,7 +48,7 @@ func init() {
 	// Initialize the Windows Service handler
 	err = svc.Run("storagenode", &service{})
 	if err != nil {
-		zap.S().Fatalf("Service failed: %v", err)
+		zap.L().Fatal("Service failed.", zap.Error(err))
 	}
 	// avoid starting main() when service was stopped
 	os.Exit(0)
@@ -72,13 +72,13 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 	for c := range r {
 		switch c.Cmd {
 		case svc.Interrogate:
-			zap.S().Info("Interrogate request received.")
+			zap.L().Info("Interrogate request received.")
 			changes <- c.CurrentStatus
 			// Testing deadlock from https://code.google.com/p/winsvc/issues/detail?id=4
 			time.Sleep(100 * time.Millisecond)
 			changes <- c.CurrentStatus
 		case svc.Stop, svc.Shutdown:
-			zap.S().Info("Stop/Shutdown request received.")
+			zap.L().Info("Stop/Shutdown request received.")
 			changes <- svc.Status{State: svc.StopPending}
 			// Cancel the command's root context to cleanup resources
 			_, cancel := process.Ctx(runCmd)
@@ -87,7 +87,7 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 			// After returning the Windows Service is stopped and the process terminates
 			return
 		default:
-			zap.S().Infof("Unexpected control request: %d\n", c)
+			zap.L().Info("Unexpected control request.", zap.Uint32("Event Type", c.EventType))
 		}
 	}
 	return

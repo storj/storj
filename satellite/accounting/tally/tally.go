@@ -41,6 +41,7 @@ type Service struct {
 	liveAccounting          accounting.Cache
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
+	nowFn                   func() time.Time
 }
 
 // New creates a new tally Service
@@ -53,6 +54,7 @@ func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.P
 		liveAccounting:          liveAccounting,
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
+		nowFn:                   time.Now,
 	}
 }
 
@@ -75,6 +77,12 @@ func (service *Service) Close() error {
 	return nil
 }
 
+// SetNow allows tests to have the Service act as if the current time is whatever
+// they want. This avoids races and sleeping, making tests more reliable and efficient.
+func (service *Service) SetNow(now func() time.Time) {
+	service.nowFn = now
+}
+
 // Tally calculates data-at-rest usage once
 func (service *Service) Tally(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -89,16 +97,16 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 	if lastTime.IsZero() {
-		lastTime = time.Now()
+		lastTime = service.nowFn()
 	}
 
 	// add up all nodes and buckets
-	observer := NewObserver(service.log.Named("observer"))
+	observer := NewObserver(service.log.Named("observer"), service.nowFn())
 	err = service.metainfoLoop.Join(ctx, observer)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	finishTime := time.Now()
+	finishTime := service.nowFn()
 
 	// calculate byte hours, not just bytes
 	hours := time.Since(lastTime).Hours()
@@ -184,18 +192,25 @@ var _ metainfo.Observer = (*Observer)(nil)
 
 // Observer observes metainfo and adds up tallies for nodes and buckets
 type Observer struct {
+	Now    time.Time
 	Log    *zap.Logger
 	Node   map[storj.NodeID]float64
 	Bucket map[string]*accounting.BucketTally
 }
 
 // NewObserver returns an metainfo loop observer that adds up totals for buckets and nodes.
-func NewObserver(log *zap.Logger) *Observer {
+// The now argument controls when the observer considers pointers to be expired.
+func NewObserver(log *zap.Logger, now time.Time) *Observer {
 	return &Observer{
+		Now:    now,
 		Log:    log,
 		Node:   make(map[storj.NodeID]float64),
 		Bucket: make(map[string]*accounting.BucketTally),
 	}
+}
+
+func (observer *Observer) pointerExpired(pointer *pb.Pointer) bool {
+	return !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(observer.Now)
 }
 
 // ensureBucket returns bucket corresponding to the passed in path
@@ -215,6 +230,10 @@ func (observer *Observer) ensureBucket(ctx context.Context, path metainfo.Scoped
 
 // Object is called for each object once.
 func (observer *Observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	if observer.pointerExpired(pointer) {
+		return nil
+	}
+
 	bucket := observer.ensureBucket(ctx, path)
 	bucket.ObjectCount++
 	return nil
@@ -222,6 +241,10 @@ func (observer *Observer) Object(ctx context.Context, path metainfo.ScopedPath, 
 
 // InlineSegment is called for each inline segment.
 func (observer *Observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	if observer.pointerExpired(pointer) {
+		return nil
+	}
+
 	bucket := observer.ensureBucket(ctx, path)
 	bucket.InlineSegments++
 	bucket.InlineBytes += int64(len(pointer.InlineSegment))
@@ -232,6 +255,10 @@ func (observer *Observer) InlineSegment(ctx context.Context, path metainfo.Scope
 
 // RemoteSegment is called for each remote segment.
 func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+	if observer.pointerExpired(pointer) {
+		return nil
+	}
+
 	bucket := observer.ensureBucket(ctx, path)
 	bucket.RemoteSegments++
 	bucket.RemoteBytes += pointer.GetSegmentSize()

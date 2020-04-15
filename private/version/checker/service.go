@@ -113,26 +113,24 @@ func (service *Service) checkVersion(ctx context.Context) (latestVersion version
 	minimumOld, err := service.client.OldMinimum(ctx, service.service)
 	if err != nil {
 		// Log about the error, but dont crash the Service and allow further operation
-		service.log.Sugar().Errorf("Failed to do periodic version check: %s", err.Error())
+		service.log.Error("Failed to do periodic version check.", zap.Error(err))
 		return suggestedVersion, true
 	}
 
 	minimum, err = version.NewSemVer(minimumOld.String())
 	if err != nil {
-		service.log.Sugar().Errorf("failed to convert old sem version to sem version")
+		service.log.Error("Failed to convert old sem version to sem version.")
 		return suggestedVersion, true
 	}
 
-	service.log.Sugar().Debugf("allowed minimum version from control server is: %s", minimum.String())
+	service.log.Debug("Allowed minimum version from control server.", zap.Stringer("Minimum Version", minimum.Version))
 
 	if isAcceptedVersion(service.Info.Version, minimumOld) {
 		// todo: check this gets logged one time on start up
-		service.log.Sugar().Debugf("running on version %s", service.Info.Version.String())
+		service.log.Debug("Running on allowed version.", zap.Stringer("Version", service.Info.Version.Version))
 		return suggestedVersion, true
 	}
-
-	service.log.Sugar().Warnf("running on not allowed/outdated version. Currently running version: %s, desired version: %s", service.Info.Version.String(), minimumOld)
-
+	service.log.Warn("running on not allowed/outdated version. Currently running version: %s, desired version: %s", service.Info.Version.String(), minimumOld)
 	return suggestedVersion, false
 }
 

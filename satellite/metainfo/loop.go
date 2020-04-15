@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"golang.org/x/time/rate"
@@ -307,7 +306,7 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 				rawPath := item.Key.String()
 				pointer := &pb.Pointer{}
 
-				err := proto.Unmarshal(item.Value, pointer)
+				err := pb.Unmarshal(item.Value, pointer)
 				if err != nil {
 					return LoopError.New("unexpected error unmarshalling pointer %s", err)
 				}

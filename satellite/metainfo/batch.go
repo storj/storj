@@ -6,7 +6,6 @@ package metainfo
 import (
 	"context"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -354,7 +353,7 @@ func (endpoint *Endpoint) shouldCombine(segmentIndex int32, reqIndex int, reques
 		objCommitReq := requests[reqIndex+1].GetObjectCommit()
 
 		streamMeta := pb.StreamMeta{}
-		err := proto.Unmarshal(objCommitReq.EncryptedMetadata, &streamMeta)
+		err := pb.Unmarshal(objCommitReq.EncryptedMetadata, &streamMeta)
 		if err != nil {
 			endpoint.log.Error("unable to unmarshal stream meta", zap.Error(err))
 			return false

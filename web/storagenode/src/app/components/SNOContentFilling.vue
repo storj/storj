@@ -18,6 +18,20 @@
             />
             <p class="info-area__disqualified-info__info">Your node has been disqualified on<span v-for="disqualified in disqualifiedSatellites"><b> {{ disqualified.id }}</b></span>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
         </div>
+        <div v-if="isSuspendedInfoShown" class="info-area__suspended-info">
+            <LargeSuspensionIcon
+                class="info-area__suspended-info__image"
+                alt="Suspended image"
+            />
+            <p class="info-area__suspended-info__info">Your node has been suspended on <b>{{ getSuspensionDate }}</b>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
+        </div>
+        <div v-else-if="doSuspendedSatellitesExist" class="info-area__suspended-info">
+            <LargeSuspensionIcon
+                class="info-area__suspended-info__image"
+                alt="Suspended image"
+            />
+            <p class="info-area__suspended-info__info">Your node has been suspended on<span v-for="suspended in suspendedSatellites"><b> {{ suspended.id }}</b></span>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
+        </div>
         <p class="info-area__title">Utilization & Remaining</p>
         <div class="info-area__chart-area">
             <section>
@@ -122,6 +136,7 @@ import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
 import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
+import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 
 import { RouteConfig } from '@/app/router';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
@@ -153,6 +168,7 @@ class Checks {
         ChecksArea,
         PayoutArea,
         LargeDisqualificationIcon,
+        LargeSuspensionIcon,
         BlueArrowRight,
         SingleInfo,
     },
@@ -348,6 +364,42 @@ export default class SNOContentFilling extends Vue {
     public get doDisqualifiedSatellitesExist(): boolean {
         return this.disqualifiedSatellites.length > 0;
     }
+
+    /**
+     * suspendedSatellites - array of suspended satellites from store.
+     * @return SatelliteInfo[] - array of suspended satellites
+     */
+    public get suspendedSatellites(): SatelliteInfo[] {
+        return this.$store.state.node.suspendedSatellites;
+    }
+
+    /**
+     * isSuspendedInfoShown checks if suspension status is shown.
+     * @return boolean - suspension status
+     */
+    public get isSuspendedInfoShown(): boolean {
+        return !!(this.selectedSatellite.id && this.selectedSatellite.suspended);
+    }
+
+    /**
+     * getSuspensionDate gets a date of suspension.
+     * @return String - date of suspension
+     */
+    public get getSuspensionDate(): string {
+        if (this.selectedSatellite.suspended) {
+            return this.selectedSatellite.suspended.toUTCString();
+        }
+
+        return '';
+    }
+
+    /**
+     * doSuspendedSatellitesExist checks if suspended satellites exist.
+     * @return boolean - suspended satellites existing status
+     */
+    public get doSuspendedSatellitesExist(): boolean {
+        return this.suspendedSatellites.length > 0;
+    }
 }
 </script>
 
@@ -373,7 +425,29 @@ export default class SNOContentFilling extends Vue {
 
             &__image {
                 min-height: 35px;
-                min-width: 35px;
+                min-width: 38px;
+                margin-right: 17px;
+            }
+
+            &__info {
+                font-size: 14px;
+                line-height: 21px;
+            }
+        }
+
+        &__suspended-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 27px 20px 25px;
+            background-color: #fcf8e3;
+            border-radius: 12px;
+            width: calc(100% - 52px);
+            margin-top: 17px;
+
+            &__image {
+                min-height: 35px;
+                min-width: 38px;
                 margin-right: 17px;
             }
 

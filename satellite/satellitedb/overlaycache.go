@@ -9,12 +9,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/lib/pq"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -33,112 +33,71 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
-func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
+// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
+func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	nodeType := int(pb.NodeType_STORAGE)
-
-	safeQuery := `
-		WHERE disqualified IS NULL
-		AND suspended IS NULL
-		AND exit_initiated_at IS NULL
-		AND type = ?
-		AND free_disk >= ?
-		AND total_audit_count >= ?
-		AND total_uptime_count >= ?
-		AND last_contact_success > ?`
-	args := append(make([]interface{}, 0, 13),
-		nodeType, criteria.FreeDisk, criteria.AuditCount,
-		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
-
-	if criteria.MinimumVersion != "" {
-		v, err := version.NewSemVer(criteria.MinimumVersion)
+	query := `
+		SELECT id, address, last_net, last_ip_port, (total_audit_count < $1 OR total_uptime_count < $2) as isnew
+			FROM nodes
+			WHERE disqualified IS NULL
+			AND suspended IS NULL
+			AND exit_initiated_at IS NULL
+			AND type = $3
+			AND free_disk >= $4
+			AND last_contact_success > $5
+	`
+	args := []interface{}{
+		// $1, $2
+		selectionCfg.AuditCount, selectionCfg.UptimeCount,
+		// $3
+		int(pb.NodeType_STORAGE),
+		// $4
+		selectionCfg.MinimumDiskSpace.Int64(),
+		// $5
+		time.Now().Add(-selectionCfg.OnlineWindow),
+	}
+	if selectionCfg.MinimumVersion != "" {
+		version, err := version.NewSemVer(selectionCfg.MinimumVersion)
 		if err != nil {
-			return nil, Error.New("invalid node selection criteria version: %v", err)
+			return nil, nil, err
 		}
-		safeQuery += `
-			AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?))))
-			AND release`
-		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
+		query += `AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10)))) AND release`
+		args = append(args,
+			// $6 - $10
+			version.Major, version.Major, version.Minor, version.Minor, version.Patch,
+		)
 	}
 
-	if !criteria.DistinctIP {
-		nodes, err = cache.queryNodes(ctx, criteria.ExcludedIDs, count, safeQuery, args...)
+	rows, err := cache.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var reputableNodes []*overlay.SelectedNode
+	var newNodes []*overlay.SelectedNode
+	for rows.Next() {
+		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{}
+		var lastIPPort sql.NullString
+		var isnew bool
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &isnew)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return nodes, nil
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+
+		if isnew {
+			newNodes = append(newNodes, &node)
+			continue
+		}
+		reputableNodes = append(reputableNodes, &node)
 	}
 
-	for i := 0; i < 3; i++ {
-		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedIDs, criteria.ExcludedNetworks, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
-		if err != nil {
-			return nil, err
-		}
-		for _, n := range moreNodes {
-			nodes = append(nodes, n)
-			criteria.ExcludedIDs = append(criteria.ExcludedIDs, n.ID)
-			criteria.ExcludedNetworks = append(criteria.ExcludedNetworks, n.LastNet)
-		}
-		if len(nodes) == count {
-			break
-		}
-	}
-
-	return nodes, nil
-}
-
-func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*overlay.SelectedNode, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	nodeType := int(pb.NodeType_STORAGE)
-
-	safeQuery := `
-		WHERE disqualified IS NULL
-		AND suspended IS NULL
-		AND exit_initiated_at IS NULL
-		AND type = ?
-		AND free_disk >= ?
-		AND (total_audit_count < ? OR total_uptime_count < ?)
-		AND last_contact_success > ?`
-	args := append(make([]interface{}, 0, 10),
-		nodeType, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
-
-	if criteria.MinimumVersion != "" {
-		v, err := version.NewSemVer(criteria.MinimumVersion)
-		if err != nil {
-			return nil, Error.New("invalid node selection criteria version: %v", err)
-		}
-		safeQuery += `
-			AND (major > ? OR (major = ? AND (minor > ? OR (minor = ? AND patch >= ?))))
-			AND release`
-		args = append(args, v.Major, v.Major, v.Minor, v.Minor, v.Patch)
-	}
-
-	if !criteria.DistinctIP {
-		nodes, err = cache.queryNodes(ctx, criteria.ExcludedIDs, count, safeQuery, args...)
-		if err != nil {
-			return nil, err
-		}
-		return nodes, nil
-	}
-
-	for i := 0; i < 3; i++ {
-		moreNodes, err := cache.queryNodesDistinct(ctx, criteria.ExcludedIDs, criteria.ExcludedNetworks, count-len(nodes), safeQuery, criteria.DistinctIP, args...)
-		if err != nil {
-			return nil, err
-		}
-		for _, n := range moreNodes {
-			nodes = append(nodes, n)
-			criteria.ExcludedIDs = append(criteria.ExcludedIDs, n.ID)
-			criteria.ExcludedNetworks = append(criteria.ExcludedNetworks, n.LastNet)
-		}
-		if len(nodes) == count {
-			break
-		}
-	}
-
-	return nodes, nil
+	return reputableNodes, newNodes, Error.Wrap(rows.Err())
 }
 
 // GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
@@ -165,117 +124,6 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 		nodeNets = append(nodeNets, ip)
 	}
 	return nodeNets, Error.Wrap(rows.Err())
-}
-
-func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*overlay.SelectedNode, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if count == 0 {
-		return nil, nil
-	}
-
-	safeExcludeNodes := ""
-	if len(excludedNodes) > 0 {
-		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excludedNodes)-1) + `)`
-		for _, id := range excludedNodes {
-			args = append(args, id.Bytes())
-		}
-	}
-
-	args = append(args, count)
-
-	var rows *sql.Rows
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT last_net, id, address, last_ip_port
-		FROM nodes
-		`+safeQuery+safeExcludeNodes+`
-		ORDER BY RANDOM()
-		LIMIT ?`), args...)
-
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	var nodes []*overlay.SelectedNode
-	for rows.Next() {
-		var node overlay.SelectedNode
-		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
-
-		var lastIPPort sql.NullString
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
-		if err != nil {
-			return nil, err
-		}
-		if lastIPPort.Valid {
-			node.LastIPPort = lastIPPort.String
-		}
-
-		nodes = append(nodes, &node)
-	}
-
-	return nodes, Error.Wrap(rows.Err())
-}
-
-func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedIDs []storj.NodeID, excludedNodeNetworks []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*overlay.SelectedNode, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if count == 0 {
-		return nil, nil
-	}
-
-	safeExcludeNodes := ""
-	if len(excludedIDs) > 0 {
-		safeExcludeNodes = ` AND id NOT IN (?` + strings.Repeat(", ?", len(excludedIDs)-1) + `)`
-		for _, id := range excludedIDs {
-			args = append(args, id.Bytes())
-		}
-	}
-
-	safeExcludeNetworks := ""
-	if len(excludedNodeNetworks) > 0 {
-		safeExcludeNetworks = ` AND last_net NOT IN (?` + strings.Repeat(", ?", len(excludedNodeNetworks)-1) + `)`
-		for _, ip := range excludedNodeNetworks {
-			args = append(args, ip)
-		}
-	}
-	args = append(args, count)
-
-	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT *
-		FROM (
-			SELECT DISTINCT ON (last_net) last_net,    -- choose at most 1 node from this network
-			id, address, last_ip_port
-			FROM nodes
-			`+safeQuery+safeExcludeNodes+safeExcludeNetworks+`
-			AND last_net <> ''                         -- select nodes with a network set
-			ORDER BY last_net, RANDOM()                -- equal chance of choosing any qualified node at this network
-		) filteredcandidates
-		ORDER BY RANDOM()                                  -- do the actual node selection from filtered pool
-		LIMIT ?`), args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	var nodes []*overlay.SelectedNode
-	for rows.Next() {
-		var node overlay.SelectedNode
-		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
-
-		var lastIPPort sql.NullString
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
-		if err != nil {
-			return nil, err
-		}
-		if lastIPPort.Valid {
-			node.LastIPPort = lastIPPort.String
-		}
-
-		nodes = append(nodes, &node)
-	}
-
-	return nodes, Error.Wrap(rows.Err())
 }
 
 // Get looks up the node by nodeID
@@ -517,7 +365,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *overlay.Node
 		// args $1 - $5
 		info.Id.Bytes(), address.Address, info.LastNet, int(address.Transport), int(pb.NodeType_INVALID),
 		// args $6 - $7
-		defaults.AuditReputationAlpha0, defaults.AuditReputationBeta0,
+		1, 0,
 		// args $8
 		time.Now(),
 		// args $9
@@ -560,7 +408,8 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 					continue
 				}
 
-				updateNodeStats := populateUpdateNodeStats(dbNode, updateReq)
+				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq)
+
 				sql := buildUpdateStatement(updateNodeStats)
 
 				allSQL += sql
@@ -623,7 +472,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 			return nil
 		}
 
-		updateFields := populateUpdateFields(dbNode, updateReq)
+		updateFields := cache.populateUpdateFields(dbNode, updateReq)
 
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 		if err != nil {
@@ -1306,7 +1155,7 @@ type updateNodeStats struct {
 	Contained                   boolField
 }
 
-func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) updateNodeStats {
+func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) updateNodeStats {
 	// there are three audit outcomes: success, failure, and unknown
 	// if a node fails enough audits, it gets disqualified
 	// if a node gets enough "unknown" audits, it gets put into suspension
@@ -1384,15 +1233,22 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
 	if auditRep <= updateReq.AuditDQ {
+		cache.db.log.Info("Disqualified", zap.String("Node ID", updateReq.NodeID.String()))
 		updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
 	}
 
 	// if unknown audit rep goes below threshold, suspend node. Otherwise unsuspend node.
 	unknownAuditRep := unknownAuditAlpha / (unknownAuditAlpha + unknownAuditBeta)
 	if unknownAuditRep <= updateReq.AuditDQ {
-		updateFields.Suspended = timeField{set: true, value: time.Now().UTC()}
+		if dbNode.Suspended == nil {
+			cache.db.log.Info("Suspended", zap.String("Node ID", updateFields.NodeID.String()), zap.String("Category", "Unknown Audits"))
+			updateFields.Suspended = timeField{set: true, value: time.Now().UTC()}
+		}
 	} else {
-		updateFields.Suspended = timeField{set: true, isNil: true}
+		if dbNode.Suspended != nil {
+			cache.db.log.Info("Suspension lifted", zap.String("Category", "Unknown Audits"), zap.String("Node ID", updateFields.NodeID.String()))
+			updateFields.Suspended = timeField{set: true, isNil: true}
+		}
 	}
 
 	// TODO if node has been suspended for longer than threshold, and audit outcome is failure or unknown, disqualify node.
@@ -1414,9 +1270,9 @@ func populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest)
 	return updateFields
 }
 
-func populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) dbx.Node_Update_Fields {
+func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) dbx.Node_Update_Fields {
 
-	update := populateUpdateNodeStats(dbNode, updateReq)
+	update := cache.populateUpdateNodeStats(dbNode, updateReq)
 	updateFields := dbx.Node_Update_Fields{}
 	if update.TotalAuditCount.set {
 		updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(update.TotalAuditCount.value)
@@ -1539,7 +1395,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		// args $9
 		node.IsUp,
 		// args $10 - $11
-		config.AuditReputationAlpha0, config.AuditReputationBeta0,
+		1, 0,
 		// args $12 - $17
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
 		// args $18

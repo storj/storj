@@ -194,9 +194,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 		ctx := context.Background()
 
 		nodeSelectionConfig := overlay.NodeSelectionConfig{
-			AuditReputationAlpha0: 1,
-			AuditReputationBeta0:  0,
-
 			AuditCount:       1,
 			NewNodeFraction:  0.05,
 			MinimumVersion:   "v1.0.0",
@@ -302,7 +299,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		b.Run("SelectStorageNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, criteria)
+				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, 0, criteria)
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
 			}
@@ -310,7 +307,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		b.Run("SelectNewStorageNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectNewStorageNodes(ctx, SelectCount, criteria)
+				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectCount, criteria)
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
 			}
@@ -318,7 +315,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		b.Run("SelectStorageNodesExclusion", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, excludedCriteria)
+				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, 0, excludedCriteria)
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
 			}
@@ -326,7 +323,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		b.Run("SelectNewStorageNodesExclusion", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectNewStorageNodes(ctx, SelectCount, excludedCriteria)
+				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectCount, excludedCriteria)
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
 			}

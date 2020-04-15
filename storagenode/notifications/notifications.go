@@ -35,6 +35,8 @@ const (
 	TypeUptimeCheckFailure Type = 2
 	// TypeDisqualification is a notification type which describes node's disqualification status.
 	TypeDisqualification Type = 3
+	// TypeSuspension is a notification type which describes node's suspension status.
+	TypeSuspension Type = 4
 )
 
 // NewNotification holds notification entity info which is being received from satellite or local client.

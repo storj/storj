@@ -11,12 +11,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
+	"storj.io/common/encryption"
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -71,21 +71,22 @@ type Revocations interface {
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log                 *zap.Logger
-	metainfo            *Service
-	deletePieces        *piecedeletion.Service
-	orders              *orders.Service
-	overlay             *overlay.Service
-	attributions        attribution.DB
-	partners            *rewards.PartnersService
-	pointerVerification *pointerverification.Service
-	projectUsage        *accounting.Service
-	projects            console.Projects
-	apiKeys             APIKeys
-	createRequests      *createRequests
-	satellite           signing.Signer
-	limiterCache        *lrucache.ExpiringLRU
-	config              Config
+	log                  *zap.Logger
+	metainfo             *Service
+	deletePieces         *piecedeletion.Service
+	orders               *orders.Service
+	overlay              *overlay.Service
+	attributions         attribution.DB
+	partners             *rewards.PartnersService
+	pointerVerification  *pointerverification.Service
+	projectUsage         *accounting.Service
+	projects             console.Projects
+	apiKeys              APIKeys
+	createRequests       *createRequests
+	satellite            signing.Signer
+	limiterCache         *lrucache.ExpiringLRU
+	encInlineSegmentSize int64 // max inline segment size + encryption overhead
+	config               Config
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -93,8 +94,16 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB,
 	partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
-	satellite signing.Signer, config Config) *Endpoint {
+	satellite signing.Signer, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
+
+	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storj.EncryptionParameters{
+		CipherSuite: storj.EncAESGCM,
+		BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &Endpoint{
 		log:                 log,
 		metainfo:            metainfo,
@@ -113,8 +122,9 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 			Capacity:   config.RateLimiter.CacheCapacity,
 			Expiration: config.RateLimiter.CacheExpiration,
 		}),
-		config: config,
-	}
+		encInlineSegmentSize: encInlineSegmentSize,
+		config:               config,
+	}, nil
 }
 
 // Close closes resources
@@ -177,11 +187,12 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 
 	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
 	if err != nil {
-		endpoint.log.Error("retrieving project storage totals", zap.Error(err))
+		endpoint.log.Error("Retrieving project storage totals failed.", zap.Error(err))
 	}
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s",
-			limit, keyInfo.ProjectID,
+		endpoint.log.Error("Monthly storage limit exceeded.",
+			zap.Stringer("Limit", limit),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
@@ -273,8 +284,9 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
-			limit, keyInfo.ProjectID,
+		endpoint.log.Error("Monthly storage limit exceeded.",
+			zap.Stringer("Limit", limit),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
@@ -292,13 +304,18 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 	if req.Pointer.Type == pb.Pointer_REMOTE {
 		//We cannot have more redundancy than total/min
 		if float64(totalStored) > (float64(req.Pointer.SegmentSize)/float64(req.Pointer.Remote.Redundancy.MinReq))*float64(req.Pointer.Remote.Redundancy.Total) {
-			endpoint.log.Sugar().Debugf("data size mismatch, got segment: %d, pieces: %d, RS Min, Total: %d,%d", req.Pointer.SegmentSize, totalStored, req.Pointer.Remote.Redundancy.MinReq, req.Pointer.Remote.Redundancy.Total)
+			endpoint.log.Debug("Excessive redundancy.",
+				zap.Int64("Segment Size", req.Pointer.SegmentSize),
+				zap.Int64("Actual Pieces", totalStored),
+				zap.Int32("Required Pieces", req.Pointer.Remote.Redundancy.MinReq),
+				zap.Int32("Total Pieces", req.Pointer.Remote.Redundancy.Total),
+			)
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "mismatched segment size and piece usage")
 		}
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, segmentSize); err != nil {
-		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %q: %v", keyInfo.ProjectID, err)
+		endpoint.log.Error("Could not track new storage usage.", zap.Stringer("Project ID", keyInfo.ProjectID), zap.Error(err))
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
@@ -351,11 +368,12 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 
 	exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID, bucketID)
 	if err != nil {
-		endpoint.log.Error("retrieving project bandwidth total", zap.Error(err))
+		endpoint.log.Error("Retrieving project bandwidth total failed.", zap.Error(err))
 	}
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for bandwidth for projectID %s.",
-			limit, keyInfo.ProjectID,
+		endpoint.log.Error("Monthly storage limit exceeded.",
+			zap.Stringer("Limit", limit),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
@@ -376,7 +394,11 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 		limits, privateKey, err := endpoint.orders.CreateGetOrderLimitsOld(ctx, bucketID, pointer)
 		if err != nil {
 			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
-				endpoint.log.Sugar().Errorf("unable to create order limits for project id %s from api key id %s: %v.", keyInfo.ProjectID.String(), keyInfo.ID.String(), zap.Error(err))
+				endpoint.log.Error("Unable to create order limits.",
+					zap.Stringer("Project ID", keyInfo.ProjectID),
+					zap.Stringer("API Key ID", keyInfo.ID),
+					zap.Error(err),
+				)
 			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
@@ -590,15 +612,6 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 		entries = append(entries, string(path))
 	}
 	return storj.JoinPaths(entries...), nil
-}
-
-// SetAttributionOld tries to add attribution to the bucket.
-func (endpoint *Endpoint) SetAttributionOld(ctx context.Context, req *pb.SetAttributionRequestOld) (_ *pb.SetAttributionResponseOld, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = endpoint.setBucketAttribution(ctx, req.Header, req.BucketName, req.PartnerId)
-
-	return &pb.SetAttributionResponseOld{}, err
 }
 
 // ProjectInfo returns allowed ProjectInfo for the provided API key
@@ -825,95 +838,6 @@ func getAllowedBuckets(ctx context.Context, header *pb.RequestHeader, action mac
 	return allowedBuckets, err
 }
 
-// SetBucketAttribution sets the bucket attribution.
-func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = endpoint.setBucketAttribution(ctx, req.Header, req.Name, req.PartnerId)
-
-	return &pb.BucketSetAttributionResponse{}, err
-}
-
-func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, partnerIDBytes []byte) error {
-	if header == nil {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
-	}
-
-	keyInfo, err := endpoint.validateAuth(ctx, header, macaroon.Action{
-		Op:            macaroon.ActionList,
-		Bucket:        bucketName,
-		EncryptedPath: []byte(""),
-		Time:          time.Now(),
-	})
-	if err != nil {
-		return err
-	}
-
-	partnerID, err := endpoint.ResolvePartnerID(ctx, header, partnerIDBytes)
-	if err != nil {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-	if partnerID.IsZero() {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, "unknown user agent or partner id")
-	}
-
-	// check if attribution is set for given bucket
-	_, err = endpoint.attributions.Get(ctx, keyInfo.ProjectID, bucketName)
-	if err == nil {
-		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
-		return nil
-	}
-
-	if !attribution.ErrBucketNotAttributed.Has(err) {
-		// try only to set the attribution, when it's missing
-		endpoint.log.Error("error while getting attribution from DB", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	empty, err := endpoint.metainfo.IsBucketEmpty(ctx, keyInfo.ProjectID, bucketName)
-	if err != nil {
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-	if !empty {
-		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
-	}
-
-	// checks if bucket exists before updates it or makes a new entry
-	bucket, err := endpoint.metainfo.GetBucket(ctx, bucketName, keyInfo.ProjectID)
-	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
-			return rpcstatus.Errorf(rpcstatus.NotFound, "bucket %q does not exist", bucketName)
-		}
-		endpoint.log.Error("error while getting bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
-	}
-	if !bucket.PartnerID.IsZero() {
-		endpoint.log.Info("bucket already attributed", zap.ByteString("bucketName", bucketName), zap.Stringer("Partner ID", partnerID))
-		return nil
-	}
-
-	// update bucket information
-	bucket.PartnerID = partnerID
-	_, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
-	if err != nil {
-		endpoint.log.Error("error while updating bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
-	}
-
-	// update attribution table
-	_, err = endpoint.attributions.Insert(ctx, &attribution.Info{
-		ProjectID:  keyInfo.ProjectID,
-		BucketName: bucketName,
-		PartnerID:  partnerID,
-	})
-	if err != nil {
-		endpoint.log.Error("error while inserting attribution to DB", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	return nil
-}
-
 func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (bucket storj.Bucket, err error) {
 	bucketID, err := uuid.New()
 	if err != nil {
@@ -1068,7 +992,7 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 	defer mon.Task()(&ctx)(&err)
 
 	streamID := &pb.SatStreamID{}
-	err = proto.Unmarshal(req.StreamId, streamID)
+	err = pb.Unmarshal(req.StreamId, streamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1093,7 +1017,7 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 
 	streamMeta := pb.StreamMeta{}
-	err = proto.Unmarshal(req.EncryptedMetadata, &streamMeta)
+	err = pb.Unmarshal(req.EncryptedMetadata, &streamMeta)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "invalid metadata structure")
 	}
@@ -1184,7 +1108,7 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 	}
 
 	streamMeta := &pb.StreamMeta{}
-	err = proto.Unmarshal(pointer.Metadata, streamMeta)
+	err = pb.Unmarshal(pointer.Metadata, streamMeta)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1349,7 +1273,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	encodedStreamID, err := proto.Marshal(satStreamID)
+	encodedStreamID, err := pb.Marshal(satStreamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1407,7 +1331,7 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 	defer mon.Task()(&ctx)(&err)
 
 	streamID := &pb.SatStreamID{}
-	err = proto.Unmarshal(req.StreamId, streamID)
+	err = pb.Unmarshal(req.StreamId, streamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1463,11 +1387,12 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 
 	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
 	if err != nil {
-		endpoint.log.Error("retrieving project storage totals", zap.Error(err))
+		endpoint.log.Error("Retrieving project storage totals failed.", zap.Error(err))
 	}
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s",
-			limit, keyInfo.ProjectID,
+		endpoint.log.Error("Monthly storage limit exceeded.",
+			zap.Stringer("Limit", limit),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
@@ -1565,7 +1490,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		RemotePieces: pieces,
 	}
 
-	metadata, err := proto.Marshal(&pb.SegmentMeta{
+	metadata, err := pb.Marshal(&pb.SegmentMeta{
 		EncryptedKey: req.EncryptedKey,
 		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
 	})
@@ -1693,7 +1618,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 	}
 
 	inlineUsed := int64(len(req.EncryptedInlineData))
-	if inlineUsed > endpoint.config.MaxInlineSegmentSize.Int64() {
+	if inlineUsed > endpoint.encInlineSegmentSize {
 		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize))
 	}
 
@@ -1702,19 +1627,20 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	if exceeded {
-		endpoint.log.Sugar().Debugf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
-			limit, keyInfo.ProjectID,
+		endpoint.log.Error("Monthly storage limit exceeded.",
+			zap.Stringer("Limit", limit),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
 		return nil, nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
-		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
+		endpoint.log.Error("Could not track new storage usage.", zap.Stringer("Project ID", keyInfo.ProjectID), zap.Error(err))
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
-	metadata, err := proto.Marshal(&pb.SegmentMeta{
+	metadata, err := pb.Marshal(&pb.SegmentMeta{
 		EncryptedKey: req.EncryptedKey,
 		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
 	})
@@ -1868,7 +1794,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	}
 
 	streamMeta := &pb.StreamMeta{}
-	err = proto.Unmarshal(pointer.Metadata, streamMeta)
+	err = pb.Unmarshal(pointer.Metadata, streamMeta)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -2025,11 +1951,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID, bucketID)
 	if err != nil {
-		endpoint.log.Error("retrieving project bandwidth total", zap.Error(err))
+		endpoint.log.Error("Retrieving project bandwidth total failed.", zap.Error(err))
 	}
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for bandwidth for projectID %s.",
-			limit, keyInfo.ProjectID,
+		endpoint.log.Error("Monthly bandwidth limit exceeded.",
+			zap.Stringer("Limit", limit),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
@@ -2047,14 +1974,14 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		var segmentMeta *pb.SegmentMeta
 		if req.CursorPosition.Index == lastSegment {
 			streamMeta := &pb.StreamMeta{}
-			err = proto.Unmarshal(pointer.Metadata, streamMeta)
+			err = pb.Unmarshal(pointer.Metadata, streamMeta)
 			if err != nil {
 				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			segmentMeta = streamMeta.LastSegmentMeta
 		} else {
 			segmentMeta = &pb.SegmentMeta{}
-			err = proto.Unmarshal(pointer.Metadata, segmentMeta)
+			err = pb.Unmarshal(pointer.Metadata, segmentMeta)
 			if err != nil {
 				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
@@ -2090,7 +2017,11 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
 			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
-				endpoint.log.Sugar().Errorf("unable to create order limits for project id %s from api key id %s: %v.", keyInfo.ProjectID.String(), keyInfo.ID.String(), zap.Error(err))
+				endpoint.log.Error("Unable to create order limits.",
+					zap.Stringer("Project ID", keyInfo.ProjectID),
+					zap.Stringer("API Key ID", keyInfo.ID),
+					zap.Error(err),
+				)
 			}
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
@@ -2157,7 +2088,7 @@ func (endpoint *Endpoint) getObjectNumberOfSegments(ctx context.Context, project
 	}
 
 	meta := &pb.StreamMeta{}
-	err = proto.Unmarshal(pointer.Metadata, meta)
+	err = pb.Unmarshal(pointer.Metadata, meta)
 	if err != nil {
 		endpoint.log.Error("error unmarshaling pointer metadata", zap.Error(err))
 		return 0, rpcstatus.Error(rpcstatus.Internal, "unable to unmarshal metadata")
@@ -2196,7 +2127,7 @@ func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *pb.SatS
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	encodedStreamID, err := proto.Marshal(signedStreamID)
+	encodedStreamID, err := pb.Marshal(signedStreamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -2216,7 +2147,7 @@ func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *pb.Sa
 		return nil, err
 	}
 
-	encodedSegmentID, err := proto.Marshal(signedSegmentID)
+	encodedSegmentID, err := pb.Marshal(signedSegmentID)
 	if err != nil {
 		return nil, err
 	}
@@ -2232,7 +2163,7 @@ func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID sto
 	defer mon.Task()(&ctx)(&err)
 
 	satStreamID := &pb.SatStreamID{}
-	err = proto.Unmarshal(streamID, satStreamID)
+	err = pb.Unmarshal(streamID, satStreamID)
 	if err != nil {
 		return nil, err
 	}
@@ -2253,7 +2184,7 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	defer mon.Task()(&ctx)(&err)
 
 	satSegmentID := &pb.SatSegmentID{}
-	err = proto.Unmarshal(segmentID, satSegmentID)
+	err = pb.Unmarshal(segmentID, satSegmentID)
 	if err != nil {
 		return nil, err
 	}

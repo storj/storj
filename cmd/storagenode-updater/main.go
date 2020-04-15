@@ -90,20 +90,20 @@ func init() {
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	err = openLog()
 	if err != nil {
-		zap.S().Errorf("Error creating new logger: %v", err)
+		zap.L().Error("Error creating new logger.", zap.Error(err))
 	}
 
 	if !fileExists(runCfg.BinaryLocation) {
-		zap.S().Fatal("Unable to find storage node executable binary")
+		zap.L().Fatal("Unable to find storage node executable binary.")
 	}
 
 	ident, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatalf("Error loading identity: %v", err)
+		zap.L().Fatal("Error loading identity.", zap.Error(err))
 	}
 	nodeID = ident.ID
 	if nodeID.IsZero() {
-		zap.S().Fatal("Empty node ID")
+		zap.L().Fatal("Empty node ID.")
 	}
 
 	var ctx context.Context
@@ -121,13 +121,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	loopFunc := func(ctx context.Context) (err error) {
 		if err := update(ctx, runCfg.BinaryLocation, runCfg.ServiceName); err != nil {
 			// don't finish loop in case of error just wait for another execution
-			zap.S().Errorf("Error updating %s: %v", runCfg.ServiceName, err)
+			zap.L().Error("Error updating service.", zap.String("Service", runCfg.ServiceName), zap.Error(err))
 		}
 
 		updaterBinName := os.Args[0]
 		if err := update(ctx, updaterBinName, updaterServiceName); err != nil {
 			// don't finish loop in case of error just wait for another execution
-			zap.S().Errorf("Error updating %s: %v", updaterServiceName, err)
+			zap.L().Error("Error updating service.", zap.String("Service", updaterServiceName), zap.Error(err))
 		}
 		return nil
 	}
@@ -136,7 +136,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	case runCfg.CheckInterval <= 0:
 		err = loopFunc(ctx)
 	case runCfg.CheckInterval < minCheckInterval:
-		zap.S().Errorf("Check interval below minimum: %s, setting to %s", runCfg.CheckInterval, minCheckInterval)
+		zap.L().Error("Check interval below minimum. Overriding it minimum.",
+			zap.Stringer("Check Interval", runCfg.CheckInterval),
+			zap.Stringer("Minimum Check Interval", minCheckInterval),
+		)
 		runCfg.CheckInterval = minCheckInterval
 		fallthrough
 	default:
@@ -151,7 +154,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 func update(ctx context.Context, binPath, serviceName string) (err error) {
 	if nodeID.IsZero() {
-		zap.S().Fatal("Empty node ID")
+		zap.L().Fatal("Empty node ID.")
 	}
 
 	var currentVersion version.SemVer
@@ -166,7 +169,7 @@ func update(ctx context.Context, binPath, serviceName string) (err error) {
 	}
 
 	client := checker.New(runCfg.ClientConfig)
-	zap.S().Infof("Downloading versions from %s", runCfg.ServerAddress)
+	zap.L().Info("Downloading versions.", zap.String("Server Address", runCfg.ServerAddress))
 	processVersion, err := client.Process(ctx, serviceName)
 	if err != nil {
 		return errs.Wrap(err)
@@ -179,12 +182,12 @@ func update(ctx context.Context, binPath, serviceName string) (err error) {
 	}
 
 	if currentVersion.Compare(suggestedVersion) >= 0 {
-		zap.S().Infof("%s version is up to date", serviceName)
+		zap.L().Info("Version is up to date.", zap.String("Service", serviceName))
 		return nil
 	}
 
 	if !version.ShouldUpdate(processVersion.Rollout, nodeID) {
-		zap.S().Infof("New %s version available but not rolled out to this nodeID yet", serviceName)
+		zap.L().Info("New version available but not rolled out to this nodeID yet", zap.String("Service", serviceName))
 		return nil
 	}
 
@@ -200,12 +203,12 @@ func update(ctx context.Context, binPath, serviceName string) (err error) {
 	}()
 
 	downloadURL := parseDownloadURL(processVersion.Suggested.URL)
-	zap.S().Infof("Start downloading %s to %s", downloadURL, tempArchive.Name())
+	zap.L().Info("Download started.", zap.String("From", downloadURL), zap.String("To", tempArchive.Name()))
 	err = downloadArchive(ctx, tempArchive, downloadURL)
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	zap.S().Infof("Finished downloading %s to %s", downloadURL, tempArchive.Name())
+	zap.L().Info("Download finished.", zap.String("From", downloadURL), zap.String("To", tempArchive.Name()))
 
 	newVersionPath := prependExtension(binPath, suggestedVersion.String())
 	err = unpackBinary(ctx, tempArchive.Name(), newVersionPath)
@@ -241,13 +244,13 @@ func update(ctx context.Context, binPath, serviceName string) (err error) {
 		return errs.Wrap(err)
 	}
 
-	zap.S().Infof("Restarting service %s", serviceName)
+	zap.L().Info("Restarting service.", zap.String("Service", serviceName))
 	err = restartService(serviceName)
 	if err != nil {
 		// TODO: should we try to recover from this?
 		return errs.New("Unable to restart service: %v", err)
 	}
-	zap.S().Infof("Service %s restarted successfully", serviceName)
+	zap.L().Info("Service restarted successfully.", zap.String("Service", serviceName))
 
 	// TODO remove old binary ??
 	return nil
@@ -269,7 +272,7 @@ func parseDownloadURL(template string) string {
 func binaryVersion(location string) (version.SemVer, error) {
 	out, err := exec.Command(location, "version").CombinedOutput()
 	if err != nil {
-		zap.S().Infof("Command output: %s", out)
+		zap.L().Info("Command output.", zap.ByteString("Output", out))
 		return version.SemVer{}, err
 	}
 
