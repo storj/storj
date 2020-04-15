@@ -5,6 +5,7 @@ package piecestore
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"sync/atomic"
@@ -236,7 +237,7 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 	if requestLimit > 0 && int(liveRequests) > requestLimit {
 		endpoint.log.Error("upload rejected, too many requests",
 			zap.Int32("live requests", liveRequests),
-			zap.Int32("requestLimit", requestLimit),
+			zap.Int("requestLimit", requestLimit),
 		)
 		errMsg := fmt.Sprintf("storage node overloaded, request limit: %d", requestLimit)
 		return rpcstatus.Error(rpcstatus.Unavailable, errMsg)

@@ -283,7 +283,7 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 	var expirationCount int64
 	defer func() {
 		if expirationCount > 0 {
-			log.Info("order verification found expired orders", zap.Int64("amount", expirationCount))
+			log.Debug("order verification found expired orders", zap.Int64("amount", expirationCount))
 		}
 	}()
 
@@ -364,7 +364,6 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 			}
 		}
 	}
-	log.Debug("successful order settlement")
 }
 
 func (endpoint *Endpoint) processOrders(ctx context.Context, stream settlementStream, requests []*ProcessOrderRequest) (err error) {
