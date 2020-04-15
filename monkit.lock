@@ -73,6 +73,7 @@ storj.io/storj/satellite/repair/repairer."download_failed_not_enough_pieces_repa
 storj.io/storj/satellite/repair/repairer."healthy_ratio_after_repair" FloatVal
 storj.io/storj/satellite/repair/repairer."healthy_ratio_before_repair" FloatVal
 storj.io/storj/satellite/repair/repairer."repair_attempts" Meter
+storj.io/storj/satellite/repair/repairer."repair_expired" Meter
 storj.io/storj/satellite/repair/repairer."repair_failed" Meter
 storj.io/storj/satellite/repair/repairer."repair_nodes_unavailable" Meter
 storj.io/storj/satellite/repair/repairer."repair_partial" Meter

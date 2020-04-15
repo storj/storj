@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -103,6 +104,10 @@ type Core struct {
 
 	GarbageCollection struct {
 		Service *gc.Service
+	}
+
+	ExpiredDeletion struct {
+		Chore *expireddeletion.Chore
 	}
 
 	DBCleanup struct {
@@ -377,6 +382,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Debug.Server.Panel.Add(
 				debug.Cycle("Core Garbage Collection", peer.GarbageCollection.Service.Loop))
 		}
+	}
+
+	{ // setup expired segment cleanup
+		peer.ExpiredDeletion.Chore = expireddeletion.NewChore(
+			peer.Log.Named("core-expired-deletion"),
+			config.ExpiredDeletion,
+			peer.Metainfo.Service,
+			peer.Metainfo.Loop,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name: "expireddeletion:chore",
+			Run:  peer.ExpiredDeletion.Chore.Run,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Expired Segments Chore", peer.ExpiredDeletion.Chore.Loop))
 	}
 
 	{ // setup db cleanup

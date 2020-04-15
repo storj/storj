@@ -160,6 +160,12 @@ contact.external-address: ""
 # how often to run the downtime estimation chore
 # downtime.estimation-interval: 1h0m0s
 
+# set if expired segment cleanup is enabled or not
+# expired-deletion.enabled: true
+
+# the time between each attempt to go through the db and clean up expired segments
+# expired-deletion.interval: 120h0m0s
+
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
 

@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -116,6 +117,8 @@ type Config struct {
 	Audit    audit.Config
 
 	GarbageCollection gc.Config
+
+	ExpiredDeletion expireddeletion.Config
 
 	DBCleanup dbcleanup.Config
 

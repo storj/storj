@@ -405,6 +405,94 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 	})
 }
 
+// TestRemoveExpiredSegmentFromQueue
+// - Upload tests data to 7 nodes
+// - Kill nodes so that repair threshold > online nodes > minimum threshold
+// - Call checker to add segment to the repair queue
+// - Modify segment to be expired
+// - Run the repairer
+// - Verify segment is no longer in the repair queue
+func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 10,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(3, 5, 7, 7),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// first, upload some remote data
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Stop()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		pointer, _ := getRemoteSegment(t, ctx, satellite)
+
+		// kill nodes and track lost pieces
+		nodesToDQ := make(map[storj.NodeID]bool)
+
+		// Kill 3 nodes so that pointer has 4 left (less than repair threshold)
+		toKill := 3
+
+		remotePieces := pointer.GetRemote().GetRemotePieces()
+
+		for i, piece := range remotePieces {
+			if i >= toKill {
+				continue
+			}
+			nodesToDQ[piece.NodeId] = true
+		}
+
+		for nodeID := range nodesToDQ {
+			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, nodeID)
+			require.NoError(t, err)
+
+		}
+
+		// trigger checker to add segment to repair queue
+		satellite.Repair.Checker.Loop.Restart()
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Checker.Loop.Pause()
+
+		// get encrypted path of segment with audit service
+		satellite.Audit.Chore.Loop.TriggerWait()
+		require.EqualValues(t, satellite.Audit.Queue.Size(), 1)
+		encryptedPath, err := satellite.Audit.Queue.Next()
+		require.NoError(t, err)
+		// replace pointer with one that is already expired
+		pointer.ExpirationDate = time.Now().Add(-time.Hour)
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, encryptedPath)
+		require.NoError(t, err)
+		err = satellite.Metainfo.Service.UnsynchronizedPut(ctx, encryptedPath, pointer)
+		require.NoError(t, err)
+
+		// Verify that the segment is on the repair queue
+		count, err := satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, 1)
+
+		// Run the repairer
+		satellite.Repair.Repairer.Loop.Restart()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.Pause()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		// Verify that the segment was removed
+		count, err = satellite.DB.RepairQueue().Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, count, 0)
+	})
+}
+
 // TestRemoveDeletedSegmentFromQueue
 // - Upload tests data to 7 nodes
 // - Kill nodes so that repair threshold > online nodes > minimum threshold
