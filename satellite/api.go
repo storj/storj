@@ -6,6 +6,7 @@ package satellite
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -247,9 +248,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name: "server",
 			Run: func(ctx context.Context) error {
 				// Don't change the format of this comment, it is used to figure out the node id.
-				peer.Log.Info("Node started.", zap.Stringer("Node ID", peer.Identity.ID))
-				peer.Log.Info("Public server started.", zap.String("Address", peer.Addr()))
-				peer.Log.Info("Private server started.", zap.String("Address", peer.PrivateAddr()))
+				peer.Log.Info(fmt.Sprintf("Node %s started", peer.Identity.ID))
+				peer.Log.Info(fmt.Sprintf("Public server started on %s", peer.Addr()))
+				peer.Log.Info(fmt.Sprintf("Private server started on %s", peer.PrivateAddr()))
 				return peer.Server.Run(ctx)
 			},
 			Close: peer.Server.Close,
