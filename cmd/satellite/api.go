@@ -82,9 +82,6 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
 		log.Warn("Failed to initialize telemetry batcher on satellite api", zap.Error(err))
 	}
-	if err := process.InitTracingWithHostname(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		log.Warn("Failed to initialize tracing collector on satellite api", zap.Error(err))
-	}
 
 	err = db.CheckVersion(ctx)
 	if err != nil {

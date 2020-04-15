@@ -84,10 +84,6 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		log.Warn("Failed to initialize telemetry batcher on repairer", zap.Error(err))
 	}
 
-	if err := process.InitTracingWithHostname(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		log.Warn("Failed to initialize tracing collector on repairer", zap.Error(err))
-	}
-
 	err = db.CheckVersion(ctx)
 	if err != nil {
 		log.Fatal("Failed satellite database version check.", zap.Error(err))
