@@ -127,7 +127,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 							NodeId:   limit.GetLimit().StorageNodeId,
 						})
 					} else {
-						ec.log.Info("Failed to download pieces for repair",
+						ec.log.Debug("Failed to download pieces for repair",
 							zap.Error(err))
 					}
 					return
@@ -346,13 +346,17 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		if info.err != nil {
 			if !errs2.IsCanceled(info.err) {
 				failureCount++
+				ec.log.Warn("Repair to a storage node failed",
+					zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
+					zap.Error(info.err),
+				)
 			} else {
 				cancellationCount++
+				ec.log.Debug("Repair to storage node cancelled",
+					zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
+					zap.Error(info.err),
+				)
 			}
-			ec.log.Info("Repair to storage node failed",
-				zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
-				zap.Error(info.err),
-			)
 			continue
 		}
 
@@ -380,7 +384,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		return nil, nil, Error.New("repair to all nodes failed")
 	}
 
-	ec.log.Info("Successfully repaired",
+	ec.log.Debug("Successfully repaired",
 		zap.Int32("Success Count", atomic.LoadInt32(&successfulCount)),
 	)
 
