@@ -536,9 +536,11 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// todo: might consider adding which target storagenode id is unavailable
-	// so we can track over time and potentially mark as bad
-	endpoint.log.Warn("transfer failed", zap.Stringer("Piece ID", message.Failed.OriginalPieceId), zap.Stringer("transfer error", message.Failed.GetError()))
+	endpoint.log.Warn("transfer failed",
+		zap.Stringer("Piece ID", message.Failed.OriginalPieceId),
+		zap.Stringer("nodeID", nodeID.String()),
+		zap.Stringer("transfer error", message.Failed.GetError()),
+	)
 	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1) //locked
 
 	pieceID := message.Failed.OriginalPieceId

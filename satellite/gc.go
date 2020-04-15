@@ -103,14 +103,12 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup version control
-		if !versionInfo.IsZero() {
-			peer.Log.Debug("Version info",
-				zap.Stringer("Version", versionInfo.Version.Version),
-				zap.String("Commit Hash", versionInfo.CommitHash),
-				zap.Stringer("Build Timestamp", versionInfo.Timestamp),
-				zap.Bool("Release Build", versionInfo.Release),
-			)
-		}
+		peer.Log.Info("Version info",
+			zap.Stringer("Version", versionInfo.Version.Version),
+			zap.String("Commit Hash", versionInfo.CommitHash),
+			zap.Stringer("Build Timestamp", versionInfo.Timestamp),
+			zap.Bool("Release Build", versionInfo.Release),
+		)
 		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 

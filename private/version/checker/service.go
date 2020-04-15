@@ -126,7 +126,6 @@ func (service *Service) checkVersion(ctx context.Context) (latestVersion version
 	service.log.Debug("Allowed minimum version from control server.", zap.Stringer("Minimum Version", minimum.Version))
 
 	if isAcceptedVersion(service.Info.Version, minimumOld) {
-		// todo: check this gets logged one time on start up
 		service.log.Debug("Running on allowed version.", zap.Stringer("Version", service.Info.Version.Version))
 		return suggestedVersion, true
 	}
