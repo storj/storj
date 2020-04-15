@@ -104,8 +104,8 @@ export default class Login extends Vue {
             return;
         }
 
-        if (window.self !== window.top) {
-            top.location.href = window.self.location.origin + '/account/billing';
+        if (this.isInsideIframe) {
+            window.top.location.href = window.self.location.origin + '/account/billing';
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);

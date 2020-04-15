@@ -106,6 +106,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
 
+# url link to sign up verification page
+# console.verification-page-url: https://tardigrade.io/satellites/verify
+
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
 
