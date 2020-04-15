@@ -300,7 +300,7 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_cancel_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_cancel_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+			endpoint.log.Debug("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		} else if err != nil {
 			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
