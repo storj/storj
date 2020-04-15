@@ -80,8 +80,8 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 
 	var newID string
 	if writer.id == "" {
-		if start := bytes.Index(data, []byte(`Node started.	{"Node ID": "`)); start > 0 {
-			if end := bytes.Index(data[start:], []byte(`"`)); end > 0 {
+		if start := bytes.Index(data, []byte("Node ")); start > 0 {
+			if end := bytes.Index(data[start:], []byte(" started")); end > 0 {
 				newID = string(data[start+5 : start+end])
 				if len(newID) > maxIDLength {
 					newID = newID[:maxIDLength]
