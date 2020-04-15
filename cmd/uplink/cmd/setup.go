@@ -115,13 +115,23 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return Error.Wrap(err)
 	}
 
+	overrides := make(map[string]interface{})
+	tracingEnabled, err := wizard.PromptForTracing()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if tracingEnabled {
+		enableTracing(overrides)
+	}
+
 	// NB: accesses should always be `map[string]interface{}` for "conventional"
 	// config serialization/flattening.
 	accesses := toStringMapE(setupCfg.Accesses)
 	accesses[accessName] = accessData
+	overrides["accesses"] = accesses
 
 	saveCfgOpts := []process.SaveConfigOption{
-		process.SaveConfigWithOverride("accesses", accesses),
+		process.SaveConfigWithOverrides(overrides),
 		process.SaveConfigRemovingDeprecated(),
 	}
 

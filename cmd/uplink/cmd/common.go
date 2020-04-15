@@ -25,3 +25,7 @@ func withTelemetry(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 	ctx, _ := process.Ctx(cmd)
 	return telemetry.Enable(ctx)
 }
+
+func enableTracing(config map[string]interface{}) {
+	config["tracing.sample"] = 1
+}
