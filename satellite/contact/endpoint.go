@@ -5,7 +5,6 @@ package contact
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -60,7 +59,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	resolvedIPPort, resolvedNetwork, err := overlay.ResolveIPAndNetwork(ctx, req.Address)
 	if err != nil {
-		mon.Event(fmt.Sprintf("failed_resolve_ip_%d_%d", req.Address, nodeID.String()))
+		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
 	}
 
