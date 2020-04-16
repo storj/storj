@@ -76,6 +76,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		},
 		Disqualified: node.Disqualified,
 		Suspended:    node.Suspended,
+		JoinedAt:     node.CreatedAt,
 	}, nil
 }
 
