@@ -42,8 +42,9 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 			audit_reputation_score,
 			disqualified,
 			suspended,
-			updated_at
-		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+			updated_at,
+			joined_at
+		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	// ensure we insert utc
 	if stats.Disqualified != nil {
@@ -70,6 +71,7 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 		stats.Disqualified,
 		stats.Suspended,
 		stats.UpdatedAt.UTC(),
+		stats.JoinedAt.UTC(),
 	)
 
 	return ErrReputation.Wrap(err)
@@ -96,7 +98,8 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 			audit_reputation_score,
 			disqualified,
 			suspended,
-			updated_at
+			updated_at,
+			joined_at
 		FROM reputation WHERE satellite_id = ?`,
 		satelliteID,
 	)
@@ -115,6 +118,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		&stats.Disqualified,
 		&stats.Suspended,
 		&stats.UpdatedAt,
+		&stats.JoinedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -141,7 +145,8 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			audit_reputation_score,
 			disqualified,
 			suspended,
-			updated_at
+			updated_at,
+			joined_at
 		FROM reputation`
 
 	rows, err := db.QueryContext(ctx, query)
@@ -169,6 +174,7 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			&stats.Disqualified,
 			&stats.Suspended,
 			&stats.UpdatedAt,
+			&stats.JoinedAt,
 		)
 
 		if err != nil {

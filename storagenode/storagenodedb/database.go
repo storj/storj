@@ -1183,6 +1183,14 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          db.reputationDB,
+				Description: "Add joined_at field to satellites db",
+				Version:     36,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN joined_at TIMESTAMP`,
+				},
+			},
 		},
 	}
 }
