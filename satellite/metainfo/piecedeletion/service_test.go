@@ -99,6 +99,10 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		// ensure that no requests doesn't return an error
+		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, nil, 0.75)
+		require.NoError(t, err)
+
 		var (
 			totalUsedSpace int64
 			requests       []piecedeletion.Request
@@ -128,7 +132,7 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 			requests = append(requests, nodePieces)
 		}
 
-		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, 0.75)
+		err = satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, 0.75)
 		require.NoError(t, err)
 
 		// calculate the SNs used space after delete the pieces
@@ -290,23 +294,13 @@ func TestService_DeletePieces_Invalid(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		service := planet.Satellites[0].API.Metainfo.PieceDeletion
 
-		t.Run("empty node pieces", func(t *testing.T) {
-			t.Parallel()
-			err := service.Delete(ctx, []piecedeletion.Request{}, 0.75)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "invalid number of tasks")
-		})
-
-		t.Run("invalid requests", func(t *testing.T) {
-			t.Parallel()
-			nodesPieces := []piecedeletion.Request{
-				{Pieces: make([]storj.PieceID, 1)},
-				{Pieces: make([]storj.PieceID, 1)},
-			}
-			err := service.Delete(ctx, nodesPieces, 1)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "request #0 is invalid")
-		})
+		nodesPieces := []piecedeletion.Request{
+			{Pieces: make([]storj.PieceID, 1)},
+			{Pieces: make([]storj.PieceID, 1)},
+		}
+		err := service.Delete(ctx, nodesPieces, 1)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "request #0 is invalid")
 	})
 }
 
