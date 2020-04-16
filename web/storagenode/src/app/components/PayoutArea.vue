@@ -29,7 +29,7 @@ import WalletIcon from '@/../static/images/wallet.svg';
 
 @Component({
     components: {
-        WalletIcon
+        WalletIcon,
     },
 })
 export default class PayoutArea extends Vue {

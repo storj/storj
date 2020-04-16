@@ -77,7 +77,7 @@ class MonthButton {
 @Component({
     components: {
         GrayArrowLeftIcon,
-    }
+    },
 })
 export default class PayoutPeriodCalendar extends Vue {
     private now: Date = new Date();

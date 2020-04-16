@@ -475,7 +475,7 @@ export default class SNOContentFilling extends Vue {
                 line-height: 21px;
 
                 &__link {
-                    color: var(--navigation-link-color)
+                    color: var(--navigation-link-color);
                 }
             }
         }
@@ -501,7 +501,7 @@ export default class SNOContentFilling extends Vue {
                 line-height: 21px;
 
                 &__link {
-                    color: var(--navigation-link-color)
+                    color: var(--navigation-link-color);
                 }
             }
         }

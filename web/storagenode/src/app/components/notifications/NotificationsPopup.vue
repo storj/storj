@@ -38,7 +38,7 @@ import { RouteConfig } from '@/app/router';
 @Component({
     components: {
         SNONotification,
-    }
+    },
 })
 export default class NotificationsPopup extends Vue {
     /**

@@ -104,7 +104,7 @@ export class PayoutHttpApi implements PayoutApi {
      * @returns total payout information
      * @throws Error
      */
-    private async getHeld(path): Promise<HeldInfo> {
+    public async getHeld(path): Promise<HeldInfo> {
         const response = await this.client.get(path);
 
         if (!response.ok) {

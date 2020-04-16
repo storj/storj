@@ -39,7 +39,7 @@ const monthNames = [
         PayoutPeriodCalendar,
         BlackArrowExpand,
         BlackArrowHide,
-    }
+    },
 })
 export default class EstimationPeriodDropdown extends Vue {
     /**

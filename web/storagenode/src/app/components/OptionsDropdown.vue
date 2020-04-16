@@ -25,7 +25,7 @@ import { SNO_THEME } from '@/app/types/theme';
     components: {
         SunIcon,
         MoonIcon,
-    }
+    },
 })
 export default class OptionsDropdown extends Vue {
     /**

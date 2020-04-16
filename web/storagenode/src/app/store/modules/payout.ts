@@ -5,8 +5,10 @@ import {
     HeldInfo,
     PaymentInfoParameters,
     PayoutApi,
-    PayoutInfoRange, PayoutPeriod,
-    PayoutState, TotalPayoutInfo,
+    PayoutInfoRange,
+    PayoutPeriod,
+    PayoutState,
+    TotalPayoutInfo,
 } from '@/app/types/payout';
 import { TB } from '@/app/utils/converter';
 
@@ -72,7 +74,7 @@ export function makePayoutModule(api: PayoutApi) {
                     new PayoutPeriod(now.getUTCFullYear(), now.getUTCMonth()),
                     satelliteId,
                 ));
-                
+
                 const currentBandwidthDownload = (rootState.node.egressChartData || [])
                     .map(data => data.egress.usage)
                     .reduce((previous, current) => previous + current, 0);
@@ -104,7 +106,7 @@ export function makePayoutModule(api: PayoutApi) {
  * Returns held percentage depends on number of months that node is online.
  * @param startedAt date since node is online.
  */
-function getHeldPercentage(startedAt: Date): number {
+export function getHeldPercentage(startedAt: Date): number {
     const now = new Date();
     const secondsInMonthApproximately = 2628000;
     const differenceInSeconds = (now.getTime() - startedAt.getTime()) / 1000;
