@@ -41,7 +41,7 @@ func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
 		var (
 			satelliteSys = planet.Satellites[0]
 			uplink       = planet.Uplinks[0]
-			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			projectID    = uplink.Projects[0].ID
 			since        = time.Now()
 		)
 
@@ -82,7 +82,7 @@ func TestBilling_InlineFiles(t *testing.T) {
 		var (
 			satelliteSys = planet.Satellites[0]
 			uplink       = planet.Uplinks[0]
-			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			projectID    = uplink.Projects[0].ID
 			since        = time.Now()
 		)
 
@@ -129,7 +129,7 @@ func TestBilling_FilesAfterDeletion(t *testing.T) {
 		var (
 			satelliteSys = planet.Satellites[0]
 			uplink       = planet.Uplinks[0]
-			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			projectID    = uplink.Projects[0].ID
 			since        = time.Now()
 		)
 
@@ -182,7 +182,7 @@ func TestBilling_TrafficAfterFileDeletion(t *testing.T) {
 		var (
 			satelliteSys = planet.Satellites[0]
 			uplink       = planet.Uplinks[0]
-			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			projectID    = uplink.Projects[0].ID
 		)
 
 		data := testrand.Bytes(5 * memory.KiB)
@@ -240,7 +240,7 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		require.NoError(t, err)
 
 		var (
-			projectID = uplnk.ProjectID[satelliteSys.ID()]
+			projectID = uplnk.Projects[0].ID
 			since     = time.Now()
 		)
 		projectTotal := getProjectTotal(ctx, t, planet, 0, projectID, since)
@@ -308,7 +308,7 @@ func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
 
 		var (
 			uplnk     = planet.Uplinks[0]
-			projectID = uplnk.ProjectID[satelliteSys.ID()]
+			projectID = uplnk.Projects[0].ID
 		)
 
 		since := time.Now().Add(-10 * time.Hour)
@@ -415,7 +415,7 @@ func TestBilling_ZombieSegments(t *testing.T) {
 		// trigger tally so it gets all set up and can return a storage usage
 		satelliteSys.Accounting.Tally.Loop.TriggerWait()
 
-		projectID := uplnk.ProjectID[satelliteSys.ID()]
+		projectID := uplnk.Projects[0].ID
 
 		{ // delete last segment from metainfo to get zombie segments
 			keys, err := planet.Satellites[0].Metainfo.Database.List(ctx, nil, 10)

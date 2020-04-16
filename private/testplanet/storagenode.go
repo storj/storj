@@ -43,12 +43,12 @@ type StorageNode struct {
 	*storagenode.Peer
 }
 
-// URL returns the storj.NodeURL.
-func (system *StorageNode) URL() storj.NodeURL {
-	return storj.NodeURL{
-		ID:      system.Peer.ID(),
-		Address: system.Peer.Addr(),
-	}
+// URL returns the node url as a string.
+func (system *StorageNode) URL() string { return system.NodeURL().String() }
+
+// NodeURL returns the storj.NodeURL.
+func (system *StorageNode) NodeURL() storj.NodeURL {
+	return storj.NodeURL{ID: system.Peer.ID(), Address: system.Peer.Addr()}
 }
 
 // newStorageNodes initializes storage nodes.

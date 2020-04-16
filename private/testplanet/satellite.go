@@ -188,8 +188,11 @@ func (system *Satellite) Local() overlay.NodeDossier { return system.API.Contact
 // Addr returns the public address from the Satellite system API.
 func (system *Satellite) Addr() string { return system.API.Server.Addr().String() }
 
-// URL returns the storj.NodeURL from the Satellite system API.
-func (system *Satellite) URL() storj.NodeURL {
+// URL returns the node url from the Satellite system API.
+func (system *Satellite) URL() string { return system.NodeURL().String() }
+
+// NodeURL returns the storj.NodeURL from the Satellite system API.
+func (system *Satellite) NodeURL() storj.NodeURL {
 	return storj.NodeURL{ID: system.API.ID(), Address: system.API.Addr()}
 }
 

@@ -67,7 +67,6 @@ func TestOnlyInline(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 		uplink := planet.Uplinks[0]
-		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
 
 		// Setup: create data for the uplink to upload
 		expectedData := testrand.Bytes(1 * memory.KiB)
@@ -83,7 +82,7 @@ func TestOnlyInline(t *testing.T) {
 		expectedBucketName := "testbucket"
 		expectedTally := &accounting.BucketTally{
 			BucketName:     []byte(expectedBucketName),
-			ProjectID:      projectID,
+			ProjectID:      uplink.Projects[0].ID,
 			ObjectCount:    1,
 			InlineSegments: 1,
 			InlineBytes:    int64(expectedTotalBytes),
@@ -234,7 +233,7 @@ func TestTallyLiveAccounting(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tally := planet.Satellites[0].Accounting.Tally
-		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
+		projectID := planet.Uplinks[0].Projects[0].ID
 		tally.Loop.Pause()
 
 		expectedData := testrand.Bytes(5 * memory.MB)
@@ -281,7 +280,7 @@ func TestTallyEmptyProjectUpdatesLiveAccounting(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
-		project1 := planet.Uplinks[1].ProjectID[planet.Satellites[0].ID()]
+		project1 := planet.Uplinks[1].Projects[0].ID
 
 		data := testrand.Bytes(1 * memory.MB)
 

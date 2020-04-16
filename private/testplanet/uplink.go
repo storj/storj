@@ -38,10 +38,34 @@ type Uplink struct {
 	Dialer           rpc.Dialer
 	StorageNodeCount int
 
-	APIKey            map[storj.NodeID]*macaroon.APIKey
-	ProjectID         map[storj.NodeID]uuid.UUID
-	ProjectOwnerID    map[storj.NodeID]uuid.UUID
-	ProjectOwnerEmail map[storj.NodeID]string
+	APIKey map[storj.NodeID]*macaroon.APIKey
+
+	// Projects is indexed by the satellite number.
+	Projects []*Project
+}
+
+// Project contains all necessary information about a user.
+type Project struct {
+	client *Uplink
+
+	ID    uuid.UUID
+	Owner ProjectOwner
+
+	Satellite Peer
+	APIKey    string
+
+	RawAPIKey *macaroon.APIKey
+}
+
+// ProjectOwner contains information about the project owner.
+type ProjectOwner struct {
+	ID    uuid.UUID
+	Email string
+}
+
+// DialMetainfo dials the satellite with the appropriate api key.
+func (project *Project) DialMetainfo(ctx context.Context) (*metainfo.Client, error) {
+	return project.client.DialMetainfo(ctx, project.Satellite, project.RawAPIKey)
 }
 
 // newUplinks creates initializes uplinks, requires peer to have at least one satellite
@@ -75,13 +99,10 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 	}
 
 	uplink := &Uplink{
-		Log:               planet.log.Named(name),
-		Identity:          identity,
-		StorageNodeCount:  storageNodeCount,
-		APIKey:            map[storj.NodeID]*macaroon.APIKey{},
-		ProjectID:         map[storj.NodeID]uuid.UUID{},
-		ProjectOwnerID:    map[storj.NodeID]uuid.UUID{},
-		ProjectOwnerEmail: map[storj.NodeID]string{},
+		Log:              planet.log.Named(name),
+		Identity:         identity,
+		StorageNodeCount: storageNodeCount,
+		APIKey:           map[storj.NodeID]*macaroon.APIKey{},
 	}
 
 	uplink.Log.Debug("id=" + identity.ID.String())
@@ -158,9 +179,21 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		}
 
 		uplink.APIKey[satellite.ID()] = key
-		uplink.ProjectID[satellite.ID()] = project.ID
-		uplink.ProjectOwnerID[satellite.ID()] = owner.ID
-		uplink.ProjectOwnerEmail[satellite.ID()] = owner.Email
+
+		uplink.Projects = append(uplink.Projects, &Project{
+			client: uplink,
+
+			ID: project.ID,
+			Owner: ProjectOwner{
+				ID:    owner.ID,
+				Email: owner.Email,
+			},
+
+			Satellite: satellite,
+			APIKey:    key.Serialize(),
+
+			RawAPIKey: key,
+		})
 	}
 
 	planet.uplinks = append(planet.uplinks, uplink)
@@ -370,7 +403,7 @@ func (client *Uplink) GetConfig(satellite *Satellite) UplinkConfig {
 	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
 
 	accessData, err := (&libuplink.Scope{
-		SatelliteAddr:    satellite.URL().String(),
+		SatelliteAddr:    satellite.URL(),
 		APIKey:           apiKey,
 		EncryptionAccess: encAccess,
 	}).Serialize()

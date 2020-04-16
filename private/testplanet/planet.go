@@ -35,7 +35,8 @@ const defaultInterval = 15 * time.Second
 type Peer interface {
 	ID() storj.NodeID
 	Addr() string
-	URL() storj.NodeURL
+	URL() string
+	NodeURL() storj.NodeURL
 	Local() overlay.NodeDossier
 
 	Run(context.Context) error
@@ -171,7 +172,7 @@ func NewCustom(log *zap.Logger, config Config, satelliteDatabases satellitedbtes
 
 	whitelistedSatellites := make(storj.NodeURLs, 0, len(planet.Satellites))
 	for _, satellite := range planet.Satellites {
-		whitelistedSatellites = append(whitelistedSatellites, satellite.URL())
+		whitelistedSatellites = append(whitelistedSatellites, satellite.NodeURL())
 	}
 
 	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount, whitelistedSatellites)

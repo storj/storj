@@ -30,23 +30,21 @@ func TestAPI(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		address := sat.Admin.Admin.Listener.Addr()
+		satellite := planet.Satellites[0]
+		address := satellite.Admin.Admin.Listener.Addr()
+		project := planet.Uplinks[0].Projects[0]
 
-		projectid := planet.Uplinks[0].ProjectID[sat.ID()]
-		ownerid := planet.Uplinks[0].ProjectOwnerID[sat.ID()]
-		owneremail := planet.Uplinks[0].ProjectOwnerEmail[sat.ID()]
-		link := "http://" + address.String() + "/api/project/" + projectid.String() + "/limit"
+		link := "http://" + address.String() + "/api/project/" + project.ID.String() + "/limit"
 
 		t.Run("GetProject", func(t *testing.T) {
 			assertGet(t, link, `{"usage":{"amount":"0 B","bytes":0},"rate":{"rps":0}}`)
 		})
 
 		t.Run("GetUser", func(t *testing.T) {
-			userLink := "http://" + address.String() + "/api/user/" + owneremail
+			userLink := "http://" + address.String() + "/api/user/" + project.Owner.Email
 			expected := `{` +
-				fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s"},`, ownerid, owneremail) +
-				fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}]`, projectid, ownerid) +
+				fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s"},`, project.Owner.ID, project.Owner.Email) +
+				fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}]`, project.ID, project.Owner.ID) +
 				`}`
 			assertGet(t, userLink, expected)
 		})

@@ -42,8 +42,6 @@ func TestProjectUsageStorage(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
-
 		var uploaded uint32
 
 		checkctx, checkcancel := context.WithCancel(ctx)
@@ -63,7 +61,7 @@ func TestProjectUsageStorage(t *testing.T) {
 					return nil
 				}
 
-				total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, projectID)
+				total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, planet.Uplinks[0].Projects[0].ID)
 				if err != nil {
 					return errs.Wrap(err)
 				}

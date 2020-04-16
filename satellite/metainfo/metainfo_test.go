@@ -1368,7 +1368,7 @@ func TestInlineSegmentThreshold(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
+		projectID := planet.Uplinks[0].Projects[0].ID
 
 		{ // limit is max inline segment size + encryption overhead
 			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket-inline", "inline-object", testrand.Bytes(4*memory.KiB))

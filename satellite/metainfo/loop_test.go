@@ -94,7 +94,7 @@ func TestLoop(t *testing.T) {
 		err := group.Wait()
 		require.NoError(t, err)
 
-		projectID := ul.ProjectID[satellite.ID()]
+		projectID := ul.Projects[0].ID
 		for _, obs := range []*testObserver{obs1, obs2} {
 			assert.EqualValues(t, 7, obs.objectCount)
 			assert.EqualValues(t, 5, obs.remoteSegCount)
