@@ -148,7 +148,7 @@ type LoopConfig struct {
 type Loop struct {
 	config LoopConfig
 	db     PointerDB
-	join   chan *observerContext
+	join   chan []*observerContext
 	done   chan struct{}
 }
 
@@ -157,7 +157,7 @@ func NewLoop(config LoopConfig, db PointerDB) *Loop {
 	return &Loop{
 		db:     db,
 		config: config,
-		join:   make(chan *observerContext),
+		join:   make(chan []*observerContext),
 		done:   make(chan struct{}),
 	}
 }
@@ -166,20 +166,28 @@ func NewLoop(config LoopConfig, db PointerDB) *Loop {
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
 // Safe to be called concurrently.
-func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
+func (loop *Loop) Join(ctx context.Context, observers ...Observer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	obsContext := newObserverContext(ctx, observer)
+	obsContexts := make([]*observerContext, len(observers))
+	for i, obs := range observers {
+		obsContexts[i] = newObserverContext(ctx, obs)
+	}
 
 	select {
-	case loop.join <- obsContext:
+	case loop.join <- obsContexts:
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-loop.done:
 		return LoopClosedError
 	}
 
-	return obsContext.Wait()
+	var errList errs.Group
+	for _, ctx := range obsContexts {
+		errList.Add(ctx.Wait())
+	}
+
+	return errList.Err()
 }
 
 // Run starts the looping service.
@@ -209,8 +217,8 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 
 	// wait for the first observer, or exit because context is canceled
 	select {
-	case observer := <-loop.join:
-		observers = append(observers, observer)
+	case list := <-loop.join:
+		observers = append(observers, list...)
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -220,8 +228,8 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 waitformore:
 	for {
 		select {
-		case observer := <-loop.join:
-			observers = append(observers, observer)
+		case list := <-loop.join:
+			observers = append(observers, list...)
 		case <-timer.C:
 			break waitformore
 		case <-ctx.Done():
