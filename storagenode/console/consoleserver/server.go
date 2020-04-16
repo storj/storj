@@ -5,6 +5,7 @@ package consoleserver
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleapi"
 	"storj.io/storj/storagenode/heldamount"
@@ -118,7 +120,11 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return server.server.Serve(server.listener)
+		err := server.server.Serve(server.listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return err
 	})
 
 	return group.Wait()

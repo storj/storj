@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"reflect"
@@ -215,7 +216,11 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		defer cancel()
 		peer.Log.Info("Versioning server started.", zap.String("Address", peer.Addr()))
-		return errs2.IgnoreCanceled(peer.Server.Endpoint.Serve(peer.Server.Listener))
+		err := peer.Server.Endpoint.Serve(peer.Server.Listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return err
 	})
 	return group.Wait()
 }

@@ -7,6 +7,7 @@ package admin
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"net"
 	"net/http"
 
@@ -14,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 )
@@ -105,7 +107,11 @@ func (server *Server) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return Error.Wrap(server.server.Serve(server.listener))
+		err := server.server.Serve(server.listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return Error.Wrap(err)
 	})
 	return group.Wait()
 }

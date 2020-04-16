@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"mime"
@@ -28,6 +29,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/common/uuid"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
@@ -220,7 +222,11 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return server.server.Serve(server.listener)
+		err := server.server.Serve(server.listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return err
 	})
 
 	return group.Wait()
