@@ -33,6 +33,7 @@ type Stats struct {
 	Suspended    *time.Time
 
 	UpdatedAt time.Time
+	JoinedAt  time.Time
 }
 
 // Metric encapsulates storagenode reputation metrics

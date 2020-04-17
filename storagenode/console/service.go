@@ -264,11 +264,6 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		DiskSpace:       pricingModel.DiskSpace,
 	}
 
-	satellite, err := s.satelliteDB.GetSatellite(ctx, satelliteID)
-	if err != nil {
-		return nil, SNOServiceErr.Wrap(err)
-	}
-
 	return &Satellite{
 		ID:               satelliteID,
 		StorageDaily:     storageDaily,
@@ -280,7 +275,7 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		Audit:            rep.Audit,
 		Uptime:           rep.Uptime,
 		PriceModel:       satellitePricing,
-		NodeJoinedAt:     satellite.AddedAt,
+		NodeJoinedAt:     rep.JoinedAt,
 	}, nil
 }
 
@@ -334,13 +329,13 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 	satellitesIDs := s.trust.GetSatellites(ctx)
 	joinedAt := time.Now().UTC()
 	for i := 0; i < len(satellitesIDs); i++ {
-		satellite, err := s.satelliteDB.GetSatellite(ctx, satellitesIDs[i])
+		stats, err := s.reputationDB.Get(ctx, satellitesIDs[i])
 		if err != nil {
 			return nil, SNOServiceErr.Wrap(err)
 		}
 
-		if satellite.AddedAt.Before(joinedAt) {
-			joinedAt = satellite.AddedAt
+		if stats.JoinedAt.Before(joinedAt) {
+			joinedAt = stats.JoinedAt
 		}
 	}
 

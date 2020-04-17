@@ -552,6 +552,11 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: true,
 						},
 						&dbschema.Column{
+							Name:       "joined_at",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
+						},
+						&dbschema.Column{
 							Name:       "satellite_id",
 							Type:       "BLOB",
 							IsNullable: false,

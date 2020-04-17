@@ -41,6 +41,7 @@ func TestReputationDBGetInsert(t *testing.T) {
 			Disqualified: &timestamp,
 			Suspended:    &timestamp,
 			UpdatedAt:    timestamp,
+			JoinedAt:     timestamp,
 		}
 
 		t.Run("insert", func(t *testing.T) {
@@ -56,6 +57,7 @@ func TestReputationDBGetInsert(t *testing.T) {
 			assert.True(t, res.Disqualified.Equal(*stats.Disqualified))
 			assert.True(t, res.Suspended.Equal(*stats.Suspended))
 			assert.True(t, res.UpdatedAt.Equal(stats.UpdatedAt))
+			assert.True(t, res.JoinedAt.Equal(stats.JoinedAt))
 
 			compareReputationMetric(t, &res.Uptime, &stats.Uptime)
 			compareReputationMetric(t, &res.Audit, &stats.Audit)
@@ -91,6 +93,7 @@ func TestReputationDBGetAll(t *testing.T) {
 				Disqualified: &timestamp,
 				Suspended:    &timestamp,
 				UpdatedAt:    timestamp,
+				JoinedAt:     timestamp,
 			}
 
 			err := reputationDB.Store(ctx, rep)
@@ -111,6 +114,7 @@ func TestReputationDBGetAll(t *testing.T) {
 				assert.Equal(t, rep.Disqualified, stats[0].Disqualified)
 				assert.Equal(t, rep.Suspended, stats[0].Suspended)
 				assert.Equal(t, rep.UpdatedAt, stats[0].UpdatedAt)
+				assert.Equal(t, rep.JoinedAt, stats[0].JoinedAt)
 
 				compareReputationMetric(t, &rep.Uptime, &stats[0].Uptime)
 				compareReputationMetric(t, &rep.Audit, &stats[0].Audit)

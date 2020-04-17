@@ -82,7 +82,7 @@ func (cache *Cache) Run(ctx context.Context) error {
 		return cache.db.Pricing.Store(ctx, *pricingModel)
 	})
 	if err != nil {
-		cache.log.Error("Get pricing-model failed", zap.Error(err))
+		cache.log.Error("Get pricing-model/join date failed", zap.Error(err))
 	}
 
 	cache.Reputation.Start(ctx, &group, func(ctx context.Context) error {
@@ -130,6 +130,7 @@ func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 		}
 
 		if err = cache.db.Reputation.Store(ctx, *stats); err != nil {
+			cache.log.Error("err", zap.Error(err))
 			return err
 		}
 
