@@ -623,6 +623,9 @@ honnef.co/go/tools v0.0.1-2019.2.3 h1:3JgtbtFHMiCmsznwGVTUWbgGov+pVqnlf1dEJTNAXe
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 storj.io/common v0.0.0-20200402141523-7780ee0cca0d/go.mod h1:pZyXiIE7bGETIRXtfs0nICqMwp7PM8HqnDuyUeldNA0=
+storj.io/common v0.0.0-20200408133928-c307b675fdaa/go.mod h1:pZyXiIE7bGETIRXtfs0nICqMwp7PM8HqnDuyUeldNA0=
+storj.io/common v0.0.0-20200413160743-f212d3029dbf h1:3ltVLnAtkJ/nbHg1aStSRr99doJRqPLl7BmRV9XKWpg=
+storj.io/common v0.0.0-20200413160743-f212d3029dbf/go.mod h1:pZyXiIE7bGETIRXtfs0nICqMwp7PM8HqnDuyUeldNA0=
 storj.io/common v0.0.0-20200416175331-40469cc6b6d5 h1:ApFVw3uGVbUqPPkJbTVq8wcqJFmJRU24uhjdoedsj/M=
 storj.io/common v0.0.0-20200416175331-40469cc6b6d5/go.mod h1:pZyXiIE7bGETIRXtfs0nICqMwp7PM8HqnDuyUeldNA0=
 storj.io/common v0.0.0-20200419143955-e54806ee8c56 h1:SACDryIjBnW4sqkHbzEpAmB0PhJYv5/mmJCHsuStsKY=
@@ -639,3 +642,5 @@ storj.io/private v0.0.0-20200403212157-26f222c154f0 h1:7raQWpuP5poUd2vMYIRE4XcEC
 storj.io/private v0.0.0-20200403212157-26f222c154f0/go.mod h1:s0T6C5sBLRubb5uT+FbE4ZGaLBUs6jZ/qzGp/OvVpCI=
 storj.io/uplink v1.0.4-0.20200406100056-baa89e6fe434 h1:GfuoaAq9VLdC19+T8H//WPQjzOhyU1otpBme/O6R5JM=
 storj.io/uplink v1.0.4-0.20200406100056-baa89e6fe434/go.mod h1:bGqCqd9cuAw3WCXznwN6iwmJhhJE5omGx1C28XevHGQ=
+storj.io/uplink v1.0.4-0.20200415152100-8fbdcbad8065 h1:qmnad330OivpK72+qJfjuo+jW0PFo+0zvCtE/QtHqvo=
+storj.io/uplink v1.0.4-0.20200415152100-8fbdcbad8065/go.mod h1:+5KSvuwpOz4lBcrOa7YuXJ3lb5Z5/3+acENozs9/aIw=

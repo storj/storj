@@ -4,15 +4,21 @@ set +x
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-echo "Running test-sim"
-make -C "$SCRIPTDIR"/.. install-sim
-
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 cleanup(){
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
+
+echo "Running test-sim"
+make -C "$SCRIPTDIR"/.. install-sim
+
+echo "Overriding default max segment size to 6MiB"
+GOBIN=$TMP go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
+
+# use modifed version of uplink
+export PATH=$TMP:$PATH
 
 export STORJ_NETWORK_DIR=$TMP
 
