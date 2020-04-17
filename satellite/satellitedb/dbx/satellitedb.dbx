@@ -533,6 +533,10 @@ model bucket_bandwidth_rollup (
 		name bucket_bandwidth_rollups_project_id_action_interval_index
 		fields project_id action interval_start
 	)
+	index (
+		name bucket_bandwidth_rollups_action_interval_project_id_index
+		fields action interval_start project_id
+	)
 
 	field bucket_name       blob
 	field project_id        blob
