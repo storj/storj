@@ -437,50 +437,35 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 
-	upload, err := ps.Upload(ctx, limit.GetLimit(), privateKey)
+	hash, err = ps.UploadReader(ctx, limit.GetLimit(), privateKey, data)
 	if err != nil {
-		ec.log.Debug("Failed requesting upload of pieces to node",
-			zap.Stringer("Piece ID", pieceID),
-			zap.Stringer("Node ID", storageNodeID),
-			zap.Error(err),
-		)
-		return nil, err
-	}
-	defer func() {
-		if ctx.Err() != nil || err != nil {
-			hash = nil
-			err = errs.Combine(err, upload.Cancel(ctx))
-			return
-		}
-		h, closeErr := upload.Commit(ctx)
-		hash = h
-		err = errs.Combine(err, closeErr)
-	}()
+		if errors.Is(ctx.Err(), context.Canceled) {
+			// Canceled context means the piece upload was interrupted by user or due
+			// to slow connection. No error logging for this case.
+			if errors.Is(parent.Err(), context.Canceled) {
+				ec.log.Debug("Upload to node canceled by user",
+					zap.Stringer("Node ID", storageNodeID))
+			} else {
+				ec.log.Debug("Node cut from upload due to slow connection",
+					zap.Stringer("Node ID", storageNodeID))
+			}
 
-	_, err = sync2.Copy(ctx, upload, data)
-	// Canceled context means the piece upload was interrupted by user or due
-	// to slow connection. No error logging for this case.
-	if errors.Is(ctx.Err(), context.Canceled) {
-		if errors.Is(parent.Err(), context.Canceled) {
-			ec.log.Debug("Upload to node canceled by user",
-				zap.Stringer("Node ID", storageNodeID))
+			// make sure context.Canceled is the primary error in the error chain
+			// for later errors.Is/errs2.IsCanceled checking
+			err = errs.Combine(context.Canceled, err)
 		} else {
-			ec.log.Debug("Node cut from upload due to slow connection",
-				zap.Stringer("Node ID", storageNodeID))
-		}
-		err = context.Canceled
-	} else if err != nil {
-		nodeAddress := "nil"
-		if limit.GetStorageNodeAddress() != nil {
-			nodeAddress = limit.GetStorageNodeAddress().GetAddress()
-		}
+			nodeAddress := "nil"
+			if limit.GetStorageNodeAddress() != nil {
+				nodeAddress = limit.GetStorageNodeAddress().GetAddress()
+			}
 
-		ec.log.Debug("Failed uploading piece to node",
-			zap.Stringer("Piece ID", pieceID),
-			zap.Stringer("Node ID", storageNodeID),
-			zap.String("Node Address", nodeAddress),
-			zap.Error(err),
-		)
+			ec.log.Debug("Failed uploading piece to node",
+				zap.Stringer("Piece ID", pieceID),
+				zap.Stringer("Node ID", storageNodeID),
+				zap.String("Node Address", nodeAddress),
+				zap.Error(err),
+			)
+		}
 	}
 
 	return hash, err
