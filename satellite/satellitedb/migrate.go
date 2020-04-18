@@ -1034,6 +1034,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE storagenode_payments ALTER COLUMN period SET NOT NULL;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "Add missing bucket_bandwidth_rollups_action_interval_project_id_index index",
+				Version:     104,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups(action, interval_start, project_id );`,
+				},
+			},
 		},
 	}
 }
