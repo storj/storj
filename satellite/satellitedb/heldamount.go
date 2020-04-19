@@ -7,6 +7,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -56,6 +58,55 @@ func (paystubs *paymentStubs) GetPaystub(ctx context.Context, nodeID storj.NodeI
 	}
 
 	return payStub, nil
+}
+
+// GetAllPaystubs return all payStubs by nodeID.
+func (paystubs *paymentStubs) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) (payStubs []heldamount.PayStub, err error) {
+	query := `SELECT * FROM storagenode_paystubs WHERE node_id = $1;`
+
+	rows, err := paystubs.db.QueryContext(ctx, query, nodeID)
+	if err != nil {
+		return []heldamount.PayStub{}, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, Error.Wrap(rows.Close()))
+	}()
+
+	for rows.Next() {
+		paystub := heldamount.PayStub{}
+
+		err = rows.Scan(
+			&paystub.Period,
+			&paystub.NodeID,
+			&paystub.Created,
+			&paystub.Codes,
+			&paystub.UsageAtRest,
+			&paystub.UsageGet,
+			&paystub.UsagePut,
+			&paystub.UsageGetRepair,
+			&paystub.UsagePutRepair,
+			&paystub.UsageGetAudit,
+			&paystub.CompAtRest,
+			&paystub.CompGet,
+			&paystub.CompPut,
+			&paystub.CompGetRepair,
+			&paystub.CompPutRepair,
+			&paystub.CompGetAudit,
+			&paystub.SurgePercent,
+			&paystub.Held,
+			&paystub.Owed,
+			&paystub.Disposed,
+			&paystub.Paid,
+		)
+		if err = rows.Err(); err != nil {
+			return []heldamount.PayStub{}, Error.Wrap(err)
+		}
+
+		payStubs = append(payStubs, paystub)
+	}
+
+	return payStubs, Error.Wrap(rows.Err())
 }
 
 // GetPayment returns payment by nodeID and period.

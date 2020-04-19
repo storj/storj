@@ -19,6 +19,8 @@ import (
 type DB interface {
 	// GetPaystub return payStub by nodeID and period.
 	GetPaystub(ctx context.Context, nodeID storj.NodeID, period string) (PayStub, error)
+	// GetAllPaystubs return all payStubs by nodeID.
+	GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) ([]PayStub, error)
 	// GetPayment return storagenode payment by nodeID and period.
 	GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (StoragenodePayment, error)
 	// CreatePaystub insert paystub into db.
@@ -90,6 +92,16 @@ func (service *Service) GetPayStub(ctx context.Context, nodeID storj.NodeID, per
 	}
 
 	return payStub, nil
+}
+
+// GetAllPaystubs returns all paystubs by nodeID.
+func (service *Service) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) ([]PayStub, error) {
+	payStubs, err := service.db.GetAllPaystubs(ctx, nodeID)
+	if err != nil {
+		return []PayStub{}, err
+	}
+
+	return payStubs, nil
 }
 
 // GetPayment returns storagenode payment data by nodeID and period.

@@ -96,6 +96,73 @@ func (e *Endpoint) GetPayStub(ctx context.Context, req *pb.GetHeldAmountRequest)
 	}, nil
 }
 
+// GetAllPaystubs sends all paystubs for client node.
+func (e *Endpoint) GetAllPaystubs(ctx context.Context, req *pb.GetAllPaystubsRequest) (_ *pb.GetAllPaystubsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+	node, err := e.overlay.Get(ctx, peer.ID)
+	if err != nil {
+		if overlay.ErrNodeNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
+		}
+		e.log.Error("overlay.Get failed", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	stubs, err := e.service.GetAllPaystubs(ctx, node.Id)
+	if err != nil {
+		if ErrNoDataForPeriod.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.OutOfRange, err.Error())
+		}
+		return nil, err
+	}
+
+	var paystubs []*pb.GetHeldAmountResponse
+
+	response := pb.GetAllPaystubsResponse{
+		Paystub: paystubs,
+	}
+
+	for i := 0; i < len(stubs); i++ {
+		period, err := date.PeriodToTime(stubs[i].Period)
+		if err != nil {
+			return nil, err
+		}
+
+		heldAmountResponse := pb.GetHeldAmountResponse{
+			Period:         period,
+			NodeId:         stubs[i].NodeID,
+			CreatedAt:      stubs[i].Created,
+			Codes:          stubs[i].Codes,
+			UsageAtRest:    float32(stubs[i].UsageAtRest),
+			UsageGet:       stubs[i].UsageGet,
+			UsagePut:       stubs[i].UsagePut,
+			UsageGetRepair: stubs[i].UsageGetRepair,
+			UsagePutRepair: stubs[i].UsagePutRepair,
+			UsageGetAudit:  stubs[i].UsageGetAudit,
+			CompAtRest:     stubs[i].CompAtRest,
+			CompGet:        stubs[i].CompGet,
+			CompPut:        stubs[i].CompPut,
+			CompGetRepair:  stubs[i].CompGetRepair,
+			CompPutRepair:  stubs[i].CompPutRepair,
+			CompGetAudit:   stubs[i].CompGetAudit,
+			SurgePercent:   stubs[i].SurgePercent,
+			Held:           stubs[i].Held,
+			Owed:           stubs[i].Owed,
+			Disposed:       stubs[i].Disposed,
+			Paid:           stubs[i].Paid,
+		}
+
+		response.Paystub = append(response.Paystub, &heldAmountResponse)
+	}
+
+	return &response, nil
+}
+
 // GetPayment sends node payment data for client node.
 func (e *Endpoint) GetPayment(ctx context.Context, req *pb.GetPaymentRequest) (_ *pb.GetPaymentResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
