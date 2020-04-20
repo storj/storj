@@ -54,7 +54,7 @@ func (e *Endpoint) GetPayStub(ctx context.Context, req *pb.GetHeldAmountRequest)
 		if overlay.ErrNodeNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 		}
-		e.log.Error("overlay.Get failed", zap.Error(err))
+
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -109,7 +109,7 @@ func (e *Endpoint) GetAllPaystubs(ctx context.Context, req *pb.GetAllPaystubsReq
 		if overlay.ErrNodeNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 		}
-		e.log.Error("overlay.Get failed", zap.Error(err))
+
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -176,7 +176,7 @@ func (e *Endpoint) GetPayment(ctx context.Context, req *pb.GetPaymentRequest) (_
 		if overlay.ErrNodeNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 		}
-		e.log.Error("overlay.Get failed", zap.Error(err))
+
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 

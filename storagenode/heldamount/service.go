@@ -117,6 +117,54 @@ func (service *Service) GetPaystubStats(ctx context.Context, satelliteID storj.N
 	}, nil
 }
 
+// GetAllPaystubs retrieves all paystubs for particular satellite.
+func (service *Service) GetAllPaystubs(ctx context.Context, satelliteID storj.NodeID) (_ []PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	client, err := service.dial(ctx, satelliteID)
+	if err != nil {
+		return nil, ErrHeldAmountService.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, client.Close()) }()
+
+	resp, err := client.GetAllPaystubs(ctx, &pb.GetAllPaystubsRequest{})
+	if err != nil {
+		return nil, ErrHeldAmountService.Wrap(err)
+	}
+
+	var payStubs []PayStub
+
+	for i := 0; i < len(resp.Paystub); i++ {
+		paystub := PayStub{
+			Period:         resp.Paystub[i].Period.String()[0:7],
+			SatelliteID:    satelliteID,
+			Created:        resp.Paystub[i].CreatedAt,
+			Codes:          resp.Paystub[i].Codes,
+			UsageAtRest:    float64(resp.Paystub[i].UsageAtRest),
+			UsageGet:       resp.Paystub[i].UsageGet,
+			UsagePut:       resp.Paystub[i].UsagePut,
+			UsageGetRepair: resp.Paystub[i].CompGetRepair,
+			UsagePutRepair: resp.Paystub[i].CompPutRepair,
+			UsageGetAudit:  resp.Paystub[i].UsageGetAudit,
+			CompAtRest:     resp.Paystub[i].CompAtRest,
+			CompGet:        resp.Paystub[i].CompGet,
+			CompPut:        resp.Paystub[i].CompPut,
+			CompGetRepair:  resp.Paystub[i].CompGetRepair,
+			CompPutRepair:  resp.Paystub[i].CompPutRepair,
+			CompGetAudit:   resp.Paystub[i].CompGetAudit,
+			SurgePercent:   resp.Paystub[i].SurgePercent,
+			Held:           resp.Paystub[i].Held,
+			Owed:           resp.Paystub[i].Owed,
+			Disposed:       resp.Paystub[i].Disposed,
+			Paid:           resp.Paystub[i].Paid,
+		}
+
+		payStubs = append(payStubs, paystub)
+	}
+
+	return payStubs, nil
+}
+
 // GetPayment retrieves payment data from particular satellite using grpc.
 func (service *Service) GetPayment(ctx context.Context, satelliteID storj.NodeID, period string) (_ *Payment, err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -75,6 +75,18 @@ func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
 	err := cache.satelliteLoop(ctx, func(satelliteID storj.NodeID) error {
+		stubHistory, err := cache.heldamountService.GetAllPaystubs(ctx, satelliteID)
+		if err != nil {
+			return err
+		}
+
+		for i := 0; i < len(stubHistory); i++ {
+			err := cache.db.HeldAmount.StorePayStub(ctx, stubHistory[i])
+			if err != nil {
+				return err
+			}
+		}
+
 		pricingModel, err := cache.service.GetPricingModel(ctx, satelliteID)
 		if err != nil {
 			return err
