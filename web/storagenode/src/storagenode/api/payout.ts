@@ -13,7 +13,7 @@ export class PayoutHttpApi implements PayoutApi {
     private readonly ROOT_PATH: string = '/api/heldamount';
 
     /**
-     * Fetch held amount information by selectedPeriod.
+     * Fetch held amount information by selected period.
      *
      * @returns held amount information
      * @throws Error
@@ -31,6 +31,79 @@ export class PayoutHttpApi implements PayoutApi {
             path += '?id=' + paymentInfoParameters.satelliteId;
         }
 
+        return await this.getHeld(path);
+    }
+
+    /**
+     * Fetch held amount information by selected month.
+     *
+     * @returns held amount information
+     * @throws Error
+     */
+    public async getHeldInfoByMonth(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo> {
+        let path = `${this.ROOT_PATH}/paystubs/`;
+
+        path += paymentInfoParameters.end.period;
+
+        if (paymentInfoParameters.satelliteId) {
+            path += '?id=' + paymentInfoParameters.satelliteId;
+        }
+
+        return await this.getHeld(path);
+    }
+
+    /**
+     * Fetch total payout information.
+     *
+     * @returns total payout information
+     * @throws Error
+     */
+    public async getTotal(paymentInfoParameters: PaymentInfoParameters): Promise<TotalPayoutInfo> {
+        let path = `${this.ROOT_PATH}/paystubs/`;
+
+        if (paymentInfoParameters.start) {
+            path += paymentInfoParameters.start.period + '/';
+        }
+
+        path += paymentInfoParameters.end.period;
+
+        if (paymentInfoParameters.satelliteId) {
+            path += '?id=' + paymentInfoParameters.satelliteId;
+        }
+
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('can not get total payout information');
+        }
+
+        const data: any = await response.json() || [];
+
+        if (!Array.isArray(data)) {
+            return new TotalPayoutInfo(data.held, data.paid);
+        }
+
+        let held: number = 0;
+        let paid: number = 0;
+
+        data.forEach((paystub: any) => {
+            held += paystub.held;
+            paid += paystub.paid;
+        });
+
+        return new TotalPayoutInfo(
+            held,
+            paid,
+        );
+    }
+
+    /**
+     * Fetch total payout information depends on month.
+     *
+     * @returns total payout information
+     * @throws Error
+     */
+    private async getHeld(path): Promise<HeldInfo> {
         const response = await this.client.get(path);
 
         if (!response.ok) {
@@ -92,95 +165,6 @@ export class PayoutHttpApi implements PayoutApi {
             held,
             owed,
             disposed,
-            paid,
-        );
-    }
-
-    /**
-     * Fetch held amount information by selected month.
-     *
-     * @returns held amount information
-     * @throws Error
-     */
-    public async getHeldInfoByMonth(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo> {
-        let path = `${this.ROOT_PATH}/paystubs/`;
-
-        path += paymentInfoParameters.end.period;
-
-        if (paymentInfoParameters.satelliteId) {
-            path += '?id=' + paymentInfoParameters.satelliteId;
-        }
-
-        const response = await this.client.get(path);
-
-        if (!response.ok) {
-            throw new Error('can not get held information');
-        }
-
-        const data = await response.json();
-
-        return new HeldInfo(
-            data.usageAtRest,
-            data.usageGet,
-            data.usagePut,
-            data.usageGetRepair,
-            data.usagePutRepair,
-            data.usageGetAudit,
-            data.compAtRest,
-            data.compGet,
-            data.compPut,
-            data.compGetRepair,
-            data.compPutRepair,
-            data.compGetAudit,
-            0,
-            data.held,
-            data.owed,
-            data.disposed,
-            data.paid,
-        );
-    }
-
-    /**
-     * Fetch total payout information.
-     *
-     * @returns total payout information
-     * @throws Error
-     */
-    public async getTotal(paymentInfoParameters: PaymentInfoParameters): Promise<TotalPayoutInfo> {
-        let path = `${this.ROOT_PATH}/paystubs/`;
-
-        if (paymentInfoParameters.start) {
-            path += paymentInfoParameters.start.period + '/';
-        }
-
-        path += paymentInfoParameters.end.period;
-
-        if (paymentInfoParameters.satelliteId) {
-            path += '?id=' + paymentInfoParameters.satelliteId;
-        }
-
-        const response = await this.client.get(path);
-
-        if (!response.ok) {
-            throw new Error('can not get total payout information');
-        }
-
-        const data: any = await response.json() || [];
-
-        if (!Array.isArray(data)) {
-            return new TotalPayoutInfo(data.held, data.paid);
-        }
-
-        let held: number = 0;
-        let paid: number = 0;
-
-        data.forEach((paystub: any) => {
-            held += paystub.held;
-            paid += paystub.paid;
-        });
-
-        return new TotalPayoutInfo(
-            held,
             paid,
         );
     }
