@@ -80,7 +80,7 @@ func (heldAmount *HeldAmount) PayStubMonthly(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		if err := json.NewEncoder(w).Encode(payStub); err != nil {
+		if err := json.NewEncoder(w).Encode([]*heldamount.PayStub{payStub}); err != nil {
 			heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
 			return
 		}
