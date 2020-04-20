@@ -204,6 +204,7 @@ type Peer struct {
 		BlobsCache    *pieces.BlobsUsageCache
 		CacheService  *pieces.CacheService
 		RetainService *retain.Service
+		PieceDeleter  *pieces.Deleter
 		Endpoint      *piecestore.Endpoint
 		Inspector     *inspector.Endpoint
 		Monitor       *monitor.Service
@@ -392,6 +393,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.PieceSpaceUsedDB(),
 		)
 
+		peer.Storage2.PieceDeleter = pieces.NewDeleter(log.Named("piecedeleter"), peer.Storage2.Store, config.Storage2.DeleteWorkers, config.Storage2.DeleteQueueSize)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "PieceDeleter",
+			Run:   peer.Storage2.PieceDeleter.Run,
+			Close: peer.Storage2.PieceDeleter.Close,
+		})
+
 		peer.Storage2.TrashChore = pieces.NewTrashChore(
 			log.Named("pieces:trash"),
 			24*time.Hour,   // choreInterval: how often to run the chore
@@ -457,6 +465,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.RetainService,
 			peer.Contact.PingStats,
 			peer.Storage2.Store,
+			peer.Storage2.PieceDeleter,
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
 			peer.DB.UsedSerials(),

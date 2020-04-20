@@ -87,6 +87,12 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 		uplnk := planet.Uplinks[0]
 		satelliteSys := planet.Satellites[0]
 
+		percentExp := 0.75
+
+		for _, sn := range planet.StorageNodes {
+			sn.Peer.Storage2.PieceDeleter.SetupTest()
+		}
+
 		{
 			data := testrand.Bytes(10 * memory.KiB)
 			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
@@ -99,8 +105,8 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// ensure that no requests doesn't return an error
-		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, nil, 0.75)
+		// ensure that no requests return an error
+		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, nil, percentExp)
 		require.NoError(t, err)
 
 		var (
@@ -132,12 +138,13 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 			requests = append(requests, nodePieces)
 		}
 
-		err = satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, 0.75)
+		err = satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, percentExp)
 		require.NoError(t, err)
 
 		// calculate the SNs used space after delete the pieces
 		var totalUsedSpaceAfterDelete int64
 		for _, sn := range planet.StorageNodes {
+			sn.Peer.Storage2.PieceDeleter.Wait()
 			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)
 			totalUsedSpaceAfterDelete += piecesTotal
@@ -146,8 +153,8 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 		// At this point we can only guarantee that the 75% of the SNs pieces
 		// are delete due to the success threshold
 		deletedUsedSpace := float64(totalUsedSpace-totalUsedSpaceAfterDelete) / float64(totalUsedSpace)
-		if deletedUsedSpace < 0.75 {
-			t.Fatalf("deleted used space is less than 0.75%%. Got %f", deletedUsedSpace)
+		if deletedUsedSpace < percentExp {
+			t.Fatalf("deleted used space is less than %e%%. Got %f", percentExp, deletedUsedSpace)
 		}
 	})
 }
@@ -163,6 +170,11 @@ func TestService_DeletePieces_SomeNodesDown(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplnk := planet.Uplinks[0]
 		satelliteSys := planet.Satellites[0]
+		numToShutdown := 2
+
+		for _, sn := range planet.StorageNodes {
+			sn.Peer.Storage2.PieceDeleter.SetupTest()
+		}
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
@@ -197,8 +209,8 @@ func TestService_DeletePieces_SomeNodesDown(t *testing.T) {
 
 			requests = append(requests, nodePieces)
 
-			// stop the first 2 SNs before deleting pieces
-			if i < 2 {
+			// stop the first numToShutdown SNs before deleting pieces
+			if i < numToShutdown {
 				require.NoError(t, planet.StopPeer(sn))
 			}
 		}
@@ -206,10 +218,14 @@ func TestService_DeletePieces_SomeNodesDown(t *testing.T) {
 		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, 0.9999)
 		require.NoError(t, err)
 
+		for _, sn := range planet.StorageNodes {
+			sn.Peer.Storage2.PieceDeleter.Wait()
+		}
+
 		// Check that storage nodes which are online when deleting pieces don't
 		// hold any piece
 		var totalUsedSpace int64
-		for i := 2; i < len(planet.StorageNodes); i++ {
+		for i := numToShutdown; i < len(planet.StorageNodes); i++ {
 			piecesTotal, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)
 			totalUsedSpace += piecesTotal
@@ -230,6 +246,10 @@ func TestService_DeletePieces_AllNodesDown(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplnk := planet.Uplinks[0]
 		satelliteSys := planet.Satellites[0]
+
+		for _, sn := range planet.StorageNodes {
+			sn.Peer.Storage2.PieceDeleter.SetupTest()
+		}
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
@@ -278,6 +298,7 @@ func TestService_DeletePieces_AllNodesDown(t *testing.T) {
 
 		var totalUsedSpace int64
 		for _, sn := range planet.StorageNodes {
+			sn.Peer.Storage2.PieceDeleter.Wait()
 			// calculate the SNs total used space after data upload
 			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)

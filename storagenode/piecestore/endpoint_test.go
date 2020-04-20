@@ -383,7 +383,7 @@ func TestDeletePieces(t *testing.T) {
 		}
 
 		t.Run("Ok", func(t *testing.T) {
-			pieceIDs := []storj.PieceID{{1}, {2}, {3}, {4}}
+			pieceIDs := []storj.PieceID{testrand.PieceID(), testrand.PieceID(), testrand.PieceID(), testrand.PieceID()}
 			dataArray := make([][]byte, len(pieceIDs))
 			for i, pieceID := range pieceIDs {
 				dataArray[i], _, _ = uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
@@ -403,8 +403,8 @@ func TestDeletePieces(t *testing.T) {
 		})
 
 		t.Run("Ok: one piece to delete is missing", func(t *testing.T) {
-			missingPieceID := storj.PieceID{12}
-			pieceIDs := []storj.PieceID{{1}, {2}, {3}, {4}}
+			missingPieceID := testrand.PieceID()
+			pieceIDs := []storj.PieceID{testrand.PieceID(), testrand.PieceID(), testrand.PieceID(), testrand.PieceID()}
 			dataArray := make([][]byte, len(pieceIDs))
 			for i, pieceID := range pieceIDs {
 				dataArray[i], _, _ = uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
@@ -424,7 +424,7 @@ func TestDeletePieces(t *testing.T) {
 		})
 
 		t.Run("Ok: no piece deleted", func(t *testing.T) {
-			pieceID := storj.PieceID{10}
+			pieceID := testrand.PieceID()
 			data, _, _ := uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
 
 			err := client.DeletePieces(ctx.Context)
@@ -436,7 +436,7 @@ func TestDeletePieces(t *testing.T) {
 		})
 
 		t.Run("error: permission denied", func(t *testing.T) {
-			pieceID := storj.PieceID{11}
+			pieceID := testrand.PieceID()
 			data, _, _ := uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
 
 			client, err := planet.Uplinks[0].DialPiecestore(ctx, planetSN)
