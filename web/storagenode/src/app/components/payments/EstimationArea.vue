@@ -61,8 +61,8 @@
                     <p class="estimation-table-container__info-area__text">{{ grossTotal | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__held-area" v-if="isSomeSatelliteSelected && !isCurrentPeriod">
-                <p class="estimation-table-container__held-area__text">{{ heldInfo.surgePercent }}% Held back</p>
+            <div class="estimation-table-container__held-area" v-if="!isCurrentPeriod">
+                <p class="estimation-table-container__held-area__text">Held back</p>
                 <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
             </div>
             <div class="estimation-table-container__total-area">

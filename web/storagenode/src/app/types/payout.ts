@@ -90,10 +90,16 @@ export class PayoutState {
  */
 export interface PayoutApi {
     /**
-     * Fetches held amount information.
+     * Fetches held amount information by selected period.
      * @throws Error
      */
-    getHeldInfo(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo>;
+    getHeldInfoByPeriod(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo>;
+
+    /**
+     * Fetches held amount information by selected month.
+     * @throws Error
+     */
+    getHeldInfoByMonth(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo>;
 
     /**
      * Fetches total payout information.

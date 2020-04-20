@@ -48,8 +48,12 @@ export function makePayoutModule(api: PayoutApi) {
         },
         actions: {
             [PAYOUT_ACTIONS.GET_HELD_INFO]: async function ({commit, state, rootState}: any, satelliteId: string = ''): Promise<void> {
-                const heldInfo = await api.getHeldInfo(new PaymentInfoParameters(
+                const heldInfo = state.periodRange.start ? await api.getHeldInfoByPeriod(new PaymentInfoParameters(
                     state.periodRange.start,
+                    state.periodRange.end,
+                    satelliteId,
+                )) : await api.getHeldInfoByMonth(new PaymentInfoParameters(
+                    null,
                     state.periodRange.end,
                     satelliteId,
                 ));
