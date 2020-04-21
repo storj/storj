@@ -11,7 +11,7 @@ import { HttpClient } from '@/storagenode/utils/httpClient';
 export class PayoutHttpApi implements PayoutApi {
     private readonly client: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/heldamount';
-    private PRICE_MULTIPLIER: number = 10000;
+    private PRICE_DIVIDER: number = 10000;
 
     /**
      * Fetch held amount information by selected period.
@@ -88,8 +88,8 @@ export class PayoutHttpApi implements PayoutApi {
         let paid: number = 0;
 
         data.forEach((paystub: any) => {
-            held += paystub.held / this.PRICE_MULTIPLIER;
-            paid += paystub.paid / this.PRICE_MULTIPLIER;
+            held += paystub.held / this.PRICE_DIVIDER;
+            paid += paystub.paid / this.PRICE_DIVIDER;
         });
 
         return new TotalPayoutInfo(
@@ -137,16 +137,16 @@ export class PayoutHttpApi implements PayoutApi {
             usageGetRepair += paystub.usageGetRepair;
             usagePutRepair += paystub.usagePutRepair;
             usageGetAudit += paystub.usageGetAudit;
-            compAtRest += paystub.compAtRest / this.PRICE_MULTIPLIER;
-            compGet += paystub.compGet / this.PRICE_MULTIPLIER;
-            compPut += paystub.compPut / this.PRICE_MULTIPLIER;
-            compGetRepair += paystub.compGetRepair / this.PRICE_MULTIPLIER;
-            compPutRepair += paystub.compPutRepair / this.PRICE_MULTIPLIER;
-            compGetAudit += paystub.compGetAudit / this.PRICE_MULTIPLIER;
-            held += paystub.held / this.PRICE_MULTIPLIER;
-            owed += paystub.owed / this.PRICE_MULTIPLIER;
-            disposed += paystub.disposed / this.PRICE_MULTIPLIER;
-            paid += paystub.paid / this.PRICE_MULTIPLIER;
+            compAtRest += paystub.compAtRest / this.PRICE_DIVIDER;
+            compGet += paystub.compGet / this.PRICE_DIVIDER;
+            compPut += paystub.compPut / this.PRICE_DIVIDER;
+            compGetRepair += paystub.compGetRepair / this.PRICE_DIVIDER;
+            compPutRepair += paystub.compPutRepair / this.PRICE_DIVIDER;
+            compGetAudit += paystub.compGetAudit / this.PRICE_DIVIDER;
+            held += paystub.held / this.PRICE_DIVIDER;
+            owed += paystub.owed / this.PRICE_DIVIDER;
+            disposed += paystub.disposed / this.PRICE_DIVIDER;
+            paid += paystub.paid / this.PRICE_DIVIDER;
         });
 
         return new HeldInfo(
