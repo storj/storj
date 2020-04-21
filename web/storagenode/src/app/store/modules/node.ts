@@ -109,6 +109,11 @@ export const node = {
                 return;
             }
 
+            const uptime = calculateSuccessRatio(
+                satelliteInfo.uptime.successCount,
+                satelliteInfo.uptime.totalCount,
+            );
+
             state.selectedSatellite = {
                 id: satelliteInfo.id,
                 disqualified: selectedSatellite.disqualified,
@@ -117,8 +122,8 @@ export const node = {
                 suspended: selectedSatellite.suspended,
             };
 
-            state.checks.uptime = parseFloat(parseFloat(`${satelliteInfo.uptime.score * 100}`).toFixed(1));
             state.checks.audit = parseFloat(parseFloat(`${satelliteInfo.audit.score * 100}`).toFixed(1));
+            state.checks.uptime = uptime;
         },
         [SELECT_ALL_SATELLITES](state: any, satelliteInfo: Satellites): void {
             state.selectedSatellite = {
@@ -158,3 +163,12 @@ export const node = {
         },
     },
 };
+
+/**
+ * calculates percent of success attempts for reputation metric
+ * @param successCount - holds amount of success attempts for reputation metric
+ * @param totalCount - holds total amount of attempts for reputation metric
+ */
+function calculateSuccessRatio(successCount: number, totalCount: number): number {
+    return totalCount === 0 ? 100 : successCount / totalCount * 100;
+}
