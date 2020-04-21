@@ -258,7 +258,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
 
-		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
+		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay, config.OverlayCacheConfig)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Close: peer.Overlay.Service.Close,

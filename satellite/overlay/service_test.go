@@ -58,7 +58,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 
 	nodeSelectionConfig := testNodeSelectionConfig(0, 0, false)
 	serviceConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100}
-	service := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
+	service := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig, overlay.CacheConfig{})
 
 	{ // Put
 		err := service.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
