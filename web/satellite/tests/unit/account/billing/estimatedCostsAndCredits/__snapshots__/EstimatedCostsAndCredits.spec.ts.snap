@@ -16,13 +16,8 @@ exports[`EstimatedCostsAndCredits renders correctly with project and no project 
     </div>
     <div class="current-month-area__content__credits-area">
       <div class="current-month-area__content__credits-area__title-area"><span class="current-month-area__content__credits-area__title-area__title">Earned Credits</span></div> <span class="current-month-area__content__credits-area__balance" style="color: rgb(0, 0, 0);">
-                USD $0.00
-            </span>
-    </div>
-    <div class="current-month-area__content__credits-area">
-      <div class="current-month-area__content__credits-area__title-area"><span class="current-month-area__content__credits-area__title-area__title">Available Credits</span></div> <span class="current-month-area__content__credits-area__balance">
-                USD $0.00
-            </span>
+                    USD $0.00
+                </span>
     </div>
   </div>
 </div>
@@ -47,75 +42,8 @@ exports[`EstimatedCostsAndCredits renders correctly with project and project usa
     </div>
     <div class="current-month-area__content__credits-area">
       <div class="current-month-area__content__credits-area__title-area"><span class="current-month-area__content__credits-area__title-area__title">Earned Credits</span></div> <span class="current-month-area__content__credits-area__balance" style="color: rgb(0, 0, 0);">
-                USD $55.00
-            </span>
-    </div>
-    <div class="current-month-area__content__credits-area">
-      <div class="current-month-area__content__credits-area__title-area"><span class="current-month-area__content__credits-area__title-area__title">Available Credits</span></div> <span class="current-month-area__content__credits-area__balance">
-                USD $49.00
-            </span>
-    </div>
-  </div>
-</div>
-`;
-
-exports[`EstimatedCostsAndCredits renders correctly with project and project usage and charges with previous rollup invoice 1`] = `
-<div class="current-month-area">
-  <div class="current-month-area__title-area">
-    <h1 class="current-month-area__title-area__title">Estimated Costs for This Billing Period</h1> <span class="current-month-area__title-area__costs">USD $3.00</span>
-  </div>
-  <div class="current-month-area__content">
-    <h2 class="current-month-area__content__title">DETAILS</h2>
-    <div class="current-month-area__content__usage-charges">
-      <div class="current-month-area__content__usage-charges__head">
-        <div class="current-month-area__content__usage-charges__head__name-area">
-          <div class="current-month-area__content__usage-charges__head__name-area__image-container"><svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M0.363528 13.6272C-0.121176 13.1302 -0.121176 12.3243 0.363528 11.8273L5.07113 7L0.363528 2.17268C-0.121177 1.67565 -0.121177 0.869804 0.363528 0.372774C0.848232 -0.124258 1.63409 -0.124258 2.1188 0.372774L8.58166 7L2.1188 13.6272C1.63409 14.1243 0.848232 14.1243 0.363528 13.6272Z" fill="#2683FF"></path>
-            </svg></div> <span class="current-month-area__content__usage-charges__head__name-area__title">Usage Charges</span>
-        </div> <span>Estimated total <span class="summary">USD $3.00</span></span>
-      </div>
-      <!---->
-    </div>
-    <div class="current-month-area__content__credits-area">
-      <div class="current-month-area__content__credits-area__title-area"><span class="current-month-area__content__credits-area__title-area__title">Earned Credits</span></div> <span class="current-month-area__content__credits-area__balance" style="color: rgb(0, 0, 0);">
-                USD $6.00
-            </span>
-    </div>
-    <div class="current-month-area__content__credits-area">
-      <div class="current-month-area__content__credits-area__title-area"><span class="current-month-area__content__credits-area__title-area__title">Available Credits</span></div> <span class="current-month-area__content__credits-area__balance">
-                USD $3.00
-            </span>
-    </div>
-  </div>
-</div>
-`;
-
-exports[`EstimatedCostsAndCredits renders correctly with project and project usage and charges with price bigger than balance amount 1`] = `
-<div class="current-month-area">
-  <div class="current-month-area__title-area">
-    <h1 class="current-month-area__title-area__title">Estimated Costs for This Billing Period</h1> <span class="current-month-area__title-area__costs">USD $3.00</span>
-  </div>
-  <div class="current-month-area__content">
-    <h2 class="current-month-area__content__title">DETAILS</h2>
-    <div class="current-month-area__content__usage-charges">
-      <div class="current-month-area__content__usage-charges__head">
-        <div class="current-month-area__content__usage-charges__head__name-area">
-          <div class="current-month-area__content__usage-charges__head__name-area__image-container"><svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M0.363528 13.6272C-0.121176 13.1302 -0.121176 12.3243 0.363528 11.8273L5.07113 7L0.363528 2.17268C-0.121177 1.67565 -0.121177 0.869804 0.363528 0.372774C0.848232 -0.124258 1.63409 -0.124258 2.1188 0.372774L8.58166 7L2.1188 13.6272C1.63409 14.1243 0.848232 14.1243 0.363528 13.6272Z" fill="#2683FF"></path>
-            </svg></div> <span class="current-month-area__content__usage-charges__head__name-area__title">Usage Charges</span>
-        </div> <span>Estimated total <span class="summary">USD $3.00</span></span>
-      </div>
-      <!---->
-    </div>
-    <div class="current-month-area__content__credits-area">
-      <div class="current-month-area__content__credits-area__title-area"><span class="current-month-area__content__credits-area__title-area__title">Earned Credits</span></div> <span class="current-month-area__content__credits-area__balance" style="color: rgb(0, 0, 0);">
-                USD $5.00
-            </span>
-    </div>
-    <div class="current-month-area__content__credits-area">
-      <div class="current-month-area__content__credits-area__title-area"><span class="current-month-area__content__credits-area__title-area__title">Available Credits</span></div> <span class="current-month-area__content__credits-area__balance">
-                USD $0.00
-            </span>
+                    USD $55.00
+                </span>
     </div>
   </div>
 </div>
