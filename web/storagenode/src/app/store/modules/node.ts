@@ -117,8 +117,8 @@ export const node = {
                 suspended: selectedSatellite.suspended,
             };
 
-            state.checks.uptime = parseFloat(parseFloat(`${satelliteInfo.uptime.score * 100}`).toFixed(1));
             state.checks.audit = parseFloat(parseFloat(`${satelliteInfo.audit.score * 100}`).toFixed(1));
+            state.checks.uptime = satelliteInfo.uptime.totalCount ? 100 : satelliteInfo.uptime.successCount / satelliteInfo.uptime.totalCount * 100;
         },
         [SELECT_ALL_SATELLITES](state: any, satelliteInfo: Satellites): void {
             state.selectedSatellite = {

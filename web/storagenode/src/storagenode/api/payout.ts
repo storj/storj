@@ -131,18 +131,20 @@ export class PayoutHttpApi implements PayoutApi {
         let paid: number = 0;
 
         data.forEach((paystub: any) => {
+            const surge = paystub.surgePercent === 0 ? 1 : paystub.surgePercent / 100;
+
             usageAtRest += paystub.usageAtRest;
             usageGet += paystub.usageGet;
             usagePut += paystub.usagePut;
             usageGetRepair += paystub.usageGetRepair;
             usagePutRepair += paystub.usagePutRepair;
             usageGetAudit += paystub.usageGetAudit;
-            compAtRest += paystub.compAtRest / this.PRICE_DIVIDER;
-            compGet += paystub.compGet / this.PRICE_DIVIDER;
+            compAtRest += paystub.compAtRest / this.PRICE_DIVIDER * surge;
+            compGet += paystub.compGet / this.PRICE_DIVIDER * surge;
             compPut += paystub.compPut / this.PRICE_DIVIDER;
-            compGetRepair += paystub.compGetRepair / this.PRICE_DIVIDER;
+            compGetRepair += paystub.compGetRepair / this.PRICE_DIVIDER * surge;
             compPutRepair += paystub.compPutRepair / this.PRICE_DIVIDER;
-            compGetAudit += paystub.compGetAudit / this.PRICE_DIVIDER;
+            compGetAudit += paystub.compGetAudit / this.PRICE_DIVIDER * surge;
             held += paystub.held / this.PRICE_DIVIDER;
             owed += paystub.owed / this.PRICE_DIVIDER;
             disposed += paystub.disposed / this.PRICE_DIVIDER;

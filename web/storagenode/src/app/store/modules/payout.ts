@@ -93,12 +93,6 @@ export function makePayoutModule(api: PayoutApi) {
                 commit(PAYOUT_MUTATIONS.SET_RANGE, periodRange);
             },
         },
-        getters: {
-            totalPeriodPayout: function (state: PayoutState): number {
-                return state.heldInfo.compAtRest + state.heldInfo.compGet + state.heldInfo.compGetAudit
-                        + state.heldInfo.compGetRepair - state.heldInfo.held;
-            }
-        }
     };
 }
 

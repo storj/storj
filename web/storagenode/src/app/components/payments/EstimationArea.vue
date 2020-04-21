@@ -72,7 +72,7 @@
                 <div class="column justify-start column-2"></div>
                 <div class="column justify-start column-3"></div>
                 <div class="column justify-start column-4">
-                    <p class="estimation-table-container__total-area__text">{{ totalDiskSpace }}m</p>
+                    <p class="estimation-table-container__total-area__text">{{ totalDiskSpace + 'h' }}</p>
                 </div>
                 <div class="column justify-start column-5">
                     <p class="estimation-table-container__total-area__text">{{ totalBandwidth }}</p>
@@ -154,7 +154,7 @@ export default class EstimationArea extends Vue {
             return this.grossTotal;
         }
 
-        return this.$store.getters.totalPeriodPayout;
+        return this.heldInfo.paid;
     }
 
     /**
@@ -163,7 +163,7 @@ export default class EstimationArea extends Vue {
     public get grossTotal(): number {
         return (this.currentBandwidthDownload * BANDWIDTH_DOWNLOAD_PRICE_PER_TB
             + this.currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB
-            + this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB) / TB;
+            + this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / 730) / TB;
     }
 
     /**
