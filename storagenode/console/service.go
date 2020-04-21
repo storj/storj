@@ -334,7 +334,7 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 			return nil, SNOServiceErr.Wrap(err)
 		}
 
-		if stats.JoinedAt.Before(joinedAt) {
+		if !stats.JoinedAt.IsZero() && stats.JoinedAt.Before(joinedAt) {
 			joinedAt = stats.JoinedAt
 		}
 	}
