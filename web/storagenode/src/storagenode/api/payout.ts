@@ -11,14 +11,15 @@ import { HttpClient } from '@/storagenode/utils/httpClient';
 export class PayoutHttpApi implements PayoutApi {
     private readonly client: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/heldamount';
+    private PRICE_MULTIPLIER: number = 10000;
 
     /**
-     * Fetch held amount information.
+     * Fetch held amount information by selected period.
      *
      * @returns held amount information
      * @throws Error
      */
-    public async getHeldInfo(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo> {
+    public async getHeldInfoByPeriod(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo> {
         let path = `${this.ROOT_PATH}/paystubs/`;
 
         if (paymentInfoParameters.start) {
@@ -31,6 +32,79 @@ export class PayoutHttpApi implements PayoutApi {
             path += '?id=' + paymentInfoParameters.satelliteId;
         }
 
+        return await this.getHeld(path);
+    }
+
+    /**
+     * Fetch held amount information by selected month.
+     *
+     * @returns held amount information
+     * @throws Error
+     */
+    public async getHeldInfoByMonth(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo> {
+        let path = `${this.ROOT_PATH}/paystubs/`;
+
+        path += paymentInfoParameters.end.period;
+
+        if (paymentInfoParameters.satelliteId) {
+            path += '?id=' + paymentInfoParameters.satelliteId;
+        }
+
+        return await this.getHeld(path);
+    }
+
+    /**
+     * Fetch total payout information.
+     *
+     * @returns total payout information
+     * @throws Error
+     */
+    public async getTotal(paymentInfoParameters: PaymentInfoParameters): Promise<TotalPayoutInfo> {
+        let path = `${this.ROOT_PATH}/paystubs/`;
+
+        if (paymentInfoParameters.start) {
+            path += paymentInfoParameters.start.period + '/';
+        }
+
+        path += paymentInfoParameters.end.period;
+
+        if (paymentInfoParameters.satelliteId) {
+            path += '?id=' + paymentInfoParameters.satelliteId;
+        }
+
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('can not get total payout information');
+        }
+
+        const data: any = await response.json() || [];
+
+        if (!Array.isArray(data)) {
+            return new TotalPayoutInfo(data.held, data.paid);
+        }
+
+        let held: number = 0;
+        let paid: number = 0;
+
+        data.forEach((paystub: any) => {
+            held += paystub.held / this.PRICE_MULTIPLIER;
+            paid += paystub.paid / this.PRICE_MULTIPLIER;
+        });
+
+        return new TotalPayoutInfo(
+            held,
+            paid,
+        );
+    }
+
+    /**
+     * Fetch total payout information depends on month.
+     *
+     * @returns total payout information
+     * @throws Error
+     */
+    private async getHeld(path): Promise<HeldInfo> {
         const response = await this.client.get(path);
 
         if (!response.ok) {
@@ -63,16 +137,16 @@ export class PayoutHttpApi implements PayoutApi {
             usageGetRepair += paystub.usageGetRepair;
             usagePutRepair += paystub.usagePutRepair;
             usageGetAudit += paystub.usageGetAudit;
-            compAtRest += paystub.compAtRest;
-            compGet += paystub.compGet;
-            compPut += paystub.compPut;
-            compGetRepair += paystub.compGetRepair;
-            compPutRepair += paystub.compPutRepair;
-            compGetAudit += paystub.compGetAudit;
-            held += paystub.held;
-            owed += paystub.owed;
-            disposed += paystub.disposed;
-            paid += paystub.paid;
+            compAtRest += paystub.compAtRest / this.PRICE_MULTIPLIER;
+            compGet += paystub.compGet / this.PRICE_MULTIPLIER;
+            compPut += paystub.compPut / this.PRICE_MULTIPLIER;
+            compGetRepair += paystub.compGetRepair / this.PRICE_MULTIPLIER;
+            compPutRepair += paystub.compPutRepair / this.PRICE_MULTIPLIER;
+            compGetAudit += paystub.compGetAudit / this.PRICE_MULTIPLIER;
+            held += paystub.held / this.PRICE_MULTIPLIER;
+            owed += paystub.owed / this.PRICE_MULTIPLIER;
+            disposed += paystub.disposed / this.PRICE_MULTIPLIER;
+            paid += paystub.paid / this.PRICE_MULTIPLIER;
         });
 
         return new HeldInfo(
@@ -92,47 +166,6 @@ export class PayoutHttpApi implements PayoutApi {
             held,
             owed,
             disposed,
-            paid,
-        );
-    }
-
-    /**
-     * Fetch total payout information.
-     *
-     * @returns total payout information
-     * @throws Error
-     */
-    public async getTotal(paymentInfoParameters: PaymentInfoParameters): Promise<TotalPayoutInfo> {
-        let path = `${this.ROOT_PATH}/paystubs/`;
-
-        if (paymentInfoParameters.start) {
-            path += paymentInfoParameters.start.period + '/';
-        }
-
-        path += paymentInfoParameters.end.period;
-
-        if (paymentInfoParameters.satelliteId) {
-            path += '?id=' + paymentInfoParameters.satelliteId;
-        }
-
-        const response = await this.client.get(path);
-
-        if (!response.ok) {
-            throw new Error('can not get total payout information');
-        }
-
-        const data: any[] = await response.json() || [];
-
-        let held: number = 0;
-        let paid: number = 0;
-
-        data.forEach((paystub: any) => {
-            held += paystub.held;
-            paid += paystub.paid;
-        });
-
-        return new TotalPayoutInfo(
-            held,
             paid,
         );
     }

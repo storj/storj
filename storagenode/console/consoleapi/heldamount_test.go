@@ -67,7 +67,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
 
-				expected, err := json.Marshal(paystub)
+				expected, err := json.Marshal([]heldamount.PayStub{paystub})
 				require.NoError(t, err)
 
 				defer func() {

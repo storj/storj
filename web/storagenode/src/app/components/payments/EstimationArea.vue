@@ -61,8 +61,8 @@
                     <p class="estimation-table-container__info-area__text">{{ grossTotal | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__held-area" v-if="isSomeSatelliteSelected && !isCurrentPeriod">
-                <p class="estimation-table-container__held-area__text">{{ heldInfo.surgePercent }}% Held back</p>
+            <div class="estimation-table-container__held-area" v-if="!isCurrentPeriod">
+                <p class="estimation-table-container__held-area__text">Held back</p>
                 <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
             </div>
             <div class="estimation-table-container__total-area">
@@ -215,9 +215,7 @@ export default class EstimationArea extends Vue {
     private get currentDiskSpace(): number {
         if (!this.$store.state.node.storageChartData) return 0;
 
-        const approxHourInMonth = 730;
-
-        return this.$store.state.node.storageChartData.map(data => data.atRestTotal).reduce((previous, current) => previous + current, 0) / approxHourInMonth;
+        return this.$store.state.node.storageChartData.map(data => data.atRestTotal).reduce((previous, current) => previous + current, 0);
     }
 
     /**
@@ -241,9 +239,11 @@ export default class EstimationArea extends Vue {
             return [
                 new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGet), this.heldInfo.compGet),
                 new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGetRepair + this.heldInfo.usageGetAudit), this.heldInfo.compGetRepair + this.heldInfo.compGetAudit),
-                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, formatBytes(this.heldInfo.usageAtRest) + 'm', '--', this.heldInfo.compAtRest),
+                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, formatBytes(this.heldInfo.usageAtRest) + 'h', '--', this.heldInfo.compAtRest),
             ];
         }
+
+        const approxHourInMonth = 730;
 
         return [
             new EstimationTableRow(
@@ -266,9 +266,9 @@ export default class EstimationArea extends Vue {
                 'Disk Average Month',
                 'Storage',
                 `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`,
-                this.totalDiskSpace + 'm',
+                this.totalDiskSpace + 'h',
                 '--',
-                this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / TB,
+                this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / TB / approxHourInMonth,
             ),
         ];
     }

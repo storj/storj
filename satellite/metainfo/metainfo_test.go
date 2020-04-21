@@ -4,6 +4,7 @@
 package metainfo_test
 
 import (
+	"errors"
 	"sort"
 	"strconv"
 	"testing"
@@ -27,6 +28,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	satMetainfo "storj.io/storj/satellite/metainfo"
+	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
 	"storj.io/uplink/private/storage/meta"
 )
@@ -1307,7 +1309,7 @@ func TestBucketEmptinessBeforeDelete(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			err := planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "test-bucket")
 			require.Error(t, err)
-			require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
+			require.True(t, errors.Is(err, uplink.ErrBucketNotEmpty))
 
 			err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "test-bucket", "object-key"+strconv.Itoa(i))
 			require.NoError(t, err)

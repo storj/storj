@@ -124,7 +124,13 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 
 		// Setup: get the expected size of the data that will be stored in pointer
 		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
-		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionParameters())
+
+		// TODO uplink currently hardcode block size so we need to use the same value in test
+		encryptionParameters := storj.EncryptionParameters{
+			CipherSuite: storj.EncAESGCM,
+			BlockSize:   29 * 256 * memory.B.Int32(),
+		}
+		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), encryptionParameters)
 		require.NoError(t, err)
 
 		// Execute test: upload a file, then calculate at rest data

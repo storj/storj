@@ -571,7 +571,7 @@ server.private-address: 127.0.0.1:7778
 # tally.interval: 1h0m0s
 
 # address for jaeger agent
-# tracing.agent-addr: ""
+# tracing.agent-addr: agent.tracing.datasci.storj.io
 
 # application name for tracing identification
 # tracing.app: satellite
@@ -581,6 +581,9 @@ server.private-address: 127.0.0.1:7778
 
 # buffer size for collector batch packet size
 # tracing.buffer-size: 0
+
+# how frequently to send up telemetry
+# tracing.interval: 0s
 
 # buffer size for collector queue size
 # tracing.queue-size: 0
