@@ -40,14 +40,14 @@
                     {{ balance | centsToDollars }}
                 </span>
             </div>
-            <div class="current-month-area__content__credits-area">
-                <div class="current-month-area__content__credits-area__title-area">
-                    <span class="current-month-area__content__credits-area__title-area__title">Available Credits</span>
-                </div>
-                <span class="current-month-area__content__credits-area__balance">
-                    {{ availableBalance | centsToDollars }}
-                </span>
-            </div>
+<!--            <div class="current-month-area__content__credits-area">-->
+<!--                <div class="current-month-area__content__credits-area__title-area">-->
+<!--                    <span class="current-month-area__content__credits-area__title-area__title">Available Credits</span>-->
+<!--                </div>-->
+<!--                <span class="current-month-area__content__credits-area__balance">-->
+<!--                    {{ availableBalance | centsToDollars }}-->
+<!--                </span>-->
+<!--            </div>-->
         </div>
     </div>
 </template>
@@ -112,21 +112,22 @@ export default class EstimatedCostsAndCredits extends Vue {
         return this.$store.state.paymentsModule.balance;
     }
 
-    /**
-     * Returns available balance in cents.
-     */
-    public get availableBalance(): number {
-        const total = this.previousRollupPrice + this.currentRollupPrice;
-
-        switch (true) {
-            case this.balance <= total:
-                return 0;
-            case this.$store.getters.isInvoiceForPreviousRollup:
-                return this.balance - this.currentRollupPrice;
-            default:
-                return this.balance - total;
-        }
-    }
+    // TODO: use when coupon expiration bug is fixed
+    // /**
+    //  * Returns available balance in cents.
+    //  */
+    // public get availableBalance(): number {
+    //     const total = this.previousRollupPrice + this.currentRollupPrice;
+    //
+    //     switch (true) {
+    //         case this.balance <= total:
+    //             return 0;
+    //         case this.$store.getters.isInvoiceForPreviousRollup:
+    //             return this.balance - this.currentRollupPrice;
+    //         default:
+    //             return this.balance - total;
+    //     }
+    // }
 
     /**
      * Returns balance color red if balance below zero and clack if not.
@@ -146,19 +147,20 @@ export default class EstimatedCostsAndCredits extends Vue {
         this.areProjectUsageAndChargesShown = !this.areProjectUsageAndChargesShown;
     }
 
-    /**
-     * previousRollupPrice is a price of previous rollup.
-     */
-    private get previousRollupPrice(): number {
-        return this.$store.state.paymentsModule.previousRollupPrice;
-    }
-
-    /**
-     * currentRollupPrice is a price of current rollup.
-     */
-    private get currentRollupPrice(): number {
-        return this.$store.state.paymentsModule.currentRollupPrice;
-    }
+    // TODO: use when coupon expiration bug is fixed
+    // /**
+    //  * previousRollupPrice is a price of previous rollup.
+    //  */
+    // private get previousRollupPrice(): number {
+    //     return this.$store.state.paymentsModule.previousRollupPrice;
+    // }
+    //
+    // /**
+    //  * currentRollupPrice is a price of current rollup.
+    //  */
+    // private get currentRollupPrice(): number {
+    //     return this.$store.state.paymentsModule.currentRollupPrice;
+    // }
 }
 </script>
 
