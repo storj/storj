@@ -113,6 +113,10 @@ export default class VButton extends Vue {
                 }
             }
 
+            &.blue-white {
+                border: 2px solid #2683ff !important;
+            }
+
             &.red {
                 box-shadow: none !important;
                 background-color: transparent !important;

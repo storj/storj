@@ -6,7 +6,7 @@
         <div v-if="isLoading" class="loading-overlay active">
             <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Company logo loading gif">
         </div>
-        <div v-if="!isLoading" class="dashboard-container__wrap">
+        <div v-else class="dashboard-container__wrap">
             <NavigationArea class="regular-navigation"/>
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader/>
@@ -45,7 +45,6 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
-import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import {
@@ -97,18 +96,40 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        let balance: number = 0;
-        let creditCards: CreditCard[] = [];
-
         try {
             await this.$store.dispatch(SETUP_ACCOUNT);
-            balance = await this.$store.dispatch(GET_BALANCE);
-            creditCards = await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$notify.error(`Unable to setup account. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(GET_BALANCE);
+        } catch (error) {
+            await this.$notify.error(`Unable to get account balance. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$notify.error(`Unable to get credit cards. ${error.message}`);
+        }
+
+        try {
             await this.$store.dispatch(GET_BILLING_HISTORY);
+        } catch (error) {
+            await this.$notify.error(`Unable to get account billing history. ${error.message}`);
+        }
+
+        try {
             await this.$store.dispatch(GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
+        } catch (error) {
+            await this.$notify.error(`Unable to get usage and charges for previous billing period. ${error.message}`);
+        }
+
+        try {
             await this.$store.dispatch(GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(`Unable to get usage and charges for current billing period. ${error.message}`);
         }
 
         let projects: Project[] = [];
@@ -121,27 +142,13 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        if (!projects.length && !creditCards.length && balance === 0) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
-
-            try {
-                await this.$router.push(RouteConfig.Overview.path);
-            } catch (error) {
-                return;
-            }
-
-            return;
-        }
-
         if (!projects.length) {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
-            if (!this.isRouteAccessibleWithoutProject()) {
-                try {
-                    await this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
-                } catch (error) {
-                    return;
-                }
+            try {
+                await this.$router.push(RouteConfig.OnboardingTour.path);
+            } catch (error) {
+                return;
             }
 
             return;
@@ -226,19 +233,6 @@ export default class DashboardArea extends Vue {
     public get isLoading(): boolean {
         return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
     }
-
-    /**
-     * This method checks if current route is available when user has no created projects.
-     */
-    private isRouteAccessibleWithoutProject(): boolean {
-        const availableRoutes = [
-            RouteConfig.Account.with(RouteConfig.Billing).path,
-            RouteConfig.Account.with(RouteConfig.Settings).path,
-            RouteConfig.Overview.path,
-        ];
-
-        return availableRoutes.includes(this.$router.currentRoute.path.toLowerCase());
-    }
 }
 </script>
 
@@ -285,16 +279,6 @@ export default class DashboardArea extends Vue {
 
         .regular-navigation {
             display: none;
-        }
-    }
-
-    @media screen and (max-width: 720px) {
-
-        .dashboard-container {
-
-            &__main-area {
-                left: 60px;
-            }
         }
     }
 

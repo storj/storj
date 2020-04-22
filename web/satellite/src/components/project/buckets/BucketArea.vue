@@ -68,7 +68,15 @@ export default class BucketArea extends Vue {
      * Lifecycle hook after initial render where buckets list is fetched.
      */
     public async mounted(): Promise<void> {
-        await this.$store.dispatch(FETCH, 1);
+        if (!this.$store.getters.selectedProject.id) {
+            return;
+        }
+
+        try {
+            await this.$store.dispatch(FETCH, 1);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
     }
 
     /**

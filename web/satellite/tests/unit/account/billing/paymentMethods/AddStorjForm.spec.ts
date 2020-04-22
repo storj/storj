@@ -66,12 +66,12 @@ describe('AddStorjForm', () => {
         wrapper.vm.$data.tokenDepositValue = 30;
         await wrapper.vm.onConfirmAddSTORJ();
 
-        expect((store.state as any).notificationsModule.notificationQueue[0].message).toMatch('First deposit amount must be more than 50 and less than 1000000');
+        expect((store.state as any).notificationsModule.notificationQueue[0].message).toMatch('First deposit amount must be more than $50 and less than $1000000');
 
         wrapper.vm.$data.tokenDepositValue = 1000000;
         await wrapper.vm.onConfirmAddSTORJ();
 
-        expect((store.state as any).notificationsModule.notificationQueue[1].message).toMatch('First deposit amount must be more than 50 and less than 1000000');
+        expect((store.state as any).notificationsModule.notificationQueue[1].message).toMatch('First deposit amount must be more than $50 and less than $1000000');
     });
 
     it('user is able to add less than 50$ after coupon is applied', async () => {

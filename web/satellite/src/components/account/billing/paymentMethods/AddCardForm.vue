@@ -54,8 +54,6 @@ export default class AddCardForm extends Vue {
 
         try {
             await this.$store.dispatch(ADD_CREDIT_CARD, token);
-            await this.$store.dispatch(GET_BILLING_HISTORY);
-            await this.$store.dispatch(GET_BALANCE);
         } catch (error) {
             await this.$notify.error(error.message);
 

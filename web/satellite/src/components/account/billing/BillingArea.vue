@@ -57,9 +57,11 @@ import VDatepicker from '@/components/common/VDatePicker.vue';
 
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 
+import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { DateRange } from '@/types/payments';
+import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { ProjectOwning } from '@/utils/projectOwning';
@@ -93,6 +95,12 @@ export default class BillingArea extends Vue {
      * Fetches billing history and project limits.
      */
     public async beforeMount(): Promise<void> {
+        if (!this.$store.getters.selectedProject.id) {
+            await this.$router.push(RouteConfig.OnboardingTour.path);
+
+            return;
+        }
+
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
             if (this.$store.getters.canUserCreateFirstProject && !this.userHasOwnProject) {
@@ -101,10 +109,6 @@ export default class BillingArea extends Vue {
             }
         } catch (error) {
             await this.$notify.error(error.message);
-        }
-
-        if (!this.$store.getters.selectedProject.id) {
-            return;
         }
 
         try {

@@ -31,29 +31,44 @@ export default class NavigationArea extends Vue {
      */
     public areResourceItemsShown: boolean = true;
     public isResourceButtonShown: boolean = false;
+
     /**
      * Indicates if account related navigation links appears.
      */
     public areAccountItemsShown: boolean = true;
     public isAccountButtonShown: boolean = false;
-    public homePath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
 
+    /**
+     * Toggles resource items visibility.
+     */
     public toggleResourceItemsVisibility(): void {
         this.areResourceItemsShown = !this.areResourceItemsShown;
     }
 
+    /**
+     * Toggles resource button visibility.
+     */
     public toggleResourceButtonVisibility(): void {
         this.isResourceButtonShown = !this.isResourceButtonShown;
     }
 
+    /**
+     * Toggles account items visibility.
+     */
     public toggleAccountItemsVisibility(): void {
         this.areAccountItemsShown = !this.areAccountItemsShown;
     }
 
+    /**
+     * Toggles account button visibility.
+     */
     public toggleAccountButtonVisibility(): void {
         this.isAccountButtonShown = !this.isAccountButtonShown;
     }
 
+    /**
+     * Array of navigation links with icons.
+     */
     // TODO: Use SvgLoaderComponent to reduce markup lines
     public readonly navigation: NavigationLink[] = [
         RouteConfig.ProjectDashboard.withIcon(
@@ -73,6 +88,9 @@ export default class NavigationArea extends Vue {
              `),
     ];
 
+    /**
+     * Array of account related navigation links.
+     */
     public readonly accountNavigation: NavigationLink[] = [
         RouteConfig.Account.with(RouteConfig.Settings),
         RouteConfig.Account.with(RouteConfig.Billing),
@@ -80,24 +98,64 @@ export default class NavigationArea extends Vue {
         // RouteConfig.Account.with(RouteConfig.Referral),
     ];
 
-    public get isLinkDisabled(): boolean {
-        return this.$store.state.projectsModule.selectedProject.id === '';
+    /**
+     * Returns home path depending on app's state.
+     */
+    public get homePath(): string {
+        if (this.isOnboardingTour) {
+            return RouteConfig.OnboardingTour.path;
+        }
+
+        return RouteConfig.ProjectDashboard.path;
     }
 
+    /**
+     * Indicates if resources displaying button is shown.
+     */
     public get isResourcesDisplayingButtonShown(): boolean {
         return !this.areResourceItemsShown && this.isResourceButtonShown;
     }
 
+    /**
+     * Indicates if resources items hiding button is shown.
+     */
     public get isResourcesHidingButtonShown(): boolean {
         return this.areResourceItemsShown && this.isResourceButtonShown;
     }
 
+    /**
+     * Indicates if account items displaying button is shown.
+     */
     public get isAccountItemsDisplayingButtonShown(): boolean {
         return !this.areAccountItemsShown && this.isAccountButtonShown;
     }
 
+    /**
+     * Indicates if account items hiding button is shown.
+     */
     public get isAccountItemsHidingButtonShown(): boolean {
         return this.areAccountItemsShown && this.isAccountButtonShown;
+    }
+
+    /**
+     * Indicates if roter link is disabled.
+     */
+    public get isLinkDisabled(): boolean {
+        return this.isOnboardingTour || this.isNoProject;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    private get isOnboardingTour(): boolean {
+        return this.$route.name === RouteConfig.OnboardingTour.name;
+    }
+
+    /**
+     * Indicates if there is no projects.
+     */
+    private get isNoProject(): boolean {
+        return this.$store.state.projectsModule.projects.length === 0;
     }
 }
 </script>

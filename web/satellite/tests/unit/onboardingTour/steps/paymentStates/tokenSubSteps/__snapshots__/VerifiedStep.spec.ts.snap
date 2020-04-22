@@ -1,0 +1,10 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`VerifiedStep.vue renders correctly 1`] = `
+<div class="verified-step">
+  <verifiedimage-stub></verifiedimage-stub>
+  <h2 class="verified-step__title">Payment Verified</h2> <span class="verified-step__sub-title">
+        Your payment has been successfully verified. Click the button below to name your project and start uploading data.
+    </span>
+</div>
+`;

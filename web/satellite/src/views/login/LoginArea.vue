@@ -77,7 +77,7 @@ export default class Login extends Vue {
 
     /**
      * Performs login action.
-     * Than change location to project overview.
+     * Then changes location to billing page.
      */
     public async onLogin(): Promise<void> {
         if (this.isLoading) {

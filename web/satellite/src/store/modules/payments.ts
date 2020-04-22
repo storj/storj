@@ -267,6 +267,20 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                         && billingItem.status === BillingHistoryItemStatus.Completed;
                 }) && state.balance > 0) || state.creditCards.length > 0;
             },
+            isTransactionProcessing: (state: PaymentsState): boolean => {
+                return state.billingHistory.some((billingItem: BillingHistoryItem) => {
+                    return billingItem.amount >= 50 && billingItem.type === BillingHistoryItemType.Transaction
+                        && (billingItem.status === BillingHistoryItemStatus.Pending
+                        || billingItem.status === BillingHistoryItemStatus.Paid
+                        || billingItem.status === BillingHistoryItemStatus.Completed);
+                }) && state.balance === 0;
+            },
+            isTransactionCompleted: (state: PaymentsState): boolean => {
+                return (state.billingHistory.some((billingItem: BillingHistoryItem) => {
+                    return billingItem.amount >= 50 && billingItem.type === BillingHistoryItemType.Transaction
+                        && billingItem.status === BillingHistoryItemStatus.Completed;
+                }) && state.balance > 0);
+            },
             isInvoiceForPreviousRollup: (state: PaymentsState): boolean => {
                 const now = new Date();
 

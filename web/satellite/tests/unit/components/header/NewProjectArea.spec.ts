@@ -42,17 +42,6 @@ describe('NewProjectArea', () => {
         expect(wrapper.findAll('.new-project-button-container').length).toBe(0); // user is unable to create project.
     });
 
-    it('renders correctly without projects and without payment methods with info tooltip', async () => {
-        const wrapper = mount(NewProjectArea, {
-            store,
-            localVue,
-        });
-
-        await wrapper.find('.info').trigger('mouseenter');
-
-        expect(wrapper).toMatchSnapshot();
-    });
-
     it('renders correctly without projects and with credit card', async () => {
         const creditCard = new CreditCard('id', 1, 2000, 'test', '0000', true);
 

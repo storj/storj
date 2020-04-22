@@ -1,7 +1,7 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template src="./OverviewArea.html"></template>
+<template src="./overviewStep.html"></template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
@@ -12,8 +12,6 @@ import FirstStepIcon from '@/../static/images/common/one.svg';
 import ThirdStepIcon from '@/../static/images/common/three.svg';
 import SecondStepIcon from '@/../static/images/common/two.svg';
 
-import { RouteConfig } from '@/router';
-
 @Component({
     components: {
         VButton,
@@ -22,9 +20,15 @@ import { RouteConfig } from '@/router';
         SecondStepIcon,
     },
 })
-export default class OverviewArea extends Vue {
-    public readonly billingPath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
+export default class OverviewStep extends Vue {
+    /**
+     * Holds button click logic.
+     * Sets tour state to adding payment method state.
+     */
+    public onClick(): void {
+        this.$emit('setAddPaymentState');
+    }
 }
 </script>
 
-<style scoped lang="scss" src="./OverviewArea.scss"></style>
+<style scoped lang="scss" src="./overviewStep.scss"></style>

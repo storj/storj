@@ -63,6 +63,7 @@ import VButton from '@/components/common/VButton.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import SuccessIcon from '@/../static/images/project/success.svg';
 
+import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -174,6 +175,9 @@ export default class NewProjectPopup extends Vue {
         this.checkIfUsersFirstProject();
 
         this.isLoading = false;
+
+        // TODO: remove after adding second step of onboarding tour
+        await this.$router.push(RouteConfig.ProjectDashboard.path);
     }
 
     /**

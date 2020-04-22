@@ -2,7 +2,6 @@
 
 exports[`NewProjectArea renders correctly without projects and with credit card 1`] = `
 <div class="new-project-container">
-  <!---->
   <div id="newProjectButton" class="new-project-button-container">
     <h1 class="new-project-button-container__label">+ Create Project</h1>
   </div>
@@ -12,7 +11,6 @@ exports[`NewProjectArea renders correctly without projects and with credit card 
 
 exports[`NewProjectArea renders correctly without projects and with credit card 2`] = `
 <div class="new-project-container">
-  <!---->
   <div id="newProjectButton" class="new-project-button-container">
     <h1 class="new-project-button-container__label">+ Create Project</h1>
   </div>
@@ -61,30 +59,6 @@ exports[`NewProjectArea renders correctly without projects and with credit card 
 
 exports[`NewProjectArea renders correctly without projects and without payment methods 1`] = `
 <div class="new-project-container">
-  <div class="info">
-    <div class="new-project-button-mock">
-      <h1 class="new-project-button-mock__label">+ Create Project</h1>
-    </div>
-    <!---->
-  </div>
-  <!---->
-  <!---->
-</div>
-`;
-
-exports[`NewProjectArea renders correctly without projects and without payment methods with info tooltip 1`] = `
-<div class="new-project-container">
-  <div class="info">
-    <div class="new-project-button-mock">
-      <h1 class="new-project-button-mock__label">+ Create Project</h1>
-    </div>
-    <div class="info__message-box">
-      <div class="info__message-box__text">
-        <p class="info__message-box__text__regular-text">Please add a payment method</p>
-        <p class="info__message-box__text__bold-text"></p>
-      </div>
-    </div>
-  </div>
   <!---->
   <!---->
 </div>

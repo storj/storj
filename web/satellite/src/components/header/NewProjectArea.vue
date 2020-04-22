@@ -3,14 +3,6 @@
 
 <template>
     <div class="new-project-container">
-        <VInfo
-            v-if="isMockButtonShown"
-            text="Please add a payment method"
-        >
-            <div class="new-project-button-mock">
-                <h1 class="new-project-button-mock__label">+ Create Project</h1>
-            </div>
-        </VInfo>
         <div
             v-if="isButtonShown"
             class="new-project-button-container"
@@ -76,13 +68,6 @@ export default class NewProjectArea extends Vue {
     }
 
     /**
-     * Indicates if new project creation mock button is shown.
-     */
-    public get isMockButtonShown(): boolean {
-        return !(this.userHasOwnProject || this.$store.getters.canUserCreateFirstProject);
-    }
-
-    /**
      * Indicates if user has own project.
      */
     private get userHasOwnProject(): boolean {
@@ -122,41 +107,6 @@ export default class NewProjectArea extends Vue {
             .new-project-button-container__label {
                 color: white;
             }
-        }
-    }
-
-    .new-project-button-mock {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 156px;
-        height: 40px;
-        border-radius: 6px;
-        background-color: #dadde5;
-        border: 1px solid #dadde5;
-
-        &__label {
-            font-family: 'font_medium', sans-serif;
-            font-size: 15px;
-            line-height: 22px;
-            color: #acb0bc;
-        }
-    }
-
-    /deep/ .info__message-box {
-        background-image: url('../../../static/images/header/info.png');
-        background-repeat: no-repeat;
-        height: auto;
-        width: auto;
-        top: 41px;
-        left: 157px;
-        padding: 30px 20px 25px 20px;
-        white-space: nowrap;
-
-        &__text {
-            text-align: left;
-            font-size: 13px;
-            line-height: 17px;
         }
     }
 </style>
