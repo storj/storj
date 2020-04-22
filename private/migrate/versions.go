@@ -198,7 +198,7 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 	return nil
 }
 
-// createVersionTable creates a new version table
+// ensureVersionTable creates migration.Table table if not exists.
 func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db tagsql.DB) error {
 	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		_, err := tx.Exec(ctx, rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
@@ -207,7 +207,8 @@ func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Log
 	return Error.Wrap(err)
 }
 
-// getLatestVersion finds the latest version table
+// getLatestVersion finds the latest version in migration.Table.
+// It returns -1 if there aren't rows or version is null.
 func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logger, db tagsql.DB) (int, error) {
 	var version sql.NullInt64
 	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
