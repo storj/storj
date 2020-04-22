@@ -154,7 +154,7 @@ storagenode-console:
 	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
 
 .PHONY: images
-images: satellite-image segment-reaper storagenode-image uplink-image versioncontrol-image ## Build satellite, segment-reaper, storagenode, uplink, and versioncontrol Docker images
+images: satellite-image segment-reaper-image storagenode-image uplink-image versioncontrol-image ## Build satellite, segment-reaper, storagenode, uplink, and versioncontrol Docker images
 	echo Built version: ${TAG}
 
 .PHONY: satellite-image
