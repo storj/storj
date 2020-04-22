@@ -284,9 +284,11 @@ func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNod
 	defer mon.Task()(&ctx)(&err)
 	selectedNodes, err := service.nodeSelectionCache.GetNodes(ctx, req)
 	if err != nil {
-		return nil, err
+		service.log.Warn("err selecting from node selection cache", zap.String("err", err.Error()))
 	}
 	if len(selectedNodes) < req.RequestedCount {
+		mon.Event("default_node_selection")
+		service.log.Debug("default to db node selection")
 		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 	}
 	return selectedNodes, nil
