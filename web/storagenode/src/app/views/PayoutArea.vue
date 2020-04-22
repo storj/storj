@@ -72,9 +72,18 @@ export default class PayoutArea extends Vue {
      */
     public async mounted(): Promise<any> {
         try {
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, this.$store.state.node.selectedSatellite.id);
+        } catch (error) {
+            console.error(error);
+        }
+
+        try {
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+        } catch (error) {
+            console.error(error);
+        }
+
+        try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {
             console.error(error);
@@ -86,7 +95,7 @@ export default class PayoutArea extends Vue {
     }
 
     public get heldPercentage(): number {
-        return this.$store.state.payoutModule.heldInfo.heldPercentage;
+        return this.$store.state.payoutModule.heldPercentage;
     }
 
     /**

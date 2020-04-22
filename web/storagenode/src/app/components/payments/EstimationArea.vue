@@ -219,19 +219,6 @@ export default class EstimationArea extends Vue {
     }
 
     /**
-     * Lifecycle hook after initial render.
-     * Builds estimated payout table.
-     */
-    public async beforeMount(): Promise<void> {
-        try {
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, this.$store.state.node.selectedSatellite.id);
-        } catch (error) {
-            console.error(error.message);
-        }
-    }
-
-    /**
      * Builds estimated payout table depends on selected period.
      */
     public get tableData(): EstimationTableRow[] {

@@ -14,6 +14,7 @@ export const PAYOUT_MUTATIONS = {
     SET_HELD_INFO: 'SET_HELD_INFO',
     SET_RANGE: 'SET_RANGE',
     SET_TOTAL: 'SET_TOTAL',
+    SET_HELD_PERCENT: 'SET_HELD_PERCENT',
 };
 
 export const PAYOUT_ACTIONS = {
@@ -45,6 +46,9 @@ export function makePayoutModule(api: PayoutApi) {
             [PAYOUT_MUTATIONS.SET_RANGE](state: PayoutState, periodRange: PayoutInfoRange): void {
                 state.periodRange = periodRange;
             },
+            [PAYOUT_MUTATIONS.SET_HELD_PERCENT](state: PayoutState, heldPercentage: number): void {
+                state.heldPercentage = heldPercentage;
+            },
         },
         actions: {
             [PAYOUT_ACTIONS.GET_HELD_INFO]: async function ({commit, state, rootState}: any, satelliteId: string = ''): Promise<void> {
@@ -58,8 +62,7 @@ export function makePayoutModule(api: PayoutApi) {
                     satelliteId,
                 ));
 
-                heldInfo.heldPercentage = getHeldPercentage(rootState.node.selectedSatellite.joinDate);
-
+                commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, getHeldPercentage(rootState.node.selectedSatellite.joinDate));
                 commit(PAYOUT_MUTATIONS.SET_HELD_INFO, heldInfo);
             },
             [PAYOUT_ACTIONS.GET_TOTAL]: async function ({commit, rootState}: any, satelliteId: string = ''): Promise<void> {
@@ -87,6 +90,7 @@ export function makePayoutModule(api: PayoutApi) {
                     + currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB
                     + currentDiskSpace * DISK_SPACE_PRICE_PER_TB) / TB;
 
+                commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, getHeldPercentage(rootState.node.selectedSatellite.joinDate));
                 commit(PAYOUT_MUTATIONS.SET_TOTAL, new TotalPayoutInfo(totalPayoutInfo.totalHeldAmount, thisMonthEarnings));
             },
             [PAYOUT_ACTIONS.SET_PERIODS_RANGE]: function ({commit}: any, periodRange: PayoutInfoRange): void {

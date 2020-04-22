@@ -28,11 +28,24 @@ import { NotificationsCursor } from '@/app/types/notifications';
     },
 })
 export default class Dashboard extends Vue {
+    /**
+     * Lifecycle hook after initial render.
+     * Fetches notifications and total payout information for all satellites.
+     */
     public async mounted(): Promise<void> {
         try {
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO);
+        } catch (error) {
+            console.error(error);
+        }
+
+        try {
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+        } catch (error) {
+            console.error(error);
+        }
+
+        try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {
             console.error(error);

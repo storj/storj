@@ -38,6 +38,7 @@ import SuspensionIcon from '@/../static/images/suspend.svg';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import { PayoutInfoRange, PayoutPeriod } from '@/app/types/payout';
 import { SatelliteInfo } from '@/storagenode/dashboard';
 
 @Component({
@@ -47,38 +48,84 @@ import { SatelliteInfo } from '@/storagenode/dashboard';
     },
 })
 export default class SatelliteSelectionDropdown extends Vue {
-    public async onSatelliteClick(id: string): Promise<void> {
-        try {
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
-            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, id);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, id);
-        } catch (error) {
-            console.error(`${error.message} satellite data.`);
-        }
-    }
+    private now: Date = new Date();
 
-    public async onAllSatellitesClick(): Promise<void> {
-        try {
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
-            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
-        } catch (error) {
-            console.error(`${error.message} satellite data.`);
-        }
-    }
-
-    public closePopup(): void {
-        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ALL_POPUPS);
-    }
-
+    /**
+     * Returns node satellites list from store.
+     */
     public get satellites(): SatelliteInfo[] {
         return this.$store.state.node.satellites;
     }
 
+    /**
+     * Returns selected satellite id from store.
+     */
     public get selectedSatellite(): string {
         return this.$store.state.node.selectedSatellite.id;
+    }
+
+    /**
+     * Indicates if current month selected.
+     */
+    public get isCurrentPeriod(): boolean {
+        const end = this.$store.state.payoutModule.periodRange.end;
+        const isCurrentMonthSelected = end.year === this.now.getUTCFullYear() && end.month === this.now.getUTCMonth();
+
+        return !this.$store.state.payoutModule.periodRange.start && isCurrentMonthSelected;
+    }
+
+    /**
+     * Fires on satellite click and selects it.
+     */
+    public async onSatelliteClick(id: string): Promise<void> {
+        try {
+            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
+            this.fetchPayoutInfo(id);
+        } catch (error) {
+            console.error(error.message);
+        }
+    }
+
+    /**
+     * Fires on all satellites click and sets selected satellite id to null.
+     */
+    public async onAllSatellitesClick(): Promise<void> {
+        try {
+            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
+            this.fetchPayoutInfo();
+        } catch (error) {
+            console.error(error.message);
+        }
+    }
+
+    /**
+     * Closes dropdown.
+     */
+    public closePopup(): void {
+        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ALL_POPUPS);
+    }
+
+    /**
+     * Fetches payout information depends on selected satellite.
+     */
+    private async fetchPayoutInfo(id: string = ''): Promise<void> {
+        await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false);
+
+        if (!this.isCurrentPeriod) {
+            try {
+                await this.$store.dispatch(PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(null, new PayoutPeriod()));
+            } catch (error) {
+                console.error(error.message);
+            }
+        }
+
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, id);
+        } catch (error) {
+            console.error(error.message);
+        }
     }
 }
 </script>
