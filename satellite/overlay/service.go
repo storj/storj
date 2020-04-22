@@ -230,10 +230,10 @@ type SelectedNode struct {
 //
 // architecture: Service
 type Service struct {
-	log                *zap.Logger
-	db                 DB
-	config             Config
-	nodeSelectionCache *NodeSelectionCache
+	log            *zap.Logger
+	db             DB
+	config         Config
+	SelectionCache *NodeSelectionCache
 }
 
 // NewService returns a new Service
@@ -242,7 +242,7 @@ func NewService(log *zap.Logger, db DB, config Config, cacheConfig CacheConfig) 
 		log:    log,
 		db:     db,
 		config: config,
-		nodeSelectionCache: NewNodeSelectionCache(log, db,
+		SelectionCache: NewNodeSelectionCache(log, db,
 			cacheConfig.Staleness, config.Node,
 		),
 	}
@@ -282,9 +282,9 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
 func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-	selectedNodes, err := service.nodeSelectionCache.GetNodes(ctx, req)
+	selectedNodes, err := service.SelectionCache.GetNodes(ctx, req)
 	if err != nil {
-		service.log.Warn("err selecting from node selection cache", zap.String("err", err.Error()))
+		service.log.Warn("error selecting from node selection cache", zap.String("err", err.Error()))
 	}
 	if len(selectedNodes) < req.RequestedCount {
 		mon.Event("default_node_selection")

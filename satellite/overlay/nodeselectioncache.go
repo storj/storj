@@ -132,15 +132,16 @@ func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesReques
 	// Get a random selection of new nodes out of the cache first so that if there aren't
 	// enough new nodes on the network, we can fall back to using reputable nodes instead
 	randomIndexes := rand.Perm(len(cacheData.newNodes))
+outerLoopNew:
 	for _, idx := range randomIndexes {
 		currNode := cacheData.newNodes[idx]
-		if _, ok := distinctNetworks[currNode.LastNet]; ok {
-			continue
-		}
 		for _, excludedID := range req.ExcludedIDs {
 			if excludedID == currNode.ID {
-				continue
+				continue outerLoopNew
 			}
+		}
+		if _, ok := distinctNetworks[currNode.LastNet]; ok {
+			continue outerLoopNew
 		}
 
 		selectedNodeResults = append(selectedNodeResults, currNode)
@@ -151,18 +152,20 @@ func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesReques
 	}
 
 	randomIndexes = rand.Perm(len(cacheData.reputableNodes))
+outerLoop:
 	for _, idx := range randomIndexes {
 		currNode := cacheData.reputableNodes[idx]
 
-		// don't select a node if we've already selected another node from the same network
-		if _, ok := distinctNetworks[currNode.LastNet]; ok {
-			continue
-		}
 		// don't select a node listed in the excluded list
 		for _, excludedID := range req.ExcludedIDs {
 			if excludedID == currNode.ID {
-				continue
+				continue outerLoop
 			}
+		}
+
+		// don't select a node if we've already selected another node from the same network
+		if _, ok := distinctNetworks[currNode.LastNet]; ok {
+			continue outerLoop
 		}
 
 		selectedNodeResults = append(selectedNodeResults, currNode)
@@ -173,9 +176,7 @@ func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesReques
 	}
 
 	if len(selectedNodeResults) < totalcount {
-		return nil, Error.New("unable to select enough nodes from node selection cache, needed: %d, actual: %d",
-			totalcount, len(selectedNodeResults),
-		)
+		return selectedNodeResults, ErrNotEnoughNodes.New("requested from cache %d found %d", totalcount, len(selectedNodeResults))
 	}
 	return selectedNodeResults, nil
 }
