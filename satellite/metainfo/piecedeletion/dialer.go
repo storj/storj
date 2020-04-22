@@ -99,6 +99,8 @@ func (dialer *Dialer) Handle(ctx context.Context, node *pb.Node, queue Queue) {
 				}
 				break
 			}
+
+			jobs = append(jobs, queue.PopAllWithoutClose()...)
 		}
 
 		// if we failed early, remaining jobs should be marked as failures
