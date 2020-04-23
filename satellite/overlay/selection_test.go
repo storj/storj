@@ -617,6 +617,18 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 		require.NotEqual(t, nodes[0].LastIPPort, nodes[1].LastIPPort)
 		require.NotEqual(t, nodes[0].LastIPPort, excludedNodeAddr)
 		require.NotEqual(t, nodes[1].LastIPPort, excludedNodeAddr)
+		n2, err := satellite.Overlay.Service.SelectionCache.GetNodes(ctx, req)
+		require.NoError(t, err)
+		require.Len(t, n2, 2)
+		require.NotEqual(t, n2[0].LastIPPort, n2[1].LastIPPort)
+		require.NotEqual(t, n2[0].LastIPPort, excludedNodeAddr)
+		require.NotEqual(t, n2[1].LastIPPort, excludedNodeAddr)
+		n3, err := satellite.Overlay.Service.FindStorageNodesWithPreferences(ctx, req, &satellite.Config.Overlay.Node)
+		require.NoError(t, err)
+		require.Len(t, n3, 2)
+		require.NotEqual(t, n3[0].LastIPPort, n3[1].LastIPPort)
+		require.NotEqual(t, n3[0].LastIPPort, excludedNodeAddr)
+		require.NotEqual(t, n3[1].LastIPPort, excludedNodeAddr)
 	})
 }
 
