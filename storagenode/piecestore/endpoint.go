@@ -521,6 +521,7 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
+		mon.Meter("download_verify_orderlimit_failed").Mark(1)
 		endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		return err
 	}
