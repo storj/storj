@@ -6,6 +6,7 @@ package pieces
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -18,6 +19,7 @@ import (
 type DeleteRequest struct {
 	SatelliteID storj.NodeID
 	PieceID     storj.PieceID
+	QueueTime   time.Time
 }
 
 // Deleter is a worker that processes requests to delete groups of pieceIDs.
@@ -86,7 +88,7 @@ func (d *Deleter) Run(ctx context.Context) error {
 func (d *Deleter) Enqueue(ctx context.Context, satelliteID storj.NodeID, pieceIDs []storj.PieceID) {
 	for _, pieceID := range pieceIDs {
 		select {
-		case d.ch <- DeleteRequest{satelliteID, pieceID}:
+		case d.ch <- DeleteRequest{satelliteID, pieceID, time.Now()}:
 		default:
 			mon.Counter("piecedeleter-queue-full").Inc(1)
 			return
@@ -107,6 +109,8 @@ func (d *Deleter) work(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case r := <-d.ch:
+			mon.IntVal("piecedeleter-queue-time").Observe(int64(time.Since(r.QueueTime)))
+			mon.IntVal("piecedeleter-queue-size").Observe(int64(len(d.ch)))
 			err := d.store.Delete(ctx, r.SatelliteID, r.PieceID)
 			if err != nil {
 				// If a piece cannot be deleted, we just log the error.
