@@ -350,10 +350,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 		})
 
 		b.Run("GetNodesNetwork", func(b *testing.B) {
-			var excludedNetworks = []string{}
-			var err error
 			for i := 0; i < b.N; i++ {
-				excludedNetworks, err = overlaydb.GetNodesNetwork(ctx, excludedIDs)
+				excludedNetworks, err := overlaydb.GetNodesNetwork(ctx, excludedIDs)
 				require.NoError(b, err)
 				require.NotEmpty(b, excludedNetworks)
 			}
