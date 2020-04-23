@@ -55,7 +55,6 @@ func TestSuspendWithUpdateStats(t *testing.T) {
 		node, err := oc.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.Nil(t, node.Suspended)
-
 		testStartTime := time.Now()
 
 		// give node one unknown audit - bringing unknown audit rep to 0.5, and suspending node
@@ -71,6 +70,9 @@ func TestSuspendWithUpdateStats(t *testing.T) {
 
 		node, err = oc.Get(ctx, nodeID)
 		require.NoError(t, err)
+		// expect unknown audit alpha/beta to change and suspended to be set
+		require.True(t, node.Reputation.UnknownAuditReputationAlpha < 1)
+		require.True(t, node.Reputation.UnknownAuditReputationBeta > 0)
 		require.NotNil(t, node.Suspended)
 		require.True(t, node.Suspended.After(testStartTime))
 		// expect node is not disqualified and that normal audit alpha/beta remain unchanged
