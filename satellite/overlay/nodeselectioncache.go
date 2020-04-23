@@ -123,7 +123,10 @@ func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesReques
 	defer cacheData.mu.RUnlock()
 
 	// how many reputableNodes versus newNode nodes should be selected
-	totalcount := req.RequestedCount
+	totalcount := req.MinimumRequiredNodes
+	if totalcount <= 0 {
+		totalcount = req.RequestedCount
+	}
 	newNodeCount := int(float64(req.RequestedCount) * newNodeFraction)
 
 	var selectedNodeResults = []*SelectedNode{}
@@ -132,16 +135,16 @@ func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesReques
 	// Get a random selection of new nodes out of the cache first so that if there aren't
 	// enough new nodes on the network, we can fall back to using reputable nodes instead
 	randomIndexes := rand.Perm(len(cacheData.newNodes))
-outerLoopNew:
+nextNewNode:
 	for _, idx := range randomIndexes {
 		currNode := cacheData.newNodes[idx]
 		for _, excludedID := range req.ExcludedIDs {
 			if excludedID == currNode.ID {
-				continue outerLoopNew
+				continue nextNewNode
 			}
 		}
 		if _, ok := distinctNetworks[currNode.LastNet]; ok {
-			continue outerLoopNew
+			continue nextNewNode
 		}
 
 		selectedNodeResults = append(selectedNodeResults, currNode)
@@ -152,20 +155,20 @@ outerLoopNew:
 	}
 
 	randomIndexes = rand.Perm(len(cacheData.reputableNodes))
-outerLoop:
+nextReputableNode:
 	for _, idx := range randomIndexes {
 		currNode := cacheData.reputableNodes[idx]
 
 		// don't select a node listed in the excluded list
 		for _, excludedID := range req.ExcludedIDs {
 			if excludedID == currNode.ID {
-				continue outerLoop
+				continue nextReputableNode
 			}
 		}
 
 		// don't select a node if we've already selected another node from the same network
 		if _, ok := distinctNetworks[currNode.LastNet]; ok {
-			continue outerLoop
+			continue nextReputableNode
 		}
 
 		selectedNodeResults = append(selectedNodeResults, currNode)

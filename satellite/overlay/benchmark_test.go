@@ -185,11 +185,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 			SelectCount   = 100
 			ExcludedCount = 90
-
-			newNodeFraction = 0.05
 		)
-
-		SelectNewCount := int(100 * newNodeFraction)
 
 		now := time.Now()
 		twoHoursAgo := now.Add(-2 * time.Hour)
@@ -199,7 +195,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		nodeSelectionConfig := overlay.NodeSelectionConfig{
 			AuditCount:       1,
-			NewNodeFraction:  newNodeFraction,
+			NewNodeFraction:  0.05,
 			MinimumVersion:   "v1.0.0",
 			OnlineWindow:     time.Hour,
 			DistinctIP:       true,
@@ -333,67 +329,15 @@ func BenchmarkNodeSelection(b *testing.B) {
 			}
 		})
 
-		b.Run("SelectStorageNodesNewNodeFraction", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectNewCount, criteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("SelectStorageNodesNewNodeFractionExclusion", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectNewCount, excludedCriteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("GetNodesNetwork", func(b *testing.B) {
-			var excludedNetworks = []string{}
-			var err error
-			for i := 0; i < b.N; i++ {
-				excludedNetworks, err = overlaydb.GetNodesNetwork(ctx, excludedIDs)
-				require.NoError(b, err)
-				require.NotEmpty(b, excludedNetworks)
-			}
-		})
-
 		service := overlay.NewService(zap.NewNop(), overlaydb, overlay.Config{
 			Node: nodeSelectionConfig,
-		})
-
-		b.Run("FindStorageNodesWithPreference", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-					MinimumRequiredNodes: SelectCount,
-					RequestedCount:       SelectCount,
-					ExcludedIDs:          nil,
-					MinimumVersion:       "v1.0.0",
-				}, &nodeSelectionConfig)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("FindStorageNodesWithPreferenceExclusion", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-					MinimumRequiredNodes: SelectCount,
-					RequestedCount:       SelectCount,
-					ExcludedIDs:          excludedIDs,
-					MinimumVersion:       "v1.0.0",
-				}, &nodeSelectionConfig)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
 		})
 
 		b.Run("FindStorageNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.FindStorageNodes(ctx, overlay.FindStorageNodesRequest{
 					MinimumRequiredNodes: SelectCount,
-					RequestedCount:       SelectCount,
+					RequestedCount:       0,
 					ExcludedIDs:          nil,
 					MinimumVersion:       "v1.0.0",
 				})
@@ -406,7 +350,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.FindStorageNodes(ctx, overlay.FindStorageNodesRequest{
 					MinimumRequiredNodes: SelectCount,
-					RequestedCount:       SelectCount,
+					RequestedCount:       0,
 					ExcludedIDs:          excludedIDs,
 					MinimumVersion:       "v1.0.0",
 				})
