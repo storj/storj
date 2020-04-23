@@ -16,7 +16,6 @@
         </div>
         <div class="held-progress__border"></div>
         <p class="held-progress__main-text">It is your <span class="bold">{{ monthsOnNetwork }} month</span> on network</p>
-<!--        <p class="held-progress__hint">25% of Storage Node revenue is withheld, 75% is paid to the Storage Node Operator</p>-->
     </div>
 </template>
 
@@ -47,11 +46,7 @@ export default class HeldProgress extends Vue {
      * Returns approximated number of months that node is online.
      */
     public get monthsOnNetwork(): number {
-        const now = new Date();
-        const secondsInMonthApproximately = 2628000;
-        const differenceInSeconds = (now.getTime() - this.$store.state.node.selectedSatellite.joinDate.getTime()) / 1000;
-
-        return Math.ceil(differenceInSeconds / secondsInMonthApproximately);
+        return this.$store.getters.monthsOnNetwork;
     }
 
     /**

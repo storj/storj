@@ -157,4 +157,13 @@ export const node = {
             commit(NODE_MUTATIONS.SET_DAILY_DATA, response);
         },
     },
+    getters: {
+        monthsOnNetwork: (state): number => {
+            const now = new Date();
+            const secondsInMonthApproximately = 2628000;
+            const differenceInSeconds = (now.getTime() - state.selectedSatellite.joinDate.getTime()) / 1000;
+
+            return Math.ceil(differenceInSeconds / secondsInMonthApproximately);
+        },
+    },
 };

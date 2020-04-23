@@ -61,7 +61,7 @@
                     <p class="estimation-table-container__info-area__text">{{ grossTotal | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__held-area" v-if="!isCurrentPeriod">
+            <div class="estimation-table-container__held-area" v-if="!isCurrentPeriod || isSatelliteSelected">
                 <p class="estimation-table-container__held-area__text">Held back</p>
                 <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
             </div>
@@ -91,7 +91,12 @@ import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 
 import { NODE_ACTIONS } from '@/app/store/modules/node';
-import { BANDWIDTH_DOWNLOAD_PRICE_PER_TB, BANDWIDTH_REPAIR_PRICE_PER_TB, DISK_SPACE_PRICE_PER_TB, PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import {
+    BANDWIDTH_DOWNLOAD_PRICE_PER_TB,
+    BANDWIDTH_REPAIR_PRICE_PER_TB,
+    DISK_SPACE_PRICE_PER_TB,
+    PAYOUT_ACTIONS,
+} from '@/app/store/modules/payout';
 import { HeldInfo } from '@/app/types/payout';
 import { formatBytes, TB } from '@/app/utils/converter';
 
@@ -128,7 +133,7 @@ export default class EstimationArea extends Vue {
         return !this.$store.state.payoutModule.periodRange.start && isCurrentMonthSelected;
     }
 
-    public get isSomeSatelliteSelected(): boolean {
+    public get isSatelliteSelected(): boolean {
         return !!this.$store.state.node.selectedSatellite.id;
     }
 
@@ -143,6 +148,10 @@ export default class EstimationArea extends Vue {
      * Returns calculated or stored held amount.
      */
     public get held(): number {
+        if (this.isCurrentPeriod) {
+            return this.currentMonthHeld();
+        }
+
         return this.heldInfo.held;
     }
 
@@ -258,6 +267,13 @@ export default class EstimationArea extends Vue {
                 this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / TB / approxHourInMonth,
             ),
         ];
+    }
+
+    /**
+     * Returns current month held amount based on currend day of month.
+     */
+    private currentMonthHeld(): number {
+        return this.grossTotal * this.$store.state.payoutModule.heldPercentage / 100;
     }
 }
 </script>
