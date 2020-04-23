@@ -1052,6 +1052,20 @@ func buildUpdateStatement(update updateNodeStats) string {
 		atLeastOne = true
 		sql += fmt.Sprintf("audit_reputation_beta = %v", update.AuditReputationBeta.value)
 	}
+	if update.UnknownAuditReputationAlpha.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("unknown_audit_reputation_alpha = %v", update.UnknownAuditReputationAlpha.value)
+	}
+	if update.UnknownAuditReputationBeta.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("unknown_audit_reputation_beta = %v", update.UnknownAuditReputationBeta.value)
+	}
 	if update.Disqualified.set {
 		if atLeastOne {
 			sql += ","
