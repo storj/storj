@@ -288,9 +288,7 @@ func TestGetNodeError(t *testing.T) {
 
 func TestNewNodeFraction(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		const (
-			newNodeFraction = 0.2
-		)
+		newNodeFraction := 0.2
 		var nodeCfg = overlay.NodeSelectionConfig{
 			AuditCount:       1,
 			UptimeCount:      1,

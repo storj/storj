@@ -105,9 +105,8 @@ type Config struct {
 
 	Admin admin.Config
 
-	Contact            contact.Config
-	Overlay            overlay.Config
-	OverlayCacheConfig overlay.CacheConfig
+	Contact contact.Config
+	Overlay overlay.Config
 
 	Metainfo metainfo.Config
 	Orders   orders.Config

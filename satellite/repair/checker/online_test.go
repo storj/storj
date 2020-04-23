@@ -21,7 +21,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ocache := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, overlay.Config{}, overlay.CacheConfig{})
+	ocache := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, overlay.Config{})
 	rcache := NewReliabilityCache(ocache, time.Millisecond)
 
 	for i := 0; i < 10; i++ {

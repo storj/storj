@@ -237,13 +237,13 @@ type Service struct {
 }
 
 // NewService returns a new Service
-func NewService(log *zap.Logger, db DB, config Config, cacheConfig CacheConfig) *Service {
+func NewService(log *zap.Logger, db DB, config Config) *Service {
 	return &Service{
 		log:    log,
 		db:     db,
 		config: config,
 		SelectionCache: NewNodeSelectionCache(log, db,
-			cacheConfig.Staleness, config.Node,
+			config.NodeSelectionCache.Staleness, config.Node,
 		),
 	}
 }
