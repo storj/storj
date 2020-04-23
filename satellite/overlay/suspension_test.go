@@ -59,7 +59,6 @@ func TestSuspendWithUpdateStats(t *testing.T) {
 		node, err := oc.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.Nil(t, node.Suspended)
-
 		testStartTime := time.Now()
 
 		// give node one unknown audit - bringing unknown audit rep to 0.5, and suspending node
@@ -75,6 +74,9 @@ func TestSuspendWithUpdateStats(t *testing.T) {
 
 		node, err = oc.Get(ctx, nodeID)
 		require.NoError(t, err)
+		// expect unknown audit alpha/beta to change and suspended to be set
+		require.True(t, node.Reputation.UnknownAuditReputationAlpha < 1)
+		require.True(t, node.Reputation.UnknownAuditReputationBeta > 0)
 		require.NotNil(t, node.Suspended)
 		require.True(t, node.Suspended.After(testStartTime))
 		// expect node is not disqualified and that normal audit alpha/beta remain unchanged
@@ -186,5 +188,66 @@ func TestSuspendExceedGracePeriod(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, n.Disqualified)
 		}
+	})
+}
+
+// TestSuspendBatchUpdateStats ensures that suspension and alpha/beta fields are properly updated from batch update stats
+func TestSuspendBatchUpdateStats(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		nodeID := planet.StorageNodes[0].ID()
+		oc := planet.Satellites[0].Overlay.Service
+
+		node, err := oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Nil(t, node.Suspended)
+		testStartTime := time.Now()
+
+		nodeUpdateReq := &overlay.UpdateRequest{
+			NodeID:       nodeID,
+			AuditOutcome: overlay.AuditSuccess,
+			IsUp:         true,
+			AuditLambda:  1,
+			AuditWeight:  1,
+			AuditDQ:      0.6,
+		}
+
+		// give node successful audit - expect alpha to be > 1 and beta to be 0
+		_, err = oc.BatchUpdateStats(ctx, []*overlay.UpdateRequest{nodeUpdateReq})
+		require.NoError(t, err)
+
+		node, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		// expect unknown audit alpha/beta to change and suspended to be nil
+		require.True(t, node.Reputation.UnknownAuditReputationAlpha > 1)
+		require.True(t, node.Reputation.UnknownAuditReputationBeta == 0)
+		require.Nil(t, node.Suspended)
+		// expect audit alpha/beta to change and disqualified to be nil
+		require.True(t, node.Reputation.AuditReputationAlpha > 1)
+		require.True(t, node.Reputation.AuditReputationBeta == 0)
+		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, node.Reputation.AuditReputationAlpha, 1)
+		require.EqualValues(t, node.Reputation.AuditReputationBeta, 0)
+
+		oldReputation := node.Reputation
+
+		// give node two unknown audits to suspend node
+		nodeUpdateReq.AuditOutcome = overlay.AuditUnknown
+		_, err = oc.BatchUpdateStats(ctx, []*overlay.UpdateRequest{nodeUpdateReq})
+		require.NoError(t, err)
+		_, err = oc.BatchUpdateStats(ctx, []*overlay.UpdateRequest{nodeUpdateReq})
+		require.NoError(t, err)
+
+		node, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.True(t, node.Reputation.UnknownAuditReputationAlpha < oldReputation.UnknownAuditReputationAlpha)
+		require.True(t, node.Reputation.UnknownAuditReputationBeta > oldReputation.UnknownAuditReputationBeta)
+		require.NotNil(t, node.Suspended)
+		require.True(t, node.Reputation.Suspended.After(testStartTime))
+		// node should not be disqualified and normal audit reputation should not change
+		require.EqualValues(t, node.Reputation.AuditReputationAlpha, oldReputation.AuditReputationAlpha)
+		require.EqualValues(t, node.Reputation.AuditReputationBeta, oldReputation.AuditReputationBeta)
+		require.Nil(t, node.Disqualified)
 	})
 }
