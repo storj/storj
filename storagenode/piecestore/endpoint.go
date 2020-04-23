@@ -508,8 +508,6 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	}
 	limit, chunk := message.Limit, message.Chunk
 
-	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
-
 	if limit.Action != pb.PieceAction_GET && limit.Action != pb.PieceAction_GET_REPAIR && limit.Action != pb.PieceAction_GET_AUDIT {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"expected get or get repair or audit action got %v", limit.Action)
@@ -520,7 +518,11 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			"requested more that order limit allows, limit=%v requested=%v", limit.Limit, chunk.ChunkSize)
 	}
 
+	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
+		mon.Meter("download_verify_orderlimit_failed").Mark(1)
+		endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		return err
 	}
 
