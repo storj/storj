@@ -331,6 +331,9 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		service := overlay.NewService(zap.NewNop(), overlaydb, overlay.Config{
 			Node: nodeSelectionConfig,
+			NodeSelectionCache: overlay.CacheConfig{
+				Staleness: time.Hour,
+			},
 		})
 
 		b.Run("FindStorageNodes", func(b *testing.B) {
