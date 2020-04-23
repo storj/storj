@@ -4,6 +4,7 @@
 package pieces_test
 
 import (
+	"context"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/storage/filestore"
@@ -57,11 +59,13 @@ func TestDeleter(t *testing.T) {
 	require.Equal(t, data, buf)
 
 	// Delete the piece we've created
-	deleter.Enqueue(ctx, satelliteID, []pb.PieceID{pieceID})
+	unhandled := deleter.Enqueue(ctx, satelliteID, []pb.PieceID{pieceID})
+	require.Equal(t, 0, unhandled)
 
 	// Also delete a random non-existent piece, so we know it doesn't blow up
 	// when this happens
-	deleter.Enqueue(ctx, satelliteID, []pb.PieceID{testrand.PieceID()})
+	unhandled = deleter.Enqueue(ctx, satelliteID, []pb.PieceID{testrand.PieceID()})
+	require.Equal(t, 0, unhandled)
 
 	// wait for test hook to fire twice
 	deleter.Wait()
@@ -71,4 +75,45 @@ func TestDeleter(t *testing.T) {
 		return strings.Contains(err.Error(), "file does not exist") ||
 			strings.Contains(err.Error(), "The system cannot find the path specified")
 	}, "unexpected error message")
+}
+
+func TestEnqueueUnhandled(t *testing.T) {
+	testcases := []struct {
+		queueSize    int
+		pieces       int
+		expUnhandled int
+	}{
+		{
+			queueSize:    5,
+			pieces:       5,
+			expUnhandled: 0,
+		},
+		{
+			queueSize:    4,
+			pieces:       5,
+			expUnhandled: 1,
+		},
+		{
+			queueSize:    1,
+			pieces:       10,
+			expUnhandled: 9,
+		},
+		{
+			queueSize:    0, // should default to a big number
+			pieces:       10,
+			expUnhandled: 0,
+		},
+	}
+
+	for _, tc := range testcases {
+		satelliteID := testrand.NodeID()
+		pieceIDs := make([]storj.PieceID, 0, tc.pieces)
+		for i := 0; i < tc.pieces; i++ {
+			pieceIDs = append(pieceIDs, testrand.PieceID())
+		}
+		deleter := pieces.NewDeleter(zaptest.NewLogger(t), nil, 0, tc.queueSize)
+		unhandled := deleter.Enqueue(context.Background(), satelliteID, pieceIDs)
+		require.Equal(t, tc.expUnhandled, unhandled)
+		require.NoError(t, deleter.Close())
+	}
 }

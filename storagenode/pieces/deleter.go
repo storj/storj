@@ -84,14 +84,16 @@ func (d *Deleter) Run(ctx context.Context) error {
 }
 
 // Enqueue adds the pieceIDs to the delete queue. If the queue is full deletes
-// are not processed and will be left for garbage collection.
-func (d *Deleter) Enqueue(ctx context.Context, satelliteID storj.NodeID, pieceIDs []storj.PieceID) {
-	for _, pieceID := range pieceIDs {
+// are not processed and will be left for garbage collection. Enqueue returns
+// true if all pieceIDs were successfully placed on the queue, false if some
+// pieceIDs were dropped.
+func (d *Deleter) Enqueue(ctx context.Context, satelliteID storj.NodeID, pieceIDs []storj.PieceID) (unhandled int) {
+	for i, pieceID := range pieceIDs {
 		select {
 		case d.ch <- DeleteRequest{satelliteID, pieceID, time.Now()}:
 		default:
 			mon.Counter("piecedeleter-queue-full").Inc(1)
-			return
+			return len(pieceIDs) - i
 		}
 	}
 
@@ -101,6 +103,8 @@ func (d *Deleter) Enqueue(ctx context.Context, satelliteID storj.NodeID, pieceID
 		d.testToDelete += len(pieceIDs)
 		d.mu.Unlock()
 	}
+
+	return 0
 }
 
 func (d *Deleter) work(ctx context.Context) error {

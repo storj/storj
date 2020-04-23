@@ -190,8 +190,11 @@ func (endpoint *Endpoint) DeletePieces(
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "delete pieces called with untrusted ID")
 	}
 
-	endpoint.pieceDeleter.Enqueue(ctx, peer.ID, req.PieceIds)
-	return &pb.DeletePiecesResponse{}, nil
+	unhandled := endpoint.pieceDeleter.Enqueue(ctx, peer.ID, req.PieceIds)
+
+	return &pb.DeletePiecesResponse{
+		UnhandledCount: int64(unhandled),
+	}, nil
 }
 
 // Upload handles uploading a piece on piece store.
