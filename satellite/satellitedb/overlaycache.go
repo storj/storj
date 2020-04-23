@@ -229,6 +229,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND suspended IS NULL
+			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
 		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
@@ -269,6 +270,7 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND suspended IS NULL
+			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
 		`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow),
 	)
@@ -299,6 +301,7 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 		SELECT id FROM nodes
 		WHERE disqualified IS NULL
 		AND suspended IS NULL
+		AND exit_finished_at IS NULL
 		AND last_contact_success > ?
 	`), time.Now().Add(-criteria.OnlineWindow))
 	if err != nil {
@@ -407,6 +410,10 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 				if dbNode.Disqualified != nil {
 					continue
 				}
+				// do not update reputation if node has gracefully exited
+				if dbNode.ExitFinishedAt != nil {
+					continue
+				}
 
 				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq)
 
@@ -469,6 +476,10 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		}
 		// do not update reputation if node is disqualified
 		if dbNode.Disqualified != nil {
+			return nil
+		}
+		// do not update reputation if node has gracefully exited
+		if dbNode.ExitFinishedAt != nil {
 			return nil
 		}
 
@@ -547,6 +558,10 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		}
 		// do not update reputation if node is disqualified
 		if dbNode.Disqualified != nil {
+			return nil
+		}
+		// do not update reputation if node has gracefully exited
+		if dbNode.ExitFinishedAt != nil {
 			return nil
 		}
 

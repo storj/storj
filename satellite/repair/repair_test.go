@@ -1238,6 +1238,124 @@ func testDataRepairUploadLimit(t *testing.T, inMemoryRepair bool) {
 	})
 }
 
+// TestRepairGracefullyExited does the following:
+// - Uploads test data to 7 nodes
+// - Set 3 nodes as gracefully exited
+// - Triggers data repair, which repairs the data from the remaining 4 nodes to additional 3 new nodes
+// - Shuts down the 4 nodes from which the data was repaired
+// - Now we have just the 3 new nodes to which the data was repaired
+// - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
+// - Expect newly repaired pointer does not contain the gracefully exited nodes
+func TestRepairGracefullyExitedInMemory(t *testing.T) {
+	testRepairGracefullyExited(t, true)
+}
+func TestRepairGracefullyExitedToDisk(t *testing.T) {
+	testRepairGracefullyExited(t, false)
+}
+
+func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 12,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Repairer.InMemoryRepair = inMemoryRepair
+
+				config.Metainfo.RS.MinThreshold = 3
+				config.Metainfo.RS.RepairThreshold = 5
+				config.Metainfo.RS.SuccessThreshold = 7
+				config.Metainfo.RS.TotalThreshold = 7
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// first, upload some remote data
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		// get a remote segment from metainfo
+		metainfo := satellite.Metainfo.Service
+		listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
+		require.NoError(t, err)
+
+		var path string
+		var pointer *pb.Pointer
+		for _, v := range listResponse {
+			path = v.GetPath()
+			pointer, err = metainfo.Get(ctx, path)
+			require.NoError(t, err)
+			if pointer.GetType() == pb.Pointer_REMOTE {
+				break
+			}
+		}
+
+		numStorageNodes := len(planet.StorageNodes)
+		remotePieces := pointer.GetRemote().GetRemotePieces()
+		numPieces := len(remotePieces)
+		// sanity check
+		require.EqualValues(t, numPieces, 7)
+		toExit := 3
+		// we should have enough storage nodes to repair on
+		require.True(t, (numStorageNodes-toExit) >= numPieces)
+
+		// gracefully exit nodes and track lost pieces
+		nodesToExit := make(map[storj.NodeID]bool)
+		nodesToKeepAlive := make(map[storj.NodeID]bool)
+
+		// exit nodes
+		for i := 0; i < toExit; i++ {
+			nodesToExit[remotePieces[i].NodeId] = true
+			req := &overlay.ExitStatusRequest{
+				NodeID:              remotePieces[i].NodeId,
+				ExitInitiatedAt:     time.Now(),
+				ExitLoopCompletedAt: time.Now(),
+				ExitFinishedAt:      time.Now(),
+			}
+			_, err := satellite.DB.OverlayCache().UpdateExitStatus(ctx, req)
+			require.NoError(t, err)
+		}
+		for i := toExit; i < len(remotePieces); i++ {
+			nodesToKeepAlive[remotePieces[i].NodeId] = true
+		}
+
+		err = satellite.Repair.Checker.RefreshReliabilityCache(ctx)
+		require.NoError(t, err)
+
+		satellite.Repair.Checker.Loop.TriggerWait()
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		// kill nodes kept alive to ensure repair worked
+		for _, node := range planet.StorageNodes {
+			if nodesToKeepAlive[node.ID()] {
+				stopNodeByID(t, ctx, planet, node.ID())
+			}
+		}
+
+		// we should be able to download data without any of the original nodes
+		newData, err := uplinkPeer.Download(ctx, satellite, "testbucket", "test/path")
+		require.NoError(t, err)
+		require.Equal(t, newData, testData)
+
+		// updated pointer should not contain any of the gracefully exited nodes
+		pointer, err = metainfo.Get(ctx, path)
+		require.NoError(t, err)
+
+		remotePieces = pointer.GetRemote().GetRemotePieces()
+		for _, piece := range remotePieces {
+			require.False(t, nodesToExit[piece.NodeId])
+		}
+	})
+}
+
 // getRemoteSegment returns a remote pointer its path from satellite.
 // nolint:golint
 func getRemoteSegment(

@@ -31,15 +31,17 @@ func TestStatDB(t *testing.T) {
 func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 	{ // TestKnownUnreliableOrOffline
 		for _, tt := range []struct {
-			nodeID       storj.NodeID
-			suspended    bool
-			disqualified bool
-			offline      bool
+			nodeID           storj.NodeID
+			suspended        bool
+			disqualified     bool
+			offline          bool
+			gracefullyexited bool
 		}{
-			{storj.NodeID{1}, false, false, false}, // good
-			{storj.NodeID{2}, false, true, false},  // disqualified
-			{storj.NodeID{3}, true, false, false},  // suspended
-			{storj.NodeID{4}, false, false, true},  // offline
+			{storj.NodeID{1}, false, false, false, false}, // good
+			{storj.NodeID{2}, false, true, false, false},  // disqualified
+			{storj.NodeID{3}, true, false, false, false},  // suspended
+			{storj.NodeID{4}, false, false, true, false},  // offline
+			{storj.NodeID{5}, false, false, false, true},  // gracefully exited
 		} {
 			startingRep := overlay.NodeSelectionConfig{}
 			n := pb.Node{Id: tt.nodeID}
@@ -61,12 +63,22 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 				err = cache.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-2*time.Hour), overlay.NodeSelectionConfig{})
 				require.NoError(t, err)
 			}
+			if tt.gracefullyexited {
+				req := &overlay.ExitStatusRequest{
+					NodeID:              tt.nodeID,
+					ExitInitiatedAt:     time.Now(),
+					ExitLoopCompletedAt: time.Now(),
+					ExitFinishedAt:      time.Now(),
+				}
+				_, err := cache.UpdateExitStatus(ctx, req)
+				require.NoError(t, err)
+			}
 		}
 
 		nodeIds := storj.NodeIDList{
 			storj.NodeID{1}, storj.NodeID{2},
 			storj.NodeID{3}, storj.NodeID{4},
-			storj.NodeID{5},
+			storj.NodeID{5}, storj.NodeID{6},
 		}
 		criteria := &overlay.NodeCriteria{OnlineWindow: time.Hour}
 
@@ -76,8 +88,9 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		require.Contains(t, invalid, storj.NodeID{2}) // disqualified
 		require.Contains(t, invalid, storj.NodeID{3}) // suspended
 		require.Contains(t, invalid, storj.NodeID{4}) // offline
-		require.Contains(t, invalid, storj.NodeID{5}) // not in db
-		require.Len(t, invalid, 4)
+		require.Contains(t, invalid, storj.NodeID{5}) // gracefully exited
+		require.Contains(t, invalid, storj.NodeID{6}) // not in db
+		require.Len(t, invalid, 5)
 	}
 
 	{ // TestUpdateOperator
