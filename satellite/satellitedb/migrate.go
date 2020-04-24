@@ -32,7 +32,7 @@ func (db *satelliteDB) CreateTables(ctx context.Context) error {
 	// will need to create any schemas specified in the search path, and cockroach
 	// will need to create the database it was told to connect to. These things should
 	// not really be here, and instead should be assumed to exist.
-	// This is tracked in jira ticket #3338.
+	// This is tracked in jira ticket SM-200
 	switch db.implementation {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
