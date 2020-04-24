@@ -603,6 +603,9 @@ server.private-address: 127.0.0.1:7778
 # buffer size for collector batch packet size
 # tracing.buffer-size: 0
 
+# whether tracing collector is enabled
+# tracing.enabled: false
+
 # how frequently to flush traces to tracing agent
 # tracing.interval: 0s
 

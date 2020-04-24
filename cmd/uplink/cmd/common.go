@@ -27,5 +27,5 @@ func withTelemetry(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 }
 
 func enableTracing(config map[string]interface{}) {
-	config["tracing.sample"] = 1
+	config["tracing.enabled"] = true
 }

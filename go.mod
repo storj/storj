@@ -25,7 +25,7 @@ require (
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
 	github.com/sirupsen/logrus v1.4.2 // indirect
-	github.com/spacemonkeygo/monkit/v3 v3.0.6-0.20200417171149-7f4a2b305c34
+	github.com/spacemonkeygo/monkit/v3 v3.0.6
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
@@ -41,9 +41,9 @@ require (
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.28.0
-	storj.io/common v0.0.0-20200424145118-a435ff00192e
+	storj.io/common v0.0.0-20200424175742-65ac59022f4f
 	storj.io/drpc v0.0.12-0.20200413163255-debb458a7474
-	storj.io/monkit-jaeger v0.0.0-20200421202833-be94db601895
-	storj.io/private v0.0.0-20200421205950-b0446725b807
+	storj.io/monkit-jaeger v0.0.0-20200424180155-d5f5530ea079
+	storj.io/private v0.0.0-20200427160924-e00b0e612cfb
 	storj.io/uplink v1.0.4
 )
