@@ -26,8 +26,8 @@ var (
 
 // Client is the entrypoint into a cockroachkv data store
 type Client struct {
-	db tagsql.DB
-
+	db          tagsql.DB
+	dbURL       string
 	lookupLimit int
 }
 
@@ -42,18 +42,17 @@ func New(dbURL string) (*Client, error) {
 
 	dbutil.Configure(db, "cockroachkv", mon)
 
-	// TODO: new shouldn't be taking ctx as argument
-	err = schema.PrepareDB(context.TODO(), db)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewWith(db), nil
+	return NewWith(db, dbURL), nil
 }
 
 // NewWith instantiates a new cockroachkv client given db.
-func NewWith(db tagsql.DB) *Client {
-	return &Client{db: db, lookupLimit: storage.DefaultLookupLimit}
+func NewWith(db tagsql.DB, dbURL string) *Client {
+	return &Client{db: db, dbURL: dbURL, lookupLimit: storage.DefaultLookupLimit}
+}
+
+// MigrateToLatest migrates to latest schema version.
+func (client *Client) MigrateToLatest(ctx context.Context) error {
+	return schema.PrepareDB(ctx, client.db)
 }
 
 // SetLookupLimit sets the lookup limit.

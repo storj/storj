@@ -44,6 +44,9 @@ type Client struct {
 // New creates a new in-memory key-value store
 func New() *Client { return &Client{lookupLimit: storage.DefaultLookupLimit} }
 
+// MigrateToLatest pretends to migrate to latest db schema version.
+func (store *Client) MigrateToLatest(ctx context.Context) error { return nil }
+
 // SetLookupLimit sets the lookup limit.
 func (store *Client) SetLookupLimit(v int) { store.lookupLimit = v }
 

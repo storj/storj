@@ -272,7 +272,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
-		return errs.New("Error creating revocation database: %+v", err)
+		return errs.New("Error creating metainfodb connection: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, pointerDB.Close())
@@ -314,6 +314,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		log.Warn("Failed to initialize telemetry batcher", zap.Error(err))
 	}
 
+	err = pointerDB.MigrateToLatest(ctx)
+	if err != nil {
+		return errs.New("Error creating metainfodb tables: %+v", err)
+	}
+
 	err = db.CheckVersion(ctx)
 	if err != nil {
 		log.Fatal("Failed satellite database version check.", zap.Error(err))
@@ -342,15 +347,17 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	// There should be an explicit CreateTables call for the pointerdb as well.
-	// This is tracked in jira ticket #3337.
 	pdb, err := metainfo.NewStore(log.Named("migration"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
-		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
+		return errs.New("Error creating pointer database connection on satellite: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, pdb.Close())
 	}()
+	err = pdb.MigrateToLatest(ctx)
+	if err != nil {
+		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
+	}
 
 	return nil
 }

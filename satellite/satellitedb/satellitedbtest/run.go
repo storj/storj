@@ -157,6 +157,10 @@ func CreatePointerDB(ctx context.Context, log *zap.Logger, name string, category
 // temporary database.
 func CreatePointerDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db metainfo.PointerDB, err error) {
 	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), tempDB.ConnStr)
+	if err != nil {
+		return nil, err
+	}
+	err = pointerDB.MigrateToLatest(ctx)
 	return &tempPointerDB{PointerDB: pointerDB, tempDB: tempDB}, err
 }
 

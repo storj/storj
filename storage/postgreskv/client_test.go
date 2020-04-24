@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/lib/pq"
+	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/testcontext"
@@ -39,6 +40,10 @@ func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
 func TestSuite(t *testing.T) {
 	store, cleanup := newTestPostgres(t)
 	defer cleanup()
+
+	ctx := testcontext.New(t)
+	err := store.MigrateToLatest(ctx)
+	require.NoError(t, err)
 
 	// zap := zaptest.NewLogger(t)
 	// loggedStore := storelogger.New(zap, store)

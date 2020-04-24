@@ -39,7 +39,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 
 	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
-		return errs.New("Error creating metainfo database: %+v", err)
+		return errs.New("Error creating metainfo database connection: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, pointerDB.Close())
@@ -82,6 +82,11 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := process.InitMetricsWithHostname(ctx, log, nil); err != nil {
 		log.Warn("Failed to initialize telemetry batcher on repairer", zap.Error(err))
+	}
+
+	err = pointerDB.MigrateToLatest(ctx)
+	if err != nil {
+		return errs.New("Error creating tables for metainfo database: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)

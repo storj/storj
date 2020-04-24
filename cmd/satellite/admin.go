@@ -39,7 +39,7 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 
 	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
 	if err != nil {
-		return errs.New("Error creating metainfo database on satellite api: %+v", err)
+		return errs.New("Error creating metainfodb connection on satellite api: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, pointerDB.Close())
@@ -65,6 +65,11 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
 		log.Warn("Failed to initialize telemetry batcher on satellite admin", zap.Error(err))
+	}
+
+	err = pointerDB.MigrateToLatest(ctx)
+	if err != nil {
+		return errs.New("Error creating metainfodb tables on satellite api: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)
