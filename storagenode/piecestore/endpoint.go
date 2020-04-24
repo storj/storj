@@ -55,6 +55,8 @@ type OldConfig struct {
 type Config struct {
 	ExpirationGracePeriod   time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
+	DeleteWorkers           int           `help:"how many piece delete workers" default:"0"`
+	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"0"`
 	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"24h0m0s"`
 	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
@@ -85,10 +87,11 @@ type Endpoint struct {
 	retain    *retain.Service
 	pingStats pingStatsSource
 
-	store       *pieces.Store
-	orders      orders.DB
-	usage       bandwidth.DB
-	usedSerials UsedSerials
+	store        *pieces.Store
+	orders       orders.DB
+	usage        bandwidth.DB
+	usedSerials  UsedSerials
+	pieceDeleter *pieces.Deleter
 
 	// liveRequests tracks the total number of incoming rpc requests. For gRPC
 	// requests only, this number is compared to config.MaxConcurrentRequests
@@ -104,7 +107,7 @@ type drpcEndpoint struct{ *Endpoint }
 func (endpoint *Endpoint) DRPC() pb.DRPCPiecestoreServer { return &drpcEndpoint{Endpoint: endpoint} }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	// If config.MaxConcurrentRequests is set we want to repsect it for grpc.
 	// However, if it is 0 (unlimited) we force a limit.
 	grpcReqLimit := config.MaxConcurrentRequests
@@ -123,10 +126,11 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		retain:    retain,
 		pingStats: pingStats,
 
-		store:       store,
-		orders:      orders,
-		usage:       usage,
-		usedSerials: usedSerials,
+		store:        store,
+		orders:       orders,
+		usage:        usage,
+		usedSerials:  usedSerials,
+		pieceDeleter: pieceDeleter,
 
 		liveRequests: 0,
 	}, nil
@@ -186,23 +190,7 @@ func (endpoint *Endpoint) DeletePieces(
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "delete pieces called with untrusted ID")
 	}
 
-	for _, pieceID := range req.PieceIds {
-		err = endpoint.store.Delete(ctx, peer.ID, pieceID)
-		if err != nil {
-			// If a piece cannot be deleted, we just log the error.
-			// No error is returned to the caller.
-			endpoint.log.Error("delete failed",
-				zap.Stringer("Satellite ID", peer.ID),
-				zap.Stringer("Piece ID", pieceID),
-				zap.Error(err),
-			)
-		} else {
-			endpoint.log.Info("deleted",
-				zap.Stringer("Satellite ID", peer.ID),
-				zap.Stringer("Piece ID", pieceID),
-			)
-		}
-	}
+	endpoint.pieceDeleter.Enqueue(ctx, peer.ID, req.PieceIds)
 	return &pb.DeletePiecesResponse{}, nil
 }
 
@@ -508,8 +496,6 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	}
 	limit, chunk := message.Limit, message.Chunk
 
-	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
-
 	if limit.Action != pb.PieceAction_GET && limit.Action != pb.PieceAction_GET_REPAIR && limit.Action != pb.PieceAction_GET_AUDIT {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"expected get or get repair or audit action got %v", limit.Action)
@@ -520,7 +506,11 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			"requested more that order limit allows, limit=%v requested=%v", limit.Limit, chunk.ChunkSize)
 	}
 
+	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
+		mon.Meter("download_verify_orderlimit_failed").Mark(1)
+		endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		return err
 	}
 

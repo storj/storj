@@ -25,10 +25,15 @@ type NewQueue func() Queue
 type Queue interface {
 	// TryPush tries to push a new job to the queue.
 	TryPush(job Job) bool
+
 	// PopAll fetches all jobs in the queue.
 	//
 	// When there are no more jobs, the queue must stop accepting new jobs.
 	PopAll() ([]Job, bool)
+
+	// PopAllWithoutClose fetches all jobs in the queue,
+	// but without closing the queue for new requests.
+	PopAllWithoutClose() []Job
 }
 
 // Job is a single of deletion.

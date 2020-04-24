@@ -160,6 +160,12 @@ contact.external-address: ""
 # how often to run the downtime estimation chore
 # downtime.estimation-interval: 1h0m0s
 
+# set if expired segment cleanup is enabled or not
+# expired-deletion.enabled: true
+
+# the time between each attempt to go through the db and clean up expired segments
+# expired-deletion.interval: 120h0m0s
+
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
 
@@ -436,6 +442,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s
 
+# the time period that must pass before suspended nodes will be disqualified
+# overlay.node.suspension-grace-period: 168h0m0s
+
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 100
 
@@ -585,13 +594,13 @@ server.private-address: 127.0.0.1:7778
 # buffer size for collector batch packet size
 # tracing.buffer-size: 0
 
-# how frequently to send up telemetry
+# how frequently to flush traces to tracing agent
 # tracing.interval: 0s
 
 # buffer size for collector queue size
 # tracing.queue-size: 0
 
-# how frequently to send up telemetry
+# how frequent to sample traces
 # tracing.sample: 0
 
 # Interval to check the version

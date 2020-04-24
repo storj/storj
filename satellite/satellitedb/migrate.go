@@ -1044,21 +1044,11 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          db.DB,
-				Description: "Drop bucket_bandwidth_rollups_project_id_action_interval_index index since it is no longer needed",
+				Description: "Remove all nodes from suspension mode.",
 				Version:     105,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-
-					// It is not possible to add and drop an index within the same transaction on CockroachDB
-					// https://github.com/cockroachdb/cockroach/issues/42844
-					// So this needs to be done in another transaction. "Func" actions help with this.
-					_, err := tx.Exec(ctx,
-						`DROP INDEX IF EXISTS bucket_bandwidth_rollups_project_id_action_interval_index;`,
-					)
-					if err != nil {
-						return ErrMigrate.Wrap(err)
-					}
-					return nil
-				}),
+				Action: migrate.SQL{
+					`UPDATE nodes SET suspended=NULL;`,
+				},
 			},
 		},
 	}

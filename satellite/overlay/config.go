@@ -36,9 +36,10 @@ type NodeSelectionConfig struct {
 	DistinctIP       bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
 	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"100MB"`
 
-	AuditReputationRepairWeight float64 `help:"weight to apply to audit reputation for total repair reputation calculation" default:"1.0"`
-	AuditReputationUplinkWeight float64 `help:"weight to apply to audit reputation for total uplink reputation calculation" default:"1.0"`
-	AuditReputationLambda       float64 `help:"the forgetting factor used to calculate the audit SNs reputation" default:"0.95"`
-	AuditReputationWeight       float64 `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
-	AuditReputationDQ           float64 `help:"the reputation cut-off for disqualifying SNs based on audit history" default:"0.6"`
+	AuditReputationRepairWeight float64       `help:"weight to apply to audit reputation for total repair reputation calculation" default:"1.0"`
+	AuditReputationUplinkWeight float64       `help:"weight to apply to audit reputation for total uplink reputation calculation" default:"1.0"`
+	AuditReputationLambda       float64       `help:"the forgetting factor used to calculate the audit SNs reputation" default:"0.95"`
+	AuditReputationWeight       float64       `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
+	AuditReputationDQ           float64       `help:"the reputation cut-off for disqualifying SNs based on audit history" default:"0.6"`
+	SuspensionGracePeriod       time.Duration `help:"the time period that must pass before suspended nodes will be disqualified" releaseDefault:"168h" devDefault:"1h"`
 }

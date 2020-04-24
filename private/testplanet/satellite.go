@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
@@ -123,6 +124,10 @@ type Satellite struct {
 
 	GarbageCollection struct {
 		Service *gc.Service
+	}
+
+	ExpiredDeletion struct {
+		Chore *expireddeletion.Chore
 	}
 
 	DBCleanup struct {
@@ -330,6 +335,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					AuditReputationLambda:       0.95,
 					AuditReputationWeight:       1,
 					AuditReputationDQ:           0.6,
+					SuspensionGracePeriod:       time.Hour,
 				},
 				NodeSelectionCache: overlay.CacheConfig{
 					Staleness: time.Hour,
@@ -414,6 +420,10 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				FalsePositiveRate: 0.1,
 				ConcurrentSends:   1,
 				RunInCore:         false,
+			},
+			ExpiredDeletion: expireddeletion.Config{
+				Interval: defaultInterval,
+				Enabled:  true,
 			},
 			DBCleanup: dbcleanup.Config{
 				SerialsInterval: defaultInterval,
@@ -592,6 +602,8 @@ func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.C
 	system.Audit.Reporter = peer.Audit.Reporter
 
 	system.GarbageCollection.Service = gcPeer.GarbageCollection.Service
+
+	system.ExpiredDeletion.Chore = peer.ExpiredDeletion.Chore
 
 	system.DBCleanup.Chore = peer.DBCleanup.Chore
 
