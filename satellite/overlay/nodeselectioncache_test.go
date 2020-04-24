@@ -62,7 +62,7 @@ func TestRefresh(t *testing.T) {
 
 		// add some nodes to the database
 		const nodeCount = 2
-		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount)
+		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, false)
 
 		// confirm nodes are in the cache once
 		err = cache.Refresh(ctx)
@@ -73,7 +73,8 @@ func TestRefresh(t *testing.T) {
 	})
 }
 
-func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, count int) {
+func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, count int, makeReputable bool) []storj.NodeID {
+	var reputableIds = []storj.NodeID{}
 	for i := 0; i < count; i++ {
 		subnet := strconv.Itoa(i) + ".1.2"
 		addr := subnet + ".3:8080"
@@ -99,7 +100,20 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 		}
 		err := db.UpdateCheckIn(ctx, n, time.Now().UTC(), nodeCfg)
 		require.NoError(t, err)
+
+		// make half of the nodes reputable
+		if makeReputable && i > count/2 {
+			_, err = db.UpdateStats(ctx, &overlay.UpdateRequest{
+				NodeID:       storj.NodeID{byte(i)},
+				IsUp:         true,
+				AuditOutcome: overlay.AuditSuccess,
+				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
+			})
+			require.NoError(t, err)
+			reputableIds = append(reputableIds, storj.NodeID{byte(i)})
+		}
 	}
+	return reputableIds
 }
 
 type mockdb struct {
@@ -182,7 +196,7 @@ func TestGetNode(t *testing.T) {
 
 		// add some nodes to the database
 		const nodeCount = 4
-		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount)
+		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, false)
 
 		// confirm cache.GetNodes returns the correct nodes
 		selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
@@ -270,4 +284,55 @@ func TestGetNodeError(t *testing.T) {
 	// to get 2 storage nodes from it and we expect an error
 	_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
 	require.Error(t, err)
+}
+
+func TestNewNodeFraction(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		newNodeFraction := 0.2
+		var nodeCfg = overlay.NodeSelectionConfig{
+			AuditCount:       1,
+			UptimeCount:      1,
+			NewNodeFraction:  newNodeFraction,
+			MinimumVersion:   "v1.0.0",
+			OnlineWindow:     4 * time.Hour,
+			DistinctIP:       true,
+			MinimumDiskSpace: 10 * memory.MiB,
+		}
+		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+			db.OverlayCache(),
+			lowStaleness,
+			nodeCfg,
+		)
+		// the cache should have no nodes to start
+		err := cache.Refresh(ctx)
+		require.NoError(t, err)
+		reputable, new := cache.Size()
+		require.Equal(t, 0, reputable)
+		require.Equal(t, 0, new)
+
+		// add some nodes to the database, some are reputable and some are new nodes
+		const nodeCount = 10
+		repIDs := addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, true)
+
+		// confirm nodes are in the cache once
+		err = cache.Refresh(ctx)
+		require.NoError(t, err)
+		reputable, new = cache.Size()
+		require.Equal(t, 6, new)
+		require.Equal(t, 4, reputable)
+
+		// select nodes and confirm correct new node fraction
+		n, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 5})
+		require.NoError(t, err)
+		require.Equal(t, len(n), 5)
+		var reputableCount int
+		for _, id := range repIDs {
+			for _, node := range n {
+				if id == node.ID {
+					reputableCount++
+				}
+			}
+		}
+		require.Equal(t, len(n)-reputableCount, int(5*newNodeFraction))
+	})
 }
