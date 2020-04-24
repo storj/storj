@@ -279,7 +279,17 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
 }
 
-// FindStorageNodes searches the overlay network for nodes that meet the provided requirements
+// FindStorageNodesForRepair searches the overlay network for nodes that meet the provided requirements for repair
+// The main difference between this method and the normal FindStorageNodes is that here we filter out all nodes that
+// share a subnet with any node in req.ExcludedIDs. This additional complexity is not needed for other uses of finding storage nodes
+func (service *Service) FindStorageNodesForRepair(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
+}
+
+// FindStorageNodes searches the overlay network for nodes that meet the provided requirements,
+// it first searches the selected nodes cache, if there aren't enough nodes in the
+// cache (which shouldn't typically happen), then it resorts back to selecting nodes from the the nodes table
 func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	selectedNodes, err := service.SelectionCache.GetNodes(ctx, req)
@@ -288,7 +298,6 @@ func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNod
 	}
 	if len(selectedNodes) < req.RequestedCount {
 		mon.Event("default_node_selection")
-		service.log.Debug("default to db node selection")
 		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 	}
 	return selectedNodes, nil
