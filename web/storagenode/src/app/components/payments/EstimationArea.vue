@@ -160,7 +160,7 @@ export default class EstimationArea extends Vue {
      */
     public get totalPayout(): number {
         if (this.isCurrentPeriod) {
-            return this.grossTotal;
+            return this.isSatelliteSelected ? this.grossTotal - this.held : this.grossTotal;
         }
 
         return this.heldInfo.paid;

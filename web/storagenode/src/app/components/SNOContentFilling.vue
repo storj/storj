@@ -9,28 +9,64 @@
                 class="info-area__disqualified-info__image"
                 alt="Disqualified image"
             />
-            <p class="info-area__disqualified-info__info">Your node has been disqualified on <b>{{ getDisqualificationDate }}</b>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
+            <p class="info-area__disqualified-info__info">
+                Your node has been disqualified on <b>{{ getDisqualificationDate }}</b>. If you have any questions regarding this please check our Node Operators
+                <a
+                    class="info-area__disqualified-info__info__link"
+                    href="https://forum.storj.io/c/sno-category"
+                    target="_blank"
+                >
+                    thread
+                </a> on Storj forum.
+            </p>
         </div>
         <div v-else-if="doDisqualifiedSatellitesExist" class="info-area__disqualified-info">
             <LargeDisqualificationIcon
                 class="info-area__disqualified-info__image"
                 alt="Disqualified image"
             />
-            <p class="info-area__disqualified-info__info">Your node has been disqualified on<span v-for="disqualified in disqualifiedSatellites"><b> {{ disqualified.id }}</b></span>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
+            <p class="info-area__disqualified-info__info">
+                Your node has been disqualified on<span v-for="disqualified in disqualifiedSatellites"><b> {{ disqualified.id }}</b></span>. If you have any questions regarding this please check our Node Operators
+                <a
+                    class="info-area__disqualified-info__info__link"
+                    href="https://forum.storj.io/c/sno-category"
+                    target="_blank"
+                >
+                    thread
+                </a> on Storj forum.
+            </p>
         </div>
         <div v-if="isSuspendedInfoShown" class="info-area__suspended-info">
             <LargeSuspensionIcon
                 class="info-area__suspended-info__image"
                 alt="Suspended image"
             />
-            <p class="info-area__suspended-info__info">Your node has been suspended on <b>{{ getSuspensionDate }}</b>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
+            <p class="info-area__suspended-info__info">
+                Your node has been suspended on <b>{{ getSuspensionDate }}</b>. If you have any questions regarding this please check our Node Operators
+                <a
+                    class="info-area__disqualified-info__info__link"
+                    href="https://forum.storj.io/c/sno-category"
+                    target="_blank"
+                >
+                    thread
+                </a> on Storj forum.
+            </p>
         </div>
         <div v-else-if="doSuspendedSatellitesExist" class="info-area__suspended-info">
             <LargeSuspensionIcon
                 class="info-area__suspended-info__image"
                 alt="Suspended image"
             />
-            <p class="info-area__suspended-info__info">Your node has been suspended on<span v-for="suspended in suspendedSatellites"><b> {{ suspended.id }}</b></span>. If you have any questions regarding this please check our Node Operators <a href="https://forum.storj.io/c/sno-category" target="_blank">thread</a> on Storj forum.</p>
+            <p class="info-area__suspended-info__info">
+                Your node has been suspended on<span v-for="suspended in suspendedSatellites"><b> {{ suspended.id }}</b></span>. If you have any questions regarding this please check our Node Operators
+                <a
+                    class="info-area__disqualified-info__info__link"
+                    href="https://forum.storj.io/c/sno-category"
+                    target="_blank"
+                >
+                    thread
+                </a> on Storj forum.
+            </p>
         </div>
         <p class="info-area__title">Utilization & Remaining</p>
         <div class="info-area__chart-area">
@@ -426,6 +462,7 @@ export default class SNOContentFilling extends Vue {
             border-radius: 12px;
             width: calc(100% - 52px);
             margin-top: 17px;
+            color: var(--regular-text-color);
 
             &__image {
                 min-height: 35px;
@@ -436,6 +473,10 @@ export default class SNOContentFilling extends Vue {
             &__info {
                 font-size: 14px;
                 line-height: 21px;
+
+                &__link {
+                    color: var(--navigation-link-color)
+                }
             }
         }
 
@@ -458,6 +499,10 @@ export default class SNOContentFilling extends Vue {
             &__info {
                 font-size: 14px;
                 line-height: 21px;
+
+                &__link {
+                    color: var(--navigation-link-color)
+                }
             }
         }
 
