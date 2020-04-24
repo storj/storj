@@ -278,18 +278,22 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 }
 
 func TestUsageRollups(t *testing.T) {
-	const (
-		numBuckets     = 5
-		tallyIntervals = 10
-		tallyInterval  = time.Hour
-	)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			numBuckets     = 5
+			tallyIntervals = 10
+			tallyInterval  = time.Hour
+		)
 
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		now := time.Now()
 		start := now.Add(tallyInterval * time.Duration(-tallyIntervals))
 
-		project1 := testrand.UUID()
-		project2 := testrand.UUID()
+		db := planet.Satellites[0].DB
+
+		project1 := planet.Uplinks[0].Projects[0].ID
+		project2 := planet.Uplinks[1].Projects[0].ID
 
 		p1base := binary.BigEndian.Uint64(project1[:8]) >> 48
 		p2base := binary.BigEndian.Uint64(project2[:8]) >> 48
@@ -308,7 +312,10 @@ func TestUsageRollups(t *testing.T) {
 
 		var buckets []string
 		for i := 0; i < numBuckets; i++ {
-			bucketName := fmt.Sprintf("bucket_%d", i)
+			bucketName := fmt.Sprintf("bucket-%d", i)
+
+			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			require.NoError(t, err)
 
 			// project 1
 			for _, action := range actions {
@@ -323,6 +330,9 @@ func TestUsageRollups(t *testing.T) {
 				err = db.Orders().UpdateBucketBandwidthInline(ctx, project1, []byte(bucketName), action, value, now)
 				require.NoError(t, err)
 			}
+
+			err = planet.Uplinks[1].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			require.NoError(t, err)
 
 			// project 2
 			for _, action := range actions {
@@ -444,7 +454,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(1), bucketsPage.PageCount)
 			assert.Equal(t, 5, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "bucket_0", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "bucket-0", Page: 1}, start, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(1), bucketsPage.TotalCount)
