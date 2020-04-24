@@ -37,6 +37,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 			UniqueIPCount: 2,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Overlay.NodeSelectionCache.Staleness = -time.Hour
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -104,8 +105,6 @@ func TestMinimumDiskSpace(t *testing.T) {
 		n2, err = saOverlay.Service.FindStorageNodesWithPreferences(ctx, req, &nodeConfig)
 		require.NoError(t, err)
 		require.Equal(t, len(n1), len(n2))
-		err = saOverlay.Service.SelectionCache.Refresh(ctx)
-		require.NoError(t, err)
 		n3, err = saOverlay.Service.SelectionCache.GetNodes(ctx, req)
 		require.NoError(t, err)
 		require.Equal(t, len(n1), len(n3))
