@@ -36,7 +36,7 @@ if [[ "$1" == "upload" ]]; then
     }
     random_bytes_file "2KiB"   "$PRISTINE_FILES_DIR/small-upload-testfile"         # create 2kb file of random bytes (inline)
     random_bytes_file "5MiB"   "$PRISTINE_FILES_DIR/big-upload-testfile"           # create 5mb file of random bytes (remote)
-    random_bytes_file "65MiB"  "$PRISTINE_FILES_DIR/multisegment-upload-testfile"  # create 65mb file of random bytes (remote)
+    random_bytes_file "12MiB"  "$PRISTINE_FILES_DIR/multisegment-upload-testfile"  # create 12mb file of random bytes (remote)
 
     # sometimes we overwrite files in the same bucket. allow the mb to fail because of an existing
     # bucket. if it fails for any other reason, the following cp will get it anyway.
