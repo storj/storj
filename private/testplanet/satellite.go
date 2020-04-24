@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	versionchecker "storj.io/storj/private/version/checker"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
@@ -455,6 +456,11 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				AuthTokenSecret: "my-suppa-secret-key",
 				Config: console.Config{
 					PasswordCost: console.TestPasswordCost,
+				},
+				RateLimit: web.IPRateLimiterConfig{
+					Duration:  5 * time.Minute,
+					Burst:     3,
+					NumLimits: 10,
 				},
 			},
 			Marketing: marketingweb.Config{
