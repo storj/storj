@@ -406,6 +406,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many orders to batch per transaction
 # orders.settlement-batch-size: 250
 
+# how stale the node selection cache can be
+# overlay.node-selection-cache.staleness: 3m0s
+
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 100
 

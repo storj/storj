@@ -231,9 +231,10 @@ type SelectedNode struct {
 //
 // architecture: Service
 type Service struct {
-	log    *zap.Logger
-	db     DB
-	config Config
+	log            *zap.Logger
+	db             DB
+	config         Config
+	SelectionCache *NodeSelectionCache
 }
 
 // NewService returns a new Service
@@ -242,6 +243,9 @@ func NewService(log *zap.Logger, db DB, config Config) *Service {
 		log:    log,
 		db:     db,
 		config: config,
+		SelectionCache: NewNodeSelectionCache(log, db,
+			config.NodeSelectionCache.Staleness, config.Node,
+		),
 	}
 }
 
@@ -276,10 +280,28 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
 }
 
-// FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
+// FindStorageNodesForRepair searches the overlay network for nodes that meet the provided requirements for repair
+// The main difference between this method and the normal FindStorageNodes is that here we filter out all nodes that
+// share a subnet with any node in req.ExcludedIDs. This additional complexity is not needed for other uses of finding storage nodes
+func (service *Service) FindStorageNodesForRepair(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
+}
+
+// FindStorageNodes searches the overlay network for nodes that meet the provided requirements,
+// it first searches the selected nodes cache, if there aren't enough nodes in the
+// cache (which shouldn't typically happen), then it resorts back to selecting nodes from the the nodes table
+func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	selectedNodes, err := service.SelectionCache.GetNodes(ctx, req)
+	if err != nil {
+		service.log.Warn("error selecting from node selection cache", zap.String("err", err.Error()))
+	}
+	if len(selectedNodes) < req.RequestedCount {
+		mon.Event("default_node_selection")
+		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
+	}
+	return selectedNodes, nil
 }
 
 // FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria
