@@ -29,10 +29,6 @@ type IPRateLimiter struct {
 
 //userLimit is the per-IP limiter.
 type userLimit struct {
-	//TODO:  consider using redis instead of in-memory state
-	// https://storjlabs.atlassian.net/browse/SM-749
-	//TODO:  consider using a single timer and fixed sized channels instead
-	// https://storjlabs.atlassian.net/browse/SM-750
 	limiter  *rate.Limiter
 	lastSeen time.Time
 }
@@ -94,7 +90,7 @@ func (rl *IPRateLimiter) getUserLimit(ip string) *rate.Limiter {
 
 	v, exists := rl.ipLimits[ip]
 	if !exists {
-		if len(rl.ipLimits) == rl.config.NumLimits {
+		if len(rl.ipLimits) >= rl.config.NumLimits {
 			// Tracking only N limits prevents an out-of-memory DOS attack
 			// Returning StatusTooManyRequests would be just as bad
 			// The least-bad option may be to remove the oldest key
@@ -112,7 +108,7 @@ func (rl *IPRateLimiter) getUserLimit(ip string) *rate.Limiter {
 				}
 			}
 			//only delete the oldest non-expired if there's still an issue
-			if oldestKey != "" && len(rl.ipLimits) == rl.config.NumLimits {
+			if oldestKey != "" && len(rl.ipLimits) >= rl.config.NumLimits {
 				delete(rl.ipLimits, oldestKey)
 			}
 		}
