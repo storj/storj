@@ -122,9 +122,7 @@ type Dashboard struct {
 	DiskSpace DiskSpaceInfo `json:"diskSpace"`
 	Bandwidth BandwidthInfo `json:"bandwidth"`
 
-	LastPinged          time.Time    `json:"lastPinged"`
-	LastPingFromID      storj.NodeID `json:"lastPingFromID"`
-	LastPingFromAddress string       `json:"lastPingFromAddress"`
+	LastPinged time.Time `json:"lastPinged"`
 
 	Version        version.SemVer `json:"version"`
 	AllowedVersion version.SemVer `json:"allowedVersion"`
