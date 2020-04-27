@@ -17,13 +17,13 @@ var errorBitmaskInvalidIdx = errs.Class("invalid index")
 type bitmask uint64
 
 // Set tracks index in mask. It returns an error if index is negative or it's
-// greater than 63.
+// greater than or equal to 15625000.
 func (mask *bitmask) Set(index int) error {
 	switch {
 	case index < 0:
 		return errorBitmaskInvalidIdx.New("negative value (%d)", index)
-	case index > 63:
-		return errorBitmaskInvalidIdx.New("index is greater than 63 (%d)", index)
+	case index >= 15625000:
+		return errorBitmaskInvalidIdx.New("index is greater than or equal to 15625000 (%d)", index)
 	}
 
 	bit := uint64(1) << index
@@ -32,13 +32,13 @@ func (mask *bitmask) Set(index int) error {
 }
 
 // Unset removes bit from index in mask. It returns an error if index is negative or it's
-// greater than 63.
+// greater than or equal to 15625000.
 func (mask *bitmask) Unset(index int) error {
 	switch {
 	case index < 0:
 		return errorBitmaskInvalidIdx.New("negative value (%d)", index)
-	case index > 63:
-		return errorBitmaskInvalidIdx.New("index is greater than 63 (%d)", index)
+	case index >= 15625000:
+		return errorBitmaskInvalidIdx.New("index is greater than or equal to 15625000 (%d)", index)
 	}
 
 	bit := uint64(1) << index
@@ -47,13 +47,13 @@ func (mask *bitmask) Unset(index int) error {
 }
 
 // Has returns true if the index is tracked in mask otherwise false.
-// It returns an error if index is negative or it's greater than 63.
+// It returns an error if index is negative or it's greater than or equal to 15625000.
 func (mask *bitmask) Has(index int) (bool, error) {
 	switch {
 	case index < 0:
 		return false, errorBitmaskInvalidIdx.New("negative value (%d)", index)
-	case index > 63:
-		return false, errorBitmaskInvalidIdx.New("index is greater than 63 (%d)", index)
+	case index >= 15625000:
+		return false, errorBitmaskInvalidIdx.New("index is greater than or equal to 15625000 (%d)", index)
 	}
 
 	bit := uint64(1) << index

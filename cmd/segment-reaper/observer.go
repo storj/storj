@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	maxNumOfSegments = 64
+	maxNumOfSegments = 15625000 // max 1 PB files
 	lastSegment      = int(-1)
 	rateLimit        = 0
 )
