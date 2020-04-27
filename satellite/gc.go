@@ -119,7 +119,6 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup listener and server
-		log.Debug("Starting listener and server for GC")
 		sc := config.Server
 
 		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
