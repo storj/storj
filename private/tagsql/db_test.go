@@ -12,8 +12,8 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/cockroachutil"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/tagsql"
 )
 
@@ -34,14 +34,12 @@ func run(t *testing.T, fn func(*testcontext.Context, *testing.T, tagsql.DB, tags
 	})
 
 	t.Run("lib-pq-postgres", func(t *testing.T) {
+		connstr := pgtest.PickPostgres(t)
+
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		if *pgtest.ConnStr == "" {
-			t.Skipf("postgresql flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
-		}
-
-		db, err := pgutil.OpenUnique(ctx, *pgtest.ConnStr, "detect")
+		db, err := pgutil.OpenUnique(ctx, connstr, "detect")
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 
@@ -49,14 +47,12 @@ func run(t *testing.T, fn func(*testcontext.Context, *testing.T, tagsql.DB, tags
 	})
 
 	t.Run("lib-pq-cockroach", func(t *testing.T) {
+		connstr := pgtest.PickCockroach(t)
+
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		if *pgtest.CrdbConnStr == "" {
-			t.Skipf("postgresql flag missing, example:\n-cockroach-test-db=%s", pgtest.DefaultCrdbConnStr)
-		}
-
-		db, err := cockroachutil.OpenUnique(ctx, *pgtest.CrdbConnStr, "detect")
+		db, err := cockroachutil.OpenUnique(ctx, connstr, "detect")
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 

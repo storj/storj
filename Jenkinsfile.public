@@ -30,10 +30,12 @@ pipeline {
                 sh 'make -j4 build-packages'
                 sh 'make install-sim'
 
-                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8080 --cache 512MiB --max-sql-memory 512MiB --background'
+                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
+                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 512MiB --max-sql-memory 512MiB --background'
+                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
+                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
             }
         }
-
 
         stage('Verification') {
             parallel {
@@ -55,12 +57,19 @@ pipeline {
 
                 stage('Tests') {
                     environment {
-                        STORJ_COCKROACH_TEST = 'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
+                        STORJ_COCKROACH_TEST = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
+                            'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
+                            'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
+                            'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
                         STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                         COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/lib/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...'}"
                     }
                     steps {
+                        sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
+                        sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
+                        sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
+
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'use-ports -from 1024 -to 10000 &'
                         sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
@@ -112,6 +121,7 @@ pipeline {
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
                         sh 'make test-sim'
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
                     }
                 }
 
@@ -141,6 +151,7 @@ pipeline {
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
                         sh 'make test-sim-backwards-compatible'
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
                     }
                 }
 

@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
@@ -21,11 +21,9 @@ import (
 )
 
 func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
-	if *pgtest.ConnStr == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
-	}
+	connstr := pgtest.PickPostgres(t)
 
-	pgdb, err := New(*pgtest.ConnStr)
+	pgdb, err := New(connstr)
 	if err != nil {
 		t.Fatalf("init: %v", err)
 	}

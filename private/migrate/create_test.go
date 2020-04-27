@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
@@ -46,48 +46,30 @@ func TestCreate_Sqlite(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestCreate_Postgres(t *testing.T) {
-	if *pgtest.ConnStr == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
-	}
+func TestCreate(t *testing.T) {
+	pgtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
+		db, err := tempdb.OpenUnique(ctx, connstr, "create-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { assert.NoError(t, db.Close()) }()
 
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-	testCreateGeneric(ctx, t, *pgtest.ConnStr)
-}
+		// should create table
+		err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
+		require.NoError(t, err)
 
-func TestCreate_Cockroach(t *testing.T) {
-	if *pgtest.CrdbConnStr == "" {
-		t.Skip("Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr)
-	}
+		// shouldn't create a new table
+		err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
+		require.NoError(t, err)
 
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-	testCreateGeneric(ctx, t, *pgtest.CrdbConnStr)
-}
+		// should fail, because schema changed
+		err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
+		require.Error(t, err)
 
-func testCreateGeneric(ctx *testcontext.Context, t *testing.T, connStr string) {
-	db, err := tempdb.OpenUnique(ctx, connStr, "create-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	// should create table
-	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
-	require.NoError(t, err)
-
-	// shouldn't create a new table
-	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text)"})
-	require.NoError(t, err)
-
-	// should fail, because schema changed
-	err = migrate.Create(ctx, "example", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
-	require.Error(t, err)
-
-	// should fail, because of trying to CREATE TABLE with same name
-	err = migrate.Create(ctx, "conflict", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
-	require.Error(t, err)
+		// should fail, because of trying to CREATE TABLE with same name
+		err = migrate.Create(ctx, "conflict", &postgresDB{db.DB, "CREATE TABLE example_table (id text, version integer)"})
+		require.Error(t, err)
+	})
 }
 
 type sqliteDB struct {

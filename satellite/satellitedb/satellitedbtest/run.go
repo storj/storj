@@ -18,8 +18,8 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
@@ -41,18 +41,24 @@ type Database struct {
 	Message string
 }
 
+type ignoreSkip struct{}
+
+func (ignoreSkip) Skip(...interface{}) {}
+
 // Databases returns default databases.
 func Databases() []SatelliteDatabases {
+	cockroachConnStr := pgtest.PickCockroach(ignoreSkip{})
+	postgresConnStr := pgtest.PickPostgres(ignoreSkip{})
 	return []SatelliteDatabases{
 		{
 			Name:      "Postgres",
-			MasterDB:  Database{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr + " or use STORJ_POSTGRES_TEST environment variable."},
-			PointerDB: Database{"Postgres", *pgtest.ConnStr, ""},
+			MasterDB:  Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_POSTGRES_TEST environment variable."},
+			PointerDB: Database{"Postgres", postgresConnStr, ""},
 		},
 		{
 			Name:      "Cockroach",
-			MasterDB:  Database{"Cockroach", *pgtest.CrdbConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr + " or use STORJ_COCKROACH_TEST environment variable."},
-			PointerDB: Database{"Cockroach", *pgtest.CrdbConnStr, ""},
+			MasterDB:  Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_COCKROACH_TEST environment variable."},
+			PointerDB: Database{"Cockroach", cockroachConnStr, ""},
 		},
 	}
 }

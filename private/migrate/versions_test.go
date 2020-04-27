@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
@@ -46,38 +46,20 @@ func TestBasicMigrationSqlite(t *testing.T) {
 	basicMigration(ctx, t, db, &sqliteDB{DB: db})
 }
 
-func TestBasicMigrationPostgres(t *testing.T) {
-	if *pgtest.ConnStr == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
-	}
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+func TestBasicMigration(t *testing.T) {
+	pgtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
+		db, err := tempdb.OpenUnique(ctx, connstr, "create-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { assert.NoError(t, db.Close()) }()
 
-	testBasicMigrationGeneric(ctx, t, *pgtest.ConnStr)
-}
-
-func TestBasicMigrationCockroach(t *testing.T) {
-	if *pgtest.CrdbConnStr == "" {
-		t.Skipf("cockroach flag missing, example:\n-cockroach-test-db=%s", pgtest.DefaultCrdbConnStr)
-	}
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	testBasicMigrationGeneric(ctx, t, *pgtest.CrdbConnStr)
-}
-
-func testBasicMigrationGeneric(ctx *testcontext.Context, t *testing.T, connStr string) {
-	db, err := tempdb.OpenUnique(ctx, connStr, "create-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	basicMigration(ctx, t, db.DB, &postgresDB{DB: db.DB})
+		basicMigration(ctx, t, db.DB, &postgresDB{DB: db.DB})
+	})
 }
 
 func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB tagsql.DB) {
-	dbName := strings.ToLower(`versions_` + t.Name())
+	dbName := strings.ToLower(`versions_` + strings.Replace(t.Name(), "/", "_", -1))
 	defer func() { assert.NoError(t, dropTables(ctx, db, dbName, "users")) }()
 
 	err := ioutil.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0644)
@@ -160,11 +142,9 @@ func TestMultipleMigrationSqlite(t *testing.T) {
 }
 
 func TestMultipleMigrationPostgres(t *testing.T) {
-	if *pgtest.ConnStr == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
-	}
+	connstr := pgtest.PickPostgres(t)
 
-	db, err := tagsql.Open("postgres", *pgtest.ConnStr)
+	db, err := tagsql.Open("postgres", connstr)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -236,11 +216,9 @@ func TestFailedMigrationSqlite(t *testing.T) {
 }
 
 func TestFailedMigrationPostgres(t *testing.T) {
-	if *pgtest.ConnStr == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
-	}
+	connstr := pgtest.PickPostgres(t)
 
-	db, err := tagsql.Open("postgres", *pgtest.ConnStr)
+	db, err := tagsql.Open("postgres", connstr)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 

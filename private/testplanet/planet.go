@@ -121,11 +121,6 @@ func (peer *closablePeer) Close() error {
 
 // NewCustom creates a new full system with the specified configuration.
 func NewCustom(log *zap.Logger, config Config, satelliteDatabases satellitedbtest.SatelliteDatabases) (*Planet, error) {
-	// Clear error in the beginning to avoid issues down the line.
-	if err := satellitedbtest.PostgresDefined(); err != nil {
-		return nil, err
-	}
-
 	if config.IdentityVersion == nil {
 		version := storj.LatestIDVersion()
 		config.IdentityVersion = &version
