@@ -16,7 +16,7 @@ import (
 func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.Context, planet *Planet)) {
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
-		t.Run(satelliteDB.MasterDB.Name, func(t *testing.T) {
+		t.Run(satelliteDB.Name, func(t *testing.T) {
 			parallel := !config.NonParallel
 			if parallel {
 				t.Parallel()
