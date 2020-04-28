@@ -239,6 +239,67 @@ func (service *Service) AllPayStubsPeriodCached(ctx context.Context, periodStart
 	return payStubs, nil
 }
 
+// HeldbackPeriod amount of held for specific percent rate period.
+type HeldbackPeriod struct {
+	PercentageRate int
+	Held           int64
+}
+
+// AllHeldbackHistory retrieves heldback history for all specific satellite from storagenode database.
+func (service *Service) AllHeldbackHistory(ctx context.Context, id storj.NodeID) (result []HeldbackPeriod, err error) {
+	defer mon.Task()(&ctx, &id)(&err)
+
+	heldback, err := service.db.SatellitesHeldbackHistory(ctx, id)
+	if err != nil {
+		return nil, ErrHeldAmountService.Wrap(err)
+	}
+
+	var total75, total50, total25, total0 int64
+
+	for i, t := range heldback {
+		switch i {
+		case 0, 1, 2:
+			total75 += t.Held
+		case 3, 4, 5:
+			total50 += t.Held
+		case 6, 7, 8:
+			total25 += t.Held
+		default:
+			total0 += t.Held
+		}
+	}
+
+	period75percent := HeldbackPeriod{
+		PercentageRate: 75,
+		Held:           total75,
+	}
+	period50percent := HeldbackPeriod{
+		PercentageRate: 50,
+		Held:           total50,
+	}
+	period25percent := HeldbackPeriod{
+		PercentageRate: 25,
+		Held:           total25,
+	}
+	period0percent := HeldbackPeriod{
+		PercentageRate: 0,
+		Held:           total0,
+	}
+
+	result = append(result, period75percent)
+
+	switch {
+	case len(heldback) > 3:
+		result = append(result, period50percent)
+	case len(heldback) > 6:
+		result = append(result, period25percent)
+	case len(heldback) > 9:
+		result = append(result, period0percent)
+	}
+
+	return result, nil
+}
+
 // dial dials the HeldAmount client for the satellite by id
 func (service *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)

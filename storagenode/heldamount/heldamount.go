@@ -22,6 +22,8 @@ type DB interface {
 	GetPayStub(ctx context.Context, satelliteID storj.NodeID, period string) (*PayStub, error)
 	// AllPayStubs retrieves paystub data from all satellites in specific period from DB.
 	AllPayStubs(ctx context.Context, period string) ([]PayStub, error)
+	// SatellitesHeldbackHistory retrieves heldback history for specific satellite from DB.
+	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]Heldback, error)
 }
 
 // ErrNoPayStubForPeriod represents errors from the heldamount database.
@@ -50,4 +52,10 @@ type PayStub struct {
 	Owed           int64        `json:"owed"`
 	Disposed       int64        `json:"disposed"`
 	Paid           int64        `json:"paid"`
+}
+
+// Heldback is node's heldback amount for period.
+type Heldback struct {
+	Period string `json:"period"`
+	Held   int64  `json:"held"`
 }

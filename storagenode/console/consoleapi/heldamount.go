@@ -152,6 +152,39 @@ func (heldAmount *HeldAmount) PayStubPeriod(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// HeldbackHistory returns heldback for each % period for specific satellite.
+func (heldAmount *HeldAmount) HeldbackHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set(contentType, applicationJSON)
+
+	segmentParams := mux.Vars(r)
+	id, ok := segmentParams["id"]
+	if !ok {
+		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
+		return
+	}
+
+	satelliteID, err := storj.NodeIDFromString(id)
+	if err != nil {
+		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))
+		return
+	}
+
+	heldbackHistory, err := heldAmount.service.AllHeldbackHistory(ctx, satelliteID)
+	if err != nil {
+		heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(heldbackHistory); err != nil {
+		heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+		return
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (heldAmount *HeldAmount) serveJSONError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)

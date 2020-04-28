@@ -218,3 +218,37 @@ func (db *heldamountDB) AllPayStubs(ctx context.Context, period string) (_ []hel
 
 	return paystubList, nil
 }
+
+// SatellitesHeldbackHistory retrieves heldback history for specific satellite.
+func (db *heldamountDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []heldamount.Heldback, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT 
+				period,
+				held
+			  FROM paystubs WHERE satellite_id = ? ORDER BY period ASC`
+
+	rows, err := db.QueryContext(ctx, query, id)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var heldback []heldamount.Heldback
+	for rows.Next() {
+		var held heldamount.Heldback
+
+		err := rows.Scan(&held.Period, &held.Held)
+		if err != nil {
+			return nil, ErrHeldAmount.Wrap(err)
+		}
+
+		heldback = append(heldback, held)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, ErrHeldAmount.Wrap(err)
+	}
+
+	return heldback, nil
+}
