@@ -59,10 +59,6 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 						percentExp = 0.75
 					)
 
-					for _, sn := range planet.StorageNodes {
-						sn.Peer.Storage2.PieceDeleter.SetupTest()
-					}
-
 					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
 						Client: testplanet.ClientConfig{
 							SegmentSize: 10 * memory.KiB,
@@ -143,10 +139,6 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 						uplnk        = planet.Uplinks[0]
 						satelliteSys = planet.Satellites[0]
 					)
-
-					for _, sn := range planet.StorageNodes {
-						sn.Peer.Storage2.PieceDeleter.SetupTest()
-					}
 
 					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
 						Client: testplanet.ClientConfig{

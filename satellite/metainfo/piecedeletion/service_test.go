@@ -89,10 +89,6 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 
 		percentExp := 0.75
 
-		for _, sn := range planet.StorageNodes {
-			sn.Peer.Storage2.PieceDeleter.SetupTest()
-		}
-
 		{
 			data := testrand.Bytes(10 * memory.KiB)
 			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
@@ -172,10 +168,6 @@ func TestService_DeletePieces_SomeNodesDown(t *testing.T) {
 		satelliteSys := planet.Satellites[0]
 		numToShutdown := 2
 
-		for _, sn := range planet.StorageNodes {
-			sn.Peer.Storage2.PieceDeleter.SetupTest()
-		}
-
 		{
 			data := testrand.Bytes(10 * memory.KiB)
 			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
@@ -246,10 +238,6 @@ func TestService_DeletePieces_AllNodesDown(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplnk := planet.Uplinks[0]
 		satelliteSys := planet.Satellites[0]
-
-		for _, sn := range planet.StorageNodes {
-			sn.Peer.Storage2.PieceDeleter.SetupTest()
-		}
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)

@@ -215,6 +215,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			return xs, err
 		}
 
+		// Mark the peer's PieceDeleter as in testing mode, so it is easy to wait on the deleter
+		peer.Storage2.PieceDeleter.SetupTest()
+
 		err = db.CreateTables(context.TODO())
 		if err != nil {
 			return nil, err
