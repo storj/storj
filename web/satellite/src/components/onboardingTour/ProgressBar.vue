@@ -4,7 +4,7 @@
 <template>
     <div class="progress-bar-container">
         <div class="progress-bar-container__progress-area">
-            <div class="progress-bar-container__progress-area__circle">
+            <div class="progress-bar-container__progress-area__circle" :class="{ 'completed-step': isCreateProjectStep }">
                 <CheckedImage/>
             </div>
             <div class="progress-bar-container__progress-area__bar"/>
@@ -17,7 +17,9 @@
             </div>
         </div>
         <div class="progress-bar-container__titles-area">
-            <span class="progress-bar-container__titles-area__title">Name Your Project</span>
+            <span class="progress-bar-container__titles-area__title" :class="{ 'completed-font-color': isCreateProjectStep }">
+                Name Your Project
+            </span>
             <span class="progress-bar-container__titles-area__title api-key-title">Create an API Key</span>
             <span class="progress-bar-container__titles-area__title">Upload Data</span>
         </div>
@@ -25,7 +27,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import CheckedImage from '@/../static/images/common/checked.svg';
 
@@ -35,7 +37,10 @@ import CheckedImage from '@/../static/images/common/checked.svg';
     },
 })
 
-export default class ProgressBar extends Vue {}
+export default class ProgressBar extends Vue {
+    @Prop({ default: false })
+    public readonly isCreateProjectStep: boolean;
+}
 </script>
 
 <style scoped lang="scss">
@@ -77,12 +82,21 @@ export default class ProgressBar extends Vue {}
                 font-size: 10px;
                 line-height: 15px;
                 color: rgba(0, 0, 0, 0.4);
+                text-align: center;
             }
         }
     }
 
     .api-key-title {
         padding: 0 15px 0 0;
+    }
+
+    .completed-step {
+        background-color: #2683ff;
+    }
+
+    .completed-font-color {
+        color: #2683ff;
     }
 
     @media screen and (max-width: 800px) {

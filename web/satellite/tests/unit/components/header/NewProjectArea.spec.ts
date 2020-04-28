@@ -5,6 +5,7 @@ import Vuex from 'vuex';
 
 import NewProjectArea from '@/components/header/NewProjectArea.vue';
 
+import { router } from '@/router';
 import { appStateModule } from '@/store/modules/appState';
 import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
@@ -36,6 +37,7 @@ describe('NewProjectArea', () => {
         const wrapper = mount(NewProjectArea, {
             store,
             localVue,
+            router,
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -50,6 +52,7 @@ describe('NewProjectArea', () => {
         const wrapper = mount(NewProjectArea, {
             store,
             localVue,
+            router,
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -70,6 +73,7 @@ describe('NewProjectArea', () => {
         const wrapper = mount(NewProjectArea, {
             store,
             localVue,
+            router,
         });
 
         expect(wrapper.findAll('.new-project-button-container').length).toBe(1);
@@ -85,6 +89,7 @@ describe('NewProjectArea', () => {
         const wrapper = mount(NewProjectArea, {
             store,
             localVue,
+            router,
         });
 
         expect(wrapper.findAll('.new-project-button-container').length).toBe(0);

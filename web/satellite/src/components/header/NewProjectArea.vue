@@ -21,6 +21,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import VInfo from '@/components/common/VInfo.vue';
 import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
 
+import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { ProjectOwning } from '@/utils/projectOwning';
 
@@ -37,7 +38,7 @@ export default class NewProjectArea extends Vue {
      * Toggles new project button visibility depending on user having his own project or payment method.
      */
     public beforeMount(): void {
-        if (this.userHasOwnProject || !this.$store.getters.canUserCreateFirstProject) {
+        if (this.userHasOwnProject || !this.$store.getters.canUserCreateFirstProject || this.isOnboardingTour) {
             this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
 
             return;
@@ -65,6 +66,13 @@ export default class NewProjectArea extends Vue {
      */
     public get isButtonShown(): boolean {
         return this.$store.state.appStateModule.appState.isCreateProjectButtonShown;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.name === RouteConfig.OnboardingTour.name;
     }
 
     /**

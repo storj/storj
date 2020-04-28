@@ -147,7 +147,7 @@ export default class AddStorjState extends Vue {
      * Starts creating project process.
      */
     public createProject(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+        this.$emit('setProjectState');
     }
 }
 </script>

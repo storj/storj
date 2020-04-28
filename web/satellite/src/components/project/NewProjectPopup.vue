@@ -63,7 +63,6 @@ import VButton from '@/components/common/VButton.vue';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import SuccessIcon from '@/../static/images/project/success.svg';
 
-import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -86,9 +85,10 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 export default class NewProjectPopup extends Vue {
     private projectName: string = '';
     private description: string = '';
-    private nameError: string = '';
     private createdProjectId: string = '';
     private isLoading: boolean = false;
+
+    public nameError: string = '';
 
     /**
      * Indicates if popup is shown.
@@ -175,9 +175,6 @@ export default class NewProjectPopup extends Vue {
         this.checkIfUsersFirstProject();
 
         this.isLoading = false;
-
-        // TODO: remove after adding second step of onboarding tour
-        await this.$router.push(RouteConfig.ProjectDashboard.path);
     }
 
     /**

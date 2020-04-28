@@ -36,7 +36,6 @@ import StripeCardInput from '@/components/account/billing/paymentMethods/StripeC
 import LockImage from '@/../static/images/account/billing/lock.svg';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 const {
@@ -104,8 +103,7 @@ export default class AddCardState extends Vue {
 
         this.setDefaultState();
 
-        // TODO: rework after adding next step
-        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+        this.$emit('setProjectState');
     }
 
     /**

@@ -32,10 +32,12 @@
         <AddCardState
             v-if="isAddCardState"
             @toggleIsLoading="toggleIsLoading"
+            @setProjectState="setProjectState"
         />
         <AddStorjState
             v-if="isAddStorjState"
             @toggleIsLoading="toggleIsLoading"
+            @setProjectState="setProjectState"
         />
     </div>
 </template>
@@ -102,6 +104,13 @@ export default class AddPaymentStep extends Vue {
      */
     public toggleIsLoading(): void {
         this.isLoading = !this.isLoading;
+    }
+
+    /**
+     * Sets tour area to creating project state.
+     */
+    public setProjectState(): void {
+        this.$emit('setProjectState');
     }
 }
 </script>
