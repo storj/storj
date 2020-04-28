@@ -327,6 +327,7 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
 					for _, sn := range planet.StorageNodes {
+						sn.Peer.Storage2.PieceDeleter.Wait(ctx)
 						usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpaceAfterDelete += usedSpace
@@ -440,6 +441,7 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
 					for _, sn := range planet.StorageNodes {
+						sn.Peer.Storage2.PieceDeleter.Wait(ctx)
 						usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpaceAfterDelete += usedSpace
