@@ -68,7 +68,7 @@ func TestDeleter(t *testing.T) {
 	require.Equal(t, 0, unhandled)
 
 	// wait for test hook to fire twice
-	deleter.Wait()
+	deleter.Wait(ctx)
 
 	_, err = store.Reader(ctx, satelliteID, pieceID)
 	require.Condition(t, func() bool {

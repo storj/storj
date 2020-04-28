@@ -144,7 +144,7 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 		// calculate the SNs used space after delete the pieces
 		var totalUsedSpaceAfterDelete int64
 		for _, sn := range planet.StorageNodes {
-			sn.Peer.Storage2.PieceDeleter.Wait()
+			sn.Peer.Storage2.PieceDeleter.Wait(ctx)
 			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)
 			totalUsedSpaceAfterDelete += piecesTotal
@@ -219,7 +219,7 @@ func TestService_DeletePieces_SomeNodesDown(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, sn := range planet.StorageNodes {
-			sn.Peer.Storage2.PieceDeleter.Wait()
+			sn.Peer.Storage2.PieceDeleter.Wait(ctx)
 		}
 
 		// Check that storage nodes which are online when deleting pieces don't
@@ -298,7 +298,7 @@ func TestService_DeletePieces_AllNodesDown(t *testing.T) {
 
 		var totalUsedSpace int64
 		for _, sn := range planet.StorageNodes {
-			sn.Peer.Storage2.PieceDeleter.Wait()
+			sn.Peer.Storage2.PieceDeleter.Wait(ctx)
 			// calculate the SNs total used space after data upload
 			piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 			require.NoError(t, err)
