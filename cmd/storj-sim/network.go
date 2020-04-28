@@ -578,6 +578,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(storagenodePeer, i, debugHTTP)),
+
+				"--tracing.app", fmt.Sprintf("storagenode/%d", i),
 			},
 			"run": {},
 		})
