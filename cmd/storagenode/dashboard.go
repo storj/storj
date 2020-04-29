@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -100,8 +99,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 		fmt.Fprintf(w, "Last Contact\t%s\n", color.GreenString("ONLINE"))
 	}
 
-	// TODO: use stdtime in protobuf
-	uptime, err := ptypes.Duration(data.GetUptime())
+	uptime, err := time.ParseDuration(data.GetUptime())
 	if err == nil {
 		fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.Truncate(time.Second).String()))
 	}

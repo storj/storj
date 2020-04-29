@@ -11,7 +11,6 @@ require (
 	github.com/fatih/color v1.7.0
 	github.com/go-redis/redis v6.14.1+incompatible
 	github.com/golang-migrate/migrate/v4 v4.7.0
-	github.com/golang/protobuf v1.3.3
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/gorilla/mux v1.7.1
@@ -41,7 +40,7 @@ require (
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.28.0
-	storj.io/common v0.0.0-20200424175742-65ac59022f4f
+	storj.io/common v0.0.0-20200429074521-4ba140e4b747
 	storj.io/drpc v0.0.12-0.20200413163255-debb458a7474
 	storj.io/monkit-jaeger v0.0.0-20200424180155-d5f5530ea079
 	storj.io/private v0.0.0-20200427160924-e00b0e612cfb

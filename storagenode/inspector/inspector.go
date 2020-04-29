@@ -8,7 +8,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -122,7 +121,7 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 		ExternalAddress:  inspector.contact.Local().Address.Address,
 		LastPinged:       lastPingedAt,
 		DashboardAddress: inspector.dashboardAddress.String(),
-		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
+		Uptime:           time.Since(inspector.startTime).String(),
 		Stats:            statsSummary,
 	}, nil
 }

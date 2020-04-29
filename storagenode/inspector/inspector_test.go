@@ -97,7 +97,9 @@ func TestInspectorDashboard(t *testing.T) {
 			response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})
 			require.NoError(t, err)
 
-			assert.True(t, response.Uptime.Nanos > 0)
+			uptime, err := time.ParseDuration(response.Uptime)
+			require.NoError(t, err)
+			assert.True(t, uptime.Nanoseconds() > 0)
 			assert.Equal(t, storageNode.ID(), response.NodeId)
 			assert.Equal(t, storageNode.Addr(), response.ExternalAddress)
 			assert.NotNil(t, response.Stats)
@@ -114,7 +116,9 @@ func TestInspectorDashboard(t *testing.T) {
 
 			assert.True(t, response.LastPinged.After(testStartedTime))
 
-			assert.True(t, response.Uptime.Nanos > 0)
+			uptime, err := time.ParseDuration(response.Uptime)
+			require.NoError(t, err)
+			assert.True(t, uptime.Nanoseconds() > 0)
 			assert.Equal(t, storageNode.ID(), response.NodeId)
 			assert.Equal(t, storageNode.Addr(), response.ExternalAddress)
 			assert.NotNil(t, response.Stats)
