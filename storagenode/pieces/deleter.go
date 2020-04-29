@@ -36,8 +36,8 @@ type Deleter struct {
 	closed     bool
 
 	// The test variables are only used when testing.
+	testMode     bool
 	testToDelete int
-	testOnce     sync.Once
 	testDone     chan struct{}
 }
 
@@ -94,7 +94,7 @@ func (d *Deleter) Enqueue(ctx context.Context, satelliteID storj.NodeID, pieceID
 	}
 
 	// If we are in testMode add the number of pieceIDs waiting to be processed.
-	if d.testDone != nil {
+	if d.testMode {
 		d.checkDone(len(pieceIDs))
 	}
 
@@ -104,7 +104,7 @@ func (d *Deleter) Enqueue(ctx context.Context, satelliteID storj.NodeID, pieceID
 		default:
 			unhandled := len(pieceIDs) - i
 			mon.Counter("piecedeleter-queue-full").Inc(1)
-			if d.testDone != nil {
+			if d.testMode {
 				d.checkDone(-unhandled)
 			}
 			return unhandled
@@ -119,9 +119,15 @@ func (d *Deleter) checkDone(delta int) {
 	d.testToDelete += delta
 	if d.testToDelete < 0 {
 		d.testToDelete = 0
-	}
-	if d.testToDelete == 0 {
-		d.testOnce.Do(func() { close(d.testDone) })
+	} else if d.testToDelete == 0 {
+		if d.testDone != nil {
+			close(d.testDone)
+			d.testDone = nil
+		}
+	} else if d.testToDelete > 0 {
+		if d.testDone == nil {
+			d.testDone = make(chan struct{})
+		}
 	}
 	d.mu.Unlock()
 }
@@ -150,7 +156,7 @@ func (d *Deleter) work(ctx context.Context) error {
 			}
 
 			// If we are in test mode, check if we are done processing deletes
-			if d.testDone != nil {
+			if d.testMode {
 				d.checkDone(-1)
 			}
 		}
@@ -178,17 +184,17 @@ func (d *Deleter) Close() error {
 // successfully processed.
 func (d *Deleter) Wait(ctx context.Context) {
 	d.mu.Lock()
-	toDelete := d.testToDelete
+	testDone := d.testDone
 	d.mu.Unlock()
-	if toDelete > 0 {
+	if testDone != nil {
 		select {
 		case <-ctx.Done():
-		case <-d.testDone:
+		case <-testDone:
 		}
 	}
 }
 
 // SetupTest puts the deleter in test mode. This should only be called in tests.
 func (d *Deleter) SetupTest() {
-	d.testDone = make(chan struct{})
+	d.testMode = true
 }

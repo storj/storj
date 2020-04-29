@@ -82,10 +82,11 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					)
 					require.NoError(t, err)
 
+					planet.WaitForStorageNodeDeleters(ctx)
+
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
 					for _, sn := range planet.StorageNodes {
-						sn.Peer.Storage2.PieceDeleter.Wait(ctx)
 						piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpaceAfterDelete += piecesTotal
@@ -157,9 +158,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					)
 					require.NoError(t, err)
 
-					for _, sn := range planet.StorageNodes {
-						sn.Peer.Storage2.PieceDeleter.Wait(ctx)
-					}
+					planet.WaitForStorageNodeDeleters(ctx)
 
 					// Check that storage nodes that were offline when deleting the pieces
 					// they are still holding data
@@ -324,10 +323,11 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					require.Error(t, err)
 					require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
 
+					planet.WaitForStorageNodeDeleters(ctx)
+
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
 					for _, sn := range planet.StorageNodes {
-						sn.Peer.Storage2.PieceDeleter.Wait(ctx)
 						usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpaceAfterDelete += usedSpace
@@ -438,10 +438,11 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					require.Error(t, err)
 					require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
 
+					planet.WaitForStorageNodeDeleters(ctx)
+
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
 					for _, sn := range planet.StorageNodes {
-						sn.Peer.Storage2.PieceDeleter.Wait(ctx)
 						usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpaceAfterDelete += usedSpace
