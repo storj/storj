@@ -103,12 +103,6 @@ func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var xfor string
-	if xfor = r.Header.Get("X-Forwarded-For"); xfor == "" {
-		xfor = r.RemoteAddr
-	}
-	peer.Log.Debug("Request received.", zap.String("From", r.RemoteAddr), zap.String("For", xfor))
-
 	w.Header().Set("Content-Type", "application/json")
 	_, err := w.Write(peer.response)
 	if err != nil {
