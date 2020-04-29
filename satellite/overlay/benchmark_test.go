@@ -41,10 +41,18 @@ func BenchmarkOverlay(b *testing.B) {
 			}
 		}
 
-		for _, id := range all {
-			n := pb.Node{Id: id}
-			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
-			err := overlaydb.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
+		for i, id := range all {
+			addr := fmt.Sprintf("127.0.%d.0:8080", i)
+			lastNet := fmt.Sprintf("127.0.%d", i)
+			d := overlay.NodeCheckInInfo{
+				NodeID:     id,
+				Address:    &pb.NodeAddress{Address: addr},
+				LastIPPort: addr,
+				LastNet:    lastNet,
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+				IsUp:       true,
+			}
+			err := overlaydb.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 			require.NoError(b, err)
 		}
 
@@ -66,12 +74,19 @@ func BenchmarkOverlay(b *testing.B) {
 			}
 		})
 
-		b.Run("UpdateAddress", func(b *testing.B) {
+		b.Run("UpdateCheckIn", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				n := pb.Node{Id: id}
-				d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
-				err := overlaydb.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
+				addr := fmt.Sprintf("127.0.%d.0:8080", i)
+				lastNet := fmt.Sprintf("127.0.%d", i)
+				d := overlay.NodeCheckInInfo{
+					NodeID:     id,
+					Address:    &pb.NodeAddress{Address: addr},
+					LastIPPort: addr,
+					LastNet:    lastNet,
+					Version:    &pb.NodeVersion{Version: "v1.0.0"},
+				}
+				err := overlaydb.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 				require.NoError(b, err)
 			}
 		})
@@ -220,15 +235,18 @@ func BenchmarkNodeSelection(b *testing.B) {
 					excludedNets = append(excludedNets, lastNet)
 				}
 
-				dossier := &overlay.NodeDossier{
-					Node:       pb.Node{Id: nodeID},
-					LastIPPort: address + ":12121",
+				addr := address + ":12121"
+				d := overlay.NodeCheckInInfo{
+					NodeID:     nodeID,
+					Address:    &pb.NodeAddress{Address: addr},
+					LastIPPort: addr,
 					LastNet:    lastNet,
-					Capacity: pb.NodeCapacity{
+					Version:    &pb.NodeVersion{Version: "v1.0.0"},
+					Capacity: &pb.NodeCapacity{
 						FreeDisk: 1_000_000_000,
 					},
 				}
-				err := overlaydb.UpdateAddress(ctx, dossier, nodeSelectionConfig)
+				err := overlaydb.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 				require.NoError(b, err)
 
 				_, err = overlaydb.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{

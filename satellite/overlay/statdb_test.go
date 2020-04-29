@@ -5,6 +5,7 @@ package overlay_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -30,7 +31,7 @@ func TestStatDB(t *testing.T) {
 
 func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 	{ // TestKnownUnreliableOrOffline
-		for _, tt := range []struct {
+		for i, tt := range []struct {
 			nodeID           storj.NodeID
 			suspended        bool
 			disqualified     bool
@@ -43,11 +44,18 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			{storj.NodeID{4}, false, false, true, false},  // offline
 			{storj.NodeID{5}, false, false, false, true},  // gracefully exited
 		} {
-			startingRep := overlay.NodeSelectionConfig{}
-			n := pb.Node{Id: tt.nodeID}
-			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
-
-			err := cache.UpdateAddress(ctx, &d, startingRep)
+			addr := fmt.Sprintf("127.0.%d.0:8080", i)
+			lastNet := fmt.Sprintf("127.0.%d", i)
+			d := overlay.NodeCheckInInfo{
+				NodeID:     tt.nodeID,
+				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				LastIPPort: addr,
+				LastNet:    lastNet,
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+				Capacity:   &pb.NodeCapacity{},
+				IsUp:       true,
+			}
+			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			if tt.suspended {
@@ -95,10 +103,17 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 	{ // TestUpdateOperator
 		nodeID := storj.NodeID{10}
-		n := pb.Node{Id: nodeID}
-		d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
-
-		err := cache.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
+		addr := "127.0.1.0:8080"
+		lastNet := "127.0.1"
+		d := overlay.NodeCheckInInfo{
+			NodeID:     nodeID,
+			Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+			LastIPPort: addr,
+			LastNet:    lastNet,
+			Version:    &pb.NodeVersion{Version: "v1.0.0"},
+			Capacity:   &pb.NodeCapacity{},
+		}
+		err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		update, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{

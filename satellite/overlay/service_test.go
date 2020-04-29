@@ -5,6 +5,7 @@ package overlay_test
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -55,19 +56,30 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	valid3ID := testrand.NodeID()
 	missingID := testrand.NodeID()
 	address := &pb.NodeAddress{Address: "127.0.0.1:0"}
+	lastNet := "127.0.0"
 
 	nodeSelectionConfig := testNodeSelectionConfig(0, 0, false)
 	serviceConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100}
 	service := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
 
+	d := overlay.NodeCheckInInfo{
+		Address:    address,
+		LastIPPort: address.Address,
+		LastNet:    lastNet,
+		Version:    &pb.NodeVersion{Version: "v1.0.0"},
+		IsUp:       true,
+	}
 	{ // Put
-		err := service.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
+		d.NodeID = valid1ID
+		err := store.UpdateCheckIn(ctx, d, time.Now().UTC(), nodeSelectionConfig)
 		require.NoError(t, err)
 
-		err = service.Put(ctx, valid2ID, pb.Node{Id: valid2ID, Address: address})
+		d.NodeID = valid2ID
+		err = store.UpdateCheckIn(ctx, d, time.Now().UTC(), nodeSelectionConfig)
 		require.NoError(t, err)
 
-		err = service.Put(ctx, valid3ID, pb.Node{Id: valid3ID, Address: address})
+		d.NodeID = valid3ID
+		err = store.UpdateCheckIn(ctx, d, time.Now().UTC(), nodeSelectionConfig)
 		require.NoError(t, err)
 
 		// disqualify one node
@@ -153,14 +165,18 @@ func TestRandomizedSelection(t *testing.T) {
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
 			newID := testrand.NodeID()
-			n := pb.Node{Id: newID}
-			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
-			err := cache.UpdateAddress(ctx, &d, defaults)
-			require.NoError(t, err)
-			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
-				Type:     pb.NodeType_STORAGE,
-				Capacity: &pb.NodeCapacity{},
-			})
+			addr := fmt.Sprintf("127.0.%d.0:8080", i)
+			lastNet := fmt.Sprintf("127.0.%d", i)
+			d := overlay.NodeCheckInInfo{
+				NodeID:     newID,
+				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				LastIPPort: addr,
+				LastNet:    lastNet,
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+				Capacity:   &pb.NodeCapacity{},
+				IsUp:       true,
+			}
+			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), defaults)
 			require.NoError(t, err)
 
 			if i%2 == 0 { // make half of nodes "new" and half "vetted"
@@ -506,14 +522,18 @@ func TestCache_DowntimeTracking(t *testing.T) {
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
 			newID := testrand.NodeID()
-			n := pb.Node{Id: newID}
-			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
-			err := cache.UpdateAddress(ctx, &d, defaults)
-			require.NoError(t, err)
-			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
-				Type:     pb.NodeType_STORAGE,
-				Capacity: &pb.NodeCapacity{},
-			})
+			addr := fmt.Sprintf("127.0.%d.0:8080", 0)
+			lastNet := fmt.Sprintf("127.0.%d", 0)
+			d := overlay.NodeCheckInInfo{
+				NodeID:     newID,
+				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				LastIPPort: addr,
+				LastNet:    lastNet,
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+				Capacity:   &pb.NodeCapacity{},
+				IsUp:       true,
+			}
+			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), defaults)
 			require.NoError(t, err)
 
 			allIDs[i] = newID
@@ -599,14 +619,18 @@ func TestSuspendedSelection(t *testing.T) {
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
 			newID := testrand.NodeID()
-			n := pb.Node{Id: newID}
-			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
-			err := cache.UpdateAddress(ctx, &d, defaults)
-			require.NoError(t, err)
-			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
-				Type:     pb.NodeType_STORAGE,
-				Capacity: &pb.NodeCapacity{},
-			})
+			addr := fmt.Sprintf("127.0.%d.0:8080", i)
+			lastNet := fmt.Sprintf("127.0.%d", i)
+			d := overlay.NodeCheckInInfo{
+				NodeID:     newID,
+				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				LastIPPort: addr,
+				LastNet:    lastNet,
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+				Capacity:   &pb.NodeCapacity{},
+				IsUp:       true,
+			}
+			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), defaults)
 			require.NoError(t, err)
 
 			if i%2 == 0 { // make half of nodes "new" and half "vetted"

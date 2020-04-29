@@ -145,6 +145,10 @@ func TestOffline(t *testing.T) {
 }
 
 func TestEnsureMinimumRequested(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Test does not work with macOS")
+	}
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -305,7 +309,15 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 	satellite := planet.Satellites[0]
 	// ensure all storagenodes are in overlay
 	for _, storageNode := range planet.StorageNodes {
-		err := satellite.Overlay.Service.Put(ctx, storageNode.ID(), storageNode.Local().Node)
+		n := storageNode.Local()
+		d := overlay.NodeCheckInInfo{
+			NodeID:     storageNode.ID(),
+			Address:    n.Address,
+			LastIPPort: storageNode.Addr(),
+			LastNet:    n.LastNet,
+			Version:    &n.Version,
+		}
+		err := satellite.Overlay.DB.UpdateCheckIn(ctx, d, time.Now().UTC(), satellite.Config.Overlay.Node)
 		assert.NoError(t, err)
 	}
 

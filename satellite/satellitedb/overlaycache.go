@@ -322,61 +322,6 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// Update updates node address
-func (cache *overlaycache) UpdateAddress(ctx context.Context, info *overlay.NodeDossier, defaults overlay.NodeSelectionConfig) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if info == nil || info.Id.IsZero() {
-		return overlay.ErrEmptyNode
-	}
-
-	address := info.Address
-	if address == nil {
-		address = &pb.NodeAddress{}
-	}
-	query := `
-			INSERT INTO nodes
-			(
-				id, address, last_net, protocol, type,
-				email, wallet, free_disk,
-				uptime_success_count, total_uptime_count,
-				last_contact_success,
-				last_contact_failure,
-				audit_reputation_alpha, audit_reputation_beta,
-				major, minor, patch, hash, timestamp, release,
-				last_ip_port
-			)
-			VALUES (
-				$1, $2, $3, $4, $5,
-				'', '', -1,
-				0, 0,
-				$8::timestamptz,
-				'0001-01-01 00:00:00+00'::timestamptz,
-				$6, $7,
-				0, 0, 0, '', '0001-01-01 00:00:00+00'::timestamptz, false,
-				$9
-			)
-			ON CONFLICT (id)
-			DO UPDATE
-			SET
-				address=$2,
-				last_net=$3,
-				protocol=$4,
-				last_ip_port=$9
-			`
-	_, err = cache.db.ExecContext(ctx, query,
-		// args $1 - $5
-		info.Id.Bytes(), address.Address, info.LastNet, int(address.Transport), int(pb.NodeType_INVALID),
-		// args $6 - $7
-		1, 0,
-		// args $8
-		time.Now(),
-		// args $9
-		info.LastIPPort,
-	)
-	return Error.Wrap(err)
-}
-
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
 func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)

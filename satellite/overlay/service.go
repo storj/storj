@@ -53,8 +53,6 @@ type DB interface {
 	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
-	// Update updates node address
-	UpdateAddress(ctx context.Context, value *NodeDossier, defaults NodeSelectionConfig) error
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
 	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
@@ -384,37 +382,6 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 		OnlineWindow: service.config.Node.OnlineWindow,
 	}
 	return service.db.Reliable(ctx, criteria)
-}
-
-// Put adds a node id and proto definition into the overlay.
-func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// If we get a Node without an ID
-	// we don't want to add to the database
-	if nodeID.IsZero() {
-		return nil
-	}
-	if nodeID != value.Id {
-		return errors.New("invalid request")
-	}
-	if value.Address == nil {
-		return errors.New("node has no address")
-	}
-
-	// Resolve the IP and the subnet from the address that is sent
-	resolvedIPPort, resolvedNetwork, err := ResolveIPAndNetwork(ctx, value.Address.Address)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	n := NodeDossier{
-		Node:       value,
-		LastNet:    resolvedNetwork,
-		LastIPPort: resolvedIPPort,
-	}
-
-	return service.db.UpdateAddress(ctx, &n, service.config.Node)
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
