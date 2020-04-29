@@ -14,12 +14,10 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 import SNOFooter from '@/app/components/SNOFooter.vue';
 import SNOHeader from '@/app/components/SNOHeader.vue';
-
-import { SNO_THEME } from '@/app/types/theme';
 
 const elementsIdsToRemoveOnScroll: string[] = [
     'bandwidth-tooltip',
@@ -49,7 +47,10 @@ const elementsClassesToRemoveOnScroll: string[] = [
     },
 })
 export default class App extends Vue {
-
+    public async beforeCreate(): Promise<void> {
+        // TODO: place key to server config.
+        await this.$telemetry.init('DTEcoJRlUAN2VylCWMiLrqoknW800GNO');
+    }
     public onScroll(): void {
         elementsIdsToRemoveOnScroll.forEach(id => {
             this.removeElementById(id);

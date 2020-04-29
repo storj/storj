@@ -22,6 +22,7 @@
   "devDependencies": {
     "@babel/core": "7.8.4",
     "@babel/plugin-proposal-object-rest-spread": "7.8.3",
+    "@types/segment-analytics": "0.0.32",
     "@vue/cli-plugin-babel": "4.1.1",
     "@vue/cli-plugin-typescript": "4.1.1",
     "@vue/cli-plugin-unit-jest": "4.1.1",

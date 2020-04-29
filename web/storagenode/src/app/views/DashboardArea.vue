@@ -19,6 +19,7 @@ import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import { TelemetryViews } from '@/app/telemetry/telemetry';
 import { NotificationsCursor } from '@/app/types/notifications';
 
 @Component ({
@@ -50,6 +51,9 @@ export default class Dashboard extends Vue {
         } catch (error) {
             console.error(error);
         }
+
+        this.$telemetry.identify(this.$store.state.node.info.id);
+        this.$telemetry.view(TelemetryViews.MainPage);
     }
 }
 </script>
