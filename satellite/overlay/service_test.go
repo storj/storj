@@ -415,7 +415,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		// check-in for that node id, which should add the node
 		// to the nodes tables in the database
 		startOfTest := time.Now()
-		err = db.OverlayCache().UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
+		err = db.OverlayCache().UpdateCheckIn(ctx, info, startOfTest.Add(time.Second), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		// confirm that the node is now in the nodes table with the
@@ -457,7 +457,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		}
 		// confirm that the updated node is in the nodes table with the
 		// correct updated fields set
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, time.Now(), overlay.NodeSelectionConfig{})
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo, startOfUpdateTest.Add(time.Second), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		updatedNode, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -485,7 +485,8 @@ func TestUpdateCheckIn(t *testing.T) {
 				Release:    false,
 			},
 		}
-		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now(), overlay.NodeSelectionConfig{})
+
+		err = db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, startOfUpdateTest2.Add(time.Second), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 		updated2Node, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
