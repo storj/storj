@@ -226,9 +226,8 @@ export default class ProjectMembersArea extends Vue {
     }
 
     .pagination-area {
-        margin-top: 50px;
         margin-left: -25px;
-        padding-bottom: 50px;
+        padding-bottom: 15px;
     }
 
     @media screen and (max-width: 1024px) {
