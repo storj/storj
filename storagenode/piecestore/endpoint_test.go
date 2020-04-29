@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
@@ -366,34 +365,30 @@ func TestDeletePieces(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		var (
-			planetSat = planet.Satellites[0]
-			planetSN  = planet.StorageNodes[0]
-		)
+		satellite := planet.Satellites[0]
+		storagenode := planet.StorageNodes[0]
 
-		var client *piecestore.Client
-		{
-			dossier, err := planetSat.Overlay.DB.Get(ctx.Context, planetSN.ID())
-			require.NoError(t, err)
+		nodeurl := storagenode.NodeURL()
+		conn, err := planet.Satellites[0].Dialer.DialAddressID(ctx, nodeurl.Address, nodeurl.ID)
+		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
 
-			client, err = piecestore.Dial(
-				ctx.Context, planetSat.Dialer, &dossier.Node, zaptest.NewLogger(t), piecestore.Config{},
-			)
-			require.NoError(t, err)
-		}
+		client := pb.NewDRPCPiecestoreClient(conn)
 
-		t.Run("Ok", func(t *testing.T) {
+		t.Run("ok", func(t *testing.T) {
 			pieceIDs := []storj.PieceID{testrand.PieceID(), testrand.PieceID(), testrand.PieceID(), testrand.PieceID()}
 			dataArray := make([][]byte, len(pieceIDs))
 			for i, pieceID := range pieceIDs {
-				dataArray[i], _, _ = uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
+				dataArray[i], _, _ = uploadPiece(t, ctx, pieceID, storagenode, planet.Uplinks[0], satellite)
 			}
 
-			err := client.DeletePieces(ctx.Context, pieceIDs...)
+			_, err := client.DeletePieces(ctx.Context, &pb.DeletePiecesRequest{
+				PieceIds: pieceIDs,
+			})
 			require.NoError(t, err)
 
 			for i, pieceID := range pieceIDs {
-				_, err = downloadPiece(t, ctx, pieceID, int64(len(dataArray[i])), planetSN, planet.Uplinks[0], planetSat)
+				_, err = downloadPiece(t, ctx, pieceID, int64(len(dataArray[i])), storagenode, planet.Uplinks[0], satellite)
 				require.Error(t, err)
 			}
 			require.Condition(t, func() bool {
@@ -402,19 +397,21 @@ func TestDeletePieces(t *testing.T) {
 			}, "unexpected error message")
 		})
 
-		t.Run("Ok: one piece to delete is missing", func(t *testing.T) {
+		t.Run("ok: one piece to delete is missing", func(t *testing.T) {
 			missingPieceID := testrand.PieceID()
 			pieceIDs := []storj.PieceID{testrand.PieceID(), testrand.PieceID(), testrand.PieceID(), testrand.PieceID()}
 			dataArray := make([][]byte, len(pieceIDs))
 			for i, pieceID := range pieceIDs {
-				dataArray[i], _, _ = uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
+				dataArray[i], _, _ = uploadPiece(t, ctx, pieceID, storagenode, planet.Uplinks[0], satellite)
 			}
 
-			err := client.DeletePieces(ctx.Context, append(pieceIDs, missingPieceID)...)
+			_, err := client.DeletePieces(ctx.Context, &pb.DeletePiecesRequest{
+				PieceIds: append(pieceIDs, missingPieceID),
+			})
 			require.NoError(t, err)
 
 			for i, pieceID := range pieceIDs {
-				_, err = downloadPiece(t, ctx, pieceID, int64(len(dataArray[i])), planetSN, planet.Uplinks[0], planetSat)
+				_, err = downloadPiece(t, ctx, pieceID, int64(len(dataArray[i])), storagenode, planet.Uplinks[0], satellite)
 				require.Error(t, err)
 			}
 			require.Condition(t, func() bool {
@@ -423,30 +420,34 @@ func TestDeletePieces(t *testing.T) {
 			}, "unexpected error message")
 		})
 
-		t.Run("Ok: no piece deleted", func(t *testing.T) {
+		t.Run("ok: no piece deleted", func(t *testing.T) {
 			pieceID := testrand.PieceID()
-			data, _, _ := uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
+			data, _, _ := uploadPiece(t, ctx, pieceID, storagenode, planet.Uplinks[0], satellite)
 
-			err := client.DeletePieces(ctx.Context)
+			_, err := client.DeletePieces(ctx.Context, &pb.DeletePiecesRequest{})
 			require.NoError(t, err)
 
-			downloaded, err := downloadPiece(t, ctx, pieceID, int64(len(data)), planetSN, planet.Uplinks[0], planetSat)
+			downloaded, err := downloadPiece(t, ctx, pieceID, int64(len(data)), storagenode, planet.Uplinks[0], satellite)
 			require.NoError(t, err)
 			require.Equal(t, data, downloaded)
 		})
 
 		t.Run("error: permission denied", func(t *testing.T) {
-			pieceID := testrand.PieceID()
-			data, _, _ := uploadPiece(t, ctx, pieceID, planetSN, planet.Uplinks[0], planetSat)
-
-			client, err := planet.Uplinks[0].DialPiecestore(ctx, planetSN)
+			conn, err := planet.Uplinks[0].Dialer.DialAddressID(ctx, nodeurl.Address, nodeurl.ID)
 			require.NoError(t, err)
+			defer ctx.Check(conn.Close)
+			client := pb.NewDRPCPiecestoreClient(conn)
 
-			err = client.DeletePieces(ctx.Context, pieceID)
+			pieceID := testrand.PieceID()
+			data, _, _ := uploadPiece(t, ctx, pieceID, storagenode, planet.Uplinks[0], satellite)
+
+			_, err = client.DeletePieces(ctx.Context, &pb.DeletePiecesRequest{
+				PieceIds: []storj.PieceID{pieceID},
+			})
 			require.Error(t, err)
 			require.Equal(t, rpcstatus.PermissionDenied, rpcstatus.Code(err))
 
-			downloaded, err := downloadPiece(t, ctx, pieceID, int64(len(data)), planetSN, planet.Uplinks[0], planetSat)
+			downloaded, err := downloadPiece(t, ctx, pieceID, int64(len(data)), storagenode, planet.Uplinks[0], satellite)
 			require.NoError(t, err)
 			require.Equal(t, data, downloaded)
 		})
