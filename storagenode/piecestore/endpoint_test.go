@@ -387,6 +387,8 @@ func TestDeletePieces(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			planet.WaitForStorageNodeDeleters(ctx)
+
 			for i, pieceID := range pieceIDs {
 				_, err = downloadPiece(t, ctx, pieceID, int64(len(dataArray[i])), storagenode, planet.Uplinks[0], satellite)
 				require.Error(t, err)
@@ -410,6 +412,8 @@ func TestDeletePieces(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			planet.WaitForStorageNodeDeleters(ctx)
+
 			for i, pieceID := range pieceIDs {
 				_, err = downloadPiece(t, ctx, pieceID, int64(len(dataArray[i])), storagenode, planet.Uplinks[0], satellite)
 				require.Error(t, err)
@@ -426,6 +430,8 @@ func TestDeletePieces(t *testing.T) {
 
 			_, err := client.DeletePieces(ctx.Context, &pb.DeletePiecesRequest{})
 			require.NoError(t, err)
+
+			planet.WaitForStorageNodeDeleters(ctx)
 
 			downloaded, err := downloadPiece(t, ctx, pieceID, int64(len(data)), storagenode, planet.Uplinks[0], satellite)
 			require.NoError(t, err)
@@ -446,6 +452,8 @@ func TestDeletePieces(t *testing.T) {
 			})
 			require.Error(t, err)
 			require.Equal(t, rpcstatus.PermissionDenied, rpcstatus.Code(err))
+
+			planet.WaitForStorageNodeDeleters(ctx)
 
 			downloaded, err := downloadPiece(t, ctx, pieceID, int64(len(data)), storagenode, planet.Uplinks[0], satellite)
 			require.NoError(t, err)
