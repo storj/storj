@@ -67,6 +67,8 @@ func TestDBInit(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	sat1 := testrand.NodeID()
 	startSats := map[storj.NodeID]pieces.SatelliteUsage{
 		sat1: {

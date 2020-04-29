@@ -40,6 +40,8 @@ func TestSuite(t *testing.T) {
 	defer cleanup()
 
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	err := store.MigrateToLatest(ctx)
 	require.NoError(t, err)
 
