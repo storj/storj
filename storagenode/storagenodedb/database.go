@@ -992,17 +992,18 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Remove address from satellites table",
 				Version:     25,
 				Action: migrate.SQL{
-					`ALTER TABLE satellites RENAME TO _satellites_old`,
-					`CREATE TABLE satellites (
+					`CREATE TABLE satellites_new (
 						node_id BLOB NOT NULL,
 						added_at TIMESTAMP NOT NULL,
 						status INTEGER NOT NULL,
 						PRIMARY KEY (node_id)
-					)`,
-					`INSERT INTO satellites (node_id, added_at, status)
+					);
+					INSERT INTO satellites_new (node_id, added_at, status)
 						SELECT node_id, added_at, status
-						FROM _satellites_old`,
-					`DROP TABLE _satellites_old`,
+						FROM satellites;
+					DROP TABLE satellites;
+					ALTER TABLE satellites_new RENAME TO satellites;
+					`,
 				},
 			},
 			{
@@ -1046,16 +1047,18 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Migrate piece_space_used to add total column",
 				Version:     29,
 				Action: migrate.SQL{
-					`ALTER TABLE piece_space_used RENAME TO _piece_space_used_old`,
-					`CREATE TABLE piece_space_used (
+					`
+					CREATE TABLE piece_space_used_new (
 						total INTEGER NOT NULL DEFAULT 0,
 						content_size INTEGER NOT NULL,
 						satellite_id BLOB
-					)`,
-					`INSERT INTO piece_space_used (content_size, satellite_id)
+					);
+					INSERT INTO piece_space_used_new (content_size, satellite_id)
 						SELECT total, satellite_id
-						FROM _piece_space_used_old`,
-					`DROP TABLE _piece_space_used_old`,
+						FROM piece_space_used;
+					DROP TABLE piece_space_used;
+					ALTER TABLE piece_space_used_new RENAME TO piece_space_used;
+					`,
 					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
 				},
 			},
@@ -1082,39 +1085,39 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Version:     32,
 				Action: migrate.SQL{
 					`CREATE TABLE paystubs (
-						  period text NOT NULL,
-						  satellite_id bytea NOT NULL,
-						  created_at timestamp with time zone NOT NULL,
-						  codes text NOT NULL,
-						  usage_at_rest double precision NOT NULL,
-						  usage_get bigint NOT NULL,
-						  usage_put bigint NOT NULL,
-						  usage_get_repair bigint NOT NULL,
-						  usage_put_repair bigint NOT NULL,
-						  usage_get_audit bigint NOT NULL,
-						  comp_at_rest bigint NOT NULL,
-						  comp_get bigint NOT NULL,
-						  comp_put bigint NOT NULL,
-						  comp_get_repair bigint NOT NULL,
-						  comp_put_repair bigint NOT NULL,
-						  comp_get_audit bigint NOT NULL,
-						  surge_percent bigint NOT NULL,
-						  held bigint NOT NULL,
-						  owed bigint NOT NULL,
-						  disposed bigint NOT NULL,
-						  paid bigint NOT NULL,
-						  PRIMARY KEY ( period, satellite_id )
-     				);`,
+						period text NOT NULL,
+						satellite_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						codes text NOT NULL,
+						usage_at_rest double precision NOT NULL,
+						usage_get bigint NOT NULL,
+						usage_put bigint NOT NULL,
+						usage_get_repair bigint NOT NULL,
+						usage_put_repair bigint NOT NULL,
+						usage_get_audit bigint NOT NULL,
+						comp_at_rest bigint NOT NULL,
+						comp_get bigint NOT NULL,
+						comp_put bigint NOT NULL,
+						comp_get_repair bigint NOT NULL,
+						comp_put_repair bigint NOT NULL,
+						comp_get_audit bigint NOT NULL,
+						surge_percent bigint NOT NULL,
+						held bigint NOT NULL,
+						owed bigint NOT NULL,
+						disposed bigint NOT NULL,
+						paid bigint NOT NULL,
+						PRIMARY KEY ( period, satellite_id )
+					);`,
 					`CREATE TABLE payments (
-						  id bigserial NOT NULL,
-						  created_at timestamp with time zone NOT NULL,
-						  satellite_id bytea NOT NULL,
-						  period text,
-						  amount bigint NOT NULL,
-						  receipt text,
-						  notes text,
-						  PRIMARY KEY ( id )
-     				);`,
+						id bigserial NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						satellite_id bytea NOT NULL,
+						period text,
+						amount bigint NOT NULL,
+						receipt text,
+						notes text,
+						PRIMARY KEY ( id )
+					);`,
 				},
 			},
 			{
@@ -1125,39 +1128,39 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`DROP TABLE paystubs;`,
 					`DROP TABLE payments;`,
 					`CREATE TABLE paystubs (
-						  period text NOT NULL,
-						  satellite_id bytea NOT NULL,
-						  created_at timestamp NOT NULL,
-						  codes text NOT NULL,
-						  usage_at_rest double precision NOT NULL,
-						  usage_get bigint NOT NULL,
-						  usage_put bigint NOT NULL,
-						  usage_get_repair bigint NOT NULL,
-						  usage_put_repair bigint NOT NULL,
-						  usage_get_audit bigint NOT NULL,
-						  comp_at_rest bigint NOT NULL,
-						  comp_get bigint NOT NULL,
-						  comp_put bigint NOT NULL,
-						  comp_get_repair bigint NOT NULL,
-						  comp_put_repair bigint NOT NULL,
-						  comp_get_audit bigint NOT NULL,
-						  surge_percent bigint NOT NULL,
-						  held bigint NOT NULL,
-						  owed bigint NOT NULL,
-						  disposed bigint NOT NULL,
-						  paid bigint NOT NULL,
-						  PRIMARY KEY ( period, satellite_id )
-     				);`,
+						period text NOT NULL,
+						satellite_id bytea NOT NULL,
+						created_at timestamp NOT NULL,
+						codes text NOT NULL,
+						usage_at_rest double precision NOT NULL,
+						usage_get bigint NOT NULL,
+						usage_put bigint NOT NULL,
+						usage_get_repair bigint NOT NULL,
+						usage_put_repair bigint NOT NULL,
+						usage_get_audit bigint NOT NULL,
+						comp_at_rest bigint NOT NULL,
+						comp_get bigint NOT NULL,
+						comp_put bigint NOT NULL,
+						comp_get_repair bigint NOT NULL,
+						comp_put_repair bigint NOT NULL,
+						comp_get_audit bigint NOT NULL,
+						surge_percent bigint NOT NULL,
+						held bigint NOT NULL,
+						owed bigint NOT NULL,
+						disposed bigint NOT NULL,
+						paid bigint NOT NULL,
+						PRIMARY KEY ( period, satellite_id )
+					);`,
 					`CREATE TABLE payments (
-						  id bigserial NOT NULL,
-						  created_at timestamp NOT NULL,
-						  satellite_id bytea NOT NULL,
-						  period text,
-						  amount bigint NOT NULL,
-						  receipt text,
-						  notes text,
-						  PRIMARY KEY ( id )
-     				);`,
+						id bigserial NOT NULL,
+						created_at timestamp NOT NULL,
+						satellite_id bytea NOT NULL,
+						period text,
+						amount bigint NOT NULL,
+						receipt text,
+						notes text,
+						PRIMARY KEY ( id )
+					);`,
 				},
 			},
 			{
