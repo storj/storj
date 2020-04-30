@@ -45,7 +45,9 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
+import { ApiKeysPage } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
+import { User } from '@/types/users';
 import { Size } from '@/utils/bytesSize';
 import {
     API_KEYS_ACTIONS,
@@ -82,9 +84,11 @@ export default class DashboardArea extends Vue {
      * Pre fetches user`s and project information.
      */
     public async mounted(): Promise<void> {
+        let user: User;
+
         // TODO: combine all project related requests in one
         try {
-            await this.$store.dispatch(USER_ACTIONS.GET);
+            user = await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
@@ -143,7 +147,7 @@ export default class DashboardArea extends Vue {
         }
 
         if (!projects.length) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
 
             try {
                 await this.$router.push(RouteConfig.OnboardingTour.path);
@@ -156,7 +160,26 @@ export default class DashboardArea extends Vue {
 
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
 
-        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+        let apiKeysPage: ApiKeysPage = new ApiKeysPage();
+
+        try {
+            apiKeysPage = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
+        }
+
+        if (projects.length === 1 && projects[0].ownerId === user.id && apiKeysPage.apiKeys.length === 0) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+
+            try {
+                await this.$router.push(RouteConfig.OnboardingTour.path);
+            } catch (error) {
+                return;
+            }
+
+            return;
+        }
+
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         } catch (error) {
@@ -167,12 +190,6 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project limits. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
         }
 
         try {

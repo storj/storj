@@ -17,6 +17,10 @@ exports[`ProgressBar.vue renders correctly 1`] = `
   </div>
   <div class="progress-bar-container__titles-area"><span class="progress-bar-container__titles-area__title">
             Name Your Project
-        </span> <span class="progress-bar-container__titles-area__title api-key-title">Create an API Key</span> <span class="progress-bar-container__titles-area__title">Upload Data</span></div>
+        </span> <span class="progress-bar-container__titles-area__title api-key-title">
+            Create an API Key
+        </span> <span class="progress-bar-container__titles-area__title">
+            Upload Data
+        </span></div>
 </div>
 `;

@@ -4,24 +4,52 @@
 <template>
     <div class="progress-bar-container">
         <div class="progress-bar-container__progress-area">
-            <div class="progress-bar-container__progress-area__circle" :class="{ 'completed-step': isCreateProjectStep }">
+            <div
+                class="progress-bar-container__progress-area__circle"
+                :class="{ 'completed-step': isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep }"
+            >
                 <CheckedImage/>
             </div>
-            <div class="progress-bar-container__progress-area__bar"/>
-            <div class="progress-bar-container__progress-area__circle">
+            <div
+                class="progress-bar-container__progress-area__bar"
+                :class="{ 'completed-step': isCreateApiKeyStep || isUploadDataStep }"
+            />
+            <div
+                class="progress-bar-container__progress-area__circle"
+                :class="{ 'completed-step': isCreateApiKeyStep || isUploadDataStep }"
+            >
                 <CheckedImage/>
             </div>
-            <div class="progress-bar-container__progress-area__bar"/>
-            <div class="progress-bar-container__progress-area__circle">
+            <div
+                class="progress-bar-container__progress-area__bar"
+                :class="{ 'completed-step': isUploadDataStep }"
+            />
+            <div
+                class="progress-bar-container__progress-area__circle"
+                :class="{ 'completed-step': isUploadDataStep }"
+            >
                 <CheckedImage/>
             </div>
         </div>
         <div class="progress-bar-container__titles-area">
-            <span class="progress-bar-container__titles-area__title" :class="{ 'completed-font-color': isCreateProjectStep }">
+            <span
+                class="progress-bar-container__titles-area__title"
+                :class="{ 'completed-font-color': isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep }"
+            >
                 Name Your Project
             </span>
-            <span class="progress-bar-container__titles-area__title api-key-title">Create an API Key</span>
-            <span class="progress-bar-container__titles-area__title">Upload Data</span>
+            <span
+                class="progress-bar-container__titles-area__title api-key-title"
+                :class="{ 'completed-font-color': isCreateApiKeyStep || isUploadDataStep }"
+            >
+                Create an API Key
+            </span>
+            <span
+                class="progress-bar-container__titles-area__title"
+                :class="{ 'completed-font-color': isUploadDataStep }"
+            >
+                Upload Data
+            </span>
         </div>
     </div>
 </template>
@@ -40,6 +68,10 @@ import CheckedImage from '@/../static/images/common/checked.svg';
 export default class ProgressBar extends Vue {
     @Prop({ default: false })
     public readonly isCreateProjectStep: boolean;
+    @Prop({ default: false })
+    public readonly isCreateApiKeyStep: boolean;
+    @Prop({ default: false })
+    public readonly isUploadDataStep: boolean;
 }
 </script>
 

@@ -61,7 +61,6 @@ import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { DateRange } from '@/types/payments';
-import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { ProjectOwning } from '@/utils/projectOwning';
@@ -95,7 +94,7 @@ export default class BillingArea extends Vue {
      * Fetches billing history and project limits.
      */
     public async beforeMount(): Promise<void> {
-        if (!this.$store.getters.selectedProject.id) {
+        if (this.noProjectOrApiKeys) {
             await this.$router.push(RouteConfig.OnboardingTour.path);
 
             return;
@@ -282,6 +281,13 @@ export default class BillingArea extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
         }
+    }
+
+    /**
+     * Indicates if user has no project nor api keys.
+     */
+    private get noProjectOrApiKeys(): boolean {
+        return !this.$store.getters.selectedProject.id || this.$store.state.apiKeysModule.page.apiKeys.length === 0;
     }
 
     /**

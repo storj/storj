@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="new-project-step">
+    <div class="new-project-step" @keyup.enter="createProjectClick">
         <h1 class="new-project-step__title">Name Your Project</h1>
         <p class="new-project-step__sub-title">
             Projects are where buckets are created for storing data. Within a Project, usage is tracked at the bucket
@@ -57,7 +57,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import { RouteConfig } from '@/router';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { CreateProjectModel, Project } from '@/types/projects';
@@ -134,6 +134,12 @@ export default class CreateProjectStep extends Vue {
         }
 
         try {
+            await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
         } catch (error) {
             await this.$notify.error(`Unable to get billing history. ${error.message}`);
@@ -159,18 +165,23 @@ export default class CreateProjectStep extends Vue {
 
         this.isLoading = false;
 
-        // TODO: rework after adding third step of onboarding tour
-        await this.$router.push(RouteConfig.ApiKeys.path);
+        this.$emit('setApiKeyState');
     }
 
     /**
      * Validates input value to satisfy project name rules.
      */
     private isProjectNameValid(): boolean {
-        this.projectName.trim();
+        this.projectName = this.projectName.trim();
+
+        if (!this.projectName) {
+            this.nameError = 'Project name can\'t be empty!';
+
+            return false;
+        }
 
         if (!anyCharactersButSlash(this.projectName)) {
-            this.nameError = 'Name for project is invalid!';
+            this.nameError = 'Project name can\'t have forward slash';
 
             return false;
         }

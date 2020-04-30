@@ -19,3 +19,8 @@ export enum AddingStorjState {
     VERIFYING,
     VERIFIED,
 }
+
+export enum AddingApiKeyState {
+    CREATE = 1,
+    COPY,
+}

@@ -60,7 +60,7 @@ export default class RegisterArea extends Vue {
      * Lifecycle hook after initial render.
      * Sets up variables from route params.
      */
-    async mounted(): Promise<void> {
+    public async mounted(): Promise<void> {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
         }
@@ -82,6 +82,16 @@ export default class RegisterArea extends Vue {
         if (referralIds) {
             this.user.partnerId = referralIds.partnerId;
             this.refUserId = referralIds.userId;
+        }
+    }
+
+    /**
+     * Lifecycle hook on component destroy.
+     * Sets view to default state.
+     */
+    public beforeDestroy(): void {
+        if (this.isRegistrationSuccessful) {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         }
     }
 

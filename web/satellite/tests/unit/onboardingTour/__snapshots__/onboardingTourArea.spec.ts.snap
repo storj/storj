@@ -6,5 +6,7 @@ exports[`OnboardingTourArea.vue renders correctly 1`] = `
   <overviewstep-stub></overviewstep-stub>
   <!---->
   <!---->
+  <!---->
+  <!---->
 </div>
 `;

@@ -5,6 +5,8 @@
     <div class="tour-area">
         <ProgressBar
             :is-create-project-step="isCreateProjectState"
+            :is-create-api-key-step="isCreatApiKeyState"
+            :is-upload-data-step="isUploadDataState"
         />
         <OverviewStep
             v-if="isDefaultState"
@@ -16,7 +18,13 @@
         />
         <CreateProjectStep
             v-if="isCreateProjectState"
+            @setApiKeyState="setCreateApiKeyState"
         />
+        <CreateApiKeyStep
+            v-if="isCreatApiKeyState"
+            @setUploadDataState="setUploadDataState"
+        />
+        <UploadDataStep v-if="isUploadDataState"/>
     </div>
 </template>
 
@@ -25,8 +33,10 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import ProgressBar from '@/components/onboardingTour/ProgressBar.vue';
 import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue';
+import CreateApiKeyStep from '@/components/onboardingTour/steps/CreateApiKeyStep.vue';
 import CreateProjectStep from '@/components/onboardingTour/steps/CreateProjectStep.vue';
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
+import UploadDataStep from '@/components/onboardingTour/steps/UploadDataStep.vue';
 
 import CheckedImage from '@/../static/images/common/checked.svg';
 
@@ -35,6 +45,8 @@ import { TourState } from '@/utils/constants/onboardingTourEnums';
 
 @Component({
     components: {
+        UploadDataStep,
+        CreateApiKeyStep,
         CreateProjectStep,
         AddPaymentStep,
         ProgressBar,
@@ -51,7 +63,7 @@ export default class OnboardingTourArea extends Vue {
      * Sets area to needed state.
      */
     public mounted(): void {
-        if (this.$store.state.projectsModule.projects.length > 0) {
+        if (this.userHasProject && this.userHasApiKeys) {
             try {
                 this.$router.push(RouteConfig.ProjectDashboard.path);
             } catch (error) {
@@ -61,8 +73,16 @@ export default class OnboardingTourArea extends Vue {
             return;
         }
 
+        if (this.userHasProject && !this.userHasApiKeys) {
+            this.setCreateApiKeyState();
+
+            return;
+        }
+
         if (this.$store.state.paymentsModule.creditCards.length > 0) {
             this.setCreateProjectState();
+
+            return;
         }
 
         if (this.$store.getters.isTransactionProcessing || this.$store.getters.isTransactionCompleted) {
@@ -92,6 +112,20 @@ export default class OnboardingTourArea extends Vue {
     }
 
     /**
+     * Indicates if area is in api key state.
+     */
+    public get isCreatApiKeyState(): boolean {
+        return this.areaState === TourState.API_KEY;
+    }
+
+    /**
+     * Indicates if area is in upload data state.
+     */
+    public get isUploadDataState(): boolean {
+        return this.areaState === TourState.UPLOAD;
+    }
+
+    /**
      * Sets area's state to adding payment method state.
      */
     public setAddPaymentState(): void {
@@ -103,6 +137,34 @@ export default class OnboardingTourArea extends Vue {
      */
     public setCreateProjectState(): void {
         this.areaState = TourState.PROJECT;
+    }
+
+    /**
+     * Sets area's state to creating api key state.
+     */
+    public setCreateApiKeyState(): void {
+        this.areaState = TourState.API_KEY;
+    }
+
+    /**
+     * Sets area's state to upload data state.
+     */
+    public setUploadDataState(): void {
+        this.areaState = TourState.UPLOAD;
+    }
+
+    /**
+     * Indicates if user has at least one project.
+     */
+    private get userHasProject(): boolean {
+        return this.$store.state.projectsModule.projects.length > 0;
+    }
+
+    /**
+     * Indicates if user has at least one API key.
+     */
+    private get userHasApiKeys(): boolean {
+        return this.$store.state.apiKeysModule.page.apiKeys.length > 0;
     }
 }
 </script>

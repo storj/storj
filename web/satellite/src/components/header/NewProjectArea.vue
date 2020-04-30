@@ -34,17 +34,27 @@ import { ProjectOwning } from '@/utils/projectOwning';
 export default class NewProjectArea extends Vue {
     // TODO: temporary solution. Remove when user will be able to create more then one project
     /**
-     * Life cycle hook after initial render.
+     * Life cycle hook before initial render.
      * Toggles new project button visibility depending on user having his own project or payment method.
      */
     public beforeMount(): void {
-        if (this.userHasOwnProject || !this.$store.getters.canUserCreateFirstProject || this.isOnboardingTour) {
+        if (this.userHasOwnProject || !this.$store.getters.canUserCreateFirstProject) {
             this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
 
             return;
         }
 
         this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
+    }
+
+    /**
+     * Life cycle hook after initial render.
+     * Hides new project button visibility if user is on onboarding tour.
+     */
+    public mounted(): void {
+        if (this.isOnboardingTour) {
+            this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
+        }
     }
 
     /**

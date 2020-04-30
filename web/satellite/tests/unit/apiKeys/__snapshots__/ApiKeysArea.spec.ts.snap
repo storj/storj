@@ -9,7 +9,7 @@ exports[`ApiKeysArea renders correctly 1`] = `
     <!---->
     <!---->
     <!---->
-    <noapikeysarea-stub onbuttonclick="function () { [native code] }" class="collapsed"></noapikeysarea-stub>
+    <noapikeysarea-stub onbuttonclick="function () { [native code] }"></noapikeysarea-stub>
   </div>
 </div>
 `;
@@ -23,7 +23,7 @@ exports[`ApiKeysArea renders empty screen with add key prompt 1`] = `
     <!---->
     <!---->
     <!---->
-    <div class="no-api-keys-area collapsed">
+    <div class="no-api-keys-area">
       <h1 class="no-api-keys-area__title">Create Your First API Key</h1>
       <p class="no-api-keys-area__sub-title">API keys give access to the project to create buckets, upload objects</p>
       <div class="no-api-keys-area__button container" style="width: 180px; height: 48px;"><span class="label">Create API Key</span></div>
@@ -67,7 +67,7 @@ exports[`ApiKeysArea renders empty search state correctly 1`] = `
     <!---->
     <!---->
     <!---->
-    <noapikeysarea-stub onbuttonclick="function () { [native code] }" class="collapsed"></noapikeysarea-stub>
+    <noapikeysarea-stub onbuttonclick="function () { [native code] }"></noapikeysarea-stub>
   </div>
 </div>
 `;
