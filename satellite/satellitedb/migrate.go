@@ -26,8 +26,8 @@ var (
 	ErrMigrateMinVersion = errs.Class("migrate min version")
 )
 
-// CreateTables is a method for creating all tables for database
-func (db *satelliteDB) CreateTables(ctx context.Context) error {
+// MigrateToLatest migrates the database to the latest version.
+func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
 	// will need to create any schemas specified in the search path, and cockroach
 	// will need to create the database it was told to connect to. These things should
@@ -82,8 +82,8 @@ func (db *satelliteDB) CreateTables(ctx context.Context) error {
 	}
 }
 
-// TestingCreateTables is a method for creating all tables for database for testing.
-func (db *satelliteDB) TestingCreateTables(ctx context.Context) error {
+// TestingMigrateToLatest is a method for creating all tables for database for testing.
+func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 	switch db.implementation {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)

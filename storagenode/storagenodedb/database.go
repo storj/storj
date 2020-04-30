@@ -289,8 +289,8 @@ func (db *DB) filepathFromDBName(dbName string) string {
 	return filepath.Join(db.dbDirectory, db.filenameFromDBName(dbName))
 }
 
-// CreateTables creates any necessary tables.
-func (db *DB) CreateTables(ctx context.Context) error {
+// MigrateToLatest creates any necessary tables.
+func (db *DB) MigrateToLatest(ctx context.Context) error {
 	migration := db.Migration(ctx)
 	return migration.Run(ctx, db.log.Named("migration"))
 }

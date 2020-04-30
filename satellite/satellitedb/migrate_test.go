@@ -247,10 +247,10 @@ func benchmarkSetup(b *testing.B, connStr string, merged bool) {
 			defer func() { require.NoError(b, db.Close()) }()
 
 			if merged {
-				err = db.TestingCreateTables(ctx)
+				err = db.TestingMigrateToLatest(ctx)
 				require.NoError(b, err)
 			} else {
-				err = db.CreateTables(ctx)
+				err = db.MigrateToLatest(ctx)
 				require.NoError(b, err)
 			}
 		}()

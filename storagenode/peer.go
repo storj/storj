@@ -64,8 +64,8 @@ var (
 //
 // architecture: Master Database
 type DB interface {
-	// CreateTables initializes the database
-	CreateTables(ctx context.Context) error
+	// MigrateToLatest initializes the database
+	MigrateToLatest(ctx context.Context) error
 	// Close closes the database
 	Close() error
 

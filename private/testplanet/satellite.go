@@ -526,7 +526,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 			return xs, err
 		}
 
-		err = db.TestingCreateTables(context.TODO())
+		err = db.TestingMigrateToLatest(context.TODO())
 		if err != nil {
 			return nil, err
 		}

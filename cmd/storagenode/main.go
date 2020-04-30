@@ -186,7 +186,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		log.Warn("Failed to initialize telemetry batcher.", zap.Error(err))
 	}
 
-	err = db.CreateTables(ctx)
+	err = db.MigrateToLatest(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}

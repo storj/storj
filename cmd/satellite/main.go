@@ -342,7 +342,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	err = db.CreateTables(ctx)
+	err = db.MigrateToLatest(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}

@@ -196,7 +196,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 				}
 			}()
 
-			err = db.TestingCreateTables(ctx)
+			err = db.TestingMigrateToLatest(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -230,7 +230,7 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 				}
 			}()
 
-			err = db.CreateTables(ctx)
+			err = db.MigrateToLatest(ctx)
 			if err != nil {
 				b.Fatal(err)
 			}
