@@ -535,7 +535,7 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			mon.IntVal("download_cancel_size_bytes").Observe(downloadSize)
 			mon.IntVal("download_cancel_duration_ns").Observe(downloadDuration)
 			mon.FloatVal("download_cancel_rate_bytes_per_sec").Observe(downloadRate)
-			endpoint.log.Info("download canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+			endpoint.log.Info("download canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		} else if err != nil {
 			mon.Meter("download_failure_byte_meter").Mark64(downloadSize)
 			mon.IntVal("download_failure_size_bytes").Observe(downloadSize)
