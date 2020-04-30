@@ -5,6 +5,7 @@ package filestore
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -183,14 +184,40 @@ func (store *blobStore) SpaceUsedForBlobsInNamespace(ctx context.Context, namesp
 	return totalUsed, nil
 }
 
+// TrashIsEmpty returns boolean value if trash dir is empty.
+func (store *blobStore) TrashIsEmpty() (_ bool, err error) {
+	f, err := os.Open(store.dir.trashdir())
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		err = errs.Combine(err, f.Close())
+	}()
+
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		return true, nil
+	}
+	return false, err
+}
+
 // SpaceUsedForTrash returns the total space used by the trash
 func (store *blobStore) SpaceUsedForTrash(ctx context.Context) (total int64, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	empty, err := store.TrashIsEmpty()
+	if err != nil {
+		return total, err
+	}
+	if empty {
+		return 0, nil
+	}
 	err = filepath.Walk(store.dir.trashdir(), func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			err = errs.Combine(err, walkErr)
 			return filepath.SkipDir
 		}
+
 		total += info.Size()
 		return nil
 	})

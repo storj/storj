@@ -77,7 +77,7 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	defer mon.Task()(&ctx)(&err)
 
 	// Space Usage
-	_, piecesContentSize, err := inspector.pieceStore.SpaceUsedForPieces(ctx)
+	piecesContentSize, err := inspector.pieceStore.SpaceUsedForPiecesAndTrash(ctx)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}

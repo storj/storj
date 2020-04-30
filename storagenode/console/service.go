@@ -167,7 +167,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		)
 	}
 
-	_, piecesContentSize, err := s.pieceStore.SpaceUsedForPieces(ctx)
+	piecesContentSize, err := s.pieceStore.SpaceUsedForPiecesAndTrash(ctx)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}

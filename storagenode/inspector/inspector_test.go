@@ -27,6 +27,7 @@ func TestInspectorStats(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var availableSpace int64
+
 		for _, storageNode := range planet.StorageNodes {
 			response, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
 			require.NoError(t, err)
@@ -73,7 +74,7 @@ func TestInspectorStats(t *testing.T) {
 				assert.Equal(t, response.UsedBandwidth, response.UsedIngress+response.UsedEgress)
 				assert.Equal(t, availableSpace-response.UsedSpace, response.AvailableSpace)
 
-				assert.Equal(t, response.UsedSpace, response.UsedBandwidth-response.UsedEgress)
+				assert.Equal(t, response.UsedIngress, response.UsedBandwidth-response.UsedEgress)
 				if response.UsedEgress > 0 {
 					downloaded++
 					assert.Equal(t, response.UsedBandwidth-response.UsedIngress, response.UsedEgress)
