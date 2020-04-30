@@ -513,7 +513,7 @@ func Schema() map[string]*dbschema.Schema {
 						&dbschema.Column{
 							Name:       "joined_at",
 							Type:       "TIMESTAMP",
-							IsNullable: true,
+							IsNullable: false,
 						},
 						&dbschema.Column{
 							Name:       "satellite_id",
@@ -675,3 +675,4 @@ func Schema() map[string]*dbschema.Schema {
 		},
 	}
 }
+

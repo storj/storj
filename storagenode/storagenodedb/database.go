@@ -9,6 +9,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	_ "github.com/mattn/go-sqlite3" // used indirectly.
@@ -1201,6 +1202,103 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Action: migrate.SQL{
 					`DROP TABLE payments;`,
 				},
+			},
+			{
+				DB:          db.reputationDB,
+				Description: "Backfill joined_at column",
+				Version:     38,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					stx, err := db.satellitesDB.Begin(ctx)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+					defer func() {
+						if err != nil {
+							err = errs.Combine(err, stx.Rollback())
+						} else {
+							err = errs.Wrap(stx.Commit())
+						}
+					}()
+
+					rows, err := rtx.Query(ctx, `SELECT satellite_id FROM reputation WHERE joined_at ISNULL`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+					defer func() { err = errs.Combine(err, errs.Wrap(rows.Close())) }()
+
+					var satelliteID []byte
+					var addedAt time.Time
+
+					for rows.Next() {
+						if err := rows.Scan(&satelliteID); err != nil {
+							return errs.Wrap(err)
+						}
+
+						err = stx.QueryRow(ctx, `SELECT added_at FROM satellites WHERE node_id = ?`,
+							satelliteID).Scan(&addedAt)
+						if err != nil {
+							return errs.Wrap(err)
+						}
+
+						_, err = rtx.Exec(ctx, `UPDATE reputation SET joined_at = ? WHERE satellite_id = ?`,
+							addedAt.UTC(), satelliteID)
+						if err != nil {
+							return errs.Wrap(err)
+						}
+					}
+					if err := rows.Err(); err != nil {
+						return errs.Wrap(err)
+					}
+
+					// in order to add the not null constraint, we have to do a
+					// generalized ALTER TABLE prodedure.
+					// see https://www.sqlite.org/lang_altertable.html
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							uptime_success_count INTEGER NOT NULL,
+							uptime_total_count INTEGER NOT NULL,
+							uptime_reputation_alpha REAL NOT NULL,
+							uptime_reputation_beta REAL NOT NULL,
+							uptime_reputation_score REAL NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							disqualified TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							uptime_success_count,
+							uptime_total_count,
+							uptime_reputation_alpha,
+							uptime_reputation_beta,
+							uptime_reputation_score,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							disqualified,
+							updated_at,
+							suspended,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
 			},
 		},
 	}
