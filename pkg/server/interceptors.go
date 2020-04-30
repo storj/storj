@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/rpc/rpcpeer"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/storage"
 )
 
@@ -61,6 +62,7 @@ type nodeRequestLog struct {
 	GRPCMethod  string      `json:"grpc_method"`
 	PeerAddress string      `json:"peer_address"`
 	PeerNodeID  string      `json:"peer_node_id"`
+	APIKey      string      `json:"api_key,omitempty"`
 	Msg         interface{} `json:"msg"`
 }
 
@@ -69,6 +71,7 @@ func prepareRequestLog(ctx context.Context, req, server interface{}, methodName 
 		GRPCService: fmt.Sprintf("%T", server),
 		GRPCMethod:  methodName,
 		PeerAddress: "<no peer???>",
+		APIKey:      "",
 		Msg:         req,
 	}
 	if peer, err := rpcpeer.FromContext(ctx); err == nil {
@@ -78,6 +81,9 @@ func prepareRequestLog(ctx context.Context, req, server interface{}, methodName 
 		} else {
 			reqLog.PeerNodeID = fmt.Sprintf("<no peer id: %v>", err)
 		}
+	}
+	if key, ok := auth.GetAPIKey(ctx); ok {
+		reqLog.APIKey = string(key)
 	}
 	return json.Marshal(reqLog)
 }
