@@ -23,6 +23,11 @@ func getConfDir() string {
 
 func withTelemetry(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 	ctx, _ := process.Ctx(cmd)
+	addr := cmd.Flag("metrics.addr")
+	if addr == nil || addr.Value.String() == "" {
+		return ctx, nil
+	}
+
 	return telemetry.Enable(ctx)
 }
 
