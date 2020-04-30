@@ -125,10 +125,14 @@ type Config struct {
 
 // DatabaseConfig returns the storagenodedb.Config that should be used with this Config.
 func (config *Config) DatabaseConfig() storagenodedb.Config {
+	dbdir := config.Storage2.DatabaseDir
+	if dbdir == "" {
+		dbdir = config.Storage.Path
+	}
 	return storagenodedb.Config{
 		Storage:   config.Storage.Path,
-		Info:      filepath.Join(config.Storage.Path, "piecestore.db"),
-		Info2:     filepath.Join(config.Storage.Path, "info.db"),
+		Info:      filepath.Join(dbdir, "piecestore.db"),
+		Info2:     filepath.Join(dbdir, "info.db"),
 		Pieces:    config.Storage.Path,
 		Filestore: config.Filestore,
 	}

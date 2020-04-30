@@ -53,6 +53,7 @@ type OldConfig struct {
 
 // Config defines parameters for piecestore endpoint.
 type Config struct {
+	DatabaseDir             string        `help:"directory to store databases. if empty, uses data path" default:""`
 	ExpirationGracePeriod   time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
 	DeleteWorkers           int           `help:"how many piece delete workers" default:"0"`
