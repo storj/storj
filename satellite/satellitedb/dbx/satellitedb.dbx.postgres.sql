@@ -231,6 +231,12 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE project_bandwidth_rollups (
+	project_id bytea NOT NULL,
+	interval_month date NOT NULL,
+	egress_allocated bigint NOT NULL,
+	PRIMARY KEY ( project_id, interval_month )
+);
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,

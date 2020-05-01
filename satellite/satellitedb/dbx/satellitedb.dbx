@@ -558,6 +558,20 @@ read scalar (
 	where  bucket_bandwidth_rollup.action = ?
 )
 
+model project_bandwidth_rollup (
+	key    project_id interval_month
+
+	field project_id       blob
+	field interval_month   date
+	field egress_allocated uint64 ( updatable )	
+)
+
+read scalar (
+	select project_bandwidth_rollup
+	where  project_bandwidth_rollup.project_id = ?
+	where  project_bandwidth_rollup.interval_month = ?
+)
+
 model bucket_storage_tally (
 	key    bucket_name project_id interval_start
 
