@@ -53,13 +53,13 @@ func (dialer *Dialer) Handle(ctx context.Context, node *pb.Node, queue Queue) {
 
 	client, conn, err := dialPieceStore(ctx, dialer.dialer, node)
 	if err != nil {
-		dialer.log.Info("failed to dial", zap.Stringer("id", node.Id), zap.Error(err))
+		dialer.log.Debug("failed to dial", zap.Stringer("id", node.Id), zap.Error(err))
 		dialer.markFailed(ctx, node)
 		return
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
-			dialer.log.Info("closing connection failed", zap.Stringer("id", node.Id), zap.Error(err))
+			dialer.log.Debug("closing connection failed", zap.Stringer("id", node.Id), zap.Error(err))
 		}
 	}()
 
@@ -92,7 +92,7 @@ func (dialer *Dialer) Handle(ctx context.Context, node *pb.Node, queue Queue) {
 			}
 
 			if err != nil {
-				dialer.log.Info("deletion request failed", zap.Stringer("id", node.Id), zap.Error(err))
+				dialer.log.Debug("deletion request failed", zap.Stringer("id", node.Id), zap.Error(err))
 				// don't try to send to this storage node a bit, when the deletion times out
 				if errs2.IsCanceled(err) {
 					dialer.markFailed(ctx, node)
