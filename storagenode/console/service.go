@@ -167,7 +167,12 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		)
 	}
 
-	piecesContentSize, err := s.pieceStore.SpaceUsedForPiecesAndTrash(ctx)
+	_, piecesContentSize, err := s.pieceStore.SpaceUsedForPieces(ctx)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	trash, err := s.pieceStore.SpaceUsedForTrash(ctx)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
@@ -180,6 +185,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.DiskSpace = DiskSpaceInfo{
 		Used:      piecesContentSize,
 		Available: s.allocatedDiskSpace.Int64(),
+		Trash:     trash,
 	}
 
 	data.Bandwidth = BandwidthInfo{
