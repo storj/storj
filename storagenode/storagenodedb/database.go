@@ -1249,7 +1249,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					}
 
 					// in order to add the not null constraint, we have to do a
-					// generalized ALTER TABLE prodedure.
+					// generalized ALTER TABLE procedure.
 					// see https://www.sqlite.org/lang_altertable.html
 
 					_, err = rtx.Exec(ctx, `
@@ -1283,6 +1283,89 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 							audit_reputation_alpha,
 							audit_reputation_beta,
 							audit_reputation_score,
+							disqualified,
+							updated_at,
+							suspended,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          db.reputationDB,
+				Description: "Add unknown_audit_reputation_alpha and unknown_audit_reputation_beta fields to satellites db and remove uptime_reputation_alpha, uptime_reputation_beta, uptime_reputation_score",
+				Version:     39,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					stx, err := db.satellitesDB.Begin(ctx)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+					defer func() {
+						if err != nil {
+							err = errs.Combine(err, stx.Rollback())
+						} else {
+							err = errs.Wrap(stx.Commit())
+						}
+					}()
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_alpha REAL`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_beta REAL`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `UPDATE reputation SET audit_unknown_reputation_alpha = ?, audit_unknown_reputation_beta = ?`,
+						1.0, 1.0)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							uptime_success_count INTEGER NOT NULL,
+							uptime_total_count INTEGER NOT NULL,
+							uptime_reputation_alpha REAL NOT NULL,
+							uptime_reputation_beta REAL NOT NULL,
+							uptime_reputation_score REAL NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							disqualified TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							uptime_success_count,
+							uptime_total_count,
+							uptime_reputation_alpha,
+							uptime_reputation_beta,
+							uptime_reputation_score,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
 							disqualified,
 							updated_at,
 							suspended,

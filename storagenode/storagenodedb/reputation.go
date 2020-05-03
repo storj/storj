@@ -40,11 +40,13 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 			audit_reputation_alpha,
 			audit_reputation_beta,
 			audit_reputation_score,
+			audit_unknown_reputation_alpha,
+			audit_unknown_reputation_beta,
 			disqualified,
 			suspended,
 			updated_at,
 			joined_at
-		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	// ensure we insert utc
 	if stats.Disqualified != nil {
@@ -68,6 +70,8 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 		stats.Audit.Alpha,
 		stats.Audit.Beta,
 		stats.Audit.Score,
+		stats.Audit.UnknownAlpha,
+		stats.Audit.UnknownBeta,
 		stats.Disqualified,
 		stats.Suspended,
 		stats.UpdatedAt.UTC(),
@@ -96,6 +100,8 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 			audit_reputation_alpha,
 			audit_reputation_beta,
 			audit_reputation_score,
+			audit_unknown_reputation_alpha,
+			audit_unknown_reputation_beta,
 			disqualified,
 			suspended,
 			updated_at,
@@ -115,6 +121,8 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		&stats.Audit.Alpha,
 		&stats.Audit.Beta,
 		&stats.Audit.Score,
+		&stats.Audit.UnknownAlpha,
+		&stats.Audit.UnknownBeta,
 		&stats.Disqualified,
 		&stats.Suspended,
 		&stats.UpdatedAt,
@@ -143,6 +151,8 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			audit_reputation_alpha,
 			audit_reputation_beta,
 			audit_reputation_score,
+			audit_unknown_reputation_alpha,
+			audit_unknown_reputation_beta,
 			disqualified,
 			suspended,
 			updated_at,
@@ -171,6 +181,8 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			&stats.Audit.Alpha,
 			&stats.Audit.Beta,
 			&stats.Audit.Score,
+			&stats.Audit.UnknownAlpha,
+			&stats.Audit.UnknownBeta,
 			&stats.Disqualified,
 			&stats.Suspended,
 			&stats.UpdatedAt,

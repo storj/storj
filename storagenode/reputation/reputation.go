@@ -41,7 +41,9 @@ type Metric struct {
 	TotalCount   int64 `json:"totalCount"`
 	SuccessCount int64 `json:"successCount"`
 
-	Alpha float64 `json:"alpha"`
-	Beta  float64 `json:"beta"`
-	Score float64 `json:"score"`
+	Alpha        float64 `json:"alpha"`
+	Beta         float64 `json:"beta"`
+	UnknownAlpha float64 `json:"unknownAlpha"`
+	UnknownBeta  float64 `json:"unknownBeta"`
+	Score        float64 `json:"score"`
 }

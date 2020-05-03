@@ -82,9 +82,6 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 		Uptime: reputation.Metric{
 			TotalCount:   uptime.GetTotalCount(),
 			SuccessCount: uptime.GetSuccessCount(),
-			Alpha:        uptime.GetReputationAlpha(),
-			Beta:         uptime.GetReputationBeta(),
-			Score:        uptime.GetReputationScore(),
 		},
 		Audit: reputation.Metric{
 			TotalCount:   audit.GetTotalCount(),
@@ -92,6 +89,8 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 			Alpha:        audit.GetReputationAlpha(),
 			Beta:         audit.GetReputationBeta(),
 			Score:        audit.GetReputationScore(),
+			UnknownAlpha: audit.GetUnknownReputationAlpha(),
+			UnknownBeta:  audit.GetUnknownReputationBeta(),
 		},
 		Disqualified: resp.GetDisqualified(),
 		Suspended:    resp.GetSuspended(),
