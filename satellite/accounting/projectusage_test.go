@@ -229,7 +229,7 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		alloc, err := db.ProjectAccounting().GetCurrentBandwidthAllocated(ctx, p1)
+		alloc, err := db.ProjectAccounting().GetProjectAllocatedBandwidth(ctx, p1, now.Year(), now.Month())
 		require.NoError(t, err)
 		require.EqualValues(t, 4000, alloc)
 	})
@@ -615,5 +615,60 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path2", data)
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+	})
+}
+
+func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satDB := planet.Satellites[0].DB
+		acctDB := satDB.ProjectAccounting()
+		projectsDB := satDB.Console().Projects()
+
+		planet.Satellites[0].Orders.Chore.Loop.Pause()
+
+		projects, err := projectsDB.GetAll(ctx)
+		require.NoError(t, err)
+
+		project := projects[0]
+
+		// set custom usage limit for project
+		customLimit := 100 * memory.KiB
+		err = acctDB.UpdateProjectUsageLimit(ctx, project.ID, customLimit)
+		require.NoError(t, err)
+
+		data := testrand.Bytes(100 * memory.KiB)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path1", data)
+		require.NoError(t, err)
+
+		// verify that storage limit is all used
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path2", data)
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+
+		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
+		require.NoError(t, err)
+
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+		// verify that bandwidth limit is all used
+		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+
+		now := time.Now()
+		planet.Satellites[0].API.Accounting.ProjectUsage.SetNow(func() time.Time {
+			return time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+
+		// verify that storage limit is all used even at the new billing cycle
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path2", data)
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+
+		// verify that new billing cycle reset bandwidth limit
+		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
+		require.NoError(t, err)
 	})
 }
