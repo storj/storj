@@ -304,8 +304,13 @@ func TestDelete(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		pieceID := storj.PieceID{1}
 		uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
-		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
+
+		nodeurl := planet.StorageNodes[0].NodeURL()
+		conn, err := planet.Uplinks[0].Dialer.DialAddressID(ctx, nodeurl.Address, nodeurl.ID)
 		require.NoError(t, err)
+		defer ctx.Check(conn.Close)
+
+		client := pb.NewDRPCPiecestoreClient(conn)
 
 		for _, tt := range []struct {
 			pieceID storj.PieceID
@@ -335,7 +340,7 @@ func TestDelete(t *testing.T) {
 		} {
 			serialNumber := testrand.SerialNumber()
 
-			orderLimit, piecePrivateKey := GenerateOrderLimit(
+			orderLimit, _ := GenerateOrderLimit(
 				t,
 				planet.Satellites[0].ID(),
 				planet.StorageNodes[0].ID(),
@@ -350,7 +355,9 @@ func TestDelete(t *testing.T) {
 			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 			require.NoError(t, err)
 
-			err := client.Delete(ctx, orderLimit, piecePrivateKey)
+			_, err := client.Delete(ctx, &pb.PieceDeleteRequest{
+				Limit: orderLimit,
+			})
 			if tt.err != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.err)
