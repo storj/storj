@@ -29,6 +29,7 @@ type Service struct {
 	projectAccountingDB ProjectAccounting
 	liveAccounting      Cache
 	maxAlphaUsage       memory.Size
+	nowFn               func() time.Time
 }
 
 // NewService created new instance of project usage service.
@@ -37,6 +38,7 @@ func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, max
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,
 		maxAlphaUsage:       maxAlphaUsage,
+		nowFn:               time.Now,
 	}
 }
 
@@ -58,7 +60,8 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 	})
 	group.Go(func() error {
 		var err error
-		bandwidthGetTotal, err = usage.GetCurrentBandwidthAllocated(ctx, projectID)
+		now := usage.nowFn()
+		bandwidthGetTotal, err = usage.GetProjectAllocatedBandwidth(ctx, projectID, now.Year(), now.Month())
 		return err
 	})
 
@@ -119,18 +122,18 @@ func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID u
 	defer mon.Task()(&ctx, projectID)(&err)
 
 	// from the beginning of the current month
-	year, month, _ := time.Now().Date()
+	year, month, _ := usage.nowFn().Date()
 	from := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
 	total, err := usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, projectID, from)
 	return total, ErrProjectUsage.Wrap(err)
 }
 
-// GetCurrentBandwidthAllocated returns allocated bandwidth for the current month
-func (usage *Service) GetCurrentBandwidthAllocated(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
+// GetProjectAllocatedBandwidth returns project allocated bandwidth for the specified year and month.
+func (usage *Service) GetProjectAllocatedBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month) (_ int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 
-	total, err := usage.projectAccountingDB.GetCurrentBandwidthAllocated(ctx, projectID)
+	total, err := usage.projectAccountingDB.GetProjectAllocatedBandwidth(ctx, projectID, year, month)
 	return total, ErrProjectUsage.Wrap(err)
 }
 
@@ -177,4 +180,9 @@ func (usage *Service) UpdateProjectLimits(ctx context.Context, projectID uuid.UU
 func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, spaceUsed)
+}
+
+// SetNow allows tests to have the Service act as if the current time is whatever they want.
+func (usage *Service) SetNow(now func() time.Time) {
+	usage.nowFn = now
 }
