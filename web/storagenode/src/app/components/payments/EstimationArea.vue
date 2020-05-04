@@ -8,7 +8,7 @@
             <EstimationPeriodDropdown />
         </div>
         <div class="estimation-container__divider"></div>
-        <div class="estimation-table-container">
+        <div class="estimation-table-container" v-if="!isPayoutNoDataState">
             <div class="estimation-table-container__labels-area">
                 <div class="column justify-start column-1">
                     <p class="estimation-table-container__labels-area__text">Name</p>
@@ -82,20 +82,23 @@
                 </div>
             </div>
         </div>
+        <div class="no-data-container" v-else>
+            <img class="no-data-container__image" src="@/../static/images/payments/NoData.png">
+            <p class="no-data-container__title">No data to display</p>
+            <p class="no-data-container__additional-text">Please note, historical data about payouts does not update immediately, it may take some time.</p>
+        </div>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 
-import { NODE_ACTIONS } from '@/app/store/modules/node';
 import {
     BANDWIDTH_DOWNLOAD_PRICE_PER_TB,
     BANDWIDTH_REPAIR_PRICE_PER_TB,
     DISK_SPACE_PRICE_PER_TB,
-    PAYOUT_ACTIONS,
 } from '@/app/store/modules/payout';
 import { HeldInfo } from '@/app/types/payout';
 import { formatBytes, TB } from '@/app/utils/converter';
@@ -114,7 +117,6 @@ class EstimationTableRow {
     ) {}
 }
 
-// TODO: change calculations.
 @Component ({
     components: {
         EstimationPeriodDropdown,
@@ -135,6 +137,13 @@ export default class EstimationArea extends Vue {
 
     public get isSatelliteSelected(): boolean {
         return !!this.$store.state.node.selectedSatellite.id;
+    }
+
+    /**
+     * Indicates if payout data is unavailable.
+     */
+    public get isPayoutNoDataState(): boolean {
+        return this.$store.state.appStateModule.isNoPayoutData;
     }
 
     /**
@@ -455,6 +464,33 @@ export default class EstimationArea extends Vue {
 
     .column-6 {
         width: 8.7%;
+    }
+
+    .no-data-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 50px 0 80px 0;
+        font-family: 'font_regular', sans-serif;
+        color: var(--regular-text-color);
+
+        &__image {
+            width: 248px;
+            height: 252px;
+            margin-bottom: 40px;
+        }
+
+        &__title {
+            font-size: 26px;
+        }
+
+        &__additional-text {
+            font-size: 16px;
+            max-width: 500px;
+            text-align: center;
+            margin-top: 16px;
+        }
     }
 
     @media screen and (max-width: 640px) {

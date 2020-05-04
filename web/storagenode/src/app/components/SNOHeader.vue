@@ -155,7 +155,6 @@ export default class SNOHeader extends Vue {
         try {
             await this.$store.dispatch(GET_NODE_INFO);
             await this.$store.dispatch(SELECT_SATELLITE, selectedSatellite);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, selectedSatellite);
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {
             console.error(`${error.message} satellite data.`);

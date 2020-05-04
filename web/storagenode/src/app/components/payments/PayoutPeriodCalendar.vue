@@ -108,6 +108,37 @@ export default class PayoutPeriodCalendar extends Vue {
             return;
         }
 
+        // TODO: remove checks when buttons will be separated
+        if (!this.secondSelectedMonth) {
+            const now = new Date();
+            if (this.firstSelectedMonth.year === now.getUTCFullYear() && this.firstSelectedMonth.index === now.getUTCMonth()) {
+                await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
+                await this.$store.dispatch(
+                    PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+                        null,
+                        new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
+                    ),
+                );
+
+                this.close();
+
+                return;
+            }
+        }
+        if (this.secondSelectedMonth && this.secondSelectedMonth.year === this.firstSelectedMonth.year && this.secondSelectedMonth.index === this.firstSelectedMonth.index) {
+            await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
+            await this.$store.dispatch(
+                PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+                    null,
+                    new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
+                ),
+            );
+
+            this.close();
+
+            return;
+        }
+
         this.secondSelectedMonth ? await this.$store.dispatch(
             PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
                 new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
@@ -122,7 +153,9 @@ export default class PayoutPeriodCalendar extends Vue {
 
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, this.$store.state.node.selectedSatellite.id);
+            await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
         } catch (error) {
+            await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, true);
             console.error(error.message);
         }
 

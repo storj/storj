@@ -111,7 +111,11 @@ export class PayoutHttpApi implements PayoutApi {
             throw new Error('can not get held information');
         }
 
-        const data: any[] = await response.json() || [];
+        const data: any[] = await response.json();
+
+        if (!data || data.length === 0) {
+            throw new Error('no payout data for selected period');
+        }
 
         let usageAtRest: number = 0;
         let usageGet: number = 0;
