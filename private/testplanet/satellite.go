@@ -337,6 +337,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					AuditReputationWeight:       1,
 					AuditReputationDQ:           0.6,
 					SuspensionGracePeriod:       time.Hour,
+					SuspensionDQEnabled:         true,
 				},
 				NodeSelectionCache: overlay.CacheConfig{
 					Staleness: 3 * time.Minute,

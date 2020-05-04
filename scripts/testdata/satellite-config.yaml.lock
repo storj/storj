@@ -451,6 +451,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s
 
+# whether nodes will be disqualified if they have been suspended for longer than the suspended grace period
+# overlay.node.suspension-dq-enabled: false
+
 # the time period that must pass before suspended nodes will be disqualified
 # overlay.node.suspension-grace-period: 168h0m0s
 

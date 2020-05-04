@@ -1231,7 +1231,8 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 		// NOTE: if updateFields.Suspended is set, we just suspended the node so it will not be disqualified
 		if updateReq.AuditOutcome != overlay.AuditSuccess {
 			if dbNode.Suspended != nil && !updateFields.Suspended.set &&
-				time.Since(*dbNode.Suspended) > updateReq.SuspensionGracePeriod {
+				time.Since(*dbNode.Suspended) > updateReq.SuspensionGracePeriod &&
+				updateReq.SuspensionDQEnabled {
 				cache.db.log.Info("Disqualified", zap.String("DQ type", "suspension grace period expired"), zap.String("Node ID", updateReq.NodeID.String()))
 				updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
 				updateFields.Suspended = timeField{set: true, isNil: true}

@@ -228,6 +228,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 			AuditWeight:           1,
 			AuditDQ:               0, // make sure new reputation scores are larger than the DQ thresholds
 			SuspensionGracePeriod: time.Hour,
+			SuspensionDQEnabled:   true,
 		}}, 100)
 		require.NoError(t, err)
 

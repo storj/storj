@@ -153,6 +153,7 @@ type UpdateRequest struct {
 	AuditWeight           float64
 	AuditDQ               float64
 	SuspensionGracePeriod time.Duration
+	SuspensionDQEnabled   bool
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -393,6 +394,7 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.AuditWeight = service.config.Node.AuditReputationWeight
 		request.AuditDQ = service.config.Node.AuditReputationDQ
 		request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
+		request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 	}
 	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize)
 }
@@ -405,6 +407,7 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.AuditWeight = service.config.Node.AuditReputationWeight
 	request.AuditDQ = service.config.Node.AuditReputationDQ
 	request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
+	request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 
 	return service.db.UpdateStats(ctx, request)
 }

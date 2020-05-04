@@ -42,4 +42,5 @@ type NodeSelectionConfig struct {
 	AuditReputationWeight       float64       `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
 	AuditReputationDQ           float64       `help:"the reputation cut-off for disqualifying SNs based on audit history" default:"0.6"`
 	SuspensionGracePeriod       time.Duration `help:"the time period that must pass before suspended nodes will be disqualified" releaseDefault:"168h" devDefault:"1h"`
+	SuspensionDQEnabled         bool          `help:"whether nodes will be disqualified if they have been suspended for longer than the suspended grace period" releaseDefault:"false" devDefault:"true"`
 }
