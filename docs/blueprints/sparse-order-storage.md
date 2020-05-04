@@ -41,7 +41,7 @@ Authenticated encryption could avoid keys needing ids.
 
 The key idea is described in this
 [Revocation Transparency](https://www.links.org/files/RevocationTransparency.pdf)
-doc. This plan results in no double spends using no database reads!
+doc.
 
 The basic idea is a "Sparse Merkle Tree", where we essentially make a Merkle Tree
 with a leaf for every possible serial number. E.g., if serial numbers are 64 bits
@@ -54,8 +54,9 @@ Each Order Limit will specify which window the serial number belongs to, and
 each node will keep track of its own sparse Merkle tree for that window. Windows
 have a defined expiration time for new submissions based on the window id, but
 the window state per node will be kept in the Satellite database instead of the
-bandwidth rollups table. The Satellite will only keep a Merkle root per node
-per window.
+storage node bandwidth rollups table. The Satellite will only keep a Merkle root
+per node per window, bandwidth totals per node per window, and the existing
+bucket bandwidth rollups table.
 
 When a Storage Node wants to submit Orders, it will submit:
  1. The signed output of the previous state of that node's window from the
@@ -66,8 +67,8 @@ When a Storage Node wants to submit Orders, it will submit:
     subtree roots for subtrees that are all zeroes are well defined constants,
     of which there are only 64 in a depth-64 Merkle tree.
 
-The Satellite will first validate the given signed state output, pontentially
-overwriting the one is has (no database reads required for order submission).
+The Satellite will first validate the given signed state output and compare the
+hash to the one it has stored to make sure no rollbacks happen.
 Then it will recompute the Merkle root and match it with its stored one to
 confirm the Storage Node isn't lying *and* hasn't submitted any of the provided
 serial numbers before. Then it will update the leaves with the provided serial
@@ -75,11 +76,22 @@ numbers the Storage Node wants to submit, and create a new Merkle root. Then it
 will sign the new state (which includes the Merkle root and the new bandwidth
 totals for that window), store it, and submit the signed state to the storage
 node.
-
-The storage node will store that signed state for the next batch order submission
+The storage node will store the signed state for the next batch order submission
 for that window.
-Bandwidth rollups are as simple as querying the bandwidth totals out of the signed
-state structures per node per window.
+
+If the Merkle root doesn't match what the Satellite has at the outset, the
+Satellite will attempt to figure out what went wrong. It will compare the hash
+the Satellite has with the target hash of the batch. If that matches, then the
+batch has already been submitted. If that doesn't match, then it will process
+each Order in timestamp order and consider if any intermediate states have a
+matching root. If the Satellite can't discover what went wrong, it will fail
+the batch. To increase the chances that a Window isn't lost due to this, the
+Storage Node will, once submitting a batch, never change the batch until it
+confirms the batch has been successful.
+
+Storage node bandwidth rollups are as simple as querying the bandwidth totals
+out of the signed state structures per node per window.
+Bucket bandwidth rollups will continue to work the usual way.
 
 ## Other concerns
 
@@ -87,7 +99,6 @@ state structures per node per window.
 
 We think usage limits are an orthogonal problem and should be solved with a
 separate system to keep track of per-bandwidth-window allocations and usage.
-
 
 ## References
 
