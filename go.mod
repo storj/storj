@@ -18,7 +18,7 @@ require (
 	github.com/graphql-go/graphql v0.7.9
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-isatty v0.0.9 // indirect
-	github.com/mattn/go-sqlite3 v2.0.2+incompatible
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
