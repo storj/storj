@@ -23,7 +23,7 @@
 # audit.slots: 3
 
 # number of workers to run audits on paths
-# audit.worker-concurrency: 1
+# audit.worker-concurrency: 2
 
 # how frequently checker should check for bad segments
 # checker.interval: 30s
