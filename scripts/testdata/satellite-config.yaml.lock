@@ -301,7 +301,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how long to wait for new observers before starting iteration
 # metainfo.loop.coalesce-duration: 5s
 
-# metainfo loop rate limit (default is 0 which is unlimited segments per second)
+# how many items to query in a batch
+# metainfo.loop.list-limit: 10000
+
+# rate limit (default is 0 which is unlimited segments per second)
 # metainfo.loop.rate-limit: 0
 
 # maximum time allowed to pass between creating and committing a segment

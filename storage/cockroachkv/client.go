@@ -209,6 +209,13 @@ func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, 
 		opts.Limit = client.lookupLimit
 	}
 
+	return client.IterateWithoutLookupLimit(ctx, opts, fn)
+}
+
+// IterateWithoutLookupLimit calls the callback with an iterator over the keys, but doesn't enforce default limit on opts.
+func (client *Client) IterateWithoutLookupLimit(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	opi, err := newOrderedCockroachIterator(ctx, client, opts)
 	if err != nil {
 		return err

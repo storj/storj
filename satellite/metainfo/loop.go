@@ -139,7 +139,8 @@ func (observer *observerContext) Wait() error {
 // LoopConfig contains configurable values for the metainfo loop.
 type LoopConfig struct {
 	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
-	RateLimit        float64       `help:"metainfo loop rate limit (default is 0 which is unlimited segments per second)" default:"0"`
+	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
+	ListLimit        int           `help:"how many items to query in a batch" default:"10000"`
 }
 
 // Loop is a metainfo loop service.
@@ -237,16 +238,18 @@ waitformore:
 			return ctx.Err()
 		}
 	}
-	return iterateDatabase(ctx, loop.db, observers, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
+	return iterateDatabase(ctx, loop.db, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
 }
 
 // IterateDatabase iterates over PointerDB and notifies specified observers about results.
+//
+// It uses 10000 as the lookup limit for iterating.
 func IterateDatabase(ctx context.Context, rateLimit float64, db PointerDB, observers ...Observer) error {
 	obsContexts := make([]*observerContext, len(observers))
 	for i, observer := range observers {
 		obsContexts[i] = newObserverContext(ctx, observer)
 	}
-	return iterateDatabase(ctx, db, obsContexts, rate.NewLimiter(rate.Limit(rateLimit), 1))
+	return iterateDatabase(ctx, db, obsContexts, 10000, rate.NewLimiter(rate.Limit(rateLimit), 1))
 }
 
 // handlePointer deals with a pointer for a single observer
@@ -286,7 +289,7 @@ func (loop *Loop) Wait() {
 	<-loop.done
 }
 
-func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerContext, rateLimiter *rate.Limiter) (err error) {
+func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (err error) {
 	defer func() {
 		if err != nil {
 			for _, observer := range observers {
@@ -297,73 +300,75 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 		finishObservers(observers)
 	}()
 
-	err = db.Iterate(ctx, storage.IterateOptions{Recurse: true},
-		func(ctx context.Context, it storage.Iterator) error {
-			var item storage.ListItem
+	err = db.IterateWithoutLookupLimit(ctx, storage.IterateOptions{
+		Recurse: true,
+		Limit:   limit,
+	}, func(ctx context.Context, it storage.Iterator) error {
+		var item storage.ListItem
 
-			// iterate over every segment in metainfo
-		nextSegment:
-			for it.Next(ctx, &item) {
-				if err := rateLimiter.Wait(ctx); err != nil {
-					// We don't really execute concurrent batches so we should never
-					// exceed the burst size of 1 and this should never happen.
-					// We can also enter here if the context is cancelled.
-					return LoopError.Wrap(err)
-				}
+		// iterate over every segment in metainfo
+	nextSegment:
+		for it.Next(ctx, &item) {
+			if err := rateLimiter.Wait(ctx); err != nil {
+				// We don't really execute concurrent batches so we should never
+				// exceed the burst size of 1 and this should never happen.
+				// We can also enter here if the context is cancelled.
+				return LoopError.Wrap(err)
+			}
 
-				rawPath := item.Key.String()
-				pointer := &pb.Pointer{}
+			rawPath := item.Key.String()
+			pointer := &pb.Pointer{}
 
-				err := pb.Unmarshal(item.Value, pointer)
-				if err != nil {
-					return LoopError.New("unexpected error unmarshalling pointer %s", err)
-				}
+			err := pb.Unmarshal(item.Value, pointer)
+			if err != nil {
+				return LoopError.New("unexpected error unmarshalling pointer %s", err)
+			}
 
-				pathElements := storj.SplitPath(rawPath)
+			pathElements := storj.SplitPath(rawPath)
 
-				if len(pathElements) < 4 {
-					// We skip this path because it belongs to bucket metadata, not to an
-					// actual object
-					continue nextSegment
-				}
+			if len(pathElements) < 4 {
+				// We skip this path because it belongs to bucket metadata, not to an
+				// actual object
+				continue nextSegment
+			}
 
-				isLastSegment := pathElements[1] == "l"
+			isLastSegment := pathElements[1] == "l"
 
-				path := ScopedPath{
-					Raw:                 rawPath,
-					ProjectIDString:     pathElements[0],
-					Segment:             pathElements[1],
-					BucketName:          pathElements[2],
-					EncryptedObjectPath: storj.JoinPaths(pathElements[3:]...),
-				}
+			path := ScopedPath{
+				Raw:                 rawPath,
+				ProjectIDString:     pathElements[0],
+				Segment:             pathElements[1],
+				BucketName:          pathElements[2],
+				EncryptedObjectPath: storj.JoinPaths(pathElements[3:]...),
+			}
 
-				path.ProjectID, err = uuid.FromString(path.ProjectIDString)
-				if err != nil {
-					return LoopError.Wrap(err)
-				}
+			path.ProjectID, err = uuid.FromString(path.ProjectIDString)
+			if err != nil {
+				return LoopError.Wrap(err)
+			}
 
-				nextObservers := observers[:0]
-				for _, observer := range observers {
-					keepObserver := handlePointer(ctx, observer, path, isLastSegment, pointer)
-					if keepObserver {
-						nextObservers = append(nextObservers, observer)
-					}
-				}
-
-				observers = nextObservers
-				if len(observers) == 0 {
-					return nil
-				}
-
-				// if context has been canceled exit. Otherwise, continue
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
+			nextObservers := observers[:0]
+			for _, observer := range observers {
+				keepObserver := handlePointer(ctx, observer, path, isLastSegment, pointer)
+				if keepObserver {
+					nextObservers = append(nextObservers, observer)
 				}
 			}
-			return nil
-		})
+
+			observers = nextObservers
+			if len(observers) == 0 {
+				return nil
+			}
+
+			// if context has been canceled exit. Otherwise, continue
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+		}
+		return nil
+	})
 	return err
 }
 

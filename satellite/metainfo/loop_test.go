@@ -224,6 +224,7 @@ func TestLoopCancel(t *testing.T) {
 		// create a new metainfo loop
 		metaLoop := metainfo.NewLoop(metainfo.LoopConfig{
 			CoalesceDuration: 1 * time.Second,
+			ListLimit:        10000,
 		}, satellite.Metainfo.Database)
 
 		// create a cancelable context to pass into metaLoop.Run

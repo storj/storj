@@ -365,6 +365,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				},
 				Loop: metainfo.LoopConfig{
 					CoalesceDuration: 1 * time.Second,
+					ListLimit:        10000,
 				},
 				RateLimiter: metainfo.RateLimiterConfig{
 					Enabled:         true,
