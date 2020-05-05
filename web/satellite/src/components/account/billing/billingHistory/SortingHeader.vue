@@ -15,7 +15,9 @@
         <div class="sort-header-container__item amount">
             <p class="sort-header-container__item__name">Amount</p>
         </div>
-        <div class="sort-header-container__item download"></div>
+        <div class="sort-header-container__item download">
+            <p class="sort-header-container__item__name">Download</p>
+        </div>
     </div>
 </template>
 
@@ -60,8 +62,8 @@ export default class SortingHeader extends Vue {}
     }
 
     .download {
+        text-align: right;
         margin: 0;
-        min-width: 130px;
-        width: 10%;
+        min-width: 10%;
     }
 </style>
