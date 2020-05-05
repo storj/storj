@@ -15,14 +15,14 @@
             <b>
                 {{ billingItem.quantity.currency }}
                 <span v-if="billingItem.type === 1">
-                    {{ billingItem.quantity.received }}
+                    {{ billingItem.quantity.received.toFixed(2) }}
                 </span>
                 <span v-else>
-                    {{ billingItem.quantity.total }}
+                    {{ billingItem.quantity.total.toFixed(2) }}
                 </span>
             </b>
             <span v-if="billingItem.type === 1">
-                 of {{ billingItem.quantity.total }}
+                of <b>{{ billingItem.quantity.total.toFixed(2) }}</b>
             </span>
         </p>
         <p class="container__item download" v-html="billingItem.downloadLinkHtml()"></p>

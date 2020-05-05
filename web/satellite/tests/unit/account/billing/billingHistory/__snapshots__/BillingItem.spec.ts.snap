@@ -10,7 +10,7 @@ exports[`BillingItem renders correctly if charge 1`] = `
   <p class="container__item amount"><b>
       USD $
       <span>
-                5
+                5.00
             </span></b>
     <!---->
   </p>
@@ -28,7 +28,7 @@ exports[`BillingItem renders correctly if invoice 1`] = `
   <p class="container__item amount"><b>
       USD $
       <span>
-                5
+                5.00
             </span></b>
     <!---->
   </p>
@@ -46,10 +46,9 @@ exports[`BillingItem renders correctly if transaction 1`] = `
   <p class="container__item amount"><b>
       USD $
       <span>
-                5
+                5.00
             </span></b> <span>
-             of 5
-        </span></p>
+            of <b>5.00</b></span></p>
   <p class="container__item download"><a class="download-link" target="_blank" href="test">Checkout</a></p>
 </div>
 `;
