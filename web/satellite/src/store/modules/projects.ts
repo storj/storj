@@ -56,10 +56,10 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
     return {
         state: new ProjectsState(),
         mutations: {
-            [ADD](state: any, createdProject: Project): void {
+            [ADD](state: ProjectsState, createdProject: Project): void {
                 state.projects.push(createdProject);
             },
-            [SET_PROJECTS](state: any, projects: Project[]): void {
+            [SET_PROJECTS](state: ProjectsState, projects: Project[]): void {
                 state.projects = projects;
 
                 if (!state.selectedProject.id) {
@@ -82,8 +82,8 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 state.selectedProject = defaultSelectedProject;
             },
-            [SELECT_PROJECT](state: any, projectID: string): void {
-                const selected = state.projects.find((project: any) => project.id === projectID);
+            [SELECT_PROJECT](state: ProjectsState, projectID: string): void {
+                const selected = state.projects.find((project: Project) => project.id === projectID);
 
                 if (!selected) {
                     return;
@@ -91,15 +91,15 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 state.selectedProject = selected;
             },
-            [UPDATE_PROJECT](state: any, updateProjectModel: UpdateProjectModel): void {
-                const selected = state.projects.find((project: any) => project.id === updateProjectModel.id);
+            [UPDATE_PROJECT](state: ProjectsState, updateProjectModel: UpdateProjectModel): void {
+                const selected = state.projects.find((project: Project) => project.id === updateProjectModel.id);
                 if (!selected) {
                     return;
                 }
 
                 selected.description = updateProjectModel.description;
             },
-            [REMOVE](state: any, projectID: string): void {
+            [REMOVE](state: ProjectsState, projectID: string): void {
                 state.projects = state.projects.filter(project => project.id !== projectID);
 
                 if (state.selectedProject.id === projectID) {
@@ -155,8 +155,8 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             },
         },
         getters: {
-            projects: (state: any): Project[] => {
-                return state.projects.map((project: any) => {
+            projects: (state: ProjectsState): Project[] => {
+                return state.projects.map((project: Project) => {
                     if (project.id === state.selectedProject.id) {
                         project.isSelected = true;
                     }
@@ -164,7 +164,12 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                     return project;
                 });
             },
-            selectedProject: (state: any): Project => state.selectedProject,
+            projectsWithoutSelected: (state: ProjectsState): Project[] => {
+                return state.projects.filter((project: Project) => {
+                    return project.id !== state.selectedProject.id;
+                });
+            },
+            selectedProject: (state: ProjectsState): Project => state.selectedProject,
         },
     };
 }
