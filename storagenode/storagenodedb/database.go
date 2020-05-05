@@ -1206,52 +1206,16 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Backfill joined_at column",
 				Version:     38,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
-					stx, err := db.satellitesDB.Begin(ctx)
+					// We just need a value for joined_at until the node checks in with the
+					// satellites and gets the real value.
+					_, err = rtx.Exec(ctx, `UPDATE reputation SET joined_at = ? WHERE joined_at ISNULL`, time.Unix(0, 0).UTC())
 					if err != nil {
-						return errs.Wrap(err)
-					}
-					defer func() {
-						if err != nil {
-							err = errs.Combine(err, stx.Rollback())
-						} else {
-							err = errs.Wrap(stx.Commit())
-						}
-					}()
-
-					rows, err := rtx.Query(ctx, `SELECT satellite_id FROM reputation WHERE joined_at ISNULL`)
-					if err != nil {
-						return errs.Wrap(err)
-					}
-					defer func() { err = errs.Combine(err, errs.Wrap(rows.Close())) }()
-
-					var satelliteID []byte
-					var addedAt time.Time
-
-					for rows.Next() {
-						if err := rows.Scan(&satelliteID); err != nil {
-							return errs.Wrap(err)
-						}
-
-						err = stx.QueryRow(ctx, `SELECT added_at FROM satellites WHERE node_id = ?`,
-							satelliteID).Scan(&addedAt)
-						if err != nil {
-							return errs.Wrap(err)
-						}
-
-						_, err = rtx.Exec(ctx, `UPDATE reputation SET joined_at = ? WHERE satellite_id = ?`,
-							addedAt.UTC(), satelliteID)
-						if err != nil {
-							return errs.Wrap(err)
-						}
-					}
-					if err := rows.Err(); err != nil {
 						return errs.Wrap(err)
 					}
 
 					// in order to add the not null constraint, we have to do a
 					// generalized ALTER TABLE procedure.
 					// see https://www.sqlite.org/lang_altertable.html
-
 					_, err = rtx.Exec(ctx, `
 						CREATE TABLE reputation_new (
 							satellite_id BLOB NOT NULL,
@@ -1303,18 +1267,6 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Add unknown_audit_reputation_alpha and unknown_audit_reputation_beta fields to satellites db and remove uptime_reputation_alpha, uptime_reputation_beta, uptime_reputation_score",
 				Version:     39,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
-					stx, err := db.satellitesDB.Begin(ctx)
-					if err != nil {
-						return errs.Wrap(err)
-					}
-					defer func() {
-						if err != nil {
-							err = errs.Combine(err, stx.Rollback())
-						} else {
-							err = errs.Wrap(stx.Commit())
-						}
-					}()
-
 					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_alpha REAL`)
 					if err != nil {
 						return errs.Wrap(err)

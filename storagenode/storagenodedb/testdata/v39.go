@@ -33,7 +33,7 @@ var v39 = MultiDBState{
 					joined_at TIMESTAMP NOT NULL,
 					PRIMARY KEY (satellite_id)
 				);
-				INSERT INTO reputation VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',1,1,1.0,1.0,1.0,1,1,1.0,1.0,1.0,1.0,1.0,'2019-07-19 20:00:00+00:00','2019-08-23 20:00:00+00:00',NULL,'2019-09-10 20:00:00+00:00');
+				INSERT INTO reputation VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',1,1,1.0,1.0,1.0,1,1,1.0,1.0,1.0,1.0,1.0,'2019-07-19 20:00:00+00:00','2019-08-23 20:00:00+00:00',NULL,'1970-01-01 00:00:00+00:00');
 			`,
 		},
 		storagenodedb.PieceSpaceUsedDBName:  v31.DBStates[storagenodedb.PieceSpaceUsedDBName],
