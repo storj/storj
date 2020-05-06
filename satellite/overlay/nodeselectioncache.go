@@ -22,6 +22,7 @@ type CacheDB interface {
 
 // CacheConfig is a configuration for overlay node selection cache.
 type CacheConfig struct {
+	Disabled  bool          `help:"disable node cache" releaseDefault:"true" devDefault:"false"`
 	Staleness time.Duration `help:"how stale the node selection cache can be" releaseDefault:"3m" devDefault:"5m"`
 }
 

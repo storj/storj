@@ -410,7 +410,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		b.Run("FindStorageNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				selected, err := service.FindStorageNodes(ctx, overlay.FindStorageNodesRequest{
+				selected, err := service.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
 					MinimumRequiredNodes: SelectCount,
 					RequestedCount:       SelectCount,
 					ExcludedIDs:          nil,
@@ -423,7 +423,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		b.Run("FindStorageNodesExclusion", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				selected, err := service.FindStorageNodes(ctx, overlay.FindStorageNodesRequest{
+				selected, err := service.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
 					MinimumRequiredNodes: SelectCount,
 					RequestedCount:       SelectCount,
 					ExcludedIDs:          excludedIDs,
