@@ -16,7 +16,6 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
-	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -30,7 +29,7 @@ import (
 
 type mockServer struct {
 	localTime time.Time
-	pbgrpc.NodeServer
+	pb.DRPCNodeServer
 }
 
 func TestLocalTime_InSync(t *testing.T) {
@@ -77,7 +76,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		var group errgroup.Group
 		defer ctx.Check(group.Wait)
 
-		contactServer, err := server.New(log, mockSatTLSOptions, config.Address, config.PrivateAddress, nil)
+		contactServer, err := server.New(log, mockSatTLSOptions, config.Address, config.PrivateAddress)
 		require.NoError(t, err)
 		defer ctx.Check(contactServer.Close)
 
@@ -133,7 +132,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		var group errgroup.Group
 		defer ctx.Check(group.Wait)
 
-		contactServer, err := server.New(log, mockSatTLSOptions, config.Address, config.PrivateAddress, nil)
+		contactServer, err := server.New(log, mockSatTLSOptions, config.Address, config.PrivateAddress)
 		require.NoError(t, err)
 		defer ctx.Check(contactServer.Close)
 

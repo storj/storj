@@ -62,7 +62,7 @@ func (planet *Planet) newReferralManager() (*server.Server, error) {
 		return nil, err
 	}
 
-	referralmanager, err := server.New(log, tlsOptions, config.Address, config.PrivateAddress, nil)
+	referralmanager, err := server.New(log, tlsOptions, config.Address, config.PrivateAddress)
 	if err != nil {
 		return nil, err
 	}

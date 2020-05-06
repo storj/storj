@@ -16,7 +16,6 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/pb"
-	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -230,11 +229,6 @@ func monitoredSettlementStreamSend(ctx context.Context, stream settlementStream,
 		mon.Event("settlement_response_unknown")
 	}
 	return stream.Send(resp)
-}
-
-// Settlement receives orders and handles them in batches
-func (endpoint *Endpoint) Settlement(stream pbgrpc.Orders_SettlementServer) (err error) {
-	return endpoint.doSettlement(stream)
 }
 
 // Settlement receives orders and handles them in batches

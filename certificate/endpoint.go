@@ -25,7 +25,7 @@ type Endpoint struct {
 	minDifficulty   uint16
 }
 
-// NewEndpoint creates a new certificate signing gRPC server.
+// NewEndpoint creates a new certificate signing server.
 func NewEndpoint(log *zap.Logger, ca *identity.FullCertificateAuthority, authorizationDB *authorization.DB, minDifficulty uint16) *Endpoint {
 	codeMap := errs2.CodeMap{
 		&authorization.ErrNotFound:       rpcstatus.Unauthenticated,

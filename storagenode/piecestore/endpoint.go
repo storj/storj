@@ -22,7 +22,6 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/rpc/rpctimeout"
 	"storj.io/common/signing"
@@ -39,8 +38,6 @@ import (
 var (
 	mon = monkit.Package()
 )
-
-var _ pbgrpc.PiecestoreServer = (*Endpoint)(nil)
 
 // OldConfig contains everything necessary for a server
 type OldConfig struct {
@@ -78,9 +75,8 @@ type pingStatsSource interface {
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log          *zap.Logger
-	config       Config
-	grpcReqLimit int
+	log    *zap.Logger
+	config Config
 
 	signer    signing.Signer
 	trust     *trust.Pool
@@ -109,17 +105,9 @@ func (endpoint *Endpoint) DRPC() pb.DRPCPiecestoreServer { return &drpcEndpoint{
 
 // NewEndpoint creates a new piecestore endpoint.
 func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
-	// If config.MaxConcurrentRequests is set we want to repsect it for grpc.
-	// However, if it is 0 (unlimited) we force a limit.
-	grpcReqLimit := config.MaxConcurrentRequests
-	if grpcReqLimit <= 0 {
-		grpcReqLimit = 7
-	}
-
 	return &Endpoint{
-		log:          log,
-		config:       config,
-		grpcReqLimit: grpcReqLimit,
+		log:    log,
+		config: config,
 
 		signer:    signer,
 		trust:     trust,
@@ -196,11 +184,6 @@ func (endpoint *Endpoint) DeletePieces(
 	return &pb.DeletePiecesResponse{
 		UnhandledCount: int64(unhandled),
 	}, nil
-}
-
-// Upload handles uploading a piece on piece store.
-func (endpoint *Endpoint) Upload(stream pbgrpc.Piecestore_UploadServer) (err error) {
-	return endpoint.doUpload(stream, endpoint.grpcReqLimit)
 }
 
 // Upload handles uploading a piece on piece store.
@@ -451,11 +434,6 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 			return nil
 		}
 	}
-}
-
-// Download handles Downloading a piece on piece store.
-func (endpoint *Endpoint) Download(stream pbgrpc.Piecestore_DownloadServer) (err error) {
-	return endpoint.doDownload(stream)
 }
 
 // Download handles Downloading a piece on piece store.

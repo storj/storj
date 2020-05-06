@@ -15,11 +15,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 
 	"storj.io/common/identity"
 	"storj.io/common/pb"
-	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -27,7 +25,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/private/version"
-	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/post"
@@ -231,13 +228,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
-		apiKeyInterceptor := grpcauth.NewAPIKeyInterceptor()
-		var loggingInterceptor grpc.UnaryServerInterceptor
-		if sc.DebugLogTraffic {
-			loggingInterceptor = server.UnaryMessageLoggingInterceptor(log)
-		}
-
-		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress, apiKeyInterceptor, loggingInterceptor)
+		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -265,7 +256,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
-		pbgrpc.RegisterOverlayInspectorServer(peer.Server.PrivateGRPC(), peer.Overlay.Inspector)
 		if err := pb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPC(), peer.Overlay.Inspector); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -294,7 +284,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, config.Contact.Timeout)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
-		pbgrpc.RegisterNodeServer(peer.Server.GRPC(), peer.Contact.Endpoint)
 		if err := pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -306,7 +295,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup vouchers
-		pbgrpc.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 		if err := pb.DRPCRegisterVouchers(peer.Server.DRPC(), peer.Vouchers.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -355,7 +343,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Repairer.MaxExcessRateOptimalThreshold,
 			config.Orders.NodeStatusLogging,
 		)
-		pbgrpc.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint.DRPC()); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -435,7 +422,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		pbgrpc.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 		if err := pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -448,7 +434,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup datarepair
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
-		pbgrpc.RegisterIrreparableInspectorServer(peer.Server.PrivateGRPC(), peer.Repair.Inspector)
 		if err := pb.DRPCRegisterIrreparableInspector(peer.Server.PrivateDRPC(), peer.Repair.Inspector); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -460,7 +445,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Overlay.Service,
 			peer.Metainfo.Service,
 		)
-		pbgrpc.RegisterHealthInspectorServer(peer.Server.PrivateGRPC(), peer.Inspector.Endpoint)
 		if err := pb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPC(), peer.Inspector.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -571,7 +555,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				service,
 				pc.StripeCoinPayments.ConversionRatesCycleInterval)
 
-			pbgrpc.RegisterPaymentsServer(peer.Server.PrivateGRPC(), peer.Payments.Inspector)
 			if err := pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector); err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
@@ -643,7 +626,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.StoragenodeAccounting(),
 			config.Payments,
 		)
-		pbgrpc.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 		if err := pb.DRPCRegisterNodeStats(peer.Server.DRPC(), peer.NodeStats.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -659,7 +641,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.StoragenodeAccounting(),
 			peer.Overlay.DB,
 			peer.HeldAmount.Service)
-		pbgrpc.RegisterHeldAmountServer(peer.Server.GRPC(), peer.HeldAmount.Endpoint)
 		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.HeldAmount.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -678,7 +659,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.PeerIdentities(),
 				config.GracefulExit)
 
-			pbgrpc.RegisterSatelliteGracefulExitServer(peer.Server.GRPC(), peer.GracefulExit.Endpoint)
 			if err := pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC()); err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}

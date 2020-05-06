@@ -16,7 +16,6 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
-	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -119,11 +118,6 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overla
 		config:         config,
 		recvTimeout:    config.RecvTimeout,
 	}
-}
-
-// Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
-func (endpoint *Endpoint) Process(stream pbgrpc.SatelliteGracefulExit_ProcessServer) (err error) {
-	return endpoint.doProcess(stream)
 }
 
 // Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
