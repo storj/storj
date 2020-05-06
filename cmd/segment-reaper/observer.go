@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -19,21 +18,15 @@ import (
 )
 
 const (
-	maxNumOfSegments = 64
-	lastSegment      = int(-1)
-	rateLimit        = 0
+	lastSegment = int(-1)
+	rateLimit   = 0
 )
 
 // object represents object with segments.
 type object struct {
-	// TODO verify if we have more than 65 segments for object in network.
-	// 65 because the observer tracks in the bitmask all the segments execept the
-	//  last one (the 'l' segment)
-	segments bitmask
-
-	expectedNumberOfSegments byte
-
-	hasLastSegment bool
+	segments                 bitArray
+	expectedNumberOfSegments int
+	hasLastSegment           bool
 	// if skip is true then segments from this object shouldn't be treated as zombie segments
 	// and printed out, e.g. when one of segments is out of specified date rage
 	skip bool
@@ -61,7 +54,7 @@ func newObserver(db metainfo.PointerDB, w *csv.Writer, from, to *time.Time) (*ob
 		writer:       w,
 		from:         from,
 		to:           to,
-		zombieBuffer: make([]int, 0, maxNumOfSegments),
+		zombieBuffer: make([]int, 0),
 
 		objects: make(bucketsObjects),
 	}, nil
@@ -135,36 +128,25 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		}
 
 		if streamMeta.NumberOfSegments > 0 {
-			// We can support the size of the bitmask + 1 because the last segment
-			// ins't tracked in it.
-			if streamMeta.NumberOfSegments > (int64(maxNumOfSegments) + 1) {
-				object.skip = true
-				zap.L().Warn("Unsupported number of segments", zap.Int64("Segments", streamMeta.NumberOfSegments))
-			}
-			object.expectedNumberOfSegments = byte(streamMeta.NumberOfSegments)
+			object.expectedNumberOfSegments = int(streamMeta.NumberOfSegments)
 		}
 	} else {
 		segmentIndex, err := strconv.Atoi(path.Segment[1:])
 		if err != nil {
 			return err
 		}
-		if segmentIndex >= int(maxNumOfSegments) {
-			object.skip = true
-			zap.L().Warn("Unsupported segment index", zap.Int("Index", segmentIndex))
-		} else {
-			ok, err := object.segments.Has(segmentIndex)
-			if err != nil {
-				return err
-			}
-			if ok {
-				// TODO make path displayable
-				return errs.New("fatal error this segment is duplicated: %s", path.Raw)
-			}
+		ok, err := object.segments.Has(segmentIndex)
+		if err != nil {
+			return err
+		}
+		if ok {
+			// TODO make path displayable
+			return errs.New("fatal error this segment is duplicated: %s", path.Raw)
+		}
 
-			err = object.segments.Set(segmentIndex)
-			if err != nil {
-				return err
-			}
+		err = object.segments.Set(segmentIndex)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -238,7 +220,7 @@ func (obsvr *observer) findZombieSegments(object *object) error {
 	case object.expectedNumberOfSegments == 0:
 		sequenceLength := firstSequenceLength(object.segments)
 
-		for index := sequenceLength; index < maxNumOfSegments; index++ {
+		for index := sequenceLength; index < object.segments.Length(); index++ {
 			has, err := object.segments.Has(index)
 			if err != nil {
 				panic(err)
@@ -247,11 +229,11 @@ func (obsvr *observer) findZombieSegments(object *object) error {
 				obsvr.appendSegment(index)
 			}
 		}
-	case segmentsCount > int(object.expectedNumberOfSegments)-1:
+	case segmentsCount > object.expectedNumberOfSegments-1:
 		sequenceLength := firstSequenceLength(object.segments)
 
-		if sequenceLength == int(object.expectedNumberOfSegments-1) {
-			for index := sequenceLength; index < maxNumOfSegments; index++ {
+		if sequenceLength == object.expectedNumberOfSegments-1 {
+			for index := sequenceLength; index < object.segments.Length(); index++ {
 				has, err := object.segments.Has(index)
 				if err != nil {
 					panic(err)
@@ -264,8 +246,8 @@ func (obsvr *observer) findZombieSegments(object *object) error {
 			obsvr.appendAllObjectSegments(object)
 			obsvr.appendSegment(lastSegment)
 		}
-	case segmentsCount < int(object.expectedNumberOfSegments)-1,
-		segmentsCount == int(object.expectedNumberOfSegments)-1 && !object.segments.IsSequence():
+	case segmentsCount < object.expectedNumberOfSegments-1,
+		segmentsCount == object.expectedNumberOfSegments-1 && !object.segments.IsSequence():
 		obsvr.appendAllObjectSegments(object)
 		obsvr.appendSegment(lastSegment)
 	}
@@ -323,7 +305,7 @@ func (obsvr *observer) appendSegment(segmentIndex int) {
 }
 
 func (obsvr *observer) appendAllObjectSegments(object *object) {
-	for index := 0; index < maxNumOfSegments; index++ {
+	for index := 0; index < object.segments.Length(); index++ {
 		has, err := object.segments.Has(index)
 		if err != nil {
 			panic(err)
@@ -353,15 +335,15 @@ func findOrCreate(bucketName string, path string, buckets bucketsObjects) *objec
 
 	obj, ok := objects[path]
 	if !ok {
-		obj = &object{}
+		obj = &object{segments: bitArray{}}
 		objects[path] = obj
 	}
 
 	return obj
 }
 
-func firstSequenceLength(segments bitmask) int {
-	for index := 0; index < maxNumOfSegments; index++ {
+func firstSequenceLength(segments bitArray) int {
+	for index := 0; index < segments.Length(); index++ {
 		has, err := segments.Has(index)
 		if err != nil {
 			panic(err)
@@ -370,5 +352,5 @@ func firstSequenceLength(segments bitmask) int {
 			return index
 		}
 	}
-	return maxNumOfSegments
+	return segments.Length()
 }

@@ -10,67 +10,79 @@ import (
 )
 
 // errorBitmaskInvalidIdx is the error class to return invalid indexes for the
-// the bitmask type.
+// the bitArray type.
 var errorBitmaskInvalidIdx = errs.Class("invalid index")
 
-// bitmask allows to track indexes in an optimal way.
-type bitmask uint64
+// bitArray allows easy access to bit values by indices.
+type bitArray []byte
 
-// Set tracks index in mask. It returns an error if index is negative or it's
-// greater than 63.
-func (mask *bitmask) Set(index int) error {
+// Set tracks index in mask. It returns an error if index is negative.
+// Set will resize the array if you access an index larger than its Length.
+func (bytes *bitArray) Set(index int) error {
+	bitIndex, byteIndex := index%8, index/8
 	switch {
 	case index < 0:
 		return errorBitmaskInvalidIdx.New("negative value (%d)", index)
-	case index > 63:
-		return errorBitmaskInvalidIdx.New("index is greater than 63 (%d)", index)
+	case byteIndex >= len(*bytes):
+		sizeToGrow := byteIndex - len(*bytes) + 1
+		*bytes = append(*bytes, make([]byte, sizeToGrow)...)
 	}
-
-	bit := uint64(1) << index
-	*mask = bitmask(uint64(*mask) | bit)
+	mask := byte(1) << bitIndex
+	(*bytes)[byteIndex] |= mask
 	return nil
 }
 
-// Unset removes bit from index in mask. It returns an error if index is negative or it's
-// greater than 63.
-func (mask *bitmask) Unset(index int) error {
+// Unset removes bit from index in mask. It returns an error if index is negative.
+func (bytes *bitArray) Unset(index int) error {
+	bitIndex, byteIndex := index%8, index/8
 	switch {
 	case index < 0:
 		return errorBitmaskInvalidIdx.New("negative value (%d)", index)
-	case index > 63:
-		return errorBitmaskInvalidIdx.New("index is greater than 63 (%d)", index)
+	case byteIndex >= len(*bytes):
+		return nil
 	}
-
-	bit := uint64(1) << index
-	*mask = bitmask(uint64(*mask) ^ bit)
+	mask := byte(1) << bitIndex
+	(*bytes)[byteIndex] &^= mask
 	return nil
 }
 
 // Has returns true if the index is tracked in mask otherwise false.
-// It returns an error if index is negative or it's greater than 63.
-func (mask *bitmask) Has(index int) (bool, error) {
+// It returns an error if index is negative.
+func (bytes *bitArray) Has(index int) (bool, error) {
+	bitIndex, byteIndex := index%8, index/8
 	switch {
 	case index < 0:
 		return false, errorBitmaskInvalidIdx.New("negative value (%d)", index)
-	case index > 63:
-		return false, errorBitmaskInvalidIdx.New("index is greater than 63 (%d)", index)
+	case byteIndex >= len(*bytes):
+		return false, nil
 	}
 
-	bit := uint64(1) << index
-	bit = uint64(*mask) & bit
-	return bit != 0, nil
+	mask := byte(1) << bitIndex
+	result := (*bytes)[byteIndex] & mask
+	return result != 0, nil
 }
 
-// Count returns the number of tracked indexes.
-func (mask *bitmask) Count() int {
-	return bits.OnesCount64(uint64(*mask))
+// Count returns the number of bits which are set.
+func (bytes *bitArray) Count() int {
+	count := 0
+	for x := 0; x < len(*bytes); x++ {
+		count += bits.OnesCount8((*bytes)[x])
+	}
+	return count
 }
 
 // IsSequence returns true if mask has only tracked a correlative sequence of
 // indexes starting from index 0.
-func (mask *bitmask) IsSequence() bool {
-	ones := mask.Count()
-	zeros := bits.LeadingZeros64(uint64(*mask))
+func (bytes *bitArray) IsSequence() bool {
+	ones := bytes.Count()
+	zeros := 0
+	for byteIndex := len(*bytes) - 1; byteIndex >= 0 && zeros%8 == 0; byteIndex-- {
+		zeros = bits.LeadingZeros8((*bytes)[byteIndex])
+	}
+	return (zeros + ones) == len(*bytes)*8
+}
 
-	return (zeros + ones) == 64
+// Length returns the current size of the array in bits.
+func (bytes *bitArray) Length() int {
+	return len(*bytes) * 8
 }
