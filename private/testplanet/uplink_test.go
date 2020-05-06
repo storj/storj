@@ -18,7 +18,6 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
@@ -158,11 +157,11 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 type piecestoreMock struct {
 }
 
-func (mock *piecestoreMock) Upload(server pbgrpc.Piecestore_UploadServer) error {
+func (mock *piecestoreMock) Upload(server pb.DRPCPiecestore_UploadStream) error {
 	return nil
 }
 
-func (mock *piecestoreMock) Download(server pbgrpc.Piecestore_DownloadServer) error {
+func (mock *piecestoreMock) Download(server pb.DRPCPiecestore_DownloadStream) error {
 	timoutTicker := time.NewTicker(30 * time.Second)
 	defer timoutTicker.Stop()
 
@@ -216,52 +215,49 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 			}
 		}
 
-		stopped := false
 		// choose used storage node and replace it with fake listener
-		unresponsiveNode := pointer.Remote.RemotePieces[0].NodeId
-		for _, storageNode := range planet.StorageNodes {
-			if storageNode.ID() == unresponsiveNode {
-				err = planet.StopPeer(storageNode)
-				require.NoError(t, err)
+		storageNode := planet.FindNode(pointer.Remote.RemotePieces[0].NodeId)
+		require.NotNil(t, storageNode)
 
-				wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
-				require.NoError(t, err)
-				tlscfg := tlsopts.Config{
-					RevocationDBURL:     "bolt://" + ctx.File("fakestoragenode", "revocation.db"),
-					UsePeerCAWhitelist:  true,
-					PeerCAWhitelistPath: wl,
-					PeerIDVersions:      "*",
-					Extensions: extensions.Config{
-						Revocation:          false,
-						WhitelistSignedLeaf: false,
-					},
-				}
+		err = planet.StopPeer(storageNode)
+		require.NoError(t, err)
 
-				revocationDB, err := revocation.NewDBFromCfg(tlscfg)
-				require.NoError(t, err)
-
-				tlsOptions, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)
-				require.NoError(t, err)
-
-				server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Addr(), storageNode.PrivateAddr(), nil)
-				require.NoError(t, err)
-				pbgrpc.RegisterPiecestoreServer(server.GRPC(), &piecestoreMock{})
-
-				defer ctx.Check(server.Close)
-
-				ctx.Go(func() error {
-					if err := server.Run(ctx); err != nil {
-						return errs.Wrap(err)
-					}
-
-					return errs.Wrap(revocationDB.Close())
-				})
-
-				stopped = true
-				break
-			}
+		wl, err := planet.WriteWhitelist(storj.LatestIDVersion())
+		require.NoError(t, err)
+		tlscfg := tlsopts.Config{
+			RevocationDBURL:     "bolt://" + ctx.File("fakestoragenode", "revocation.db"),
+			UsePeerCAWhitelist:  true,
+			PeerCAWhitelistPath: wl,
+			PeerIDVersions:      "*",
+			Extensions: extensions.Config{
+				Revocation:          false,
+				WhitelistSignedLeaf: false,
+			},
 		}
-		assert.True(t, stopped, "no storage node was altered")
+
+		revocationDB, err := revocation.NewDBFromCfg(tlscfg)
+		require.NoError(t, err)
+
+		tlsOptions, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)
+		require.NoError(t, err)
+
+		server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Addr(), storageNode.PrivateAddr(), nil)
+		require.NoError(t, err)
+
+		err = pb.DRPCRegisterPiecestore(server.DRPC(), &piecestoreMock{})
+		require.NoError(t, err)
+
+		defer ctx.Check(server.Close)
+
+		subctx, subcancel := context.WithCancel(ctx)
+		defer subcancel()
+		ctx.Go(func() error {
+			if err := server.Run(subctx); err != nil {
+				return errs.Wrap(err)
+			}
+
+			return errs.Wrap(revocationDB.Close())
+		})
 
 		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
 		assert.NoError(t, err)
