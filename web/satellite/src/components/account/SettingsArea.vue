@@ -154,13 +154,6 @@ export default class SettingsArea extends Vue {
             margin: 40px 0 25px 0;
         }
 
-        &__navigation {
-            position: absolute;
-            right: 55px;
-            top: 44px;
-            z-index: 99;
-        }
-
         &__edit-profile {
             height: 66px;
             width: calc(100% - 80px);

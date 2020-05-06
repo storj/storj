@@ -4,10 +4,13 @@
 <template>
     <div class="input-container">
         <div v-if="!isOptional" class="label-container">
-            <ErrorIcon v-if="error"/>
-            <h3 v-if="!error" class="label-container__label">{{label}}</h3>
-            <h3 v-if="!error" class="label-container__label add-label">{{additionalLabel}}</h3>
-            <h3 class="label-container__error" v-if="error">{{error}}</h3>
+            <div class="label-container__main">
+                <ErrorIcon v-if="error"/>
+                <h3 v-if="!error" class="label-container__main__label">{{label}}</h3>
+                <h3 v-if="!error" class="label-container__main__label add-label">{{additionalLabel}}</h3>
+                <h3 class="label-container__main__error" v-if="error">{{error}}</h3>
+            </div>
+            <h3 v-if="isLimitShown" class="label-container__limit">{{currentLimit}}/{{maxSymbols}}</h3>
         </div>
         <div v-if="isOptional" class="optional-label-container">
             <h3 class="label-container__label">{{label}}</h3>
@@ -30,7 +33,7 @@
             class="headered-input"
             v-if="!isMultiline"
             :id="this.label"
-            :placeholder="this.$props.placeholder"
+            :placeholder="this.placeholder"
             :type="[isPassword ? 'password': 'text']"
             @input="onInput"
             @change="onInput"
@@ -58,8 +61,12 @@ export default class HeaderedInput extends HeaderlessInput {
     private readonly initValue: string;
     @Prop({default: ''})
     private readonly additionalLabel: string;
+    @Prop({default: 0})
+    private readonly currentLimit: number;
     @Prop({default: false})
     private readonly isOptional: boolean;
+    @Prop({default: false})
+    private readonly isLimitShown: boolean;
     @Prop({default: false})
     private readonly isMultiline: boolean;
 
@@ -84,21 +91,34 @@ export default class HeaderedInput extends HeaderlessInput {
     }
 
     .label-container {
+        width: 100%;
         display: flex;
-        justify-content: flex-start;
+        justify-content: space-between;
         align-items: center;
 
-        &__label {
-            font-size: 16px;
-            line-height: 21px;
-            color: #354049;
+        &__main {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+
+            &__label {
+                font-size: 16px;
+                line-height: 21px;
+                color: #354049;
+            }
+
+            &__error {
+                font-size: 16px;
+                line-height: 21px;
+                color: #ff5560;
+                margin-left: 10px;
+            }
         }
 
-        &__error {
+        &__limit {
             font-size: 16px;
             line-height: 21px;
-            color: #ff5560;
-            margin-left: 10px;
+            color: rgba(56, 75, 101, 0.4);
         }
     }
 
@@ -131,7 +151,9 @@ export default class HeaderedInput extends HeaderlessInput {
     }
 
     .headered-textarea {
-        padding-top: 20px;
+        padding: 15px 22px;
+        text-indent: 0;
+        line-height: 26px;
     }
 
     .add-label {

@@ -3,47 +3,37 @@
 
 <template>
     <div class="project-details">
-        <h1 class="project-details__title">Project Details</h1>
-        <div class="project-details__name-container">
-            <p class="project-details__name-container__title">Project Name</p>
-            <p class="project-details__name-container__project-name">{{name}}</p>
+        <div class="project-details__title-area">
+            <h1 class="project-details__title-area__title">{{ name }}</h1>
+            <span class="project-details__title-area__edit" v-if="!isEditing" @click="toggleEditing">
+                Edit Description
+            </span>
         </div>
-        <div class="project-details__description-container" v-if="!isEditing">
-            <div class="project-details__description-container__text-area">
-                <p class="project-details__description-container__text-area__title">Description</p>
-                <p class="project-details__description-container__text-area__project-description">{{displayedDescription}}</p>
-            </div>
-            <EditIcon
-                class="project-details-svg"
-                @click="toggleEditing"
+        <p class="project-details__description" v-if="!isEditing">{{ displayedDescription }}</p>
+        <div class="project-details__editing" v-else>
+            <input
+                class="project-details__editing__input"
+                placeholder="Enter a description for your project. Descriptions are limited to 100 characters."
+                @input="onInput"
+                @change="onInput"
+                v-model="value"
             />
-        </div>
-        <div class="project-details__description-container__editing" v-if="isEditing">
-            <HeaderedInput
-                label="Description"
-                placeholder="Enter Description"
-                width="205%"
-                height="10vh"
-                is-multiline="true"
-                :init-value="storedDescription"
-                @setData="setNewDescription"
+            <span class="project-details__editing__limit">{{value.length}}/{{MAX_SYMBOLS}}</span>
+            <VButton
+                class="project-details__editing__cancel-button"
+                label="Cancel"
+                width="73px"
+                height="33px"
+                :on-press="toggleEditing"
+                is-white="true"
             />
-            <div class="project-details__description-container__editing__buttons-area">
-                <VButton
-                    label="Cancel"
-                    width="180px"
-                    height="48px"
-                    :on-press="toggleEditing"
-                    is-white="true"
-                />
-                <VButton
-                    class="save-button"
-                    label="Save"
-                    width="180px"
-                    height="48px"
-                    :on-press="onSaveButtonClick"
-                />
-            </div>
+            <VButton
+                class="project-details__editing__save-button"
+                label="Save"
+                width="75px"
+                height="35px"
+                :on-press="onSaveButtonClick"
+            />
         </div>
     </div>
 </template>
@@ -54,8 +44,6 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import EditIcon from '@/../static/images/project/edit.svg';
-
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { UpdateProjectModel } from '@/types/projects';
 
@@ -63,12 +51,13 @@ import { UpdateProjectModel } from '@/types/projects';
     components: {
         VButton,
         HeaderedInput,
-        EditIcon,
     },
 })
 export default class ProjectDetails extends Vue {
+    public readonly MAX_SYMBOLS: number = 100;
+
     public isEditing: boolean = false;
-    private newDescription: string = '';
+    public value: string = '';
 
     /**
      * Returns selected project name.
@@ -94,10 +83,16 @@ export default class ProjectDetails extends Vue {
     }
 
     /**
-     * Sets new description from value string.
+     * Triggers on input.
      */
-    public setNewDescription(value: string): void {
-        this.newDescription = value;
+    public onInput({ target }): void {
+        if (target.value.length < this.MAX_SYMBOLS) {
+            this.value = target.value;
+
+            return;
+        }
+
+        this.value = target.value.slice(0, this.MAX_SYMBOLS);
     }
 
     /**
@@ -105,7 +100,7 @@ export default class ProjectDetails extends Vue {
      */
     public async onSaveButtonClick(): Promise<void> {
         try {
-            const updatedProject = new UpdateProjectModel(this.$store.getters.selectedProject.id, this.newDescription);
+            const updatedProject = new UpdateProjectModel(this.$store.getters.selectedProject.id, this.value);
             await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE, updatedProject);
         } catch (error) {
             await this.$notify.error(`Unable to update project description. ${error.message}`);
@@ -122,7 +117,7 @@ export default class ProjectDetails extends Vue {
      */
     public toggleEditing(): void {
         this.isEditing = !this.isEditing;
-        this.newDescription = this.storedDescription;
+        this.value = this.storedDescription;
     }
 }
 </script>
@@ -134,96 +129,79 @@ export default class ProjectDetails extends Vue {
     }
 
     .project-details {
-        padding: 30px;
-        margin-right: 32px;
-        width: calc(30% - 60px);
+        padding: 35px;
+        width: calc(100% - 70px);
         font-family: 'font_regular', sans-serif;
         background-color: #fff;
         border-radius: 6px;
+        margin-bottom: 36px;
 
-        &__title {
-            font-family: 'font_medium', sans-serif;
-            font-size: 18px;
-            line-height: 18px;
-            color: #354049;
-            margin-bottom: 25px;
-        }
-
-        &__name-container {
-            width: 100%;
-            margin-bottom: 35px;
-
-            &__title {
-                font-size: 16px;
-                line-height: 16px;
-                color: rgba(56, 75, 101, 0.4);
-                margin-bottom: 15px;
-            }
-
-            &__project-name {
-                font-size: 16px;
-                line-height: 16px;
-                color: #354049;
-            }
-        }
-
-        &__description-container {
+        &__title-area {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            width: 100%;
 
-            &__text-area {
-                width: 100%;
-
-                &__title {
-                    font-size: 16px;
-                    line-height: 16px;
-                    color: rgba(56, 75, 101, 0.4);
-                    margin-bottom: 15px;
-                }
-
-                &__project-description {
-                    font-size: 16px;
-                    line-height: 24px;
-                    color: #354049;
-                    max-height: 48px;
-                    width: available;
-                    overflow-y: scroll;
-                    word-break: break-word;
-                    white-space: pre-line;
-                }
+            &__title {
+                font-size: 22px;
+                line-height: 27px;
+                color: #000;
+                word-break: break-all;
             }
 
-            &__editing {
+            &__edit {
+                font-size: 14px;
+                line-height: 14px;
+                color: #909ba8;
+                cursor: pointer;
 
-                &__buttons-area {
-                    display: flex;
-                    align-items: center;
-                    justify-content: flex-end;
-                    margin-top: 20px;
-
-                    .save-button {
-                        margin-left: 10px;
-                    }
+                &:hover {
+                    color: #2683ff;
                 }
             }
         }
-    }
 
-    .project-details-svg {
-        margin-left: 20px;
-        min-width: 40px;
-        cursor: pointer;
+        &__description {
+            margin-top: 30px;
+            font-size: 16px;
+            line-height: 24px;
+            color: #354049;
+            width: available;
+            overflow-y: scroll;
+            word-break: break-word;
+            max-height: 100px;
+        }
 
-        &:hover {
+        &__editing {
+            display: flex;
+            align-items: center;
+            margin-top: 20px;
+            width: calc(100% - 7px);
+            border-radius: 6px;
+            background-color: #f5f6fa;
+            padding-right: 7px;
 
-            .project-details-svg__rect {
-                fill: #2683ff;
+            &__input {
+                font-weight: normal;
+                font-size: 16px;
+                line-height: 21px;
+                flex: 1;
+                height: 48px;
+                width: available;
+                text-indent: 20px;
+                background-color: #f5f6fa;
+                border-color: #f5f6fa;
+                border-radius: 6px;
             }
 
-            .project-details-svg__path {
-                fill: white;
+            &__limit {
+                font-size: 14px;
+                line-height: 21px;
+                color: rgba(0, 0, 0, 0.3);
+                margin: 0 15px;
+            }
+
+            &__save-button {
+                margin-left: 10px;
             }
         }
     }
