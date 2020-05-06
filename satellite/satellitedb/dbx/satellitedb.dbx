@@ -533,6 +533,10 @@ model bucket_bandwidth_rollup (
 		name bucket_bandwidth_rollups_project_id_action_interval_index
 		fields project_id action interval_start
 	)
+	index (
+		name bucket_bandwidth_rollups_action_interval_project_id_index
+		fields action interval_start project_id
+	)
 
 	field bucket_name       blob
 	field project_id        blob
@@ -552,6 +556,20 @@ read scalar (
 	where  bucket_bandwidth_rollup.project_id = ?
 	where  bucket_bandwidth_rollup.interval_start = ?
 	where  bucket_bandwidth_rollup.action = ?
+)
+
+model project_bandwidth_rollup (
+	key    project_id interval_month
+
+	field project_id       blob
+	field interval_month   date
+	field egress_allocated uint64 ( updatable )	
+)
+
+read scalar (
+	select project_bandwidth_rollup
+	where  project_bandwidth_rollup.project_id = ?
+	where  project_bandwidth_rollup.interval_month = ?
 )
 
 model bucket_storage_tally (

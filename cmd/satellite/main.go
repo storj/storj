@@ -257,7 +257,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		log.Fatal("Failed to load identity.", zap.Error(err))
 	}
 
 	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
@@ -272,7 +272,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
-		return errs.New("Error creating revocation database: %+v", err)
+		return errs.New("Error creating metainfodb connection: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, pointerDB.Close())
@@ -311,15 +311,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
+		log.Warn("Failed to initialize telemetry batcher", zap.Error(err))
 	}
 
-	if err := process.InitTracingWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize tracing collector: ", err)
+	err = pointerDB.MigrateToLatest(ctx)
+	if err != nil {
+		return errs.New("Error creating metainfodb tables: %+v", err)
 	}
+
 	err = db.CheckVersion(ctx)
 	if err != nil {
-		zap.S().Fatal("failed satellite database version check: ", err)
+		log.Fatal("Failed satellite database version check.", zap.Error(err))
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
@@ -340,20 +342,22 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	err = db.CreateTables(ctx)
+	err = db.MigrateToLatest(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	// There should be an explicit CreateTables call for the pointerdb as well.
-	// This is tracked in jira ticket #3337.
 	pdb, err := metainfo.NewStore(log.Named("migration"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
-		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
+		return errs.New("Error creating pointer database connection on satellite: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, pdb.Close())
 	}()
+	err = pdb.MigrateToLatest(ctx)
+	if err != nil {
+		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
+	}
 
 	return nil
 }
@@ -415,7 +419,7 @@ func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error)
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	}
 
 	// Check the node ID is valid
@@ -556,7 +560,10 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	defer func() {
 		err = errs.Combine(err, file.Close())
 		if err != nil {
-			log.Sugar().Errorf("error closing the file %v after retrieving partner value attribution data: %+v", partnerAttribtionCfg.Output, err)
+			log.Error("Error closing the output file after retrieving partner value attribution data.",
+				zap.String("Output File", partnerAttribtionCfg.Output),
+				zap.Error(err),
+			)
 		}
 	}()
 

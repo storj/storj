@@ -470,7 +470,7 @@ func TestCachedBandwidthMonthRollover(t *testing.T) {
 
 func TestBandwidthRollup(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		err := db.CreateTables(ctx)
+		err := db.MigrateToLatest(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

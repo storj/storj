@@ -1,7 +1,7 @@
 # Storj V3 Network
 
 [![Go Report Card](https://goreportcard.com/badge/storj.io/storj)](https://goreportcard.com/report/storj.io/storj)
-[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://godoc.org/storj.io/storj)
+[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/storj)
 [![Coverage Status](https://img.shields.io/badge/coverage-master-green.svg)](https://build.dev.storj.io/job/storj/job/master/cobertura)
 ![Alpha](https://img.shields.io/badge/version-alpha-green.svg)
 
@@ -40,7 +40,7 @@ Want to vote on or suggest new features? Post it on [ideas.storj.io](https://ide
 See the breakdown of what we're building by checking out the following resources:
 
  * [White paper](https://storj.io/whitepaper)
- * [Aha! Roadmap](https://storjlabs.aha.io/published/01ee405b4bd8d14208c5256d70d73a38)
+ * [Aha! Roadmap](https://storjlabs.aha.io/published/bc0db77dc0580bb10c0faf2b383d0529?page=1)
 
 ### Install required packages
 

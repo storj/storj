@@ -41,7 +41,7 @@ func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
 		var (
 			satelliteSys = planet.Satellites[0]
 			uplink       = planet.Uplinks[0]
-			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			projectID    = uplink.Projects[0].ID
 			since        = time.Now()
 		)
 
@@ -82,7 +82,7 @@ func TestBilling_InlineFiles(t *testing.T) {
 		var (
 			satelliteSys = planet.Satellites[0]
 			uplink       = planet.Uplinks[0]
-			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			projectID    = uplink.Projects[0].ID
 			since        = time.Now()
 		)
 
@@ -129,7 +129,7 @@ func TestBilling_FilesAfterDeletion(t *testing.T) {
 		var (
 			satelliteSys = planet.Satellites[0]
 			uplink       = planet.Uplinks[0]
-			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			projectID    = uplink.Projects[0].ID
 			since        = time.Now()
 		)
 
@@ -182,7 +182,7 @@ func TestBilling_TrafficAfterFileDeletion(t *testing.T) {
 		var (
 			satelliteSys = planet.Satellites[0]
 			uplink       = planet.Uplinks[0]
-			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			projectID    = uplink.Projects[0].ID
 		)
 
 		data := testrand.Bytes(5 * memory.KiB)
@@ -240,7 +240,7 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		require.NoError(t, err)
 
 		var (
-			projectID = uplnk.ProjectID[satelliteSys.ID()]
+			projectID = uplnk.Projects[0].ID
 			since     = time.Now()
 		)
 		projectTotal := getProjectTotal(ctx, t, planet, 0, projectID, since)
@@ -308,7 +308,7 @@ func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
 
 		var (
 			uplnk     = planet.Uplinks[0]
-			projectID = uplnk.ProjectID[satelliteSys.ID()]
+			projectID = uplnk.Projects[0].ID
 		)
 
 		since := time.Now().Add(-10 * time.Hour)
@@ -330,6 +330,60 @@ func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
 		usage = getProjectTotal(ctx, t, planet, 0, projectID, since)
 		require.NotZero(t, usage.Egress, "billed usage")
 	})
+}
+
+func TestBilling_ExpiredFiles(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			bucketName = "a-bucket"
+			objectKey  = "object-filename"
+		)
+
+		satelliteSys := planet.Satellites[0]
+		satelliteSys.Audit.Chore.Loop.Stop()
+		satelliteSys.Repair.Repairer.Loop.Stop()
+
+		satelliteSys.Accounting.Tally.Loop.Pause()
+
+		tallies := getTallies(ctx, t, planet, 0)
+		require.Zero(t, len(tallies), "There should be no tally at this point")
+
+		now := time.Now()
+		expirationDate := now.Add(time.Hour)
+
+		{
+			uplink := planet.Uplinks[0]
+			data := testrand.Bytes(128 * memory.KiB)
+			err := uplink.UploadWithExpiration(ctx, satelliteSys, bucketName, objectKey, data, expirationDate)
+			require.NoError(t, err)
+		}
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		tallies = getTallies(ctx, t, planet, 0)
+		require.NotZero(t, len(tallies), "There should be at least one tally")
+
+		// set the tally service to be in the future for the next get tallies call. it should
+		// not add any tallies.
+		planet.Satellites[0].Accounting.Tally.SetNow(func() time.Time {
+			return now.Add(2 * time.Hour)
+		})
+		newTallies := getTallies(ctx, t, planet, 0)
+		require.Equal(t, tallies, newTallies)
+	})
+}
+
+func getTallies(ctx context.Context, t *testing.T, planet *testplanet.Planet, satelliteIdx int) []accounting.BucketTally {
+	t.Helper()
+	sat := planet.Satellites[satelliteIdx]
+	sat.Accounting.Tally.Loop.TriggerWait()
+	sat.Accounting.Tally.Loop.Pause()
+
+	tallies, err := sat.DB.ProjectAccounting().GetTallies(ctx)
+	require.NoError(t, err)
+	return tallies
+
 }
 
 func TestBilling_ZombieSegments(t *testing.T) {
@@ -361,7 +415,7 @@ func TestBilling_ZombieSegments(t *testing.T) {
 		// trigger tally so it gets all set up and can return a storage usage
 		satelliteSys.Accounting.Tally.Loop.TriggerWait()
 
-		projectID := uplnk.ProjectID[satelliteSys.ID()]
+		projectID := uplnk.Projects[0].ID
 
 		{ // delete last segment from metainfo to get zombie segments
 			keys, err := planet.Satellites[0].Metainfo.Database.List(ctx, nil, 10)

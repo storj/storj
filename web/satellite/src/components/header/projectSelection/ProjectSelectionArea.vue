@@ -4,10 +4,15 @@
 <template>
     <div class="project-selection-container" id="projectDropdownButton">
         <p class="project-selection-container__no-projects-text" v-if="!hasProjects">You have no projects</p>
-        <div class="project-selection-toggle-container" @click="toggleSelection" v-if="hasProjects">
-            <p class="project-selection-toggle-container__common">Project:</p>
+        <div
+            class="project-selection-toggle-container"
+            :class="{ default: isOnboardingTour }"
+            @click="toggleSelection"
+            v-if="hasProjects"
+        >
+            <p class="project-selection-toggle-container__common" :class="{ default: isOnboardingTour }">Project:</p>
             <h1 class="project-selection-toggle-container__name">{{name}}</h1>
-            <div class="project-selection-toggle-container__expander-area">
+            <div class="project-selection-toggle-container__expander-area" v-if="!isOnboardingTour">
                 <ExpandIcon
                     v-if="!isDropdownShown"
                     alt="Arrow down (expand)"
@@ -28,6 +33,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import ExpandIcon from '@/../static/images/common/BlueExpand.svg';
 import HideIcon from '@/../static/images/common/BlueHide.svg';
 
+import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
@@ -48,7 +54,7 @@ export default class ProjectSelectionArea extends Vue {
      * Fetches projects related information and than toggles selection popup.
      */
     public async toggleSelection(): Promise<void> {
-        if (this.isLoading) return;
+        if (this.isLoading || this.isOnboardingTour) return;
 
         this.isLoading = true;
 
@@ -85,6 +91,13 @@ export default class ProjectSelectionArea extends Vue {
      */
     public get hasProjects(): boolean {
         return !!this.$store.state.projectsModule.projects.length;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.name === RouteConfig.OnboardingTour.name;
     }
 }
 </script>
@@ -139,6 +152,10 @@ export default class ProjectSelectionArea extends Vue {
             width: 28px;
             height: 28px;
         }
+    }
+
+    .default {
+        cursor: default;
     }
 
     @media screen and (max-width: 1280px) {

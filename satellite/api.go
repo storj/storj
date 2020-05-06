@@ -6,6 +6,7 @@ package satellite
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -204,10 +205,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	var err error
 
 	{
-		if !versionInfo.IsZero() {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
-		}
+		peer.Log.Info("Version info",
+			zap.Stringer("Version", versionInfo.Version.Version),
+			zap.String("Commit Hash", versionInfo.CommitHash),
+			zap.Stringer("Build Timestamp", versionInfo.Timestamp),
+			zap.Bool("Release Build", versionInfo.Release),
+		)
 
 		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
@@ -243,9 +246,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name: "server",
 			Run: func(ctx context.Context) error {
 				// Don't change the format of this comment, it is used to figure out the node id.
-				peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
-				peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
-				peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
+				peer.Log.Info(fmt.Sprintf("Node %s started", peer.Identity.ID))
+				peer.Log.Info(fmt.Sprintf("Public server started on %s", peer.Addr()))
+				peer.Log.Info(fmt.Sprintf("Private server started on %s", peer.PrivateAddr()))
 				return peer.Server.Run(ctx)
 			},
 			Close: peer.Server.Close,
@@ -413,7 +416,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Close: peer.Metainfo.PieceDeletion.Close,
 		})
 
-		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
+		peer.Metainfo.Endpoint2, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
 			peer.Metainfo.PieceDeletion,
@@ -428,6 +431,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			config.Metainfo,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		pbgrpc.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 		if err := pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2); err != nil {
 			return nil, errs.Combine(err, peer.Close())

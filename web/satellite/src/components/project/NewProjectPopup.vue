@@ -85,9 +85,10 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 export default class NewProjectPopup extends Vue {
     private projectName: string = '';
     private description: string = '';
-    private nameError: string = '';
     private createdProjectId: string = '';
     private isLoading: boolean = false;
+
+    public nameError: string = '';
 
     /**
      * Indicates if popup is shown.

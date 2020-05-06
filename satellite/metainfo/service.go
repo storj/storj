@@ -232,20 +232,20 @@ func (s *Service) List(ctx context.Context, prefix string, startAfter string, re
 		}
 	}
 
-	rawItems, more, err := storage.ListV2(ctx, s.db, storage.ListOptions{
+	more, err = storage.ListV2Iterate(ctx, s.db, storage.ListOptions{
 		Prefix:       prefixKey,
 		StartAfter:   storage.Key(startAfter),
 		Recursive:    recursive,
 		Limit:        int(limit),
 		IncludeValue: metaFlags != meta.None,
+	}, func(ctx context.Context, item *storage.ListItem) error {
+		items = append(items, s.createListItem(ctx, *item, metaFlags))
+		return nil
 	})
 	if err != nil {
 		return nil, false, Error.Wrap(err)
 	}
 
-	for _, rawItem := range rawItems {
-		items = append(items, s.createListItem(ctx, rawItem, metaFlags))
-	}
 	return items, more, nil
 }
 

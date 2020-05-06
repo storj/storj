@@ -56,9 +56,6 @@ func TestECClient(t *testing.T) {
 
 		// Download the pieces and erasure decode the data
 		testGet(ctx, t, planet, ec, es, data, successfulNodes, successfulHashes)
-
-		// Delete the pieces
-		testDelete(ctx, t, planet, ec, successfulNodes, successfulHashes)
 	})
 }
 
@@ -124,23 +121,6 @@ func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 	require.NoError(t, err)
 	assert.Equal(t, data, readData)
 	assert.NoError(t, r.Close())
-	require.NoError(t, err)
-}
-
-func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash) {
-	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
-	require.NoError(t, err)
-
-	limits := make([]*pb.AddressedOrderLimit, len(successfulNodes))
-	for i := 0; i < len(limits); i++ {
-		if successfulNodes[i] != nil {
-			limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_DELETE, planet.Satellites[0], piecePublicKey, planet.StorageNodes[i], successfulHashes[i].PieceId)
-			require.NoError(t, err)
-		}
-	}
-
-	err = ec.Delete(ctx, limits, piecePrivateKey)
-
 	require.NoError(t, err)
 }
 

@@ -7,30 +7,23 @@ import (
 	"testing"
 
 	_ "github.com/lib/pq"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/cockroachutil"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
-	"storj.io/storj/storage/cockroachkv/schema"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/storage/testsuite"
 )
 
 func newTestCockroachDB(ctx context.Context, t testing.TB) (store *Client, cleanup func()) {
-	if *pgtest.CrdbConnStr == "" {
-		t.Skipf("cockroach flag missing, example:\n-cockroach-test-db=%s", pgtest.DefaultCrdbConnStr)
-	}
+	connstr := pgtest.PickCockroach(t)
 
-	tdb, err := cockroachutil.OpenUnique(ctx, *pgtest.CrdbConnStr, "test-schema")
+	tdb, err := cockroachutil.OpenUnique(ctx, connstr, "test-schema")
 	if err != nil {
 		t.Fatalf("init: %+v", err)
 	}
 
-	err = schema.PrepareDB(ctx, tdb.DB)
-	if err != nil {
-		t.Fatalf("init: %+v", err)
-	}
-
-	return NewWith(tdb.DB), func() {
+	return NewWith(tdb.DB, connstr), func() {
 		if err := tdb.Close(); err != nil {
 			t.Fatalf("failed to close db: %v", err)
 		}
@@ -43,6 +36,9 @@ func TestSuite(t *testing.T) {
 
 	store, cleanup := newTestCockroachDB(ctx, t)
 	defer cleanup()
+
+	err := store.MigrateToLatest(ctx)
+	require.NoError(t, err)
 
 	store.SetLookupLimit(500)
 	testsuite.RunTests(t, store)

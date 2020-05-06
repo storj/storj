@@ -5,11 +5,11 @@
     <div class="payment-methods-area">
         <div class="payment-methods-area__functional-area" :class="functionalAreaClassName">
             <div class="payment-methods-area__functional-area__top-container">
-                <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
+                <h1 class="payment-methods-area__functional-area__title">Payment Method</h1>
                 <div class="payment-methods-area__functional-area__button-area">
                     <div class="payment-methods-area__functional-area__button-area__default-buttons" v-if="!areAddButtonsClicked">
                         <VButton
-                            class="button"
+                            class="add-storj-button"
                             label="Add STORJ"
                             width="123px"
                             height="48px"
@@ -32,37 +32,20 @@
                 :any-credit-cards="true"
                 class="payment-methods-area__functional-area__bonus"
             />
-            <div class="payment-methods-area__functional-area__adding-container" v-if="isAddingStorjState">
-                <div class="storj-container">
-                    <p class="storj-container__label">Deposit STORJ Tokens via Coin Payments</p>
-                    <TokenDepositSelection class="form" @onChangeTokenValue="onChangeTokenValue"/>
-                </div>
-                <div class="payment-methods-area__functional-area__adding-container__submit-area">
-                    <img
-                        v-if="isLoading"
-                        class="payment-loading-image"
-                        src="@/../static/images/account/billing/loading.gif"
-                        alt="loading gif"
-                    >
-                    <VButton
-                        class="confirm-add-storj-button"
-                        label="Continue to Coin Payments"
-                        width="251px"
-                        height="48px"
-                        :on-press="onConfirmAddSTORJ"
-                        :is-disabled="isLoading"
-                    />
-                </div>
-            </div>
-            <div class="payment-methods-area__functional-area__adding-container" v-if="isAddingCardState">
-                <p class="payment-methods-area__functional-area__adding-container__label">Add Credit or Debit Card</p>
-                <StripeCardInput
-                    class="payment-methods-area__functional-area__adding-container__stripe"
-                    ref="stripeCardInput"
-                    :on-stripe-response-callback="addCard"
-                />
-                <div class="payment-methods-area__functional-area__adding-container__submit-area"/>
-            </div>
+            <AddStorjForm
+                ref="addStorj"
+                v-if="isAddingStorjState"
+                :is-loading="isLoading"
+                @toggleIsLoading="toggleIsLoading"
+                @cancel="onCancel"
+            />
+            <AddCardForm
+                ref="addCard"
+                v-if="isAddingCardState"
+                @toggleIsLoading="toggleIsLoading"
+                @toggleIsLoaded="toggleIsLoaded"
+                @cancel="onCancel"
+            />
             <div
                 v-if="!isAddStorjClicked"
                 class="add-card-button"
@@ -102,10 +85,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import AddCardForm from '@/components/account/billing/paymentMethods/AddCardForm.vue';
+import AddStorjForm from '@/components/account/billing/paymentMethods/AddStorjForm.vue';
 import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
 import PaymentsBonus from '@/components/account/billing/paymentMethods/PaymentsBonus.vue';
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
-import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import LockImage from '@/../static/images/account/billing/lock.svg';
@@ -113,29 +96,25 @@ import SuccessImage from '@/../static/images/account/billing/success.svg';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
-import { ProjectOwning } from '@/utils/projectOwning';
 
 const {
-    ADD_CREDIT_CARD,
     GET_CREDIT_CARDS,
-    MAKE_TOKEN_DEPOSIT,
     GET_BILLING_HISTORY,
     GET_BALANCE,
 } = PAYMENTS_ACTIONS;
 
-interface StripeForm {
-    onSubmit(): Promise<void>;
+interface AddCardConfirm {
+    onConfirmAddStripe(): Promise<void>;
 }
 
 @Component({
     components: {
+        AddStorjForm,
+        AddCardForm,
         VButton,
         CardComponent,
-        TokenDepositSelection,
-        StripeCardInput,
         PaymentsBonus,
         LockImage,
         SuccessImage,
@@ -143,9 +122,6 @@ interface StripeForm {
 })
 export default class PaymentMethods extends Vue {
     private areaState: number = PaymentMethodsBlockState.DEFAULT;
-    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 50; // in dollars.
-    private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
-    private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
     public isLoading: boolean = false;
     public isLoaded: boolean = false;
@@ -167,7 +143,7 @@ export default class PaymentMethods extends Vue {
     }
 
     public $refs!: {
-        stripeCardInput: StripeCardInput & StripeForm;
+        addCard: AddCardForm & AddCardConfirm;
     };
 
     /**
@@ -241,13 +217,6 @@ export default class PaymentMethods extends Vue {
     }
 
     /**
-     * Event for changing token deposit value.
-     */
-    public onChangeTokenValue(value: number): void {
-        this.tokenDepositValue = value;
-    }
-
-    /**
      * Changes area state to adding tokens state.
      */
     public onAddSTORJ(): void {
@@ -262,7 +231,7 @@ export default class PaymentMethods extends Vue {
      */
     public async onAddCard(): Promise<void> {
         if (this.isAddCardClicked) {
-            await this.onConfirmAddStripe();
+            await this.onConfirmAddCard();
 
             return;
         }
@@ -282,117 +251,20 @@ export default class PaymentMethods extends Vue {
         this.isAddCardClicked = false;
         this.isAddStorjClicked = false;
         this.areaState = PaymentMethodsBlockState.DEFAULT;
-        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
     }
 
     /**
-     * onConfirmAddSTORJ checks if amount is valid and if so process token.
-     * payment and return state to default
+     * Toggles loading state.
      */
-    public async onConfirmAddSTORJ(): Promise<void> {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-
-        if ((this.tokenDepositValue < 50 || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !this.userHasOwnProject && this.noCreditCards) {
-            await this.$notify.error('First deposit amount must be more than 50 and less than 1000000');
-            this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
-            this.areaState = PaymentMethodsBlockState.DEFAULT;
-            this.isAddStorjClicked = false;
-            this.isLoading = false;
-
-            return;
-        }
-
-        if (this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT || this.tokenDepositValue === 0) {
-            await this.$notify.error('Deposit amount must be more than 0 and less than 1000000');
-            this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
-            this.areaState = PaymentMethodsBlockState.DEFAULT;
-            this.isAddStorjClicked = false;
-            this.isLoading = false;
-
-            return;
-        }
-
-        try {
-            const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
-            await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
-            const depositWindow = window.open(tokenResponse.link, '_blank');
-            if (depositWindow) {
-                depositWindow.focus();
-            }
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.isLoading = false;
-        }
-
-        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
-            project_id: this.$store.getters.selectedProject.id,
-        });
-
-        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
-        try {
-            await this.$store.dispatch(GET_BILLING_HISTORY);
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.isLoading = false;
-        }
-
-        this.areaState = PaymentMethodsBlockState.DEFAULT;
-        this.isAddStorjClicked = false;
-        this.isLoading = false;
+    public toggleIsLoading(): void {
+        this.isLoading = !this.isLoading;
     }
 
     /**
-     * Adds card after Stripe confirmation.
-     *
-     * @param token from Stripe
+     * Toggles loaded state.
      */
-    public async addCard(token: string) {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch(ADD_CREDIT_CARD, token);
-            await this.$store.dispatch(GET_BILLING_HISTORY);
-            await this.$store.dispatch(GET_BALANCE);
-        } catch (error) {
-            await this.$notify.error(error.message);
-
-            this.isLoading = false;
-
-            return;
-        }
-
-        await this.$notify.success('Card successfully added');
-        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
-            project_id: this.$store.getters.selectedProject.id,
-        });
-        try {
-            await this.$store.dispatch(GET_CREDIT_CARDS);
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.isLoading = false;
-        }
-
-        this.isLoading = false;
-        this.isLoaded = true;
-
-        if (!this.userHasOwnProject) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-        }
-
-        setTimeout(() => {
-            this.onCancel();
-            this.isLoaded = false;
-
-            setTimeout(() => {
-                if (!this.userHasOwnProject) {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-                }
-            }, 500);
-        }, 2000);
+    public toggleIsLoaded(): void {
+        this.isLoaded = !this.isLoaded;
     }
 
     /**
@@ -403,48 +275,28 @@ export default class PaymentMethods extends Vue {
     }
 
     /**
-     * Indicates if user has own project.
-     */
-    private get userHasOwnProject(): boolean {
-        return new ProjectOwning(this.$store).userHasOwnProject();
-    }
-
-    /**
      * Provides card information to Stripe.
      */
-    private async onConfirmAddStripe(): Promise<void> {
-        await this.$refs.stripeCardInput.onSubmit();
-
-        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
-            project_id: this.$store.getters.selectedProject.id,
-        });
+    private async onConfirmAddCard(): Promise<void> {
+        await this.$refs.addCard.onConfirmAddStripe();
     }
 }
 </script>
 
 <style scoped lang="scss">
-    .text {
-        margin: 0;
-        color: #354049;
-    }
-
-    .form {
-        width: 60%;
-    }
-
     .add-card-button {
         display: flex;
         justify-content: center;
         align-items: center;
-        width: 123px;
-        height: 48px;
+        width: 125px;
+        height: 50px;
         position: absolute;
         top: 0;
         right: 0;
         cursor: pointer;
         border-radius: 6px;
         background-color: #2683ff;
-        font-family: 'font_bold', sans-serif;
+        font-family: 'font_medium', sans-serif;
         font-size: 16px;
         line-height: 23px;
         color: #fff;
@@ -490,6 +342,7 @@ export default class PaymentMethods extends Vue {
             }
 
             &__title {
+                margin: 0;
                 font-family: 'font_bold', sans-serif;
                 font-size: 28px;
                 line-height: 42px;
@@ -518,30 +371,6 @@ export default class PaymentMethods extends Vue {
                         cursor: pointer;
                         user-select: none;
                     }
-                }
-            }
-
-            &__adding-container {
-                margin-top: 44px;
-                display: flex;
-                max-height: 52px;
-                justify-content: space-between;
-                align-items: center;
-
-                &__label {
-                    font-family: 'font_medium', sans-serif;
-                    font-size: 21px;
-                }
-
-                &__stripe {
-                    width: 60%;
-                    min-width: 400px;
-                }
-
-                &__submit-area {
-                    display: flex;
-                    align-items: center;
-                    min-width: 135px;
                 }
             }
         }
@@ -580,15 +409,6 @@ export default class PaymentMethods extends Vue {
             border-radius: 8px;
             background-color: rgba(229, 229, 229, 0.2);
             z-index: 100;
-        }
-    }
-
-    .storj-container {
-        display: flex;
-        align-items: center;
-
-        &__label {
-            margin-right: 30px;
         }
     }
 

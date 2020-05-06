@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -149,10 +150,14 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		fmt.Println("URL       :", fmt.Sprintf("%s/%s/%s/%s", shareCfg.BaseURL, newAccessData, p.Bucket(), p.Path()))
+		fmt.Println("URL       :", fmt.Sprintf("%s/%s/%s/%s", shareCfg.BaseURL,
+			url.PathEscape(newAccessData),
+			url.PathEscape(p.Bucket()),
+			url.PathEscape(p.Path())))
 	} else {
 		fmt.Println("=========== BROWSER URL PREFIX ===========================================================")
-		fmt.Println("URL       :", fmt.Sprintf("%s/%s", shareCfg.BaseURL, newAccessData))
+		fmt.Println("URL       :", fmt.Sprintf("%s/%s", shareCfg.BaseURL,
+			url.PathEscape(newAccessData)))
 	}
 
 	if shareCfg.ExportTo != "" {

@@ -25,36 +25,38 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 	t.Run("all nodes up", func(t *testing.T) {
 		t.Parallel()
 
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-			Reconfigure: testplanet.Reconfigure{
-				// Reconfigure RS for ensuring that we don't have long-tail cancellations
-				// and the upload doesn't leave garbage in the SNs
-				Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
-			},
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			var (
-				uplnk        = planet.Uplinks[0]
-				satelliteSys = planet.Satellites[0]
-			)
+		var testCases = []struct {
+			caseDescription string
+			objData         []byte
+			hasRemote       bool
+		}{
+			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
+			{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
+			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
+			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
+		}
 
-			var testCases = []struct {
-				caseDescription string
-				objData         []byte
-			}{
-				{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-				{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
-				{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
-				{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
-			}
+		for i, tc := range testCases {
+			i := i
+			tc := tc
+			t.Run(tc.caseDescription, func(t *testing.T) {
+				testplanet.Run(t, testplanet.Config{
+					SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+					Reconfigure: testplanet.Reconfigure{
+						// Reconfigure RS for ensuring that we don't have long-tail cancellations
+						// and the upload doesn't leave garbage in the SNs
+						Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+					},
+				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+					var (
+						uplnk        = planet.Uplinks[0]
+						satelliteSys = planet.Satellites[0]
+					)
 
-			for i, tc := range testCases {
-				i := i
-				tc := tc
-				t.Run(tc.caseDescription, func(t *testing.T) {
 					var (
 						bucketName = "a-bucket"
 						objectName = "object-filename" + strconv.Itoa(i)
+						percentExp = 0.75
 					)
 
 					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
@@ -80,6 +82,8 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					)
 					require.NoError(t, err)
 
+					planet.WaitForStorageNodeDeleters(ctx)
+
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
 					for _, sn := range planet.StorageNodes {
@@ -91,12 +95,14 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// At this point we can only guarantee that the 75% of the SNs pieces
 					// are delete due to the success threshold
 					deletedUsedSpace := float64(totalUsedSpace-totalUsedSpaceAfterDelete) / float64(totalUsedSpace)
-					if deletedUsedSpace < 0.75 {
-						t.Fatalf("deleted used space is less than 0.75%%. Got %f", deletedUsedSpace)
+					if deletedUsedSpace < percentExp {
+						t.Fatalf("deleted used space is less than %f%%. Got %f", percentExp, deletedUsedSpace)
 					}
+
 				})
-			}
-		})
+
+			})
+		}
 	})
 
 	t.Run("some nodes down", func(t *testing.T) {
@@ -128,10 +134,13 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 						Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 					},
 				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+					numToShutdown := 2
+
 					var (
 						uplnk        = planet.Uplinks[0]
 						satelliteSys = planet.Satellites[0]
 					)
+
 					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
 						Client: testplanet.ClientConfig{
 							SegmentSize: 10 * memory.KiB,
@@ -139,7 +148,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					}, bucketName, objectName, tc.objData)
 					require.NoError(t, err)
 
-					// Shutdown the first 2 storage nodes before we delete the pieces
+					// Shutdown the first numToShutdown storage nodes before we delete the pieces
 					require.NoError(t, planet.StopPeer(planet.StorageNodes[0]))
 					require.NoError(t, planet.StopPeer(planet.StorageNodes[1]))
 
@@ -149,10 +158,12 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					)
 					require.NoError(t, err)
 
+					planet.WaitForStorageNodeDeleters(ctx)
+
 					// Check that storage nodes that were offline when deleting the pieces
 					// they are still holding data
 					var totalUsedSpace int64
-					for i := 0; i < 2; i++ {
+					for i := 0; i < numToShutdown; i++ {
 						piecesTotal, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpace += piecesTotal
@@ -163,7 +174,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// Check that storage nodes which are online when deleting pieces don't
 					// hold any piece
 					totalUsedSpace = 0
-					for i := 2; i < len(planet.StorageNodes); i++ {
+					for i := numToShutdown; i < len(planet.StorageNodes); i++ {
 						piecesTotal, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpace += piecesTotal
@@ -312,6 +323,8 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					require.Error(t, err)
 					require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
 
+					planet.WaitForStorageNodeDeleters(ctx)
+
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
 					for _, sn := range planet.StorageNodes {
@@ -424,6 +437,8 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					)
 					require.Error(t, err)
 					require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
+
+					planet.WaitForStorageNodeDeleters(ctx)
 
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64

@@ -19,12 +19,10 @@ import (
 type DB interface {
 	// GetPaystub return payStub by nodeID and period.
 	GetPaystub(ctx context.Context, nodeID storj.NodeID, period string) (PayStub, error)
-	// GetPayment return storagenode payment by nodeID and period.
-	GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (StoragenodePayment, error)
+	// GetAllPaystubs return all payStubs by nodeID.
+	GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) ([]PayStub, error)
 	// CreatePaystub insert paystub into db.
 	CreatePaystub(ctx context.Context, stub PayStub) (err error)
-	// CreatePayment insert payment into db.
-	CreatePayment(ctx context.Context, payment StoragenodePayment) (err error)
 }
 
 // ErrNoDataForPeriod represents errors from the heldamount database.
@@ -55,17 +53,6 @@ type PayStub struct {
 	Paid           int64        `json:"paid"`
 }
 
-// StoragenodePayment is an entity that holds payment to storagenode operator parameters.
-type StoragenodePayment struct {
-	ID      int64        `json:"id"`
-	Created time.Time    `json:"created"`
-	NodeID  storj.NodeID `json:"nodeId"`
-	Period  string       `json:"period"`
-	Amount  int64        `json:"amount"`
-	Receipt string       `json:"receipt"`
-	Notes   string       `json:"notes"`
-}
-
 // Service is used to store and handle node paystub information
 //
 // architecture: Service
@@ -92,12 +79,12 @@ func (service *Service) GetPayStub(ctx context.Context, nodeID storj.NodeID, per
 	return payStub, nil
 }
 
-// GetPayment returns storagenode payment data by nodeID and period.
-func (service *Service) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (StoragenodePayment, error) {
-	payment, err := service.db.GetPayment(ctx, nodeID, period)
+// GetAllPaystubs returns all paystubs by nodeID.
+func (service *Service) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) ([]PayStub, error) {
+	payStubs, err := service.db.GetAllPaystubs(ctx, nodeID)
 	if err != nil {
-		return StoragenodePayment{}, err
+		return []PayStub{}, err
 	}
 
-	return payment, nil
+	return payStubs, nil
 }

@@ -1,0 +1,26 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ProgressBar.vue renders correctly 1`] = `
+<div class="progress-bar-container">
+  <div class="progress-bar-container__progress-area">
+    <div class="progress-bar-container__progress-area__circle"><svg width="10" height="7" viewBox="0 0 10 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M7.61854 0.302314C8.02258 -0.100771 8.67764 -0.100771 9.08163 0.302314C9.48569 0.705397 9.48569 1.35893 9.08163 1.76202L4.20463 6.62768C3.8006 7.03077 3.14555 7.03077 2.74152 6.62768L0.303018 4.19485C-0.101006 3.79177 -0.101006 3.13823 0.303018 2.73515C0.707044 2.33206 1.3621 2.33206 1.76612 2.73515L3.47307 4.43813L7.61854 0.302314Z" fill="white"></path>
+      </svg></div>
+    <div class="progress-bar-container__progress-area__bar"></div>
+    <div class="progress-bar-container__progress-area__circle"><svg width="10" height="7" viewBox="0 0 10 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M7.61854 0.302314C8.02258 -0.100771 8.67764 -0.100771 9.08163 0.302314C9.48569 0.705397 9.48569 1.35893 9.08163 1.76202L4.20463 6.62768C3.8006 7.03077 3.14555 7.03077 2.74152 6.62768L0.303018 4.19485C-0.101006 3.79177 -0.101006 3.13823 0.303018 2.73515C0.707044 2.33206 1.3621 2.33206 1.76612 2.73515L3.47307 4.43813L7.61854 0.302314Z" fill="white"></path>
+      </svg></div>
+    <div class="progress-bar-container__progress-area__bar"></div>
+    <div class="progress-bar-container__progress-area__circle"><svg width="10" height="7" viewBox="0 0 10 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M7.61854 0.302314C8.02258 -0.100771 8.67764 -0.100771 9.08163 0.302314C9.48569 0.705397 9.48569 1.35893 9.08163 1.76202L4.20463 6.62768C3.8006 7.03077 3.14555 7.03077 2.74152 6.62768L0.303018 4.19485C-0.101006 3.79177 -0.101006 3.13823 0.303018 2.73515C0.707044 2.33206 1.3621 2.33206 1.76612 2.73515L3.47307 4.43813L7.61854 0.302314Z" fill="white"></path>
+      </svg></div>
+  </div>
+  <div class="progress-bar-container__titles-area"><span class="progress-bar-container__titles-area__title">
+            Name Your Project
+        </span> <span class="progress-bar-container__titles-area__title api-key-title">
+            Create an API Key
+        </span> <span class="progress-bar-container__titles-area__title">
+            Upload Data
+        </span></div>
+</div>
+`;

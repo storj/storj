@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -103,6 +104,10 @@ type Core struct {
 
 	GarbageCollection struct {
 		Service *gc.Service
+	}
+
+	ExpiredDeletion struct {
+		Chore *expireddeletion.Chore
 	}
 
 	DBCleanup struct {
@@ -177,10 +182,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	var err error
 
 	{ // setup version control
-		if !versionInfo.IsZero() {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
-		}
+		peer.Log.Info("Version info",
+			zap.Stringer("Version", versionInfo.Version.Version),
+			zap.String("Commit Hash", versionInfo.CommitHash),
+			zap.Stringer("Build Timestamp", versionInfo.Timestamp),
+			zap.Bool("Release Build", versionInfo.Release),
+		)
 		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 
@@ -191,7 +198,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup listener and server
-		log.Debug("Starting listener and server")
 		sc := config.Server
 
 		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
@@ -375,6 +381,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Debug.Server.Panel.Add(
 				debug.Cycle("Core Garbage Collection", peer.GarbageCollection.Service.Loop))
 		}
+	}
+
+	{ // setup expired segment cleanup
+		peer.ExpiredDeletion.Chore = expireddeletion.NewChore(
+			peer.Log.Named("core-expired-deletion"),
+			config.ExpiredDeletion,
+			peer.Metainfo.Service,
+			peer.Metainfo.Loop,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name: "expireddeletion:chore",
+			Run:  peer.ExpiredDeletion.Chore.Run,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Expired Segments Chore", peer.ExpiredDeletion.Chore.Loop))
 	}
 
 	{ // setup db cleanup

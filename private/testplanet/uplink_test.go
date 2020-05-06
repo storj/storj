@@ -6,6 +6,7 @@ package testplanet_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
 )
 
@@ -289,7 +291,7 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "test-bucket", "test-file")
 		require.Error(t, err)
-		require.True(t, storj.ErrObjectNotFound.Has(err))
+		require.True(t, errors.Is(err, uplink.ErrObjectNotFound))
 
 		key := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], key)

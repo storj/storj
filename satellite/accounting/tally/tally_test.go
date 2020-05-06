@@ -67,7 +67,6 @@ func TestOnlyInline(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 		uplink := planet.Uplinks[0]
-		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
 
 		// Setup: create data for the uplink to upload
 		expectedData := testrand.Bytes(1 * memory.KiB)
@@ -83,7 +82,7 @@ func TestOnlyInline(t *testing.T) {
 		expectedBucketName := "testbucket"
 		expectedTally := &accounting.BucketTally{
 			BucketName:     []byte(expectedBucketName),
-			ProjectID:      projectID,
+			ProjectID:      uplink.Projects[0].ID,
 			ObjectCount:    1,
 			InlineSegments: 1,
 			InlineBytes:    int64(expectedTotalBytes),
@@ -96,7 +95,7 @@ func TestOnlyInline(t *testing.T) {
 
 		// run multiple times to ensure we add tallies
 		for i := 0; i < 2; i++ {
-			obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"))
+			obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"), time.Now())
 			err := planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
 			require.NoError(t, err)
 
@@ -125,7 +124,13 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 
 		// Setup: get the expected size of the data that will be stored in pointer
 		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
-		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionParameters())
+
+		// TODO uplink currently hardcode block size so we need to use the same value in test
+		encryptionParameters := storj.EncryptionParameters{
+			CipherSuite: storj.EncAESGCM,
+			BlockSize:   29 * 256 * memory.B.Int32(),
+		}
+		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), encryptionParameters)
 		require.NoError(t, err)
 
 		// Execute test: upload a file, then calculate at rest data
@@ -133,7 +138,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 		require.NoError(t, err)
 
-		obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"))
+		obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"), time.Now())
 		err = planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
 		require.NoError(t, err)
 
@@ -192,7 +197,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				newTally.ProjectID = projectID
 				expectedBucketTallies[bucketID] = newTally
 
-				obs := tally.NewObserver(satellitePeer.Log.Named("observer"))
+				obs := tally.NewObserver(satellitePeer.Log.Named("observer"), time.Now())
 				err = satellitePeer.Metainfo.Loop.Join(ctx, obs)
 				require.NoError(t, err)
 				require.Equal(t, expectedBucketTallies, obs.Bucket)
@@ -201,12 +206,40 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 	})
 }
 
+func TestTallyIgnoresExpiredPointers(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellitePeer := planet.Satellites[0]
+		redundancyScheme := planet.Uplinks[0].GetConfig(satellitePeer).GetRedundancyScheme()
+
+		project := "9656af6e-2d9c-42fa-91f2-bfd516a722d7"
+		bucket := "bucket"
+
+		// setup: create an expired pointer and save it to pointerDB
+		pointer := makePointer(planet.StorageNodes, redundancyScheme, int64(2), false)
+		pointer.ExpirationDate = time.Now().Add(-24 * time.Hour)
+
+		metainfo := satellitePeer.Metainfo.Service
+		objectPath := fmt.Sprintf("%s/%s/%s/%s", project, "l", bucket, "object/name")
+		err := metainfo.Put(ctx, objectPath, pointer)
+		require.NoError(t, err)
+
+		obs := tally.NewObserver(satellitePeer.Log.Named("observer"), time.Now())
+		err = satellitePeer.Metainfo.Loop.Join(ctx, obs)
+		require.NoError(t, err)
+
+		// there should be no observed buckets because all of the pointers are expired
+		require.Equal(t, obs.Bucket, map[string]*accounting.BucketTally{})
+	})
+}
+
 func TestTallyLiveAccounting(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tally := planet.Satellites[0].Accounting.Tally
-		projectID := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
+		projectID := planet.Uplinks[0].Projects[0].ID
 		tally.Loop.Pause()
 
 		expectedData := testrand.Bytes(5 * memory.MB)
@@ -253,7 +286,7 @@ func TestTallyEmptyProjectUpdatesLiveAccounting(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
-		project1 := planet.Uplinks[1].ProjectID[planet.Satellites[0].ID()]
+		project1 := planet.Uplinks[1].Projects[0].ID
 
 		data := testrand.Bytes(1 * memory.MB)
 

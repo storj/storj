@@ -65,7 +65,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { PaymentAmountOption } from '@/types/payments';
-import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { ProjectOwning } from '@/utils/projectOwning';
 
@@ -276,6 +275,7 @@ export default class TokenDepositSelection extends Vue {
 
             &__svg {
                 cursor: pointer;
+                min-height: 25px;
             }
         }
     }

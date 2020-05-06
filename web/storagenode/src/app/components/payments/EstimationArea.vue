@@ -8,7 +8,7 @@
             <EstimationPeriodDropdown />
         </div>
         <div class="estimation-container__divider"></div>
-        <div class="estimation-table-container">
+        <div class="estimation-table-container" v-if="!isPayoutNoDataState">
             <div class="estimation-table-container__labels-area">
                 <div class="column justify-start column-1">
                     <p class="estimation-table-container__labels-area__text">Name</p>
@@ -29,7 +29,7 @@
                     <p class="estimation-table-container__labels-area__text">Payout</p>
                 </div>
             </div>
-            <div v-for="item in data" :key="item.payout" class="estimation-table-container__info-area">
+            <div v-for="item in tableData" :key="item.name" class="estimation-table-container__info-area">
                 <div class="column justify-start column-1">
                     <p class="estimation-table-container__info-area__text">{{ item.name }}</p>
                 </div>
@@ -61,8 +61,8 @@
                     <p class="estimation-table-container__info-area__text">{{ grossTotal | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__held-area" v-if="isSomeSatelliteSelected">
-                <p class="estimation-table-container__held-area__text">{{ heldInfo.surgePercent }}% Held back</p>
+            <div class="estimation-table-container__held-area" v-if="!isCurrentPeriod || isSatelliteSelected">
+                <p class="estimation-table-container__held-area__text">Held back</p>
                 <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
             </div>
             <div class="estimation-table-container__total-area">
@@ -72,7 +72,7 @@
                 <div class="column justify-start column-2"></div>
                 <div class="column justify-start column-3"></div>
                 <div class="column justify-start column-4">
-                    <p class="estimation-table-container__total-area__text">{{ totalDiskSpace }}m</p>
+                    <p class="estimation-table-container__total-area__text">{{ totalDiskSpace + 'h' }}</p>
                 </div>
                 <div class="column justify-start column-5">
                     <p class="estimation-table-container__total-area__text">{{ totalBandwidth }}</p>
@@ -82,23 +82,24 @@
                 </div>
             </div>
         </div>
-        <div class="estimation-container__payout-area" v-if="isCurrentPeriod">
-            <div class="estimation-container__payout-area__left-area">
-                <p class="title-text">Estimated {{ !isSomeSatelliteSelected ? 'Gross' : null }} Payout</p>
-                <p class="additional-text">At the end of the month if the load keeps the same for the rest of the month.</p>
-            </div>
-            <div class="estimation-container__payout-area__right-area">
-                <p class="title-text">{{ estimatedPayout | centsToDollars }}</p>
-            </div>
+        <div class="no-data-container" v-else>
+            <img class="no-data-container__image" src="@/../static/images/payments/NoData.png">
+            <p class="no-data-container__title">No data to display</p>
+            <p class="no-data-container__additional-text">Please note, historical data about payouts does not update immediately, it may take some time.</p>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 
+import {
+    BANDWIDTH_DOWNLOAD_PRICE_PER_TB,
+    BANDWIDTH_REPAIR_PRICE_PER_TB,
+    DISK_SPACE_PRICE_PER_TB,
+} from '@/app/store/modules/payout';
 import { HeldInfo } from '@/app/types/payout';
 import { formatBytes, TB } from '@/app/utils/converter';
 
@@ -116,7 +117,6 @@ class EstimationTableRow {
     ) {}
 }
 
-// TODO: change calculations.
 @Component ({
     components: {
         EstimationPeriodDropdown,
@@ -124,10 +124,6 @@ class EstimationTableRow {
 })
 export default class EstimationArea extends Vue {
     public now: Date = new Date();
-    public data: EstimationTableRow[] = [];
-    private BANDWIDTH_DOWNLOAD_PRICE_PER_TB = 2000;
-    private BANDWIDTH_REPAIR_PRICE_PER_TB = 1000;
-    private DISK_SPACE_PRICE_PER_TB = 150;
 
     /**
      * Indicates if current month selected.
@@ -139,29 +135,15 @@ export default class EstimationArea extends Vue {
         return !this.$store.state.payoutModule.periodRange.start && isCurrentMonthSelected;
     }
 
-    public get isSomeSatelliteSelected(): boolean {
+    public get isSatelliteSelected(): boolean {
         return !!this.$store.state.node.selectedSatellite.id;
     }
 
     /**
-     * Returns estimated payout depends on bandwidth and disk space in current month.
+     * Indicates if payout data is unavailable.
      */
-    @Watch('totalPayout')
-    public get estimatedPayout(): number {
-        const nodeStart = this.$store.state.node.info.startedAt;
-        const daysInCurrentMonth: number = new Date(this.now.getFullYear(), this.now.getMonth() + 1, 0).getDate();
-
-        if (
-            nodeStart.getUTCFullYear() === this.now.getUTCFullYear()
-            && nodeStart.getUTCMonth() === this.now.getUTCMonth()
-        ) {
-            const remainingDays = daysInCurrentMonth - this.now.getUTCDate();
-            const daysOnline = daysInCurrentMonth - nodeStart.getUTCDate();
-
-            return (this.totalPayout / daysOnline) * (daysOnline + remainingDays);
-        }
-
-        return (this.totalPayout / this.now.getUTCDate()) * daysInCurrentMonth;
+    public get isPayoutNoDataState(): boolean {
+        return this.$store.state.appStateModule.isNoPayoutData;
     }
 
     /**
@@ -174,15 +156,9 @@ export default class EstimationArea extends Vue {
     /**
      * Returns calculated or stored held amount.
      */
-    @Watch('isCurrentPeriod')
-    @Watch('heldInfo')
     public get held(): number {
-        if (this.isSomeSatelliteSelected) {
-            return 0;
-        }
-
         if (this.isCurrentPeriod) {
-            return this.grossTotal * this.heldInfo.surgePercent / 100;
+            return this.currentMonthHeld();
         }
 
         return this.heldInfo.held;
@@ -191,32 +167,26 @@ export default class EstimationArea extends Vue {
     /**
      * Returns calculated or stored total payout by selected period.
      */
-    @Watch('isCurrentPeriod')
-    @Watch('heldInfo')
     public get totalPayout(): number {
         if (this.isCurrentPeriod) {
-            return this.grossTotal - this.held;
+            return this.isSatelliteSelected ? this.grossTotal - this.held : this.grossTotal;
         }
 
-        return this.$store.getters.totalPeriodPayout;
+        return this.heldInfo.paid;
     }
 
     /**
      * Returns calculated gross payout by selected period.
      */
-    @Watch('isCurrentPeriod')
-    @Watch('heldInfo')
     public get grossTotal(): number {
-        return (this.currentBandwidthDownload * this.BANDWIDTH_DOWNLOAD_PRICE_PER_TB
-            + this.currentBandwidthAuditAndRepair * this.BANDWIDTH_REPAIR_PRICE_PER_TB
-            + this.currentDiskSpace * this.DISK_SPACE_PRICE_PER_TB) / TB;
+        return (this.currentBandwidthDownload * BANDWIDTH_DOWNLOAD_PRICE_PER_TB
+            + this.currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB
+            + this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / 730) / TB;
     }
 
     /**
      * Returns calculated or stored total used disk space by selected period.
      */
-    @Watch('isCurrentPeriod')
-    @Watch('heldInfo')
     public get totalDiskSpace(): string {
         if (this.isCurrentPeriod) {
             return formatBytes(this.currentDiskSpace);
@@ -228,8 +198,6 @@ export default class EstimationArea extends Vue {
     /**
      * Returns calculated or stored total used bandwidth by selected period.
      */
-    @Watch('isCurrentPeriod')
-    @Watch('heldInfo')
     public get totalBandwidth(): string {
         if (this.isCurrentPeriod) {
             return formatBytes((this.currentBandwidthAuditAndRepair + this.currentBandwidthDownload));
@@ -265,61 +233,56 @@ export default class EstimationArea extends Vue {
     private get currentDiskSpace(): number {
         if (!this.$store.state.node.storageChartData) return 0;
 
-        const approxHourInMonth = 730;
-
-        return this.$store.state.node.storageChartData.map(data => data.atRestTotal).reduce((previous, current) => previous + current, 0) / approxHourInMonth;
-    }
-
-    /**
-     * Lifecycle hook after initial render.
-     * Builds estimated payout table.
-     */
-    public mounted(): void {
-        this.buildTable();
+        return this.$store.state.node.storageChartData.map(data => data.atRestTotal).reduce((previous, current) => previous + current, 0);
     }
 
     /**
      * Builds estimated payout table depends on selected period.
      */
-    @Watch('heldInfo')
-    @Watch('isCurrentPeriod')
-    private buildTable(): void {
+    public get tableData(): EstimationTableRow[] {
         if (!this.isCurrentPeriod) {
-            this.data = [
-                new EstimationTableRow('Download', 'Egress', `$${this.BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGet), this.heldInfo.compGet),
-                new EstimationTableRow('Repair & Audit', 'Egress', `$${this.BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGetRepair + this.heldInfo.usageGetAudit), this.heldInfo.compGetRepair + this.heldInfo.compGetAudit),
-                new EstimationTableRow('Disk Average Month', 'Storage', `$${this.DISK_SPACE_PRICE_PER_TB / 100} / TBm`, formatBytes(this.heldInfo.usageAtRest) + 'm', '--', this.heldInfo.compAtRest),
+            return [
+                new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGet), this.heldInfo.compGet),
+                new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGetRepair + this.heldInfo.usageGetAudit), this.heldInfo.compGetRepair + this.heldInfo.compGetAudit),
+                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, formatBytes(this.heldInfo.usageAtRest) + 'h', '--', this.heldInfo.compAtRest),
             ];
-
-            return;
         }
 
-        this.data = [
+        const approxHourInMonth = 730;
+
+        return [
             new EstimationTableRow(
                 'Download',
                 'Egress',
-                `$${this.BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`,
+                `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`,
                 '--',
                 formatBytes(this.currentBandwidthDownload),
-                this.currentBandwidthDownload * this.BANDWIDTH_DOWNLOAD_PRICE_PER_TB / TB,
+                this.currentBandwidthDownload * BANDWIDTH_DOWNLOAD_PRICE_PER_TB / TB,
             ),
             new EstimationTableRow(
                 'Repair & Audit',
                 'Egress',
-                `$${this.BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`,
+                `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`,
                 '--',
                 formatBytes(this.currentBandwidthAuditAndRepair),
-                this.currentBandwidthAuditAndRepair * this.BANDWIDTH_REPAIR_PRICE_PER_TB / TB,
+                this.currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB / TB,
             ),
             new EstimationTableRow(
                 'Disk Average Month',
                 'Storage',
-                `$${this.DISK_SPACE_PRICE_PER_TB / 100} / TBm`,
-                this.totalDiskSpace + 'm',
+                `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`,
+                this.totalDiskSpace + 'h',
                 '--',
-                this.currentDiskSpace * this.DISK_SPACE_PRICE_PER_TB / TB,
+                this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / TB / approxHourInMonth,
             ),
         ];
+    }
+
+    /**
+     * Returns current month held amount based on currend day of month.
+     */
+    private currentMonthHeld(): number {
+        return this.grossTotal * this.$store.state.payoutModule.heldPercentage / 100;
     }
 }
 </script>
@@ -329,8 +292,8 @@ export default class EstimationArea extends Vue {
         display: flex;
         flex-direction: column;
         padding: 28px 40px 28px 40px;
-        background: #fff;
-        border: 1px solid #eaeaea;
+        background: var(--block-background-color);
+        border: 1px solid var(--block-border-color);
         box-sizing: border-box;
         border-radius: 12px;
         font-family: 'font_regular', sans-serif;
@@ -344,7 +307,7 @@ export default class EstimationArea extends Vue {
             &__title {
                 font-weight: 500;
                 font-size: 18px;
-                color: #535f77;
+                color: var(--regular-text-color);
             }
         }
 
@@ -387,7 +350,7 @@ export default class EstimationArea extends Vue {
         font-family: 'font_bold', sans-serif;
         font-size: 16px;
         line-height: 20px;
-        color: #535f77;
+        color: var(--regular-text-color);
     }
 
     .additional-text {
@@ -408,7 +371,7 @@ export default class EstimationArea extends Vue {
             padding: 0 16px;
             width: calc(100% - 32px);
             height: 36px;
-            background: #f9fafc;
+            background: var(--estimation-table-header-color);
 
             &__text {
                 font-weight: 500;
@@ -428,7 +391,7 @@ export default class EstimationArea extends Vue {
 
             &__text {
                 font-size: 14px;
-                color: #535f77;
+                color: var(--regular-text-color);
             }
         }
 
@@ -444,7 +407,7 @@ export default class EstimationArea extends Vue {
             &__text {
                 font-family: 'font_bold', sans-serif;
                 font-size: 14px;
-                color: #535f77;
+                color: var(--regular-text-color);
             }
         }
 
@@ -455,12 +418,12 @@ export default class EstimationArea extends Vue {
             padding: 0 16px;
             width: calc(100% - 32px);
             height: 56px;
-            background: rgba(0, 117, 255, 0.05);
+            background-color: var(--estimation-table-total-container-color);
 
             &__text {
                 font-family: 'font_bold', sans-serif;
                 font-size: 14px;
-                color: #535f77;
+                color: var(--regular-text-color);
             }
         }
     }
@@ -501,6 +464,33 @@ export default class EstimationArea extends Vue {
 
     .column-6 {
         width: 8.7%;
+    }
+
+    .no-data-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 50px 0 80px 0;
+        font-family: 'font_regular', sans-serif;
+        color: var(--regular-text-color);
+
+        &__image {
+            width: 248px;
+            height: 252px;
+            margin-bottom: 40px;
+        }
+
+        &__title {
+            font-size: 26px;
+        }
+
+        &__additional-text {
+            font-size: 16px;
+            max-width: 500px;
+            text-align: center;
+            margin-top: 16px;
+        }
     }
 
     @media screen and (max-width: 640px) {

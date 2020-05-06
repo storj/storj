@@ -16,6 +16,8 @@ import (
 // and that the defaults get applied all the way down to the transport layer.
 func TestUplinkConfigDefaultTimeouts(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	cfg := &Config{}
 	client, err := NewUplink(ctx, cfg)
 
@@ -33,6 +35,7 @@ func TestUplinkConfigDefaultTimeouts(t *testing.T) {
 // the defaults all the way down to the transport layer.
 func TestUplinkConfigSetTimeouts(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	cfg := &Config{}
 	cfg.Volatile.DialTimeout = 120 * time.Second

@@ -11,18 +11,17 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/tagsql"
 )
 
 func TestLibPqCompatibility(t *testing.T) {
+	connstr := pgtest.PickCockroach(t)
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	if *pgtest.CrdbConnStr == "" {
-		t.Skip("CockroachDB flag missing")
-	}
-	testDB, err := OpenUnique(ctx, *pgtest.CrdbConnStr, "TestLibPqCompatibility")
+	testDB, err := OpenUnique(ctx, connstr, "TestLibPqCompatibility")
 	require.NoError(t, err)
 	defer ctx.Check(testDB.Close)
 

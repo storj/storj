@@ -29,7 +29,7 @@ import WalletIcon from '@/../static/images/wallet.svg';
 
 @Component({
     components: {
-        WalletIcon
+        WalletIcon,
     },
 })
 export default class PayoutArea extends Vue {
@@ -42,12 +42,12 @@ export default class PayoutArea extends Vue {
 
 <style scoped lang="scss">
     .payout-container {
-        background-color: #fff;
+        background-color: var(--block-background-color);
         padding: 40px;
         display: flex;
         justify-content: flex-start;
         align-items: center;
-        border: 1px solid #eaeaea;
+        border: 1px solid var(--block-border-color);
         border-radius: 12px;
         position: relative;
 
@@ -63,13 +63,13 @@ export default class PayoutArea extends Vue {
 
             &__label {
                 font-size: 14px;
-                color: #586c86;
+                color: var(--regular-text-color);
             }
 
             &__bold-text {
                 font-family: 'font_bold', sans-serif;
                 font-size: 18px;
-                color: #535f77;
+                color: var(--regular-text-color);
                 word-break: break-all;
             }
         }
@@ -81,13 +81,14 @@ export default class PayoutArea extends Vue {
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: #f4f6f9;
-            border: 1px solid #e8e8e8;
+            background-color: var(--button-background-color);
+            border: 1px solid var(--block-border-color);
             border-radius: 12px;
             position: absolute;
             top: 42px;
             right: 40px;
-            color: #535f77;
+            color: var(--regular-text-color);
+            text-decoration: none;
 
             &:hover {
                 background-color: #4d72b7;

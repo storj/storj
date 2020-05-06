@@ -42,6 +42,17 @@ func NewEncryptionAccessWithDefaultKey(defaultKey storj.Key) *EncryptionAccess {
 	return ec
 }
 
+// validate returns an error if the EncryptionAccess is not valid to be used.
+func (s *EncryptionAccess) validate() error {
+	if s == nil {
+		return errs.New("invalid nil encryption access")
+	}
+	if s.store == nil {
+		return errs.New("invalid encryption access: no store")
+	}
+	return nil
+}
+
 // Store returns the underlying encryption store for the access context.
 func (s *EncryptionAccess) Store() *encryption.Store {
 	return s.store

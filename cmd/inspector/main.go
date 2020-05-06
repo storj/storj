@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
 	"flag"
@@ -188,11 +189,14 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 		fallthrough
 	default:
 	}
-
+	decodedPath, err := base64.URLEncoding.DecodeString(args[2])
+	if err != nil {
+		return err
+	}
 	req := &pb.ObjectHealthRequest{
 		ProjectId:         []byte(args[0]),
 		Bucket:            []byte(args[1]),
-		EncryptedPath:     []byte(args[2]),
+		EncryptedPath:     decodedPath,
 		StartAfterSegment: startAfterSegment,
 		EndBeforeSegment:  endBeforeSegment,
 		Limit:             int32(limit),

@@ -19,6 +19,7 @@ import (
 type EstimationChore struct {
 	log       *zap.Logger
 	Loop      *sync2.Cycle
+	limiter   *sync2.Limiter
 	config    Config
 	startTime time.Time
 	overlay   *overlay.Service
@@ -28,9 +29,13 @@ type EstimationChore struct {
 
 // NewEstimationChore instantiates EstimationChore.
 func NewEstimationChore(log *zap.Logger, config Config, overlay *overlay.Service, service *Service, db DB) *EstimationChore {
+	if config.EstimationConcurrencyLimit <= 0 {
+		config.EstimationConcurrencyLimit = 1
+	}
 	return &EstimationChore{
 		log:       log,
 		Loop:      sync2.NewCycle(config.EstimationInterval),
+		limiter:   sync2.NewLimiter(config.EstimationConcurrencyLimit),
 		config:    config,
 		startTime: time.Now().UTC(),
 		overlay:   overlay,
@@ -55,26 +60,30 @@ func (chore *EstimationChore) Run(ctx context.Context) (err error) {
 		}
 
 		for _, node := range offlineNodes {
-			success, err := chore.service.CheckAndUpdateNodeAvailability(ctx, node.ID, node.Address)
-			if err != nil {
-				chore.log.Error("error during downtime estimation ping back",
-					zap.Bool("success", success),
-					zap.Error(err))
-				continue
-			}
-			if !success && node.LastContactFailure.After(chore.startTime) {
-				now := time.Now().UTC()
-				duration := now.Sub(node.LastContactFailure)
-
-				err = chore.db.Add(ctx, node.ID, now, duration)
+			node := node
+			chore.limiter.Go(ctx, func() {
+				success, err := chore.service.CheckAndUpdateNodeAvailability(ctx, node.ID, node.Address)
 				if err != nil {
-					chore.log.Error("error adding node seconds offline information.",
-						zap.Stringer("node ID", node.ID),
-						zap.Stringer("duration", duration),
+					chore.log.Error("error during downtime estimation ping back",
+						zap.Bool("success", success),
 						zap.Error(err))
+					return
 				}
-			}
+				if !success && node.LastContactFailure.After(chore.startTime) {
+					now := time.Now().UTC()
+					duration := now.Sub(node.LastContactFailure)
+
+					err = chore.db.Add(ctx, node.ID, now, duration)
+					if err != nil {
+						chore.log.Error("error adding node seconds offline information.",
+							zap.Stringer("node ID", node.ID),
+							zap.Stringer("duration", duration),
+							zap.Error(err))
+					}
+				}
+			})
 		}
+		chore.limiter.Wait()
 		return nil
 	})
 }

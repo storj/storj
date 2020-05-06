@@ -164,7 +164,7 @@ func TestParseToken_Invalid(t *testing.T) {
 			userID + tokenDelimiter + base58.CheckEncode(append(data[:], []byte{0, 0, 0}...), tokenVersion),
 		},
 		{
-			"data checksum/format error",
+			"data checksum or format error",
 			userID + tokenDelimiter + base58.CheckEncode(data[:], tokenVersion)[:len(base58.CheckEncode(data[:], tokenVersion))-4] + "0000",
 		},
 	}

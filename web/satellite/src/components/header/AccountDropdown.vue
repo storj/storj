@@ -4,7 +4,7 @@
 <template>
     <div class="account-dropdown-choice-container" id="accountDropdown">
         <div class="account-dropdown-overflow-container">
-            <div class="account-dropdown-item-container settings" @click="onAccountSettingsClick">
+            <div class="account-dropdown-item-container settings" v-if="!isOnboardingTour" @click="onAccountSettingsClick">
                 <div class="account-dropdown-item-container__image-container">
                     <AccountSettingsIcon class="account-dropdown-item-container__image-container__image"/>
                 </div>
@@ -47,6 +47,13 @@ import { LocalData } from '@/utils/localData';
 })
 export default class AccountDropdown extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.name === RouteConfig.OnboardingTour.name;
+    }
 
     /**
      * Closes account dropdown.

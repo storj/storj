@@ -57,6 +57,7 @@ import VDatepicker from '@/components/common/VDatePicker.vue';
 
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 
+import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { DateRange } from '@/types/payments';
@@ -93,6 +94,12 @@ export default class BillingArea extends Vue {
      * Fetches billing history and project limits.
      */
     public async beforeMount(): Promise<void> {
+        if (this.noProjectOrApiKeys) {
+            await this.$router.push(RouteConfig.OnboardingTour.path);
+
+            return;
+        }
+
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
             if (this.$store.getters.canUserCreateFirstProject && !this.userHasOwnProject) {
@@ -101,10 +108,6 @@ export default class BillingArea extends Vue {
             }
         } catch (error) {
             await this.$notify.error(error.message);
-        }
-
-        if (!this.$store.getters.selectedProject.id) {
-            return;
         }
 
         try {
@@ -278,6 +281,13 @@ export default class BillingArea extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
         }
+    }
+
+    /**
+     * Indicates if user has no project nor api keys.
+     */
+    private get noProjectOrApiKeys(): boolean {
+        return !this.$store.getters.selectedProject.id || this.$store.state.apiKeysModule.page.apiKeys.length === 0;
     }
 
     /**

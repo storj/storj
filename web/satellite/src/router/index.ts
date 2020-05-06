@@ -10,7 +10,7 @@ import BillingHistory from '@/components/account/billing/billingHistory/BillingH
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
-import OverviewArea from '@/components/overview/OverviewArea.vue';
+import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
@@ -36,7 +36,7 @@ export abstract class RouteConfig {
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
     public static Team = new NavigationLink('/project-members', 'Team');
     public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
-    public static Overview = new NavigationLink('/overview', 'Initial Overview');
+    public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
 
     // child paths
     public static Settings = new NavigationLink('settings', 'Settings');
@@ -132,9 +132,9 @@ export const router = new Router({
                     component: ApiKeysArea,
                 },
                 {
-                    path: RouteConfig.Overview.path,
-                    name: RouteConfig.Overview.name,
-                    component: OverviewArea,
+                    path: RouteConfig.OnboardingTour.path,
+                    name: RouteConfig.OnboardingTour.name,
+                    component: OnboardingTourArea,
                 },
             ],
         },

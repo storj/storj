@@ -67,7 +67,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
 
-				expected, err := json.Marshal(paystub)
+				expected, err := json.Marshal([]heldamount.PayStub{paystub})
 				require.NoError(t, err)
 
 				defer func() {
@@ -339,6 +339,52 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NoError(t, err)
 
 				require.Equal(t, "{\"error\":\"heldAmount console web error: wrong period format: period has wrong format\"}\n", string(body5))
+			})
+
+			t.Run("test HeldbackHistory", func(t *testing.T) {
+				// should return all heldback history inserted earlier
+				url := fmt.Sprintf("%s/heldback/%s", baseURL, satellite.ID().String())
+				res, err := http.Get(url)
+				require.NoError(t, err)
+				require.NotNil(t, res)
+				require.Equal(t, http.StatusOK, res.StatusCode)
+
+				period75 := heldamount.HeldbackPeriod{
+					PercentageRate: 75,
+					Held:           paystub2.Held + paystub3.Held,
+				}
+
+				var periods []heldamount.HeldbackPeriod
+				periods = append(periods, period75)
+
+				expected, err := json.Marshal(periods)
+				require.NoError(t, err)
+
+				defer func() {
+					err = res.Body.Close()
+					require.NoError(t, err)
+				}()
+				body, err := ioutil.ReadAll(res.Body)
+				require.NoError(t, err)
+
+				require.Equal(t, string(expected)+"\n", string(body))
+
+				// should return 400 because of bad period.
+				url = fmt.Sprintf("%s/heldback/%s", baseURL, satellite.ID().String()+"11")
+				res2, err := http.Get(url)
+				require.NoError(t, err)
+				require.NotNil(t, res2)
+				require.Equal(t, http.StatusBadRequest, res2.StatusCode)
+
+				defer func() {
+					err = res2.Body.Close()
+					require.NoError(t, err)
+				}()
+
+				body2, err := ioutil.ReadAll(res2.Body)
+				require.NoError(t, err)
+
+				require.Equal(t, "{\"error\":\"heldAmount console web error: node ID error: checksum error\"}\n", string(body2))
 			})
 		},
 	)

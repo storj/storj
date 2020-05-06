@@ -5,6 +5,7 @@ package authorization
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	"storj.io/common/errs2"
 )
 
 // ErrEndpoint is the default error class for the authorization endpoint.
@@ -57,7 +60,11 @@ func (endpoint *Endpoint) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return endpoint.server.Serve(endpoint.listener)
+		err := endpoint.server.Serve(endpoint.listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return err
 	})
 
 	return group.Wait()

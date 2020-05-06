@@ -23,7 +23,7 @@
 # audit.slots: 3
 
 # number of workers to run audits on paths
-# audit.worker-concurrency: 1
+# audit.worker-concurrency: 2
 
 # how frequently checker should check for bad segments
 # checker.interval: 30s
@@ -61,6 +61,9 @@ compensation.rates.put-tb: "0"
 # comma separated monthly withheld percentage rates
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
+# url link for account activation redirect
+# console.account-activation-redirect-url: ""
+
 # server address of the graphql api gateway and frontend app
 # console.address: :10100
 
@@ -85,6 +88,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # enable open registration
 # console.open-registration-enabled: false
 
+# number of events before the limit kicks in
+# console.rate-limit.burst: 3
+
+# the rate at which request are allowed
+# console.rate-limit.duration: 5m0s
+
+# number of IPs whose rate limits we store
+# console.rate-limit.num-limits: 1000
+
 # used to display at web satellite console
 # console.satellite-name: Storj
 
@@ -102,6 +114,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
+
+# url link to sign up verification page
+# console.verification-page-url: https://tardigrade.io/satellites/verify
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
@@ -146,10 +161,19 @@ contact.external-address: ""
 # downtime.detection-interval: 1h0m0s
 
 # the downtime estimation chore should check this many offline nodes
-# downtime.estimation-batch-size: 100
+# downtime.estimation-batch-size: 1000
+
+# max number of concurrent connections in estimation chore
+# downtime.estimation-concurrency-limit: 10
 
 # how often to run the downtime estimation chore
 # downtime.estimation-interval: 1h0m0s
+
+# set if expired segment cleanup is enabled or not
+# expired-deletion.enabled: true
+
+# the time between each attempt to go through the db and clean up expired segments
+# expired-deletion.interval: 120h0m0s
 
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
@@ -277,7 +301,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how long to wait for new observers before starting iteration
 # metainfo.loop.coalesce-duration: 5s
 
-# metainfo loop rate limit (default is 0 which is unlimited segments per second)
+# how many items to query in a batch
+# metainfo.loop.list-limit: 10000
+
+# rate limit (default is 0 which is unlimited segments per second)
 # metainfo.loop.rate-limit: 0
 
 # maximum time allowed to pass between creating and committing a segment
@@ -391,14 +418,14 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many orders to batch per transaction
 # orders.settlement-batch-size: 250
 
+# disable node cache
+# overlay.node-selection-cache.disabled: true
+
+# how stale the node selection cache can be
+# overlay.node-selection-cache.staleness: 3m0s
+
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 100
-
-# the initial shape 'alpha' used to calculate audit SNs reputation
-# overlay.node.audit-reputation-alpha0: 1
-
-# the initial shape 'beta' value used to calculate audit SNs reputation
-# overlay.node.audit-reputation-beta0: 0
 
 # the reputation cut-off for disqualifying SNs based on audit history
 # overlay.node.audit-reputation-dq: 0.6
@@ -429,6 +456,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s
+
+# whether nodes will be disqualified if they have been suspended for longer than the suspended grace period
+# overlay.node.suspension-dq-enabled: false
+
+# the time period that must pass before suspended nodes will be disqualified
+# overlay.node.suspension-grace-period: 168h0m0s
 
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 100
@@ -568,7 +601,7 @@ server.private-address: 127.0.0.1:7778
 # tally.interval: 1h0m0s
 
 # address for jaeger agent
-# tracing.agent-addr: ""
+# tracing.agent-addr: agent.tracing.datasci.storj.io
 
 # application name for tracing identification
 # tracing.app: satellite
@@ -579,10 +612,16 @@ server.private-address: 127.0.0.1:7778
 # buffer size for collector batch packet size
 # tracing.buffer-size: 0
 
+# whether tracing collector is enabled
+# tracing.enabled: false
+
+# how frequently to flush traces to tracing agent
+# tracing.interval: 0s
+
 # buffer size for collector queue size
 # tracing.queue-size: 0
 
-# how frequently to send up telemetry
+# how frequent to sample traces
 # tracing.sample: 0
 
 # Interval to check the version

@@ -178,7 +178,6 @@ func (ce *consoleEndpoints) createRegistrationToken() (string, error) {
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
-	request.Header.Set("Authorization", "secure_token")
 
 	resp, err := ce.client.Do(request)
 	if err != nil {

@@ -9,41 +9,100 @@
         </router-link>
         <ProjectSelectionArea class="project-selection-area"/>
         <p class="navigation-area__project-title">PROJECT</p>
-        <router-link :aria-label="navItem.name" class="navigation-area__item-container" :class="{ disabled: isLinkDisabled }" v-for="navItem in navigation" :key="navItem.name" :to="navItem.path">
+        <router-link
+            :aria-label="navItem.name"
+            class="navigation-area__item-container"
+            :class="{ disabled: isLinkDisabled }"
+            v-for="navItem in navigation"
+            :key="navItem.name"
+            :to="navItem.path"
+        >
             <div class="navigation-area__item-container__link-container">
                 <div v-html="navItem.icon"></div>
                 <h1 class="navigation-area__item-container__link-container__title">{{navItem.name}}</h1>
             </div>
         </router-link>
-        <div class="navigation-area__resources-title" :class="{ custom: areResourceItemsShown }" @mouseenter="toggleResourceButtonVisibility" @mouseleave="toggleResourceButtonVisibility">
+        <div
+            class="navigation-area__resources-title"
+            :class="{ custom: areResourceItemsShown }"
+            @mouseenter="toggleResourceButtonVisibility"
+            @mouseleave="toggleResourceButtonVisibility"
+        >
             <p class="navigation-area__resources-title__title">RESOURCES</p>
-            <p v-if="isResourcesDisplayingButtonShown" @click="toggleResourceItemsVisibility" class="navigation-area__resources-title__button">Show</p>
-            <p v-if="isResourcesHidingButtonShown" @click="toggleResourceItemsVisibility" class="navigation-area__resources-title__button">Hide</p>
+            <p
+                v-if="isResourcesDisplayingButtonShown"
+                @click="toggleResourceItemsVisibility"
+                class="navigation-area__resources-title__button"
+            >
+                Show
+            </p>
+            <p
+                v-if="isResourcesHidingButtonShown"
+                @click="toggleResourceItemsVisibility"
+                class="navigation-area__resources-title__button"
+            >
+                Hide
+            </p>
         </div>
-        <a v-if="areResourceItemsShown" class="navigation-area__item-container" href="https://documentation.tardigrade.io" target="_blank">
+        <a
+            v-if="areResourceItemsShown"
+            class="navigation-area__item-container"
+            :class="{ disabled: isLinkDisabled }"
+            href="https://documentation.storj.io"
+            target="_blank"
+        >
             <div class="navigation-area__item-container__link-container">
                 <DocsIcon class="svg"/>
                 <h1 class="navigation-area__item-container__link-container__title docs-title">Docs</h1>
             </div>
         </a>
-        <a v-if="areResourceItemsShown" class="navigation-area__item-container support-item" href="mailto:support@storj.io" target="_blank">
+        <a
+            v-if="areResourceItemsShown"
+            class="navigation-area__item-container support-item"
+            :class="{ disabled: isLinkDisabled }"
+            href="mailto:support@storj.io"
+            target="_blank"
+        >
             <div class="navigation-area__item-container__link-container">
                 <SupportIcon class="svg"/>
                 <h1 class="navigation-area__item-container__link-container__title">Support</h1>
             </div>
         </a>
-        <div class="navigation-area__account-title" :class="{custom: areAccountItemsShown}" @mouseenter="toggleAccountButtonVisibility" @mouseleave="toggleAccountButtonVisibility">
+        <div
+            class="navigation-area__account-title"
+            :class="{ custom: areAccountItemsShown }"
+            @mouseenter="toggleAccountButtonVisibility"
+            @mouseleave="toggleAccountButtonVisibility"
+        >
             <p class="navigation-area__account-title__title">ACCOUNT</p>
-            <p v-if="isAccountItemsDisplayingButtonShown" @click="toggleAccountItemsVisibility" class="navigation-area__account-title__button">Show</p>
-            <p v-if="isAccountItemsHidingButtonShown" @click="toggleAccountItemsVisibility" class="navigation-area__account-title__button">Hide</p>
+            <p
+                v-if="isAccountItemsDisplayingButtonShown"
+                @click="toggleAccountItemsVisibility"
+                class="navigation-area__account-title__button"
+            >
+                Show
+            </p>
+            <p
+                v-if="isAccountItemsHidingButtonShown"
+                @click="toggleAccountItemsVisibility"
+                class="navigation-area__account-title__button"
+            >
+                Hide
+            </p>
         </div>
         <div v-if="areAccountItemsShown" class="navigation-area__account-area">
-            <router-link class="navigation-area__item-container account-item" v-for="navItem in accountNavigation" :key="navItem.name" :to="navItem.path">
+            <router-link
+                class="navigation-area__item-container account-item"
+                :class="{ disabled: isLinkDisabled }"
+                v-for="navItem in accountNavigation"
+                :key="navItem.name"
+                :to="navItem.path"
+            >
                 <div class="navigation-area__item-container__link-container" >
                     <h1 class="navigation-area__item-container__link-container__title account-item">{{navItem.name}}</h1>
                 </div>
             </router-link>
         </div>
-        <div class="divider" :class="{'custom-divider': areAccountItemsShown}"></div>
+        <div class="divider" :class="{ 'custom-divider': areAccountItemsShown }"></div>
     </div>
 </div>

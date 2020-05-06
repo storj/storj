@@ -231,6 +231,12 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE project_bandwidth_rollups (
+	project_id bytea NOT NULL,
+	interval_month date NOT NULL,
+	egress_allocated bigint NOT NULL,
+	PRIMARY KEY ( project_id, interval_month )
+);
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
@@ -429,6 +435,7 @@ CREATE TABLE user_credits (
 );
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );

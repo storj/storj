@@ -59,7 +59,11 @@ func mapDeprecatedConfigs(log *zap.Logger) {
 
 			reflect.ValueOf(migration.newValue).Elem().Set(reflect.ValueOf(override))
 
-			log.Sugar().Debugf("Found deprecated flag. Migrating value %v from %s to %s", reflect.ValueOf(migration.newValue).Elem(), migration.oldConfigString, migration.newConfigString)
+			log.Debug("Found deprecated flag. Migrating value.",
+				zap.Stringer("Value", reflect.ValueOf(migration.newValue).Elem()),
+				zap.String("From", migration.oldConfigString),
+				zap.String("To", migration.newConfigString),
+			)
 		}
 	}
 }

@@ -102,7 +102,7 @@ func TestProjectOpenNewBucket(t *testing.T) {
 		satellite := planet.Satellites[0]
 		apiKey := planet.Uplinks[0].APIKey[satellite.ID()]
 		uplinkConfig := newuplink.Config{}
-		access, err := uplinkConfig.RequestAccessWithPassphrase(ctx, satellite.URL().String(), apiKey.Serialize(), "mypassphrase")
+		access, err := uplinkConfig.RequestAccessWithPassphrase(ctx, satellite.URL(), apiKey.Serialize(), "mypassphrase")
 		require.NoError(t, err)
 
 		project, err := uplinkConfig.OpenProject(ctx, access)

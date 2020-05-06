@@ -30,13 +30,6 @@ func NewLimitedJobs(maxPiecesPerBatch int) *LimitedJobs {
 //
 // maxPiecesPerBatch < 0, means no limit
 func (jobs *LimitedJobs) TryPush(job Job) bool {
-	return jobs.tryPush(job, jobs.maxPiecesPerBatch)
-}
-
-// tryPush tries to add a job to the queue.
-//
-// maxPiecesPerBatch < 0, means no limit
-func (jobs *LimitedJobs) tryPush(job Job, maxPiecesPerBatch int) bool {
 	jobs.mu.Lock()
 	defer jobs.mu.Unlock()
 
@@ -50,7 +43,7 @@ func (jobs *LimitedJobs) tryPush(job Job, maxPiecesPerBatch int) bool {
 	jobs.count += len(job.Pieces)
 
 	// check whether the queue is at capacity
-	if maxPiecesPerBatch >= 0 && jobs.count >= maxPiecesPerBatch {
+	if jobs.maxPiecesPerBatch >= 0 && jobs.count >= jobs.maxPiecesPerBatch {
 		jobs.done = true
 	}
 
@@ -72,4 +65,14 @@ func (jobs *LimitedJobs) PopAll() (_ []Job, ok bool) {
 	list := jobs.list
 	jobs.list = nil
 	return list, true
+}
+
+// PopAllWithoutClose returns all the jobs in this list without closing the queue.
+func (jobs *LimitedJobs) PopAllWithoutClose() []Job {
+	jobs.mu.Lock()
+	defer jobs.mu.Unlock()
+
+	list := jobs.list
+	jobs.list = nil
+	return list
 }

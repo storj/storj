@@ -1,0 +1,43 @@
+<!--Copyright (C) 2020 Storj Labs, Inc.-->
+<!--See LICENSE for copying information.-->
+
+<div class="overview-area">
+    <h1 class="overview-area__title">Welcome to Storj</h1>
+    <p class="overview-area__sub-title">
+        You’re just a few steps away from uploading your first object to the 100% secure, decentralized cloud. After
+        adding payment, you’ll create a project, API key, get set up with Storj, and start uploading objects.
+    </p>
+    <div class="overview-area__steps-area">
+        <div class="overview-area__steps-area__step">
+            <FirstStepIcon class="overview-area__steps-area__step__icon"/>
+            <img class="overview-step-image" src="@/../static/images/onboardingTour/project.jpg" alt="project image">
+            <h2 class="overview-area__steps-area__step__title">Name Your Project</h2>
+            <span class="overview-area__steps-area__step__subtitle">
+                Projects are where buckets are created for storing data.
+            </span>
+        </div>
+        <div class="overview-area__steps-area__step second-step">
+            <SecondStepIcon class="overview-area__steps-area__step__icon"/>
+            <img class="overview-step-image" src="@/../static/images/onboardingTour/api-key.jpg" alt="api keys image">
+            <h2 class="overview-area__steps-area__step__title">Create an API Key</h2>
+            <span class="overview-area__steps-area__step__subtitle">
+                Generate access to your project to upload data.
+            </span>
+        </div>
+        <div class="overview-area__steps-area__step">
+            <ThirdStepIcon class="overview-area__steps-area__step__icon"/>
+            <img class="overview-step-image" src="@/../static/images/onboardingTour/uplink.jpg" alt="uplink image">
+            <h2 class="overview-area__steps-area__step__title">Upload Data</h2>
+            <span class="overview-area__steps-area__step__subtitle">
+                Store your data on the secure, decentralized cloud.
+            </span>
+        </div>
+    </div>
+    <VButton
+        class="get-started-button"
+        label="Get Started"
+        width="251px"
+        height="56px"
+        :on-press="onClick"
+    />
+</div>

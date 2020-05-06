@@ -7,6 +7,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -58,29 +60,53 @@ func (paystubs *paymentStubs) GetPaystub(ctx context.Context, nodeID storj.NodeI
 	return payStub, nil
 }
 
-// GetPayment returns payment by nodeID and period.
-func (paystubs *paymentStubs) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (payment heldamount.StoragenodePayment, err error) {
-	query := `SELECT * FROM storagenode_payments WHERE node_id = $1 AND period = $2;`
+// GetAllPaystubs return all payStubs by nodeID.
+func (paystubs *paymentStubs) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) (payStubs []heldamount.PayStub, err error) {
+	query := `SELECT * FROM storagenode_paystubs WHERE node_id = $1;`
 
-	row := paystubs.db.QueryRowContext(ctx, query, nodeID, period)
-	err = row.Scan(
-		&payment.ID,
-		&payment.Created,
-		&payment.NodeID,
-		&payment.Period,
-		&payment.Amount,
-		&payment.Receipt,
-		&payment.Notes,
-	)
+	rows, err := paystubs.db.QueryContext(ctx, query, nodeID)
 	if err != nil {
-		if sql.ErrNoRows == err {
-			return heldamount.StoragenodePayment{}, heldamount.ErrNoDataForPeriod.Wrap(err)
-		}
-
-		return heldamount.StoragenodePayment{}, Error.Wrap(err)
+		return []heldamount.PayStub{}, Error.Wrap(err)
 	}
 
-	return payment, nil
+	defer func() {
+		err = errs.Combine(err, Error.Wrap(rows.Close()))
+	}()
+
+	for rows.Next() {
+		paystub := heldamount.PayStub{}
+
+		err = rows.Scan(
+			&paystub.Period,
+			&paystub.NodeID,
+			&paystub.Created,
+			&paystub.Codes,
+			&paystub.UsageAtRest,
+			&paystub.UsageGet,
+			&paystub.UsagePut,
+			&paystub.UsageGetRepair,
+			&paystub.UsagePutRepair,
+			&paystub.UsageGetAudit,
+			&paystub.CompAtRest,
+			&paystub.CompGet,
+			&paystub.CompPut,
+			&paystub.CompGetRepair,
+			&paystub.CompPutRepair,
+			&paystub.CompGetAudit,
+			&paystub.SurgePercent,
+			&paystub.Held,
+			&paystub.Owed,
+			&paystub.Disposed,
+			&paystub.Paid,
+		)
+		if err = rows.Err(); err != nil {
+			return []heldamount.PayStub{}, Error.Wrap(err)
+		}
+
+		payStubs = append(payStubs, paystub)
+	}
+
+	return payStubs, Error.Wrap(rows.Err())
 }
 
 // CreatePaystub inserts storagenode_paystub into database.
@@ -107,19 +133,5 @@ func (paystubs *paymentStubs) CreatePaystub(ctx context.Context, stub heldamount
 		dbx.StoragenodePaystub_Owed(stub.Owed),
 		dbx.StoragenodePaystub_Disposed(stub.Disposed),
 		dbx.StoragenodePaystub_Paid(stub.Paid),
-	)
-}
-
-// CreatePayment inserts storagenode_payment into database.
-func (paystubs *paymentStubs) CreatePayment(ctx context.Context, payment heldamount.StoragenodePayment) (err error) {
-	return paystubs.db.CreateNoReturn_StoragenodePayment(
-		ctx,
-		dbx.StoragenodePayment_NodeId(payment.NodeID[:]),
-		dbx.StoragenodePayment_Period(payment.Period),
-		dbx.StoragenodePayment_Amount(payment.Amount),
-		dbx.StoragenodePayment_Create_Fields{
-			Receipt: dbx.StoragenodePayment_Receipt(payment.Receipt),
-			Notes:   dbx.StoragenodePayment_Notes(payment.Notes),
-		},
 	)
 }

@@ -28,7 +28,7 @@ type Config struct {
 	ChoreInterval     time.Duration `help:"how often to run the reservoir chore" releaseDefault:"24h" devDefault:"1m"`
 	QueueInterval     time.Duration `help:"how often to recheck an empty audit queue" releaseDefault:"1h" devDefault:"1m"`
 	Slots             int           `help:"number of reservoir slots allotted for nodes, currently capped at 3" default:"3"`
-	WorkerConcurrency int           `help:"number of workers to run audits on paths" default:"1"`
+	WorkerConcurrency int           `help:"number of workers to run audits on paths" default:"2"`
 }
 
 // Worker contains information for populating audit queue and processing audits.

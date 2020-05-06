@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sort"
@@ -38,7 +39,7 @@ func TestStoreLoad(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 
@@ -167,7 +168,7 @@ func TestDeleteWhileReading(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 
@@ -225,7 +226,7 @@ func TestDeleteWhileReading(t *testing.T) {
 	_ = gStore.GarbageCollect(ctx)
 
 	// flaky test, for checking whether files have been actually deleted from disk
-	err = filepath.Walk(ctx.Dir("store"), func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(ctx.Dir("store"), func(path string, info os.FileInfo, _ error) error {
 		if info.IsDir() {
 			return nil
 		}
@@ -302,7 +303,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 
@@ -362,7 +363,7 @@ func TestStoreSpaceUsed(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 
@@ -412,7 +413,7 @@ func TestStoreTraversals(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 
@@ -510,7 +511,7 @@ func TestStoreTraversals(t *testing.T) {
 
 	// test WalkNamespace on a nonexistent namespace also
 	namespaceBase[len(namespaceBase)-1] = byte(numNamespaces)
-	err = store.WalkNamespace(ctx, namespaceBase, func(info storage.BlobInfo) error {
+	err = store.WalkNamespace(ctx, namespaceBase, func(_ storage.BlobInfo) error {
 		t.Fatal("this should not have been called")
 		return nil
 	})
@@ -519,7 +520,7 @@ func TestStoreTraversals(t *testing.T) {
 	// check that WalkNamespace stops iterating after an error return
 	iterations := 0
 	expectedErr := errs.New("an expected error")
-	err = store.WalkNamespace(ctx, recordsToInsert[numNamespaces-1].namespace, func(info storage.BlobInfo) error {
+	err = store.WalkNamespace(ctx, recordsToInsert[numNamespaces-1].namespace, func(_ storage.BlobInfo) error {
 		iterations++
 		if iterations == 2 {
 			return expectedErr
@@ -535,7 +536,7 @@ func TestEmptyTrash(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 
@@ -660,7 +661,7 @@ func TestTrashAndRestore(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"))
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
 	ctx.Check(store.Close)
 
@@ -821,4 +822,51 @@ func requireFileMatches(ctx context.Context, t *testing.T, store storage.Blobs, 
 	require.NoError(t, err)
 
 	require.Equal(t, buf, data)
+}
+
+// TestBlobMemoryBuffer ensures that buffering doesn't have problems with
+// small writes randomly seeked through the file.
+func TestBlobMemoryBuffer(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	const size = 2048
+
+	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.Config{
+		WriteBufferSize: 1 * memory.KiB,
+	})
+	require.NoError(t, err)
+	ctx.Check(store.Close)
+
+	ref := storage.BlobRef{
+		Namespace: testrand.Bytes(32),
+		Key:       testrand.Bytes(32),
+	}
+
+	writer, err := store.Create(ctx, ref, size)
+	require.NoError(t, err)
+
+	for _, v := range rand.Perm(size) {
+		_, err := writer.Seek(int64(v), io.SeekStart)
+		require.NoError(t, err)
+		n, err := writer.Write([]byte{byte(v)})
+		require.NoError(t, err)
+		require.Equal(t, n, 1)
+	}
+
+	_, err = writer.Seek(size, io.SeekStart)
+	require.NoError(t, err)
+
+	require.NoError(t, writer.Commit(ctx))
+
+	reader, err := store.Open(ctx, ref)
+	require.NoError(t, err)
+
+	buf, err := ioutil.ReadAll(reader)
+	require.NoError(t, err)
+
+	for i := range buf {
+		require.Equal(t, byte(i), buf[i])
+	}
+	require.Equal(t, size, len(buf))
 }

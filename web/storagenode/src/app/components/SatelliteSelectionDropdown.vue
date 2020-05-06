@@ -18,7 +18,12 @@
                     v-if="satellite.disqualified"
                     alt="disqualified image"
                 />
-                <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified}">{{satellite.url}}</p>
+                <SuspensionIcon
+                    class="satellite-selection-overflow-container__satellite-choice__image"
+                    v-if="satellite.suspended && !satellite.disqualified"
+                    alt="suspended image"
+                />
+                <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified, suspended: satellite.suspended}">{{satellite.url}}</p>
             </div>
         </div>
     </div>
@@ -28,50 +33,99 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import DisqualificationIcon from '@/../static/images/disqualify.svg';
+import SuspensionIcon from '@/../static/images/suspend.svg';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import { PayoutInfoRange, PayoutPeriod } from '@/app/types/payout';
 import { SatelliteInfo } from '@/storagenode/dashboard';
 
 @Component({
     components: {
         DisqualificationIcon,
+        SuspensionIcon,
     },
 })
 export default class SatelliteSelectionDropdown extends Vue {
-    public async onSatelliteClick(id: string): Promise<void> {
-        try {
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
-            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, id);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, id);
-        } catch (error) {
-            console.error(`${error.message} satellite data.`);
-        }
-    }
+    private now: Date = new Date();
 
-    public async onAllSatellitesClick(): Promise<void> {
-        try {
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
-            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
-        } catch (error) {
-            console.error(`${error.message} satellite data.`);
-        }
-    }
-
-    public closePopup(): void {
-        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ALL_POPUPS);
-    }
-
+    /**
+     * Returns node satellites list from store.
+     */
     public get satellites(): SatelliteInfo[] {
         return this.$store.state.node.satellites;
     }
 
+    /**
+     * Returns selected satellite id from store.
+     */
     public get selectedSatellite(): string {
         return this.$store.state.node.selectedSatellite.id;
+    }
+
+    /**
+     * Indicates if current month selected.
+     */
+    public get isCurrentPeriod(): boolean {
+        const end = this.$store.state.payoutModule.periodRange.end;
+        const isCurrentMonthSelected = end.year === this.now.getUTCFullYear() && end.month === this.now.getUTCMonth();
+
+        return !this.$store.state.payoutModule.periodRange.start && isCurrentMonthSelected;
+    }
+
+    /**
+     * Fires on satellite click and selects it.
+     */
+    public async onSatelliteClick(id: string): Promise<void> {
+        try {
+            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
+            this.fetchPayoutInfo(id);
+        } catch (error) {
+            console.error(error.message);
+        }
+    }
+
+    /**
+     * Fires on all satellites click and sets selected satellite id to null.
+     */
+    public async onAllSatellitesClick(): Promise<void> {
+        try {
+            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
+            this.fetchPayoutInfo();
+        } catch (error) {
+            console.error(error.message);
+        }
+    }
+
+    /**
+     * Closes dropdown.
+     */
+    public closePopup(): void {
+        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ALL_POPUPS);
+    }
+
+    /**
+     * Fetches payout information depends on selected satellite.
+     */
+    private async fetchPayoutInfo(id: string = ''): Promise<void> {
+        await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false);
+
+        if (!this.isCurrentPeriod) {
+            try {
+                await this.$store.dispatch(PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(null, new PayoutPeriod()));
+            } catch (error) {
+                console.error(error.message);
+            }
+        }
+
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, id);
+        } catch (error) {
+            console.error(error.message);
+        }
     }
 }
 </script>
@@ -85,7 +139,7 @@ export default class SatelliteSelectionDropdown extends Vue {
         border-radius: 8px;
         padding: 7px 0 7px 0;
         box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
-        background-color: #fff;
+        background-color: var(--block-background-color);
         z-index: 103;
     }
 
@@ -116,13 +170,15 @@ export default class SatelliteSelectionDropdown extends Vue {
             }
 
             &:hover {
-                background-color: #ebecf0;
+                background-color: var(--satellite-selection-hover-background-color);
                 cursor: pointer;
+                color: var(--regular-text-color);
             }
         }
     }
 
-    .disqualified {
+    .disqualified,
+    .suspended {
         margin-left: 20px;
     }
 

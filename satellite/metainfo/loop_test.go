@@ -94,7 +94,7 @@ func TestLoop(t *testing.T) {
 		err := group.Wait()
 		require.NoError(t, err)
 
-		projectID := ul.ProjectID[satellite.ID()]
+		projectID := ul.Projects[0].ID
 		for _, obs := range []*testObserver{obs1, obs2} {
 			assert.EqualValues(t, 7, obs.objectCount)
 			assert.EqualValues(t, 5, obs.remoteSegCount)
@@ -143,6 +143,7 @@ func TestLoopObserverCancel(t *testing.T) {
 
 		// create 1 "good" observer
 		obs1 := newTestObserver(nil)
+		obs1x := newTestObserver(nil)
 
 		// create observer that will return an error from RemoteSegment
 		obs2 := newTestObserver(func(ctx context.Context) error {
@@ -164,7 +165,7 @@ func TestLoopObserverCancel(t *testing.T) {
 
 		var group errgroup.Group
 		group.Go(func() error {
-			return metaLoop.Join(ctx, obs1)
+			return metaLoop.Join(ctx, obs1, obs1x)
 		})
 		group.Go(func() error {
 			err := metaLoop.Join(ctx, obs2)
@@ -189,6 +190,7 @@ func TestLoopObserverCancel(t *testing.T) {
 
 		// expect that obs1 saw all three segments, but obs2 and obs3 only saw the first one
 		assert.EqualValues(t, 3, obs1.remoteSegCount)
+		assert.EqualValues(t, 3, obs1x.remoteSegCount)
 		assert.EqualValues(t, 1, obs2.remoteSegCount)
 		assert.EqualValues(t, 1, obs3.remoteSegCount)
 	})
@@ -222,6 +224,7 @@ func TestLoopCancel(t *testing.T) {
 		// create a new metainfo loop
 		metaLoop := metainfo.NewLoop(metainfo.LoopConfig{
 			CoalesceDuration: 1 * time.Second,
+			ListLimit:        10000,
 		}, satellite.Metainfo.Database)
 
 		// create a cancelable context to pass into metaLoop.Run

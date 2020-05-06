@@ -70,7 +70,6 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	}
 
 	{ // setup server
-		log.Debug("Starting listener and server")
 		sc := config.Server
 
 		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)

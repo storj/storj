@@ -1,0 +1,77 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`CreateApiKeyStep.vue create api key works correctly correctly 1`] = `
+<div class="create-api-key-step">
+  <h1 class="create-api-key-step__title">Create an API Key</h1>
+  <p class="create-api-key-step__sub-title">
+    API keys provide access to the project for creating buckets and uploading objects through the command line
+    interface. This will be your first API key, and you can always create more keys later on.
+  </p>
+  <div class="create-api-key-step__container">
+    <div class="create-api-key-step__container__title-area">
+      <h2 class="create-api-key-step__container__title-area__title">Create API Key</h2>
+      <!---->
+    </div>
+    <div class="input-container full-input">
+      <div class="label-container">
+        <!---->
+        <h3 class="label-container__label">API Key Name</h3>
+        <h3 class="label-container__label add-label"></h3>
+        <!---->
+      </div>
+      <!---->
+      <!----> <input id="API Key Name" placeholder="Enter API Key Name (i.e. Dan’s Key)" type="text" class="headered-input" style="height: 48px;">
+    </div>
+    <div class="create-api-key-step__container__copy-key-area">
+      <div class="create-api-key-step__container__copy-key-area__header"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" class="info-svg">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M9 -7.86805e-07C4.02944 -1.22135e-06 1.22135e-06 4.02944 7.86805e-07 9C3.52265e-07 13.9706 4.02944 18 9 18C13.9706 18 18 13.9706 18 9C18 4.02944 13.9706 -3.52265e-07 9 -7.86805e-07ZM10 13C10 13.5523 9.55229 14 9 14C8.44772 14 8 13.5523 8 13C8 12.4477 8.44772 12 9 12C9.55229 12 10 12.4477 10 13ZM10 9C10 9.55228 9.55228 10 9 10C8.44771 10 8 9.55228 8 9L8 5C8 4.44771 8.44772 4 9 4C9.55229 4 10 4.44772 10 5L10 9Z" fill="white"></path>
+        </svg> <span class="create-api-key-step__container__copy-key-area__header__title">
+                    API Keys only appear here once. Copy and paste this key to your preferred method of storing secrets.
+                </span></div>
+      <div class="create-api-key-step__container__copy-key-area__key-container"><span class="create-api-key-step__container__copy-key-area__key-container__key">testKey</span>
+        <div class="create-api-key-step__container__copy-key-area__key-container__copy-button">
+          <div class="container blue-white" style="width: 81px; height: 40px;"><span class="label">Copy</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="create-api-key-step__container__info">
+      We don’t record your API Keys, which are only displayed once when generated. If you loose this
+      key, it cannot be recovered – but you can always create new API Keys when needed.
+    </p>
+    <!---->
+  </div>
+  <div class="done-button container" style="width: 156px; height: 48px;"><span class="label">Done</span></div>
+</div>
+`;
+
+exports[`CreateApiKeyStep.vue renders correctly 1`] = `
+<div class="create-api-key-step">
+  <h1 class="create-api-key-step__title">Create an API Key</h1>
+  <p class="create-api-key-step__sub-title">
+    API keys provide access to the project for creating buckets and uploading objects through the command line
+    interface. This will be your first API key, and you can always create more keys later on.
+  </p>
+  <div class="create-api-key-step__container">
+    <div class="create-api-key-step__container__title-area">
+      <h2 class="create-api-key-step__container__title-area__title">Create API Key</h2>
+      <!---->
+    </div>
+    <div class="input-container full-input">
+      <div class="label-container">
+        <!---->
+        <h3 class="label-container__label">API Key Name</h3>
+        <h3 class="label-container__label add-label"></h3>
+        <!---->
+      </div>
+      <!---->
+      <!----> <input id="API Key Name" placeholder="Enter API Key Name (i.e. Dan’s Key)" type="text" class="headered-input" style="height: 48px;">
+    </div>
+    <div class="create-api-key-step__container__create-key-area">
+      <div class="generate-button container blue-white" style="width: 100%; height: 40px;"><span class="label">Generate API Key</span></div>
+    </div>
+    <!---->
+    <!---->
+  </div>
+  <div class="done-button container disabled" style="width: 156px; height: 48px;"><span class="label">Done</span></div>
+</div>
+`;

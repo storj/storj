@@ -30,16 +30,12 @@ import (
 //	 disqualified until the audit reputation reaches the cut-off value.
 func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	var (
-		auditDQCutOff         = 0.4
-		alpha0        float64 = 1
-		beta0         float64
+		auditDQCutOff = 0.4
 	)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.AuditReputationAlpha0 = alpha0
-				config.Overlay.Node.AuditReputationBeta0 = beta0
 				config.Overlay.Node.AuditReputationLambda = 1
 				config.Overlay.Node.AuditReputationWeight = 1
 				config.Overlay.Node.AuditReputationDQ = auditDQCutOff
@@ -58,8 +54,8 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		require.Equal(t, alpha0, dossier.Reputation.AuditReputationAlpha)
-		require.Equal(t, beta0, dossier.Reputation.AuditReputationBeta)
+		require.Equal(t, float64(1), dossier.Reputation.AuditReputationAlpha)
+		require.Equal(t, float64(0), dossier.Reputation.AuditReputationBeta)
 
 		prevReputation := calcReputation(dossier)
 
@@ -174,11 +170,11 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 
 		request := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 4,
-			RequestedCount:       0,
+			RequestedCount:       4,
 			ExcludedIDs:          nil,
 			MinimumVersion:       "", // semver or empty
 		}
-		nodes, err := satellitePeer.Overlay.Service.FindStorageNodes(ctx, request)
+		nodes, err := satellitePeer.Overlay.Service.FindStorageNodesForUpload(ctx, request)
 		assert.True(t, overlay.ErrNotEnoughNodes.Has(err))
 
 		assert.Len(t, nodes, 3)
@@ -225,12 +221,14 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
 
 		_, err = satellitePeer.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
-			NodeID:       disqualifiedNode.ID(),
-			IsUp:         true,
-			AuditOutcome: overlay.AuditSuccess,
-			AuditLambda:  0, // forget about history
-			AuditWeight:  1,
-			AuditDQ:      0, // make sure new reputation scores are larger than the DQ thresholds
+			NodeID:                disqualifiedNode.ID(),
+			IsUp:                  true,
+			AuditOutcome:          overlay.AuditSuccess,
+			AuditLambda:           0, // forget about history
+			AuditWeight:           1,
+			AuditDQ:               0, // make sure new reputation scores are larger than the DQ thresholds
+			SuspensionGracePeriod: time.Hour,
+			SuspensionDQEnabled:   true,
 		}}, 100)
 		require.NoError(t, err)
 

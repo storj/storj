@@ -49,6 +49,10 @@ class BandwidthTooltip {
 
 @Component
 export default class BandwidthChart extends BaseChart {
+    private get chartBackgroundColor(): string {
+        return this.isDarkMode ? '#4F97F7' : '#F2F6FC';
+    }
+
     private get allBandwidth(): BandwidthUsed[] {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.node.bandwidthChartData);
     }
@@ -66,9 +70,9 @@ export default class BandwidthChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#F2F6FC';
+        const chartBackgroundColor = this.chartBackgroundColor;
         const chartBorderColor = '#1F49A3';
-        const chartBorderWidth = 2;
+        const chartBorderWidth = 1;
 
         if (this.allBandwidth.length) {
             data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.summary()));
@@ -130,27 +134,26 @@ export default class BandwidthChart extends BaseChart {
 
         &__data-dimension {
             font-size: 13px;
-            color: #586c86;
+            color: var(--regular-text-color);
             margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }
     }
 
     #bandwidth-tooltip {
-        background-image: url('../../../static/images/tooltipBack.png');
+        background-image: var(--tooltip-background-path);
         background-repeat: no-repeat;
         background-size: cover;
         min-width: 250px;
         min-height: 230px;
         font-size: 12px;
         border-radius: 14px;
-        box-shadow: 0 2px 10px #d2d6de;
-        color: #535f77;
+        color: var(--regular-text-color);
         pointer-events: none;
     }
 
     #bandwidth-tooltip-arrow {
-        background-image: url('../../../static/images/tooltipArrow.png');
+        background-image: var(--tooltip-arrow-path);
         background-repeat: no-repeat;
         background-size: 50px 30px;
         min-width: 50px;
@@ -173,7 +176,7 @@ export default class BandwidthChart extends BaseChart {
 
         &__info {
             display: flex;
-            background-color: #ebecf0;
+            background-color: var(--block-background-color);
             border-radius: 12px;
             padding: 14px 17px 14px 14px;
             align-items: center;
@@ -203,6 +206,6 @@ export default class BandwidthChart extends BaseChart {
         align-items: center;
         justify-content: center;
         padding: 10px 0 16px 0;
-        color: rgba(83, 95, 119, 0.44);
+        color: var(--regular-text-color);
     }
 </style>

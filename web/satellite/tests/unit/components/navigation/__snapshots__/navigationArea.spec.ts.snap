@@ -3,7 +3,7 @@
 exports[`NavigationArea snapshot not changed with project 1`] = `
 <div class="navigation-area">
   <div class="navigation-area__wrap">
-    <router-link-stub to="/account/billing" tag="a" event="click" class="navigation-area__logo">
+    <router-link-stub to="/project-dashboard" tag="a" event="click" class="navigation-area__logo">
       <logoicon-stub class="navigation-area__logo__img"></logoicon-stub>
       <logotexticon-stub class="navigation-area__logo__text"></logotexticon-stub>
     </router-link-stub>
@@ -40,7 +40,7 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
       <p class="navigation-area__resources-title__title">RESOURCES</p>
       <!---->
       <!---->
-    </div> <a href="https://documentation.tardigrade.io" target="_blank" class="navigation-area__item-container">
+    </div> <a href="https://documentation.storj.io" target="_blank" class="navigation-area__item-container">
       <div class="navigation-area__item-container__link-container">
         <docsicon-stub class="svg"></docsicon-stub>
         <h1 class="navigation-area__item-container__link-container__title docs-title">Docs</h1>
@@ -76,7 +76,7 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
 exports[`NavigationArea snapshot not changed without project 1`] = `
 <div class="navigation-area">
   <div class="navigation-area__wrap">
-    <router-link-stub to="/account/billing" tag="a" event="click" class="navigation-area__logo">
+    <router-link-stub to="/onboarding-tour" tag="a" event="click" class="navigation-area__logo">
       <logoicon-stub class="navigation-area__logo__img"></logoicon-stub>
       <logotexticon-stub class="navigation-area__logo__text"></logotexticon-stub>
     </router-link-stub>
@@ -113,12 +113,12 @@ exports[`NavigationArea snapshot not changed without project 1`] = `
       <p class="navigation-area__resources-title__title">RESOURCES</p>
       <!---->
       <!---->
-    </div> <a href="https://documentation.tardigrade.io" target="_blank" class="navigation-area__item-container">
+    </div> <a href="https://documentation.storj.io" target="_blank" class="navigation-area__item-container disabled">
       <div class="navigation-area__item-container__link-container">
         <docsicon-stub class="svg"></docsicon-stub>
         <h1 class="navigation-area__item-container__link-container__title docs-title">Docs</h1>
       </div>
-    </a> <a href="mailto:support@storj.io" target="_blank" class="navigation-area__item-container support-item">
+    </a> <a href="mailto:support@storj.io" target="_blank" class="navigation-area__item-container support-item disabled">
       <div class="navigation-area__item-container__link-container">
         <supporticon-stub class="svg"></supporticon-stub>
         <h1 class="navigation-area__item-container__link-container__title">Support</h1>
@@ -130,12 +130,12 @@ exports[`NavigationArea snapshot not changed without project 1`] = `
       <!---->
     </div>
     <div class="navigation-area__account-area">
-      <router-link-stub to="/account/settings" tag="a" event="click" class="navigation-area__item-container account-item">
+      <router-link-stub to="/account/settings" tag="a" event="click" class="navigation-area__item-container account-item disabled">
         <div class="navigation-area__item-container__link-container">
           <h1 class="navigation-area__item-container__link-container__title account-item">Settings</h1>
         </div>
       </router-link-stub>
-      <router-link-stub to="/account/billing" tag="a" event="click" class="navigation-area__item-container account-item">
+      <router-link-stub to="/account/billing" tag="a" event="click" class="navigation-area__item-container account-item disabled">
         <div class="navigation-area__item-container__link-container">
           <h1 class="navigation-area__item-container__link-container__title account-item">Billing</h1>
         </div>

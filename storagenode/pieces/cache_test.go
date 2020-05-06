@@ -67,6 +67,8 @@ func TestDBInit(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	sat1 := testrand.NodeID()
 	startSats := map[storj.NodeID]pieces.SatelliteUsage{
 		sat1: {
@@ -111,7 +113,7 @@ func TestCacheInit(t *testing.T) {
 		cache := pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB),
+			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 		)
 
@@ -149,7 +151,7 @@ func TestCacheInit(t *testing.T) {
 		cache = pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalBySA)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB),
+			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 		)
 		err = cacheService.PersistCacheTotals(ctx)
@@ -159,7 +161,7 @@ func TestCacheInit(t *testing.T) {
 		cache = pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB),
+			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 		)
 		// Confirm that when we call Init after the cache has been persisted
@@ -190,7 +192,7 @@ func TestCachServiceRun(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		spaceUsedDB := db.PieceSpaceUsedDB()
 
-		blobstore, err := filestore.NewAt(log, ctx.Dir())
+		blobstore, err := filestore.NewAt(log, ctx.Dir(), filestore.DefaultConfig)
 		require.NoError(t, err)
 
 		// Prior to initializing the cache service (which should walk the files),
@@ -222,7 +224,7 @@ func TestCachServiceRun(t *testing.T) {
 		cache := pieces.NewBlobsUsageCache(log, blobstore)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB),
+			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 		)
 
@@ -308,7 +310,7 @@ func TestPersistCacheTotals(t *testing.T) {
 		cache := pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalsBySA)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, cache, nil, nil, spaceUsedDB),
+			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 		)
 		err = cacheService.PersistCacheTotals(ctx)

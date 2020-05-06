@@ -4,6 +4,7 @@
 package metainfo
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/zap"
@@ -63,10 +64,13 @@ type Config struct {
 //
 // architecture: Database
 type PointerDB interface {
+	// MigrateToLatest migrates to latest schema version.
+	MigrateToLatest(ctx context.Context) error
+
 	storage.KeyValueStore
 }
 
-// NewStore returns database for storing pointer data
+// NewStore returns database for storing pointer data.
 func NewStore(logger *zap.Logger, dbURLString string) (db PointerDB, err error) {
 	_, source, implementation, err := dbutil.SplitConnStr(dbURLString)
 	if err != nil {

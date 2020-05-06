@@ -5,7 +5,7 @@ set -euo pipefail
 
 : "${TAG:?Must be set to the gitish version of the release without architecture}"
 
-for v in alpha arm beta; do
+for v in alpha arm beta latest; do
 	docker manifest create --amend storjlabs/storagenode:$v \
 	storjlabs/storagenode:${TAG}-amd64 \
 	storjlabs/storagenode:${TAG}-arm32v6 \

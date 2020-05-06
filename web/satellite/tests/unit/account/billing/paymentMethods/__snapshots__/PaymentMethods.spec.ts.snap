@@ -4,7 +4,7 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 1`] =
 <div class="payment-methods-area">
   <div class="payment-methods-area__functional-area extended">
     <div class="payment-methods-area__functional-area__top-container">
-      <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
+      <h1 class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__cancel">
           <p class="payment-methods-area__functional-area__button-area__cancel__text">Cancel</p>
@@ -23,17 +23,17 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 1`] =
       </svg>
       <div class="payments-bonus-container__text-container">
         <p class="payments-bonus-container__text-container__main-text">
-          Get free credits for paying in STORJ!
+          Get free credits for paying in STORJ Token
         </p>
         <p class="payments-bonus-container__text-container__additional-text">
-          Deposit STORJ tokens to your account and receive a 10% bonus, or $10 for every $100.
+          Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.
         </p>
       </div>
     </div>
-    <div class="payment-methods-area__functional-area__adding-container">
-      <div class="storj-container">
-        <p class="storj-container__label">Deposit STORJ Tokens via Coin Payments</p>
-        <div class="form-container form">
+    <div class="add-storj-area">
+      <div class="add-storj-area__selection-container">
+        <p class="add-storj-area__selection-container__label">Deposit STORJ Tokens via Coin Payments</p>
+        <div class="form-container add-storj-area__selection-container__form">
           <div class="selected-container">
             <div id="paymentSelectButton" class="selected-container__label-container">
               <p class="selected-container__label-container__label">USD $50</p>
@@ -47,11 +47,9 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 1`] =
           <!---->
         </div>
       </div>
-      <div class="payment-methods-area__functional-area__adding-container__submit-area">
+      <div class="add-storj-area__submit-area">
         <!---->
-        <div class="confirm-add-storj-button container" style="width: 251px; height: 48px;">
-          <h1 class="label">Continue to Coin Payments</h1>
-        </div>
+        <div class="confirm-add-storj-button container" style="width: 251px; height: 48px;"><span class="label">Continue to Coin Payments</span></div>
       </div>
     </div>
     <!---->
@@ -67,12 +65,10 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 2`] =
 <div class="payment-methods-area">
   <div class="payment-methods-area__functional-area">
     <div class="payment-methods-area__functional-area__top-container">
-      <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
+      <h1 class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="button container blue-white" style="width: 123px; height: 48px;">
-            <h1 class="label">Add STORJ</h1>
-          </div>
+          <div class="add-storj-button container blue-white" style="width: 123px; height: 48px;"><span class="label">Add STORJ</span></div>
         </div>
       </div>
     </div>
@@ -107,7 +103,7 @@ exports[`PaymentMethods renders correctly after add card and cancel click 1`] = 
 <div class="payment-methods-area">
   <div class="payment-methods-area__functional-area reduced">
     <div class="payment-methods-area__functional-area__top-container">
-      <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
+      <h1 class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__cancel">
           <p class="payment-methods-area__functional-area__button-area__cancel__text">Cancel</p>
@@ -116,11 +112,7 @@ exports[`PaymentMethods renders correctly after add card and cancel click 1`] = 
     </div>
     <!---->
     <!---->
-    <div class="payment-methods-area__functional-area__adding-container">
-      <p class="payment-methods-area__functional-area__adding-container__label">Add Credit or Debit Card</p>
-      <stripecardinput-stub onstriperesponsecallback="function () { [native code] }" class="payment-methods-area__functional-area__adding-container__stripe"></stripecardinput-stub>
-      <div class="payment-methods-area__functional-area__adding-container__submit-area"></div>
-    </div>
+    <addcardform-stub></addcardform-stub>
     <div class="add-card-button button-moved">
       <!---->
       <!----> <span>Add Card</span></div>
@@ -139,10 +131,10 @@ exports[`PaymentMethods renders correctly after add card and cancel click 2`] = 
 <div class="payment-methods-area">
   <div class="payment-methods-area__functional-area">
     <div class="payment-methods-area__functional-area__top-container">
-      <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
+      <h1 class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <vbutton-stub label="Add STORJ" width="123px" height="48px" isbluewhite="true" onpress="function () { [native code] }" class="button"></vbutton-stub>
+          <vbutton-stub label="Add STORJ" width="123px" height="48px" isbluewhite="true" onpress="function () { [native code] }" class="add-storj-button"></vbutton-stub>
         </div>
       </div>
     </div>
@@ -159,56 +151,14 @@ exports[`PaymentMethods renders correctly after add card and cancel click 2`] = 
 </div>
 `;
 
-exports[`PaymentMethods renders correctly after continue To Coin Payments click 1`] = `
-<div class="payment-methods-area">
-  <div class="payment-methods-area__functional-area">
-    <div class="payment-methods-area__functional-area__top-container">
-      <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
-      <div class="payment-methods-area__functional-area__button-area">
-        <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="button container blue-white" style="width: 123px; height: 48px;">
-            <h1 class="label">Add STORJ</h1>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="payments-bonus-container payment-methods-area__functional-area__bonus"><svg width="64" height="50" viewBox="0 0 61 47" fill="none" xmlns="http://www.w3.org/2000/svg" class="banner-gift-svg">
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M36.8378 12.7027C36.8378 19.0167 41.9563 24.1351 48.2703 24.1351V41.9189C48.2703 44.0236 46.5641 45.7297 44.4594 45.7297H5.08107C2.97642 45.7297 1.27026 44.0236 1.27026 41.9189V16.5135C1.27026 14.4089 2.97642 12.7027 5.08107 12.7027H36.8378Z" stroke="#2683FF" stroke-width="2"></path>
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M48.2703 24.1352V27.946H1.27026V20.3243L39.7496 20.3251C41.8429 22.6636 44.8847 24.1352 48.2703 24.1352Z" fill="#2683FF"></path>
-        <path d="M48.2703 24.1351C54.5842 24.1351 59.7027 19.0167 59.7027 12.7027C59.7027 6.38875 54.5842 1.27028 48.2703 1.27028C41.9563 1.27028 36.8378 6.38875 36.8378 12.7027C36.8378 19.0167 41.9563 24.1351 48.2703 24.1351Z" stroke="#2683FF" stroke-width="2"></path>
-        <path d="M48.2703 5.71622V19.5737M41.3415 12.645H55.199H41.3415Z" stroke="#2683FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-      </svg>
-      <div class="payments-bonus-container__text-container">
-        <p class="payments-bonus-container__text-container__main-text">
-          Add a Payment Method to Get Started
-        </p>
-        <p class="payments-bonus-container__text-container__additional-text">
-          Your first 5GB are free. You will not be charged until you use more than 5GB.
-        </p>
-      </div>
-    </div>
-    <!---->
-    <!---->
-    <div class="add-card-button">
-      <!---->
-      <!----> <span>Add Card</span></div>
-  </div>
-  <!---->
-  <!---->
-  <!---->
-</div>
-`;
-
 exports[`PaymentMethods renders correctly with card 1`] = `
 <div class="payment-methods-area">
   <div class="payment-methods-area__functional-area">
     <div class="payment-methods-area__functional-area__top-container">
-      <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
+      <h1 class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="button container blue-white" style="width: 123px; height: 48px;">
-            <h1 class="label">Add STORJ</h1>
-          </div>
+          <div class="add-storj-button container blue-white" style="width: 123px; height: 48px;"><span class="label">Add STORJ</span></div>
         </div>
       </div>
     </div>
@@ -224,10 +174,10 @@ exports[`PaymentMethods renders correctly with card 1`] = `
       </svg>
       <div class="payments-bonus-container__text-container">
         <p class="payments-bonus-container__text-container__main-text">
-          Get free credits for paying in STORJ!
+          Get free credits for paying in STORJ Token
         </p>
         <p class="payments-bonus-container__text-container__additional-text">
-          Deposit STORJ tokens to your account and receive a 10% bonus, or $10 for every $100.
+          Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.
         </p>
       </div>
     </div>
@@ -273,12 +223,10 @@ exports[`PaymentMethods renders correctly without card 1`] = `
 <div class="payment-methods-area">
   <div class="payment-methods-area__functional-area">
     <div class="payment-methods-area__functional-area__top-container">
-      <h1 class="payment-methods-area__functional-area__title text">Payment Method</h1>
+      <h1 class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="button container blue-white" style="width: 123px; height: 48px;">
-            <h1 class="label">Add STORJ</h1>
-          </div>
+          <div class="add-storj-button container blue-white" style="width: 123px; height: 48px;"><span class="label">Add STORJ</span></div>
         </div>
       </div>
     </div>

@@ -9,6 +9,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	_ "github.com/mattn/go-sqlite3" // used indirectly.
@@ -22,13 +23,13 @@ import (
 	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
-	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
@@ -47,8 +48,6 @@ var (
 	// ErrPreflight represents an error during the preflight check.
 	ErrPreflight = errs.Class("storage node preflight database error")
 )
-
-var _ storagenode.DB = (*DB)(nil)
 
 // DBContainer defines an interface to allow accessing and setting a SQLDB
 type DBContainer interface {
@@ -76,11 +75,12 @@ func withTx(ctx context.Context, db tagsql.DB, cb func(tx tagsql.Tx) error) erro
 // Config configures storage node database
 type Config struct {
 	// TODO: figure out better names
-	Storage string
-	Info    string
-	Info2   string
-	Driver  string // if unset, uses sqlite3
-	Pieces  string
+	Storage   string
+	Info      string
+	Info2     string
+	Driver    string // if unset, uses sqlite3
+	Pieces    string
+	Filestore filestore.Config
 }
 
 // DB contains access to different database tables
@@ -104,6 +104,7 @@ type DB struct {
 	satellitesDB      *satellitesDB
 	notificationsDB   *notificationDB
 	heldamountDB      *heldamountDB
+	pricingDB         *pricingDB
 
 	SQLDBs map[string]DBContainer
 }
@@ -114,7 +115,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	pieces := filestore.New(log, piecesDir)
+	pieces := filestore.New(log, piecesDir, config.Filestore)
 
 	deprecatedInfoDB := &deprecatedInfoDB{}
 	v0PieceInfoDB := &v0PieceInfoDB{}
@@ -128,6 +129,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	satellitesDB := &satellitesDB{}
 	notificationsDB := &notificationDB{}
 	heldamountDB := &heldamountDB{}
+	pricingDB := &pricingDB{}
 
 	db := &DB{
 		log:    log,
@@ -149,6 +151,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		satellitesDB:      satellitesDB,
 		notificationsDB:   notificationsDB,
 		heldamountDB:      heldamountDB,
+		pricingDB:         pricingDB,
 
 		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -163,6 +166,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 			SatellitesDBName:      satellitesDB,
 			NotificationsDBName:   notificationsDB,
 			HeldAmountDBName:      heldamountDB,
+			PricingDBName:         pricingDB,
 		},
 	}
 
@@ -238,6 +242,11 @@ func (db *DB) openDatabases() error {
 	if err != nil {
 		return errs.Combine(err, db.closeDatabases())
 	}
+
+	err = db.openDatabase(PricingDBName)
+	if err != nil {
+		return errs.Combine(err, db.closeDatabases())
+	}
 	return nil
 }
 
@@ -279,8 +288,8 @@ func (db *DB) filepathFromDBName(dbName string) string {
 	return filepath.Join(db.dbDirectory, db.filenameFromDBName(dbName))
 }
 
-// CreateTables creates any necessary tables.
-func (db *DB) CreateTables(ctx context.Context) error {
+// MigrateToLatest creates any necessary tables.
+func (db *DB) MigrateToLatest(ctx context.Context) error {
 	migration := db.Migration(ctx)
 	return migration.Run(ctx, db.log.Named("migration"))
 }
@@ -445,6 +454,11 @@ func (db *DB) Notifications() notifications.DB {
 // HeldAmount returns instance of the HeldAmount database.
 func (db *DB) HeldAmount() heldamount.DB {
 	return db.heldamountDB
+}
+
+// Pricing returns instance of the Pricing database.
+func (db *DB) Pricing() pricing.DB {
+	return db.pricingDB
 }
 
 // RawDatabases are required for testing purposes
@@ -749,19 +763,19 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from us-central-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa")) // europe-west1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from europe-west-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa")) // asia-east1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from asia-east-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from tothemoon.", zap.Error(err))
 					}
 					// To prevent the node from starting up, we just log errors and return nil
 					return nil
@@ -774,7 +788,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "tmp"))
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing orphaned tmp data.", zap.Error(err))
 					}
 					// To prevent the node from starting up, we just log errors and return nil
 					return nil
@@ -977,17 +991,18 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Remove address from satellites table",
 				Version:     25,
 				Action: migrate.SQL{
-					`ALTER TABLE satellites RENAME TO _satellites_old`,
-					`CREATE TABLE satellites (
+					`CREATE TABLE satellites_new (
 						node_id BLOB NOT NULL,
 						added_at TIMESTAMP NOT NULL,
 						status INTEGER NOT NULL,
 						PRIMARY KEY (node_id)
-					)`,
-					`INSERT INTO satellites (node_id, added_at, status)
+					);
+					INSERT INTO satellites_new (node_id, added_at, status)
 						SELECT node_id, added_at, status
-						FROM _satellites_old`,
-					`DROP TABLE _satellites_old`,
+						FROM satellites;
+					DROP TABLE satellites;
+					ALTER TABLE satellites_new RENAME TO satellites;
+					`,
 				},
 			},
 			{
@@ -1031,16 +1046,18 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Migrate piece_space_used to add total column",
 				Version:     29,
 				Action: migrate.SQL{
-					`ALTER TABLE piece_space_used RENAME TO _piece_space_used_old`,
-					`CREATE TABLE piece_space_used (
+					`
+					CREATE TABLE piece_space_used_new (
 						total INTEGER NOT NULL DEFAULT 0,
 						content_size INTEGER NOT NULL,
 						satellite_id BLOB
-					)`,
-					`INSERT INTO piece_space_used (content_size, satellite_id)
+					);
+					INSERT INTO piece_space_used_new (content_size, satellite_id)
 						SELECT total, satellite_id
-						FROM _piece_space_used_old`,
-					`DROP TABLE _piece_space_used_old`,
+						FROM piece_space_used;
+					DROP TABLE piece_space_used;
+					ALTER TABLE piece_space_used_new RENAME TO piece_space_used;
+					`,
 					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
 				},
 			},
@@ -1067,39 +1084,39 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Version:     32,
 				Action: migrate.SQL{
 					`CREATE TABLE paystubs (
-						  period text NOT NULL,
-						  satellite_id bytea NOT NULL,
-						  created_at timestamp with time zone NOT NULL,
-						  codes text NOT NULL,
-						  usage_at_rest double precision NOT NULL,
-						  usage_get bigint NOT NULL,
-						  usage_put bigint NOT NULL,
-						  usage_get_repair bigint NOT NULL,
-						  usage_put_repair bigint NOT NULL,
-						  usage_get_audit bigint NOT NULL,
-						  comp_at_rest bigint NOT NULL,
-						  comp_get bigint NOT NULL,
-						  comp_put bigint NOT NULL,
-						  comp_get_repair bigint NOT NULL,
-						  comp_put_repair bigint NOT NULL,
-						  comp_get_audit bigint NOT NULL,
-						  surge_percent bigint NOT NULL,
-						  held bigint NOT NULL,
-						  owed bigint NOT NULL,
-						  disposed bigint NOT NULL,
-						  paid bigint NOT NULL,
-						  PRIMARY KEY ( period, satellite_id )
-     				);`,
+						period text NOT NULL,
+						satellite_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						codes text NOT NULL,
+						usage_at_rest double precision NOT NULL,
+						usage_get bigint NOT NULL,
+						usage_put bigint NOT NULL,
+						usage_get_repair bigint NOT NULL,
+						usage_put_repair bigint NOT NULL,
+						usage_get_audit bigint NOT NULL,
+						comp_at_rest bigint NOT NULL,
+						comp_get bigint NOT NULL,
+						comp_put bigint NOT NULL,
+						comp_get_repair bigint NOT NULL,
+						comp_put_repair bigint NOT NULL,
+						comp_get_audit bigint NOT NULL,
+						surge_percent bigint NOT NULL,
+						held bigint NOT NULL,
+						owed bigint NOT NULL,
+						disposed bigint NOT NULL,
+						paid bigint NOT NULL,
+						PRIMARY KEY ( period, satellite_id )
+					);`,
 					`CREATE TABLE payments (
-						  id bigserial NOT NULL,
-						  created_at timestamp with time zone NOT NULL,
-						  satellite_id bytea NOT NULL,
-						  period text,
-						  amount bigint NOT NULL,
-						  receipt text,
-						  notes text,
-						  PRIMARY KEY ( id )
-     				);`,
+						id bigserial NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						satellite_id bytea NOT NULL,
+						period text,
+						amount bigint NOT NULL,
+						receipt text,
+						notes text,
+						PRIMARY KEY ( id )
+					);`,
 				},
 			},
 			{
@@ -1110,40 +1127,211 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`DROP TABLE paystubs;`,
 					`DROP TABLE payments;`,
 					`CREATE TABLE paystubs (
-						  period text NOT NULL,
-						  satellite_id bytea NOT NULL,
-						  created_at timestamp NOT NULL,
-						  codes text NOT NULL,
-						  usage_at_rest double precision NOT NULL,
-						  usage_get bigint NOT NULL,
-						  usage_put bigint NOT NULL,
-						  usage_get_repair bigint NOT NULL,
-						  usage_put_repair bigint NOT NULL,
-						  usage_get_audit bigint NOT NULL,
-						  comp_at_rest bigint NOT NULL,
-						  comp_get bigint NOT NULL,
-						  comp_put bigint NOT NULL,
-						  comp_get_repair bigint NOT NULL,
-						  comp_put_repair bigint NOT NULL,
-						  comp_get_audit bigint NOT NULL,
-						  surge_percent bigint NOT NULL,
-						  held bigint NOT NULL,
-						  owed bigint NOT NULL,
-						  disposed bigint NOT NULL,
-						  paid bigint NOT NULL,
-						  PRIMARY KEY ( period, satellite_id )
-     				);`,
+						period text NOT NULL,
+						satellite_id bytea NOT NULL,
+						created_at timestamp NOT NULL,
+						codes text NOT NULL,
+						usage_at_rest double precision NOT NULL,
+						usage_get bigint NOT NULL,
+						usage_put bigint NOT NULL,
+						usage_get_repair bigint NOT NULL,
+						usage_put_repair bigint NOT NULL,
+						usage_get_audit bigint NOT NULL,
+						comp_at_rest bigint NOT NULL,
+						comp_get bigint NOT NULL,
+						comp_put bigint NOT NULL,
+						comp_get_repair bigint NOT NULL,
+						comp_put_repair bigint NOT NULL,
+						comp_get_audit bigint NOT NULL,
+						surge_percent bigint NOT NULL,
+						held bigint NOT NULL,
+						owed bigint NOT NULL,
+						disposed bigint NOT NULL,
+						paid bigint NOT NULL,
+						PRIMARY KEY ( period, satellite_id )
+					);`,
 					`CREATE TABLE payments (
-						  id bigserial NOT NULL,
-						  created_at timestamp NOT NULL,
-						  satellite_id bytea NOT NULL,
-						  period text,
-						  amount bigint NOT NULL,
-						  receipt text,
-						  notes text,
-						  PRIMARY KEY ( id )
-     				);`,
+						id bigserial NOT NULL,
+						created_at timestamp NOT NULL,
+						satellite_id bytea NOT NULL,
+						period text,
+						amount bigint NOT NULL,
+						receipt text,
+						notes text,
+						PRIMARY KEY ( id )
+					);`,
 				},
+			},
+			{
+				DB:          db.reputationDB,
+				Description: "Add suspended field to satellites db",
+				Version:     34,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN suspended TIMESTAMP`,
+				},
+			},
+			{
+				DB:          db.pricingDB,
+				Description: "Create pricing table",
+				Version:     35,
+				Action: migrate.SQL{
+					`CREATE TABLE pricing (
+						satellite_id BLOB NOT NULL,
+						egress_bandwidth_price bigint NOT NULL,
+						repair_bandwidth_price bigint NOT NULL,
+						audit_bandwidth_price bigint NOT NULL,
+						disk_space_price bigint NOT NULL,
+						PRIMARY KEY ( satellite_id )
+					);`,
+				},
+			},
+			{
+				DB:          db.reputationDB,
+				Description: "Add joined_at field to satellites db",
+				Version:     36,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN joined_at TIMESTAMP`,
+				},
+			},
+			{
+				DB:          db.heldamountDB,
+				Description: "Drop payments table as unused",
+				Version:     37,
+				Action: migrate.SQL{
+					`DROP TABLE payments;`,
+				},
+			},
+			{
+				DB:          db.reputationDB,
+				Description: "Backfill joined_at column",
+				Version:     38,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					// We just need a value for joined_at until the node checks in with the
+					// satellites and gets the real value.
+					_, err = rtx.Exec(ctx, `UPDATE reputation SET joined_at = ? WHERE joined_at ISNULL`, time.Unix(0, 0).UTC())
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					// in order to add the not null constraint, we have to do a
+					// generalized ALTER TABLE procedure.
+					// see https://www.sqlite.org/lang_altertable.html
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							uptime_success_count INTEGER NOT NULL,
+							uptime_total_count INTEGER NOT NULL,
+							uptime_reputation_alpha REAL NOT NULL,
+							uptime_reputation_beta REAL NOT NULL,
+							uptime_reputation_score REAL NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							disqualified TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							uptime_success_count,
+							uptime_total_count,
+							uptime_reputation_alpha,
+							uptime_reputation_beta,
+							uptime_reputation_score,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							disqualified,
+							updated_at,
+							suspended,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          db.reputationDB,
+				Description: "Add unknown_audit_reputation_alpha and unknown_audit_reputation_beta fields to satellites db and remove uptime_reputation_alpha, uptime_reputation_beta, uptime_reputation_score",
+				Version:     39,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_alpha REAL`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_beta REAL`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `UPDATE reputation SET audit_unknown_reputation_alpha = ?, audit_unknown_reputation_beta = ?`,
+						1.0, 1.0)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							uptime_success_count INTEGER NOT NULL,
+							uptime_total_count INTEGER NOT NULL,
+							uptime_reputation_alpha REAL NOT NULL,
+							uptime_reputation_beta REAL NOT NULL,
+							uptime_reputation_score REAL NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							disqualified TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							uptime_success_count,
+							uptime_total_count,
+							uptime_reputation_alpha,
+							uptime_reputation_beta,
+							uptime_reputation_score,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
+							disqualified,
+							updated_at,
+							suspended,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
 			},
 		},
 	}

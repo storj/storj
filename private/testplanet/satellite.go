@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	versionchecker "storj.io/storj/private/version/checker"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
@@ -46,6 +47,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
@@ -125,6 +127,10 @@ type Satellite struct {
 		Service *gc.Service
 	}
 
+	ExpiredDeletion struct {
+		Chore *expireddeletion.Chore
+	}
+
 	DBCleanup struct {
 		Chore *dbcleanup.Chore
 	}
@@ -188,8 +194,11 @@ func (system *Satellite) Local() overlay.NodeDossier { return system.API.Contact
 // Addr returns the public address from the Satellite system API.
 func (system *Satellite) Addr() string { return system.API.Server.Addr().String() }
 
-// URL returns the storj.NodeURL from the Satellite system API.
-func (system *Satellite) URL() storj.NodeURL {
+// URL returns the node url from the Satellite system API.
+func (system *Satellite) URL() string { return system.NodeURL().String() }
+
+// NodeURL returns the storj.NodeURL from the Satellite system API.
+func (system *Satellite) NodeURL() storj.NodeURL {
 	return storj.NodeURL{ID: system.API.ID(), Address: system.API.Addr()}
 }
 
@@ -324,11 +333,14 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 
 					AuditReputationRepairWeight: 1,
 					AuditReputationUplinkWeight: 1,
-					AuditReputationAlpha0:       1,
-					AuditReputationBeta0:        0,
 					AuditReputationLambda:       0.95,
 					AuditReputationWeight:       1,
 					AuditReputationDQ:           0.6,
+					SuspensionGracePeriod:       time.Hour,
+					SuspensionDQEnabled:         true,
+				},
+				NodeSelectionCache: overlay.CacheConfig{
+					Staleness: 3 * time.Minute,
 				},
 				UpdateStatsBatchSize: 100,
 			},
@@ -353,6 +365,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				},
 				Loop: metainfo.LoopConfig{
 					CoalesceDuration: 1 * time.Second,
+					ListLimit:        10000,
 				},
 				RateLimiter: metainfo.RateLimiterConfig{
 					Enabled:         true,
@@ -411,6 +424,10 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				ConcurrentSends:   1,
 				RunInCore:         false,
 			},
+			ExpiredDeletion: expireddeletion.Config{
+				Interval: defaultInterval,
+				Enabled:  true,
+			},
 			DBCleanup: dbcleanup.Config{
 				SerialsInterval: defaultInterval,
 			},
@@ -442,6 +459,11 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				Config: console.Config{
 					PasswordCost: console.TestPasswordCost,
 				},
+				RateLimit: web.IPRateLimiterConfig{
+					Duration:  5 * time.Minute,
+					Burst:     3,
+					NumLimits: 10,
+				},
 			},
 			Marketing: marketingweb.Config{
 				Address:   "127.0.0.1:0",
@@ -466,9 +488,10 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				ChoreInterval: defaultInterval,
 			},
 			Downtime: downtime.Config{
-				DetectionInterval:   defaultInterval,
-				EstimationInterval:  defaultInterval,
-				EstimationBatchSize: 0,
+				DetectionInterval:          defaultInterval,
+				EstimationInterval:         defaultInterval,
+				EstimationBatchSize:        5,
+				EstimationConcurrencyLimit: 5,
 			},
 		}
 
@@ -505,7 +528,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 			return xs, err
 		}
 
-		err = db.TestingCreateTables(context.TODO())
+		err = db.TestingMigrateToLatest(context.TODO())
 		if err != nil {
 			return nil, err
 		}
@@ -587,6 +610,8 @@ func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.C
 	system.Audit.Reporter = peer.Audit.Reporter
 
 	system.GarbageCollection.Service = gcPeer.GarbageCollection.Service
+
+	system.ExpiredDeletion.Chore = peer.ExpiredDeletion.Chore
 
 	system.DBCleanup.Chore = peer.DBCleanup.Chore
 

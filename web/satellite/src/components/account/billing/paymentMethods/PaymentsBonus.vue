@@ -7,10 +7,10 @@
         <CardIcon class="banner-gift-svg" v-else />
         <div class="payments-bonus-container__text-container" v-if="anyCreditCards">
             <p class="payments-bonus-container__text-container__main-text">
-                Get free credits for paying in STORJ!
+                Get free credits for paying in STORJ Token
             </p>
             <p class="payments-bonus-container__text-container__additional-text">
-                Deposit STORJ tokens to your account and receive a 10% bonus, or $10 for every $100.
+                Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.
             </p>
         </div>
         <div class="payments-bonus-container__text-container" v-else >

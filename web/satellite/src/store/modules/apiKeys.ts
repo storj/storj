@@ -96,10 +96,10 @@ export function makeApiKeysModule(api: ApiKeysApi): StoreModule<ApiKeysState> {
                 const projectId = rootGetters.selectedProject.id;
                 commit(SET_PAGE_NUMBER, pageNumber);
 
-                const apiKeys = await api.get(projectId, state.cursor);
-                commit(SET_PAGE, apiKeys);
+                const apiKeysPage: ApiKeysPage = await api.get(projectId, state.cursor);
+                commit(SET_PAGE, apiKeysPage);
 
-                return apiKeys;
+                return apiKeysPage;
             },
             createApiKey: async function ({commit, rootGetters}: any, name: string): Promise<ApiKey> {
                 const projectId = rootGetters.selectedProject.id;

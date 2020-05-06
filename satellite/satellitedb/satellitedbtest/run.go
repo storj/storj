@@ -18,8 +18,8 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
@@ -29,6 +29,7 @@ import (
 
 // SatelliteDatabases maybe name can be better
 type SatelliteDatabases struct {
+	Name      string
 	MasterDB  Database
 	PointerDB Database
 }
@@ -40,16 +41,24 @@ type Database struct {
 	Message string
 }
 
+type ignoreSkip struct{}
+
+func (ignoreSkip) Skip(...interface{}) {}
+
 // Databases returns default databases.
 func Databases() []SatelliteDatabases {
+	cockroachConnStr := pgtest.PickCockroach(ignoreSkip{})
+	postgresConnStr := pgtest.PickPostgres(ignoreSkip{})
 	return []SatelliteDatabases{
 		{
-			MasterDB:  Database{"Postgres", *pgtest.ConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr + " or use STORJ_POSTGRES_TEST environment variable."},
-			PointerDB: Database{"Postgres", *pgtest.ConnStr, ""},
+			Name:      "Postgres",
+			MasterDB:  Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_POSTGRES_TEST environment variable."},
+			PointerDB: Database{"Postgres", postgresConnStr, ""},
 		},
 		{
-			MasterDB:  Database{"Cockroach", *pgtest.CrdbConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr + " or use STORJ_COCKROACH_TEST environment variable."},
-			PointerDB: Database{"Cockroach", *pgtest.CrdbConnStr, ""},
+			Name:      "Cockroach",
+			MasterDB:  Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_COCKROACH_TEST environment variable."},
+			PointerDB: Database{"Cockroach", cockroachConnStr, ""},
 		},
 	}
 }
@@ -154,6 +163,10 @@ func CreatePointerDB(ctx context.Context, log *zap.Logger, name string, category
 // temporary database.
 func CreatePointerDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db metainfo.PointerDB, err error) {
 	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), tempDB.ConnStr)
+	if err != nil {
+		return nil, err
+	}
+	err = pointerDB.MigrateToLatest(ctx)
 	return &tempPointerDB{PointerDB: pointerDB, tempDB: tempDB}, err
 }
 
@@ -162,7 +175,7 @@ func CreatePointerDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil
 func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB)) {
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
-		t.Run(dbInfo.MasterDB.Name+"/"+dbInfo.PointerDB.Name, func(t *testing.T) {
+		t.Run(dbInfo.Name, func(t *testing.T) {
 			t.Parallel()
 
 			ctx := testcontext.New(t)
@@ -183,7 +196,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 				}
 			}()
 
-			err = db.TestingCreateTables(ctx)
+			err = db.TestingMigrateToLatest(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -198,7 +211,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
-		b.Run(dbInfo.MasterDB.Name+"/"+dbInfo.PointerDB.Name, func(b *testing.B) {
+		b.Run(dbInfo.Name, func(b *testing.B) {
 			if dbInfo.MasterDB.URL == "" {
 				b.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
@@ -217,7 +230,7 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 				}
 			}()
 
-			err = db.CreateTables(ctx)
+			err = db.MigrateToLatest(ctx)
 			if err != nil {
 				b.Fatal(err)
 			}

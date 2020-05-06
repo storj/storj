@@ -26,13 +26,13 @@ var (
 	ErrMigrateMinVersion = errs.Class("migrate min version")
 )
 
-// CreateTables is a method for creating all tables for database
-func (db *satelliteDB) CreateTables(ctx context.Context) error {
+// MigrateToLatest migrates the database to the latest version.
+func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
 	// will need to create any schemas specified in the search path, and cockroach
 	// will need to create the database it was told to connect to. These things should
 	// not really be here, and instead should be assumed to exist.
-	// This is tracked in jira ticket #3338.
+	// This is tracked in jira ticket SM-200
 	switch db.implementation {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
@@ -82,8 +82,8 @@ func (db *satelliteDB) CreateTables(ctx context.Context) error {
 	}
 }
 
-// TestingCreateTables is a method for creating all tables for database for testing.
-func (db *satelliteDB) TestingCreateTables(ctx context.Context) error {
+// TestingMigrateToLatest is a method for creating all tables for database for testing.
+func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 	switch db.implementation {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
@@ -1032,6 +1032,39 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     103,
 				Action: migrate.SQL{
 					`ALTER TABLE storagenode_payments ALTER COLUMN period SET NOT NULL;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Add missing bucket_bandwidth_rollups_action_interval_project_id_index index",
+				Version:     104,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups(action, interval_start, project_id );`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Remove all nodes from suspension mode.",
+				Version:     105,
+				Action: migrate.SQL{
+					`UPDATE nodes SET suspended=NULL;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Add project_bandwidth_rollup table and populate with current months data",
+				Version:     106,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS project_bandwidth_rollups (
+						project_id bytea NOT NULL,
+						interval_month date NOT NULL,
+						egress_allocated bigint NOT NULL,
+						PRIMARY KEY ( project_id, interval_month )
+					);
+					INSERT INTO project_bandwidth_rollups(project_id, interval_month, egress_allocated)  (
+						SELECT project_id, date_trunc('MONTH',now())::DATE, sum(allocated)::bigint FROM bucket_bandwidth_rollups 
+						WHERE action = 2 AND interval_start >= date_trunc('MONTH',now())::timestamp group by project_id)
+					ON CONFLICT(project_id, interval_month) DO UPDATE SET egress_allocated = EXCLUDED.egress_allocated::bigint;`,
 				},
 			},
 		},

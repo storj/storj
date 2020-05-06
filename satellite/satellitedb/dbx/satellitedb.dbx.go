@@ -503,6 +503,12 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE project_bandwidth_rollups (
+	project_id bytea NOT NULL,
+	interval_month date NOT NULL,
+	egress_allocated bigint NOT NULL,
+	PRIMARY KEY ( project_id, interval_month )
+);
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
@@ -701,6 +707,7 @@ CREATE TABLE user_credits (
 );
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
@@ -1006,6 +1013,12 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE project_bandwidth_rollups (
+	project_id bytea NOT NULL,
+	interval_month date NOT NULL,
+	egress_allocated bigint NOT NULL,
+	PRIMARY KEY ( project_id, interval_month )
+);
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
@@ -1204,6 +1217,7 @@ CREATE TABLE user_credits (
 );
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
@@ -5209,6 +5223,76 @@ func (f Project_CreatedAt_Field) value() interface{} {
 }
 
 func (Project_CreatedAt_Field) _Column() string { return "created_at" }
+
+type ProjectBandwidthRollup struct {
+	ProjectId       []byte
+	IntervalMonth   time.Time
+	EgressAllocated uint64
+}
+
+func (ProjectBandwidthRollup) _Table() string { return "project_bandwidth_rollups" }
+
+type ProjectBandwidthRollup_Update_Fields struct {
+	EgressAllocated ProjectBandwidthRollup_EgressAllocated_Field
+}
+
+type ProjectBandwidthRollup_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ProjectBandwidthRollup_ProjectId(v []byte) ProjectBandwidthRollup_ProjectId_Field {
+	return ProjectBandwidthRollup_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f ProjectBandwidthRollup_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectBandwidthRollup_ProjectId_Field) _Column() string { return "project_id" }
+
+type ProjectBandwidthRollup_IntervalMonth_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ProjectBandwidthRollup_IntervalMonth(v time.Time) ProjectBandwidthRollup_IntervalMonth_Field {
+	v = toDate(v)
+	return ProjectBandwidthRollup_IntervalMonth_Field{_set: true, _value: v}
+}
+
+func (f ProjectBandwidthRollup_IntervalMonth_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectBandwidthRollup_IntervalMonth_Field) _Column() string { return "interval_month" }
+
+type ProjectBandwidthRollup_EgressAllocated_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func ProjectBandwidthRollup_EgressAllocated(v uint64) ProjectBandwidthRollup_EgressAllocated_Field {
+	return ProjectBandwidthRollup_EgressAllocated_Field{_set: true, _value: v}
+}
+
+func (f ProjectBandwidthRollup_EgressAllocated_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectBandwidthRollup_EgressAllocated_Field) _Column() string { return "egress_allocated" }
 
 type RegistrationToken struct {
 	Secret       []byte
@@ -10939,6 +11023,32 @@ func (obj *postgresImpl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_
 
 }
 
+func (obj *postgresImpl) Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx context.Context,
+	project_bandwidth_rollup_project_id ProjectBandwidthRollup_ProjectId_Field,
+	project_bandwidth_rollup_interval_month ProjectBandwidthRollup_IntervalMonth_Field) (
+	project_bandwidth_rollup *ProjectBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_bandwidth_rollups.project_id, project_bandwidth_rollups.interval_month, project_bandwidth_rollups.egress_allocated FROM project_bandwidth_rollups WHERE project_bandwidth_rollups.project_id = ? AND project_bandwidth_rollups.interval_month = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_bandwidth_rollup_project_id.value(), project_bandwidth_rollup_interval_month.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_bandwidth_rollup = &ProjectBandwidthRollup{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_bandwidth_rollup.ProjectId, &project_bandwidth_rollup.IntervalMonth, &project_bandwidth_rollup.EgressAllocated)
+	if err == sql.ErrNoRows {
+		return (*ProjectBandwidthRollup)(nil), nil
+	}
+	if err != nil {
+		return (*ProjectBandwidthRollup)(nil), obj.makeErr(err)
+	}
+	return project_bandwidth_rollup, nil
+
+}
+
 func (obj *postgresImpl) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
 	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (
 	bucket_storage_tally *BucketStorageTally, err error) {
@@ -14315,6 +14425,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM projects;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -17010,6 +17130,32 @@ func (obj *cockroachImpl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId
 		return (*BucketBandwidthRollup)(nil), obj.makeErr(err)
 	}
 	return bucket_bandwidth_rollup, nil
+
+}
+
+func (obj *cockroachImpl) Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx context.Context,
+	project_bandwidth_rollup_project_id ProjectBandwidthRollup_ProjectId_Field,
+	project_bandwidth_rollup_interval_month ProjectBandwidthRollup_IntervalMonth_Field) (
+	project_bandwidth_rollup *ProjectBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_bandwidth_rollups.project_id, project_bandwidth_rollups.interval_month, project_bandwidth_rollups.egress_allocated FROM project_bandwidth_rollups WHERE project_bandwidth_rollups.project_id = ? AND project_bandwidth_rollups.interval_month = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_bandwidth_rollup_project_id.value(), project_bandwidth_rollup_interval_month.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_bandwidth_rollup = &ProjectBandwidthRollup{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_bandwidth_rollup.ProjectId, &project_bandwidth_rollup.IntervalMonth, &project_bandwidth_rollup.EgressAllocated)
+	if err == sql.ErrNoRows {
+		return (*ProjectBandwidthRollup)(nil), nil
+	}
+	if err != nil {
+		return (*ProjectBandwidthRollup)(nil), obj.makeErr(err)
+	}
+	return project_bandwidth_rollup, nil
 
 }
 
@@ -20389,6 +20535,16 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM projects;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -21682,6 +21838,17 @@ func (rx *Rx) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_Interva
 	return tx.Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_IntervalStart_And_Action(ctx, bucket_bandwidth_rollup_bucket_name, bucket_bandwidth_rollup_project_id, bucket_bandwidth_rollup_interval_start, bucket_bandwidth_rollup_action)
 }
 
+func (rx *Rx) Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx context.Context,
+	project_bandwidth_rollup_project_id ProjectBandwidthRollup_ProjectId_Field,
+	project_bandwidth_rollup_interval_month ProjectBandwidthRollup_IntervalMonth_Field) (
+	project_bandwidth_rollup *ProjectBandwidthRollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx, project_bandwidth_rollup_project_id, project_bandwidth_rollup_interval_month)
+}
+
 func (rx *Rx) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field) (
 	serial_number *SerialNumber, err error) {
@@ -22916,6 +23083,11 @@ type Methods interface {
 		bucket_bandwidth_rollup_interval_start BucketBandwidthRollup_IntervalStart_Field,
 		bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field) (
 		bucket_bandwidth_rollup *BucketBandwidthRollup, err error)
+
+	Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx context.Context,
+		project_bandwidth_rollup_project_id ProjectBandwidthRollup_ProjectId_Field,
+		project_bandwidth_rollup_interval_month ProjectBandwidthRollup_IntervalMonth_Field) (
+		project_bandwidth_rollup *ProjectBandwidthRollup, err error)
 
 	Find_SerialNumber_By_SerialNumber(ctx context.Context,
 		serial_number_serial_number SerialNumber_SerialNumber_Field) (

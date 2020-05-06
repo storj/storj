@@ -39,9 +39,9 @@ type DB interface {
 	// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
 	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*SelectedNode, error)
 	// SelectStorageNodes looks up nodes based on criteria
-	SelectStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*SelectedNode, error)
-	// SelectNewStorageNodes looks up nodes based on new node criteria
-	SelectNewStorageNodes(ctx context.Context, count int, criteria *NodeCriteria) ([]*SelectedNode, error)
+	SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *NodeCriteria) ([]*SelectedNode, error)
+	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
+	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*SelectedNode, err error)
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
@@ -53,8 +53,6 @@ type DB interface {
 	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
-	// Update updates node address
-	UpdateAddress(ctx context.Context, value *NodeDossier, defaults NodeSelectionConfig) error
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
 	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
@@ -151,9 +149,11 @@ type UpdateRequest struct {
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
-	AuditLambda float64
-	AuditWeight float64
-	AuditDQ     float64
+	AuditLambda           float64
+	AuditWeight           float64
+	AuditDQ               float64
+	SuspensionGracePeriod time.Duration
+	SuspensionDQEnabled   bool
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -226,13 +226,27 @@ type SelectedNode struct {
 	LastIPPort string
 }
 
+// Clone returns a deep clone of the selected node.
+func (node *SelectedNode) Clone() *SelectedNode {
+	return &SelectedNode{
+		ID: node.ID,
+		Address: &pb.NodeAddress{
+			Transport: node.Address.Transport,
+			Address:   node.Address.Address,
+		},
+		LastNet:    node.LastNet,
+		LastIPPort: node.LastIPPort,
+	}
+}
+
 // Service is used to store and handle node information
 //
 // architecture: Service
 type Service struct {
-	log    *zap.Logger
-	db     DB
-	config Config
+	log            *zap.Logger
+	db             DB
+	config         Config
+	SelectionCache *NodeSelectionCache
 }
 
 // NewService returns a new Service
@@ -241,6 +255,9 @@ func NewService(log *zap.Logger, db DB, config Config) *Service {
 		log:    log,
 		db:     db,
 		config: config,
+		SelectionCache: NewNodeSelectionCache(log, db,
+			config.NodeSelectionCache.Staleness, config.Node,
+		),
 	}
 }
 
@@ -275,21 +292,55 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
 }
 
-// FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (service *Service) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
+// FindStorageNodesForRepair searches the overlay network for nodes that meet the provided requirements for repair.
+//
+// The main difference from FindStorageNodesForUpload is that here we filter out all nodes that share a subnet with any node in req.ExcludedIDs.
+// This additional complexity is not needed for other uses of finding storage nodes.
+func (service *Service) FindStorageNodesForRepair(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 }
 
-// FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria
+// FindStorageNodesForGracefulExit searches the overlay network for nodes that meet the provided requirements for graceful-exit requests.
+//
+// The main difference between this method and the normal FindStorageNodes is that here we avoid using the cache.
+func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
+}
+
+// FindStorageNodesForUpload searches the overlay network for nodes that meet the provided requirements for upload.
+//
+// When enabled it uses the cache to select nodes.
+// When the node selection from the cache fails, it falls back to the old implementation.
+func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if service.config.NodeSelectionCache.Disabled {
+		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
+	}
+
+	selectedNodes, err := service.SelectionCache.GetNodes(ctx, req)
+	if err != nil {
+		service.log.Warn("error selecting from node selection cache", zap.String("err", err.Error()))
+	}
+	if len(selectedNodes) < req.RequestedCount {
+		mon.Event("default_node_selection")
+		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
+	}
+	return selectedNodes, nil
+}
+
+// FindStorageNodesWithPreferences searches the overlay network for nodes that meet the provided criteria.
+//
+// This does not use a cache.
 func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
-	reputableNodeCount := req.MinimumRequiredNodes
-	if reputableNodeCount <= 0 {
-		reputableNodeCount = req.RequestedCount
+	totalNeededNodes := req.MinimumRequiredNodes
+	if totalNeededNodes <= 0 {
+		totalNeededNodes = req.RequestedCount
 	}
 
 	excludedIDs := req.ExcludedIDs
@@ -305,31 +356,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	newNodeCount := 0
 	if preferences.NewNodeFraction > 0 {
-		newNodeCount = int(float64(reputableNodeCount) * preferences.NewNodeFraction)
-	}
-
-	var newNodes []*SelectedNode
-	if newNodeCount > 0 {
-		newNodes, err = service.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
-			FreeDisk:         preferences.MinimumDiskSpace.Int64(),
-			AuditCount:       preferences.AuditCount,
-			ExcludedIDs:      excludedIDs,
-			MinimumVersion:   preferences.MinimumVersion,
-			OnlineWindow:     preferences.OnlineWindow,
-			DistinctIP:       preferences.DistinctIP,
-			ExcludedNetworks: excludedNetworks,
-		})
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-	}
-
-	// add selected new nodes ID and network to the excluded lists for reputable node selection
-	for _, newNode := range newNodes {
-		excludedIDs = append(excludedIDs, newNode.ID)
-		if preferences.DistinctIP {
-			excludedNetworks = append(excludedNetworks, newNode.LastNet)
-		}
+		newNodeCount = int(float64(totalNeededNodes) * preferences.NewNodeFraction)
 	}
 
 	criteria := NodeCriteria{
@@ -342,16 +369,13 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 		OnlineWindow:     preferences.OnlineWindow,
 		DistinctIP:       preferences.DistinctIP,
 	}
-	reputableNodes, err := service.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
+	nodes, err = service.db.SelectStorageNodes(ctx, totalNeededNodes, newNodeCount, &criteria)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	nodes = append(nodes, newNodes...)
-	nodes = append(nodes, reputableNodes...)
-
-	if len(nodes) < reputableNodeCount {
-		return nodes, ErrNotEnoughNodes.New("requested %d found %d; %+v ", reputableNodeCount, len(nodes), criteria)
+	if len(nodes) < totalNeededNodes {
+		return nodes, ErrNotEnoughNodes.New("requested %d found %d; %+v ", totalNeededNodes, len(nodes), criteria)
 	}
 
 	return nodes, nil
@@ -390,37 +414,6 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 	return service.db.Reliable(ctx, criteria)
 }
 
-// Put adds a node id and proto definition into the overlay.
-func (service *Service) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// If we get a Node without an ID
-	// we don't want to add to the database
-	if nodeID.IsZero() {
-		return nil
-	}
-	if nodeID != value.Id {
-		return errors.New("invalid request")
-	}
-	if value.Address == nil {
-		return errors.New("node has no address")
-	}
-
-	// Resolve the IP and the subnet from the address that is sent
-	resolvedIPPort, resolvedNetwork, err := ResolveIPAndNetwork(ctx, value.Address.Address)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	n := NodeDossier{
-		Node:       value,
-		LastNet:    resolvedNetwork,
-		LastIPPort: resolvedIPPort,
-	}
-
-	return service.db.UpdateAddress(ctx, &n, service.config.Node)
-}
-
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
 func (service *Service) BatchUpdateStats(ctx context.Context, requests []*UpdateRequest) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -429,6 +422,8 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.AuditLambda = service.config.Node.AuditReputationLambda
 		request.AuditWeight = service.config.Node.AuditReputationWeight
 		request.AuditDQ = service.config.Node.AuditReputationDQ
+		request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
+		request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 	}
 	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize)
 }
@@ -440,6 +435,8 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.AuditLambda = service.config.Node.AuditReputationLambda
 	request.AuditWeight = service.config.Node.AuditReputationWeight
 	request.AuditDQ = service.config.Node.AuditReputationDQ
+	request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
+	request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 
 	return service.db.UpdateStats(ctx, request)
 }

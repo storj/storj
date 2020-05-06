@@ -48,7 +48,7 @@ type Values []Value
 type Items []ListItem
 
 // DefaultLookupLimit is the default lookup limit for storage implementations.
-const DefaultLookupLimit = 10000
+const DefaultLookupLimit = 500
 
 // ListItem returns Key, Value, IsPrefix.
 type ListItem struct {
@@ -73,6 +73,8 @@ type KeyValueStore interface {
 	List(ctx context.Context, start Key, limit int) (Keys, error)
 	// Iterate iterates over items based on opts.
 	Iterate(ctx context.Context, opts IterateOptions, fn func(context.Context, Iterator) error) error
+	// IterateWithoutLookupLimit calls the callback with an iterator over the keys, but doesn't enforce default limit on opts.
+	IterateWithoutLookupLimit(ctx context.Context, opts IterateOptions, fn func(context.Context, Iterator) error) error
 	// CompareAndSwap atomically compares and swaps oldValue with newValue.
 	CompareAndSwap(ctx context.Context, key Key, oldValue, newValue Value) error
 	// Close closes the store.

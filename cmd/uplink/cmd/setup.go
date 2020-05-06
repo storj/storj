@@ -39,8 +39,6 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := withTelemetry(cmd)
-
 	if cmd.Flag("access").Changed {
 		return ErrAccessFlag
 	}
@@ -101,6 +99,20 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		DialTimeout: setupCfg.Client.DialTimeout,
 	}
 
+	overrides := make(map[string]interface{})
+	analyticEnabled, err := wizard.PromptForTracing()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if analyticEnabled {
+		enableTracing(overrides)
+	} else {
+		// set metrics address to empty string so we can disable it on each operation
+		overrides["metrics.addr"] = ""
+	}
+
+	ctx, _ := withTelemetry(cmd)
+
 	var access *uplink.Access
 	if setupCfg.PBKDFConcurrency == 0 {
 		access, err = uplinkConfig.RequestAccessWithPassphrase(ctx, satelliteAddress, apiKeyString, passphrase)
@@ -119,9 +131,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	// config serialization/flattening.
 	accesses := toStringMapE(setupCfg.Accesses)
 	accesses[accessName] = accessData
+	overrides["accesses"] = accesses
 
 	saveCfgOpts := []process.SaveConfigOption{
-		process.SaveConfigWithOverride("accesses", accesses),
+		process.SaveConfigWithOverrides(overrides),
 		process.SaveConfigRemovingDeprecated(),
 	}
 

@@ -28,17 +28,24 @@ import (
 )
 
 func TestMinimumDiskSpace(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Test does not work with macOS")
+	}
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
+			UniqueIPCount: 2,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Overlay.NodeSelectionCache.Staleness = -time.Hour
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		saOverlay := planet.Satellites[0].Overlay
+		nodeConfig := planet.Satellites[0].Config.Overlay.Node
+
 		node0 := planet.StorageNodes[0]
 		node0.Contact.Chore.Pause(ctx)
-
 		nodeDossier := node0.Local()
 		ident := node0.Identity
 		peer := rpcpeer.Peer{
@@ -63,13 +70,22 @@ func TestMinimumDiskSpace(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// request 2 nodes, expect failure from not enough nodes
-		_, err = planet.Satellites[0].Overlay.Service.FindStorageNodes(ctx, overlay.FindStorageNodesRequest{
+		req := overlay.FindStorageNodesRequest{
 			MinimumRequiredNodes: 2,
 			RequestedCount:       2,
-		})
+		}
+
+		// request 2 nodes, expect failure from not enough nodes
+		n1, err := saOverlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.Error(t, err)
 		require.True(t, overlay.ErrNotEnoughNodes.Has(err))
+		n2, err := saOverlay.Service.SelectionCache.GetNodes(ctx, req)
+		require.Error(t, err)
+		require.True(t, overlay.ErrNotEnoughNodes.Has(err))
+		require.Equal(t, len(n2), len(n1))
+		n3, err := saOverlay.Service.FindStorageNodesWithPreferences(ctx, req, &nodeConfig)
+		require.Error(t, err)
+		require.Equal(t, len(n3), len(n1))
 
 		// report disk space greater than minimum
 		_, err = planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
@@ -83,11 +99,15 @@ func TestMinimumDiskSpace(t *testing.T) {
 		require.NoError(t, err)
 
 		// request 2 nodes, expect success
-		_, err = planet.Satellites[0].Overlay.Service.FindStorageNodes(ctx, overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 2,
-			RequestedCount:       2,
-		})
+		n1, err = planet.Satellites[0].Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)
+		require.Equal(t, 2, len(n1))
+		n2, err = saOverlay.Service.FindStorageNodesWithPreferences(ctx, req, &nodeConfig)
+		require.NoError(t, err)
+		require.Equal(t, len(n1), len(n2))
+		n3, err = saOverlay.Service.SelectionCache.GetNodes(ctx, req)
+		require.NoError(t, err)
+		require.Equal(t, len(n1), len(n3))
 	})
 }
 
@@ -125,8 +145,18 @@ func TestOffline(t *testing.T) {
 }
 
 func TestEnsureMinimumRequested(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Test does not work with macOS")
+	}
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			UniqueIPCount: 5,
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -170,10 +200,10 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			requestedCount, newCount := 5, 1
 			newNodeFraction := float64(newCount) / float64(requestedCount)
 			preferences := testNodeSelectionConfig(1, newNodeFraction, false)
-
-			nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
+			req := overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
-			}, &preferences)
+			}
+			nodes, err := service.FindStorageNodesWithPreferences(ctx, req, &preferences)
 			require.NoError(t, err)
 			require.Len(t, nodes, requestedCount)
 			require.Equal(t, requestedCount-newCount, countReputable(nodes))
@@ -183,13 +213,17 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			requestedCount, newCount := 5, 5
 			newNodeFraction := float64(newCount) / float64(requestedCount)
 			preferences := testNodeSelectionConfig(1, newNodeFraction, false)
-
-			nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
+			req := overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
-			}, &preferences)
+			}
+			nodes, err := service.FindStorageNodesWithPreferences(ctx, req, &preferences)
 			require.NoError(t, err)
 			require.Len(t, nodes, requestedCount)
 			require.Equal(t, 0, countReputable(nodes))
+
+			n2, err := service.SelectionCache.GetNodes(ctx, req)
+			require.NoError(t, err)
+			require.Equal(t, requestedCount, len(n2))
 		})
 
 		// update all of them to be reputable
@@ -209,6 +243,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			requestedCount, newCount := 5, 1.0
 			newNodeFraction := newCount / float64(requestedCount)
 			preferences := testNodeSelectionConfig(1, newNodeFraction, false)
+			satellite.Config.Overlay.Node = testNodeSelectionConfig(1, newNodeFraction, false)
 
 			nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
@@ -274,7 +309,15 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 	satellite := planet.Satellites[0]
 	// ensure all storagenodes are in overlay
 	for _, storageNode := range planet.StorageNodes {
-		err := satellite.Overlay.Service.Put(ctx, storageNode.ID(), storageNode.Local().Node)
+		n := storageNode.Local()
+		d := overlay.NodeCheckInInfo{
+			NodeID:     storageNode.ID(),
+			Address:    n.Address,
+			LastIPPort: storageNode.Addr(),
+			LastNet:    n.LastNet,
+			Version:    &n.Version,
+		}
+		err := satellite.Overlay.DB.UpdateCheckIn(ctx, d, time.Now().UTC(), satellite.Config.Overlay.Node)
 		assert.NoError(t, err)
 	}
 
@@ -502,20 +545,43 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 			RequestedCount:       2,
 			ExcludedIDs:          excludedNodes,
 		}
-		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
+		nodes, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
 		require.NotEqual(t, nodes[0].LastIPPort, nodes[1].LastIPPort)
 		require.NotEqual(t, nodes[0].LastIPPort, excludedNodeAddr)
 		require.NotEqual(t, nodes[1].LastIPPort, excludedNodeAddr)
+		n2, err := satellite.Overlay.Service.SelectionCache.GetNodes(ctx, req)
+		require.NoError(t, err)
+		require.Len(t, n2, 2)
+		require.NotEqual(t, n2[0].LastIPPort, n2[1].LastIPPort)
+		require.NotEqual(t, n2[0].LastIPPort, excludedNodeAddr)
+		require.NotEqual(t, n2[1].LastIPPort, excludedNodeAddr)
+		n3, err := satellite.Overlay.Service.FindStorageNodesWithPreferences(ctx, req, &satellite.Config.Overlay.Node)
+		require.NoError(t, err)
+		require.Len(t, n3, 2)
+		require.NotEqual(t, n3[0].LastIPPort, n3[1].LastIPPort)
+		require.NotEqual(t, n3[0].LastIPPort, excludedNodeAddr)
+		require.NotEqual(t, n3[1].LastIPPort, excludedNodeAddr)
 
 		req = overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 3,
-			RequestedCount:       3,
+			MinimumRequiredNodes: 4,
+			RequestedCount:       4,
 			ExcludedIDs:          excludedNodes,
 		}
-		_, err = satellite.Overlay.Service.FindStorageNodes(ctx, req)
+		n, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.Error(t, err)
+		n1, err := satellite.Overlay.Service.FindStorageNodesWithPreferences(ctx, req, &satellite.Config.Overlay.Node)
+		require.Error(t, err)
+		require.Equal(t, len(n), len(n1))
+		n2, err = satellite.Overlay.Service.SelectionCache.GetNodes(ctx, req)
+		require.Error(t, err)
+		// GetNodes returns 1 more node than FindStorageNodesWithPreferences because of the way the queries are...
+		// FindStorageNodesWithPreferences gets the IPs for the excludedNodeIDs and excludes all those IPs from the selection
+		// (which results in filtering out any node on the same network as a excludedNodeID),
+		// but the selection cache only filters IPs at time of selection which makes it so that it can include a node that shares a network
+		// with an exclueded ID
+		require.Equal(t, len(n1)+1, len(n2))
 	})
 }
 
@@ -558,12 +624,24 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 			RequestedCount:       2,
 			ExcludedIDs:          excludedNodes,
 		}
-		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
+		nodes, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
 		require.NotEqual(t, nodes[0].LastIPPort, nodes[1].LastIPPort)
 		require.NotEqual(t, nodes[0].LastIPPort, excludedNodeAddr)
 		require.NotEqual(t, nodes[1].LastIPPort, excludedNodeAddr)
+		n2, err := satellite.Overlay.Service.SelectionCache.GetNodes(ctx, req)
+		require.NoError(t, err)
+		require.Len(t, n2, 2)
+		require.NotEqual(t, n2[0].LastIPPort, n2[1].LastIPPort)
+		require.NotEqual(t, n2[0].LastIPPort, excludedNodeAddr)
+		require.NotEqual(t, n2[1].LastIPPort, excludedNodeAddr)
+		n3, err := satellite.Overlay.Service.FindStorageNodesWithPreferences(ctx, req, &satellite.Config.Overlay.Node)
+		require.NoError(t, err)
+		require.Len(t, n3, 2)
+		require.NotEqual(t, n3[0].LastIPPort, n3[1].LastIPPort)
+		require.NotEqual(t, n3[0].LastIPPort, excludedNodeAddr)
+		require.NotEqual(t, n3[1].LastIPPort, excludedNodeAddr)
 	})
 }
 
@@ -688,4 +766,30 @@ func TestAddrtoNetwork_Conversion(t *testing.T) {
 	require.Equal(t, "fc00::", network)
 	require.Equal(t, ipv6, resolvedIPPort)
 	require.NoError(t, err)
+}
+
+func TestCacheSelectionVsDBSelection(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Test does not work with macOS")
+	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			UniqueIPCount: 5,
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.StorageNodes[0].Storage2.Monitor.Loop.Pause()
+		saOverlay := planet.Satellites[0].Overlay
+		nodeConfig := planet.Satellites[0].Config.Overlay.Node
+
+		req := overlay.FindStorageNodesRequest{RequestedCount: 5}
+		n1, err := saOverlay.Service.FindStorageNodesForUpload(ctx, req)
+		require.NoError(t, err)
+		n2, err := saOverlay.Service.SelectionCache.GetNodes(ctx, req)
+		require.NoError(t, err)
+		require.Equal(t, len(n2), len(n1))
+		n3, err := saOverlay.Service.FindStorageNodesWithPreferences(ctx, req, &nodeConfig)
+		require.NoError(t, err)
+		require.Equal(t, len(n3), len(n2))
+	})
 }

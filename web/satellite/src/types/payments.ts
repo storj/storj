@@ -152,6 +152,16 @@ export enum BillingHistoryItemStatus {
      * Status showed if transaction successfully completed.
      */
     Completed = 'completed',
+
+    /**
+     * Status showed if transaction successfully paid.
+     */
+    Paid = 'paid',
+
+    /**
+     * Status showed if transaction is pending.
+     */
+    Pending = 'pending',
 }
 
 /**

@@ -316,7 +316,7 @@ export default class VPagination extends Vue {
             height: 30px;
             font-family: 'font_bold', sans-serif;
             font-size: 14px;
-            color: #535f77;
+            color: var(--regular-text-color);
             padding: 5px 37px;
 
             &__label {
@@ -324,7 +324,7 @@ export default class VPagination extends Vue {
             }
 
             &.active {
-                background-color: white;
+                background-color: var(--block-background-color);
                 cursor: pointer;
             }
         }
@@ -335,6 +335,7 @@ export default class VPagination extends Vue {
 
             .pages-divider {
                 margin: 0 20px;
+                color: var(--page-number-color);
             }
         }
     }

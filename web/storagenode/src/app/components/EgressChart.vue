@@ -45,6 +45,10 @@ class EgressTooltip {
 
 @Component
 export default class EgressChart extends BaseChart {
+    private get chartBackgroundColor(): string {
+        return this.isDarkMode ? '#4FC895' : '#edf9f4';
+    }
+
     private get allBandwidth(): EgressUsed[] {
         return ChartUtils.populateEmptyBandwidth(this.$store.state.node.egressChartData);
     }
@@ -62,9 +66,9 @@ export default class EgressChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#edf9f4';
+        const chartBackgroundColor = this.chartBackgroundColor;
         const chartBorderColor = '#48a77f';
-        const chartBorderWidth = 2;
+        const chartBorderWidth = 1;
 
         if (this.allBandwidth.length) {
             data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.summary()));
@@ -116,27 +120,26 @@ export default class EgressChart extends BaseChart {
 
         &__data-dimension {
             font-size: 13px;
-            color: #586c86;
+            color: var(--regular-text-color);
             margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }
     }
 
     #egress-tooltip {
-        background-image: url('../../../static/images/tooltipBack.png');
+        background-image: var(--tooltip-background-path);
         background-repeat: no-repeat;
         background-size: cover;
         min-width: 190px;
         min-height: 170px;
         font-size: 12px;
         border-radius: 14px;
-        box-shadow: 0 2px 10px #d2d6de;
         color: #535f77;
         pointer-events: none;
     }
 
     #egress-tooltip-arrow {
-        background-image: url('../../../static/images/tooltipArrow.png');
+        background-image: var(--tooltip-arrow-path);
         background-repeat: no-repeat;
         background-size: 50px 30px;
         min-width: 50px;
@@ -149,14 +152,14 @@ export default class EgressChart extends BaseChart {
 
         &__info {
             display: flex;
-            background-color: rgba(211, 242, 204, 0.3);
+            background-color: var(--egress-tooltip-info-background-color);
             border-radius: 12px;
             padding: 14px;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 14px;
             position: relative;
-            color: #2e5f46;
+            color: var(--egress-font-color);
         }
     }
 
@@ -172,6 +175,6 @@ export default class EgressChart extends BaseChart {
         align-items: center;
         justify-content: center;
         padding: 10px 0 16px 0;
-        color: rgba(83, 95, 119, 0.44);
+        color: var(--regular-text-color);
     }
 </style>

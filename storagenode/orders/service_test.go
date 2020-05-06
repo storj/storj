@@ -22,7 +22,7 @@ func TestCleanArchive(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNode: func(index int, config *storagenode.Config) {
-				config.Storage2.Orders.ArchiveTTL = 24 * time.Hour
+				config.Storage2.Orders.ArchiveTTL = 12 * time.Hour
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -80,6 +80,7 @@ func TestCleanArchive(t *testing.T) {
 
 		archived, err := node.DB.Orders().ListArchived(ctx, 10)
 		require.NoError(t, err)
+
 		require.Len(t, archived, 1)
 		require.Equal(t, archived[0].Limit.SerialNumber, serialNumber1)
 	})

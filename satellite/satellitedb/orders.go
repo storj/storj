@@ -103,18 +103,35 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	statement := db.db.Rebind(
-		`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(bucket_name, project_id, interval_start, action)
-		DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + ?`,
-	)
-	_, err = db.db.ExecContext(ctx, statement,
-		bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount),
-	)
-	if err != nil {
-		return err
-	}
+	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		statement := tx.Rebind(
+			`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(bucket_name, project_id, interval_start, action)
+			DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + ?`,
+		)
+		_, err = tx.Tx.ExecContext(ctx, statement,
+			bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount),
+		)
+		if err != nil {
+			return err
+		}
+
+		if action == pb.PieceAction_GET {
+			projectInterval := time.Date(intervalStart.Year(), intervalStart.Month(), 1, 0, 0, 0, 0, time.UTC)
+			statement = tx.Rebind(
+				`INSERT INTO project_bandwidth_rollups (project_id, interval_month, egress_allocated)
+				VALUES (?, ?, ?)
+				ON CONFLICT(project_id, interval_month)
+				DO UPDATE SET egress_allocated = project_bandwidth_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint`,
+			)
+			_, err = tx.Tx.ExecContext(ctx, statement, projectID[:], projectInterval, uint64(amount))
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 
 	return nil
 }
@@ -410,6 +427,7 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 	var inlineSlice []int64
 	var allocatedSlice []int64
 	var settledSlice []int64
+	var projectRUMap map[string]int64 = make(map[string]int64)
 
 	for _, rollup := range rollups {
 		rollup := rollup
@@ -419,6 +437,10 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 		inlineSlice = append(inlineSlice, rollup.Inline)
 		allocatedSlice = append(allocatedSlice, rollup.Allocated)
 		settledSlice = append(settledSlice, rollup.Settled)
+
+		if rollup.Action == pb.PieceAction_GET {
+			projectRUMap[rollup.ProjectID.String()] += rollup.Allocated
+		}
 	}
 
 	_, err = tx.tx.Tx.ExecContext(ctx, `
@@ -440,6 +462,33 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 		pq.Array(actionSlice), pq.Array(inlineSlice), pq.Array(allocatedSlice), pq.Array(settledSlice))
 	if err != nil {
 		tx.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
+	}
+
+	var projectRUIDs [][]byte
+	var projectRUAllocated []int64
+	projectInterval := time.Date(intervalStart.Year(), intervalStart.Month(), 1, intervalStart.Hour(), 0, 0, 0, time.UTC)
+
+	for k, v := range projectRUMap {
+		projectID, err := uuid.FromString(k)
+		if err != nil {
+			tx.log.Error("Could not parse project UUID.", zap.Error(err))
+			continue
+		}
+		projectRUIDs = append(projectRUIDs, projectID[:])
+		projectRUAllocated = append(projectRUAllocated, v)
+	}
+
+	if len(projectRUIDs) > 0 {
+		_, err = tx.tx.Tx.ExecContext(ctx, `
+		INSERT INTO project_bandwidth_rollups(project_id, interval_month, egress_allocated)
+			SELECT unnest($1::bytea[]), $2, unnest($3::bigint[])
+		ON CONFLICT(project_id, interval_month) 
+		DO UPDATE SET egress_allocated = project_bandwidth_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint;
+		`,
+			pq.ByteaArray(projectRUIDs), projectInterval, pq.Array(projectRUAllocated))
+		if err != nil {
+			tx.log.Error("Project bandwidth rollup batch flush failed.", zap.Error(err))
+		}
 	}
 	return err
 }

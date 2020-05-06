@@ -8,12 +8,14 @@ import { makeNotificationsModule } from '@/app/store/modules/notifications';
 import { makePayoutModule } from '@/app/store/modules/payout';
 import { NotificationsHttpApi } from '@/storagenode/api/notifications';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
+import { SNOApi } from '@/storagenode/api/storagenode';
 
 import { appStateModule } from './modules/appState';
-import { node } from './modules/node';
+import { makeNodeModule } from './modules/node';
 
 const notificationsApi = new NotificationsHttpApi();
 const payoutApi = new PayoutHttpApi();
+const nodeApi = new SNOApi();
 
 Vue.use(Vuex);
 
@@ -22,7 +24,7 @@ Vue.use(Vuex);
  */
 export const store = new Vuex.Store({
    modules: {
-       node,
+       node: makeNodeModule(nodeApi),
        appStateModule,
        notificationsModule: makeNotificationsModule(notificationsApi),
        payoutModule: makePayoutModule(payoutApi),

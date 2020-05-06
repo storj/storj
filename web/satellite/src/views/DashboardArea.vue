@@ -6,7 +6,7 @@
         <div v-if="isLoading" class="loading-overlay active">
             <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Company logo loading gif">
         </div>
-        <div v-if="!isLoading" class="dashboard-container__wrap">
+        <div v-else class="dashboard-container__wrap">
             <NavigationArea class="regular-navigation"/>
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader/>
@@ -45,8 +45,9 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
-import { CreditCard } from '@/types/payments';
+import { ApiKeysPage } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
+import { User } from '@/types/users';
 import { Size } from '@/utils/bytesSize';
 import {
     API_KEYS_ACTIONS,
@@ -83,9 +84,11 @@ export default class DashboardArea extends Vue {
      * Pre fetches user`s and project information.
      */
     public async mounted(): Promise<void> {
+        let user: User;
+
         // TODO: combine all project related requests in one
         try {
-            await this.$store.dispatch(USER_ACTIONS.GET);
+            user = await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
@@ -97,18 +100,40 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        let balance: number = 0;
-        let creditCards: CreditCard[] = [];
-
         try {
             await this.$store.dispatch(SETUP_ACCOUNT);
-            balance = await this.$store.dispatch(GET_BALANCE);
-            creditCards = await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$notify.error(`Unable to setup account. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(GET_BALANCE);
+        } catch (error) {
+            await this.$notify.error(`Unable to get account balance. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$notify.error(`Unable to get credit cards. ${error.message}`);
+        }
+
+        try {
             await this.$store.dispatch(GET_BILLING_HISTORY);
+        } catch (error) {
+            await this.$notify.error(`Unable to get account billing history. ${error.message}`);
+        }
+
+        try {
             await this.$store.dispatch(GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
+        } catch (error) {
+            await this.$notify.error(`Unable to get usage and charges for previous billing period. ${error.message}`);
+        }
+
+        try {
             await this.$store.dispatch(GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(`Unable to get usage and charges for current billing period. ${error.message}`);
         }
 
         let projects: Project[] = [];
@@ -121,11 +146,11 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        if (!projects.length && !creditCards.length && balance === 0) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+        if (!projects.length) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
 
             try {
-                await this.$router.push(RouteConfig.Overview.path);
+                await this.$router.push(RouteConfig.OnboardingTour.path);
             } catch (error) {
                 return;
             }
@@ -133,23 +158,28 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        if (!projects.length) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
 
-            if (!this.isRouteAccessibleWithoutProject()) {
-                try {
-                    await this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
-                } catch (error) {
-                    return;
-                }
+        let apiKeysPage: ApiKeysPage = new ApiKeysPage();
+
+        try {
+            apiKeysPage = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
+        }
+
+        if (projects.length === 1 && projects[0].ownerId === user.id && apiKeysPage.apiKeys.length === 0) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+
+            try {
+                await this.$router.push(RouteConfig.OnboardingTour.path);
+            } catch (error) {
+                return;
             }
 
             return;
         }
 
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
-
-        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         } catch (error) {
@@ -160,12 +190,6 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project limits. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
         }
 
         try {
@@ -226,19 +250,6 @@ export default class DashboardArea extends Vue {
     public get isLoading(): boolean {
         return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
     }
-
-    /**
-     * This method checks if current route is available when user has no created projects.
-     */
-    private isRouteAccessibleWithoutProject(): boolean {
-        const availableRoutes = [
-            RouteConfig.Account.with(RouteConfig.Billing).path,
-            RouteConfig.Account.with(RouteConfig.Settings).path,
-            RouteConfig.Overview.path,
-        ];
-
-        return availableRoutes.includes(this.$router.currentRoute.path.toLowerCase());
-    }
 }
 </script>
 
@@ -285,16 +296,6 @@ export default class DashboardArea extends Vue {
 
         .regular-navigation {
             display: none;
-        }
-    }
-
-    @media screen and (max-width: 720px) {
-
-        .dashboard-container {
-
-            &__main-area {
-                left: 60px;
-            }
         }
     }
 

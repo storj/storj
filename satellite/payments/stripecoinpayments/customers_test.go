@@ -61,6 +61,9 @@ func TestCustomersRepositoryList(t *testing.T) {
 
 			err = customersDB.Insert(ctx, cus.UserID, cus.ID)
 			require.NoError(t, err)
+
+			// Ensure that every insert gets a different "created at" time.
+			waitForTimeToChange()
 		}
 
 		page, err := customersDB.List(ctx, 0, custLen, time.Now())
@@ -83,7 +86,6 @@ func TestCustomersRepositoryList(t *testing.T) {
 
 		for i, cus := range page.Customers {
 			assert.Equal(t, "customerID"+strconv.Itoa(7-i), cus.ID)
-
 		}
 
 		page, err = customersDB.List(ctx, page.NextOffset, custLen, time.Now())
@@ -98,4 +100,11 @@ func TestCustomersRepositoryList(t *testing.T) {
 
 		}
 	})
+}
+
+func waitForTimeToChange() {
+	t := time.Now()
+	for time.Since(t) == 0 {
+		time.Sleep(5 * time.Millisecond)
+	}
 }
