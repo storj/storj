@@ -11,11 +11,11 @@ type ActionType = macaroon.ActionType
 const (
 	// ActionRead specifies a read operation
 	ActionRead = macaroon.ActionRead
-	// ActionWrite specifies a read operation
+	// ActionWrite specifies a write operation
 	ActionWrite = macaroon.ActionWrite
-	// ActionList specifies a read operation
+	// ActionList specifies a list operation
 	ActionList = macaroon.ActionList
-	// ActionDelete specifies a read operation
+	// ActionDelete specifies a delete operation
 	ActionDelete = macaroon.ActionDelete
 	// ActionProjectInfo requests project-level information
 	ActionProjectInfo = macaroon.ActionProjectInfo
