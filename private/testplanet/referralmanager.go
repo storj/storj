@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"storj.io/common/pb"
-	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/testrand"
@@ -51,7 +50,7 @@ func (planet *Planet) newReferralManager() (*server.Server, error) {
 		},
 	}
 
-	var endpoints pbgrpc.ReferralManagerServer
+	var endpoints pb.DRPCReferralManagerServer
 	// only create a referral manager server if testplanet was reconfigured with a custom referral manager endpoint
 	if planet.config.Reconfigure.ReferralManagerServer != nil {
 		endpoints = planet.config.Reconfigure.ReferralManagerServer(log)
