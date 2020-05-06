@@ -34,7 +34,7 @@ export abstract class RouteConfig {
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
-    public static Team = new NavigationLink('/project-members', 'Team');
+    public static Team = new NavigationLink('/project-members', 'Members');
     public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
 
