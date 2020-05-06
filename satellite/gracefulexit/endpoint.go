@@ -399,7 +399,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		ExcludedIDs:    excludedIDs,
 	}
 
-	newNodes, err := endpoint.overlay.FindStorageNodes(ctx, *request)
+	newNodes, err := endpoint.overlay.FindStorageNodesForGracefulExit(ctx, *request)
 	if err != nil {
 		return Error.Wrap(err)
 	}

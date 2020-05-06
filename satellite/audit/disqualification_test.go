@@ -174,7 +174,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 			ExcludedIDs:          nil,
 			MinimumVersion:       "", // semver or empty
 		}
-		nodes, err := satellitePeer.Overlay.Service.FindStorageNodes(ctx, request)
+		nodes, err := satellitePeer.Overlay.Service.FindStorageNodesForUpload(ctx, request)
 		assert.True(t, overlay.ErrNotEnoughNodes.Has(err))
 
 		assert.Len(t, nodes, 3)

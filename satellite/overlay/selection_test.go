@@ -76,7 +76,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 		}
 
 		// request 2 nodes, expect failure from not enough nodes
-		n1, err := saOverlay.Service.FindStorageNodes(ctx, req)
+		n1, err := saOverlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.Error(t, err)
 		require.True(t, overlay.ErrNotEnoughNodes.Has(err))
 		n2, err := saOverlay.Service.SelectionCache.GetNodes(ctx, req)
@@ -99,7 +99,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 		require.NoError(t, err)
 
 		// request 2 nodes, expect success
-		n1, err = planet.Satellites[0].Overlay.Service.FindStorageNodes(ctx, req)
+		n1, err = planet.Satellites[0].Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(n1))
 		n2, err = saOverlay.Service.FindStorageNodesWithPreferences(ctx, req, &nodeConfig)
@@ -545,7 +545,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 			RequestedCount:       2,
 			ExcludedIDs:          excludedNodes,
 		}
-		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
+		nodes, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
 		require.NotEqual(t, nodes[0].LastIPPort, nodes[1].LastIPPort)
@@ -569,7 +569,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 			RequestedCount:       4,
 			ExcludedIDs:          excludedNodes,
 		}
-		n, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
+		n, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.Error(t, err)
 		n1, err := satellite.Overlay.Service.FindStorageNodesWithPreferences(ctx, req, &satellite.Config.Overlay.Node)
 		require.Error(t, err)
@@ -624,7 +624,7 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 			RequestedCount:       2,
 			ExcludedIDs:          excludedNodes,
 		}
-		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, req)
+		nodes, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
 		require.NotEqual(t, nodes[0].LastIPPort, nodes[1].LastIPPort)
@@ -783,7 +783,7 @@ func TestCacheSelectionVsDBSelection(t *testing.T) {
 		nodeConfig := planet.Satellites[0].Config.Overlay.Node
 
 		req := overlay.FindStorageNodesRequest{RequestedCount: 5}
-		n1, err := saOverlay.Service.FindStorageNodes(ctx, req)
+		n1, err := saOverlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)
 		n2, err := saOverlay.Service.SelectionCache.GetNodes(ctx, req)
 		require.NoError(t, err)
