@@ -28,7 +28,7 @@
         </div>
         <div class="payout-period-calendar__footer-area">
             <p class="payout-period-calendar__footer-area__period">{{ period }}</p>
-            <p class="payout-period-calendar__footer-area__ok-button">OK</p>
+            <p class="payout-period-calendar__footer-area__ok-button" @click="submit">OK</p>
         </div>
     </div>
 </template>
@@ -37,6 +37,10 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import GrayArrowLeftIcon from '@/../static/images/payments/GrayArrowLeft.svg';
+
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import { PayoutInfoRange, PayoutPeriod } from '@/app/types/payout';
 
 interface StoredMonthsByYear {
     [key: number]: MonthButton[];
@@ -73,18 +77,18 @@ class MonthButton {
 @Component({
     components: {
         GrayArrowLeftIcon,
-    }
+    },
 })
 export default class PayoutPeriodCalendar extends Vue {
+    private now: Date = new Date();
     /**
      * Contains current months list depends on active and selected month state.
      */
     public currentDisplayedMonths: MonthButton[] = [];
-    public displayedYear: number;
-    public period: string;
+    public displayedYear: number = this.now.getUTCFullYear();
+    public period: string = '';
 
     private displayedMonths: StoredMonthsByYear = {};
-    private now: Date;
     private firstSelectedMonth: MonthButton | null;
     private secondSelectedMonth: MonthButton | null;
 
@@ -93,10 +97,69 @@ export default class PayoutPeriodCalendar extends Vue {
      * Sets up current calendar state.
      */
     public mounted(): void {
-        this.now = new Date();
-        this.displayedYear = this.now.getUTCFullYear();
         this.populateMonths(this.displayedYear);
         this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
+    }
+
+    public async submit(): Promise<void> {
+        if (!this.firstSelectedMonth) {
+            this.close();
+
+            return;
+        }
+
+        // TODO: remove checks when buttons will be separated
+        if (!this.secondSelectedMonth) {
+            const now = new Date();
+            if (this.firstSelectedMonth.year === now.getUTCFullYear() && this.firstSelectedMonth.index === now.getUTCMonth()) {
+                await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
+                await this.$store.dispatch(
+                    PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+                        null,
+                        new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
+                    ),
+                );
+
+                this.close();
+
+                return;
+            }
+        }
+        if (this.secondSelectedMonth && this.secondSelectedMonth.year === this.firstSelectedMonth.year && this.secondSelectedMonth.index === this.firstSelectedMonth.index) {
+            await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
+            await this.$store.dispatch(
+                PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+                    null,
+                    new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
+                ),
+            );
+
+            this.close();
+
+            return;
+        }
+
+        this.secondSelectedMonth ? await this.$store.dispatch(
+            PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+                new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
+                new PayoutPeriod(this.secondSelectedMonth.year, this.secondSelectedMonth.index),
+            ),
+        ) : await this.$store.dispatch(
+            PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+                null,
+                new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
+            ),
+        );
+
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, this.$store.state.node.selectedSatellite.id);
+            await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
+        } catch (error) {
+            await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, true);
+            console.error(error.message);
+        }
+
+        this.close();
     }
 
     /**
@@ -118,7 +181,7 @@ export default class PayoutPeriodCalendar extends Vue {
      * Selects period between node start and now.
      */
     public selectAllTime(): void {
-        const nodeStartedAt = this.$store.state.node.info.startedAt;
+        const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
 
         this.firstSelectedMonth = new MonthButton(nodeStartedAt.getUTCFullYear(), nodeStartedAt.getUTCMonth());
         this.secondSelectedMonth = new MonthButton(this.now.getUTCFullYear(), this.now.getUTCMonth());
@@ -186,7 +249,7 @@ export default class PayoutPeriodCalendar extends Vue {
      * Decrement year and updates current months set.
      */
     public decrementYear(): void {
-        if (this.displayedYear === this.$store.state.node.info.startedAt.getUTCFullYear()) return;
+        if (this.displayedYear === this.$store.state.node.selectedSatellite.joinDate.getUTCFullYear()) return;
 
         this.displayedYear -= 1;
         this.populateMonths(this.displayedYear);
@@ -231,12 +294,12 @@ export default class PayoutPeriodCalendar extends Vue {
         const months: MonthButton[] = [];
         const isCurrentYear = year === this.now.getUTCFullYear();
         const nowMonth = this.now.getUTCMonth();
-        const nodeStartedAt = this.$store.state.node.info.startedAt;
+        const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
 
         for (let i = 0; i < 12; i++) {
             const notBeforeNodeStart =
-                (nodeStartedAt.getUTCFullYear() === year && nodeStartedAt.getUTCMonth() <= i)
-                || nodeStartedAt.getUTCFullYear() < year;
+                nodeStartedAt.getUTCFullYear() < year
+                || (nodeStartedAt.getUTCFullYear() === year && nodeStartedAt.getUTCMonth() <= i);
             const inFuture = isCurrentYear && i > nowMonth;
 
             const isMonthActive = notBeforeNodeStart && !inFuture;
@@ -244,6 +307,13 @@ export default class PayoutPeriodCalendar extends Vue {
         }
 
         this.displayedMonths[year] = months;
+    }
+
+    /**
+     * Closes calendar.
+     */
+    private close(): void {
+        setTimeout(() => this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false), 0);
     }
 }
 </script>
@@ -256,7 +326,7 @@ export default class PayoutPeriodCalendar extends Vue {
         justify-content: flex-start;
         width: 170px;
         height: 215px;
-        background: #fff;
+        background: var(--block-background-color);
         box-shadow: 0 10px 25px rgba(175, 183, 193, 0.1);
         border-radius: 5px;
         padding: 24px;
@@ -291,7 +361,7 @@ export default class PayoutPeriodCalendar extends Vue {
                     font-family: 'font_bold', sans-serif;
                     font-size: 15px;
                     line-height: 18px;
-                    color: #444c63;
+                    color: var(--regular-text-color);
                 }
 
                 &__next {
@@ -309,7 +379,7 @@ export default class PayoutPeriodCalendar extends Vue {
             &__all-time {
                 font-size: 12px;
                 line-height: 18px;
-                color: #224ca5;
+                color: var(--navigation-link-color);
                 cursor: pointer;
             }
         }
@@ -332,14 +402,14 @@ export default class PayoutPeriodCalendar extends Vue {
 
             &__period {
                 font-size: 13px;
-                color: #444c63;
+                color: var(--regular-text-color);
             }
 
             &__ok-button {
                 font-family: 'font_bold', sans-serif;
                 font-size: 16px;
                 line-height: 23px;
-                color: #224ca5;
+                color: var(--navigation-link-color);
                 cursor: pointer;
             }
         }
@@ -351,31 +421,38 @@ export default class PayoutPeriodCalendar extends Vue {
         justify-content: center;
         width: 52px;
         height: 30px;
-        background: #f1f4f9;
+        background: var(--month-active-background-color);
         border-radius: 10px;
         cursor: pointer;
 
         &__label {
             font-size: 12px;
             line-height: 18px;
-            color: #667086;
+            color: var(--regular-text-color);
         }
     }
 
     .disabled {
-        background: #e9e9e9;
+        background: var(--month-disabled-background-color);
         cursor: default;
 
         .month-item__label {
-            color: #b1b1b1 !important;
+            color: var(--month-disabled-label-color) !important;
         }
     }
 
     .selected {
-        background: #224ca5;
+        background: var(--navigation-link-color);
 
         .month-item__label {
             color: white !important;
+        }
+    }
+
+    .arrow-icon {
+
+        path {
+            fill: var(--year-selection-arrow-color);
         }
     }
 </style>

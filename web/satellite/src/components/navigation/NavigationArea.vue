@@ -31,29 +31,44 @@ export default class NavigationArea extends Vue {
      */
     public areResourceItemsShown: boolean = true;
     public isResourceButtonShown: boolean = false;
+
     /**
      * Indicates if account related navigation links appears.
      */
     public areAccountItemsShown: boolean = true;
     public isAccountButtonShown: boolean = false;
-    public homePath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
 
+    /**
+     * Toggles resource items visibility.
+     */
     public toggleResourceItemsVisibility(): void {
         this.areResourceItemsShown = !this.areResourceItemsShown;
     }
 
+    /**
+     * Toggles resource button visibility.
+     */
     public toggleResourceButtonVisibility(): void {
         this.isResourceButtonShown = !this.isResourceButtonShown;
     }
 
+    /**
+     * Toggles account items visibility.
+     */
     public toggleAccountItemsVisibility(): void {
         this.areAccountItemsShown = !this.areAccountItemsShown;
     }
 
+    /**
+     * Toggles account button visibility.
+     */
     public toggleAccountButtonVisibility(): void {
         this.isAccountButtonShown = !this.isAccountButtonShown;
     }
 
+    /**
+     * Array of navigation links with icons.
+     */
     // TODO: Use SvgLoaderComponent to reduce markup lines
     public readonly navigation: NavigationLink[] = [
         RouteConfig.ProjectDashboard.withIcon(
@@ -71,13 +86,11 @@ export default class NavigationArea extends Vue {
                 <path class="navigation-svg-path" opacity="0.8" fill-rule="evenodd" clip-rule="evenodd" d="M19 0L18.8777 3.30167L17.3804 3.33154L17.3114 4.86798L15.548 5.164L15.5552 6.62419L14.0737 6.63827L13.8958 8.28354L12.3349 9.84422L13.2397 13.2214C13.3996 13.8182 13.229 14.4549 12.7921 14.8918L9.19044 18.4934C8.75356 18.9303 8.1168 19.1009 7.52001 18.941L2.60009 17.6227C2.00331 17.4628 1.53716 16.9967 1.37725 16.3999L0.0589658 11.48C-0.100943 10.8832 0.0696777 10.2464 0.506556 9.80956L4.10819 6.20793C4.54507 5.77105 5.18183 5.60043 5.77862 5.76034L9.15552 6.66484L15.6983 0.122284L19 0ZM6.52703 12.473C5.78414 11.7301 4.57967 11.7301 3.83678 12.473C3.09389 13.2159 3.09389 14.4203 3.83678 15.1632C4.57967 15.9061 5.78414 15.9061 6.52703 15.1632C7.26992 14.4203 7.26992 13.2159 6.52703 12.473Z" fill="#909BA8"/>
               </svg>
              `),
-        RouteConfig.Buckets.withIcon(
-            `<svg class="svg" width="19" height="20" viewBox="0 0 19 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path class="navigation-svg-path" opacity="0.8" fill-rule="evenodd" clip-rule="evenodd" d="M0.216155 3.00455L2.55063 18.3948C4.49602 18.8271 7.00341 19.0216 9.51081 19.0216C11.9966 19.0216 14.504 18.8271 16.4494 18.3948L18.7838 3.00455C18.2435 3.26394 17.5518 3.48009 16.7088 3.65301C14.8714 4.06371 12.3208 4.30148 9.51081 4.30148C6.7008 4.30148 4.15017 4.06371 2.29124 3.65301C1.46985 3.48009 0.756542 3.26394 0.216155 3.00455ZM2.50739 2.61547C4.30148 2.98294 6.76564 3.22071 9.51081 3.22071C12.2344 3.22071 14.7201 2.98294 16.4926 2.61547C17.9192 2.31286 18.8703 1.96701 19 1.68601V1.59955C18.9568 1.29693 18.0057 0.951081 16.4926 0.626849C14.7201 0.23777 12.2344 0 9.51081 0C6.76564 0 4.30148 0.23777 2.50739 0.626849C0.994312 0.951081 0.0432309 1.29693 0 1.59955L0.0216155 1.68601C0.151308 1.96701 1.08077 2.31286 2.50739 2.61547Z" fill="#909BA8"/>
-              </svg>
-             `),
     ];
 
+    /**
+     * Array of account related navigation links.
+     */
     public readonly accountNavigation: NavigationLink[] = [
         RouteConfig.Account.with(RouteConfig.Settings),
         RouteConfig.Account.with(RouteConfig.Billing),
@@ -85,24 +98,64 @@ export default class NavigationArea extends Vue {
         // RouteConfig.Account.with(RouteConfig.Referral),
     ];
 
-    public get isLinkDisabled(): boolean {
-        return this.$store.state.projectsModule.selectedProject.id === '';
+    /**
+     * Returns home path depending on app's state.
+     */
+    public get homePath(): string {
+        if (this.isOnboardingTour) {
+            return RouteConfig.OnboardingTour.path;
+        }
+
+        return RouteConfig.ProjectDashboard.path;
     }
 
+    /**
+     * Indicates if resources displaying button is shown.
+     */
     public get isResourcesDisplayingButtonShown(): boolean {
         return !this.areResourceItemsShown && this.isResourceButtonShown;
     }
 
+    /**
+     * Indicates if resources items hiding button is shown.
+     */
     public get isResourcesHidingButtonShown(): boolean {
         return this.areResourceItemsShown && this.isResourceButtonShown;
     }
 
+    /**
+     * Indicates if account items displaying button is shown.
+     */
     public get isAccountItemsDisplayingButtonShown(): boolean {
         return !this.areAccountItemsShown && this.isAccountButtonShown;
     }
 
+    /**
+     * Indicates if account items hiding button is shown.
+     */
     public get isAccountItemsHidingButtonShown(): boolean {
         return this.areAccountItemsShown && this.isAccountButtonShown;
+    }
+
+    /**
+     * Indicates if roter link is disabled.
+     */
+    public get isLinkDisabled(): boolean {
+        return this.isOnboardingTour || this.isNoProject;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    private get isOnboardingTour(): boolean {
+        return this.$route.name === RouteConfig.OnboardingTour.name;
+    }
+
+    /**
+     * Indicates if there is no projects.
+     */
+    private get isNoProject(): boolean {
+        return this.$store.state.projectsModule.projects.length === 0;
     }
 }
 </script>

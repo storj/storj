@@ -5,6 +5,7 @@ package marketingweb
 
 import (
 	"context"
+	"errors"
 	"html/template"
 	"net"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -72,7 +74,7 @@ func NewServer(logger *zap.Logger, config Config, rewards rewards.DB, partners *
 		partners: partners,
 	}
 
-	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
+	logger.Debug("Starting Marketing Admin UI.", zap.Stringer("Address", s.listener.Addr()))
 	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.config.StaticDir)))
 	mux := mux.NewRouter()
 	if s.config.StaticDir != "" {
@@ -270,7 +272,11 @@ func (s *Server) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return Error.Wrap(s.server.Serve(s.listener))
+		err := s.server.Serve(s.listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return Error.Wrap(err)
 	})
 
 	return group.Wait()

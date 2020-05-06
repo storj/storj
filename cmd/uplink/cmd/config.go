@@ -96,6 +96,10 @@ func (a AccessConfig) GetAccess() (_ *libuplink.Scope, err error) {
 		return access, nil
 	}
 
+	if len(a.Legacy.Client.APIKey) == 0 {
+		return nil, errs.New("unable to find access grant, run 'setup' command or provide '--access' parameter")
+	}
+
 	// fall back to trying to load the legacy values.
 	apiKey, err := libuplink.ParseAPIKey(a.Legacy.Client.APIKey)
 	if err != nil {

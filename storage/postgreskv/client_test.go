@@ -9,10 +9,11 @@ import (
 	"testing"
 
 	"github.com/lib/pq"
+	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
@@ -20,11 +21,9 @@ import (
 )
 
 func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
-	if *pgtest.ConnStr == "" {
-		t.Skipf("postgres flag missing, example:\n-postgres-test-db=%s", pgtest.DefaultConnStr)
-	}
+	connstr := pgtest.PickPostgres(t)
 
-	pgdb, err := New(*pgtest.ConnStr)
+	pgdb, err := New(connstr)
 	if err != nil {
 		t.Fatalf("init: %v", err)
 	}
@@ -39,6 +38,12 @@ func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
 func TestSuite(t *testing.T) {
 	store, cleanup := newTestPostgres(t)
 	defer cleanup()
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	err := store.MigrateToLatest(ctx)
+	require.NoError(t, err)
 
 	// zap := zaptest.NewLogger(t)
 	// loggedStore := storelogger.New(zap, store)

@@ -40,7 +40,7 @@ func TestDB(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, emptyArchive, 0)
 
-		now := time.Now()
+		before := time.Now().Add(-time.Second)
 
 		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 		require.NoError(t, err)
@@ -57,9 +57,9 @@ func TestDB(t *testing.T) {
 				PieceId:         piece,
 				Limit:           100,
 				Action:          pb.PieceAction_GET,
-				OrderCreation:   now.AddDate(0, 0, -1),
-				PieceExpiration: now,
-				OrderExpiration: now,
+				OrderCreation:   before.AddDate(0, 0, -1),
+				PieceExpiration: before,
+				OrderExpiration: before,
 			})
 			require.NoError(t, err)
 
@@ -173,6 +173,8 @@ func TestDB(t *testing.T) {
 			},
 		}, archived, cmp.Comparer(pb.Equal)))
 
+		time.Sleep(time.Second)
+
 		// with 1 hour ttl, archived order should not be deleted
 		n, err := db.Orders().CleanArchive(ctx, time.Hour)
 		require.NoError(t, err)
@@ -189,13 +191,15 @@ func TestDB_Trivial(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		satelliteID, serial := testrand.NodeID(), testrand.SerialNumber()
 
+		before := time.Now().Add(-time.Second)
+
 		{ // Ensure Enqueue works at all
 			err := db.Orders().Enqueue(ctx, &orders.Info{
 				Order: &pb.Order{},
 				Limit: &pb.OrderLimit{
 					SatelliteId:     satelliteID,
 					SerialNumber:    serial,
-					OrderExpiration: time.Now(),
+					OrderExpiration: before,
 				},
 			})
 			require.NoError(t, err)
@@ -216,7 +220,7 @@ func TestDB_Trivial(t *testing.T) {
 		}
 
 		{ // Ensure Archive works at all
-			err := db.Orders().Archive(ctx, time.Now().UTC(), orders.ArchiveRequest{satelliteID, serial, orders.StatusAccepted})
+			err := db.Orders().Archive(ctx, before.UTC(), orders.ArchiveRequest{satelliteID, serial, orders.StatusAccepted})
 			require.NoError(t, err)
 		}
 

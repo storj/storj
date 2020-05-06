@@ -219,111 +219,36 @@ func (db *heldamountDB) AllPayStubs(ctx context.Context, period string) (_ []hel
 	return paystubList, nil
 }
 
-// StorePayment inserts or updates payment data into the db.
-func (db *heldamountDB) StorePayment(ctx context.Context, payment heldamount.Payment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	query := `INSERT OR REPLACE INTO payments (
-			id,
-			created_at,
-			satellite_id,
-			period,
-			amount,
-			receipt,
-			notes
-		) VALUES(?,?,?,?,?,?,?)`
-
-	_, err = db.ExecContext(ctx, query,
-		payment.ID,
-		payment.Created,
-		payment.SatelliteID,
-		payment.Period,
-		payment.Amount,
-		payment.Receipt,
-		payment.Notes,
-	)
-
-	return ErrHeldAmount.Wrap(err)
-}
-
-// GetPayment retrieves payment data for a specific satellite.
-func (db *heldamountDB) GetPayment(ctx context.Context, satelliteID storj.NodeID, period string) (_ *heldamount.Payment, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	result := heldamount.Payment{
-		SatelliteID: satelliteID,
-		Period:      period,
-	}
-
-	row := db.QueryRowContext(ctx,
-		`SELECT id,
-			created_at,
-			amount,
-			receipt,
-			notes
-		FROM payments WHERE satellite_id = ? AND period = ?`,
-		satelliteID, period,
-	)
-
-	err = row.Scan(
-		&result.ID,
-		&result.Created,
-		&result.Amount,
-		&result.Receipt,
-		&result.Notes,
-	)
-	if err != nil {
-		if sql.ErrNoRows == err {
-			return nil, heldamount.ErrNoPayStubForPeriod.Wrap(err)
-		}
-		return nil, ErrHeldAmount.Wrap(err)
-	}
-
-	return &result, nil
-}
-
-// AllPayments retrieves all payment stats from DB for specific period.
-func (db *heldamountDB) AllPayments(ctx context.Context, period string) (_ []heldamount.Payment, err error) {
+// SatellitesHeldbackHistory retrieves heldback history for specific satellite.
+func (db *heldamountDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []heldamount.Heldback, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT 
-			satellite_id,
-			id,
-			created_at,
-			amount,
-			receipt,
-			notes
-		FROM payments WHERE period = ?`
+				period,
+				held
+			  FROM paystubs WHERE satellite_id = ? ORDER BY period ASC`
 
-	rows, err := db.QueryContext(ctx, query, period)
+	rows, err := db.QueryContext(ctx, query, id)
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var paymentList []heldamount.Payment
+	var heldback []heldamount.Heldback
 	for rows.Next() {
-		var payment heldamount.Payment
-		payment.Period = period
+		var held heldamount.Heldback
 
-		err := rows.Scan(&payment.SatelliteID,
-			&payment.ID,
-			&payment.Created,
-			&payment.Amount,
-			&payment.Receipt,
-			&payment.Notes,
-		)
-
+		err := rows.Scan(&held.Period, &held.Held)
 		if err != nil {
 			return nil, ErrHeldAmount.Wrap(err)
 		}
 
-		paymentList = append(paymentList, payment)
+		heldback = append(heldback, held)
 	}
 	if err = rows.Err(); err != nil {
 		return nil, ErrHeldAmount.Wrap(err)
 	}
 
-	return paymentList, nil
+	return heldback, nil
 }

@@ -66,7 +66,6 @@ import SuccessIcon from '@/../static/images/project/success.svg';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { CreateProjectModel, Project } from '@/types/projects';
 import {
     API_KEYS_ACTIONS,
@@ -86,9 +85,10 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 export default class NewProjectPopup extends Vue {
     private projectName: string = '';
     private description: string = '';
-    private nameError: string = '';
     private createdProjectId: string = '';
     private isLoading: boolean = false;
+
+    public nameError: string = '';
 
     /**
      * Indicates if popup is shown.
@@ -144,7 +144,7 @@ export default class NewProjectPopup extends Vue {
         } catch (error) {
             this.isLoading = false;
             await this.$notify.error(error.message);
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
             return;
         }
@@ -160,14 +160,13 @@ export default class NewProjectPopup extends Vue {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.createdProjectId);
         } catch (error) {
             await this.$notify.error(error.message);
         }
 
         this.clearApiKeys();
-
-        this.clearUsage();
 
         this.clearBucketUsage();
 
@@ -248,13 +247,6 @@ export default class NewProjectPopup extends Vue {
      */
     private clearApiKeys(): void {
         this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
-    }
-
-    /**
-     * Clears project usage store.
-     */
-    private clearUsage(): void {
-        this.$store.dispatch(PROJECT_USAGE_ACTIONS.CLEAR);
     }
 
     /**

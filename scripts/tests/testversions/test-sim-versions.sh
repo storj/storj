@@ -27,7 +27,13 @@ RUN_TYPE=${RUN_TYPE:-"jenkins"}
 # in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are split into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
 git fetch --tags
-major_release_tags=$(git tag -l --sort -version:refname | grep -v "rc" | sort -n -k2,2 -t'.' --unique | awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 {print $0}')
+major_release_tags=$(
+    git tag -l --sort -version:refname |                             # get the tag list
+    grep -v rc |                                                     # remove release candidates
+    sort -n -k2,2 -t'.' --unique |                                   # only keep the largest patch version
+    sort -V |                                                        # resort based using "version sort"
+    awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 || $2 >= 1 {print $0}' # keep only >= v0.15.x and v1.0.0
+)
 current_release_version=$(echo $major_release_tags | xargs -n 1 | tail -1)
 stage1_sat_version=$current_release_version
 stage1_uplink_versions=$major_release_tags
@@ -69,17 +75,30 @@ scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # mirroring install-sim from the Makefile since it won't work on private Jenkins
 install_sim(){
-    local bin_dir="$1"
+    local work_dir="$1"
+    local bin_dir="$2"
     mkdir -p ${bin_dir}
 
-    go install -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    cd ./cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
+
+    go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+
+    if [ -d "${work_dir}/cmd/gateway" ]; then
+        pushd ${work_dir}/cmd/gateway
+            go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+        popd
+    else
+        rm -rf .build/gateway-tmp
+        mkdir -p .build/gateway-tmp
+        pushd .build/gateway-tmp
+            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@v1.0.0-rc.8
+        popd
+    fi
 }
 
 setup_stage(){
@@ -164,17 +183,17 @@ for version in ${unique_versions}; do
         rm -f ${dir}/internal/version/release.go
         if [[ $version = $current_release_version || $version = "master" ]]
         then
+            # clear out release information
+            cat > ${dir}/private/version/release.go <<-EOF
+		// Copyright (C) 2020 Storj Labs, Inc.
+		// See LICENSE for copying information.
+		package version
+		EOF
+
             echo "Installing storj-sim for ${version} in ${dir}."
-            pushd ${dir}
-            if [ "$RUN_TYPE" = "jenkins" ]; then
-                install_sim ${bin_dir}
-            fi
+            install_sim ${dir} ${bin_dir}
             echo "finished installing"
-            popd
-            # for local testing
-            if [ "$RUN_TYPE" != "jenkins" ]; then
-                GOBIN=${bin_dir} make -C ${dir} install-sim >/dev/null 2>&1
-            fi
+
             echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
             PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
             echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
@@ -187,13 +206,9 @@ for version in ${unique_versions}; do
             echo "Installing uplink for ${version} in ${dir}."
             pushd ${dir}
             mkdir -p ${bin_dir}
-            if [ "$RUN_TYPE" = "jenkins" ]; then
-                go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-            fi
-            # for local testing
-            if [ "$RUN_TYPE" != "jenkins" ]; then
-                GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink >/dev/null 2>&1
-            fi    
+
+            go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+
             popd
             echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
             echo "Binary shasums:"

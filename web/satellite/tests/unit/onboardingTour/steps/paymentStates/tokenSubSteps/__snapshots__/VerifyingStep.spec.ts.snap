@@ -1,0 +1,19 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`VerifyingStep.vue renders correctly 1`] = `
+<div class="verifying-step">
+  <verifyingimage-stub></verifyingimage-stub>
+  <h2 class="verifying-step__title">Verifying Payment</h2> <span class="verifying-step__sub-title">
+        Refresh this page in 10-15 minutes to continue after your purchase is verified. In the meantime, see how
+        easy it is to get started visiting documentation page, or join the community to get involved.
+    </span>
+  <div class="verifying-step__buttons-area"><a href="https://documentation.storj.io" target="_blank" class="verifying-step__buttons-area__how-to-button">
+      Documentation
+    </a> <a href="https://storj.io/community/" target="_blank" class="verifying-step__buttons-area__community-button">
+      Community
+    </a></div>
+  <div class="verifying-step__back-button">
+    <backimage-stub></backimage-stub>
+  </div>
+</div>
+`;

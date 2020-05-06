@@ -1,0 +1,16 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`DepositAndBilling renders correctly with items 1`] = `
+<div class="deposit-and-billing-area">
+  <div class="deposit-and-billing-area__header">
+    <h1 class="deposit-and-billing-area__header__title">Deposit &amp; Billing History</h1>
+    <div class="button">View All</div>
+  </div>
+  <sortingheader-stub></sortingheader-stub>
+  <billingitem-stub billingitem="[object Object]"></billingitem-stub>
+  <billingitem-stub billingitem="[object Object]"></billingitem-stub>
+  <billingitem-stub billingitem="[object Object]"></billingitem-stub>
+</div>
+`;
+
+exports[`DepositAndBilling renders correctly without items 1`] = ``;

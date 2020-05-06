@@ -1,0 +1,21 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`CreateProjectStep.vue renders correctly 1`] = `
+<div class="new-project-step">
+  <h1 class="new-project-step__title">Name Your Project</h1>
+  <p class="new-project-step__sub-title">
+    Projects are where buckets are created for storing data. Within a Project, usage is tracked at the bucket
+    level and aggregated for billing.
+  </p>
+  <div class="new-project-step__container">
+    <div class="new-project-step__container__title-area">
+      <h2 class="new-project-step__container__title-area__title">Project Details</h2>
+      <!---->
+    </div>
+    <headeredinput-stub label="Project Name" placeholder="Enter Project Name" height="48px" width="100%" error="" maxsymbols="20" initvalue="" additionallabel="Up To 20 Characters" class="full-input"></headeredinput-stub>
+    <headeredinput-stub label="Description" placeholder="Enter Project Description" height="100px" width="100%" error="" maxsymbols="9007199254740991" initvalue="" additionallabel="Optional" ismultiline="true" class="full-input"></headeredinput-stub>
+    <!---->
+  </div>
+  <vbutton-stub label="Create Project" width="156px" height="48px" isdisabled="true" onpress="function () { [native code] }" class="create-project-button"></vbutton-stub>
+</div>
+`;

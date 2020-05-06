@@ -15,14 +15,18 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/private/date"
 	"storj.io/storj/storagenode/trust"
 )
 
 var (
-	// ErrHeldAmountService defines held amount service error
+	// ErrHeldAmountService defines held amount service error.
 	ErrHeldAmountService = errs.Class("heldamount service error")
+
+	// ErrBadPeriod defines that period has wrong format.
+	ErrBadPeriod = errs.Class("wrong period format")
 
 	mon = monkit.Package()
 )
@@ -76,18 +80,20 @@ func (service *Service) GetPaystubStats(ctx context.Context, satelliteID storj.N
 
 	requestedPeriod, err := date.PeriodToTime(period)
 	if err != nil {
-		service.log.Error("stringToTime", zap.Error(err))
 		return nil, ErrHeldAmountService.Wrap(err)
 	}
 
 	resp, err := client.GetPayStub(ctx, &pb.GetHeldAmountRequest{Period: requestedPeriod})
 	if err != nil {
-		service.log.Error("GetPayStub", zap.Error(err))
+		if rpcstatus.Code(err) == rpcstatus.OutOfRange {
+			return nil, ErrNoPayStubForPeriod.Wrap(err)
+		}
+
 		return nil, ErrHeldAmountService.Wrap(err)
 	}
-	service.log.Error("paystub = = = =", zap.Any("", resp))
+
 	return &PayStub{
-		Period:         period,
+		Period:         period[0:7],
 		SatelliteID:    satelliteID,
 		Created:        resp.CreatedAt,
 		Codes:          resp.Codes,
@@ -111,8 +117,8 @@ func (service *Service) GetPaystubStats(ctx context.Context, satelliteID storj.N
 	}, nil
 }
 
-// GetPayment retrieves payment data from particular satellite using grpc.
-func (service *Service) GetPayment(ctx context.Context, satelliteID storj.NodeID, period string) (_ *Payment, err error) {
+// GetAllPaystubs retrieves all paystubs for particular satellite.
+func (service *Service) GetAllPaystubs(ctx context.Context, satelliteID storj.NodeID) (_ []PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := service.dial(ctx, satelliteID)
@@ -121,25 +127,42 @@ func (service *Service) GetPayment(ctx context.Context, satelliteID storj.NodeID
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
-	requestedPeriod, err := date.PeriodToTime(period)
+	resp, err := client.GetAllPaystubs(ctx, &pb.GetAllPaystubsRequest{})
 	if err != nil {
 		return nil, ErrHeldAmountService.Wrap(err)
 	}
 
-	resp, err := client.GetPayment(ctx, &pb.GetPaymentRequest{Period: requestedPeriod})
-	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+	var payStubs []PayStub
+
+	for i := 0; i < len(resp.Paystub); i++ {
+		paystub := PayStub{
+			Period:         resp.Paystub[i].Period.String()[0:7],
+			SatelliteID:    satelliteID,
+			Created:        resp.Paystub[i].CreatedAt,
+			Codes:          resp.Paystub[i].Codes,
+			UsageAtRest:    float64(resp.Paystub[i].UsageAtRest),
+			UsageGet:       resp.Paystub[i].UsageGet,
+			UsagePut:       resp.Paystub[i].UsagePut,
+			UsageGetRepair: resp.Paystub[i].CompGetRepair,
+			UsagePutRepair: resp.Paystub[i].CompPutRepair,
+			UsageGetAudit:  resp.Paystub[i].UsageGetAudit,
+			CompAtRest:     resp.Paystub[i].CompAtRest,
+			CompGet:        resp.Paystub[i].CompGet,
+			CompPut:        resp.Paystub[i].CompPut,
+			CompGetRepair:  resp.Paystub[i].CompGetRepair,
+			CompPutRepair:  resp.Paystub[i].CompPutRepair,
+			CompGetAudit:   resp.Paystub[i].CompGetAudit,
+			SurgePercent:   resp.Paystub[i].SurgePercent,
+			Held:           resp.Paystub[i].Held,
+			Owed:           resp.Paystub[i].Owed,
+			Disposed:       resp.Paystub[i].Disposed,
+			Paid:           resp.Paystub[i].Paid,
+		}
+
+		payStubs = append(payStubs, paystub)
 	}
 
-	return &Payment{
-		ID:          resp.Id,
-		Created:     resp.CreatedAt,
-		SatelliteID: satelliteID,
-		Period:      period,
-		Amount:      resp.Amount,
-		Receipt:     resp.Receipt,
-		Notes:       resp.Notes,
-	}, nil
+	return payStubs, nil
 }
 
 // SatellitePayStubMonthlyCached retrieves held amount for particular satellite for selected month from storagenode database.
@@ -160,19 +183,19 @@ func (service *Service) AllPayStubsMonthlyCached(ctx context.Context, period str
 
 	payStubs, err = service.db.AllPayStubs(ctx, period)
 	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+		return payStubs, ErrHeldAmountService.Wrap(err)
 	}
 
 	return payStubs, nil
 }
 
 // SatellitePayStubPeriodCached retrieves held amount for all satellites for selected months from storagenode database.
-func (service *Service) SatellitePayStubPeriodCached(ctx context.Context, satelliteID storj.NodeID, periodStart, periodEnd string) (payStubs []*PayStub, err error) {
+func (service *Service) SatellitePayStubPeriodCached(ctx context.Context, satelliteID storj.NodeID, periodStart, periodEnd string) (payStubs []PayStub, err error) {
 	defer mon.Task()(&ctx, &satelliteID, &periodStart, &periodEnd)(&err)
 
 	periods, err := parsePeriodRange(periodStart, periodEnd)
 	if err != nil {
-		return nil, err
+		return []PayStub{}, err
 	}
 
 	for _, period := range periods {
@@ -181,10 +204,11 @@ func (service *Service) SatellitePayStubPeriodCached(ctx context.Context, satell
 			if ErrNoPayStubForPeriod.Has(err) {
 				continue
 			}
-			return nil, ErrHeldAmountService.Wrap(err)
+
+			return []PayStub{}, ErrHeldAmountService.Wrap(err)
 		}
 
-		payStubs = append(payStubs, payStub)
+		payStubs = append(payStubs, *payStub)
 	}
 
 	return payStubs, nil
@@ -196,13 +220,17 @@ func (service *Service) AllPayStubsPeriodCached(ctx context.Context, periodStart
 
 	periods, err := parsePeriodRange(periodStart, periodEnd)
 	if err != nil {
-		return nil, err
+		return []PayStub{}, err
 	}
 
 	for _, period := range periods {
 		payStub, err := service.db.AllPayStubs(ctx, period)
 		if err != nil {
-			return nil, ErrHeldAmountService.Wrap(err)
+			if ErrNoPayStubForPeriod.Has(err) {
+				continue
+			}
+
+			return []PayStub{}, ErrHeldAmountService.Wrap(err)
 		}
 
 		payStubs = append(payStubs, payStub...)
@@ -211,73 +239,65 @@ func (service *Service) AllPayStubsPeriodCached(ctx context.Context, periodStart
 	return payStubs, nil
 }
 
-// SatellitePaymentMonthlyCached retrieves payment data from particular satellite from storagenode database.
-func (service *Service) SatellitePaymentMonthlyCached(ctx context.Context, satelliteID storj.NodeID, period string) (_ *Payment, err error) {
-	defer mon.Task()(&ctx, &satelliteID, &period)(&err)
+// HeldbackPeriod amount of held for specific percent rate period.
+type HeldbackPeriod struct {
+	PercentageRate int
+	Held           int64
+}
 
-	payment, err := service.db.GetPayment(ctx, satelliteID, period)
+// AllHeldbackHistory retrieves heldback history for all specific satellite from storagenode database.
+func (service *Service) AllHeldbackHistory(ctx context.Context, id storj.NodeID) (result []HeldbackPeriod, err error) {
+	defer mon.Task()(&ctx, &id)(&err)
+
+	heldback, err := service.db.SatellitesHeldbackHistory(ctx, id)
 	if err != nil {
 		return nil, ErrHeldAmountService.Wrap(err)
 	}
 
-	return payment, nil
-}
+	var total75, total50, total25, total0 int64
 
-// AllPaymentsMonthlyCached retrieves payments for all satellites per selected period from storagenode database.
-func (service *Service) AllPaymentsMonthlyCached(ctx context.Context, period string) (payments []Payment, err error) {
-	defer mon.Task()(&ctx, &period)(&err)
-
-	payments, err = service.db.AllPayments(ctx, period)
-	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
-
-	return payments, nil
-}
-
-// SatellitePaymentPeriodCached retrieves payment for all satellites for selected months from storagenode database.
-func (service *Service) SatellitePaymentPeriodCached(ctx context.Context, satelliteID storj.NodeID, periodStart, periodEnd string) (payments []*Payment, err error) {
-	defer mon.Task()(&ctx, &satelliteID, &periodStart, &periodEnd)(&err)
-
-	periods, err := parsePeriodRange(periodStart, periodEnd)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, period := range periods {
-		payment, err := service.db.GetPayment(ctx, satelliteID, period)
-		if err != nil {
-			if ErrNoPayStubForPeriod.Has(err) {
-				continue
-			}
-			return nil, ErrHeldAmountService.Wrap(err)
+	for i, t := range heldback {
+		switch i {
+		case 0, 1, 2:
+			total75 += t.Held
+		case 3, 4, 5:
+			total50 += t.Held
+		case 6, 7, 8:
+			total25 += t.Held
+		default:
+			total0 += t.Held
 		}
-
-		payments = append(payments, payment)
 	}
 
-	return payments, nil
-}
-
-// AllPaymentsPeriodCached retrieves payment for all satellites for selected range of months from storagenode database.
-func (service *Service) AllPaymentsPeriodCached(ctx context.Context, periodStart, periodEnd string) (payments []Payment, err error) {
-	defer mon.Task()(&ctx, &periodStart, &periodEnd)(&err)
-
-	periods, err := parsePeriodRange(periodStart, periodEnd)
-	if err != nil {
-		return nil, err
+	period75percent := HeldbackPeriod{
+		PercentageRate: 75,
+		Held:           total75,
+	}
+	period50percent := HeldbackPeriod{
+		PercentageRate: 50,
+		Held:           total50,
+	}
+	period25percent := HeldbackPeriod{
+		PercentageRate: 25,
+		Held:           total25,
+	}
+	period0percent := HeldbackPeriod{
+		PercentageRate: 0,
+		Held:           total0,
 	}
 
-	for _, period := range periods {
-		payment, err := service.db.AllPayments(ctx, period)
-		if err != nil {
-			return nil, ErrHeldAmountService.Wrap(err)
-		}
+	result = append(result, period75percent)
 
-		payments = append(payments, payment...)
+	switch {
+	case len(heldback) > 3:
+		result = append(result, period50percent)
+	case len(heldback) > 6:
+		result = append(result, period25percent)
+	case len(heldback) > 9:
+		result = append(result, period0percent)
 	}
 
-	return payments, nil
+	return result, nil
 }
 
 // dial dials the HeldAmount client for the satellite by id
@@ -300,40 +320,40 @@ func (service *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *
 	}, nil
 }
 
-// TODO: improve it.
+// TODO: move to separate struct.
 func parsePeriodRange(periodStart, periodEnd string) (periods []string, err error) {
 	var yearStart, yearEnd, monthStart, monthEnd int
 
 	start := strings.Split(periodStart, "-")
 	if len(start) != 2 {
-		return nil, ErrHeldAmountService.New("period start has wrong format")
+		return nil, ErrBadPeriod.New("period start has wrong format")
 	}
 	end := strings.Split(periodEnd, "-")
 	if len(start) != 2 {
-		return nil, ErrHeldAmountService.New("period end has wrong format")
+		return nil, ErrBadPeriod.New("period end has wrong format")
 	}
 
 	yearStart, err = strconv.Atoi(start[0])
 	if err != nil {
-		return nil, ErrHeldAmountService.New("period start has wrong format")
+		return nil, ErrBadPeriod.New("period start has wrong format")
 	}
 	monthStart, err = strconv.Atoi(start[1])
 	if err != nil || monthStart > 12 || monthStart < 1 {
-		return nil, ErrHeldAmountService.New("period start has wrong format")
+		return nil, ErrBadPeriod.New("period start has wrong format")
 	}
 	yearEnd, err = strconv.Atoi(end[0])
 	if err != nil {
-		return nil, ErrHeldAmountService.New("period end has wrong format")
+		return nil, ErrBadPeriod.New("period end has wrong format")
 	}
 	monthEnd, err = strconv.Atoi(end[1])
 	if err != nil || monthEnd > 12 || monthEnd < 1 {
-		return nil, ErrHeldAmountService.New("period end has wrong format")
+		return nil, ErrBadPeriod.New("period end has wrong format")
 	}
 	if yearEnd < yearStart {
-		return nil, ErrHeldAmountService.New("period has wrong format")
+		return nil, ErrBadPeriod.New("period has wrong format")
 	}
 	if yearEnd == yearStart && monthEnd < monthStart {
-		return nil, ErrHeldAmountService.New("period has wrong format")
+		return nil, ErrBadPeriod.New("period has wrong format")
 	}
 
 	for ; yearStart <= yearEnd; yearStart++ {

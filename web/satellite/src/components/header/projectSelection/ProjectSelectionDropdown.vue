@@ -23,8 +23,8 @@ import { Component, Vue } from 'vue-property-decorator';
 import ProjectSelectionIcon from '@/../static/images/header/projectSelection.svg';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import { Project } from '@/types/projects';
 import {
     API_KEYS_ACTIONS,
@@ -45,12 +45,12 @@ export default class ProjectSelectionDropdown extends Vue {
      * @param projectID
      */
     public async onProjectSelected(projectID: string): Promise<void> {
-        this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
-        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
+        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
         try {
-            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
         }

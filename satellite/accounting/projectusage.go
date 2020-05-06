@@ -7,12 +7,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 )
 
 var mon = monkit.Package()
@@ -58,7 +58,7 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 	})
 	group.Go(func() error {
 		var err error
-		bandwidthGetTotal, err = usage.GetProjectBandwidthTotals(ctx, projectID)
+		bandwidthGetTotal, err = usage.GetCurrentBandwidthAllocated(ctx, projectID)
 		return err
 	})
 
@@ -123,6 +123,14 @@ func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID u
 	from := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
 	total, err := usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, projectID, from)
+	return total, ErrProjectUsage.Wrap(err)
+}
+
+// GetCurrentBandwidthAllocated returns allocated bandwidth for the current month
+func (usage *Service) GetCurrentBandwidthAllocated(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	total, err := usage.projectAccountingDB.GetCurrentBandwidthAllocated(ctx, projectID)
 	return total, ErrProjectUsage.Wrap(err)
 }
 

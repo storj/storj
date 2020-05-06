@@ -6,7 +6,6 @@ package metainfo
 import (
 	"context"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -95,7 +94,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectBegin: response,
 				},
 			})
-			lastStreamID = response.StreamId
+			if response != nil {
+				lastStreamID = response.StreamId
+			}
 		case *pb.BatchRequestItem_ObjectCommit:
 			singleRequest.ObjectCommit.Header = req.Header
 
@@ -154,7 +155,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectGet: response,
 				},
 			})
-			lastStreamID = response.Object.StreamId
+			if response != nil && response.Object != nil {
+				lastStreamID = response.Object.StreamId
+			}
 		case *pb.BatchRequestItem_ObjectList:
 			singleRequest.ObjectList.Header = req.Header
 			response, err := endpoint.ListObjects(ctx, singleRequest.ObjectList)
@@ -177,7 +180,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectBeginDelete: response,
 				},
 			})
-			lastStreamID = response.StreamId
+			if response != nil {
+				lastStreamID = response.StreamId
+			}
 		case *pb.BatchRequestItem_ObjectFinishDelete:
 			singleRequest.ObjectFinishDelete.Header = req.Header
 
@@ -211,7 +216,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentBegin: response,
 				},
 			})
-			lastSegmentID = response.SegmentId
+			if response != nil {
+				lastSegmentID = response.SegmentId
+			}
 		case *pb.BatchRequestItem_SegmentCommit:
 			singleRequest.SegmentCommit.Header = req.Header
 
@@ -289,7 +296,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentDownload: response,
 				},
 			})
-			lastSegmentID = response.SegmentId
+			if response != nil {
+				lastSegmentID = response.SegmentId
+			}
 		case *pb.BatchRequestItem_SegmentBeginDelete:
 			singleRequest.SegmentBeginDelete.Header = req.Header
 
@@ -306,7 +315,9 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentBeginDelete: response,
 				},
 			})
-			lastSegmentID = response.SegmentId
+			if response != nil {
+				lastSegmentID = response.SegmentId
+			}
 		case *pb.BatchRequestItem_SegmentFinishDelete:
 			singleRequest.SegmentFinishDelete.Header = req.Header
 
@@ -342,7 +353,7 @@ func (endpoint *Endpoint) shouldCombine(segmentIndex int32, reqIndex int, reques
 		objCommitReq := requests[reqIndex+1].GetObjectCommit()
 
 		streamMeta := pb.StreamMeta{}
-		err := proto.Unmarshal(objCommitReq.EncryptedMetadata, &streamMeta)
+		err := pb.Unmarshal(objCommitReq.EncryptedMetadata, &streamMeta)
 		if err != nil {
 			endpoint.log.Error("unable to unmarshal stream meta", zap.Error(err))
 			return false

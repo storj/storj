@@ -6,8 +6,10 @@ package storagenode
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -30,6 +32,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
+	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
@@ -46,9 +49,11 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/preflight"
+	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/satellites"
+	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 	version2 "storj.io/storj/storagenode/version"
@@ -62,8 +67,8 @@ var (
 //
 // architecture: Master Database
 type DB interface {
-	// CreateTables initializes the database
-	CreateTables(ctx context.Context) error
+	// MigrateToLatest initializes the database
+	MigrateToLatest(ctx context.Context) error
 	// Close closes the database
 	Close() error
 
@@ -80,6 +85,7 @@ type DB interface {
 	Satellites() satellites.DB
 	Notifications() notifications.DB
 	HeldAmount() heldamount.DB
+	Pricing() pricing.DB
 
 	Preflight(ctx context.Context) error
 }
@@ -100,6 +106,10 @@ type Config struct {
 	Storage2  piecestore.Config
 	Collector collector.Config
 
+	Filestore filestore.Config
+
+	Pieces pieces.Config
+
 	Retain retain.Config
 
 	Nodestats nodestats.Config
@@ -111,6 +121,21 @@ type Config struct {
 	Bandwidth bandwidth.Config
 
 	GracefulExit gracefulexit.Config
+}
+
+// DatabaseConfig returns the storagenodedb.Config that should be used with this Config.
+func (config *Config) DatabaseConfig() storagenodedb.Config {
+	dbdir := config.Storage2.DatabaseDir
+	if dbdir == "" {
+		dbdir = config.Storage.Path
+	}
+	return storagenodedb.Config{
+		Storage:   config.Storage.Path,
+		Info:      filepath.Join(dbdir, "piecestore.db"),
+		Info2:     filepath.Join(dbdir, "info.db"),
+		Pieces:    config.Storage.Path,
+		Filestore: config.Filestore,
+	}
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -201,6 +226,7 @@ type Peer struct {
 		BlobsCache    *pieces.BlobsUsageCache
 		CacheService  *pieces.CacheService
 		RetainService *retain.Service
+		PieceDeleter  *pieces.Deleter
 		Endpoint      *piecestore.Endpoint
 		Inspector     *inspector.Endpoint
 		Monitor       *monitor.Service
@@ -276,8 +302,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{
 		if !versionInfo.IsZero() {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
+			peer.Log.Debug("Version info",
+				zap.Stringer("Version", versionInfo.Version.Version),
+				zap.String("Commit Hash", versionInfo.CommitHash),
+				zap.Stringer("Build Timestamp", versionInfo.Timestamp),
+				zap.Bool("Release Build", versionInfo.Release),
+			)
 		}
 
 		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
@@ -307,9 +337,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Servers.Add(lifecycle.Item{
 			Name: "server",
 			Run: func(ctx context.Context) error {
-				peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
-				peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
-				peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
+				// Don't change the format of this comment, it is used to figure out the node id.
+				peer.Log.Info(fmt.Sprintf("Node %s started", peer.Identity.ID))
+				peer.Log.Info(fmt.Sprintf("Public server started on %s", peer.Addr()))
+				peer.Log.Info(fmt.Sprintf("Private server started on %s", peer.PrivateAddr()))
 				return peer.Server.Run(ctx)
 			},
 			Close: peer.Server.Close,
@@ -382,7 +413,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.V0PieceInfo(),
 			peer.DB.PieceExpirationDB(),
 			peer.DB.PieceSpaceUsedDB(),
+			config.Pieces,
 		)
+
+		peer.Storage2.PieceDeleter = pieces.NewDeleter(log.Named("piecedeleter"), peer.Storage2.Store, config.Storage2.DeleteWorkers, config.Storage2.DeleteQueueSize)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "PieceDeleter",
+			Run:   peer.Storage2.PieceDeleter.Run,
+			Close: peer.Storage2.PieceDeleter.Close,
+		})
 
 		peer.Storage2.TrashChore = pieces.NewTrashChore(
 			log.Named("pieces:trash"),
@@ -449,6 +488,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.RetainService,
 			peer.Contact.PingStats,
 			peer.Storage2.Store,
+			peer.Storage2.PieceDeleter,
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
 			peer.DB.UsedSerials(),
@@ -515,6 +555,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				Reputation:   peer.DB.Reputation(),
 				StorageUsage: peer.DB.StorageUsage(),
 				HeldAmount:   peer.DB.HeldAmount(),
+				Pricing:      peer.DB.Pricing(),
+				Satellites:   peer.DB.Satellites(),
 			},
 			peer.NodeStats.Service,
 			peer.Heldamount.Service,
@@ -543,6 +585,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Trust,
 			peer.DB.Reputation(),
 			peer.DB.StorageUsage(),
+			peer.DB.Pricing(),
+			peer.DB.Satellites(),
 			peer.Contact.PingStats,
 			peer.Contact.Service,
 		)
@@ -654,7 +698,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	}
 
 	if err := peer.Preflight.LocalTime.Check(ctx); err != nil {
-		peer.Log.Fatal("failed preflight check", zap.Error(err))
+		peer.Log.Fatal("Failed preflight check.", zap.Error(err))
 		return err
 	}
 

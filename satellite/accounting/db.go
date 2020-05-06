@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
+	"storj.io/storj/satellite/compensation"
 )
 
 // RollupStats is a convenience alias
@@ -43,6 +43,17 @@ type Rollup struct {
 	GetRepairTotal int64
 	PutRepairTotal int64
 	AtRestTotal    float64
+}
+
+// StorageNodePeriodUsage represents a statement for a node for a compensation period
+type StorageNodePeriodUsage struct {
+	NodeID         storj.NodeID
+	AtRestTotal    float64
+	GetTotal       int64
+	PutTotal       int64
+	GetRepairTotal int64
+	PutRepairTotal int64
+	GetAuditTotal  int64
 }
 
 // StorageNodeUsage is node at rest space usage over a period of time
@@ -138,6 +149,8 @@ type StoragenodeAccounting interface {
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
 	// QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
+	// QueryStorageNodePeriodUsage returns accounting statements for nodes for a given compensation period
+	QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) ([]StorageNodePeriodUsage, error)
 	// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
 	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
@@ -156,6 +169,8 @@ type ProjectAccounting interface {
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
 	// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
 	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
+	// GetCurrentBandwidthAllocated returns allocated bandwidth for the current month
+	GetCurrentBandwidthAllocated(ctx context.Context, projectID uuid.UUID) (int64, error)
 	// GetStorageTotals returns the current inline and remote storage usage for a projectID
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	// UpdateProjectUsageLimit updates project usage limit.

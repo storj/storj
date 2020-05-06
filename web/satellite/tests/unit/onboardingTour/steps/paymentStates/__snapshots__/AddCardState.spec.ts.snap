@@ -1,0 +1,17 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`AddCardState.vue renders correctly 1`] = `
+<div class="add-card-state">
+  <div class="add-card-state__input-container">
+    <stripecardinput-stub onstriperesponsecallback="function () { [native code] }"></stripecardinput-stub>
+    <!---->
+  </div>
+  <div class="add-card-state__security-info">
+    <lockimage-stub></lockimage-stub> <span class="add-card-state__security-info__text">
+            Your card is secured by 128-bit SSL and AES-256 encryption. Your information is secure.
+        </span>
+  </div>
+  <div class="add-card-state__button">
+    <!----> <span class="add-card-state__button__label">Add Payment</span></div>
+</div>
+`;

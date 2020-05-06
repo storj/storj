@@ -5,6 +5,7 @@ package audit_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,6 +17,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/overlay"
 )
 
 func TestReportPendingAudits(t *testing.T) {
@@ -140,5 +142,103 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
 		require.Nil(t, node.Suspended)
+	})
+}
+
+func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		audits.Worker.Loop.Pause()
+
+		suspendedNode := planet.StorageNodes[0].ID()
+
+		failed, err := audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}}, "")
+		require.NoError(t, err)
+		require.Zero(t, failed)
+
+		overlay := satellite.Overlay.Service
+
+		node, err := overlay.Get(ctx, suspendedNode)
+		require.NoError(t, err)
+		require.Nil(t, node.Disqualified)
+		require.NotNil(t, node.Suspended)
+
+		suspendedAt := node.Suspended
+
+		failed, err = audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}}, "")
+		require.NoError(t, err)
+		require.Zero(t, failed)
+
+		node, err = overlay.Get(ctx, suspendedNode)
+		require.NoError(t, err)
+		require.Nil(t, node.Disqualified)
+		require.NotNil(t, node.Suspended)
+		require.Equal(t, suspendedAt, node.Suspended)
+	})
+}
+
+// TestGracefullyExitedNotUpdated verifies that a gracefully exited node's reputation, suspension,
+// and disqualification flags are not updated when an audit is reported for that node.
+func TestGracefullyExitedNotUpdated(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+		audits.Worker.Loop.Pause()
+		cache := satellite.Overlay.DB
+
+		successNode := planet.StorageNodes[0]
+		failedNode := planet.StorageNodes[1]
+		containedNode := planet.StorageNodes[2]
+		unknownNode := planet.StorageNodes[3]
+		offlineNode := planet.StorageNodes[4]
+		nodeList := []*testplanet.StorageNode{successNode, failedNode, containedNode, unknownNode, offlineNode}
+
+		// mark each node as having gracefully exited
+		for _, node := range nodeList {
+			req := &overlay.ExitStatusRequest{
+				NodeID:              node.ID(),
+				ExitInitiatedAt:     time.Now(),
+				ExitLoopCompletedAt: time.Now(),
+				ExitFinishedAt:      time.Now(),
+			}
+			_, err := cache.UpdateExitStatus(ctx, req)
+			require.NoError(t, err)
+		}
+
+		pending := audit.PendingAudit{
+			NodeID:            containedNode.ID(),
+			PieceID:           storj.NewPieceID(),
+			StripeIndex:       1,
+			ShareSize:         1 * memory.KiB.Int32(),
+			ExpectedShareHash: pkcrypto.SHA256Hash([]byte("test")),
+		}
+		report := audit.Report{
+			Successes:     storj.NodeIDList{successNode.ID()},
+			Fails:         storj.NodeIDList{failedNode.ID()},
+			Offlines:      storj.NodeIDList{offlineNode.ID()},
+			PendingAudits: []*audit.PendingAudit{&pending},
+			Unknown:       storj.NodeIDList{unknownNode.ID()},
+		}
+		failed, err := audits.Reporter.RecordAudits(ctx, report, "")
+		require.NoError(t, err)
+		assert.Zero(t, failed)
+
+		// since every node has gracefully exit, reputation, dq, and suspension should remain at default values
+		for _, node := range nodeList {
+			nodeCacheInfo, err := cache.Get(ctx, node.ID())
+			require.NoError(t, err)
+
+			require.EqualValues(t, 1, nodeCacheInfo.Reputation.AuditReputationAlpha)
+			require.EqualValues(t, 0, nodeCacheInfo.Reputation.AuditReputationBeta)
+			require.EqualValues(t, 1, nodeCacheInfo.Reputation.UnknownAuditReputationAlpha)
+			require.EqualValues(t, 0, nodeCacheInfo.Reputation.UnknownAuditReputationBeta)
+			require.Nil(t, nodeCacheInfo.Suspended)
+			require.Nil(t, nodeCacheInfo.Disqualified)
+		}
 	})
 }

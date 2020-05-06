@@ -11,7 +11,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	monkit "github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -19,6 +18,7 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -431,7 +431,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	u, err = s.store.Users().GetByEmail(ctx, user.Email)
 	if err == nil {
-		return nil, errs.New(emailUsedErrMsg)
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
 	if err != sql.ErrNoRows {
 		return nil, Error.Wrap(err)
@@ -450,7 +450,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		newUser := &User{
-			ID:           *userID,
+			ID:           userID,
 			Email:        user.Email,
 			FullName:     user.FullName,
 			ShortName:    user.ShortName,
@@ -458,11 +458,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			Status:       Inactive,
 		}
 		if user.PartnerID != "" {
-			partnerID, err := uuid.Parse(user.PartnerID)
+			newUser.PartnerID, err = uuid.FromString(user.PartnerID)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			newUser.PartnerID = *partnerID
 		}
 
 		u, err = tx.Users().Insert(ctx,
@@ -484,7 +483,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			// NB: Uncomment this block when UserCredits().Create is cockroach compatible
 			// var refID *uuid.UUID
 			// if refUserID != "" {
-			// 	refID, err = uuid.Parse(refUserID)
+			// 	refID, err = uuid.FromString(refUserID)
 			// 	if err != nil {
 			// 		return Error.Wrap(err)
 			// 	}
@@ -655,11 +654,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
 	if err != nil {
-		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return "", ErrUnauthorized.New(credentialsErrMsg)
-		}
-
-		return "", Error.Wrap(err)
+		return "", ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	claims := consoleauth.Claims{
@@ -738,11 +733,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(pass))
 	if err != nil {
-		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return ErrUnauthorized.Wrap(err)
-		}
-
-		return Error.Wrap(err)
+		return ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	if err := ValidatePassword(newPass); err != nil {
@@ -773,11 +764,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) (err error
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(password))
 	if err != nil {
-		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return ErrUnauthorized.Wrap(err)
-		}
-
-		return Error.Wrap(err)
+		return ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	err = s.store.Users().Delete(ctx, auth.User.ID)

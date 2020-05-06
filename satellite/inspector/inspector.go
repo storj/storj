@@ -7,13 +7,13 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 )
@@ -115,12 +115,12 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 
 	health := &pb.SegmentHealth{}
 
-	projectID, err := uuid.Parse(string(in.GetProjectId()))
+	projectID, err := uuid.FromString(string(in.GetProjectId()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	path, err := metainfo.CreatePath(ctx, *projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
+	path, err := metainfo.CreatePath(ctx, projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

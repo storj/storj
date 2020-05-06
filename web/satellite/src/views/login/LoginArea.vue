@@ -77,7 +77,7 @@ export default class Login extends Vue {
 
     /**
      * Performs login action.
-     * Than change location to project overview.
+     * Then changes location to billing page.
      */
     public async onLogin(): Promise<void> {
         if (this.isLoading) {
@@ -86,9 +86,7 @@ export default class Login extends Vue {
 
         this.isLoading = true;
 
-        const self = this;
-
-        if (!self.validateFields()) {
+        if (!this.validateFields()) {
             this.isLoading = false;
 
             return;
@@ -106,13 +104,13 @@ export default class Login extends Vue {
             return;
         }
 
-        if (window.self !== window.top) {
-            top.location.href = window.self.location.origin + '/project-overview/details';
+        if (this.isInsideIframe) {
+            window.top.location.href = window.self.location.origin + '/account/billing';
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
         this.isLoading = false;
-        await this.$router.push(RouteConfig.ProjectDashboard.with(RouteConfig.ProjectDetails).path);
+        await this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
     }
 
     private validateFields(): boolean {

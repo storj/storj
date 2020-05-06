@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
@@ -31,6 +32,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -50,15 +52,15 @@ var mon = monkit.Package()
 //
 // architecture: Master Database
 type DB interface {
-	// CreateTables initializes the database
-	CreateTables(ctx context.Context) error
+	// MigrateToLatest initializes the database
+	MigrateToLatest(ctx context.Context) error
 	// CheckVersion checks the database is the correct version
 	CheckVersion(ctx context.Context) error
 	// Close closes the database
 	Close() error
 
-	// TestingCreateTables initializes the database for testplanet.
-	TestingCreateTables(ctx context.Context) error
+	// TestingMigrateToLatest initializes the database for testplanet.
+	TestingMigrateToLatest(ctx context.Context) error
 
 	// PeerIdentities returns a storage for peer identities
 	PeerIdentities() overlay.PeerIdentities
@@ -92,6 +94,8 @@ type DB interface {
 	DowntimeTracking() downtime.DB
 	// Heldamount returns database for heldamount.
 	HeldAmount() heldamount.DB
+	// Compoensation tracks storage node compensation
+	Compensation() compensation.DB
 }
 
 // Config is the global config satellite
@@ -113,6 +117,8 @@ type Config struct {
 	Audit    audit.Config
 
 	GarbageCollection gc.Config
+
+	ExpiredDeletion expireddeletion.Config
 
 	DBCleanup dbcleanup.Config
 
@@ -138,4 +144,6 @@ type Config struct {
 	Metrics metrics.Config
 
 	Downtime downtime.Config
+
+	Compensation compensation.Config
 }

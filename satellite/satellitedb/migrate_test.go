@@ -22,8 +22,8 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/dbschema"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite/satellitedb"
@@ -132,72 +132,8 @@ func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema
 	return pgutil.QuerySchema(ctx, db)
 }
 
-func TestMigrateCockroach(t *testing.T) {
-	if *pgtest.CrdbConnStr == "" {
-		t.Skip("Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr)
-	}
-	t.Parallel()
-	migrateTest(t, *pgtest.CrdbConnStr)
-}
-
-func TestMigratePostgres(t *testing.T) {
-	if *pgtest.ConnStr == "" {
-		t.Skip("Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr)
-	}
-	t.Parallel()
-	migrateTest(t, *pgtest.ConnStr)
-}
-
-func BenchmarkSetup_Postgres(b *testing.B) {
-	if *pgtest.ConnStr == "" {
-		b.Skip("Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultConnStr)
-	}
-	b.Run("merged", func(b *testing.B) {
-		benchmarkSetup(b, *pgtest.ConnStr, true)
-	})
-	b.Run("separate", func(b *testing.B) {
-		benchmarkSetup(b, *pgtest.ConnStr, false)
-	})
-}
-
-func BenchmarkSetup_Cockroach(b *testing.B) {
-	if *pgtest.CrdbConnStr == "" {
-		b.Skip("Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCrdbConnStr)
-	}
-	b.Run("merged", func(b *testing.B) {
-		benchmarkSetup(b, *pgtest.CrdbConnStr, true)
-	})
-	b.Run("separate", func(b *testing.B) {
-		benchmarkSetup(b, *pgtest.CrdbConnStr, false)
-	})
-}
-
-func benchmarkSetup(b *testing.B, connStr string, merged bool) {
-	for i := 0; i < b.N; i++ {
-		func() {
-			ctx := context.Background()
-			log := zap.NewNop()
-
-			// create tempDB
-			tempDB, err := tempdb.OpenUnique(ctx, connStr, "migrate")
-			require.NoError(b, err)
-			defer func() { require.NoError(b, tempDB.Close()) }()
-
-			// create a new satellitedb connection
-			db, err := satellitedb.New(log, tempDB.ConnStr, satellitedb.Options{})
-			require.NoError(b, err)
-			defer func() { require.NoError(b, db.Close()) }()
-
-			if merged {
-				err = db.TestingCreateTables(ctx)
-				require.NoError(b, err)
-			} else {
-				err = db.CreateTables(ctx)
-				require.NoError(b, err)
-			}
-		}()
-	}
-}
+func TestMigratePostgres(t *testing.T)  { migrateTest(t, pgtest.PickPostgres(t)) }
+func TestMigrateCockroach(t *testing.T) { migrateTest(t, pgtest.PickCockroach(t)) }
 
 // satelliteDB provides access to certain methods on a *satellitedb.satelliteDB
 // instance, since that type is not exported.
@@ -207,6 +143,8 @@ type satelliteDB interface {
 }
 
 func migrateTest(t *testing.T, connStr string) {
+	t.Parallel()
+
 	ctx := testcontext.NewWithTimeout(t, 8*time.Minute)
 	defer ctx.Cleanup()
 
@@ -270,4 +208,51 @@ func migrateTest(t *testing.T, connStr string) {
 
 	// verify that we also match the dbx version
 	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
+}
+
+func BenchmarkSetup_Postgres(b *testing.B) {
+	connstr := pgtest.PickPostgres(b)
+	b.Run("merged", func(b *testing.B) {
+		benchmarkSetup(b, connstr, true)
+	})
+	b.Run("separate", func(b *testing.B) {
+		benchmarkSetup(b, connstr, false)
+	})
+}
+
+func BenchmarkSetup_Cockroach(b *testing.B) {
+	connstr := pgtest.PickCockroach(b)
+	b.Run("merged", func(b *testing.B) {
+		benchmarkSetup(b, connstr, true)
+	})
+	b.Run("separate", func(b *testing.B) {
+		benchmarkSetup(b, connstr, false)
+	})
+}
+
+func benchmarkSetup(b *testing.B, connStr string, merged bool) {
+	for i := 0; i < b.N; i++ {
+		func() {
+			ctx := context.Background()
+			log := zap.NewNop()
+
+			// create tempDB
+			tempDB, err := tempdb.OpenUnique(ctx, connStr, "migrate")
+			require.NoError(b, err)
+			defer func() { require.NoError(b, tempDB.Close()) }()
+
+			// create a new satellitedb connection
+			db, err := satellitedb.New(log, tempDB.ConnStr, satellitedb.Options{})
+			require.NoError(b, err)
+			defer func() { require.NoError(b, db.Close()) }()
+
+			if merged {
+				err = db.TestingMigrateToLatest(ctx)
+				require.NoError(b, err)
+			} else {
+				err = db.MigrateToLatest(ctx)
+				require.NoError(b, err)
+			}
+		}()
+	}
 }

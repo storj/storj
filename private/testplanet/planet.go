@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storagenode"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -36,7 +35,8 @@ const defaultInterval = 15 * time.Second
 type Peer interface {
 	ID() storj.NodeID
 	Addr() string
-	URL() storj.NodeURL
+	URL() string
+	NodeURL() storj.NodeURL
 	Local() overlay.NodeDossier
 
 	Run(context.Context) error
@@ -56,6 +56,12 @@ type Config struct {
 	NonParallel bool
 }
 
+// DatabaseConfig defines connection strings for database.
+type DatabaseConfig struct {
+	SatelliteDB        string
+	SatellitePointerDB string
+}
+
 // Planet is a full storj system setup.
 type Planet struct {
 	id        string
@@ -71,8 +77,8 @@ type Planet struct {
 	uplinks   []*Uplink
 
 	VersionControl *versioncontrol.Peer
-	Satellites     []*SatelliteSystem
-	StorageNodes   []*storagenode.Peer
+	Satellites     []*Satellite
+	StorageNodes   []*StorageNode
 	Uplinks        []*Uplink
 
 	ReferralManager *server.Server
@@ -87,39 +93,35 @@ type Planet struct {
 type closablePeer struct {
 	peer Peer
 
-	ctx    context.Context
-	cancel func()
+	ctx         context.Context
+	cancel      func()
+	runFinished chan struct{} // it is closed after peer.Run returns
 
-	close  sync.Once
-	closed chan error
-	err    error
+	close sync.Once
+	err   error
 }
 
 func newClosablePeer(peer Peer) closablePeer {
 	return closablePeer{
-		peer:   peer,
-		closed: make(chan error, 1),
+		peer:        peer,
+		runFinished: make(chan struct{}),
 	}
 }
 
 // Close closes safely the peer.
 func (peer *closablePeer) Close() error {
 	peer.cancel()
+
 	peer.close.Do(func() {
+		<-peer.runFinished // wait for Run to complete
 		peer.err = peer.peer.Close()
-		<-peer.closed
 	})
 
 	return peer.err
 }
 
 // NewCustom creates a new full system with the specified configuration.
-func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
-	// Clear error in the beginning to avoid issues down the line.
-	if err := satellitedbtest.PostgresDefined(); err != nil {
-		return nil, err
-	}
-
+func NewCustom(log *zap.Logger, config Config, satelliteDatabases satellitedbtest.SatelliteDatabases) (*Planet, error) {
 	if config.IdentityVersion == nil {
 		version := storj.LatestIDVersion()
 		config.IdentityVersion = &version
@@ -159,14 +161,14 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Satellites, err = planet.newSatellites(config.SatelliteCount)
+	planet.Satellites, err = planet.newSatellites(config.SatelliteCount, satelliteDatabases)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
 	whitelistedSatellites := make(storj.NodeURLs, 0, len(planet.Satellites))
 	for _, satellite := range planet.Satellites {
-		whitelistedSatellites = append(whitelistedSatellites, satellite.URL())
+		whitelistedSatellites = append(whitelistedSatellites, satellite.NodeURL())
 	}
 
 	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount, whitelistedSatellites)
@@ -201,10 +203,9 @@ func (planet *Planet) Start(ctx context.Context) {
 		peer := &planet.peers[i]
 		peer.ctx, peer.cancel = context.WithCancel(ctx)
 		planet.run.Go(func() error {
-			err := peer.peer.Run(peer.ctx)
-			peer.closed <- err
-			close(peer.closed)
+			defer close(peer.runFinished)
 
+			err := peer.peer.Run(peer.ctx)
 			return err
 		})
 	}
@@ -238,7 +239,7 @@ func (planet *Planet) StopPeer(peer Peer) error {
 func (planet *Planet) Size() int { return len(planet.uplinks) + len(planet.peers) }
 
 // FindNode is a helper to retrieve a storage node record by its node ID.
-func (planet *Planet) FindNode(nodeID storj.NodeID) *storagenode.Peer {
+func (planet *Planet) FindNode(nodeID storj.NodeID) *StorageNode {
 	for _, node := range planet.StorageNodes {
 		if node.ID() == nodeID {
 			return node

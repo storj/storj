@@ -53,7 +53,7 @@ export default class ChecksArea extends Vue {
     .checks-area-container {
         width: calc(48% - 60px);
         height: 79px;
-        background-color: #fff;
+        background-color: var(--block-background-color);
         border: 1px solid #e9eff4;
         border-radius: 11px;
         padding: 32px 30px;

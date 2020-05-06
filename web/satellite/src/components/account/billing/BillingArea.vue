@@ -55,11 +55,12 @@ import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCost
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 import VDatepicker from '@/components/common/VDatePicker.vue';
 
-import DatePickerIcon from '@/../static/images/project/datePicker.svg';
+import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 
+import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { DateRange } from '@/types/usage';
+import { DateRange } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { ProjectOwning } from '@/utils/projectOwning';
@@ -93,18 +94,20 @@ export default class BillingArea extends Vue {
      * Fetches billing history and project limits.
      */
     public async beforeMount(): Promise<void> {
+        if (this.noProjectOrApiKeys) {
+            await this.$router.push(RouteConfig.OnboardingTour.path);
+
+            return;
+        }
+
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
             if (this.$store.getters.canUserCreateFirstProject && !this.userHasOwnProject) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-                await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CONTENT_BLUR);
+                await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
             }
         } catch (error) {
             await this.$notify.error(error.message);
-        }
-
-        if (!this.$store.getters.selectedProject.id) {
-            return;
         }
 
         try {
@@ -152,7 +155,7 @@ export default class BillingArea extends Vue {
      */
     public async beforeRouteLeave(to, from, next): Promise<void> {
         try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -220,7 +223,7 @@ export default class BillingArea extends Vue {
                 start_date: this.dateRange.startDate,
                 end_date: this.dateRange.endDate,
             });
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
         }
@@ -239,7 +242,7 @@ export default class BillingArea extends Vue {
                 start_date: this.dateRange.startDate,
                 end_date: this.dateRange.endDate,
             });
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_PREVIOUS_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
         }
@@ -274,10 +277,17 @@ export default class BillingArea extends Vue {
         const dateRange: DateRange = new DateRange(startDate, endDate);
 
         try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES, dateRange);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES, dateRange);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
         }
+    }
+
+    /**
+     * Indicates if user has no project nor api keys.
+     */
+    private get noProjectOrApiKeys(): boolean {
+        return !this.$store.getters.selectedProject.id || this.$store.state.apiKeysModule.page.apiKeys.length === 0;
     }
 
     /**

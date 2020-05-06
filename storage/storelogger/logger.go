@@ -100,6 +100,29 @@ func (store *Logger) Iterate(ctx context.Context, opts storage.IterateOptions, f
 	})
 }
 
+// IterateWithoutLookupLimit calls the callback with an iterator over the keys, but doesn't enforce default limit on opts.
+func (store *Logger) IterateWithoutLookupLimit(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	store.log.Debug("IterateWithoutLookupLimit",
+		zap.ByteString("prefix", opts.Prefix),
+		zap.ByteString("first", opts.First),
+		zap.Bool("recurse", opts.Recurse),
+	)
+	return store.store.IterateWithoutLookupLimit(ctx, opts, func(ctx context.Context, it storage.Iterator) error {
+		return fn(ctx, storage.IteratorFunc(func(ctx context.Context, item *storage.ListItem) bool {
+			ok := it.Next(ctx, item)
+			if ok {
+				store.log.Debug("  ",
+					zap.ByteString("key", item.Key),
+					zap.Int("value length", len(item.Value)),
+					zap.Binary("truncated value", truncate(item.Value)),
+				)
+			}
+			return ok
+		}))
+	})
+}
+
 // Close closes the store
 func (store *Logger) Close() error {
 	store.log.Debug("Close")

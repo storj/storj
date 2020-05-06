@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
-	"storj.io/storj/storagenode"
 )
 
 func TestChore(t *testing.T) {
@@ -58,19 +57,14 @@ func TestChore(t *testing.T) {
 		require.NotNil(t, newExitingNodeID)
 		require.NotEqual(t, exitingNode.ID(), newExitingNodeID)
 
-		var newExitingNode *storagenode.Peer
-		for _, node := range planet.StorageNodes {
-			if node.ID() == newExitingNodeID {
-				newExitingNode = node
-			}
-		}
+		newExitingNode := planet.FindNode(newExitingNodeID)
 		require.NotNil(t, newExitingNode)
 
 		exitSatellite(ctx, t, planet, newExitingNode)
 	})
 }
 
-func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet, exitingNode *storagenode.Peer) {
+func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet, exitingNode *testplanet.StorageNode) {
 	satellite1 := planet.Satellites[0]
 	exitingNode.GracefulExit.Chore.Loop.Pause()
 
@@ -162,7 +156,7 @@ func getNodePieceCounts(ctx context.Context, planet *testplanet.Planet) (_ map[s
 }
 
 // findNodeToExit selects the node storing the most pieces as the node to graceful exit.
-func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*storagenode.Peer, error) {
+func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*testplanet.StorageNode, error) {
 	satellite := planet.Satellites[0]
 	keys, err := satellite.Metainfo.Database.List(ctx, nil, objects)
 	if err != nil {
@@ -199,11 +193,5 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 		}
 	}
 
-	for _, sn := range planet.StorageNodes {
-		if sn.ID() == exitingNodeID {
-			return sn, nil
-		}
-	}
-
-	return nil, nil
+	return planet.FindNode(exitingNodeID), nil
 }

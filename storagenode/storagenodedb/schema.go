@@ -70,47 +70,6 @@ func Schema() map[string]*dbschema.Schema {
 		"heldamount": &dbschema.Schema{
 			Tables: []*dbschema.Table{
 				&dbschema.Table{
-					Name:       "payments",
-					PrimaryKey: []string{"id"},
-					Columns: []*dbschema.Column{
-						&dbschema.Column{
-							Name:       "amount",
-							Type:       "bigint",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "created_at",
-							Type:       "timestamp",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "id",
-							Type:       "bigserial",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "notes",
-							Type:       "text",
-							IsNullable: true,
-						},
-						&dbschema.Column{
-							Name:       "period",
-							Type:       "text",
-							IsNullable: true,
-						},
-						&dbschema.Column{
-							Name:       "receipt",
-							Type:       "text",
-							IsNullable: true,
-						},
-						&dbschema.Column{
-							Name:       "satellite_id",
-							Type:       "bytea",
-							IsNullable: false,
-						},
-					},
-				},
-				&dbschema.Table{
 					Name:       "paystubs",
 					PrimaryKey: []string{"period", "satellite_id"},
 					Columns: []*dbschema.Column{
@@ -480,6 +439,41 @@ func Schema() map[string]*dbschema.Schema {
 				&dbschema.Index{Name: "pk_pieceinfo_", Table: "pieceinfo_", Columns: []string{"satellite_id", "piece_id"}, Unique: false, Partial: ""},
 			},
 		},
+		"pricing": &dbschema.Schema{
+			Tables: []*dbschema.Table{
+				&dbschema.Table{
+					Name:       "pricing",
+					PrimaryKey: []string{"satellite_id"},
+					Columns: []*dbschema.Column{
+						&dbschema.Column{
+							Name:       "audit_bandwidth_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "disk_space_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "egress_bandwidth_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "repair_bandwidth_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "satellite_id",
+							Type:       "BLOB",
+							IsNullable: false,
+						},
+					},
+				},
+			},
+		},
 		"reputation": &dbschema.Schema{
 			Tables: []*dbschema.Table{
 				&dbschema.Table{
@@ -512,14 +506,34 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
+							Name:       "audit_unknown_reputation_alpha",
+							Type:       "REAL",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "audit_unknown_reputation_beta",
+							Type:       "REAL",
+							IsNullable: false,
+						},
+						&dbschema.Column{
 							Name:       "disqualified",
 							Type:       "TIMESTAMP",
 							IsNullable: true,
 						},
 						&dbschema.Column{
+							Name:       "joined_at",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+						&dbschema.Column{
 							Name:       "satellite_id",
 							Type:       "BLOB",
 							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "suspended",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
 						},
 						&dbschema.Column{
 							Name:       "updated_at",
@@ -671,3 +685,4 @@ func Schema() map[string]*dbschema.Schema {
 		},
 	}
 }
+

@@ -3,7 +3,7 @@
 
 <template>
     <div class="api-keys-area">
-        <h1 class="api-keys-area__title" v-if="isTitleShown">API Keys</h1>
+        <h1 class="api-keys-area__title" v-if="!isEmpty">API Keys</h1>
         <div class="api-keys-area__container">
             <ApiKeysCreationPopup
                 @closePopup="closeNewApiKeyPopup"
@@ -23,7 +23,7 @@
                     <div class="header-default-state" v-if="isDefaultHeaderState">
                         <VButton
                             class="button"
-                            label="+Create API Key"
+                            label="+ Create API Key"
                             width="180px"
                             height="48px"
                             :on-press="onCreateApiKeyClick"
@@ -93,7 +93,6 @@
                 <EmptySearchResultIcon class="empty-search-result-area__image"/>
             </div>
             <NoApiKeysArea
-                :class="{ collapsed: isBannerShown }"
                 :on-button-click="onCreateApiKeyClick"
                 v-if="isEmptyStateShown"
             />
@@ -107,7 +106,6 @@ import { Component, Vue } from 'vue-property-decorator';
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
 import NoApiKeysArea from '@/components/apiKeys/NoApiKeysArea.vue';
 import SortingHeader from '@/components/apiKeys/SortingHeader.vue';
-import EmptyState from '@/components/common/EmptyStateArea.vue';
 import VButton from '@/components/common/VButton.vue';
 import VHeader from '@/components/common/VHeader.vue';
 import VList from '@/components/common/VList.vue';
@@ -148,7 +146,6 @@ declare interface ResetPagination {
     components: {
         NoApiKeysArea,
         VList,
-        EmptyState,
         VHeader,
         ApiKeysItem,
         VButton,
@@ -251,7 +248,7 @@ export default class ApiKeysArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.notifyFetchError(error);
+            await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
         }
 
         this.isDeleteClicked = false;
@@ -291,20 +288,6 @@ export default class ApiKeysArea extends Vue {
      */
     public get isEmpty(): boolean {
         return this.$store.getters.apiKeys.length === 0;
-    }
-
-    /**
-     * Indicates if bonus banner should appear if no credit cards is attached to account.
-     */
-    public get isBannerShown(): boolean {
-        return this.$store.state.paymentsModule.creditCards.length === 0;
-    }
-
-    /**
-     * Indicates if "Account" title is shown.
-     */
-    public get isTitleShown(): boolean {
-        return !(this.isBannerShown && this.isEmpty);
     }
 
     public get hasSearchQuery(): boolean {
@@ -351,7 +334,7 @@ export default class ApiKeysArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, index);
         } catch (error) {
-            await this.notifyFetchError(error);
+            await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
         }
     }
 
@@ -366,7 +349,7 @@ export default class ApiKeysArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.notifyFetchError(error);
+            await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
         }
 
         if (this.totalPageCount > 1) {
@@ -383,20 +366,12 @@ export default class ApiKeysArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.notifyFetchError(error);
+            await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
         }
 
         if (this.totalPageCount > 1) {
             this.$refs.pagination.resetPageIndex();
         }
-    }
-
-    /**
-     * Fires UI notification with message.
-     * @param error
-     */
-    public async notifyFetchError(error: Error): Promise<void> {
-        await this.$notify.error(`Unable to fetch API keys. ${error.message}`);
     }
 }
 </script>
@@ -434,7 +409,7 @@ export default class ApiKeysArea extends Vue {
                 position: absolute;
                 bottom: 0;
                 right: 0;
-                width: 602px;
+                width: 540px;
                 height: 56px;
                 z-index: 100;
                 opacity: 0.3;

@@ -1,0 +1,32 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`BillingHistoryItemDate renders correctly if charge 1`] = `
+<div class="countdown-container">
+  <div>June 05, 2019</div>
+</div>
+`;
+
+exports[`BillingHistoryItemDate renders correctly if invoice 1`] = `
+<div class="countdown-container">
+  <div>February 01, 2019</div>
+</div>
+`;
+
+exports[`BillingHistoryItemDate renders correctly if transaction expired 1`] = `
+<div class="countdown-container">
+  <div>June 06, 2019</div>
+</div>
+`;
+
+exports[`BillingHistoryItemDate renders correctly if transaction not expired 1`] = `
+<div class="countdown-container">
+  <div class="row">
+    <p>Expires in </p>
+    <p class="digit margin">00</p>
+    <p>:</p>
+    <p class="digit">00</p>
+    <p>:</p>
+    <p class="digit">00</p>
+  </div>
+</div>
+`;

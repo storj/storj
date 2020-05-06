@@ -23,7 +23,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode"
 	"storj.io/uplink/private/ecclient"
 	"storj.io/uplink/private/eestream"
 )
@@ -57,9 +56,6 @@ func TestECClient(t *testing.T) {
 
 		// Download the pieces and erasure decode the data
 		testGet(ctx, t, planet, ec, es, data, successfulNodes, successfulHashes)
-
-		// Delete the pieces
-		testDelete(ctx, t, planet, ec, successfulNodes, successfulHashes)
 	})
 }
 
@@ -128,24 +124,7 @@ func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 	require.NoError(t, err)
 }
 
-func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash) {
-	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
-	require.NoError(t, err)
-
-	limits := make([]*pb.AddressedOrderLimit, len(successfulNodes))
-	for i := 0; i < len(limits); i++ {
-		if successfulNodes[i] != nil {
-			limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_DELETE, planet.Satellites[0], piecePublicKey, planet.StorageNodes[i], successfulHashes[i].PieceId)
-			require.NoError(t, err)
-		}
-	}
-
-	err = ec.Delete(ctx, limits, piecePrivateKey)
-
-	require.NoError(t, err)
-}
-
-func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellite *testplanet.SatelliteSystem, piecePublicKey storj.PiecePublicKey, storageNode *storagenode.Peer, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
+func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellite *testplanet.Satellite, piecePublicKey storj.PiecePublicKey, storageNode *testplanet.StorageNode, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
 	// TODO refactor to avoid OrderLimit duplication
 	serialNumber := testrand.SerialNumber()
 

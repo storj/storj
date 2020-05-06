@@ -9,6 +9,7 @@ import (
 
 	"storj.io/private/process"
 	"storj.io/storj/cmd/uplink/cmd"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 )
 
 func main() {

@@ -14,7 +14,9 @@
     "baseUrl": ".",
     "strictPropertyInitialization": false,
     "types": [
-      "webpack-env"
+      "webpack-env",
+      "jest",
+      "segment-analytics"
     ],
     "paths": {
       "@/*": [
@@ -32,7 +34,9 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "src/app/types/svg.d.ts"
+    "src/app/types/svg.d.ts",
+    "tests/**/*.ts",
+    "tests/**/*.tsx"
   ],
   "exclude": [
     "node_modules"

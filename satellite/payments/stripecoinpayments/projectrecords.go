@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
 // ErrProjectRecordExists is error class defining that such project record already exists.

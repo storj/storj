@@ -65,7 +65,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { PaymentAmountOption } from '@/types/payments';
-import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { ProjectOwning } from '@/utils/projectOwning';
 
@@ -122,7 +121,7 @@ export default class TokenDepositSelection extends Vue {
      * Returns payment options depending on user having his own project.
      */
     public get options(): PaymentAmountOption[] {
-        if (!new ProjectOwning(this.$store).userHasOwnProject()) {
+        if (!new ProjectOwning(this.$store).userHasOwnProject() && this.noCreditCards) {
             return this.initialPaymentOptions;
         }
 
@@ -175,13 +174,20 @@ export default class TokenDepositSelection extends Vue {
     }
 
     /**
-     * select standard value from list and emits it value to parent component
+     * select standard value from list and emits it value to parent component.
      */
     public select(option: PaymentAmountOption): void {
         this.isCustomAmount = false;
         this.current = option;
         this.$emit('onChangeTokenValue', option.value);
         this.close();
+    }
+
+    /**
+     * Indicates if user has no credit cards.
+     */
+    private get noCreditCards(): boolean {
+        return this.$store.state.paymentsModule.creditCards.length === 0;
     }
 }
 </script>
@@ -269,6 +275,7 @@ export default class TokenDepositSelection extends Vue {
 
             &__svg {
                 cursor: pointer;
+                min-height: 25px;
             }
         }
     }

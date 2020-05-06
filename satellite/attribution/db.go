@@ -8,8 +8,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
 
 // ErrBucketNotAttributed is returned if a requested bucket not attributed(entry not found)

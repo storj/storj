@@ -44,6 +44,9 @@ type Client struct {
 // New creates a new in-memory key-value store
 func New() *Client { return &Client{lookupLimit: storage.DefaultLookupLimit} }
 
+// MigrateToLatest pretends to migrate to latest db schema version.
+func (store *Client) MigrateToLatest(ctx context.Context) error { return nil }
+
 // SetLookupLimit sets the lookup limit.
 func (store *Client) SetLookupLimit(v int) { store.lookupLimit = v }
 
@@ -228,8 +231,14 @@ func (store *Client) Close() error {
 	return nil
 }
 
-// Iterate iterates over items based on opts
+// Iterate iterates over items based on opts.
 func (store *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return store.IterateWithoutLookupLimit(ctx, opts, fn)
+}
+
+// IterateWithoutLookupLimit calls the callback with an iterator over the keys, but doesn't enforce default limit on opts.
+func (store *Client) IterateWithoutLookupLimit(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	store.mu.Lock()

@@ -15,13 +15,12 @@
             </div>
         </div>
         <div class="held-progress__border"></div>
-        <p class="held-progress__main-text">It is your <span class="bold">{{ '7' }} month</span> on network</p>
-        <p class="held-progress__hint">25% of Storage Node revenue is withheld, 75% is paid to the Storage Node Operator</p>
+        <p class="held-progress__main-text">It is your <span class="bold">{{ monthsOnNetwork }} month</span> on network</p>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Watch } from 'vue-property-decorator';
 
 class HeldStep {
     public constructor(
@@ -41,13 +40,61 @@ class HeldStep {
 
 @Component
 export default class HeldProgress extends Vue {
-    public steps: HeldStep[] = [
-        new HeldStep('75%', 'Month 1-3', false, false),
-        new HeldStep('50%', 'Month 4-6', false, false),
-        new HeldStep('25%', 'Month 7-9', true, false),
-        new HeldStep('0%', 'Month 10-15', false, true),
-        new HeldStep('+50%', 'Month 15', false, true),
-    ];
+    public steps: HeldStep[] = [];
+
+    /**
+     * Returns approximated number of months that node is online.
+     */
+    public get monthsOnNetwork(): number {
+        return this.$store.getters.monthsOnNetwork;
+    }
+
+    /**
+     * Lifecycle hook after initial render.
+     * Builds held steps.
+     */
+    public mounted(): void {
+        this.buildSteps();
+    }
+
+    /**
+     * Builds held steps depends on node`s months online.
+     */
+    @Watch('monthsOnNetwork')
+    private buildSteps(): void {
+        this.steps = [
+            new HeldStep(
+                '75%',
+                'Month 1-3',
+                this.monthsOnNetwork > 0 && this.monthsOnNetwork <= 3,
+                false,
+            ),
+            new HeldStep(
+                '50%',
+                'Month 4-6',
+                this.monthsOnNetwork > 3 && this.monthsOnNetwork <= 6,
+                this.monthsOnNetwork < 4,
+            ),
+            new HeldStep(
+                '25%',
+                'Month 7-9',
+                this.monthsOnNetwork > 6 && this.monthsOnNetwork <= 9,
+                this.monthsOnNetwork < 7,
+            ),
+            new HeldStep(
+                '0%',
+                'Month 10-15',
+                this.monthsOnNetwork > 9 && this.monthsOnNetwork <= 15,
+                this.monthsOnNetwork < 10,
+            ),
+            new HeldStep(
+                '+50%',
+                'Month 15',
+                this.monthsOnNetwork > 15,
+                this.monthsOnNetwork < 15,
+            ),
+        ];
+    }
 }
 </script>
 
@@ -107,8 +154,8 @@ export default class HeldProgress extends Vue {
         display: flex;
         flex-direction: column;
         width: 100%;
-        background: #fff;
-        border: 1px solid #eaeaea;
+        background: var(--block-background-color);
+        border: 1px solid var(--block-border-color);
         box-sizing: border-box;
         border-radius: 12px;
         padding: 29px;
@@ -142,7 +189,7 @@ export default class HeldProgress extends Vue {
 
         &__main-text {
             font-size: 16px;
-            color: #535f77;
+            color: var(--regular-text-color);
 
             .bold {
                 font-family: 'font_bold', sans-serif;
@@ -153,6 +200,13 @@ export default class HeldProgress extends Vue {
             font-size: 13px;
             line-height: 15px;
             color: #9b9db1;
+        }
+    }
+
+    @media screen and (max-width: 640px) {
+
+        .label {
+            text-align: center;
         }
     }
 </style>

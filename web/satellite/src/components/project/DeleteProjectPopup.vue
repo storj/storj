@@ -60,7 +60,6 @@ import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { PROJECT_USAGE_ACTIONS } from '@/store/modules/usage';
 import {
     API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
@@ -149,7 +148,6 @@ export default class DeleteProjectPopup extends Vue {
             await this.$store.dispatch(PM_ACTIONS.CLEAR);
             await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
             await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
-            await this.$store.dispatch(PROJECT_USAGE_ACTIONS.CLEAR);
 
             return;
         }
@@ -159,7 +157,6 @@ export default class DeleteProjectPopup extends Vue {
         await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
         await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
-        await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
     }
 }
 </script>

@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,8 +17,20 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/rpc/rpcpeer"
+	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/storage"
 )
+
+func (server *Server) monkitStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+	mon.IntVal("grpc_stream").Observe(1)
+	return handler(srv, ss)
+}
+
+func (server *Server) monkitUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+	mon.IntVal("grpc_call").Observe(1)
+	return handler(ctx, req)
+}
 
 func (server *Server) logOnErrorStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 	err = handler(srv, ss)
@@ -46,23 +59,12 @@ func (server *Server) logOnErrorUnaryInterceptor(ctx context.Context, req interf
 	return resp, err
 }
 
-// CombineInterceptors combines two UnaryServerInterceptors so they act as one
-// (because grpc only allows you to pass one in).
-func CombineInterceptors(a, b grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		return a(ctx, req, info, func(actx context.Context, areq interface{}) (interface{}, error) {
-			return b(actx, areq, info, func(bctx context.Context, breq interface{}) (interface{}, error) {
-				return handler(bctx, breq)
-			})
-		})
-	}
-}
-
 type nodeRequestLog struct {
 	GRPCService string      `json:"grpc_service"`
 	GRPCMethod  string      `json:"grpc_method"`
 	PeerAddress string      `json:"peer_address"`
 	PeerNodeID  string      `json:"peer_node_id"`
+	APIHead     string      `json:"api_head,omitempty"`
 	Msg         interface{} `json:"msg"`
 }
 
@@ -71,6 +73,7 @@ func prepareRequestLog(ctx context.Context, req, server interface{}, methodName 
 		GRPCService: fmt.Sprintf("%T", server),
 		GRPCMethod:  methodName,
 		PeerAddress: "<no peer???>",
+		APIHead:     "",
 		Msg:         req,
 	}
 	if peer, err := rpcpeer.FromContext(ctx); err == nil {
@@ -79,6 +82,12 @@ func prepareRequestLog(ctx context.Context, req, server interface{}, methodName 
 			reqLog.PeerNodeID = peerIdentity.ID.String()
 		} else {
 			reqLog.PeerNodeID = fmt.Sprintf("<no peer id: %v>", err)
+		}
+	}
+	if apikey, ok := auth.GetAPIKey(ctx); ok {
+		key, err := macaroon.ParseAPIKey(string(apikey))
+		if err == nil {
+			reqLog.APIHead = hex.EncodeToString(key.Head())
 		}
 	}
 	return json.Marshal(reqLog)

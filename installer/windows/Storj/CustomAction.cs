@@ -142,11 +142,6 @@ namespace Storj
                 throw new ArgumentException("File 'ca.cert' not found in the selected folder.");
             }
 
-            if (!fs.File.Exists(Path.Combine(identityDir, "ca.key")))
-            {
-                throw new ArgumentException("File 'ca.key' not found in the selected folder.");
-            }
-
             if (!fs.File.Exists(Path.Combine(identityDir, "identity.cert")))
             {
                 throw new ArgumentException("File 'identity.cert' not found in the selected folder.");

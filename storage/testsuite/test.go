@@ -23,7 +23,6 @@ func RunTests(t *testing.T, store storage.KeyValueStore) {
 	// store = storelogger.NewTest(t, store)
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-
 	t.Run("CRUD", func(t *testing.T) { testCRUD(t, ctx, store) })
 	t.Run("Constraints", func(t *testing.T) { testConstraints(t, ctx, store) })
 	t.Run("Iterate", func(t *testing.T) { testIterate(t, ctx, store) })

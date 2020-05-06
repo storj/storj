@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -19,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/reportedrollup"
@@ -233,8 +233,8 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 
 		// Query and ensure that there's no data recorded for the bucket from the other project
 		ordersDB := planet.Satellites[0].DB.Orders()
-		uplink0Project := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
-		uplink1Project := planet.Uplinks[1].ProjectID[planet.Satellites[0].ID()]
+		uplink0Project := planet.Uplinks[0].Projects[0].ID
+		uplink1Project := planet.Uplinks[1].Projects[0].ID
 
 		wrongBucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, uplink0Project, []byte("testbucket1"), beforeRollup, afterRollup)
 		require.NoError(t, err)
@@ -285,14 +285,14 @@ func TestSplitBucketIDValid(t *testing.T) {
 	for _, tt := range testCases {
 		tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
 		t.Run(tt.name, func(t *testing.T) {
-			expectedProjectID, err := uuid.Parse(tt.project)
+			expectedProjectID, err := uuid.FromString(tt.project)
 			assert.NoError(t, err)
 			bucketID := expectedProjectID.String() + "/" + tt.bucketName
 
 			actualProjectID, actualBucketName, err := orders.SplitBucketID([]byte(bucketID))
 			assert.NoError(t, err)
-			assert.Equal(t, actualProjectID, expectedProjectID)
-			assert.Equal(t, actualBucketName, []byte(tt.expectedBucketName))
+			assert.Equal(t, expectedProjectID, actualProjectID)
+			assert.Equal(t, []byte(tt.expectedBucketName), actualBucketName)
 		})
 	}
 }
@@ -396,7 +396,7 @@ func TestLargeOrderLimit(t *testing.T) {
 			require.NoError(t, chore.RunOnce(ctx, now))
 
 			// check only the bandwidth we've used is taken into account
-			bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, *projectID, []byte("b"), beforeRollup, afterRollup)
+			bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte("b"), beforeRollup, afterRollup)
 			require.NoError(t, err)
 			require.Equal(t, int64(100), bucketBandwidth)
 
@@ -422,7 +422,7 @@ func TestProcessOrders(t *testing.T) {
 
 		// assertion helpers
 		checkBucketBandwidth := func(bucket string, amount int64) {
-			settled, err := ordersDB.GetBucketBandwidth(ctx, *projectID, []byte(bucket), beforeRollup, afterRollup)
+			settled, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucket), beforeRollup, afterRollup)
 			require.NoError(t, err)
 			require.Equal(t, amount, settled)
 		}
@@ -656,7 +656,7 @@ func TestProcessOrders_DoubleSend(t *testing.T) {
 
 		// assertion helpers
 		checkBucketBandwidth := func(bucket string, amount int64) {
-			settled, err := ordersDB.GetBucketBandwidth(ctx, *projectID, []byte(bucket), beforeRollup, afterRollup)
+			settled, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucket), beforeRollup, afterRollup)
 			require.NoError(t, err)
 			require.Equal(t, amount, settled)
 		}

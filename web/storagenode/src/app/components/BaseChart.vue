@@ -16,6 +16,8 @@ export default class BaseChart extends Vue {
     public width: number;
     @Prop({default: 0})
     public height: number;
+    @Prop({default: false})
+    public isDarkMode: boolean;
 
     public chartWidth: number = this.width;
     public chartHeight: number = this.height;
@@ -29,6 +31,7 @@ export default class BaseChart extends Vue {
     };
 
     @Watch('width')
+    @Watch('isDarkMode')
     public rebuildChart(): void {
         this.chartHeight = this.height;
         this.chartWidth = this.width;

@@ -4,12 +4,12 @@
 <template>
     <div class="period-container" @click.stop="openPeriodDropdown">
         <p class="period-container__label">{{ currentPeriod }}</p>
-        <BlackArrowHide v-if="isDropDownShown" />
+        <BlackArrowHide v-if="isCalendarShown" />
         <BlackArrowExpand v-else />
         <PayoutPeriodCalendar
             class="period-container__calendar"
-            v-if="isDropDownShown"
             v-click-outside="closePeriodDropdown"
+            v-if="isCalendarShown"
         />
     </div>
 </template>
@@ -22,34 +22,57 @@ import PayoutPeriodCalendar from '@/app/components/payments/PayoutPeriodCalendar
 import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { PayoutPeriod } from '@/app/types/payout';
+
+/**
+ * Holds all months names.
+ */
+const monthNames = [
+    'January', 'February', 'March', 'April',
+    'May', 'June', 'July',	'August',
+    'September', 'October', 'November',	'December',
+];
+
 @Component({
     components: {
         PayoutPeriodCalendar,
         BlackArrowExpand,
         BlackArrowHide,
-    }
+    },
 })
 export default class EstimationPeriodDropdown extends Vue {
-    public currentPeriod = new Date().toDateString();
     /**
-     * Indicates if payout period selection dropdown should be rendered.
+     * Returns formatted selected payout period.
      */
-    public isDropDownShown: boolean = false;
+    public get currentPeriod(): string {
+        const start: PayoutPeriod = this.$store.state.payoutModule.periodRange.start;
+        const end: PayoutPeriod = this.$store.state.payoutModule.periodRange.end;
+
+        return start && start.period !== end.period ?
+            `${monthNames[start.month]}, ${start.year} - ${monthNames[end.month]}, ${end.year}`
+            : `${monthNames[end.month]}, ${end.year}`;
+    }
+
+    /**
+     * Indicates if period selection calendar should appear.
+     */
+    public get isCalendarShown(): boolean {
+        return this.$store.state.appStateModule.isPayoutCalendarShown;
+    }
 
     /**
      * Opens payout period selection dropdown.
      */
     public openPeriodDropdown(): void {
-        setTimeout(() => {
-            this.isDropDownShown = true;
-        }, 0);
+        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, true);
     }
 
     /**
      * Closes payout period selection dropdown.
      */
     public closePeriodDropdown(): void {
-        this.isDropDownShown = false;
+        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false);
     }
 }
 </script>
@@ -69,13 +92,20 @@ export default class EstimationPeriodDropdown extends Vue {
             font-family: 'font_regular', sans-serif;
             font-weight: 500;
             font-size: 16px;
-            color: #535f77;
+            color: var(--month-label-color);
         }
 
         &__calendar {
             position: absolute;
             top: 30px;
             right: 0;
+        }
+    }
+
+    .arrow {
+
+        path {
+            fill: var(--period-selection-arrow-color);
         }
     }
 </style>

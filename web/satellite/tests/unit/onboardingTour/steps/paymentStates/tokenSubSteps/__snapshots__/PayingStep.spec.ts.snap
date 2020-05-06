@@ -1,0 +1,14 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`PayingStep.vue renders correctly 1`] = `
+<div class="paying-step">
+  <div class="paying-step__title-area"><img src="@/../static/images/onboardingTour/coins.png" alt="coins image">
+    <h2 class="paying-step__title-area__title">
+      Select Your Deposit Amount
+    </h2>
+    <!---->
+  </div>
+  <tokendepositselection-stub class="paying-step__form"></tokendepositselection-stub>
+  <vbutton-stub label="Continue to Coin Payments" width="100%" height="48px" isbluewhite="true" onpress="function () { [native code] }"></vbutton-stub>
+</div>
+`;

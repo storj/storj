@@ -10,8 +10,9 @@ import (
 	"encoding/base64"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
 
 // RegistrationTokens is interface for working with registration tokens

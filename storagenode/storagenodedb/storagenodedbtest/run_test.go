@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -22,6 +21,8 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
+	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -66,10 +67,11 @@ func TestInMemoryConcurrency(t *testing.T) {
 
 	storageDir := ctx.Dir("storage")
 	cfg := storagenodedb.Config{
-		Pieces:  storageDir,
-		Storage: storageDir,
-		Info:    filepath.Join(storageDir, "piecestore.db"),
-		Info2:   filepath.Join(storageDir, "info.db"),
+		Pieces:    storageDir,
+		Storage:   storageDir,
+		Info:      filepath.Join(storageDir, "piecestore.db"),
+		Info2:     filepath.Join(storageDir, "info.db"),
+		Filestore: filestore.DefaultConfig,
 	}
 
 	db, err := storagenodedb.New(log, cfg)
@@ -85,7 +87,7 @@ func testConcurrency(t *testing.T, ctx *testcontext.Context, db *storagenodedb.D
 	t.Run("Sqlite", func(t *testing.T) {
 		runtime.GOMAXPROCS(2)
 
-		err := db.CreateTables(ctx)
+		err := db.MigrateToLatest(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

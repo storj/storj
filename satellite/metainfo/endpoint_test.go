@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
@@ -16,6 +15,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
@@ -25,36 +25,38 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 	t.Run("all nodes up", func(t *testing.T) {
 		t.Parallel()
 
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-			Reconfigure: testplanet.Reconfigure{
-				// Reconfigure RS for ensuring that we don't have long-tail cancellations
-				// and the upload doesn't leave garbage in the SNs
-				Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
-			},
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			var (
-				uplnk        = planet.Uplinks[0]
-				satelliteSys = planet.Satellites[0]
-			)
+		var testCases = []struct {
+			caseDescription string
+			objData         []byte
+			hasRemote       bool
+		}{
+			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
+			{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
+			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
+			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
+		}
 
-			var testCases = []struct {
-				caseDescription string
-				objData         []byte
-			}{
-				{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-				{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
-				{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
-				{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
-			}
+		for i, tc := range testCases {
+			i := i
+			tc := tc
+			t.Run(tc.caseDescription, func(t *testing.T) {
+				testplanet.Run(t, testplanet.Config{
+					SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+					Reconfigure: testplanet.Reconfigure{
+						// Reconfigure RS for ensuring that we don't have long-tail cancellations
+						// and the upload doesn't leave garbage in the SNs
+						Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+					},
+				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+					var (
+						uplnk        = planet.Uplinks[0]
+						satelliteSys = planet.Satellites[0]
+					)
 
-			for i, tc := range testCases {
-				i := i
-				tc := tc
-				t.Run(tc.caseDescription, func(t *testing.T) {
 					var (
 						bucketName = "a-bucket"
 						objectName = "object-filename" + strconv.Itoa(i)
+						percentExp = 0.75
 					)
 
 					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
@@ -76,9 +78,11 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 
 					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
 					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
+
+					planet.WaitForStorageNodeDeleters(ctx)
 
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
@@ -91,12 +95,14 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// At this point we can only guarantee that the 75% of the SNs pieces
 					// are delete due to the success threshold
 					deletedUsedSpace := float64(totalUsedSpace-totalUsedSpaceAfterDelete) / float64(totalUsedSpace)
-					if deletedUsedSpace < 0.75 {
-						t.Fatalf("deleted used space is less than 0.75%%. Got %f", deletedUsedSpace)
+					if deletedUsedSpace < percentExp {
+						t.Fatalf("deleted used space is less than %f%%. Got %f", percentExp, deletedUsedSpace)
 					}
+
 				})
-			}
-		})
+
+			})
+		}
 	})
 
 	t.Run("some nodes down", func(t *testing.T) {
@@ -128,10 +134,13 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 						Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 					},
 				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+					numToShutdown := 2
+
 					var (
 						uplnk        = planet.Uplinks[0]
 						satelliteSys = planet.Satellites[0]
 					)
+
 					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
 						Client: testplanet.ClientConfig{
 							SegmentSize: 10 * memory.KiB,
@@ -139,20 +148,22 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					}, bucketName, objectName, tc.objData)
 					require.NoError(t, err)
 
-					// Shutdown the first 2 storage nodes before we delete the pieces
+					// Shutdown the first numToShutdown storage nodes before we delete the pieces
 					require.NoError(t, planet.StopPeer(planet.StorageNodes[0]))
 					require.NoError(t, planet.StopPeer(planet.StorageNodes[1]))
 
 					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
 					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
+
+					planet.WaitForStorageNodeDeleters(ctx)
 
 					// Check that storage nodes that were offline when deleting the pieces
 					// they are still holding data
 					var totalUsedSpace int64
-					for i := 0; i < 2; i++ {
+					for i := 0; i < numToShutdown; i++ {
 						piecesTotal, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpace += piecesTotal
@@ -163,7 +174,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					// Check that storage nodes which are online when deleting pieces don't
 					// hold any piece
 					totalUsedSpace = 0
-					for i := 2; i < len(planet.StorageNodes); i++ {
+					for i := numToShutdown; i < len(planet.StorageNodes); i++ {
 						piecesTotal, _, err := planet.StorageNodes[i].Storage2.Store.SpaceUsedForPieces(ctx)
 						require.NoError(t, err)
 						totalUsedSpace += piecesTotal
@@ -221,7 +232,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 
 					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
 					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
 
@@ -301,16 +312,18 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					}
 
 					err := satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
 
 					// confirm that the object was deleted
 					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.Error(t, err)
 					require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
+
+					planet.WaitForStorageNodeDeleters(ctx)
 
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
@@ -408,7 +421,7 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					}
 
 					err := satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					if tc.expectedNotFoundErr {
 						require.Error(t, err)
@@ -420,10 +433,12 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 
 					// confirm that the object was deleted
 					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, *projectID, []byte(bucketName), encryptedPath,
+						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.Error(t, err)
 					require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
+
+					planet.WaitForStorageNodeDeleters(ctx)
 
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
@@ -446,15 +461,16 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 }
 
 func getProjectIDAndEncPathFirstObject(
-	ctx context.Context, t *testing.T, satellite *testplanet.SatelliteSystem,
-) (projectID *uuid.UUID, encryptedPath []byte) {
+	ctx context.Context, t *testing.T, satellite *testplanet.Satellite,
+) (projectID uuid.UUID, encryptedPath []byte) {
 	t.Helper()
 
 	keys, err := satellite.Metainfo.Database.List(ctx, storage.Key{}, 1)
 	require.NoError(t, err)
 	keyParts := storj.SplitPath(keys[0].String())
 	require.Len(t, keyParts, 4)
-	projectID, err = uuid.Parse(keyParts[0])
+
+	projectID, err = uuid.FromString(keyParts[0])
 	require.NoError(t, err)
 	encryptedPath = []byte(keyParts[3])
 
@@ -463,9 +479,9 @@ func getProjectIDAndEncPathFirstObject(
 
 func uploadFirstObjectWithoutLastSegmentPointer(
 	ctx context.Context, t *testing.T, uplnk *testplanet.Uplink,
-	satelliteSys *testplanet.SatelliteSystem, segmentSize memory.Size,
+	satelliteSys *testplanet.Satellite, segmentSize memory.Size,
 	bucketName string, objectName string, objectData []byte,
-) (projectID *uuid.UUID, encryptedPath []byte) {
+) (projectID uuid.UUID, encryptedPath []byte) {
 	t.Helper()
 
 	return uploadFirstObjectWithoutSomeSegmentsPointers(
@@ -475,9 +491,9 @@ func uploadFirstObjectWithoutLastSegmentPointer(
 
 func uploadFirstObjectWithoutSomeSegmentsPointers(
 	ctx context.Context, t *testing.T, uplnk *testplanet.Uplink,
-	satelliteSys *testplanet.SatelliteSystem, segmentSize memory.Size,
+	satelliteSys *testplanet.Satellite, segmentSize memory.Size,
 	bucketName string, objectName string, objectData []byte, noSegmentsIndexes []int64,
-) (projectID *uuid.UUID, encryptedPath []byte) {
+) (projectID uuid.UUID, encryptedPath []byte) {
 	t.Helper()
 
 	if len(noSegmentsIndexes) < 1 {
@@ -494,9 +510,8 @@ func uploadFirstObjectWithoutSomeSegmentsPointers(
 	require.NoError(t, err)
 
 	projectID, encryptedPath = getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
-
 	for _, segIndx := range noSegmentsIndexes {
-		path, err := metainfo.CreatePath(ctx, *projectID, segIndx, []byte(bucketName), encryptedPath)
+		path, err := metainfo.CreatePath(ctx, projectID, segIndx, []byte(bucketName), encryptedPath)
 		require.NoError(t, err)
 		err = satelliteSys.Metainfo.Service.UnsynchronizedDelete(ctx, path)
 		require.NoError(t, err)

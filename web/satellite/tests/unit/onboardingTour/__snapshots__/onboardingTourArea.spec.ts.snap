@@ -1,0 +1,12 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`OnboardingTourArea.vue renders correctly 1`] = `
+<div class="tour-area">
+  <progressbar-stub></progressbar-stub>
+  <overviewstep-stub></overviewstep-stub>
+  <!---->
+  <!---->
+  <!---->
+  <!---->
+</div>
+`;

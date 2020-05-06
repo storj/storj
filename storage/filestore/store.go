@@ -5,6 +5,7 @@ package filestore
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/storj/storage"
 )
 
@@ -26,24 +28,35 @@ var (
 	_ storage.Blobs = (*blobStore)(nil)
 )
 
+// Config is configuration for the blob store.
+type Config struct {
+	WriteBufferSize memory.Size `help:"in-memory buffer for uploads" default:"128KiB"`
+}
+
+// DefaultConfig is the default value for Config.
+var DefaultConfig = Config{
+	WriteBufferSize: 128 * memory.KiB,
+}
+
 // blobStore implements a blob store
 type blobStore struct {
-	dir *Dir
-	log *zap.Logger
+	log    *zap.Logger
+	dir    *Dir
+	config Config
 }
 
 // New creates a new disk blob store in the specified directory
-func New(log *zap.Logger, dir *Dir) storage.Blobs {
-	return &blobStore{dir: dir, log: log}
+func New(log *zap.Logger, dir *Dir, config Config) storage.Blobs {
+	return &blobStore{dir: dir, log: log, config: config}
 }
 
 // NewAt creates a new disk blob store in the specified directory
-func NewAt(log *zap.Logger, path string) (storage.Blobs, error) {
+func NewAt(log *zap.Logger, path string, config Config) (storage.Blobs, error) {
 	dir, err := NewDir(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return &blobStore{dir: dir, log: log}, nil
+	return &blobStore{dir: dir, log: log, config: config}, nil
 }
 
 // Close closes the store.
@@ -142,7 +155,7 @@ func (store *blobStore) Create(ctx context.Context, ref storage.BlobRef, size in
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, store, MaxFormatVersionSupported, file), nil
+	return newBlobWriter(ref, store, MaxFormatVersionSupported, file, store.config.WriteBufferSize.Int()), nil
 }
 
 // SpaceUsedForBlobs adds up the space used in all namespaces for blob storage
@@ -183,14 +196,40 @@ func (store *blobStore) SpaceUsedForBlobsInNamespace(ctx context.Context, namesp
 	return totalUsed, nil
 }
 
+// TrashIsEmpty returns boolean value if trash dir is empty.
+func (store *blobStore) TrashIsEmpty() (_ bool, err error) {
+	f, err := os.Open(store.dir.trashdir())
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		err = errs.Combine(err, f.Close())
+	}()
+
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		return true, nil
+	}
+	return false, err
+}
+
 // SpaceUsedForTrash returns the total space used by the trash
 func (store *blobStore) SpaceUsedForTrash(ctx context.Context) (total int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = filepath.Walk(store.dir.trashdir(), func(path string, info os.FileInfo, walkErr error) error {
+
+	empty, err := store.TrashIsEmpty()
+	if err != nil {
+		return total, err
+	}
+	if empty {
+		return 0, nil
+	}
+	err = filepath.Walk(store.dir.trashdir(), func(_ string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			err = errs.Combine(err, walkErr)
 			return filepath.SkipDir
 		}
+
 		total += info.Size()
 		return nil
 	})
@@ -227,5 +266,5 @@ func (store *blobStore) TestCreateV0(ctx context.Context, ref storage.BlobRef) (
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(ref, store, FormatV0, file), nil
+	return newBlobWriter(ref, store, FormatV0, file, store.config.WriteBufferSize.Int()), nil
 }

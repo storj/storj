@@ -1,0 +1,12 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ProjectDashboard.vue renders correctly 1`] = `
+<div class="dashboard-area">
+  <h1 class="dashboard-area__title">Dashboard</h1>
+  <div class="dashboard-area__top-area">
+    <projectdetails-stub></projectdetails-stub>
+    <projectusage-stub></projectusage-stub>
+  </div>
+  <bucketarea-stub></bucketarea-stub>
+</div>
+`;

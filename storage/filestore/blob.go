@@ -4,6 +4,7 @@
 package filestore
 
 import (
+	"bufio"
 	"context"
 	"io"
 	"os"
@@ -68,41 +69,64 @@ type blobWriter struct {
 	store         *blobStore
 	closed        bool
 	formatVersion storage.FormatVersion
-
-	*os.File
+	buffer        *bufio.Writer
+	fh            *os.File
 }
 
-func newBlobWriter(ref storage.BlobRef, store *blobStore, formatVersion storage.FormatVersion, file *os.File) *blobWriter {
+func newBlobWriter(ref storage.BlobRef, store *blobStore, formatVersion storage.FormatVersion, file *os.File, bufferSize int) *blobWriter {
 	return &blobWriter{
 		ref:           ref,
 		store:         store,
 		closed:        false,
 		formatVersion: formatVersion,
-		File:          file,
+		buffer:        bufio.NewWriterSize(file, bufferSize),
+		fh:            file,
 	}
+}
+
+// Write adds data to the blob.
+func (blob *blobWriter) Write(p []byte) (int, error) {
+	return blob.buffer.Write(p)
 }
 
 // Cancel discards the blob.
 func (blob *blobWriter) Cancel(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if blob.closed {
 		return nil
 	}
 	blob.closed = true
-	err = blob.File.Close()
-	removeErr := os.Remove(blob.File.Name())
+
+	err = blob.fh.Close()
+	removeErr := os.Remove(blob.fh.Name())
 	return Error.Wrap(errs.Combine(err, removeErr))
 }
 
 // Commit moves the file to the target location.
 func (blob *blobWriter) Commit(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if blob.closed {
 		return Error.New("already closed")
 	}
 	blob.closed = true
-	err = blob.store.dir.Commit(ctx, blob.File, blob.ref, blob.formatVersion)
+
+	if err := blob.buffer.Flush(); err != nil {
+		return err
+	}
+
+	err = blob.store.dir.Commit(ctx, blob.fh, blob.ref, blob.formatVersion)
 	return Error.Wrap(err)
+}
+
+// Seek flushes any buffer and seeks the underlying file.
+func (blob *blobWriter) Seek(offset int64, whence int) (int64, error) {
+	if err := blob.buffer.Flush(); err != nil {
+		return 0, err
+	}
+
+	return blob.fh.Seek(offset, whence)
 }
 
 // Size returns how much has been written so far.
@@ -111,6 +135,7 @@ func (blob *blobWriter) Size() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	return pos, err
 }
 

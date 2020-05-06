@@ -5,6 +5,7 @@ package consoleserver
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleapi"
 	"storj.io/storj/storagenode/heldamount"
@@ -77,14 +79,9 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	heldAmountController := consoleapi.NewHeldAmount(server.log, server.heldAmount)
 	heldAmountRouter := router.PathPrefix("/api/heldamount").Subrouter()
 	heldAmountRouter.StrictSlash(true)
-	heldAmountRouter.HandleFunc("/paystub/{period}/{satelliteID}", heldAmountController.SatellitePayStubMonthly).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/paystub/{period}", heldAmountController.AllPayStubsMonthly).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/paystub/{start}/{end}/{satelliteID}", heldAmountController.SatellitePayStubPeriod).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/paystub/{start}/{end}", heldAmountController.AllPayStubsPeriod).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/payment/{period}/{satelliteID}", heldAmountController.SatellitePaymentMonthly).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/payment/{period}", heldAmountController.AllPaymentsMonthly).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/payment/{start}/{end}/{satelliteID}", heldAmountController.SatellitePaymentPeriod).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/payment/{start}/{end}", heldAmountController.AllPaymentsPeriod).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/paystubs/{period}", heldAmountController.PayStubMonthly).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/paystubs/{start}/{end}", heldAmountController.PayStubPeriod).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/heldback/{id}", heldAmountController.HeldbackHistory).Methods(http.MethodGet)
 
 	if assets != nil {
 		fs := http.FileServer(assets)
@@ -115,7 +112,11 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return server.server.Serve(server.listener)
+		err := server.server.Serve(server.listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return err
 	})
 
 	return group.Wait()

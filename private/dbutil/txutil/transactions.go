@@ -34,12 +34,20 @@ func WithTx(ctx context.Context, db tagsql.DB, txOpts *sql.TxOptions, fn func(co
 	for i := 0; ; i++ {
 		var retryErr error
 		err, rollbackErr := withTxOnce(ctx, db, txOpts, fn)
-		if dur := time.Since(start); dur < 5*time.Minute && i < 10 {
-			if code := errCode(err); code == "CR000" || code == "40001" {
-				continue
+		// if we had any error, check to see if we should retry.
+		if err != nil || rollbackErr != nil {
+			// we will only retry if we have enough resources (duration and count).
+			if dur := time.Since(start); dur < 5*time.Minute && i < 10 {
+				// even though the resources (duration and count) allow us to issue a retry,
+				// we only should if the error claims we should.
+				if code := errCode(err); code == "CR000" || code == "40001" {
+					continue
+				}
+			} else {
+				// we aren't issuing a retry due to resources (duration and count), so
+				// include a retry error in the output so that we know something is wrong.
+				retryErr = errs.New("unable to retry: duration:%v attempts:%d", dur, i)
 			}
-		} else {
-			retryErr = errs.New("unable to retry: duration:%v attempts:%d", dur, i)
 		}
 		mon.IntVal("transaction_retries").Observe(int64(i))
 		return errs.Wrap(errs.Combine(err, rollbackErr, retryErr))

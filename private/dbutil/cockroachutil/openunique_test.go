@@ -12,20 +12,19 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/cockroachutil"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/tagsql"
 )
 
 func TestTempCockroachDB(t *testing.T) {
+	connstr := pgtest.PickCockroach(t)
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	if *pgtest.CrdbConnStr == "" {
-		t.Skip("CockroachDB flag missing")
-	}
 	prefix := "name#spaced/Test/DB"
-	testDB, err := tempdb.OpenUnique(ctx, *pgtest.CrdbConnStr, prefix)
+	testDB, err := tempdb.OpenUnique(ctx, connstr, prefix)
 	require.NoError(t, err)
 
 	require.Equal(t, "cockroach", testDB.Driver)
@@ -62,7 +61,7 @@ func TestTempCockroachDB(t *testing.T) {
 
 	// make a new connection back to the master connstr just to check that the our temp db
 	// really was dropped
-	plainDBConn, err := tagsql.Open("cockroach", *pgtest.CrdbConnStr)
+	plainDBConn, err := tagsql.Open("cockroach", connstr)
 	require.NoError(t, err)
 	defer ctx.Check(plainDBConn.Close)
 

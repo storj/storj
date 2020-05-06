@@ -17,8 +17,10 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpctracing"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
+	jaeger "storj.io/monkit-jaeger"
 	"storj.io/storj/pkg/listenmux"
 	"storj.io/storj/private/grpctlsopts"
 )
@@ -60,8 +62,8 @@ type Server struct {
 }
 
 // New creates a Server out of an Identity, a net.Listener,
-// a UnaryServerInterceptor, and a set of services.
-func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor) (*Server, error) {
+// and interceptors.
+func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr string, interceptors ...grpc.UnaryServerInterceptor) (*Server, error) {
 	server := &Server{
 		log:        log,
 		tlsOptions: tlsOptions,
@@ -72,9 +74,15 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		Manager: rpc.NewDefaultManagerOptions(),
 	}
 
-	unaryInterceptor := server.logOnErrorUnaryInterceptor
-	if interceptor != nil {
-		unaryInterceptor = CombineInterceptors(unaryInterceptor, interceptor)
+	unaryInterceptors := []grpc.UnaryServerInterceptor{
+		server.monkitUnaryInterceptor,
+		server.logOnErrorUnaryInterceptor,
+	}
+	for _, interceptor := range interceptors {
+		if interceptor == nil {
+			continue
+		}
+		unaryInterceptors = append(unaryInterceptors, interceptor)
 	}
 
 	publicListener, err := net.Listen("tcp", publicAddr)
@@ -83,12 +91,16 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 	}
 
 	publicMux := drpcmux.New()
+	publicTracingHandler := rpctracing.NewHandler(publicMux, jaeger.RemoteTraceHandler)
 	server.public = public{
 		listener: wrapListener(publicListener),
-		drpc:     drpcserver.NewWithOptions(publicMux, serverOptions),
+		drpc:     drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
 		grpc: grpc.NewServer(
-			grpc.StreamInterceptor(server.logOnErrorStreamInterceptor),
-			grpc.UnaryInterceptor(unaryInterceptor),
+			grpc.ChainStreamInterceptor(
+				server.logOnErrorStreamInterceptor,
+				server.monkitStreamInterceptor,
+			),
+			grpc.ChainUnaryInterceptor(unaryInterceptors...),
 			grpctlsopts.ServerOption(tlsOptions),
 		),
 		mux: publicMux,
@@ -99,9 +111,10 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		return nil, errs.Combine(err, publicListener.Close())
 	}
 	privateMux := drpcmux.New()
+	privateTracingHandler := rpctracing.NewHandler(privateMux, jaeger.RemoteTraceHandler)
 	server.private = private{
 		listener: wrapListener(privateListener),
-		drpc:     drpcserver.NewWithOptions(privateMux, serverOptions),
+		drpc:     drpcserver.NewWithOptions(privateTracingHandler, serverOptions),
 		grpc:     grpc.NewServer(),
 		mux:      privateMux,
 	}

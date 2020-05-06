@@ -89,23 +89,30 @@ replace_in_file(){
 
 # mirroring install-sim from the Makefile since it won't work on private Jenkins
 install_sim(){
-    local bin_dir="$1"
+    local work_dir="$1"
+    local bin_dir="$2"
     mkdir -p ${bin_dir}
 
-    go build -race -v -tags=grpc -o ${bin_dir}/storagenode-grpc storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -v -tags=drpc -o ${bin_dir}/storagenode-drpc storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -v -tags=grpc -o ${bin_dir}/satellite-grpc storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go build -race -v -tags=drpc -o ${bin_dir}/satellite-drpc storj.io/storj/cmd/satellite >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
 
-    go install -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    cd ./cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
-    go install -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
 
+    if [ -d "${work_dir}/cmd/gateway" ]; then
+        pushd ${work_dir}/cmd/gateway
+            go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+        popd
+    else
+        rm -rf .build/gateway-tmp
+        mkdir -p .build/gateway-tmp
+        pushd .build/gateway-tmp
+            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@v1.0.0-rc.8
+        popd
+    fi
 }
 
 setup_stage(){
@@ -194,14 +201,20 @@ for version in ${unique_versions}; do
     git worktree add -f "$dir" "${version}"
     rm -f ${dir}/private/version/release.go
     rm -f ${dir}/internal/version/release.go
+    # clear out release information
+    cat > ${dir}/private/version/release.go <<-EOF
+	// Copyright (C) 2020 Storj Labs, Inc.
+	// See LICENSE for copying information.
+	package version
+	EOF
+
     if [[ $version = $previous_release_version || $version = $current_commit ]]
     then
         echo "Installing storj-sim for ${version} in ${dir}."
         pushd ${dir}
-        # uncomment for Jenkins testing:
-        install_sim ${bin_dir}
-        # uncomment for local testing:
-        # GOBIN=${bin_dir} make -C "${dir}" install-sim > /dev/null 2>&1
+
+        install_sim ${dir} ${bin_dir}
+
         echo "finished installing"
         popd
         echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
@@ -213,20 +226,16 @@ for version in ${unique_versions}; do
         shasum ${bin_dir}/uplink
         shasum ${bin_dir}/gateway
     else
-        echo "Installing uplink and gateway for ${version} in ${dir}."
+        echo "Installing uplink for ${version} in ${dir}."
         pushd ${dir}
         mkdir -p ${bin_dir}
-        # uncomment for Jenkins testing:
-        go install -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-        cd ./cmd/gateway && go install -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
-        # uncomment for local testing:
-        # GOBIN=${bin_dir} go install -race -v storj.io/storj/cmd/uplink > /dev/null 2>&1
-        # GOBIN=${bin_dir} cd ./cmd/gateway && go install -race -v storj.io/storj/cmd/gateway > /dev/null 2>&1
+
+        go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+
         popd
         echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
         echo "Binary shasums:"
         shasum ${bin_dir}/uplink
-        shasum ${bin_dir}/gateway
     fi
 done
 

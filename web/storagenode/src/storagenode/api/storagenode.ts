@@ -44,8 +44,9 @@ export class SNOApi {
 
         const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => {
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
+            const suspended: Date | null = satellite.suspended ? new Date(satellite.suspended) : null;
 
-            return new SatelliteInfo(satellite.id, satellite.url, disqualified);
+            return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended);
         });
 
         const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available);
@@ -83,7 +84,8 @@ export class SNOApi {
             json.egressSummary,
             json.ingressSummary,
             audit,
-            uptime
+            uptime,
+            new Date(json.nodeJoinedAt),
         );
     }
 
@@ -104,7 +106,8 @@ export class SNOApi {
             json.storageSummary,
             json.bandwidthSummary,
             json.egressSummary,
-            json.ingressSummary
+            json.ingressSummary,
+            new Date(json.earliestJoinedAt),
         );
     }
 }

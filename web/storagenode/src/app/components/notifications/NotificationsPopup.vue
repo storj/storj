@@ -38,7 +38,7 @@ import { RouteConfig } from '@/app/router';
 @Component({
     components: {
         SNONotification,
-    }
+    },
 })
 export default class NotificationsPopup extends Vue {
     /**
@@ -68,10 +68,10 @@ export default class NotificationsPopup extends Vue {
         width: 400px;
         height: auto;
         max-height: 376px;
-        background-color: #fff;
+        background-color: var(--block-background-color);
         border-radius: 12px;
         padding: 27px 0 10px 0;
-        box-shadow: 0 7px 17px #e7ebee;
+        box-shadow: 0 7px 17px var(--block-background-color);
         z-index: 104;
 
         &__header {
@@ -83,14 +83,14 @@ export default class NotificationsPopup extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 24px;
                 line-height: 36px;
-                color: #384b65;
+                color: var(--title-text-color);
                 margin-left: 32px;
             }
 
             &__link {
                 font-family: 'font_regular', sans-serif;
                 font-size: 14px;
-                color: #224ca5;
+                color: var(--navigation-link-color);
                 margin-right: 20px;
             }
         }
@@ -112,7 +112,7 @@ export default class NotificationsPopup extends Vue {
                 margin-top: 35px;
                 font-family: 'font_regular', sans-serif;
                 font-size: 16px;
-                color: #1c2a3e;
+                color: var(--regular-text-color);
             }
         }
     }

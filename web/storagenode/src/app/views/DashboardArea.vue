@@ -18,11 +18,9 @@ import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
 
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
+import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import { TelemetryViews } from '@/app/telemetry/telemetry';
 import { NotificationsCursor } from '@/app/types/notifications';
-
-const {
-    SELECT_SATELLITE,
-} = NODE_ACTIONS;
 
 @Component ({
     components: {
@@ -31,13 +29,31 @@ const {
     },
 })
 export default class Dashboard extends Vue {
-    public mounted() {
+    /**
+     * Lifecycle hook after initial render.
+     * Fetches notifications and total payout information for all satellites.
+     */
+    public async mounted(): Promise<void> {
         try {
-            this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
-            this.$store.dispatch(SELECT_SATELLITE, null);
+            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
         } catch (error) {
             console.error(error);
         }
+
+        try {
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+        } catch (error) {
+            console.error(error);
+        }
+
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
+        } catch (error) {
+            console.error(error);
+        }
+
+        this.$telemetry.identify(this.$store.state.node.info.id);
+        this.$telemetry.view(TelemetryViews.MainPage);
     }
 }
 </script>

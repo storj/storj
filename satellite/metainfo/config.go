@@ -4,6 +4,7 @@
 package metainfo
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/zap"
@@ -24,7 +25,6 @@ const (
 // RSConfig is a configuration struct that keeps details about default
 // redundancy strategy information
 type RSConfig struct {
-	MaxSegmentSize   memory.Size `help:"maximum segment size" default:"64MiB"`
 	MaxBufferMem     memory.Size `help:"maximum buffer memory to be allocated for read buffers" default:"4MiB"`
 	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"256B"`
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
@@ -50,7 +50,8 @@ type RateLimiterConfig struct {
 type Config struct {
 	DatabaseURL          string               `help:"the database connection string to use" default:"postgres://"`
 	MinRemoteSegmentSize memory.Size          `default:"1240" help:"minimum remote segment size"`
-	MaxInlineSegmentSize memory.Size          `default:"8000" help:"maximum inline segment size"`
+	MaxInlineSegmentSize memory.Size          `default:"4KiB" help:"maximum inline segment size"`
+	MaxSegmentSize       memory.Size          `default:"64MiB" help:"maximum segment size"`
 	MaxCommitInterval    time.Duration        `default:"48h" help:"maximum time allowed to pass between creating and committing a segment"`
 	Overlay              bool                 `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                   RSConfig             `help:"redundancy scheme configuration"`
@@ -63,10 +64,13 @@ type Config struct {
 //
 // architecture: Database
 type PointerDB interface {
+	// MigrateToLatest migrates to latest schema version.
+	MigrateToLatest(ctx context.Context) error
+
 	storage.KeyValueStore
 }
 
-// NewStore returns database for storing pointer data
+// NewStore returns database for storing pointer data.
 func NewStore(logger *zap.Logger, dbURLString string) (db PointerDB, err error) {
 	_, source, implementation, err := dbutil.SplitConnStr(dbURLString)
 	if err != nil {

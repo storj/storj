@@ -1,0 +1,59 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`UploadDataStep.vue renders correctly 1`] = `
+<div class="upload-data-area">
+  <div class="upload-data-area__container">
+    <h1 class="upload-data-area__container__title">Upload Data</h1>
+    <p class="upload-data-area__container__sub-title">
+      From here, you’ll set up Tardigrade to store data for your project using our S3 Gateway, Uplink CLI, or
+      select from our growing library of connectors to build apps on Tardigrade.
+    </p>
+    <div class="upload-data-area__container__docs-area">
+      <div class="upload-data-area__container__docs-area__option">
+        <h2 class="upload-data-area__container__docs-area__option__title">
+          Migrate Data from your Existing AWS buckets
+        </h2> <img src="@/../static/images/onboardingTour/s3.png" alt="s3 gateway image">
+        <h3 class="upload-data-area__container__docs-area__option__sub-title">
+          S3 Gateway
+        </h3>
+        <p class="upload-data-area__container__docs-area__option__info">
+          Make the switch with Tardigrade’s S3 Gateway.
+        </p> <a href="https://documentation.tardigrade.io/api-reference/s3-gateway" target="_blank" class="upload-data-area__container__docs-area__option__link">
+          S3 Gateway Docs
+        </a>
+      </div>
+      <div class="upload-data-area__container__docs-area__option uplink-option">
+        <h2 class="upload-data-area__container__docs-area__option__title">
+          Upload Data from Your Local Environment
+        </h2> <img src="@/../static/images/onboardingTour/uplinkcli.png" alt="uplink cli image">
+        <h3 class="upload-data-area__container__docs-area__option__sub-title">
+          Uplink CLI
+        </h3>
+        <p class="upload-data-area__container__docs-area__option__info">
+          Start uploading data from the command line.
+        </p> <a href="https://documentation.tardigrade.io/api-reference/uplink-cli" target="_blank" class="upload-data-area__container__docs-area__option__link">
+          Uplink CLI Docs
+        </a>
+      </div>
+      <div class="upload-data-area__container__docs-area__option">
+        <h2 class="upload-data-area__container__docs-area__option__title">
+          Use Tardigrade for your app’s storage layer
+        </h2> <img src="@/../static/images/onboardingTour/connectors.png" alt="connectors image">
+        <h3 class="upload-data-area__container__docs-area__option__sub-title">
+          App Connectors
+        </h3>
+        <p class="upload-data-area__container__docs-area__option__info">
+          Integrate Tardigrade into your existing stack.
+        </p> <a href="https://documentation.tardigrade.io/concepts/connectors" target="_blank" class="upload-data-area__container__docs-area__option__link">
+          App Connectors
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="go-to-button container" style="width: 276px; height: 40px;"><span class="label">Go to Dashboard</span></div> <span class="upload-data-area__support-info">
+        Need help?
+        <a href="https://support.tardigrade.io/hc/en-us" target="_blank" class="upload-data-area__support-info__link">
+            Contact support
+        </a></span>
+</div>
+`;

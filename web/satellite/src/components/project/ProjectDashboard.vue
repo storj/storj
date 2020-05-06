@@ -2,65 +2,68 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="project-overview">
-        <TabNavigation
-            v-if="isProjectSelected"
-            class="project-overview__navigation"
-            :navigation="navigation"
-        />
-        <router-view v-if="isProjectSelected"/>
+    <div class="dashboard-area">
+        <h1 class="dashboard-area__title">Dashboard</h1>
+        <div class="dashboard-area__top-area">
+            <ProjectDetails/>
+            <ProjectUsage/>
+        </div>
+        <BucketArea/>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import TabNavigation from '@/components/navigation/TabNavigation.vue';
+import BucketArea from '@/components/project/buckets/BucketArea.vue';
+import ProjectDetails from '@/components/project/ProjectDetails.vue';
+import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 
-import { NavigationLink } from '@/types/navigation';
+import { RouteConfig } from '@/router';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
-        TabNavigation,
+        BucketArea,
+        ProjectDetails,
+        ProjectUsage,
     },
 })
 export default class ProjectDashboard extends Vue {
-    // TODO: make type for project routes
-    public navigation: NavigationLink[] = [
-        new NavigationLink('/project-dashboard/details', 'Details'),
-        new NavigationLink('/project-dashboard/usage-report', 'Report'),
-    ];
-
     /**
-     * Indicates if project is selected.
+     * Lifecycle hook after initial render.
+     * Segment tracking is processed.
      */
-    public get isProjectSelected(): boolean {
-        return this.$store.getters.selectedProject.id !== '';
+    public mounted(): void {
+        if (!this.$store.getters.selectedProject.id) {
+            this.$router.push(RouteConfig.OnboardingTour.path);
+
+            return;
+        }
+
+        this.$segment.track(SegmentEvent.PROJECT_VIEWED, {
+            project_id: this.$store.getters.selectedProject.id,
+        });
     }
 }
 </script>
 
 <style scoped lang="scss">
-    .project-overview {
-        padding: 40px 65px 55px 65px;
-        position: relative;
+    .dashboard-area {
+        padding: 40px 65px 80px 65px;
 
-        &__navigation {
-            position: absolute;
-            right: 65px;
-            top: 44px;
-            z-index: 19;
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 32px;
+            line-height: 39px;
+            color: #263549;
+            margin: 0 0 35px 0;
         }
-    }
 
-    @media screen and (max-width: 1024px) {
-
-        .project-overview {
-            padding: 44px 40px 55px 40px;
-
-            &__navigation {
-                right: 40px;
-            }
+        &__top-area {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
         }
     }
 </style>

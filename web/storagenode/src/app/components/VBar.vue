@@ -14,11 +14,9 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
  * BarFillStyle class holds info for BarFillStyle entity.
  */
 class BarFillStyle {
-    'background-color': string;
     width: string;
 
-    public constructor(backgroundColor: string, width: string) {
-        this['background-color'] = backgroundColor;
+    public constructor(width: string) {
         this.width = width;
     }
 }
@@ -29,13 +27,11 @@ export default class VBar extends Vue {
     private readonly current: string;
     @Prop({default: ''})
     private readonly max: string;
-    @Prop({default: '#224CA5'})
-    private readonly color: string;
 
     public get barFillStyle(): BarFillStyle {
         const width = (parseFloat(this.current) / parseFloat(this.max)) * 100 + '%';
 
-        return new BarFillStyle(this.color, width);
+        return new BarFillStyle(width);
     }
 }
 </script>
@@ -46,7 +42,7 @@ export default class VBar extends Vue {
         height: 8px;
         margin-top: 10px;
         border-radius: 4px;
-        background-color: #f4f6f9;
+        background-color: var(--bar-background-color);
         position: relative;
 
         &__fill {
@@ -55,6 +51,7 @@ export default class VBar extends Vue {
             left: 0;
             top: 0;
             border-radius: 20px;
+            background-color: var(--navigation-link-color);
         }
     }
 </style>

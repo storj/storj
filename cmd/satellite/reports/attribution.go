@@ -12,12 +12,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/storj/private/dbutil"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -40,7 +39,7 @@ func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid
 	defer func() {
 		err = errs.Combine(err, db.Close())
 		if err != nil {
-			log.Sugar().Errorf("error closing satellite DB connection after retrieving partner value attribution data: %+v", err)
+			log.Error("Error closing satellite DB connection after retrieving partner value attribution data.", zap.Error(err))
 		}
 	}()
 
@@ -78,7 +77,7 @@ func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid
 }
 
 func csvRowToStringSlice(p *attribution.CSVRow) ([]string, error) {
-	projectID, err := dbutil.BytesToUUID(p.ProjectID)
+	projectID, err := uuid.FromBytes(p.ProjectID)
 	if err != nil {
 		return nil, errs.New("Invalid Project ID")
 	}
