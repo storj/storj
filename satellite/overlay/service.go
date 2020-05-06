@@ -226,6 +226,19 @@ type SelectedNode struct {
 	LastIPPort string
 }
 
+// Clone returns a deep clone of the selected node.
+func (node *SelectedNode) Clone() *SelectedNode {
+	return &SelectedNode{
+		ID: node.ID,
+		Address: &pb.NodeAddress{
+			Transport: node.Address.Transport,
+			Address:   node.Address.Address,
+		},
+		LastNet:    node.LastNet,
+		LastIPPort: node.LastIPPort,
+	}
+}
+
 // Service is used to store and handle node information
 //
 // architecture: Service

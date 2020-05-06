@@ -148,7 +148,7 @@ nextNewNode:
 			continue nextNewNode
 		}
 
-		selectedNodeResults = append(selectedNodeResults, currNode)
+		selectedNodeResults = append(selectedNodeResults, currNode.Clone())
 		distinctNetworks[currNode.LastNet] = struct{}{}
 		if len(selectedNodeResults) >= newNodeCount {
 			break
@@ -172,7 +172,7 @@ nextReputableNode:
 			continue nextReputableNode
 		}
 
-		selectedNodeResults = append(selectedNodeResults, currNode)
+		selectedNodeResults = append(selectedNodeResults, currNode.Clone())
 		distinctNetworks[currNode.LastNet] = struct{}{}
 		if len(selectedNodeResults) >= totalcount {
 			break
