@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,8 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/rpc/rpcpeer"
+	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/storage"
 )
 
@@ -61,6 +64,7 @@ type nodeRequestLog struct {
 	GRPCMethod  string      `json:"grpc_method"`
 	PeerAddress string      `json:"peer_address"`
 	PeerNodeID  string      `json:"peer_node_id"`
+	APIHead     string      `json:"api_head,omitempty"`
 	Msg         interface{} `json:"msg"`
 }
 
@@ -69,6 +73,7 @@ func prepareRequestLog(ctx context.Context, req, server interface{}, methodName 
 		GRPCService: fmt.Sprintf("%T", server),
 		GRPCMethod:  methodName,
 		PeerAddress: "<no peer???>",
+		APIHead:     "",
 		Msg:         req,
 	}
 	if peer, err := rpcpeer.FromContext(ctx); err == nil {
@@ -77,6 +82,12 @@ func prepareRequestLog(ctx context.Context, req, server interface{}, methodName 
 			reqLog.PeerNodeID = peerIdentity.ID.String()
 		} else {
 			reqLog.PeerNodeID = fmt.Sprintf("<no peer id: %v>", err)
+		}
+	}
+	if apikey, ok := auth.GetAPIKey(ctx); ok {
+		key, err := macaroon.ParseAPIKey(string(apikey))
+		if err == nil {
+			reqLog.APIHead = hex.EncodeToString(key.Head())
 		}
 	}
 	return json.Marshal(reqLog)

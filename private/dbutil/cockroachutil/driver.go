@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/jackc/pgx"
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 )
@@ -242,8 +241,6 @@ func errCode(err error) string {
 	switch t := errorCause(err).(type) {
 	case *pq.Error:
 		return string(t.Code)
-	case *pgx.PgError:
-		return t.Code
 	default:
 		return ""
 	}

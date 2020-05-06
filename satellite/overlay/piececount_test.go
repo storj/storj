@@ -4,8 +4,10 @@
 package overlay_test
 
 import (
+	"fmt"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -33,16 +35,18 @@ func TestDB_PieceCounts(t *testing.T) {
 			nodes[i].PieceCount = int(math.Pow10(i + 1))
 		}
 
-		for _, node := range nodes {
-			n := pb.Node{
-				Id: node.ID,
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   "0.0.0.0",
-				},
+		for i, node := range nodes {
+			addr := fmt.Sprintf("127.0.%d.0:8080", i)
+			lastNet := fmt.Sprintf("127.0.%d", i)
+			d := overlay.NodeCheckInInfo{
+				NodeID:     node.ID,
+				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				LastIPPort: addr,
+				LastNet:    lastNet,
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
 			}
-			d := overlay.NodeDossier{Node: n, LastIPPort: "0.0.0.0", LastNet: "0.0.0.0"}
-			require.NoError(t, overlaydb.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{}))
+			err := overlaydb.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
+			require.NoError(t, err)
 		}
 
 		// check that they are initialized to zero
@@ -85,16 +89,20 @@ func BenchmarkDB_PieceCounts(b *testing.B) {
 			counts[testrand.NodeID()] = testrand.Intn(100000)
 		}
 
+		var i int
 		for nodeID := range counts {
-			n := pb.Node{
-				Id: nodeID,
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   "0.0.0.0",
-				},
+			addr := fmt.Sprintf("127.0.%d.0:8080", i)
+			lastNet := fmt.Sprintf("127.0.%d", i)
+			i++
+			d := overlay.NodeCheckInInfo{
+				NodeID:     nodeID,
+				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				LastIPPort: addr,
+				LastNet:    lastNet,
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
 			}
-			d := overlay.NodeDossier{Node: n, LastIPPort: "0.0.0.0", LastNet: "0.0.0.0"}
-			require.NoError(b, overlaydb.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{}))
+			err := overlaydb.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
+			require.NoError(b, err)
 		}
 
 		b.Run("Update", func(b *testing.B) {

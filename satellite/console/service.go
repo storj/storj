@@ -654,11 +654,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
 	if err != nil {
-		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return "", ErrUnauthorized.New(credentialsErrMsg)
-		}
-
-		return "", Error.Wrap(err)
+		return "", ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	claims := consoleauth.Claims{
@@ -737,11 +733,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(pass))
 	if err != nil {
-		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return ErrUnauthorized.Wrap(err)
-		}
-
-		return Error.Wrap(err)
+		return ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	if err := ValidatePassword(newPass); err != nil {
@@ -772,11 +764,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) (err error
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(password))
 	if err != nil {
-		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return ErrUnauthorized.Wrap(err)
-		}
-
-		return Error.Wrap(err)
+		return ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	err = s.store.Users().Delete(ctx, auth.User.ID)

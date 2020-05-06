@@ -166,3 +166,31 @@ func PromptForEncryptionPassphrase() (string, error) {
 
 	return string(encKey), nil
 }
+
+// PromptForTracing handles user input for consent to turn on tracing to be used with wizards.
+func PromptForTracing() (bool, error) {
+	_, err := fmt.Printf(`
+With your permission, Tardigrade can automatically collect analytics information from your uplink CLI and send it to Storj Labs (makers of Tardigrade) to help improve the quality and performance of our products. This information is sent only with your consent and is submitted anonymously to Storj Labs: (y/n)
+`)
+	if err != nil {
+		return false, err
+	}
+
+	var userConsent string
+	n, err := fmt.Scanln(&userConsent)
+	if err != nil {
+		if n != 0 {
+			return false, err
+		}
+		// fmt.Scanln cannot handle empty input
+		userConsent = "n"
+	}
+
+	switch userConsent {
+	case "y", "yes", "Y", "Yes":
+		return true, nil
+	default:
+		return false, nil
+	}
+
+}

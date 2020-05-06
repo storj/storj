@@ -88,8 +88,12 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{
 		if !versionInfo.IsZero() {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
+			peer.Log.Debug("Version info",
+				zap.Stringer("Version", versionInfo.Version.Version),
+				zap.String("Commit Hash", versionInfo.CommitHash),
+				zap.Stringer("Build Timestamp", versionInfo.Timestamp),
+				zap.Bool("Release Build", versionInfo.Release),
+			)
 		}
 		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = checker.NewChore(peer.Version.Service, config.Version.CheckInterval)

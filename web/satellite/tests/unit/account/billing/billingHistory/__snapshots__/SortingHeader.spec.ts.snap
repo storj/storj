@@ -1,0 +1,21 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`SortingHeader renders correctly 1`] = `
+<div class="sort-header-container">
+  <div class="sort-header-container__item date">
+    <p class="sort-header-container__item__name">Date</p>
+  </div>
+  <div class="sort-header-container__item description">
+    <p class="sort-header-container__item__name">Description</p>
+  </div>
+  <div class="sort-header-container__item status">
+    <p class="sort-header-container__item__name">Status</p>
+  </div>
+  <div class="sort-header-container__item amount">
+    <p class="sort-header-container__item__name">Amount</p>
+  </div>
+  <div class="sort-header-container__item download">
+    <p class="sort-header-container__item__name">Download</p>
+  </div>
+</div>
+`;

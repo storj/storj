@@ -41,7 +41,7 @@ export class NotificationsHttpApi implements NotificationsApi {
                     item.message,
                     !!item.readAt,
                     new Date(item.createdAt),
-                )
+                ),
             );
 
             pageCount = notificationResponse.page.pageCount;

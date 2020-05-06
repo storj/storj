@@ -4,6 +4,7 @@
 package gracefulexit_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -41,10 +42,16 @@ func TestGetExitingNodes(t *testing.T) {
 			{testrand.NodeID(), time.Now(), time.Time{}, time.Now(), false, false},
 		}
 
-		for _, data := range testData {
-			n := pb.Node{Id: data.nodeID}
-			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
-			err := cache.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
+		for i, data := range testData {
+			addr := fmt.Sprintf("127.0.%d.0:8080", i)
+			lastNet := fmt.Sprintf("127.0.%d", i)
+			d := overlay.NodeCheckInInfo{NodeID: data.nodeID,
+				Address:    &pb.NodeAddress{Address: addr},
+				LastIPPort: addr,
+				LastNet:    lastNet,
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+			}
+			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			req := &overlay.ExitStatusRequest{
@@ -117,10 +124,16 @@ func TestGetGracefulExitNodesByTimeframe(t *testing.T) {
 			{testrand.NodeID(), time.Time{}, time.Time{}, time.Time{}},
 		}
 
-		for _, data := range testData {
-			n := pb.Node{Id: data.nodeID}
-			d := overlay.NodeDossier{Node: n, LastIPPort: "", LastNet: ""}
-			err := cache.UpdateAddress(ctx, &d, overlay.NodeSelectionConfig{})
+		for i, data := range testData {
+			addr := fmt.Sprintf("127.0.%d.0:8080", i)
+			lastNet := fmt.Sprintf("127.0.%d", i)
+			d := overlay.NodeCheckInInfo{NodeID: data.nodeID,
+				Address:    &pb.NodeAddress{Address: addr},
+				LastIPPort: addr,
+				LastNet:    lastNet,
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+			}
+			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
 			req := &overlay.ExitStatusRequest{

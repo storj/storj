@@ -21,6 +21,7 @@ import (
 	"storj.io/private/debug"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
@@ -30,6 +31,7 @@ import (
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/retain"
@@ -43,12 +45,12 @@ type StorageNode struct {
 	*storagenode.Peer
 }
 
-// URL returns the storj.NodeURL.
-func (system *StorageNode) URL() storj.NodeURL {
-	return storj.NodeURL{
-		ID:      system.Peer.ID(),
-		Address: system.Peer.Addr(),
-	}
+// URL returns the node url as a string.
+func (system *StorageNode) URL() string { return system.NodeURL().String() }
+
+// NodeURL returns the storj.NodeURL.
+func (system *StorageNode) NodeURL() storj.NodeURL {
+	return storj.NodeURL{ID: system.Peer.ID(), Address: system.Peer.Addr()}
 }
 
 // newStorageNodes initializes storage nodes.
@@ -150,6 +152,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					RefreshInterval: defaultInterval,
 				},
 			},
+			Pieces:    pieces.DefaultConfig,
+			Filestore: filestore.DefaultConfig,
 			Retain: retain.Config{
 				MaxTimeSkew: 10 * time.Second,
 				Status:      retain.Enabled,
@@ -184,15 +188,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 
 		verisonInfo := planet.NewVersionInfo()
 
-		storageConfig := storagenodedb.Config{
-			Storage: config.Storage.Path,
-			Info:    filepath.Join(config.Storage.Path, "piecestore.db"),
-			Info2:   filepath.Join(config.Storage.Path, "info.db"),
-			Pieces:  config.Storage.Path,
-		}
-
 		var db storagenode.DB
-		db, err = storagenodedb.New(log.Named("db"), storageConfig)
+		db, err = storagenodedb.New(log.Named("db"), config.DatabaseConfig())
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +212,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			return xs, err
 		}
 
-		err = db.CreateTables(context.TODO())
+		// Mark the peer's PieceDeleter as in testing mode, so it is easy to wait on the deleter
+		peer.Storage2.PieceDeleter.SetupTest()
+
+		err = db.MigrateToLatest(context.TODO())
 		if err != nil {
 			return nil, err
 		}

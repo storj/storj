@@ -26,8 +26,8 @@ var (
 
 // Client is the entrypoint into a cockroachkv data store
 type Client struct {
-	db tagsql.DB
-
+	db          tagsql.DB
+	dbURL       string
 	lookupLimit int
 }
 
@@ -42,18 +42,17 @@ func New(dbURL string) (*Client, error) {
 
 	dbutil.Configure(db, "cockroachkv", mon)
 
-	// TODO: new shouldn't be taking ctx as argument
-	err = schema.PrepareDB(context.TODO(), db)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewWith(db), nil
+	return NewWith(db, dbURL), nil
 }
 
 // NewWith instantiates a new cockroachkv client given db.
-func NewWith(db tagsql.DB) *Client {
-	return &Client{db: db, lookupLimit: storage.DefaultLookupLimit}
+func NewWith(db tagsql.DB, dbURL string) *Client {
+	return &Client{db: db, dbURL: dbURL, lookupLimit: storage.DefaultLookupLimit}
+}
+
+// MigrateToLatest migrates to latest schema version.
+func (client *Client) MigrateToLatest(ctx context.Context) error {
+	return schema.PrepareDB(ctx, client.db)
 }
 
 // SetLookupLimit sets the lookup limit.
@@ -209,6 +208,13 @@ func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, 
 	if opts.Limit <= 0 || opts.Limit > client.lookupLimit {
 		opts.Limit = client.lookupLimit
 	}
+
+	return client.IterateWithoutLookupLimit(ctx, opts, fn)
+}
+
+// IterateWithoutLookupLimit calls the callback with an iterator over the keys, but doesn't enforce default limit on opts.
+func (client *Client) IterateWithoutLookupLimit(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	opi, err := newOrderedCockroachIterator(ctx, client, opts)
 	if err != nil {

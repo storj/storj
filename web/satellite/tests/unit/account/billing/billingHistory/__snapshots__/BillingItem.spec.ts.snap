@@ -1,0 +1,54 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`BillingItem renders correctly if charge 1`] = `
+<div class="container">
+  <div class="countdown-container container__item">
+    <div>January 01, 1970</div>
+  </div>
+  <p class="container__item description">Charge</p>
+  <p class="container__item status">Test</p>
+  <p class="container__item amount"><b>
+      USD $
+      <span>
+                5.00
+            </span></b>
+    <!---->
+  </p>
+  <p class="container__item download"><a class="download-link" target="_blank" href="test">PDF</a></p>
+</div>
+`;
+
+exports[`BillingItem renders correctly if invoice 1`] = `
+<div class="container">
+  <div class="countdown-container container__item">
+    <div>January 01, 1970</div>
+  </div>
+  <p class="container__item description">Invoice</p>
+  <p class="container__item status">Test</p>
+  <p class="container__item amount"><b>
+      USD $
+      <span>
+                5.00
+            </span></b>
+    <!---->
+  </p>
+  <p class="container__item download"><a class="download-link" target="_blank" href="test">PDF</a></p>
+</div>
+`;
+
+exports[`BillingItem renders correctly if transaction 1`] = `
+<div class="container">
+  <div class="countdown-container container__item">
+    <div>January 01, 1970</div>
+  </div>
+  <p class="container__item description">Transaction</p>
+  <p class="container__item status">Test</p>
+  <p class="container__item amount"><b>
+      USD $
+      <span>
+                5.00
+            </span></b> <span>
+            of <b>5.00</b></span></p>
+  <p class="container__item download"><a class="download-link" target="_blank" href="test">Checkout</a></p>
+</div>
+`;

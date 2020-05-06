@@ -28,22 +28,22 @@ export const router = new Router({
         {
             path: RouteConfig.Root.path,
             name: RouteConfig.Root.name,
-            component: DashboardArea
+            component: DashboardArea,
         },
         {
             path: RouteConfig.Notifications.path,
             name: RouteConfig.Notifications.name,
-            component: NotificationsArea
+            component: NotificationsArea,
         },
         {
             path: RouteConfig.Payout.path,
             name: RouteConfig.Payout.name,
-            component: PayoutArea
+            component: PayoutArea,
         },
         {
             path: '*',
             name: '404',
             component: Page404,
         },
-    ]
+    ],
 });

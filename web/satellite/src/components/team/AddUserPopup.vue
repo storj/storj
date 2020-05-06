@@ -423,7 +423,7 @@ export default class AddUserPopup extends Vue {
             &__inputs-group {
                 max-height: 35vh;
                 overflow-y: hidden;
-                padding: 0 50px;
+                padding: 3px 50px 0 50px;
 
                 &__item {
                     display: flex;

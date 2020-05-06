@@ -19,6 +19,7 @@ import BucketArea from '@/components/project/buckets/BucketArea.vue';
 import ProjectDetails from '@/components/project/ProjectDetails.vue';
 import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 
+import { RouteConfig } from '@/router';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
@@ -34,6 +35,12 @@ export default class ProjectDashboard extends Vue {
      * Segment tracking is processed.
      */
     public mounted(): void {
+        if (!this.$store.getters.selectedProject.id) {
+            this.$router.push(RouteConfig.OnboardingTour.path);
+
+            return;
+        }
+
         this.$segment.track(SegmentEvent.PROJECT_VIEWED, {
             project_id: this.$store.getters.selectedProject.id,
         });

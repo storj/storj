@@ -20,10 +20,6 @@ import (
 	"storj.io/storj/storage/filestore"
 )
 
-const (
-	preallocSize = 4 * memory.MiB
-)
-
 var (
 	// Error is the default error class.
 	Error = errs.Class("pieces error")
@@ -156,11 +152,23 @@ type SatelliteUsage struct {
 	ContentSize int64 // only content size used (excluding things like headers)
 }
 
+// Config is configuration for Store.
+type Config struct {
+	WritePreallocSize memory.Size `help:"file preallocated for uploading" default:"4MiB"`
+}
+
+// DefaultConfig is the default value for the Config.
+var DefaultConfig = Config{
+	WritePreallocSize: 4 * memory.MiB,
+}
+
 // Store implements storing pieces onto a blob storage implementation.
 //
 // architecture: Database
 type Store struct {
-	log            *zap.Logger
+	log    *zap.Logger
+	config Config
+
 	blobs          storage.Blobs
 	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
@@ -174,9 +182,10 @@ type StoreForTest struct {
 }
 
 // NewStore creates a new piece store
-func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, pieceSpaceUsedDB PieceSpaceUsedDB) *Store {
+func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, pieceSpaceUsedDB PieceSpaceUsedDB, config Config) *Store {
 	return &Store{
 		log:            log,
+		config:         config,
 		blobs:          blobs,
 		v0PieceInfo:    v0PieceInfo,
 		expirationInfo: expirationInfo,
@@ -190,7 +199,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 	blobWriter, err := store.blobs.Create(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
-	}, preallocSize.Int64())
+	}, store.config.WritePreallocSize.Int64())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -220,7 +229,7 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 		}
 		blobWriter, err = fStore.TestCreateV0(ctx, blobRef)
 	case filestore.FormatV1:
-		blobWriter, err = store.blobs.Create(ctx, blobRef, preallocSize.Int64())
+		blobWriter, err = store.blobs.Create(ctx, blobRef, store.config.WritePreallocSize.Int64())
 	default:
 		return nil, Error.New("please teach me how to make V%d pieces", formatVersion)
 	}

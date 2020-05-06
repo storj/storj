@@ -3,14 +3,6 @@
 
 <template>
     <div class="new-project-container">
-        <VInfo
-            v-if="isMockButtonShown"
-            text="Please add a payment method"
-        >
-            <div class="new-project-button-mock">
-                <h1 class="new-project-button-mock__label">+ Create Project</h1>
-            </div>
-        </VInfo>
         <div
             v-if="isButtonShown"
             class="new-project-button-container"
@@ -29,6 +21,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import VInfo from '@/components/common/VInfo.vue';
 import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
 
+import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { ProjectOwning } from '@/utils/projectOwning';
 
@@ -41,7 +34,7 @@ import { ProjectOwning } from '@/utils/projectOwning';
 export default class NewProjectArea extends Vue {
     // TODO: temporary solution. Remove when user will be able to create more then one project
     /**
-     * Life cycle hook after initial render.
+     * Life cycle hook before initial render.
      * Toggles new project button visibility depending on user having his own project or payment method.
      */
     public beforeMount(): void {
@@ -52,6 +45,16 @@ export default class NewProjectArea extends Vue {
         }
 
         this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
+    }
+
+    /**
+     * Life cycle hook after initial render.
+     * Hides new project button visibility if user is on onboarding tour.
+     */
+    public mounted(): void {
+        if (this.isOnboardingTour) {
+            this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
+        }
     }
 
     /**
@@ -76,10 +79,10 @@ export default class NewProjectArea extends Vue {
     }
 
     /**
-     * Indicates if new project creation mock button is shown.
+     * Indicates if current route is onboarding tour.
      */
-    public get isMockButtonShown(): boolean {
-        return !(this.userHasOwnProject || this.$store.getters.canUserCreateFirstProject);
+    public get isOnboardingTour(): boolean {
+        return this.$route.name === RouteConfig.OnboardingTour.name;
     }
 
     /**
@@ -122,41 +125,6 @@ export default class NewProjectArea extends Vue {
             .new-project-button-container__label {
                 color: white;
             }
-        }
-    }
-
-    .new-project-button-mock {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 156px;
-        height: 40px;
-        border-radius: 6px;
-        background-color: #dadde5;
-        border: 1px solid #dadde5;
-
-        &__label {
-            font-family: 'font_medium', sans-serif;
-            font-size: 15px;
-            line-height: 22px;
-            color: #acb0bc;
-        }
-    }
-
-    /deep/ .info__message-box {
-        background-image: url('../../../static/images/header/info.png');
-        background-repeat: no-repeat;
-        height: auto;
-        width: auto;
-        top: 41px;
-        left: 157px;
-        padding: 30px 20px 25px 20px;
-        white-space: nowrap;
-
-        &__text {
-            text-align: left;
-            font-size: 13px;
-            line-height: 17px;
         }
     }
 </style>

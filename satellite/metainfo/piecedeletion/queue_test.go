@@ -38,7 +38,7 @@ func TestLimitedJobs(t *testing.T) {
 
 		list, ok := q.PopAll()
 		require.True(t, ok)
-		require.Equal(t, list, []piecedeletion.Job{job1, job2})
+		require.Equal(t, []piecedeletion.Job{job1, job2}, list)
 
 		// should be empty
 		list, ok = q.PopAll()
@@ -68,6 +68,24 @@ func TestLimitedJobs_Limiting(t *testing.T) {
 		require.False(t, q.TryPush(randomJob(1)))
 		_, _ = q.PopAll()
 		require.False(t, q.TryPush(randomJob(1)))
+	}
+}
+
+func TestLimitedJobs_NoClose(t *testing.T) {
+	{
+		q := piecedeletion.NewLimitedJobs(2)
+		job1, job2 := randomJob(1), randomJob(1)
+
+		require.True(t, q.TryPush(job1))
+		list := q.PopAllWithoutClose()
+		require.Equal(t, []piecedeletion.Job{job1}, list)
+
+		list = q.PopAllWithoutClose()
+		require.Empty(t, list)
+
+		require.True(t, q.TryPush(job2))
+		list = q.PopAllWithoutClose()
+		require.Equal(t, []piecedeletion.Job{job2}, list)
 	}
 }
 
@@ -143,6 +161,10 @@ func TestLimitedJobs_NoRace(t *testing.T) {
 
 	ctx.Go(func() error {
 		_, _ = q.PopAll()
+		return nil
+	})
+	ctx.Go(func() error {
+		_ = q.PopAllWithoutClose()
 		return nil
 	})
 }

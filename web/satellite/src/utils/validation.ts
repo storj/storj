@@ -11,3 +11,9 @@ export function validateEmail(email: string): boolean {
 export function validatePassword(password: string): boolean {
     return typeof password !== 'undefined' && password.length >= 6;
 }
+
+export function anyCharactersButSlash(string: string): boolean {
+    const rgx = /^[^\/]+$/;
+
+    return rgx.test(string);
+}

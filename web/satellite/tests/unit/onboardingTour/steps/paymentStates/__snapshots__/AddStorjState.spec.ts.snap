@@ -1,0 +1,70 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`AddStorjState.vue renders correctly 1`] = `
+<div class="add-storj-state">
+  <div class="add-storj-state__container">
+    <p class="add-storj-state__container__bonus-info">
+      Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.
+    </p>
+    <div class="add-storj-state__container__deposit-area">
+      <p class="add-storj-state__container__deposit-area__info"><b>Please Note:</b> Your first deposit of $50 or more in STORJ Token is applied to your account
+        after Coin Payments verifies payment<br><br>5GB are your starting project limits. Increased
+        amounts are available
+        <a href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212" target="_blank" class="add-storj-state__container__deposit-area__info__request-link">
+          per request.
+        </a></p>
+      <payingstep-stub></payingstep-stub>
+      <!---->
+      <!---->
+    </div>
+    <!---->
+  </div>
+  <vbutton-stub label="Name Your Project" width="222px" height="48px" isdisabled="true" onpress="function () { [native code] }"></vbutton-stub>
+</div>
+`;
+
+exports[`AddStorjState.vue renders correctly with completed transaction 1`] = `
+<div class="add-storj-state">
+  <div class="add-storj-state__container">
+    <p class="add-storj-state__container__bonus-info">
+      Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.
+    </p>
+    <div class="add-storj-state__container__deposit-area">
+      <p class="add-storj-state__container__deposit-area__info"><b>Please Note:</b> Your first deposit of $50 or more in STORJ Token is applied to your account
+        after Coin Payments verifies payment<br><br>5GB are your starting project limits. Increased
+        amounts are available
+        <a href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212" target="_blank" class="add-storj-state__container__deposit-area__info__request-link">
+          per request.
+        </a></p>
+      <!---->
+      <!---->
+      <verifiedstep-stub></verifiedstep-stub>
+    </div>
+    <!---->
+  </div>
+  <vbutton-stub label="Name Your Project" width="222px" height="48px" onpress="function () { [native code] }"></vbutton-stub>
+</div>
+`;
+
+exports[`AddStorjState.vue renders correctly with pending transaction 1`] = `
+<div class="add-storj-state">
+  <div class="add-storj-state__container">
+    <p class="add-storj-state__container__bonus-info">
+      Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.
+    </p>
+    <div class="add-storj-state__container__deposit-area">
+      <p class="add-storj-state__container__deposit-area__info"><b>Please Note:</b> Your first deposit of $50 or more in STORJ Token is applied to your account
+        after Coin Payments verifies payment<br><br>5GB are your starting project limits. Increased
+        amounts are available
+        <a href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212" target="_blank" class="add-storj-state__container__deposit-area__info__request-link">
+          per request.
+        </a></p>
+      <!---->
+      <verifyingstep-stub></verifyingstep-stub>
+      <!---->
+    </div>
+    <!---->
+  </div>
+  <vbutton-stub label="Name Your Project" width="222px" height="48px" isdisabled="true" onpress="function () { [native code] }"></vbutton-stub>
+</div>
+`;

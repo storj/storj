@@ -34,7 +34,7 @@ func TestServiceSuccess(t *testing.T) {
 
 		satellite := planet.Satellites[0]
 
-		userID := testrand.UUID2()
+		userID := testrand.UUID()
 		tokens, err := satellite.API.Referrals.Service.GetTokens(ctx, &userID)
 		require.NoError(t, err)
 		require.Len(t, tokens, tokenCount)
@@ -44,7 +44,7 @@ func TestServiceSuccess(t *testing.T) {
 			ShortName:     "test",
 			Email:         "test@mail.test",
 			Password:      "123a123",
-			ReferralToken: testrand.UUID2().String(),
+			ReferralToken: testrand.UUID().String(),
 		}
 
 		createdUser, err := satellite.API.Referrals.Service.CreateUser(ctx, user)
@@ -74,7 +74,7 @@ func TestServiceRedeemFailure(t *testing.T) {
 			ShortName:     "test",
 			Email:         "test@mail.test",
 			Password:      "123a123",
-			ReferralToken: testrand.UUID2().String(),
+			ReferralToken: testrand.UUID().String(),
 		}
 		_, err := satellite.API.Referrals.Service.CreateUser(ctx, user)
 		require.Error(t, err)

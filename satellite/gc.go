@@ -103,10 +103,12 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup version control
-		if !versionInfo.IsZero() {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
-		}
+		peer.Log.Info("Version info",
+			zap.Stringer("Version", versionInfo.Version.Version),
+			zap.String("Commit Hash", versionInfo.CommitHash),
+			zap.Stringer("Build Timestamp", versionInfo.Timestamp),
+			zap.Bool("Release Build", versionInfo.Release),
+		)
 		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 
@@ -117,7 +119,6 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup listener and server
-		log.Debug("Starting listener and server for GC")
 		sc := config.Server
 
 		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)

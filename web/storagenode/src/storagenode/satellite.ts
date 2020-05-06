@@ -17,6 +17,7 @@ export class Satellite {
         public ingressSummary: number,
         public audit: Metric,
         public uptime: Metric,
+        public joinDate: Date,
     ) {}
 }
 
@@ -185,5 +186,7 @@ export class Satellites {
         public storageSummary: number,
         public bandwidthSummary: number,
         public egressSummary: number,
-        public ingressSummary: number) {}
+        public ingressSummary: number,
+        public joinDate: Date,
+    ) {}
 }

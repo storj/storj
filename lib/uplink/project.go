@@ -106,7 +106,7 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 	}
 
 	bucket = storj.Bucket{
-		PartnerID:                   storj.DeprecatedUUID(partnerID),
+		PartnerID:                   partnerID,
 		PathCipher:                  cfg.PathCipher,
 		DefaultEncryptionParameters: cfg.EncryptionParameters,
 		DefaultRedundancyScheme:     cfg.Volatile.RedundancyScheme,
@@ -157,6 +157,10 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 // information.
 func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err := access.validate(); err != nil {
+		return nil, err
+	}
 
 	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
 	if err != nil {
@@ -239,6 +243,6 @@ func (p *Project) trySetBucketAttribution(ctx context.Context, bucketName string
 	// UserAgent is sent via RequestHeader
 	return p.metainfo.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{
 		Bucket:    bucketName,
-		PartnerID: storj.DeprecatedUUID(partnerID),
+		PartnerID: partnerID,
 	})
 }

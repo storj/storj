@@ -19,6 +19,7 @@ import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
+import { MetaUtils } from '@/utils/meta';
 import { validateEmail, validatePassword } from '@/utils/validation';
 
 @Component({
@@ -59,7 +60,7 @@ export default class RegisterArea extends Vue {
      * Lifecycle hook after initial render.
      * Sets up variables from route params.
      */
-    async mounted(): Promise<void> {
+    public async mounted(): Promise<void> {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
         }
@@ -81,6 +82,16 @@ export default class RegisterArea extends Vue {
         if (referralIds) {
             this.user.partnerId = referralIds.partnerId;
             this.refUserId = referralIds.userId;
+        }
+    }
+
+    /**
+     * Lifecycle hook on component destroy.
+     * Sets view to default state.
+     */
+    public beforeDestroy(): void {
+        if (this.isRegistrationSuccessful) {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         }
     }
 
@@ -229,6 +240,18 @@ export default class RegisterArea extends Vue {
                 email: this.$store.getters.user.email,
                 referralToken: this.referralToken,
             });
+
+            if (this.isInsideIframe) {
+                const verificationPageURL: string = MetaUtils.getMetaContent('verification-page-url');
+                const satelliteName: string = MetaUtils.getMetaContent('satellite-name');
+                const url = new URL(verificationPageURL);
+
+                url.searchParams.append('name', satelliteName);
+
+                window.top.location.href = url.href;
+
+                return;
+            }
 
             await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         } catch (error) {

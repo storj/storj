@@ -24,7 +24,7 @@ import (
 func TestCreditsRepository(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		creditsRepo := db.StripeCoinPayments().Credits()
-		userID := testrand.UUID2()
+		userID := testrand.UUID()
 		credit := payments.Credit{
 			UserID:        userID,
 			Amount:        10,
@@ -32,7 +32,7 @@ func TestCreditsRepository(t *testing.T) {
 		}
 
 		spending := stripecoinpayments.CreditsSpending{
-			ProjectID: testrand.UUID2(),
+			ProjectID: testrand.UUID(),
 			UserID:    userID,
 			Amount:    5,
 			Status:    stripecoinpayments.CreditsSpendingStatusUnapplied,

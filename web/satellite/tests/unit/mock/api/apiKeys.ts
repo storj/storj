@@ -18,7 +18,7 @@ export class ApiKeysMock implements ApiKeysApi {
     }
 
     create(projectId: string, name: string): Promise<ApiKey> {
-        throw new Error('Method not implemented');
+        return Promise.resolve(new ApiKey('testId', 'testName', 'test', 'testKey'));
     }
 
     delete(ids: string[]): Promise<void> {

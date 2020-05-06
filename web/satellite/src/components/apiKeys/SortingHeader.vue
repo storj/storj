@@ -85,17 +85,9 @@ export default class SortApiKeysHeader extends Vue {
         background-color: rgba(255, 255, 255, 0.3);
         margin-top: 31px;
 
-        &__date-item {
-            width: 60%;
-
-            &__title {
-                margin: 0;
-            }
-        }
-
         &__name-item,
         &__date-item {
-            width: 40%;
+            width: 60%;
             display: flex;
             align-items: center;
             margin: 0;
@@ -110,6 +102,14 @@ export default class SortApiKeysHeader extends Vue {
 
             .creation-date {
                 margin-left: 0;
+            }
+        }
+
+        &__date-item {
+            width: 40%;
+
+            &__title {
+                margin: 0;
             }
         }
     }

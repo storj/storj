@@ -5,6 +5,7 @@ package accounting_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,7 +22,47 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/storage"
 )
+
+func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
+	t.Skip("disable until the bug SM-102 is fixed")
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			bucketName = "testbucket"
+			filePath   = "test/path"
+		)
+
+		var (
+			satelliteSys = planet.Satellites[0]
+			uplink       = planet.Uplinks[0]
+			projectID    = uplink.Projects[0].ID
+			since        = time.Now()
+		)
+
+		satelliteSys.Accounting.Tally.Loop.Pause()
+
+		data := testrand.Bytes(10 * memory.KiB)
+		err := uplink.Upload(ctx, satelliteSys, bucketName, filePath, data)
+		require.NoError(t, err)
+
+		_, err = uplink.Download(ctx, satelliteSys, bucketName, filePath)
+		require.NoError(t, err)
+
+		// trigger tally so it gets all set up and can return a storage usage
+		satelliteSys.Accounting.Tally.Loop.TriggerWait()
+
+		usage := getProjectTotal(ctx, t, planet, 0, projectID, since)
+
+		// TODO: this assertion fails due to the bug SM-102
+		require.Equal(t, len(data), int(usage.Egress), "Egress should be equal to the downloaded file size")
+	})
+}
 
 func TestBilling_InlineFiles(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
@@ -41,7 +82,7 @@ func TestBilling_InlineFiles(t *testing.T) {
 		var (
 			satelliteSys = planet.Satellites[0]
 			uplink       = planet.Uplinks[0]
-			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			projectID    = uplink.Projects[0].ID
 			since        = time.Now()
 		)
 
@@ -59,8 +100,7 @@ func TestBilling_InlineFiles(t *testing.T) {
 		_, err = uplink.Download(ctx, satelliteSys, bucketName, firstPath)
 		require.NoError(t, err)
 
-		// We need to call tally twice, it calculates the estimated time
-		// using the difference in the generation time of the two tallies
+		// trigger tally so it gets all set up and can return a storage usage
 		satelliteSys.Accounting.Tally.Loop.TriggerWait()
 
 		usage := getProjectTotal(ctx, t, planet, 0, projectID, since)
@@ -89,7 +129,7 @@ func TestBilling_FilesAfterDeletion(t *testing.T) {
 		var (
 			satelliteSys = planet.Satellites[0]
 			uplink       = planet.Uplinks[0]
-			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			projectID    = uplink.Projects[0].ID
 			since        = time.Now()
 		)
 
@@ -100,8 +140,7 @@ func TestBilling_FilesAfterDeletion(t *testing.T) {
 		err := uplink.Upload(ctx, satelliteSys, bucketName, filePath, uploadData)
 		require.NoError(t, err)
 
-		// We need to call tally twice, it calculates the estimated time
-		// using the difference in the generation time of the two tallies
+		// trigger tally so it gets all set up and can return a storage usage
 		satelliteSys.Accounting.Tally.Loop.TriggerWait()
 
 		// Get usage for uploaded file before we delete it
@@ -143,7 +182,7 @@ func TestBilling_TrafficAfterFileDeletion(t *testing.T) {
 		var (
 			satelliteSys = planet.Satellites[0]
 			uplink       = planet.Uplinks[0]
-			projectID    = uplink.ProjectID[satelliteSys.ID()]
+			projectID    = uplink.Projects[0].ID
 		)
 
 		data := testrand.Bytes(5 * memory.KiB)
@@ -201,7 +240,7 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		require.NoError(t, err)
 
 		var (
-			projectID = uplnk.ProjectID[satelliteSys.ID()]
+			projectID = uplnk.Projects[0].ID
 			since     = time.Now()
 		)
 		projectTotal := getProjectTotal(ctx, t, planet, 0, projectID, since)
@@ -269,7 +308,7 @@ func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
 
 		var (
 			uplnk     = planet.Uplinks[0]
-			projectID = uplnk.ProjectID[satelliteSys.ID()]
+			projectID = uplnk.Projects[0].ID
 		)
 
 		since := time.Now().Add(-10 * time.Hour)
@@ -293,7 +332,117 @@ func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
 	})
 }
 
-// getProjectTotal returns used egress, storage, objectCount for the
+func TestBilling_ExpiredFiles(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			bucketName = "a-bucket"
+			objectKey  = "object-filename"
+		)
+
+		satelliteSys := planet.Satellites[0]
+		satelliteSys.Audit.Chore.Loop.Stop()
+		satelliteSys.Repair.Repairer.Loop.Stop()
+
+		satelliteSys.Accounting.Tally.Loop.Pause()
+
+		tallies := getTallies(ctx, t, planet, 0)
+		require.Zero(t, len(tallies), "There should be no tally at this point")
+
+		now := time.Now()
+		expirationDate := now.Add(time.Hour)
+
+		{
+			uplink := planet.Uplinks[0]
+			data := testrand.Bytes(128 * memory.KiB)
+			err := uplink.UploadWithExpiration(ctx, satelliteSys, bucketName, objectKey, data, expirationDate)
+			require.NoError(t, err)
+		}
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		tallies = getTallies(ctx, t, planet, 0)
+		require.NotZero(t, len(tallies), "There should be at least one tally")
+
+		// set the tally service to be in the future for the next get tallies call. it should
+		// not add any tallies.
+		planet.Satellites[0].Accounting.Tally.SetNow(func() time.Time {
+			return now.Add(2 * time.Hour)
+		})
+		newTallies := getTallies(ctx, t, planet, 0)
+		require.Equal(t, tallies, newTallies)
+	})
+}
+
+func getTallies(ctx context.Context, t *testing.T, planet *testplanet.Planet, satelliteIdx int) []accounting.BucketTally {
+	t.Helper()
+	sat := planet.Satellites[satelliteIdx]
+	sat.Accounting.Tally.Loop.TriggerWait()
+	sat.Accounting.Tally.Loop.Pause()
+
+	tallies, err := sat.DB.ProjectAccounting().GetTallies(ctx)
+	require.NoError(t, err)
+	return tallies
+
+}
+
+func TestBilling_ZombieSegments(t *testing.T) {
+	// failing test - see https://storjlabs.atlassian.net/browse/SM-592
+	t.Skip("Zombie segments do get billed. Wait for resolution of SM-592")
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			bucketName = "a-bucket"
+			objectKey  = "object-filename"
+		)
+
+		satelliteSys := planet.Satellites[0]
+		satelliteSys.Audit.Chore.Loop.Stop()
+		satelliteSys.Repair.Repairer.Loop.Stop()
+		satelliteSys.Accounting.Tally.Loop.Pause()
+
+		uplnk := planet.Uplinks[0]
+		{
+			data := testrand.Bytes(10 * memory.KiB)
+			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
+				Client: testplanet.ClientConfig{
+					SegmentSize: 5 * memory.KiB,
+				}}, bucketName, objectKey, data)
+			require.NoError(t, err)
+		}
+
+		// trigger tally so it gets all set up and can return a storage usage
+		satelliteSys.Accounting.Tally.Loop.TriggerWait()
+
+		projectID := uplnk.Projects[0].ID
+
+		{ // delete last segment from metainfo to get zombie segments
+			keys, err := planet.Satellites[0].Metainfo.Database.List(ctx, nil, 10)
+			require.NoError(t, err)
+
+			var lastSegmentKey storage.Key
+			for _, key := range keys {
+				if strings.Contains(key.String(), "/l/") {
+					lastSegmentKey = key
+				}
+			}
+			require.NotNil(t, lastSegmentKey)
+
+			err = satelliteSys.Metainfo.Service.UnsynchronizedDelete(ctx, lastSegmentKey.String())
+			require.NoError(t, err)
+
+			err = uplnk.DeleteObject(ctx, satelliteSys, bucketName, objectKey)
+			require.Error(t, err)
+		}
+
+		from := time.Now()
+		storageAfterDelete := getProjectTotal(ctx, t, planet, 0, projectID, from).Storage
+		require.Equal(t, 0.0, storageAfterDelete, "zombie segments billed")
+	})
+}
+
+// getProjectTotal returns the total used egress,  storage, objectCount for the
 // projectID in the satellite referenced by satelliteIdx index.
 func getProjectTotal(
 	ctx context.Context, t *testing.T, planet *testplanet.Planet, satelliteIdx int,
@@ -304,8 +453,9 @@ func getProjectTotal(
 	return getProjectTotalFromStorageNodes(ctx, t, planet, satelliteIdx, projectID, since, planet.StorageNodes)
 }
 
-// getProjectTotal returns used egress, storage, objectCount for the
-// projectID in the satellite referenced by satelliteIdx index.
+// getProjectTotalFromStorageNodes returns used egress, storage, objectCount for the
+// projectID in the satellite referenced by satelliteIdx index, asking orders
+// to storageNodes nodes.
 func getProjectTotalFromStorageNodes(
 	ctx context.Context, t *testing.T, planet *testplanet.Planet, satelliteIdx int,
 	projectID uuid.UUID, since time.Time, storageNodes []*testplanet.StorageNode,

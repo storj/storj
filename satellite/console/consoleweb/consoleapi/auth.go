@@ -67,6 +67,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 
 	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
 	if err != nil {
+		a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 		a.serveJSONError(w, err)
 		return
 	}

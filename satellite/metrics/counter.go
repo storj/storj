@@ -6,8 +6,6 @@ package metrics
 import (
 	"context"
 
-	"github.com/gogo/protobuf/proto"
-
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/satellite/metainfo"
@@ -30,7 +28,7 @@ func NewCounter() *Counter {
 // Object increments counts for inline objects and remote dependent objects.
 func (counter *Counter) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	streamMeta := &pb.StreamMeta{}
-	err = proto.Unmarshal(pointer.Metadata, streamMeta)
+	err = pb.Unmarshal(pointer.Metadata, streamMeta)
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}

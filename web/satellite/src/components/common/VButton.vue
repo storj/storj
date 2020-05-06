@@ -7,7 +7,7 @@
         :class="containerClassName"
         :style="style"
         @click="onPress">
-        <h1 class="label">{{label}}</h1>
+        <span class="label">{{label}}</span>
     </div>
 </template>
 
@@ -66,7 +66,7 @@ export default class VButton extends Vue {
     }
 
     .blue-white {
-        background-color: transparent !important;
+        background-color: #fff !important;
         border: 2px solid #2683ff !important;
 
         .label {
@@ -111,6 +111,10 @@ export default class VButton extends Vue {
                 .label {
                     color: white !important;
                 }
+            }
+
+            &.blue-white {
+                border: 2px solid #2683ff !important;
             }
 
             &.red {

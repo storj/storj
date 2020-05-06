@@ -101,10 +101,12 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{
-		if !versionInfo.IsZero() {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
-		}
+		peer.Log.Info("Version info",
+			zap.Stringer("Version", versionInfo.Version.Version),
+			zap.String("Commit Hash", versionInfo.CommitHash),
+			zap.Stringer("Build Timestamp", versionInfo.Timestamp),
+			zap.Bool("Release Build", versionInfo.Release),
+		)
 		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 

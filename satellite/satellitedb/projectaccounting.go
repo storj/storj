@@ -130,6 +130,23 @@ func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, pro
 	return *sum, err
 }
 
+// GetCurrentBandwidthAllocated returns allocated bandwidth for the current month
+func (db *ProjectAccounting) GetCurrentBandwidthAllocated(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var egress *int64
+	t := time.Now()
+
+	interval := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+
+	query := `SELECT egress_allocated FROM project_bandwidth_rollups WHERE project_id = ? AND interval_month = ?;`
+	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], interval).Scan(&egress)
+	if err == sql.ErrNoRows || egress == nil {
+		return 0, nil
+	}
+
+	return *egress, err
+}
+
 // GetStorageTotals returns the current inline and remote storage usage for a projectID
 func (db *ProjectAccounting) GetStorageTotals(ctx context.Context, projectID uuid.UUID) (inline int64, remote int64, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -465,19 +482,15 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		Offset: uint64((cursor.Page - 1) * cursor.Limit),
 	}
 
-	bucketNameRange, incrPrefix, err := db.prefixMatch("bucket_name", bucketPrefix)
+	bucketNameRange, incrPrefix, err := db.prefixMatch("name", bucketPrefix)
 	if err != nil {
 		return nil, err
 	}
-	countQuery := db.db.Rebind(`SELECT COUNT(DISTINCT bucket_name)
-	FROM bucket_bandwidth_rollups
-	WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
-	AND ` + bucketNameRange)
+	countQuery := db.db.Rebind(`SELECT COUNT(name) FROM bucket_metainfos
+	WHERE project_id = ? AND ` + bucketNameRange)
 
 	args := []interface{}{
 		projectID[:],
-		since,
-		before,
 		bucketPrefix,
 	}
 	if incrPrefix != nil {
@@ -499,16 +512,11 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	}
 
 	var buckets []string
-	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name
-	FROM bucket_bandwidth_rollups
-	WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
-	AND ` + bucketNameRange + ` ORDER BY bucket_name ASC
-	LIMIT ? OFFSET ?`)
+	bucketsQuery := db.db.Rebind(`SELECT name FROM bucket_metainfos 
+	WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`)
 
 	args = []interface{}{
 		projectID[:],
-		since,
-		before,
 		bucketPrefix,
 	}
 	if incrPrefix != nil {

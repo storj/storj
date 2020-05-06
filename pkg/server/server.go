@@ -17,8 +17,10 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpctracing"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
+	jaeger "storj.io/monkit-jaeger"
 	"storj.io/storj/pkg/listenmux"
 	"storj.io/storj/private/grpctlsopts"
 )
@@ -89,9 +91,10 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 	}
 
 	publicMux := drpcmux.New()
+	publicTracingHandler := rpctracing.NewHandler(publicMux, jaeger.RemoteTraceHandler)
 	server.public = public{
 		listener: wrapListener(publicListener),
-		drpc:     drpcserver.NewWithOptions(publicMux, serverOptions),
+		drpc:     drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
 		grpc: grpc.NewServer(
 			grpc.ChainStreamInterceptor(
 				server.logOnErrorStreamInterceptor,
@@ -108,9 +111,10 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		return nil, errs.Combine(err, publicListener.Close())
 	}
 	privateMux := drpcmux.New()
+	privateTracingHandler := rpctracing.NewHandler(privateMux, jaeger.RemoteTraceHandler)
 	server.private = private{
 		listener: wrapListener(privateListener),
-		drpc:     drpcserver.NewWithOptions(privateMux, serverOptions),
+		drpc:     drpcserver.NewWithOptions(privateTracingHandler, serverOptions),
 		grpc:     grpc.NewServer(),
 		mux:      privateMux,
 	}

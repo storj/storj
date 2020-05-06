@@ -221,12 +221,15 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	total := int(pointer.Remote.Redundancy.GetTotal())
 
 	if len(sharesToAudit) < required {
+		mon.Counter("not_enough_shares_for_audit").Inc(1)
 		return Report{
 			Fails:    failedNodes,
 			Offlines: offlineNodes,
 			Unknown:  unknownNodes,
 		}, ErrNotEnoughShares.New("got %d, required %d", len(sharesToAudit), required)
 	}
+	// ensure we get values, even if only zero values, so that redash can have an alert based on this
+	mon.Counter("not_enough_shares_for_audit").Inc(0)
 
 	pieceNums, correctedShares, err := auditShares(ctx, required, total, sharesToAudit)
 	if err != nil {

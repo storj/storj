@@ -48,6 +48,10 @@ export default class ProjectUsage extends Vue {
      * Fetches project limits.
      */
     public async mounted(): Promise<void> {
+        if (!this.$store.getters.selectedProject.id) {
+            return;
+        }
+
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {

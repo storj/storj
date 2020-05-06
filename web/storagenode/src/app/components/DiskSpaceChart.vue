@@ -41,6 +41,10 @@ class StampTooltip {
 
 @Component
 export default class DiskSpaceChart extends BaseChart {
+    private get chartBackgroundColor(): string {
+        return this.isDarkMode ? '#4F97F7' : '#F2F6FC';
+    }
+
     private get allStamps(): Stamp[] {
         return ChartUtils.populateEmptyStamps(this.$store.state.node.storageChartData);
     }
@@ -58,9 +62,9 @@ export default class DiskSpaceChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#F2F6FC';
+        const chartBackgroundColor = this.chartBackgroundColor;
         const chartBorderColor = '#1F49A3';
-        const chartBorderWidth = 2;
+        const chartBorderWidth = 1;
 
         if (this.allStamps.length) {
             data = ChartUtils.normalizeChartData(this.allStamps.map(elem => elem.atRestTotal));
@@ -103,27 +107,26 @@ export default class DiskSpaceChart extends BaseChart {
 
         &__data-dimension {
             font-size: 13px;
-            color: #586c86;
+            color: var(--regular-text-color);
             margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }
     }
 
     #disk-space-tooltip {
-        background-image: url('../../../static/images/tooltipBack.png');
+        background-image: var(--tooltip-background-path);
         background-repeat: no-repeat;
         background-size: cover;
         width: 180px;
         height: 90px;
         font-size: 12px;
         border-radius: 14px;
-        box-shadow: 0 2px 10px #d2d6de;
-        color: #535f77;
+        color: var(--regular-text-color);
         pointer-events: none;
     }
 
     #disk-space-tooltip-arrow {
-        background-image: url('../../../static/images/tooltipArrow.png');
+        background-image: var(--tooltip-arrow-path);
         background-repeat: no-repeat;
         background-size: 50px 30px;
         min-width: 50px;

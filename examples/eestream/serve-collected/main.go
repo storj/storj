@@ -17,6 +17,7 @@ import (
 
 	"storj.io/common/encryption"
 	"storj.io/common/ranger"
+	"storj.io/common/ranger/httpranger"
 	"storj.io/common/storj"
 	"storj.io/uplink/private/eestream"
 )
@@ -62,7 +63,7 @@ func Main() error {
 	for i := 0; i < *rsn; i++ {
 		go func(i int) {
 			url := fmt.Sprintf("http://18.184.133.99:%d", 10000+i)
-			rr, err := ranger.HTTPRanger(ctx, url)
+			rr, err := httpranger.HTTPRanger(ctx, url)
 			result <- indexRangerError{i: i, rr: rr, err: err}
 		}(i)
 	}
@@ -90,6 +91,6 @@ func Main() error {
 
 	return http.ListenAndServe(*addr, http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			ranger.ServeContent(ctx, w, r, flag.Arg(0), time.Time{}, rr)
+			httpranger.ServeContent(ctx, w, r, flag.Arg(0), time.Time{}, rr)
 		}))
 }

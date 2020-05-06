@@ -26,7 +26,7 @@ import (
 func TestSaveBucketTallies(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		// Setup: create bucket storage tallies
-		projectID := testrand.UUID2()
+		projectID := testrand.UUID()
 
 		bucketTallies, expectedTallies, err := createBucketStorageTallies(projectID)
 		require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestStorageNodeUsage(t *testing.T) {
 
 func TestProjectLimits(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		proj, err := db.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID2()})
+		proj, err := db.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})
 		require.NoError(t, err)
 
 		err = db.ProjectAccounting().UpdateProjectUsageLimit(ctx, proj.ID, 1)

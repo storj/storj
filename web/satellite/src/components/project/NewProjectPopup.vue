@@ -85,9 +85,10 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 export default class NewProjectPopup extends Vue {
     private projectName: string = '';
     private description: string = '';
-    private nameError: string = '';
     private createdProjectId: string = '';
     private isLoading: boolean = false;
+
+    public nameError: string = '';
 
     /**
      * Indicates if popup is shown.
@@ -143,7 +144,7 @@ export default class NewProjectPopup extends Vue {
         } catch (error) {
             this.isLoading = false;
             await this.$notify.error(error.message);
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
             return;
         }
@@ -159,7 +160,7 @@ export default class NewProjectPopup extends Vue {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.createdProjectId);
         } catch (error) {
             await this.$notify.error(error.message);

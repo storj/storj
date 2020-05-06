@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -114,7 +113,7 @@ func TestObserver_processSegment(t *testing.T) {
 
 		var (
 			bucketName  = "test-bucket"
-			projectID   = testrand.UUID2()
+			projectID   = testrand.UUID()
 			numSegments = 65
 			obsvr       = observer{
 				objects: make(bucketsObjects),
@@ -155,7 +154,7 @@ func TestObserver_processSegment(t *testing.T) {
 
 		var (
 			bucketName  = "test-bucket"
-			projectID   = testrand.UUID2()
+			projectID   = testrand.UUID()
 			numSegments = 65
 			obsvr       = observer{
 				objects: make(bucketsObjects),
@@ -223,7 +222,7 @@ func TestObserver_processSegment(t *testing.T) {
 			to         = time.Now()
 			from       = to.Add(-time.Hour)
 			bucketName = "test-bucket"
-			projectID  = testrand.UUID2()
+			projectID  = testrand.UUID()
 			obsvr      = observer{
 				objects: make(bucketsObjects),
 				from:    &from,
@@ -262,7 +261,7 @@ func TestObserver_processSegment(t *testing.T) {
 			from                       = to.Add(-2 * time.Hour)
 			diffFromTo                 = to.Sub(from)
 			bucketName                 = "test-bucket"
-			projectID                  = testrand.UUID2()
+			projectID                  = testrand.UUID()
 			numSegmentsObjOutDateRange = rand.Intn(50) + 15
 			numSegmentsBeforeDate      = rand.Intn(numSegmentsObjOutDateRange-1) + 1
 			obsvr                      = observer{
@@ -342,7 +341,7 @@ func TestObserver_processSegment(t *testing.T) {
 			to         = time.Now()
 			from       = to.Add(-time.Hour)
 			bucketName = "test-bucket"
-			projectID  = testrand.UUID2()
+			projectID  = testrand.UUID()
 			obsvr      = observer{
 				objects: make(bucketsObjects),
 				from:    &from,
@@ -381,7 +380,7 @@ func TestObserver_processSegment(t *testing.T) {
 			from                       = to.Add(-2 * time.Hour)
 			diffFromTo                 = to.Sub(from)
 			bucketName                 = "test-bucket"
-			projectID                  = testrand.UUID2()
+			projectID                  = testrand.UUID()
 			numSegmentsObjOutDateRange = rand.Intn(50) + 15
 			numSegmentsBeforeDate      = rand.Intn(numSegmentsObjOutDateRange-1) + 1
 			obsvr                      = observer{
@@ -499,7 +498,7 @@ func TestObserver_processSegment_from_to(t *testing.T) {
 			to:      to,
 		}
 		path := metainfo.ScopedPath{
-			ProjectID:           testrand.UUID2(),
+			ProjectID:           testrand.UUID(),
 			Segment:             "l",
 			BucketName:          "bucket1",
 			EncryptedObjectPath: "path1",
@@ -570,7 +569,7 @@ func TestObserver_processSegment_single_project(t *testing.T) {
 		expected         string
 	}
 
-	project1 := testrand.UUID2().String()
+	project1 := testrand.UUID().String()
 	tests := []struct {
 		objects []object
 	}{
@@ -610,10 +609,10 @@ func TestObserver_processSegment_single_project(t *testing.T) {
 						streamMeta.NumberOfSegments = int64(ttObject.numberOfSegments)
 					}
 					path := storj.JoinPaths(project1, segmentIndex, ttObject.bucket, "path"+strconv.Itoa(i))
-					metadata, err := proto.Marshal(streamMeta)
+					metadata, err := pb.Marshal(streamMeta)
 					require.NoError(t, err)
 
-					pointerBytes, err := proto.Marshal(&pb.Pointer{
+					pointerBytes, err := pb.Marshal(&pb.Pointer{
 						Metadata: metadata,
 					})
 					require.NoError(t, err)
@@ -725,7 +724,7 @@ func TestObserver_analyzeProject(t *testing.T) {
 
 			observer := &observer{
 				objects:       bucketObjects,
-				lastProjectID: testrand.UUID2().String(),
+				lastProjectID: testrand.UUID().String(),
 				zombieBuffer:  make([]int, 0, maxNumOfSegments),
 			}
 			err := observer.findZombieSegments(object)
@@ -768,7 +767,7 @@ func createNewObjectSegments(
 	t.Helper()
 
 	var (
-		objectID        = testrand.UUID2().String()
+		objectID        = testrand.UUID().String()
 		projectIDString = projectID.String()
 		references      = make([]segmentRef, 0, numSegments)
 		encryptedPath   = fmt.Sprintf("%s-%s-%s", projectIDString, bucketName, objectID)
@@ -804,7 +803,7 @@ func createNewObjectSegments(
 		pointerNumSegments = int64(numSegments)
 	}
 
-	metadata, err := proto.Marshal(&pb.StreamMeta{
+	metadata, err := pb.Marshal(&pb.StreamMeta{
 		NumberOfSegments: pointerNumSegments,
 	})
 	require.NoError(t, err)
@@ -864,7 +863,7 @@ func generateTestdataObjects(
 		}
 		bucketName                      = "0"
 		numObjs                         = rand.Intn(10) + 2
-		projID                          = testrand.UUID2()
+		projID                          = testrand.UUID()
 		withoutLastSegmentCount         = 0
 		withMoreThanMaxNumSegmentsCount = 0
 		numMaxGeneratedSegments         = 10

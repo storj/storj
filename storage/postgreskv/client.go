@@ -24,12 +24,12 @@ var (
 
 // Client is the entrypoint into a postgreskv data store
 type Client struct {
-	db tagsql.DB
-
+	db          tagsql.DB
+	dbURL       string
 	lookupLimit int
 }
 
-// New instantiates a new postgreskv client given db URL
+// New instantiates a new postgreskv client given db URL.
 func New(dbURL string) (*Client, error) {
 	dbURL = pgutil.CheckApplicationName(dbURL)
 
@@ -39,18 +39,17 @@ func New(dbURL string) (*Client, error) {
 	}
 
 	dbutil.Configure(db, "postgreskv", mon)
-	//TODO: Fix the parameters!!
-	err = schema.PrepareDB(context.TODO(), db, dbURL)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewWith(db), nil
+	return NewWith(db, dbURL), nil
 }
 
 // NewWith instantiates a new postgreskv client given db.
-func NewWith(db tagsql.DB) *Client {
-	return &Client{db: db, lookupLimit: storage.DefaultLookupLimit}
+func NewWith(db tagsql.DB, dbURL string) *Client {
+	return &Client{db: db, lookupLimit: storage.DefaultLookupLimit, dbURL: dbURL}
+}
+
+// MigrateToLatest migrates to latest schema version.
+func (client *Client) MigrateToLatest(ctx context.Context) error {
+	return schema.PrepareDB(ctx, client.db, client.dbURL)
 }
 
 // SetLookupLimit sets the lookup limit.
@@ -206,6 +205,13 @@ func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, 
 	if opts.Limit <= 0 || opts.Limit > client.lookupLimit {
 		opts.Limit = client.lookupLimit
 	}
+
+	return client.IterateWithoutLookupLimit(ctx, opts, fn)
+}
+
+// IterateWithoutLookupLimit calls the callback with an iterator over the keys, but doesn't enforce default limit on opts.
+func (client *Client) IterateWithoutLookupLimit(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	opi, err := newOrderedPostgresIterator(ctx, client, opts)
 	if err != nil {

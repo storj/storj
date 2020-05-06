@@ -16,7 +16,9 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/storj/private/date"
 	"storj.io/storj/storagenode/heldamount"
+	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
@@ -28,11 +30,13 @@ type Config struct {
 	StorageSync    time.Duration `help:"how often to sync storage" releaseDefault:"12h" devDefault:"2m"`
 }
 
-// CacheStorage encapsulates cache DBs
+// CacheStorage encapsulates cache DBs.
 type CacheStorage struct {
 	Reputation   reputation.DB
 	StorageUsage storageusage.DB
 	HeldAmount   heldamount.DB
+	Pricing      pricing.DB
+	Satellites   satellites.DB
 }
 
 // Cache runs cache loop and stores reputation stats
@@ -69,6 +73,29 @@ func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
 // Run runs loop
 func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
+
+	err := cache.satelliteLoop(ctx, func(satelliteID storj.NodeID) error {
+		stubHistory, err := cache.heldamountService.GetAllPaystubs(ctx, satelliteID)
+		if err != nil {
+			return err
+		}
+
+		for i := 0; i < len(stubHistory); i++ {
+			err := cache.db.HeldAmount.StorePayStub(ctx, stubHistory[i])
+			if err != nil {
+				return err
+			}
+		}
+
+		pricingModel, err := cache.service.GetPricingModel(ctx, satelliteID)
+		if err != nil {
+			return err
+		}
+		return cache.db.Pricing.Store(ctx, *pricingModel)
+	})
+	if err != nil {
+		cache.log.Error("Get pricing-model/join date failed", zap.Error(err))
+	}
 
 	cache.Reputation.Start(ctx, &group, func(ctx context.Context) error {
 		if err := cache.sleep(ctx); err != nil {
@@ -115,6 +142,7 @@ func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 		}
 
 		if err = cache.db.Reputation.Store(ctx, *stats); err != nil {
+			cache.log.Error("err", zap.Error(err))
 			return err
 		}
 
@@ -168,17 +196,6 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 
 		if payStub != nil {
 			if err = cache.db.HeldAmount.StorePayStub(ctx, *payStub); err != nil {
-				return err
-			}
-		}
-
-		payment, err := cache.heldamountService.GetPayment(ctx, satellite, time.Now().AddDate(0, -1, 0).String())
-		if err != nil {
-			return err
-		}
-
-		if payment != nil {
-			if err = cache.db.HeldAmount.StorePayment(ctx, *payment); err != nil {
 				return err
 			}
 		}

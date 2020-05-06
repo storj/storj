@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -166,6 +165,23 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	return keyInfo, nil
 }
 
+// getKeyInfo returns key info based on the header.
+func (endpoint *Endpoint) getKeyInfo(ctx context.Context, header *pb.RequestHeader) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	key, err := getAPIKey(ctx, header)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid API credentials")
+	}
+
+	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+	}
+
+	return keyInfo, nil
+}
+
 func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !endpoint.config.RateLimiter.Enabled {
@@ -224,7 +240,7 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 			return Error.New("missing create request or request expired")
 		case !createRequest.Expiration.Equal(req.Pointer.ExpirationDate):
 			return Error.New("pointer expiration date does not match requested one")
-		case !proto.Equal(createRequest.Redundancy, req.Pointer.Remote.Redundancy):
+		case !pb.Equal(createRequest.Redundancy, req.Pointer.Remote.Redundancy):
 			return Error.New("pointer redundancy scheme date does not match requested one")
 		}
 	}

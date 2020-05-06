@@ -96,8 +96,8 @@ CREATE TABLE credits_spendings (
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint DEFAULT 0 NOT NULL,
-	pieces_failed bigint DEFAULT 0 NOT NULL,
+	pieces_transferred bigint NOT NULL DEFAULT 0,
+	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -113,14 +113,14 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp with time zone,
-	order_limit_send_count integer DEFAULT 0 NOT NULL,
+	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp with time zone,
-	num_healthy_pieces integer DEFAULT 52 NOT NULL,
+	num_healthy_pieces integer NOT NULL DEFAULT 52,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -133,45 +133,44 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
-	address text DEFAULT '' NOT NULL,
+	address text NOT NULL DEFAULT '',
 	last_net text NOT NULL,
 	last_ip_port text,
-	protocol integer DEFAULT 0 NOT NULL,
-	type integer DEFAULT 0 NOT NULL,
+	protocol integer NOT NULL DEFAULT 0,
+	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
 	wallet text NOT NULL,
-	free_bandwidth bigint DEFAULT -1 NOT NULL,
-	free_disk bigint DEFAULT -1 NOT NULL,
-	piece_count bigint DEFAULT 0 NOT NULL,
-	major bigint DEFAULT 0 NOT NULL,
-	minor bigint DEFAULT 0 NOT NULL,
-	patch bigint DEFAULT 0 NOT NULL,
-	hash text DEFAULT '' NOT NULL,
-	timestamp timestamp with time zone DEFAULT '0001-01-01 00:00:00+00' NOT NULL,
-	release boolean DEFAULT false NOT NULL,
-	latency_90 bigint DEFAULT 0 NOT NULL,
-	audit_success_count bigint DEFAULT 0 NOT NULL,
-	total_audit_count bigint DEFAULT 0 NOT NULL,
+	free_disk bigint NOT NULL DEFAULT -1,
+	piece_count bigint NOT NULL DEFAULT 0,
+	major bigint NOT NULL DEFAULT 0,
+	minor bigint NOT NULL DEFAULT 0,
+	patch bigint NOT NULL DEFAULT 0,
+	hash text NOT NULL DEFAULT '',
+	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+	release boolean NOT NULL DEFAULT false,
+	latency_90 bigint NOT NULL DEFAULT 0,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
-	created_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	updated_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	last_contact_success timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	last_contact_failure timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	contained boolean DEFAULT false NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
+	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
+	contained boolean NOT NULL DEFAULT false,
 	disqualified timestamp with time zone,
 	suspended timestamp with time zone,
-	audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	unknown_audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	uptime_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	uptime_reputation_beta double precision DEFAULT 0 NOT NULL,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
+	uptime_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
-	exit_success boolean DEFAULT false NOT NULL,
+	exit_success boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE nodes_offline_times (
@@ -184,8 +183,8 @@ CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	award_credit_in_cents integer DEFAULT 0 NOT NULL,
-	invitee_credit_in_cents integer DEFAULT 0 NOT NULL,
+	award_credit_in_cents integer NOT NULL DEFAULT 0,
+	invitee_credit_in_cents integer NOT NULL DEFAULT 0,
 	award_credit_duration_days integer,
 	invitee_credit_duration_days integer,
 	redeemable_cap integer,
@@ -225,12 +224,18 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint DEFAULT 0 NOT NULL,
+	usage_limit bigint NOT NULL DEFAULT 0,
 	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE project_bandwidth_rollups (
+	project_id bytea NOT NULL,
+	interval_month date NOT NULL,
+	egress_allocated bigint NOT NULL,
+	PRIMARY KEY ( project_id, interval_month )
 );
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
@@ -277,7 +282,7 @@ CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	node_id bytea NOT NULL,
-	period text,
+	period text NOT NULL,
 	amount bigint NOT NULL,
 	receipt text,
 	notes text,
@@ -430,6 +435,7 @@ CREATE TABLE user_credits (
 );
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );

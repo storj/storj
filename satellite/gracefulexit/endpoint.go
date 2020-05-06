@@ -399,7 +399,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 		ExcludedIDs:    excludedIDs,
 	}
 
-	newNodes, err := endpoint.overlay.FindStorageNodes(ctx, *request)
+	newNodes, err := endpoint.overlay.FindStorageNodesForGracefulExit(ctx, *request)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -535,7 +535,12 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStr
 
 func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap, nodeID storj.NodeID, message *pb.StorageNodeMessage_Failed) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	endpoint.log.Warn("transfer failed", zap.Stringer("Piece ID", message.Failed.OriginalPieceId), zap.Stringer("transfer error", message.Failed.GetError()))
+
+	endpoint.log.Warn("transfer failed",
+		zap.Stringer("Piece ID", message.Failed.OriginalPieceId),
+		zap.Stringer("nodeID", nodeID),
+		zap.Stringer("transfer error", message.Failed.GetError()),
+	)
 	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1) //locked
 
 	pieceID := message.Failed.OriginalPieceId

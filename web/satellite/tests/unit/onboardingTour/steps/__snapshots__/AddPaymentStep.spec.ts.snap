@@ -1,0 +1,45 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`AddPaymentStep.vue renders correctly 1`] = `
+<div class="payment-step">
+  <h1 class="payment-step__title">Get Started with 5 GB Free</h1>
+  <p class="payment-step__sub-title">
+    Adding a payment method ensures your project won’t be interrupted after your <b>free</b> credit is used.
+  </p>
+  <div class="payment-step__methods-container">
+    <div class="payment-step__methods-container__title-area">
+      <h2 class="payment-step__methods-container__title-area__title">Payment Method</h2>
+      <div class="payment-step__methods-container__title-area__options-area"><span class="payment-step__methods-container__title-area__options-area__token">
+                    STORJ Token
+                </span> <span class="payment-step__methods-container__title-area__options-area__card selected">
+                    Card
+                </span></div>
+    </div>
+    <!---->
+  </div>
+  <addcardstate-stub></addcardstate-stub>
+  <!---->
+</div>
+`;
+
+exports[`AddPaymentStep.vue renders correctly 2`] = `
+<div class="payment-step">
+  <h1 class="payment-step__title">Get Started with 5 GB Free</h1>
+  <p class="payment-step__sub-title">
+    Adding a payment method ensures your project won’t be interrupted after your <b>free</b> credit is used.
+  </p>
+  <div class="payment-step__methods-container">
+    <div class="payment-step__methods-container__title-area">
+      <h2 class="payment-step__methods-container__title-area__title">Payment Method</h2>
+      <div class="payment-step__methods-container__title-area__options-area"><span class="payment-step__methods-container__title-area__options-area__token selected">
+                    STORJ Token
+                </span> <span class="payment-step__methods-container__title-area__options-area__card">
+                    Card
+                </span></div>
+    </div>
+    <!---->
+  </div>
+  <!---->
+  <addstorjstate-stub></addstorjstate-stub>
+</div>
+`;

@@ -4,8 +4,9 @@
 package uplink
 
 import (
+	"strings"
+
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/encryption"
@@ -39,6 +40,17 @@ func NewEncryptionAccessWithDefaultKey(defaultKey storj.Key) *EncryptionAccess {
 	ec := NewEncryptionAccess()
 	ec.SetDefaultKey(defaultKey)
 	return ec
+}
+
+// validate returns an error if the EncryptionAccess is not valid to be used.
+func (s *EncryptionAccess) validate() error {
+	if s == nil {
+		return errs.New("invalid nil encryption access")
+	}
+	if s.store == nil {
+		return errs.New("invalid encryption access: no store")
+	}
+	return nil
 }
 
 // Store returns the underlying encryption store for the access context.
@@ -90,9 +102,16 @@ func (s *EncryptionAccess) Restrict(apiKey APIKey, restrictions ...EncryptionRes
 
 	access := NewEncryptionAccess()
 	access.SetDefaultPathCipher(s.store.GetDefaultPathCipher())
+	if len(restrictions) == 0 {
+		access.Store().SetDefaultKey(s.store.GetDefaultKey())
+	}
 
 	for _, res := range restrictions {
-		unencPath := paths.NewUnencrypted(res.PathPrefix)
+		// If the share prefix ends in a `/` we need to remove this final slash.
+		// Otherwise, if we the shared prefix is `/bob/`, the encrypted shared
+		// prefix results in `enc("")/enc("bob")/enc("")`. This is an incorrect
+		// encrypted prefix, what we really want is `enc("")/enc("bob")`.
+		unencPath := paths.NewUnencrypted(strings.TrimSuffix(res.PathPrefix, "/"))
 
 		encPath, err := encryption.EncryptPathWithStoreCipher(res.Bucket, unencPath, s.store)
 		if err != nil {
@@ -127,7 +146,7 @@ func (s *EncryptionAccess) Serialize() (string, error) {
 		return "", err
 	}
 
-	data, err := proto.Marshal(p)
+	data, err := pb.Marshal(p)
 	if err != nil {
 		return "", errs.New("unable to marshal encryption access: %v", err)
 	}
@@ -171,7 +190,7 @@ func ParseEncryptionAccess(serialized string) (*EncryptionAccess, error) {
 	}
 
 	p := new(pb.EncryptionAccess)
-	if err := proto.Unmarshal(data, p); err != nil {
+	if err := pb.Unmarshal(data, p); err != nil {
 		return nil, errs.New("unable to unmarshal encryption access: %v", err)
 	}
 

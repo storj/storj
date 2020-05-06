@@ -14,6 +14,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
 var (
@@ -27,14 +28,16 @@ type Endpoint struct {
 	log        *zap.Logger
 	overlay    overlay.DB
 	accounting accounting.StoragenodeAccounting
+	config     paymentsconfig.Config
 }
 
 // NewEndpoint creates new endpoint
-func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.StoragenodeAccounting) *Endpoint {
+func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.StoragenodeAccounting, config paymentsconfig.Config) *Endpoint {
 	return &Endpoint{
 		log:        log,
 		overlay:    overlay,
 		accounting: accounting,
+		config:     config,
 	}
 }
 
@@ -65,13 +68,17 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 			SuccessCount: node.Reputation.UptimeSuccessCount,
 		},
 		AuditCheck: &pb.ReputationStats{
-			TotalCount:      node.Reputation.AuditCount,
-			SuccessCount:    node.Reputation.AuditSuccessCount,
-			ReputationAlpha: node.Reputation.AuditReputationAlpha,
-			ReputationBeta:  node.Reputation.AuditReputationBeta,
-			ReputationScore: auditScore,
+			TotalCount:             node.Reputation.AuditCount,
+			SuccessCount:           node.Reputation.AuditSuccessCount,
+			ReputationAlpha:        node.Reputation.AuditReputationAlpha,
+			ReputationBeta:         node.Reputation.AuditReputationBeta,
+			UnknownReputationAlpha: node.Reputation.UnknownAuditReputationAlpha,
+			UnknownReputationBeta:  node.Reputation.UnknownAuditReputationBeta,
+			ReputationScore:        auditScore,
 		},
 		Disqualified: node.Disqualified,
+		Suspended:    node.Suspended,
+		JoinedAt:     node.CreatedAt,
 	}, nil
 }
 
@@ -101,6 +108,18 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 	return &pb.DailyStorageUsageResponse{
 		NodeId:            node.Id,
 		DailyStorageUsage: toProtoDailyStorageUsage(nodeSpaceUsages),
+	}, nil
+}
+
+// PricingModel returns pricing model for storagenode.
+func (e *Endpoint) PricingModel(ctx context.Context, req *pb.PricingModelRequest) (_ *pb.PricingModelResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.PricingModelResponse{
+		EgressBandwidthPrice: e.config.NodeEgressBandwidthPrice,
+		RepairBandwidthPrice: e.config.NodeRepairBandwidthPrice,
+		DiskSpacePrice:       e.config.NodeDiskSpacePrice,
+		AuditBandwidthPrice:  e.config.NodeAuditBandwidthPrice,
 	}, nil
 }
 

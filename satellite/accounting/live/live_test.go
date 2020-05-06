@@ -85,7 +85,7 @@ func TestRedisCacheConcurrency(t *testing.T) {
 	cache, err := live.NewCache(zaptest.NewLogger(t).Named("live-accounting"), config)
 	require.NoError(t, err)
 
-	projectID := testrand.UUID2()
+	projectID := testrand.UUID()
 
 	const (
 		numConcurrent = 100
@@ -123,7 +123,7 @@ func populateCache(ctx context.Context, cache accounting.Cache) (projectIDs []uu
 	// make up some project IDs
 	projectIDs = make([]uuid.UUID, numProjects)
 	for i := range projectIDs {
-		projectIDs[i] = testrand.UUID2()
+		projectIDs[i] = testrand.UUID()
 	}
 
 	// send lots of space used updates for all of these projects to the live
@@ -179,7 +179,7 @@ func TestGetAllProjectTotals(t *testing.T) {
 
 		projectIDs := make([]uuid.UUID, 1000)
 		for i := range projectIDs {
-			projectIDs[i] = testrand.UUID2()
+			projectIDs[i] = testrand.UUID()
 			err := cache.AddProjectStorageUsage(ctx, projectIDs[i], int64(i))
 			require.NoError(t, err)
 		}

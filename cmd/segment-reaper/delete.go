@@ -11,7 +11,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -131,7 +130,7 @@ func deleteSegment(ctx context.Context, db metainfo.PointerDB, path string, crea
 	}
 
 	pointer := &pb.Pointer{}
-	err = proto.Unmarshal(pointerBytes, pointer)
+	err = pb.Unmarshal(pointerBytes, pointer)
 	if err != nil {
 		return err
 	}

@@ -39,7 +39,7 @@ func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid
 	defer func() {
 		err = errs.Combine(err, db.Close())
 		if err != nil {
-			log.Sugar().Errorf("error closing satellite DB connection after retrieving partner value attribution data: %+v", err)
+			log.Error("Error closing satellite DB connection after retrieving partner value attribution data.", zap.Error(err))
 		}
 	}()
 

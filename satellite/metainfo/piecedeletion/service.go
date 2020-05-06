@@ -128,6 +128,10 @@ func (service *Service) Close() error {
 func (service *Service) Delete(ctx context.Context, requests []Request, successThreshold float64) (err error) {
 	defer mon.Task()(&ctx, len(requests), requestsPieceCount(requests), successThreshold)(&err)
 
+	if len(requests) == 0 {
+		return nil
+	}
+
 	// wait for combiner and dialer to set themselves up.
 	if !service.running.Wait(ctx) {
 		return Error.Wrap(ctx.Err())

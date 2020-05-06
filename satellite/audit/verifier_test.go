@@ -4,11 +4,11 @@
 package audit_test
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -408,13 +408,13 @@ func TestVerifierExpired(t *testing.T) {
 		// set pointer's expiration date to be already expired
 		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
-		oldPointerBytes, err := proto.Marshal(pointer)
+		oldPointerBytes, err := pb.Marshal(pointer)
 		require.NoError(t, err)
 		newPointer := &pb.Pointer{}
-		err = proto.Unmarshal(oldPointerBytes, newPointer)
+		err = pb.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
 		newPointer.ExpirationDate = time.Now().Add(-1 * time.Hour)
-		newPointerBytes, err := proto.Marshal(newPointer)
+		newPointerBytes, err := pb.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
@@ -775,7 +775,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
 				config.Audit.MinBytesPerSecond = 100 * memory.KiB
-				config.Audit.MinDownloadTimeout = 500 * time.Millisecond
+				config.Audit.MinDownloadTimeout = 950 * time.Millisecond
 
 				config.Metainfo.RS.MinThreshold = 2
 				config.Metainfo.RS.RepairThreshold = 2
@@ -803,9 +803,9 @@ func TestVerifierSlowDownload(t *testing.T) {
 		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
-		slowNode := pointer.Remote.RemotePieces[0].NodeId
+		slowNodeID := pointer.Remote.RemotePieces[0].NodeId
 		for _, node := range planet.StorageNodes {
-			if node.ID() == slowNode {
+			if node.ID() == slowNodeID {
 				slowNodeDB := node.DB.(*testblobs.SlowDB)
 				// make downloads on storage node slower than the timeout on the satellite for downloading shares
 				delay := 1 * time.Second
@@ -817,12 +817,20 @@ func TestVerifierSlowDownload(t *testing.T) {
 		report, err := audits.Verifier.Verify(ctx, path, nil)
 		require.NoError(t, err)
 
-		require.Len(t, report.Successes, 3)
-		require.Len(t, report.Fails, 0)
-		require.Len(t, report.Offlines, 0)
-		require.Len(t, report.PendingAudits, 1)
-		require.Len(t, report.Unknown, 0)
-		require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
+		// Assert the slowNodeID is not in the successes
+		assert.False(t, func() bool {
+			for _, n := range report.Successes {
+				if bytes.Equal(n.Bytes(), slowNodeID.Bytes()) {
+					return true
+				}
+			}
+			return false
+		}())
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 0)
+		assert.Len(t, report.Unknown, 0)
+		assert.Len(t, report.PendingAudits, 1)
+		assert.Equal(t, report.PendingAudits[0].NodeID, slowNodeID)
 	})
 }
 

@@ -4,9 +4,11 @@
 package console_test
 
 import (
+	"sort"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -44,7 +46,7 @@ func TestProjectsRepository(t *testing.T) {
 		t.Run("Insert project successfully", func(t *testing.T) {
 			var err error
 			owner, err = users.Insert(ctx, &console.User{
-				ID:           testrand.UUID2(),
+				ID:           testrand.UUID(),
 				FullName:     userFullName,
 				ShortName:    shortName,
 				Email:        email,
@@ -53,7 +55,7 @@ func TestProjectsRepository(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, owner)
 			owner, err := users.Insert(ctx, &console.User{
-				ID:           testrand.UUID2(),
+				ID:           testrand.UUID(),
 				FullName:     userFullName,
 				ShortName:    shortName,
 				Email:        email,
@@ -178,7 +180,7 @@ func TestProjectsList(t *testing.T) {
 		// create owner
 		owner, err := db.Console().Users().Insert(ctx,
 			&console.User{
-				ID:           testrand.UUID2(),
+				ID:           testrand.UUID(),
 				FullName:     "Billy H",
 				Email:        "billyh@example.com",
 				PasswordHash: []byte("example_password"),
@@ -205,7 +207,7 @@ func TestProjectsList(t *testing.T) {
 			projects = append(projects, *proj)
 		}
 
-		now := time.Now()
+		now := time.Now().Add(time.Second)
 
 		projsPage, err := projectsDB.List(ctx, 0, limit, now)
 		require.NoError(t, err)
@@ -222,31 +224,13 @@ func TestProjectsList(t *testing.T) {
 		require.False(t, projsPage.Next)
 		require.Equal(t, int64(0), projsPage.NextOffset)
 		require.Equal(t, length, len(projectsList))
-		compareProjectsSlices(t, projects, projectsList)
+		require.Empty(t, cmp.Diff(projects[0], projectsList[0],
+			cmp.Transformer("Sort", func(xs []console.Project) []console.Project {
+				rs := append([]console.Project{}, xs...)
+				sort.Slice(rs, func(i, k int) bool {
+					return rs[i].ID.String() < rs[k].ID.String()
+				})
+				return rs
+			})))
 	})
-}
-
-func compareProjects(t *testing.T, expected, actual console.Project) {
-	require.Equal(t, expected.ID, actual.ID)
-	require.Equal(t, expected.Name, actual.Name)
-	require.Equal(t, expected.OwnerID, actual.OwnerID)
-	require.Equal(t, expected.Description, actual.Description)
-	require.Equal(t, expected.PartnerID, actual.PartnerID)
-	require.Equal(t, *expected.RateLimit, *actual.RateLimit)
-}
-
-func compareProjectsSlices(t *testing.T, expected, actual []console.Project) {
-expected:
-	for _, expProject := range expected {
-		for _, actProject := range actual {
-			if expProject.ID != actProject.ID {
-				continue
-			}
-
-			compareProjects(t, expProject, actProject)
-			continue expected
-		}
-
-		t.Fatalf("actual projects slice doesn't contain project %v", expProject)
-	}
 }

@@ -39,7 +39,7 @@ const monthNames = [
         PayoutPeriodCalendar,
         BlackArrowExpand,
         BlackArrowHide,
-    }
+    },
 })
 export default class EstimationPeriodDropdown extends Vue {
     /**
@@ -49,7 +49,7 @@ export default class EstimationPeriodDropdown extends Vue {
         const start: PayoutPeriod = this.$store.state.payoutModule.periodRange.start;
         const end: PayoutPeriod = this.$store.state.payoutModule.periodRange.end;
 
-        return start ?
+        return start && start.period !== end.period ?
             `${monthNames[start.month]}, ${start.year} - ${monthNames[end.month]}, ${end.year}`
             : `${monthNames[end.month]}, ${end.year}`;
     }
@@ -92,13 +92,20 @@ export default class EstimationPeriodDropdown extends Vue {
             font-family: 'font_regular', sans-serif;
             font-weight: 500;
             font-size: 16px;
-            color: #535f77;
+            color: var(--month-label-color);
         }
 
         &__calendar {
             position: absolute;
             top: 30px;
             right: 0;
+        }
+    }
+
+    .arrow {
+
+        path {
+            fill: var(--period-selection-arrow-color);
         }
     }
 </style>

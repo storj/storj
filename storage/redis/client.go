@@ -176,13 +176,19 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 	return values, nil
 }
 
-// Iterate iterates over items based on opts
+// Iterate iterates over items based on opts.
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if opts.Limit <= 0 || opts.Limit > client.lookupLimit {
 		opts.Limit = client.lookupLimit
 	}
+	return client.IterateWithoutLookupLimit(ctx, opts, fn)
+}
+
+// IterateWithoutLookupLimit calls the callback with an iterator over the keys, but doesn't enforce default limit on opts.
+func (client *Client) IterateWithoutLookupLimit(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	all, err := client.allPrefixedItems(opts.Prefix, opts.First, nil, opts.Limit)
 	if err != nil {

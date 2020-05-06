@@ -6,7 +6,7 @@ elsewhere, such as:
  * https://github.com/storj/docs
  * https://documentation.storj.io
  * https://documentation.tardigrade.io
- * https://godoc.org/storj.io/storj/lib/uplink
+ * https://pkg.go.dev/storj.io/uplink
  * Other godoc documentation, etc.
 
 Blueprints will be checked in as Markdown files in `docs/blueprints` folder.

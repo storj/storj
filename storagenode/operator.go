@@ -29,9 +29,9 @@ func (c OperatorConfig) Verify(log *zap.Logger) error {
 
 func isOperatorEmailValid(log *zap.Logger, email string) error {
 	if email == "" {
-		log.Sugar().Warn("Operator email address isn't specified.")
+		log.Warn("Operator email address isn't specified.")
 	} else {
-		log.Sugar().Info("Operator email: ", email)
+		log.Info("Operator email", zap.String("Address", email))
 	}
 	return nil
 }
@@ -45,6 +45,6 @@ func isOperatorWalletValid(log *zap.Logger, wallet string) error {
 		return fmt.Errorf("operator wallet address isn't valid")
 	}
 
-	log.Sugar().Info("operator wallet: ", wallet)
+	log.Info("Operator wallet", zap.String("Address", wallet))
 	return nil
 }

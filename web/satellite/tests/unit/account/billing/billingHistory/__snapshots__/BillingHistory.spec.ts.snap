@@ -1,0 +1,20 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`BillingHistory renders correctly 1`] = `
+<div class="billing-history-area">
+  <div class="billing-history-area__title-area">
+    <div class="billing-history-area__title-area__back-button">
+      <backimage-stub></backimage-stub>
+    </div>
+    <p class="billing-history-area__title-area__title">Back to Account</p>
+  </div>
+  <div class="billing-history-area__content">
+    <h1 class="billing-history-area__content__title">Billing History</h1>
+    <sortingheader-stub></sortingheader-stub>
+    <billingitem-stub billingitem="[object Object]"></billingitem-stub>
+    <billingitem-stub billingitem="[object Object]"></billingitem-stub>
+    <billingitem-stub billingitem="[object Object]"></billingitem-stub>
+    <billingitem-stub billingitem="[object Object]"></billingitem-stub>
+  </div>
+</div>
+`;

@@ -4,6 +4,7 @@
 package admin_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -18,7 +19,7 @@ import (
 	"storj.io/storj/satellite"
 )
 
-func TestProject(t *testing.T) {
+func TestAPI(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -29,14 +30,23 @@ func TestProject(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		address := sat.Admin.Admin.Listener.Addr()
+		satellite := planet.Satellites[0]
+		address := satellite.Admin.Admin.Listener.Addr()
+		project := planet.Uplinks[0].Projects[0]
 
-		projectid := planet.Uplinks[0].ProjectID[sat.ID()]
-		link := "http://" + address.String() + "/project/" + projectid.String() + "/limit"
+		link := "http://" + address.String() + "/api/project/" + project.ID.String() + "/limit"
 
-		t.Run("Get", func(t *testing.T) {
+		t.Run("GetProject", func(t *testing.T) {
 			assertGet(t, link, `{"usage":{"amount":"0 B","bytes":0},"rate":{"rps":0}}`)
+		})
+
+		t.Run("GetUser", func(t *testing.T) {
+			userLink := "http://" + address.String() + "/api/user/" + project.Owner.Email
+			expected := `{` +
+				fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s"},`, project.Owner.ID, project.Owner.Email) +
+				fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}]`, project.ID, project.Owner.ID) +
+				`}`
+			assertGet(t, userLink, expected)
 		})
 
 		t.Run("UpdateUsage", func(t *testing.T) {
@@ -90,11 +100,11 @@ func assertGet(t *testing.T, link string, expected string) {
 
 	response, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, response.StatusCode)
 
 	data, err := ioutil.ReadAll(response.Body)
 	require.NoError(t, err)
 	require.NoError(t, response.Body.Close())
 
+	require.Equal(t, http.StatusOK, response.StatusCode, string(data))
 	require.Equal(t, expected, string(data))
 }

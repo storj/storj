@@ -303,8 +303,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 		satellites = append(satellites, apiProcess)
 
-		consoleAuthToken := "secure_token"
-
 		redisAddress := flags.Redis
 		redisPortBase := flags.RedisStartDB + i*2
 		if redisAddress == "" {
@@ -318,8 +316,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--identity-dir", apiProcess.Directory,
 				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
-				// TODO: remove console.auth-token after vanguard release
-				"--console.auth-token", consoleAuthToken,
+				"--console.open-registration-enabled",
+				"--console.rate-limit.burst", "100",
 				"--marketing.base-url", "",
 				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
 				"--marketing.static-dir", filepath.Join(storjRoot, "web/marketing/"),
@@ -578,6 +576,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(storagenodePeer, i, debugHTTP)),
+
+				"--tracing.app", fmt.Sprintf("storagenode/%d", i),
 			},
 			"run": {},
 		})

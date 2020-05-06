@@ -241,6 +241,11 @@ type checkerObserver struct {
 func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// ignore pointer if expired
+	if !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(time.Now().UTC()) {
+		return nil
+	}
+
 	obs.monStats.remoteSegmentsChecked++
 	remote := pointer.GetRemote()
 

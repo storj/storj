@@ -37,8 +37,8 @@ compare_files () {
 random_bytes_file "2KiB"    "$SRC_DIR/small-upload-testfile"          # create 2KiB file of random bytes (inline)
 random_bytes_file "5MiB"    "$SRC_DIR/big-upload-testfile"            # create 5MiB file of random bytes (remote)
 # this is special case where we need to test at least one remote segment and inline segment of exact size 0
-random_bytes_file "64MiB"   "$SRC_DIR/multisegment-upload-testfile"   # create 64MiB file of random bytes (1 remote segments + inline)
-random_bytes_file "68MiB"   "$SRC_DIR/diff-size-segments"             # create 68MiB file of random bytes (2 remote segments)
+random_bytes_file "12MiB"   "$SRC_DIR/multisegment-upload-testfile"   # create 12MiB file of random bytes (1 remote segments + inline)
+random_bytes_file "13MiB"   "$SRC_DIR/diff-size-segments"             # create 13MiB file of random bytes (2 remote segments)
 
 random_bytes_file "100KiB"  "$SRC_DIR/put-file"                       # create 100KiB file of random bytes (remote)
 
@@ -100,3 +100,10 @@ compare_files "$SRC_DIR/multisegment-upload-testfile" "$DST_DIR/multisegment-upl
 compare_files "$SRC_DIR/diff-size-segments"           "$DST_DIR/diff-size-segments"
 compare_files "$SRC_DIR/put-file"                     "$DST_DIR/put-file"
 compare_files "$SRC_DIR/put-file"                     "$DST_DIR/put-file-from-cat"
+
+# test deleting non empty bucket with --force flag
+uplink mb "sj://$BUCKET/"
+
+uplink cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/" --progress=false
+
+uplink rb "sj://$BUCKET" --force

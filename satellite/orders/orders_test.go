@@ -233,8 +233,8 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 
 		// Query and ensure that there's no data recorded for the bucket from the other project
 		ordersDB := planet.Satellites[0].DB.Orders()
-		uplink0Project := planet.Uplinks[0].ProjectID[planet.Satellites[0].ID()]
-		uplink1Project := planet.Uplinks[1].ProjectID[planet.Satellites[0].ID()]
+		uplink0Project := planet.Uplinks[0].Projects[0].ID
+		uplink1Project := planet.Uplinks[1].Projects[0].ID
 
 		wrongBucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, uplink0Project, []byte("testbucket1"), beforeRollup, afterRollup)
 		require.NoError(t, err)
