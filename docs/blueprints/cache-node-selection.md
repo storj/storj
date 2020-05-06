@@ -1,4 +1,4 @@
-# Selected Nodes Cache
+# Nodes Selection Cache
 
 ## Abstract
 
@@ -26,8 +26,6 @@ What data can be stale and for how long:
 - changing a node from unvetted to vetted: this can be stale
 - removing a node from being vetted: preferably not stale, but could handle a small amount of this
 
-WIP - get a count of how often do these update events currently happen
-
 When selecting nodes to store files to, the following criteria must be met:
 - the node is not disqualified
 - the node is not suspended
@@ -40,7 +38,7 @@ When selecting nodes to store files to, the following criteria must be met:
 
 ## Design
 
-We want to create a read-only in-memory (see "rationale" section on why not other options) cache that contains data from the satellitedb nodes table that will be used to select storage nodes to upload files to.
+We want to create a read-only in-memory (see "rationale" section on why not other options) cache that contains data from the satellitedb nodes table that will be used to select storage nodes to upload files to. The cache will be updated every few minutes but syncing to the database and querying for all valid nodesto store data on.
 
 ### In-memory
 
@@ -52,7 +50,7 @@ This selected-nodes-cache will be stored in-memory of the Satellite API process.
 ### Cache invalidation
 
 Options to update every replica of the cache when a change is made to only one of them:
-- if the cache can handle being stale to some degree, then each cache could simply contact the database adn refresh all of its contents on some interval
+- if the cache can handle being stale to some degree, then each cache could simply contact the database and refresh all of its contents on some interval (this is what we chose for now, other options can be explored when needed)
 - create a message queue that contains the updates to the cache that each cache reads from
 - create RPC endpoint for caches to communicate that either something needs to be updated, or to re-sync with the db
 
@@ -62,7 +60,7 @@ The cache should contain the following data:
 - The only data that is sent to the uplink about the storage nodes is its address, typically being the IP and port. So the data that the cache should store is the storage node id, ip, port.
 
 ### Update
-The nodes table is the source of truth for the node data and should remain that way. The cache needs to be updated when it becomes stale. The cache should be updated when the following occur:
+The nodes table is the source of truth for the node data and should remain that way. The cache needs to be updated when it becomes stale. The cache can handle some amount of being stale, but ultimatly the cache should be updated when the following occur:
 
 A node should be removed from the cache when the following happen:
 - a node is disqualified, suspended, exited, out of space, hasn't been contacted recently
@@ -119,12 +117,11 @@ Con:
 ## Implementation
 
 Implementation Options:
-1. don't implement a cache now, but instead see how optimized we can make the current select node queries. (i.e. reduce the 2 queries into one (in progress: [PR](https://github.com/storj/storj/pull/3831)), add an index to expression, possibly use materialized view, move distinctIP logic into application code or whatever part is slowest)
-2. create in-memory cache as described in #Design
-3. create a cache using redis (see #rationale 2.)
-4. use a queue to store selections computed ahead of time (see prototype [PR](https://github.com/storj/storj/pull/3835)), this can be combined with 1 to reduce load on db as well
+1. create in-memory cache as described in #Design
+2. create a cache using redis (see #rationale 2.)
+3. use a queue to store selections computed ahead of time (see prototype [PR](https://github.com/storj/storj/pull/3835)), this can be combined with 1 to reduce load on db as well
 
-Steps for implementation creating an in-memory cache for each Satellite API:
+Detailed steps for implementation creating an in-memory cache for each Satellite API (1.):
 - create a selected nodes cache in the satellite/overlay pkg
 - populate the selected nodes cache with all valid nodes from the nodes table when it is initialized
 - update the selected nodes cache when node table data changes (see list from design section above)
@@ -132,9 +129,3 @@ Steps for implementation creating an in-memory cache for each Satellite API:
 - have the upload operation use the selected nodes cache
 
 ## Open issues
-
-- Should this cache only be used for selecting groups of storage nodes to upload files to? Or do we want to use it for other use cases as well right now.
-
-- Is it sufficient to only store the minimum data needed to send back to the uplink? Versus all the data needing to confirm the node is valid? Meaning should we only store the address and storagenode id *or* store also store all the fields needed to determine if the node is valid to upload data to?
-
-- Should we intermittenly re-initialize the cache since it might get out of sync over time?
