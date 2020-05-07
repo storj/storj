@@ -175,6 +175,10 @@ We are thinking of using native packaging for the following reasons:
 ### Continuous Integration
 - Write a Dockerfile that builds the package.
 - Adapt the reprepro Dockerfile to commit to a git repository the content of the apt repository.
+
+### Storage Node Docker Image
+We still need to support docker images. The Docker image we provide should make use of the debian packaging system, so that they auto-update using the rollout versioning.
+
 ## Wrapup
 - As a first step and as part of the PoC, the git repository and the debian package skeleton will be created.
 - The PoC will create the user and the directories, download a binary (will not check for the latest) and install a basic storagenode systemD service.
