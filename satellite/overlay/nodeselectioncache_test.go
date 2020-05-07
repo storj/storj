@@ -261,7 +261,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 	var group errgroup.Group
 	group.Go(func() error {
 		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 1,
+			RequestedCount: 1,
 		})
 		for i := range nodes {
 			nodes[i].ID = storj.NodeID{byte(i)}
@@ -272,7 +272,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 	})
 	group.Go(func() error {
 		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 1,
+			RequestedCount: 1,
 		})
 		for i := range nodes {
 			nodes[i].ID = storj.NodeID{byte(i)}
@@ -300,7 +300,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 
 	group.Go(func() error {
 		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 1,
+			RequestedCount: 1,
 		})
 		for i := range nodes {
 			nodes[i].ID = storj.NodeID{byte(i)}
@@ -311,7 +311,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 	})
 	group.Go(func() error {
 		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 1,
+			RequestedCount: 1,
 		})
 		for i := range nodes {
 			nodes[i].ID = storj.NodeID{byte(i)}
@@ -387,7 +387,7 @@ func TestGetNodesDistinct(t *testing.T) {
 
 		// selecting 3 should be possible
 		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 3,
+			RequestedCount: 3,
 		})
 		require.NoError(t, err)
 		seen := make(map[string]bool)
@@ -398,7 +398,7 @@ func TestGetNodesDistinct(t *testing.T) {
 
 		// selecting 6 is impossible
 		_, err = cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 6,
+			RequestedCount: 6,
 		})
 		require.Error(t, err)
 	}
@@ -414,7 +414,7 @@ func TestGetNodesDistinct(t *testing.T) {
 		)
 
 		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 6,
+			RequestedCount: 6,
 		})
 		require.NoError(t, err)
 	}

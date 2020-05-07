@@ -127,10 +127,7 @@ func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesReques
 	defer cacheData.mu.RUnlock()
 
 	// how many reputableNodes versus newNode nodes should be selected
-	totalcount := req.MinimumRequiredNodes
-	if totalcount <= 0 {
-		totalcount = req.RequestedCount
-	}
+	totalcount := req.RequestedCount
 	newNodeCount := int(float64(totalcount) * newNodeFraction)
 
 	var selectedNodeResults = []*SelectedNode{}
