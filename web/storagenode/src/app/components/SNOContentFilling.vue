@@ -68,58 +68,53 @@
                 </a> on Storj forum.
             </p>
         </div>
-        <p class="info-area__title">Utilization & Remaining</p>
-        <div class="info-area__chart-area">
-            <section>
-                <div class="chart-container">
-                    <div class="chart-container__title-area disk-space-title">
-                        <p class="chart-container__title-area__title">Disk Space Used This Month</p>
-                    </div>
-                    <p class="chart-container__amount disk-space-amount"><b>{{ storageSummary }}*h</b></p>
-                    <div class="chart-container__chart">
-                        <DiskSpaceChart :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
-                    </div>
-                </div>
-                <BarInfo
-                    label="Disk Space Remaining"
-                    :amount="diskSpace.remaining"
-                    info-text="of disk space left"
-                    :current-bar-amount="diskSpace.used"
-                    :max-bar-amount="diskSpace.available"
-                />
-            </section>
-            <section>
-                <div class="chart-container">
-                    <div class="chart-container__title-area">
-                        <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
-                        <div class="chart-container__title-area__buttons-area">
-                            <div
-                                class="chart-container__title-area__chart-choice-item"
-                                :class="{ 'egress-chart-shown': isEgressChartShown }"
-                                @click.stop="toggleEgressChartShowing"
-                            >
-                                Egress
-                            </div>
-                            <div
-                                class="chart-container__title-area__chart-choice-item"
-                                :class="{ 'ingress-chart-shown': isIngressChartShown }"
-                                @click.stop="toggleIngressChartShowing"
-                            >
-                                Ingress
-                            </div>
+        <p class="info-area__title">Bandwidth Utilization </p>
+        <section>
+            <div class="chart-container bandwidth-chart">
+                <div class="chart-container__title-area">
+                    <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
+                    <div class="chart-container__title-area__buttons-area">
+                        <div
+                            class="chart-container__title-area__chart-choice-item"
+                            :class="{ 'egress-chart-shown': isEgressChartShown }"
+                            @click.stop="toggleEgressChartShowing"
+                        >
+                            Egress
+                        </div>
+                        <div
+                            class="chart-container__title-area__chart-choice-item"
+                            :class="{ 'ingress-chart-shown': isIngressChartShown }"
+                            @click.stop="toggleIngressChartShowing"
+                        >
+                            Ingress
                         </div>
                     </div>
-                    <p class="chart-container__amount" v-if="isBandwidthChartShown"><b>{{ bandwidthSummary }}</b></p>
-                    <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{ egressSummary }}</b></p>
-                    <p class="chart-container__amount" v-if="isIngressChartShown"><b>{{ ingressSummary }}</b></p>
-                    <div class="chart-container__chart" ref="chart" onresize="recalculateChartDimensions()" >
-                        <BandwidthChart v-if="isBandwidthChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
-                        <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
-                        <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
-                    </div>
+                </div>
+                <p class="chart-container__amount" v-if="isBandwidthChartShown"><b>{{ bandwidthSummary }}</b></p>
+                <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{ egressSummary }}</b></p>
+                <p class="chart-container__amount" v-if="isIngressChartShown"><b>{{ ingressSummary }}</b></p>
+                <div class="chart-container__chart" ref="chart" onresize="recalculateChartDimensions()" >
+                    <BandwidthChart v-if="isBandwidthChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
+                    <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
+                    <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode"/>
+                </div>
+            </div>
+        </section>
+        <p class="info-area__title">Disk Utilization & Remaining</p>
+        <section class="info-area__chart-area">
+            <section class="chart-container">
+                <div class="chart-container__title-area disk-space-title">
+                    <p class="chart-container__title-area__title">Disk Space Used This Month</p>
+                </div>
+                <p class="chart-container__amount disk-space-amount"><b>{{ storageSummary }}*h</b></p>
+                <div class="chart-container__chart" ref="diskSpaceChart" onresize="recalculateChartDimensions()" >
+                    <DiskSpaceChart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" :is-dark-mode="isDarkMode"/>
                 </div>
             </section>
-        </div>
+            <section>
+                <DiskStatChart />
+            </section>
+        </section>
         <div class="info-area__blurred-checks" v-if="!selectedSatellite.id">
             <p class="info-area__blurred-checks__title">Select a Specific Satellite to View Audit and Uptime Percentages</p>
         </div>
@@ -160,6 +155,7 @@ import BandwidthChart from '@/app/components/BandwidthChart.vue';
 import BarInfo from '@/app/components/BarInfo.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
 import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
+import DiskStatChart from '@/app/components/DiskStatChart.vue';
 import EgressChart from '@/app/components/EgressChart.vue';
 import IngressChart from '@/app/components/IngressChart.vue';
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
@@ -174,7 +170,7 @@ import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 import { RouteConfig } from '@/app/router';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { formatBytes } from '@/app/utils/converter';
-import { DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
+import { SatelliteInfo } from '@/storagenode/dashboard';
 
 /**
  * Checks class holds info for Checks entity.
@@ -191,6 +187,7 @@ class Checks {
 
 @Component ({
     components: {
+        DiskStatChart,
         TotalPayoutArea,
         EstimationArea,
         EgressChart,
@@ -210,9 +207,12 @@ export default class SNOContentFilling extends Vue {
     public readonly PAYOUT_PATH: string = RouteConfig.Payout.path;
     public chartWidth: number = 0;
     public chartHeight: number = 0;
+    public diskSpaceChartWidth: number = 0;
+    public diskSpaceChartHeight: number = 0;
 
     public $refs: {
         chart: HTMLElement;
+        diskSpaceChart: HTMLElement;
     };
 
     public get isDarkMode(): boolean {
@@ -225,6 +225,8 @@ export default class SNOContentFilling extends Vue {
     public recalculateChartDimensions(): void {
         this.chartWidth = this.$refs['chart'].clientWidth;
         this.chartHeight = this.$refs['chart'].clientHeight;
+        this.diskSpaceChartWidth = this.$refs['diskSpaceChart'].clientWidth;
+        this.diskSpaceChartHeight = this.$refs['diskSpaceChart'].clientHeight;
     }
 
     /**
@@ -332,14 +334,6 @@ export default class SNOContentFilling extends Vue {
      */
     public get storageSummary(): string {
         return formatBytes(this.$store.state.node.storageSummary);
-    }
-
-    /**
-     * diskSpace - remaining amount of diskSpace from store.
-     * @return DiskSpaceInfo - remaining amount of diskSpace
-     */
-    public get diskSpace(): DiskSpaceInfo {
-        return this.$store.state.node.utilization.diskSpace;
     }
 
     /**
@@ -631,6 +625,10 @@ export default class SNOContentFilling extends Vue {
     .disk-space-title,
     .disk-space-amount {
         margin-top: 5px;
+    }
+
+    .bandwidth-chart {
+        width: calc(100% - 60px);
     }
 
     @media screen and (max-width: 1000px) {

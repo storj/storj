@@ -123,6 +123,7 @@ export default class DiskSpaceChart extends BaseChart {
         border-radius: 14px;
         color: var(--regular-text-color);
         pointer-events: none;
+        z-index: 9999;
     }
 
     #disk-space-tooltip-arrow {

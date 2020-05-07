@@ -48,7 +48,7 @@ describe('mutations', () => {
                 new SatelliteInfo('3', 'url1', null, null),
                 new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
             ],
-            new DiskSpaceInfo(99, 100),
+            new DiskSpaceInfo(99, 100, 5),
             new BandwidthInfo(50),
             new Date(),
             new Date(2019, 3, 1),
@@ -61,7 +61,8 @@ describe('mutations', () => {
 
         expect(state.node.info.id).toBe(dashboardInfo.nodeID);
         expect(state.node.utilization.bandwidth.used).toBe(dashboardInfo.bandwidth.used);
-        expect(state.node.utilization.diskSpace.remaining).toBe(dashboardInfo.diskSpace.remaining);
+        expect(state.node.utilization.diskSpace.used).toBe(dashboardInfo.diskSpace.used);
+        expect(state.node.utilization.diskSpace.trash).toBe(dashboardInfo.diskSpace.trash);
         expect(state.node.satellites.length).toBe(dashboardInfo.satellites.length);
         expect(state.node.disqualifiedSatellites.length).toBe(1);
         expect(state.node.suspendedSatellites.length).toBe(1);
@@ -179,7 +180,7 @@ describe('actions', () => {
                         new SatelliteInfo('3', 'url1', null, null),
                         new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
                     ],
-                    new DiskSpaceInfo(99, 100),
+                    new DiskSpaceInfo(99, 100, 1),
                     new BandwidthInfo(50),
                     new Date(),
                     new Date(2019, 3, 1),
@@ -194,7 +195,8 @@ describe('actions', () => {
 
         expect(state.node.info.id).toBe('1');
         expect(state.node.utilization.bandwidth.used).toBe(50);
-        expect(state.node.utilization.diskSpace.remaining).toBe(1);
+        expect(state.node.utilization.diskSpace.used).toBe(99);
+        expect(state.node.utilization.diskSpace.trash).toBe(1);
         expect(state.node.satellites.length).toBe(2);
         expect(state.node.disqualifiedSatellites.length).toBe(1);
         expect(state.node.suspendedSatellites.length).toBe(1);
@@ -288,7 +290,7 @@ describe('getters', () => {
                 new SatelliteInfo('3', 'url1', null, null),
                 new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
             ],
-            new DiskSpaceInfo(99, 100),
+            new DiskSpaceInfo(99, 100, 4),
             new BandwidthInfo(50),
             new Date(),
             new Date(2019, 3, 1),
