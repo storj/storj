@@ -410,7 +410,7 @@ func TestReverifyOffline(t *testing.T) {
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
-		err = stopStorageNode(ctx, planet, pieces[0].NodeId)
+		err = planet.StopNodeAndUpdate(ctx, planet.FindNode(pieces[0].NodeId))
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Reverify(ctx, path)
@@ -1148,15 +1148,11 @@ func TestReverifySlowDownload(t *testing.T) {
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
-		for _, node := range planet.StorageNodes {
-			if node.ID() == slowNode {
-				slowNodeDB := node.DB.(*testblobs.SlowDB)
-				// make downloads on storage node slower than the timeout on the satellite for downloading shares
-				delay := 1 * time.Second
-				slowNodeDB.SetLatency(delay)
-				break
-			}
-		}
+		node := planet.FindNode(slowNode)
+		slowNodeDB := node.DB.(*testblobs.SlowDB)
+		// make downloads on storage node slower than the timeout on the satellite for downloading shares
+		delay := 1 * time.Second
+		slowNodeDB.SetLatency(delay)
 
 		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
@@ -1238,14 +1234,10 @@ func TestReverifyUnknownError(t *testing.T) {
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
-		for _, node := range planet.StorageNodes {
-			if node.ID() == badNode {
-				badNodeDB := node.DB.(*testblobs.BadDB)
-				// return an error when the satellite requests a share
-				badNodeDB.SetError(errs.New("unknown error"))
-				break
-			}
-		}
+		node := planet.FindNode(badNode)
+		badNodeDB := node.DB.(*testblobs.BadDB)
+		// return an error when the satellite requests a share
+		badNodeDB.SetError(errs.New("unknown error"))
 
 		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)

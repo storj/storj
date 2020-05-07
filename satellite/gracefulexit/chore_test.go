@@ -82,11 +82,11 @@ func TestChore(t *testing.T) {
 		}
 
 		// test the other nodes don't have anything to transfer
-		for _, sn := range planet.StorageNodes {
-			if sn.ID() == exitingNode.ID() {
+		for _, node := range planet.StorageNodes {
+			if node.ID() == exitingNode.ID() {
 				continue
 			}
-			incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, sn.ID(), 20, 0)
+			incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, node.ID(), 20, 0)
 			require.NoError(t, err)
 			require.Len(t, incompleteTransfers, 0)
 		}

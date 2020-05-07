@@ -1498,8 +1498,8 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	pieceCountMap := make(map[storj.NodeID]int, len(planet.StorageNodes))
-	for _, sn := range planet.StorageNodes {
-		pieceCountMap[sn.ID()] = 0
+	for _, node := range planet.StorageNodes {
+		pieceCountMap[node.ID()] = 0
 	}
 
 	for _, key := range keys {
