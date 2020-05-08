@@ -40,8 +40,8 @@ require (
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.28.0
-	storj.io/common v0.0.0-20200502180824-cd9fcc3a6556
-	storj.io/drpc v0.0.12-0.20200413163255-debb458a7474
+	storj.io/common v0.0.0-20200508071628-78c867902ac1
+	storj.io/drpc v0.0.12
 	storj.io/monkit-jaeger v0.0.0-20200424180155-d5f5530ea079
 	storj.io/private v0.0.0-20200427160924-e00b0e612cfb
 	storj.io/uplink v1.0.5
