@@ -89,7 +89,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.open-registration-enabled: false
 
 # number of events before the limit kicks in
-# console.rate-limit.burst: 3
+# console.rate-limit.burst: 5
 
 # the rate at which request are allowed
 # console.rate-limit.duration: 5m0s

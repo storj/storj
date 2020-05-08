@@ -16,7 +16,7 @@ import (
 //IPRateLimiterConfig configures an IPRateLimiter.
 type IPRateLimiterConfig struct {
 	Duration  time.Duration `help:"the rate at which request are allowed" default:"5m"`
-	Burst     int           `help:"number of events before the limit kicks in" default:"3"`
+	Burst     int           `help:"number of events before the limit kicks in" default:"5"`
 	NumLimits int           `help:"number of IPs whose rate limits we store" default:"1000"`
 }
 
