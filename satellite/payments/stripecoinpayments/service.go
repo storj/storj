@@ -715,7 +715,7 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 		Amount:      stripe.Int64(-usage.Amount),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 		Customer:    stripe.String(customerID),
-		Description: stripe.String(fmt.Sprintf("Discount from coupon: %s", coupon.Description)),
+		Description: stripe.String(coupon.Description),
 		Period: &stripe.InvoiceItemPeriodParams{
 			End:   stripe.Int64(usage.Period.AddDate(0, 1, 0).Unix()),
 			Start: stripe.Int64(usage.Period.Unix()),
@@ -795,7 +795,7 @@ func (service *Service) createInvoiceCreditItem(ctx context.Context, spending Cr
 		Amount:      stripe.Int64(-spending.Amount),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 		Customer:    stripe.String(customerID),
-		Description: stripe.String(fmt.Sprintf("Discount from credits")),
+		Description: stripe.String("Credits from STORJ deposit bonus"),
 		Period: &stripe.InvoiceItemPeriodParams{
 			End:   stripe.Int64(spending.Created.AddDate(0, 1, 0).Unix()),
 			Start: stripe.Int64(spending.Created.Unix()),
