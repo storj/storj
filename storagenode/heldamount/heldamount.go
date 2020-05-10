@@ -63,3 +63,20 @@ type Heldback struct {
 	Period string `json:"period"`
 	Held   int64  `json:"held"`
 }
+
+// EstimatedPayout contains amount in cents of estimated payout for current and previous months.
+type EstimatedPayout struct {
+	CurrentMonthEstimatedAmount int64         `json:"currentAmount"`
+	PreviousMonthPayout         PayoutMonthly `json:"previousPayout"`
+}
+
+// PayoutMonthly contains bandwidth and payout amount for month.
+type PayoutMonthly struct {
+	EgressBandwidth   int64   `json:"egressBandwidth"`
+	EgressPayout      int64   `json:"egressPayout"`
+	EgressRepairAudit int64   `json:"egressRepairAudit"`
+	RepairAuditPayout int64   `json:"repairAuditPayout"`
+	DiskSpace         float64 `json:"diskSpace"`
+	DiskSpaceAmount   int64   `json:"diskSpaceAmount"`
+	HeldPercentRate   int64   `json:"heldRate"`
+}

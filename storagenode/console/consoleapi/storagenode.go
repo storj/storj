@@ -111,6 +111,47 @@ func (dashboard *StorageNode) Satellite(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// EstimatedPayout returns estimated payout from specific satellite or all satellites if current traffic level remains same.
+func (dashboard *StorageNode) EstimatedPayout(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set(contentType, applicationJSON)
+
+	queryParams := r.URL.Query()
+	id := queryParams.Get("id")
+	if id == "" {
+		data, err := dashboard.service.GetAllSatellitesEstimatedPayout(ctx)
+		if err != nil {
+			dashboard.serveJSONError(w, http.StatusInternalServerError, ErrStorageNodeAPI.Wrap(err))
+			return
+		}
+
+		if err := json.NewEncoder(w).Encode(data); err != nil {
+			dashboard.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+			return
+		}
+	} else {
+		satelliteID, err := storj.NodeIDFromString(id)
+		if err != nil {
+			dashboard.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))
+			return
+		}
+
+		data, err := dashboard.service.GetSatelliteEstimatedPayout(ctx, satelliteID)
+		if err != nil {
+			dashboard.serveJSONError(w, http.StatusInternalServerError, ErrStorageNodeAPI.Wrap(err))
+			return
+		}
+
+		if err := json.NewEncoder(w).Encode(data); err != nil {
+			dashboard.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+			return
+		}
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (dashboard *StorageNode) serveJSONError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)
