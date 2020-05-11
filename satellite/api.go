@@ -343,7 +343,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Repairer.MaxExcessRateOptimalThreshold,
 			config.Orders.NodeStatusLogging,
 		)
-		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint.DRPC()); err != nil {
+		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
@@ -659,7 +659,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.PeerIdentities(),
 				config.GracefulExit)
 
-			if err := pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint.DRPC()); err != nil {
+			if err := pb.DRPCRegisterSatelliteGracefulExit(peer.Server.DRPC(), peer.GracefulExit.Endpoint); err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
 		} else {

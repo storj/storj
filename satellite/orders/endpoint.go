@@ -197,12 +197,6 @@ type Endpoint struct {
 	settlementBatchSize int
 }
 
-// drpcEndpoint wraps streaming methods so that they can be used with drpc
-type drpcEndpoint struct{ *Endpoint }
-
-// DRPC returns a DRPC form of the endpoint.
-func (endpoint *Endpoint) DRPC() pb.DRPCOrdersServer { return &drpcEndpoint{Endpoint: endpoint} }
-
 // NewEndpoint new orders receiving endpoint
 func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, settlementBatchSize int) *Endpoint {
 	return &Endpoint{
@@ -213,12 +207,12 @@ func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, settlem
 	}
 }
 
-func monitoredSettlementStreamReceive(ctx context.Context, stream settlementStream) (_ *pb.SettlementRequest, err error) {
+func monitoredSettlementStreamReceive(ctx context.Context, stream pb.DRPCOrders_SettlementStream) (_ *pb.SettlementRequest, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return stream.Recv()
 }
 
-func monitoredSettlementStreamSend(ctx context.Context, stream settlementStream, resp *pb.SettlementResponse) (err error) {
+func monitoredSettlementStreamSend(ctx context.Context, stream pb.DRPCOrders_SettlementStream, resp *pb.SettlementResponse) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	switch resp.Status {
 	case pb.SettlementResponse_ACCEPTED:
@@ -231,20 +225,8 @@ func monitoredSettlementStreamSend(ctx context.Context, stream settlementStream,
 	return stream.Send(resp)
 }
 
-// Settlement receives orders and handles them in batches
-func (endpoint *drpcEndpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err error) {
-	return endpoint.doSettlement(stream)
-}
-
-// settlementStream is the minimum interface required to perform settlements.
-type settlementStream interface {
-	Context() context.Context
-	Send(*pb.SettlementResponse) error
-	Recv() (*pb.SettlementRequest, error)
-}
-
-// doSettlement receives orders and handles them in batches
-func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
+// Settlement receives orders and handles them in batches.
+func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
@@ -360,7 +342,7 @@ func (endpoint *Endpoint) doSettlement(stream settlementStream) (err error) {
 	}
 }
 
-func (endpoint *Endpoint) processOrders(ctx context.Context, stream settlementStream, requests []*ProcessOrderRequest) (err error) {
+func (endpoint *Endpoint) processOrders(ctx context.Context, stream pb.DRPCOrders_SettlementStream, requests []*ProcessOrderRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	responses, err := endpoint.DB.ProcessOrders(ctx, requests)
