@@ -48,7 +48,8 @@ func LoadSnapshotFromSQL(ctx context.Context, script string) (_ *dbschema.Snapsh
 		return nil, errs.Wrap(err)
 	}
 
-	snapshot.Script = script
+	snapshot.Sections = dbschema.NewSections(script)
+
 	return snapshot, nil
 }
 

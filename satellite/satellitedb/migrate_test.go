@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -92,7 +91,14 @@ func loadSnapshotFromSQL(ctx context.Context, connstr, script string) (_ *dbsche
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	_, err = db.ExecContext(ctx, script)
+	sections := dbschema.NewSections(script)
+
+	_, err = db.ExecContext(ctx, sections.LookupSection(dbschema.Main))
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = db.ExecContext(ctx, sections.LookupSection(dbschema.NewData))
 	if err != nil {
 		return nil, err
 	}
@@ -102,18 +108,9 @@ func loadSnapshotFromSQL(ctx context.Context, connstr, script string) (_ *dbsche
 		return nil, err
 	}
 
-	snapshot.Script = script
+	snapshot.Sections = sections
+
 	return snapshot, nil
-}
-
-const newDataSeparator = `-- NEW DATA --`
-
-func newData(snap *dbschema.Snapshot) string {
-	tokens := strings.SplitN(snap.Script, newDataSeparator, 2)
-	if len(tokens) != 2 {
-		return ""
-	}
-	return tokens[1]
 }
 
 // loadSchemaFromSQL inserts script into connstr and loads schema.
@@ -173,17 +170,23 @@ func migrateTest(t *testing.T, connStr string) {
 	for i, step := range migrations.Steps {
 		tag := fmt.Sprintf("#%d - v%d", i, step.Version)
 
-		// run migration up to a specific version
-		err := migrations.TargetVersion(step.Version).Run(ctx, log.Named("migrate"))
-		require.NoError(t, err, tag)
-
 		// find the matching expected version
 		expected, ok := snapshots.FindVersion(step.Version)
 		require.True(t, ok, "Missing snapshot v%d. Did you forget to add a snapshot for the new migration?", step.Version)
 
+		// run any queries that should happen before the migration
+		if oldData := expected.LookupSection(dbschema.OldData); oldData != "" {
+			_, err = rawdb.ExecContext(ctx, oldData)
+			require.NoError(t, err, tag)
+		}
+
+		// run migration up to a specific version
+		err := migrations.TargetVersion(step.Version).Run(ctx, log.Named("migrate"))
+		require.NoError(t, err, tag)
+
 		// insert data for new tables
-		if newdata := newData(expected); newdata != "" {
-			_, err = rawdb.ExecContext(ctx, newdata)
+		if newData := expected.LookupSection(dbschema.NewData); newData != "" {
+			_, err = rawdb.ExecContext(ctx, newData)
 			require.NoError(t, err, tag)
 		}
 
