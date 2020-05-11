@@ -205,6 +205,7 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 				return nil
 			}
 
+			cache.log.Error("heldamount err", zap.String("satellite", satellite.String()))
 			return err
 		}
 
