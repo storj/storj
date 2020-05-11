@@ -9,8 +9,8 @@
             </p>
             <div class="add-storj-state__container__deposit-area">
                 <p class="add-storj-state__container__deposit-area__info">
-                    <b>Please Note:</b> Your first deposit of $50 or more in STORJ Token is applied to your account
-                    after Coin Payments verifies payment<br/><br/>5GB are your starting project limits. Increased
+                    <b>Please Note:</b> Your first deposit of $10 or more in STORJ Token is applied to your account
+                    after Coin Payments verifies payment<br/><br/>50GB are your starting project limits. Increased
                     amounts are available
                     <a
                         class="add-storj-state__container__deposit-area__info__request-link"
