@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -15,6 +16,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console"
 )
 
 func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +84,7 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disapperaed
+	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
 }
 
 func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +149,7 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disapperaed
+	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
 }
 
 func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
@@ -222,4 +224,64 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to read body: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	var input struct {
+		OwnerID     uuid.UUID `json:"ownerId"`
+		ProjectName string    `json:"projectName"`
+	}
+
+	var output struct {
+		ProjectID uuid.UUID `json:"projectId"`
+	}
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to unmarshal request: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if input.OwnerID.IsZero() {
+		http.Error(w, "OwnerID is not set", http.StatusBadRequest)
+		return
+	}
+
+	if input.ProjectName == "" {
+		http.Error(w, "ProjectName is not set", http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.db.Console().Projects().Insert(ctx, &console.Project{
+		Name:    input.ProjectName,
+		OwnerID: input.OwnerID,
+	})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to insert project: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = server.db.Console().ProjectMembers().Insert(ctx, project.OwnerID, project.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to insert project member: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	output.ProjectID = project.ID
+	data, err := json.Marshal(output)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
 }
