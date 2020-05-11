@@ -4,6 +4,7 @@
 package admin_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 )
@@ -87,6 +89,45 @@ func TestAPI(t *testing.T) {
 
 			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"rate":{"rps":100}}`)
 		})
+	})
+}
+
+func TestAddProject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		userID := planet.Uplinks[0].Projects[0].Owner
+
+		body := strings.NewReader(fmt.Sprintf(`{"ownerId":"%s","projectName":"Test Project"}`, userID.ID.String()))
+		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/project", body)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "very-secret-token")
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+		responseBody, err := ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.NoError(t, response.Body.Close())
+
+		var output struct {
+			ProjectID uuid.UUID `json:"projectId"`
+		}
+
+		err = json.Unmarshal(responseBody, &output)
+		require.NoError(t, err)
+
+		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, output.ProjectID)
+		require.NoError(t, err)
+		require.Equal(t, "Test Project", project.Name)
 	})
 }
 
