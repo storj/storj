@@ -185,7 +185,7 @@ func TestToken_Equal(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
-	t.Skip("needs proper grpc listener to work")
+	t.Skip("needs proper rpc listener to work")
 
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

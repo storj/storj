@@ -56,8 +56,8 @@ const (
 	storagenodePeer    = 3
 
 	// Endpoint
-	publicGRPC  = 0
-	privateGRPC = 1
+	publicRPC   = 0
+	privateRPC  = 1
 	publicHTTP  = 2
 	privateHTTP = 3
 	debugHTTP   = 9
@@ -231,7 +231,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		Name:       "versioncontrol/0",
 		Executable: "versioncontrol",
 		Directory:  filepath.Join(processes.Directory, "versioncontrol", "0"),
-		Address:    net.JoinHostPort(host, port(versioncontrolPeer, 0, publicGRPC)),
+		Address:    net.JoinHostPort(host, port(versioncontrolPeer, 0, publicRPC)),
 	})
 
 	versioncontrol.Arguments = withCommon(versioncontrol.Directory, Arguments{
@@ -299,7 +299,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Name:       fmt.Sprintf("satellite/%d", i),
 			Executable: "satellite",
 			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
-			Address:    net.JoinHostPort(host, port(satellitePeer, i, publicGRPC)),
+			Address:    net.JoinHostPort(host, port(satellitePeer, i, publicRPC)),
 		})
 		satellites = append(satellites, apiProcess)
 
@@ -322,7 +322,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
 				"--marketing.static-dir", filepath.Join(storjRoot, "web/marketing/"),
 				"--server.address", apiProcess.Address,
-				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
+				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateRPC)),
 
 				"--live-accounting.storage-backend", "redis://" + redisAddress + "?db=" + strconv.Itoa(redisPortBase),
 				"--server.revocation-dburl", "redis://" + redisAddress + "?db=" + strconv.Itoa(redisPortBase+1),
@@ -434,7 +434,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Name:       fmt.Sprintf("gateway/%d", i),
 			Executable: "gateway",
 			Directory:  filepath.Join(processes.Directory, "gateway", fmt.Sprint(i)),
-			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicGRPC)),
+			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicRPC)),
 		})
 
 		encAccess := uplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
@@ -551,7 +551,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Name:       fmt.Sprintf("storagenode/%d", i),
 			Executable: "storagenode",
 			Directory:  filepath.Join(processes.Directory, "storagenode", fmt.Sprint(i)),
-			Address:    net.JoinHostPort(host, port(storagenodePeer, i, publicGRPC)),
+			Address:    net.JoinHostPort(host, port(storagenodePeer, i, publicRPC)),
 		})
 
 		for _, satellite := range satellites {
@@ -564,7 +564,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.address", net.JoinHostPort(host, port(storagenodePeer, i, publicHTTP)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/storagenode/"),
 				"--server.address", process.Address,
-				"--server.private-address", net.JoinHostPort(host, port(storagenodePeer, i, privateGRPC)),
+				"--server.private-address", net.JoinHostPort(host, port(storagenodePeer, i, privateRPC)),
 
 				"--operator.email", fmt.Sprintf("storage%d@mail.test", i),
 				"--operator.wallet", "0x0123456789012345678901234567890123456789",

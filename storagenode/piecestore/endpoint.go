@@ -90,10 +90,6 @@ type Endpoint struct {
 	usedSerials  UsedSerials
 	pieceDeleter *pieces.Deleter
 
-	// liveRequests tracks the total number of incoming rpc requests. For gRPC
-	// requests only, this number is compared to config.MaxConcurrentRequests
-	// and limits the number of gRPC requests. dRPC requests are tracked but
-	// not limited.
 	liveRequests int32
 }
 

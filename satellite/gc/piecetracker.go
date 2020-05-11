@@ -75,7 +75,7 @@ func (pieceTracker *PieceTracker) add(nodeID storj.NodeID, pieceID storj.PieceID
 		if pieceTracker.pieceCounts[nodeID] > 0 {
 			numPieces = pieceTracker.pieceCounts[nodeID]
 		}
-		// limit size of bloom filter to ensure we are under the limit for GRPC
+		// limit size of bloom filter to ensure we are under the limit for RPC
 		filter := bloomfilter.NewOptimalMaxSize(numPieces, pieceTracker.config.FalsePositiveRate, 2*memory.MiB)
 		pieceTracker.retainInfos[nodeID] = &RetainInfo{
 			Filter:       filter,
