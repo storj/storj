@@ -16,7 +16,7 @@ type Config struct {
 	EgressTBPrice            string      `help:"price user should pay for each TB of egress" default:"45"`
 	ObjectPrice              string      `help:"price user should pay for each object stored in network per month" default:"0.0000022"`
 	BonusRate                int64       `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
-	CouponValue              int64       `help:"coupon value in cents" default:"550"`
+	CouponValue              int64       `help:"coupon value in cents" default:"275"`
 	CouponDuration           int64       `help:"duration a new coupon is valid in months/billing cycles" default:"2"`
 	CouponProjectLimit       memory.Size `help:"project limit to which increase to after applying the coupon, 0 B means not changing it from the default" default:"0 B"`
 	MinCoinPayment           int64       `help:"minimum value of coin payments in cents before coupon is applied" default:"1000"`
