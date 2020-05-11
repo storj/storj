@@ -101,9 +101,15 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit, err := server.db.ProjectAccounting().GetProjectStorageLimit(ctx, projectUUID)
+	usagelimit, err := server.db.ProjectAccounting().GetProjectStorageLimit(ctx, projectUUID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get usage limit: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	bandwidthlimit, err := server.db.ProjectAccounting().GetProjectBandwidthLimit(ctx, projectUUID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get bandwidth limit: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -118,12 +124,18 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 			Amount memory.Size `json:"amount"`
 			Bytes  int64       `json:"bytes"`
 		} `json:"usage"`
+		Bandwidth struct {
+			Amount memory.Size `json:"amount"`
+			Bytes  int64       `json:"bytes"`
+		} `json:"bandwidth"`
 		Rate struct {
 			RPS int `json:"rps"`
 		} `json:"rate"`
 	}
-	output.Usage.Amount = limit
-	output.Usage.Bytes = limit.Int64()
+	output.Usage.Amount = usagelimit
+	output.Usage.Bytes = usagelimit.Int64()
+	output.Bandwidth.Amount = bandwidthlimit
+	output.Bandwidth.Bytes = bandwidthlimit.Int64()
 	if project.RateLimit != nil {
 		output.Rate.RPS = *project.RateLimit
 	}
@@ -155,8 +167,9 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var arguments struct {
-		Usage *memory.Size `schema:"usage"`
-		Rate  *int         `schema:"rate"`
+		Usage     *memory.Size `schema:"usage"`
+		Bandwidth *memory.Size `schema:"bandwidth"`
+		Rate      *int         `schema:"rate"`
 	}
 
 	if err := r.ParseForm(); err != nil {
@@ -180,6 +193,19 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 		err = server.db.ProjectAccounting().UpdateProjectUsageLimit(ctx, projectUUID, *arguments.Usage)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to update usage: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if arguments.Bandwidth != nil {
+		if *arguments.Bandwidth < 0 {
+			http.Error(w, fmt.Sprintf("negative bandwidth: %v", arguments.Usage), http.StatusBadRequest)
+			return
+		}
+
+		err = server.db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, projectUUID, *arguments.Bandwidth)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to update bandwidth: %v", err), http.StatusInternalServerError)
 			return
 		}
 	}

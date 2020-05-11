@@ -175,6 +175,8 @@ type ProjectAccounting interface {
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	// UpdateProjectUsageLimit updates project usage limit.
 	UpdateProjectUsageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
+	// UpdateProjectUsageLimit updates project usage limit.
+	UpdateProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
 	// GetProjectStorageLimit returns project storage usage limit.
 	GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
 	// GetProjectBandwidthLimit returns project bandwidth usage limit.
