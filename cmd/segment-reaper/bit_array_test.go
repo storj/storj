@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBitmask(t *testing.T) {
+func TestBitArray(t *testing.T) {
 	t.Run("Set", func(t *testing.T) {
 		t.Run("ok", func(t *testing.T) {
 			var (
@@ -33,7 +33,7 @@ func TestBitmask(t *testing.T) {
 
 			err := bits.Set(invalidIdx)
 			assert.Error(t, err)
-			assert.True(t, errorBitmaskInvalidIdx.Has(err), "errorBitmaskInvalidIdx class")
+			assert.True(t, errorBitArrayInvalidIdx.Has(err), "errorBitArrayInvalidIdx class")
 		})
 
 		t.Run("error: index > 63", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestBitmask(t *testing.T) {
 
 			err := bits.Set(invalidIdx)
 			assert.NoError(t, err)
-			assert.False(t, errorBitmaskInvalidIdx.Has(err), "errorBitmaskInvalidIdx class")
+			assert.False(t, errorBitArrayInvalidIdx.Has(err), "errorBitArrayInvalidIdx class")
 		})
 	})
 
@@ -68,7 +68,7 @@ func TestBitmask(t *testing.T) {
 
 			_, err := bits.Has(invalidIdx)
 			assert.Error(t, err)
-			assert.True(t, errorBitmaskInvalidIdx.Has(err), "errorBitmaskInvalidIdx class")
+			assert.True(t, errorBitArrayInvalidIdx.Has(err), "errorBitArrayInvalidIdx class")
 		})
 	})
 
@@ -318,7 +318,7 @@ func TestBitmask(t *testing.T) {
 
 			err := bits.Unset(invalidIdx)
 			assert.Error(t, err)
-			assert.True(t, errorBitmaskInvalidIdx.Has(err), "errorBitmaskInvalidIdx class")
+			assert.True(t, errorBitArrayInvalidIdx.Has(err), "errorBitArrayInvalidIdx class")
 		})
 	})
 }

@@ -9,9 +9,9 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// errorBitmaskInvalidIdx is the error class to return invalid indexes for the
+// errorBitArrayInvalidIdx is the error class to return invalid indexes for the
 // the bitArray type.
-var errorBitmaskInvalidIdx = errs.Class("invalid index")
+var errorBitArrayInvalidIdx = errs.Class("invalid index")
 
 // bitArray allows easy access to bit values by indices.
 type bitArray []byte
@@ -22,7 +22,7 @@ func (bytes *bitArray) Set(index int) error {
 	bitIndex, byteIndex := index%8, index/8
 	switch {
 	case index < 0:
-		return errorBitmaskInvalidIdx.New("negative value (%d)", index)
+		return errorBitArrayInvalidIdx.New("negative value (%d)", index)
 	case byteIndex >= len(*bytes):
 		sizeToGrow := byteIndex - len(*bytes) + 1
 		*bytes = append(*bytes, make([]byte, sizeToGrow)...)
@@ -37,7 +37,7 @@ func (bytes *bitArray) Unset(index int) error {
 	bitIndex, byteIndex := index%8, index/8
 	switch {
 	case index < 0:
-		return errorBitmaskInvalidIdx.New("negative value (%d)", index)
+		return errorBitArrayInvalidIdx.New("negative value (%d)", index)
 	case byteIndex >= len(*bytes):
 		return nil
 	}
@@ -52,7 +52,7 @@ func (bytes *bitArray) Has(index int) (bool, error) {
 	bitIndex, byteIndex := index%8, index/8
 	switch {
 	case index < 0:
-		return false, errorBitmaskInvalidIdx.New("negative value (%d)", index)
+		return false, errorBitArrayInvalidIdx.New("negative value (%d)", index)
 	case byteIndex >= len(*bytes):
 		return false, nil
 	}
