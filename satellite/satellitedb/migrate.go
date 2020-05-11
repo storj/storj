@@ -1120,6 +1120,29 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					return ErrMigrate.Wrap(err)
 				}),
 			},
+			{
+				DB:          db.DB,
+				Description: "fix incorrect calculations on backported paystub data",
+				Version:     112,
+				Action: migrate.SQL{`
+					UPDATE storagenode_paystubs SET
+						comp_at_rest = (
+							((owed + held - disposed)::float / GREATEST(surge_percent::float / 100, 1))::int
+							- comp_get - comp_get_repair - comp_get_audit
+						)
+					WHERE
+						(
+							abs(
+								((owed + held - disposed)::float / GREATEST(surge_percent::float / 100, 1))::int
+								- comp_get - comp_get_repair - comp_get_audit
+							) >= 10
+							OR comp_at_rest < 0
+						)
+						AND codes not like '%O%'
+						AND codes not like '%D%'
+						AND period < '2020-03'
+				`},
+			},
 		},
 	}
 }
