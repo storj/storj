@@ -95,7 +95,7 @@ func (obsvr *observer) Object(ctx context.Context, path metainfo.ScopedPath, poi
 // processSegment aggregates, in the observer internal state, the objects that
 // belong the same project, tracking their segments indexes and aggregated
 // information of them for calling analyzeProject method, before a new project
-// list of object segments list starts and the internal status is reset.
+// list of object segments starts and its internal status is reset.
 //
 // It also aggregates some stats about all the segments independently of the
 // object to which belong.
@@ -115,9 +115,33 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 	}
 
 	obsvr.lastProjectID = path.ProjectIDString
-
 	isLastSegment := path.Segment == "l"
+
+	// collect number of pointers for reporting
+	if pointer.Type == pb.Pointer_INLINE {
+		obsvr.inlineSegments++
+		if isLastSegment {
+			obsvr.lastInlineSegments++
+		}
+	} else {
+		obsvr.remoteSegments++
+	}
+
 	object := findOrCreate(path.BucketName, path.EncryptedObjectPath, obsvr.objects)
+	if obsvr.from != nil && pointer.CreationDate.Before(*obsvr.from) {
+		object.skip = true
+		// release the memory consumed by the segments because it won't be used
+		// for skip objects
+		object.segments = nil
+		return nil
+	} else if obsvr.to != nil && pointer.CreationDate.After(*obsvr.to) {
+		object.skip = true
+		// release the memory consumed by the segments because it won't be used
+		// for skip objects
+		object.segments = nil
+		return nil
+	}
+
 	if isLastSegment {
 		object.hasLastSegment = true
 
@@ -148,22 +172,6 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		if err != nil {
 			return err
 		}
-	}
-
-	if obsvr.from != nil && pointer.CreationDate.Before(*obsvr.from) {
-		object.skip = true
-	} else if obsvr.to != nil && pointer.CreationDate.After(*obsvr.to) {
-		object.skip = true
-	}
-
-	// collect number of pointers for report
-	if pointer.Type == pb.Pointer_INLINE {
-		obsvr.inlineSegments++
-		if isLastSegment {
-			obsvr.lastInlineSegments++
-		}
-	} else {
-		obsvr.remoteSegments++
 	}
 
 	return nil
@@ -213,7 +221,6 @@ func (obsvr *observer) findZombieSegments(object *object) error {
 
 	segmentsCount := object.segments.Count()
 
-	// using 'expectedNumberOfSegments-1' because 'segments' doesn't contain last segment
 	switch {
 	// this case is only for old style pointers with encrypted number of segments
 	// value 0 means that we don't know how much segments object should have
@@ -229,6 +236,7 @@ func (obsvr *observer) findZombieSegments(object *object) error {
 				obsvr.appendSegment(index)
 			}
 		}
+	// using 'expectedNumberOfSegments-1' because 'segments' doesn't contain last segment
 	case segmentsCount > object.expectedNumberOfSegments-1:
 		sequenceLength := firstSequenceLength(object.segments)
 
