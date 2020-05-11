@@ -74,12 +74,32 @@ func (bytes *bitArray) Count() int {
 // IsSequence returns true if mask has only tracked a correlative sequence of
 // indexes starting from index 0.
 func (bytes *bitArray) IsSequence() bool {
-	ones := bytes.Count()
-	zeros := 0
-	for byteIndex := len(*bytes) - 1; byteIndex >= 0 && zeros%8 == 0; byteIndex-- {
-		zeros = bits.LeadingZeros8((*bytes)[byteIndex])
+	// find the last byte of the sequence that contains some one
+	var i int
+	for i = len(*bytes) - 1; i >= 0; i-- {
+		zeros := bits.LeadingZeros8((*bytes)[i])
+		if zeros == 8 {
+			continue
+		}
+
+		ones := bits.OnesCount8((*bytes)[i])
+		if zeros+ones != 8 {
+			// zeros and ones in this byte aren't in sequence
+			return false
+		}
+
+		break
 	}
-	return (zeros + ones) == len(*bytes)*8
+
+	// The rest of the bytes of the sequence must only contains ones
+	i--
+	for ; i >= 0; i-- {
+		if (*bytes)[i] != 255 {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Length returns the current size of the array in bits.

@@ -186,36 +186,6 @@ func TestBitmask(t *testing.T) {
 			assert.True(t, ok)
 		})
 
-		t.Run("sequence started index 0", func(t *testing.T) {
-			var (
-				numIndexes = rand.Intn(61) + 2
-				bits       bitArray
-			)
-
-			for i := 0; i < numIndexes; i++ {
-				err := bits.Set(i)
-				require.NoError(t, err, "Set")
-			}
-
-			ok := bits.IsSequence()
-			assert.True(t, ok)
-		})
-
-		t.Run("sequence started other index than 0", func(t *testing.T) {
-			var (
-				startIndex = rand.Intn(62) + 1
-				bits       bitArray
-			)
-
-			for i := startIndex; i < 64; i++ {
-				err := bits.Set(i)
-				require.NoError(t, err, "Set")
-			}
-
-			ok := bits.IsSequence()
-			assert.False(t, ok)
-		})
-
 		t.Run("no sequence", func(t *testing.T) {
 			var bits bitArray
 
@@ -250,7 +220,68 @@ func TestBitmask(t *testing.T) {
 			assert.False(t, ok)
 		})
 
+		testCases := []struct {
+			name       string
+			startIndex int
+			numIndexes int
+			isSequence bool
+		}{
+			{
+				name:       "sequence starts at index 0",
+				startIndex: 0,
+				numIndexes: rand.Intn(5000) + 1,
+				isSequence: true,
+			},
+			{
+				name:       "sequence starts at index 8 until index 15",
+				startIndex: 8,
+				numIndexes: 15,
+				isSequence: false,
+			},
+			{
+				name:       "sequence starts at index 8 until index 16",
+				startIndex: 8,
+				numIndexes: 16,
+				isSequence: false,
+			},
+			{
+				name:       "sequence starts at index 8 until index 17",
+				startIndex: 8,
+				numIndexes: 17,
+				isSequence: false,
+			},
+			{
+				name:       "sequence starts at index 8 until index 23",
+				startIndex: 8,
+				numIndexes: 23,
+				isSequence: false,
+			},
+			{
+				name:       "sequence starts at other index than 0",
+				startIndex: rand.Intn(1000) + 1,
+				numIndexes: rand.Intn(5000) + 1002,
+				isSequence: false,
+			},
+		}
+
+		for i := range testCases {
+			tc := testCases[i]
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+
+				var bits bitArray
+				for i := tc.startIndex; i < tc.numIndexes; i++ {
+					err := bits.Set(i)
+					require.NoError(t, err, "Set")
+				}
+
+				require.Equalf(t, tc.isSequence, bits.IsSequence(),
+					"startIndex: %d, numIndexes: %d", tc.startIndex, tc.numIndexes,
+				)
+			})
+		}
 	})
+
 	t.Run("Unset", func(t *testing.T) {
 		t.Run("ok", func(t *testing.T) {
 			var (
