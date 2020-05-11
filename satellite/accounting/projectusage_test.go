@@ -40,7 +40,8 @@ func TestProjectUsageStorage(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Rollup.MaxAlphaUsage = 1 * memory.MB
+				config.Rollup.DefaultMaxUsage = 1 * memory.MB
+				config.Rollup.DefaultMaxBandwidth = 1 * memory.MB
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -304,13 +305,13 @@ func TestProjectBandwidthTotal(t *testing.T) {
 }
 
 func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UUID, orderDB orders.DB, now time.Time) error {
-	// Create many records that sum greater than project usage limit of 25GB
+	// Create many records that sum greater than project usage limit of 50GB
 	for i := 0; i < 4; i++ {
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
 
 		// In order to exceed the project limits, create bandwidth allocation records
-		// that sum greater than the maxAlphaUsage
-		amount := 10 * memory.GB.Int64()
+		// that sum greater than the defaultMaxUsage
+		amount := 15 * memory.GB.Int64()
 		action := pb.PieceAction_GET
 		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 		err := orderDB.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), action, amount, intervalStart)
