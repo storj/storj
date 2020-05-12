@@ -6,21 +6,21 @@ This document describes a means of tracking storage node downtime and using this
 
 ## Background
 
-The previous implementation of uptime reputation consisted of a ratio of online audits to offline audits. The problem we encountered was that, due to the frequency of auditing any particular node being directly correlated with the number of pieces it holds, some nodes' reputations would quickly become destroyed over a relatively short period of downtime. To solve this problem we need a system which takes into account not only how many offline audits occur, but _when_ they occur as well.
+The previous implementation of uptime reputation consisted of a ratio of online audits to offline audits. We encountered a problem where some nodes' reputations would quickly become destroyed over a relatively short period of downtime due to the frequency of auditing any particular node being directly correlated with the number of pieces it holds. To solve this problem we need a system that takes into account not only how many offline audits occur, but _when_ they occur as well.
 
 ## Design
 
-The solution proposed here is to use a series of sliding windows to indicate a general timeframe in which offline audits occur. Each window keeps two separate tallies indicating how many offline audits and total audits a particular node received within its timeframe. Once a window is complete, it will be scored by calculating the percentage of total audits for which it was offline. We can average these scores over a trailing period of time, called the _tracking period_, to determine an overall "offline score" to be used for suspension and disqualification. By granting each individual window the same weight in the calculation of the overall average, the effect of any particularly unlucky period can be contained while still allowing us to take the failures into account.
+The solution proposed here is to use a series of sliding windows to indicate a general timeframe in which offline audits occur. Each window keeps two separate tallies indicating how many offline audits and total audits a particular node received within its timeframe. Once a window is complete, it is scored by calculating the percentage of total audits for which it was offline. We can average these scores over a trailing period of time, called the _tracking period_, to determine an overall "offline score" to be used for suspension and disqualification. By granting each individual window the same weight in the calculation of the overall average, the effect of any particularly unlucky period can be minimized while still allowing us to take the failures into account over a longer period.
 
 Storage node downtime can have a range of causes. For those storage node operators who may have fallen victim to a temporary issue, we want to give them a chance to diagnose and fix it before disqualifying them for good. For this reason, we are introducing suspension as a component of disqualification.
 
-Once a node's offline score has risen above a set threshold, it is suspended and given a _grace period_ to fix whatever issue is causing its downtime. After the grace period has expired, the node has one full tracking period to reduce its offline score to be within the acceptable range. If so, the node is reinstated. If, after the tracking period has elapsed, the node's downtime is still above the tolerated threshold, it is disqualified.
+Once a node's offline score has risen above an _offline threshold_, it is _suspended_ and enters a period of review. A suspended node will not receive any new pieces, but can continue to receive download and audit requests for the pieces it currently holds. However, its pieces are considered to be unhealthy. We repair a segment if it contains too many unhealthy pieces, at which point we may transfer the repaired pieces from a suspended node to a more reliable node. If at any point during the review period we find that a node's score has fallen below the offline threshold, it is unsuspended, or _reinstated_, but it remains _under review_. This prevents nodes from alternating between suspension and reinstatement without consequence.
 
-When a node is suspended it will not receive any new pieces, but can continue to receive download and audit requests for the pieces it currently holds. However, a suspended node's pieces are considered to be unhealthy. If the number of unhealthy pieces in a segment becomes too high, it is repaired, which can result in a suspended node's piece being moved onto a more reliable node.
+The review period consists of one _grace period_ and one _tracking period_. The _grace period_ is given to fix whatever issue is causing the downtime. After the grace period has expired, any offline audits will fall within the scope of the tracking period, and thus will be used in the node's final evaluation. If at the end of the review period, the node is still suspended, it is disqualified. Otherwise, the node is no longer _under review_.
 
 ## Rationale
 
-This approach works because it allows us to consider the number of offline audits, but ensure that they are spread out over a period of time. For instance, if a node happened to be offline for 1 hour and unluckily receive an absurdly high amount of audits in that time, it should be able to recover. It has only affected the score of one window. If we take an example of a tracking period of 30 days and a window size of 24 hours, we can see that a single ruined window should not spell disaster. However, if a node is having bad luck with audits over multiple windows over the tracking period, this seems to indicate that the node is not quite as reliable as we would like. Even then, the addition of suspension mode gives the node a chance to fix its connection issues.
+This approach works because it allows us to consider the number of offline audits, but ensure that they are spread out over a period of time. For instance, if a node happens to be offline for 1 hour and unluckily receives an absurdly high amount of audits at that time, it should still be able to recover. It has only affected the score of one window. If we take an example of a tracking period of 30 days and a window size of 24 hours, we can see that a single ruined window should not spell disaster. However, if a node is having bad luck with audits over multiple windows over the tracking period, this seems to indicate that the node is not quite as reliable as we would like. Even then, the addition of suspension mode gives the node a chance to fix its connection issues.
 
 ### Alternate approaches
 
@@ -41,7 +41,7 @@ However, if we can tune the incentives to stay online such that there is very li
 
 ### Audit windows with separate tallies indicating offline and total audits. The node receives strikes for bad windows
 #### Description
-This idea is almost identical to the main design of the document. Each window keeps two separate totals of how many offline and total audits occurred within its timeframe. The difference is that rather than finding the average offline percentage per window, we give the node a strike if any window falls below the accepted threshold. If the node receives a set number of strikes over a period time then there are consequences.
+This idea is almost identical to the main design of the document. Each window keeps two separate totals of how many offline and total audits occurred within its timeframe. The difference is that rather than finding the average offline percentage per window, we give the node a strike if any window falls below the accepted threshold. If the node receives a set number of strikes over a period of time then there are consequences.
 
 The main concern I had with this idea is that a node going over the acceptable threshold by a small amount receives the same strike as a node which was 100% offline. It seems to me like the node should at least get some credit for the amount it _was_ online.
 
@@ -49,12 +49,14 @@ By keeping track of the offline percentage per window and then averaging the sco
 
 ## Implementation
 
-### 1) Determine the business requirement for minimum frequency of audits per node. Implement the necessary changes to make this happen. 
+### 1) Determine the business requirement for the minimum frequency of audits per node. Implement the necessary changes to make this happen. 
 
 This will determine what window sizes we can work with.
 
-### 2) Add new timestamp columns, `offline_scored_at` and `offline_suspended`, to `nodes` table
+### 2) Add new columns, `offline_scored_at` and `offline_suspended`, and `under_review` to `nodes` table
 We do not need to evaluate a node's standing every time it is audited because we are only interested in complete windows. Therefore, we only need to evaluate a node's standing once per window. If `offline_scored_at` does not fall within the current window then we need to set `offline_scored_at` to the current time and evaluate whether the node needs to be suspended, reinstated, or disqualified.
+
+`offline_scored_at` and `under_review` should be timestamps. `offline_suspended` could be a timestamp or a boolean. The boolean would use less space, but the timestamp might be more informative on a SNO dashboard.
 
 ### 3) Implement a DB table to store audit windows
 
@@ -84,7 +86,7 @@ The overlay DB method `BatchUpdateStats` is where a node's audit reputation is u
 
 Add a new argument to `BatchUpdateStats` to pass in `AuditWindowConfig`. This gives us the window size parameter required to write to the audit windows table and the tracking period, grace period, and offline threshold parameters required to evaluate whether a node needs to be suspended, reinstated, or disqualified.
 
-For each node, take the `offline_suspended` and `offline_scored_at` values from the node dossier. 
+For each node, take the `offline_suspended`, `offline_scored_at`, and `under_review` values from the node dossier. 
 Determine whether we need to evaluate the node's standing (see implementation step 2 above).
 If so, evaluate the node's current standing by scoring each window by finding what percentage of audits were offline per window, then finding the average score across all complete windows within the tracking period.
 
@@ -99,25 +101,30 @@ FROM (
 
 With this information, there are a number of conditions we need to evaluate:
 
-1) The node is _not_ currently suspended
+1) The current offline score is above the OfflineThreshold
+    
+    1A. The node is under review
 
-    1A. The average offline score is below the `OfflineThreshold`
+        Reinstate the node if it is suspended.
+
+        Check if the review period has expired. We can do this by taking the start boundary of the current window and subtracting the tracking period and grace period lengths from it. If this value is greater than the `under_review` value, this means that the node's review period has elapsed and the `under_review` column can be cleared.
+
+    1B. The node is not under review
 
         The node is in good standing and does not need to be updated.
 
-    1B. The average offline score is above the `OfflineThreshold`
-    
-        Suspend the node by setting `offline_suspended` to the start of the current window.
+2) The current offline score is below the OfflineThreshold
 
-2) The node _is_ currently suspended 
+    2A. The node is under review
 
-   2A. The average offline score is below the `OfflineThreshold`
+        Check if the review period has expired. If so, the `disqualified` column should be set (either to the current time, or the start boundary of the current window since that was the point at which all of the data had been collected)
 
-        We need to check if the node needs to be disqualified. We can do this by taking the start boundary of the current window and subtracting the tracking period and grace period lengths from it. If this value is greater than the `offline_suspended` value, this means that the node's time limit to fix its offline score has expired and the `disqualified` column should be set (either to the current time, or the start boundary of the current window since that was the point at which all of the data had been collected)
+        Suspend the node if it is not already suspended. 
+        
+    2B. The node is not under review
 
-    2B. The average offline score is above the `OfflineThreshold`
-    
-        Reinstate the node by setting `offline_suspended` to `null` 
+        Suspend the node and set its `under_review` column to the current time.
+
 
 After the evaluation is complete, insert or update the appropriate window in the audit_windows table.
 
@@ -131,8 +138,16 @@ Once the design outlined in the document is implemented, other documents detaili
 
 ## Open issues
 
-Since a suspended node cannot receive new pieces, and it can only be evaluated for reinstatement after an audit, if it happened to have all of its pieces deleted, it would be stuck in a limbo state where it would never leave suspension.
+1) Nodes stuck in suspension
 
-This most likely means it was a new node with very few pieces to begin with. We can reduce the likelihood of this happening by requiring a minimum number of windows in order to be evaluated. In other words, rather than suspending a new node for messing up its first day of audits with its one and only piece, we wait until it has a full tracking period of audit windows before evaluating. This way, it hopefully has accumulated a few more pieces, which will reduce the likelihood that they are all deleted and the node is condemned limbo.
+    Since a suspended node cannot receive new pieces, and it can only be evaluated for reinstatement after an audit, if it happened to have all of its pieces deleted, it would be stuck in a limbo state where it would never leave suspension.
 
-On the other hand, this could increase repair costs.
+    This most likely means it is a new node with very few pieces to begin with. We can reduce the likelihood of this happening by requiring a minimum number of windows in order to be evaluated. In other words, rather than suspending a new node for messing up its first day of audits with its one and only piece, we wait until it has a full tracking period of audit windows before evaluating. This way, it hopefully has accumulated a few more pieces, which will reduce the likelihood that they are all deleted and the node is condemned to limbo.
+
+    On the other hand, this could increase repair costs.
+
+2) Nodes alternating in and out of suspension
+
+    A node which is under review can be suspended and reinstated any number of times until the end of the review period. We could end up with a situation where a node is suspended, comes back, gets more pieces, and is suspended again. If the completion of the review period results in disqualification, all of those pieces will become unhealthy.
+
+    An alternative approach might be to simply not give new pieces to nodes under review, whether suspended or not. However, some nodes might think that waiting for the review period to end in order to get more pieces is not worth it. If they shut their node down and start over, all the pieces would need to repaired as well.
