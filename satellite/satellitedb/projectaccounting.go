@@ -182,7 +182,7 @@ func (db *ProjectAccounting) UpdateProjectUsageLimit(ctx context.Context, projec
 	return err
 }
 
-// UpdateProjectEgressLimit updates project bandwidth limit.
+// UpdateProjectBandwidthLimit updates project bandwidth limit.
 func (db *ProjectAccounting) UpdateProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
