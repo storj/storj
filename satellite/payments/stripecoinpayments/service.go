@@ -6,6 +6,7 @@ package stripecoinpayments
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"sync"
 	"time"
@@ -452,20 +453,30 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 			return err
 		}
 
-		currentUsagePrice := service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount).TotalInt64()
+		leftToCharge := service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount).TotalInt64()
+		if leftToCharge == 0 {
+			continue
+		}
 
-		amountToChargeFromCoupon := int64(0)
+		// If there is a Stripe coupon applied for the project owner, apply its
+		// discount first before applying other credits of this user. This
+		// avoids the issue with negative totals in invoices.
+		leftToCharge, err = service.discountedProjectUsagePrice(ctx, project, leftToCharge)
+		if err != nil {
+			return err
+		}
 
-		// TODO: only for 1 coupon per project
+		if leftToCharge == 0 {
+			continue
+		}
+
+		// Apply any promotional credits (a.k.a. coupons) on the remainder.
+		// TODO: if multiple coupons are available apply them in order of expiration.
 		for _, coupon := range coupons {
-			amountToChargeFromCoupon = currentUsagePrice
-
 			if coupon.IsExpired() {
 				if err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
 					return err
 				}
-
-				amountToChargeFromCoupon = 0
 				continue
 			}
 
@@ -475,46 +486,56 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 			}
 			remaining := coupon.Amount - alreadyChargedAmount
 
+			amountToChargeFromCoupon := leftToCharge
 			if amountToChargeFromCoupon >= remaining {
 				amountToChargeFromCoupon = remaining
 			}
 
-			usages = append(usages, CouponUsage{
-				Period:   start,
-				Amount:   amountToChargeFromCoupon,
-				Status:   CouponUsageStatusUnapplied,
-				CouponID: coupon.ID,
-			})
+			if amountToChargeFromCoupon > 0 {
+				usages = append(usages, CouponUsage{
+					Period:   start,
+					Amount:   amountToChargeFromCoupon,
+					Status:   CouponUsageStatusUnapplied,
+					CouponID: coupon.ID,
+				})
+
+				leftToCharge -= amountToChargeFromCoupon
+				if leftToCharge == 0 {
+					break
+				}
+			}
 		}
 
-		leftAfterCoupons := currentUsagePrice - amountToChargeFromCoupon
-		if leftAfterCoupons == 0 {
+		if leftToCharge == 0 {
 			continue
 		}
 
+		// Last, apply any credits from STORJ deposit bonuses on the remainder.
 		userBonuses, err := service.db.Credits().Balance(ctx, project.OwnerID)
 		if err != nil {
 			return err
 		}
 
 		if userBonuses > 0 {
-			if leftAfterCoupons >= userBonuses {
-				leftAfterCoupons = userBonuses
+			amountChargedFromBonuses := leftToCharge
+			if amountChargedFromBonuses >= userBonuses {
+				amountChargedFromBonuses = userBonuses
 			}
 
-			amountChargedFromBonuses := leftAfterCoupons
 			creditSpendingID, err := uuid.New()
 			if err != nil {
 				return err
 			}
 
-			creditsSpendings = append(creditsSpendings, CreditsSpending{
-				ID:        creditSpendingID,
-				Amount:    amountChargedFromBonuses,
-				UserID:    project.OwnerID,
-				ProjectID: project.ID,
-				Status:    CreditsSpendingStatusUnapplied,
-			})
+			if amountChargedFromBonuses > 0 {
+				creditsSpendings = append(creditsSpendings, CreditsSpending{
+					ID:        creditSpendingID,
+					Amount:    amountChargedFromBonuses,
+					UserID:    project.OwnerID,
+					ProjectID: project.ID,
+					Status:    CreditsSpendingStatusUnapplied,
+				})
+			}
 		}
 	}
 
@@ -922,4 +943,47 @@ func (service *Service) calculateProjectUsagePrice(egress int64, storage, object
 		Egress:  service.EgressByteCents.Mul(decimal.New(egress, 0)),
 		Objects: service.ObjectHourCents.Mul(decimal.NewFromFloat(objects)),
 	}
+}
+
+// discountedProjectUsagePrice reduces the project usage price with the discount applied for the Stripe customer.
+// The promotional coupons and bonus credits are not applied yet.
+func (service *Service) discountedProjectUsagePrice(ctx context.Context, project console.Project, projectUsagePrice int64) (int64, error) {
+	customerID, err := service.db.Customers().GetCustomerID(ctx, project.OwnerID)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	customer, err := service.stripeClient.Customers.Get(customerID, nil)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	if customer.Discount == nil {
+		return projectUsagePrice, nil
+	}
+
+	coupon := customer.Discount.Coupon
+
+	if coupon == nil {
+		return projectUsagePrice, nil
+	}
+
+	if !coupon.Valid {
+		return projectUsagePrice, nil
+	}
+
+	if coupon.AmountOff > 0 {
+		discounted := projectUsagePrice - coupon.AmountOff
+		if discounted < 0 {
+			return 0, nil
+		}
+		return discounted, nil
+	}
+
+	if coupon.PercentOff > 0 {
+		discount := int64(math.Round(float64(projectUsagePrice) * coupon.PercentOff / 100))
+		return projectUsagePrice - discount, nil
+	}
+
+	return projectUsagePrice, nil
 }
