@@ -174,7 +174,7 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		return Error.Wrap(err)
 	}
 
-	err = paymentService.AddPromotionalCoupon(ctx, auth.User.ID, 2, 5500, memory.TB)
+	err = paymentService.AddPromotionalCoupon(ctx, auth.User.ID)
 	if err != nil {
 		paymentService.service.log.Debug(fmt.Sprintf("could not add promotional coupon sof user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 	}
@@ -361,7 +361,7 @@ func (paymentService PaymentsService) PopulatePromotionalCoupons(ctx context.Con
 }
 
 // AddPromotionalCoupon creates new coupon for specified user.
-func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID, duration int, amount int64, limit memory.Size) (err error) {
+func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
 	cards, err := paymentService.ListCreditCards(ctx)
