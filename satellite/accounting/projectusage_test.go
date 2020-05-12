@@ -638,8 +638,10 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		customLimit := 100 * memory.KiB
 		err = acctDB.UpdateProjectUsageLimit(ctx, project.ID, customLimit)
 		require.NoError(t, err)
+		err = acctDB.UpdateProjectBandwidthLimit(ctx, project.ID, customLimit)
+		require.NoError(t, err)
 
-		data := testrand.Bytes(100 * memory.KiB)
+		data := testrand.Bytes(customLimit)
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path1", data)
 		require.NoError(t, err)
 
