@@ -103,27 +103,27 @@ With this information, there are a number of conditions we need to evaluate:
 
 1) The current offline score is above the OfflineThreshold
     
-    1A. The node is under review
+    1a. The node is under review
 
-        Reinstate the node if it is suspended.
+    - Reinstate the node if it is suspended.
 
-        Check if the review period has expired. We can do this by taking the start boundary of the current window and subtracting the tracking period and grace period lengths from it. If this value is greater than the `under_review` value, this means that the node's review period has elapsed and the `under_review` column can be cleared.
+    - Check if the review period has expired. We can do this by taking the start boundary of the current window and subtracting the tracking period and grace period lengths from it. If this value is greater than the `under_review` value, this means that the node's review period has elapsed and the `under_review` column can be cleared.
 
-    1B. The node is not under review
+    1b. The node is not under review
 
-        The node is in good standing and does not need to be updated.
+    - The node is in good standing and does not need to be updated.
 
 2) The current offline score is below the OfflineThreshold
 
-    2A. The node is under review
+    2a. The node is under review
 
-        Check if the review period has expired. If so, the `disqualified` column should be set (either to the current time, or the start boundary of the current window since that was the point at which all of the data had been collected)
+    - Check if the review period has expired. If so, the `disqualified` column should be set (either to the current time, or the start boundary of the current window since that was the point at which all of the data had been collected)
 
-        Suspend the node if it is not already suspended. 
+    - Suspend the node if it is not already suspended. 
         
-    2B. The node is not under review
+    2b. The node is not under review
 
-        Suspend the node and set its `under_review` column to the current time.
+    - Suspend the node and set its `under_review` column to the current time.
 
 
 After the evaluation is complete, insert or update the appropriate window in the audit_windows table.
