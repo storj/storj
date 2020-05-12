@@ -51,7 +51,7 @@ const {
 })
 
 export default class PayingStep extends Vue {
-    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 50; // in dollars.
+    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 
@@ -75,7 +75,7 @@ export default class PayingStep extends Vue {
         this.$emit('toggleIsLoading');
 
         if (this.tokenDepositValue < this.DEFAULT_TOKEN_DEPOSIT_VALUE || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) {
-            await this.$notify.error('First deposit amount must be more than $50 and less than $1000000');
+            await this.$notify.error('First deposit amount must be more than $10 and less than $1000000');
             this.setDefaultState();
 
             return;

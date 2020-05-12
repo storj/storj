@@ -18,7 +18,7 @@
                 Add a Payment Method to Get Started
             </p>
             <p class="payments-bonus-container__text-container__additional-text">
-                Your first 5GB are free. You will not be charged until you use more than 5GB.
+                Your first 50GB are free. You will not be charged until you use more than 50GB.
             </p>
         </div>
     </div>
