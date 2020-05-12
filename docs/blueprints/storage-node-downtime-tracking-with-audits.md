@@ -1,8 +1,8 @@
-# Storage Node Downtime Tracking
+# Storage Node Downtime Tracking With Audits
 
 ## Abstract
 
-This document describes a means of tracking storage node downtime and using this information to suspend and disqualify.
+This document describes a means of tracking storage node downtime with audits and using this information to suspend and disqualify.
 
 ## Background
 
@@ -58,15 +58,38 @@ We do not need to evaluate a node's standing every time it is audited because we
 
 `offline_scored_at` and `under_review` should be timestamps. `offline_suspended` could be a timestamp or a boolean. The boolean would use less space, but the timestamp might be more informative on a SNO dashboard.
 
-### 3) Implement a DB table to store audit windows
+### 3) Implement a DB table to store audit history
 
 ```sql
-CREATE TABLE audit_windows (
+CREATE TABLE audit_history (
     node_id BYTEA,
-    offline INT,
-    total INT,
-    window_start TIMESTAMP,
+    data BYTEA,
 )
+```
+
+```
+type AuditWindow struct {
+    Offline int
+    Total   int
+}
+
+type AuditHistory struct {
+    Windows map[time.Time]auditWindow
+}
+
+type State int 
+const (
+  StateNew State = 1
+  StateVetted State = 2
+  StateSuspended State = 3
+  StateReviewing State = 4
+  StateDisqualified State = 5
+}
+
+func ParseAuditHistory(serializedBytes []byte) *AuditHistory 
+func (a *AuditHistory) Serialize() []byte
+func (a *AuditHistory) AuditResult(success bool, when time.Time, currentState State) (newState State, stateChange bool)
+func (a *AuditHistory) Score() float64
 ```
 The `window_start` column refers to the start boundary of the window. This can be determined by truncating the current time down to the nearest multiple of the window size.
 
