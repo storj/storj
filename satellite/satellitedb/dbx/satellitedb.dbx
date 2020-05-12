@@ -284,16 +284,17 @@ read one (
 model project (
     key id
 
-    field id             blob
+    field id              blob
 
-    field name           text
-    field description    text      ( updatable )
-    field usage_limit    int64     ( updatable, default 0 )
-    field rate_limit     int       ( nullable, updatable )
-    field partner_id     blob      ( nullable  )
-    field owner_id       blob
+    field name            text
+    field description     text      ( updatable )
+    field usage_limit     int64     ( updatable, default 0 )
+    field bandwidth_limit int64     ( updatable, default 0 )
+    field rate_limit      int       ( nullable, updatable )
+    field partner_id      blob      ( nullable  )
+    field owner_id        blob
 
-    field created_at     timestamp ( autoinsert )
+    field created_at      timestamp ( autoinsert )
 )
 
 create project ( )
@@ -306,6 +307,10 @@ read one (
 )
 read one (
     select project.usage_limit
+    where  project.id = ?
+)
+read one (
+    select project.bandwidth_limit
     where  project.id = ?
 )
 read all (

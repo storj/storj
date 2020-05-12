@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="project-selection-container" id="projectDropdownButton">
+    <div class="project-selection-container" :class="{ default: !hasProjects }" id="projectDropdownButton">
         <p class="project-selection-container__no-projects-text" v-if="!hasProjects">You have no projects</p>
         <div
             class="project-selection-toggle-container"
@@ -90,7 +90,7 @@ export default class ProjectSelectionArea extends Vue {
      * Indicates if user has projects.
      */
     public get hasProjects(): boolean {
-        return !!this.$store.state.projectsModule.projects.length;
+        return this.$store.state.projectsModule.projects.length > 0;
     }
 
     /**
@@ -142,6 +142,7 @@ export default class ProjectSelectionArea extends Vue {
             line-height: 23px;
             color: #354049;
             transition: opacity 0.2s ease-in-out;
+            word-break: break-all;
         }
 
         &__expander-area {

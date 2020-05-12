@@ -196,7 +196,7 @@ message StorageNodeMessage {
 
 message SatelliteMessage {
     oneof Message {
-        message NotReady {} // this could be a grpc error rather than a message
+        message NotReady {} // this could be a rpc error rather than a message
 
         message TransferPiece {
             bytes piece_id; // the current piece-id

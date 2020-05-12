@@ -71,8 +71,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 		require.NoError(t, err)
 
 		req := overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 2,
-			RequestedCount:       2,
+			RequestedCount: 2,
 		}
 
 		// request 2 nodes, expect failure from not enough nodes
@@ -541,9 +540,8 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		excludedNodeAddr = res.LastIPPort
 
 		req := overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 2,
-			RequestedCount:       2,
-			ExcludedIDs:          excludedNodes,
+			RequestedCount: 2,
+			ExcludedIDs:    excludedNodes,
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)
@@ -565,9 +563,8 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		require.NotEqual(t, n3[1].LastIPPort, excludedNodeAddr)
 
 		req = overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 4,
-			RequestedCount:       4,
-			ExcludedIDs:          excludedNodes,
+			RequestedCount: 4,
+			ExcludedIDs:    excludedNodes,
 		}
 		n, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.Error(t, err)
@@ -620,9 +617,8 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 		excludedNodeAddr = res.LastIPPort
 
 		req := overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 2,
-			RequestedCount:       2,
-			ExcludedIDs:          excludedNodes,
+			RequestedCount: 2,
+			ExcludedIDs:    excludedNodes,
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)

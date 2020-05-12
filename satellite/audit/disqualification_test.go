@@ -169,10 +169,9 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		require.NoError(t, err)
 
 		request := overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 4,
-			RequestedCount:       4,
-			ExcludedIDs:          nil,
-			MinimumVersion:       "", // semver or empty
+			RequestedCount: 4,
+			ExcludedIDs:    nil,
+			MinimumVersion: "", // semver or empty
 		}
 		nodes, err := satellitePeer.Overlay.Service.FindStorageNodesForUpload(ctx, request)
 		assert.True(t, overlay.ErrNotEnoughNodes.Has(err))

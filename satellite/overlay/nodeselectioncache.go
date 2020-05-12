@@ -111,24 +111,24 @@ func (cache *NodeSelectionCache) GetNodes(ctx context.Context, req FindStorageNo
 		}
 	}
 
-	return cacheData.GetNodes(ctx, req, cache.selectionConfig.NewNodeFraction)
+	return cacheData.GetNodes(ctx, req, cache.selectionConfig.NewNodeFraction, cache.selectionConfig.DistinctIP)
 }
 
 // GetNodes selects nodes from the cache that will be used to upload a file.
+//
 // If there are new nodes in the cache, we will return a small fraction of those
-// and then return mostly reputable nodes
-func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesRequest, newNodeFraction float64) (_ []*SelectedNode, err error) {
+// and then return mostly reputable nodes.
+//
+// Distinct determines whether the nodes have to be from distinct networks.
+func (cacheData *state) GetNodes(ctx context.Context, req FindStorageNodesRequest, newNodeFraction float64, distinct bool) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cacheData.mu.RLock()
 	defer cacheData.mu.RUnlock()
 
 	// how many reputableNodes versus newNode nodes should be selected
-	totalcount := req.MinimumRequiredNodes
-	if totalcount <= 0 {
-		totalcount = req.RequestedCount
-	}
-	newNodeCount := int(float64(req.RequestedCount) * newNodeFraction)
+	totalcount := req.RequestedCount
+	newNodeCount := int(float64(totalcount) * newNodeFraction)
 
 	var selectedNodeResults = []*SelectedNode{}
 	var distinctNetworks = map[string]struct{}{}
@@ -144,12 +144,16 @@ nextNewNode:
 				continue nextNewNode
 			}
 		}
-		if _, ok := distinctNetworks[currNode.LastNet]; ok {
-			continue nextNewNode
+
+		if distinct {
+			// don't select a node if we've already selected another node from the same network
+			if _, ok := distinctNetworks[currNode.LastNet]; ok {
+				continue nextNewNode
+			}
+			distinctNetworks[currNode.LastNet] = struct{}{}
 		}
 
 		selectedNodeResults = append(selectedNodeResults, currNode.Clone())
-		distinctNetworks[currNode.LastNet] = struct{}{}
 		if len(selectedNodeResults) >= newNodeCount {
 			break
 		}
@@ -167,13 +171,15 @@ nextReputableNode:
 			}
 		}
 
-		// don't select a node if we've already selected another node from the same network
-		if _, ok := distinctNetworks[currNode.LastNet]; ok {
-			continue nextReputableNode
+		if distinct {
+			// don't select a node if we've already selected another node from the same network
+			if _, ok := distinctNetworks[currNode.LastNet]; ok {
+				continue nextReputableNode
+			}
+			distinctNetworks[currNode.LastNet] = struct{}{}
 		}
 
 		selectedNodeResults = append(selectedNodeResults, currNode.Clone())
-		distinctNetworks[currNode.LastNet] = struct{}{}
 		if len(selectedNodeResults) >= totalcount {
 			break
 		}

@@ -32,7 +32,7 @@ With the Notification System the SA is able to send an email to the SN advertise
 
 * No Push Notification System (getting updates to your mobile phone, etc.)
 
-* Not preventing Notifications from every satellite currently, meaning, that you get an offline notification from every satellite you are connected to. (Possible way to mitigate this, is to first check via GRPC, if the node accepts connections)
+* Not preventing Notifications from every satellite currently, meaning, that you get an offline notification from every satellite you are connected to. (Possible way to mitigate this, is to first check via RPC, if the node accepts connections)
 
 ## Scenarios
 

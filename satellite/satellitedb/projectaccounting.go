@@ -130,13 +130,12 @@ func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, pro
 	return *sum, err
 }
 
-// GetCurrentBandwidthAllocated returns allocated bandwidth for the current month
-func (db *ProjectAccounting) GetCurrentBandwidthAllocated(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
+// GetProjectAllocatedBandwidth returns allocated bandwidth for the specified year and month.
+func (db *ProjectAccounting) GetProjectAllocatedBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var egress *int64
-	t := time.Now()
 
-	interval := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+	interval := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
 	query := `SELECT egress_allocated FROM project_bandwidth_rollups WHERE project_id = ? AND interval_month = ?;`
 	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], interval).Scan(&egress)
@@ -183,20 +182,22 @@ func (db *ProjectAccounting) UpdateProjectUsageLimit(ctx context.Context, projec
 	return err
 }
 
+// UpdateProjectBandwidthLimit updates project bandwidth limit.
+func (db *ProjectAccounting) UpdateProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
+		dbx.Project_Update_Fields{
+			BandwidthLimit: dbx.Project_BandwidthLimit(limit.Int64()),
+		},
+	)
+
+	return err
+}
+
 // GetProjectStorageLimit returns project storage usage limit.
 func (db *ProjectAccounting) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return db.getProjectUsageLimit(ctx, projectID)
-}
-
-// GetProjectBandwidthLimit returns project bandwidth usage limit.
-func (db *ProjectAccounting) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return db.getProjectUsageLimit(ctx, projectID)
-}
-
-// getProjectUsageLimit returns project usage limit.
-func (db *ProjectAccounting) getProjectUsageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	row, err := db.db.Get_Project_UsageLimit_By_Id(ctx,
@@ -207,6 +208,20 @@ func (db *ProjectAccounting) getProjectUsageLimit(ctx context.Context, projectID
 	}
 
 	return memory.Size(row.UsageLimit), nil
+}
+
+// GetProjectBandwidthLimit returns project bandwidth usage limit.
+func (db *ProjectAccounting) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := db.db.Get_Project_BandwidthLimit_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	return memory.Size(row.BandwidthLimit), nil
 }
 
 // GetProjectTotal retrieves project usage for a given period.

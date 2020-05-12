@@ -41,7 +41,7 @@ var (
 	// ErrInspectorDial throws when there are errors dialing the inspector server
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
 
-	// ErrRequest is for gRPC request errors after dialing
+	// ErrRequest is for request errors after dialing
 	ErrRequest = errs.Class("error processing request:")
 
 	// ErrIdentity is for errors during identity creation for this CLI
@@ -124,7 +124,7 @@ type Inspector struct {
 	paymentsClient pb.DRPCPaymentsClient
 }
 
-// NewInspector creates a new gRPC inspector client for access to overlay.
+// NewInspector creates a new inspector client for access to overlay.
 func NewInspector(address, path string) (*Inspector, error) {
 	ctx := context.Background()
 

@@ -4,7 +4,6 @@
 package audit_test
 
 import (
-	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -124,7 +123,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 
 		// stop the first node in the pointer
 		stoppedNodeID := pointer.GetRemote().GetRemotePieces()[0].NodeId
-		err = stopStorageNode(ctx, planet, stoppedNodeID)
+		err = planet.StopNodeAndUpdate(ctx, planet.FindNode(stoppedNodeID))
 		require.NoError(t, err)
 
 		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
@@ -461,7 +460,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 
 		// stop the first node in the pointer
 		stoppedNodeID := pointer.GetRemote().GetRemotePieces()[0].NodeId
-		err = stopStorageNode(ctx, planet, stoppedNodeID)
+		err = planet.StopNodeAndUpdate(ctx, planet.FindNode(stoppedNodeID))
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)
@@ -803,34 +802,21 @@ func TestVerifierSlowDownload(t *testing.T) {
 		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
-		slowNodeID := pointer.Remote.RemotePieces[0].NodeId
-		for _, node := range planet.StorageNodes {
-			if node.ID() == slowNodeID {
-				slowNodeDB := node.DB.(*testblobs.SlowDB)
-				// make downloads on storage node slower than the timeout on the satellite for downloading shares
-				delay := 1 * time.Second
-				slowNodeDB.SetLatency(delay)
-				break
-			}
-		}
+		slowNode := planet.FindNode(pointer.Remote.RemotePieces[0].NodeId)
+		slowNodeDB := slowNode.DB.(*testblobs.SlowDB)
+		// make downloads on storage node slower than the timeout on the satellite for downloading shares
+		delay := 1 * time.Second
+		slowNodeDB.SetLatency(delay)
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)
 		require.NoError(t, err)
 
-		// Assert the slowNodeID is not in the successes
-		assert.False(t, func() bool {
-			for _, n := range report.Successes {
-				if bytes.Equal(n.Bytes(), slowNodeID.Bytes()) {
-					return true
-				}
-			}
-			return false
-		}())
+		assert.NotContains(t, report.Successes, slowNode.ID())
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.Unknown, 0)
 		assert.Len(t, report.PendingAudits, 1)
-		assert.Equal(t, report.PendingAudits[0].NodeID, slowNodeID)
+		assert.Equal(t, report.PendingAudits[0].NodeID, slowNode.ID())
 	})
 }
 
@@ -865,15 +851,10 @@ func TestVerifierUnknownError(t *testing.T) {
 		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
 
-		badNode := pointer.Remote.RemotePieces[0].NodeId
-		for _, node := range planet.StorageNodes {
-			if node.ID() == badNode {
-				badNodeDB := node.DB.(*testblobs.BadDB)
-				// return an error when the verifier attempts to download from this node
-				badNodeDB.SetError(errs.New("unknown error"))
-				break
-			}
-		}
+		badNode := planet.FindNode(pointer.Remote.RemotePieces[0].NodeId)
+		badNodeDB := badNode.DB.(*testblobs.BadDB)
+		// return an error when the verifier attempts to download from this node
+		badNodeDB.SetError(errs.New("unknown error"))
 
 		report, err := audits.Verifier.Verify(ctx, path, nil)
 		require.NoError(t, err)
@@ -883,6 +864,6 @@ func TestVerifierUnknownError(t *testing.T) {
 		require.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Unknown, 1)
-		require.Equal(t, report.Unknown[0], badNode)
+		require.Equal(t, report.Unknown[0], badNode.ID())
 	})
 }

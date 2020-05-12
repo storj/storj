@@ -6,7 +6,7 @@ metadata:
     app: piecestore
 spec:
   ports:
-  - name: grpc
+  - name: rpc
     port: 7777
     targetPort: 7777
   - name: http
@@ -46,7 +46,7 @@ spec:
           - name: PS_DIR
             value: "/home/"
         ports:
-        - name: grpc
+        - name: rpc
           containerPort: 7777
         - name: http
           containerPort: 7776

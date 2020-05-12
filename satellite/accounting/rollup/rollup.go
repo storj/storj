@@ -18,9 +18,10 @@ import (
 
 // Config contains configurable values for rollup
 type Config struct {
-	Interval      time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s"`
-	MaxAlphaUsage memory.Size   `help:"the bandwidth and storage usage limit for the alpha release" releaseDefault:"5GB" devDefault:"200GB"`
-	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
+	Interval            time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s"`
+	DefaultMaxUsage     memory.Size   `help:"the default storage usage limit" releaseDefault:"50GB" devDefault:"200GB"`
+	DefaultMaxBandwidth memory.Size   `help:"the default bandwidth usage limit" releaseDefault:"50GB" devDefault:"200GB"`
+	DeleteTallies       bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
 }
 
 // Service is the rollup service for totalling data on storage nodes on daily intervals

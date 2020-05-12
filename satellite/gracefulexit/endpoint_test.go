@@ -958,9 +958,8 @@ func TestExitDisabled(t *testing.T) {
 		// Process endpoint should return immediately if GE is disabled
 		response, err := processClient.Recv()
 		require.Error(t, err)
-		// grpc will return "Unimplemented", drpc will return "Unknown"
-		unimplementedOrUnknown := errs2.IsRPC(err, rpcstatus.Unimplemented) || errs2.IsRPC(err, rpcstatus.Unknown)
-		require.True(t, unimplementedOrUnknown)
+		// drpc will return "Unknown"
+		require.True(t, errs2.IsRPC(err, rpcstatus.Unknown))
 		require.Nil(t, response)
 	})
 }
@@ -1498,8 +1497,8 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	pieceCountMap := make(map[storj.NodeID]int, len(planet.StorageNodes))
-	for _, sn := range planet.StorageNodes {
-		pieceCountMap[sn.ID()] = 0
+	for _, node := range planet.StorageNodes {
+		pieceCountMap[node.ID()] = 0
 	}
 
 	for _, key := range keys {

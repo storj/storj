@@ -126,7 +126,7 @@ func testDataRepair(t *testing.T, inMemoryRepair bool) {
 				continue
 			}
 			if nodesToKill[node.ID()] {
-				stopNodeByID(t, ctx, planet, node.ID())
+				require.NoError(t, planet.StopNodeAndUpdate(ctx, node))
 			}
 		}
 
@@ -154,7 +154,7 @@ func testDataRepair(t *testing.T, inMemoryRepair bool) {
 			// Kill the original nodes which were kept alive to ensure that we can
 			// download from the new nodes that the repaired pieces have been uploaded
 			if _, ok := nodesToKeepAlive[piece.NodeId]; ok && nodesToKillForMinThreshold > 0 {
-				stopNodeByID(t, ctx, planet, piece.NodeId)
+				require.NoError(t, planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.NodeId)))
 				nodesToKillForMinThreshold--
 			}
 		}
@@ -222,7 +222,6 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 		require.True(t, toKill >= 1)
 
 		// kill nodes and track lost pieces
-		nodesToKill := make(map[storj.NodeID]bool)
 		originalNodes := make(map[storj.NodeID]bool)
 
 		var corruptedNodeID storj.NodeID
@@ -239,15 +238,14 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 				}
 				continue
 			}
-			nodesToKill[piece.NodeId] = true
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.NodeId))
+			require.NoError(t, err)
 		}
 		require.NotNil(t, corruptedNodeID)
 		require.NotNil(t, corruptedPieceID)
 
 		corruptedNode := planet.FindNode(corruptedNodeID)
-		for nodeID := range nodesToKill {
-			stopNodeByID(t, ctx, planet, nodeID)
-		}
 		require.NotNil(t, corruptedNode)
 
 		overlay := planet.Satellites[0].Overlay.Service
@@ -340,7 +338,6 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 		require.True(t, toKill >= 1)
 
 		// kill nodes and track lost pieces
-		nodesToKill := make(map[storj.NodeID]bool)
 		originalNodes := make(map[storj.NodeID]bool)
 
 		var corruptedNodeID storj.NodeID
@@ -359,16 +356,15 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 				}
 				continue
 			}
-			nodesToKill[piece.NodeId] = true
+
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.NodeId))
+			require.NoError(t, err)
 		}
 		require.NotNil(t, corruptedNodeID)
 		require.NotNil(t, corruptedPieceID)
 		require.NotNil(t, corruptedPiece)
 
 		corruptedNode := planet.FindNode(corruptedNodeID)
-		for nodeID := range nodesToKill {
-			stopNodeByID(t, ctx, planet, nodeID)
-		}
 		require.NotNil(t, corruptedNode)
 
 		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
@@ -715,9 +711,12 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 		toMarkOffline := 3
 		remotePieces := pointer.GetRemote().GetRemotePieces()
 
-		for i := 0; i < toMarkOffline; i++ {
-			node := planet.FindNode(remotePieces[i].NodeId)
-			stopNodeByID(t, ctx, planet, node.ID())
+		for _, piece := range remotePieces[:toMarkOffline] {
+			node := planet.FindNode(piece.NodeId)
+
+			err := planet.StopNodeAndUpdate(ctx, node)
+			require.NoError(t, err)
+
 			err = updateNodeCheckIn(ctx, satellite.DB.OverlayCache(), node, false, time.Now().Add(-24*time.Hour))
 			require.NoError(t, err)
 		}
@@ -733,14 +732,15 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 		require.Equal(t, count, 1)
 
 		// Kill 2 extra nodes so that the number of available pieces is less than the minimum
-		for i := toMarkOffline; i < toMarkOffline+2; i++ {
-			stopNodeByID(t, ctx, planet, remotePieces[i].NodeId)
+		for _, piece := range remotePieces[toMarkOffline : toMarkOffline+2] {
+			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.NodeId))
+			require.NoError(t, err)
 		}
 
 		// Mark nodes as online again so that online nodes > minimum threshold
 		// This will make the repair worker attempt to download the pieces
-		for i := 0; i < toMarkOffline; i++ {
-			node := planet.FindNode(remotePieces[i].NodeId)
+		for _, piece := range remotePieces[:toMarkOffline] {
+			node := planet.FindNode(piece.NodeId)
 			err := updateNodeCheckIn(ctx, satellite.DB.OverlayCache(), node, true, time.Now())
 			require.NoError(t, err)
 		}
@@ -873,7 +873,8 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
-				stopNodeByID(t, ctx, planet, node.ID())
+				err := planet.StopNodeAndUpdate(ctx, node)
+				require.NoError(t, err)
 			}
 		}
 
@@ -962,7 +963,8 @@ func testDataRepairOverrideHigherLimit(t *testing.T, inMemoryRepair bool) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
-				stopNodeByID(t, ctx, planet, node.ID())
+				err := planet.StopNodeAndUpdate(ctx, node)
+				require.NoError(t, err)
 			}
 		}
 
@@ -1056,7 +1058,8 @@ func testDataRepairOverrideLowerLimit(t *testing.T, inMemoryRepair bool) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
-				stopNodeByID(t, ctx, planet, node.ID())
+				err := planet.StopNodeAndUpdate(ctx, node)
+				require.NoError(t, err)
 			}
 		}
 
@@ -1082,9 +1085,7 @@ func testDataRepairOverrideLowerLimit(t *testing.T, inMemoryRepair bool) {
 
 		for _, node := range planet.StorageNodes {
 			if nodesToKill[node.ID()] {
-				err = planet.StopPeer(node)
-				require.NoError(t, err)
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				err = planet.StopNodeAndUpdate(ctx, node)
 				require.NoError(t, err)
 			}
 		}
@@ -1196,7 +1197,8 @@ func testDataRepairUploadLimit(t *testing.T, inMemoryRepair bool) {
 				}
 
 				if len(killedNodes) < numNodesToKill {
-					stopNodeByID(t, ctx, planet, node.ID())
+					err := planet.StopNodeAndUpdate(ctx, node)
+					require.NoError(t, err)
 
 					killedNodes[node.ID()] = struct{}{}
 				}
@@ -1336,7 +1338,7 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 		// kill nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
-				stopNodeByID(t, ctx, planet, node.ID())
+				require.NoError(t, planet.StopNodeAndUpdate(ctx, node))
 			}
 		}
 
@@ -1379,33 +1381,6 @@ func getRemoteSegment(
 
 	t.Fatal("satellite doesn't have any remote segment")
 	return nil, ""
-}
-
-// nolint:golint
-func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, nodeID storj.NodeID) {
-	t.Helper()
-
-	node := planet.FindNode(nodeID)
-	require.NotNil(t, node)
-	err := planet.StopPeer(node)
-	require.NoError(t, err)
-
-	for _, satellite := range planet.Satellites {
-		err = satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
-			NodeID: node.ID(),
-			Address: &pb.NodeAddress{
-				Address: node.Addr(),
-			},
-			IsUp: true,
-			Version: &pb.NodeVersion{
-				Version:    "v0.0.0",
-				CommitHash: "",
-				Timestamp:  time.Time{},
-				Release:    false,
-			},
-		}, time.Now().Add(-4*time.Hour))
-		require.NoError(t, err)
-	}
 }
 
 // corruptPieceData manipulates piece data on a storage node.
