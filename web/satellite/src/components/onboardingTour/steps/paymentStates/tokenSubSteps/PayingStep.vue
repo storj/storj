@@ -51,7 +51,7 @@ const {
 })
 
 export default class PayingStep extends Vue {
-    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 50; // in dollars.
+    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
 

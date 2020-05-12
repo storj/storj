@@ -51,7 +51,6 @@ import PayingStep from '@/components/onboardingTour/steps/paymentStates/tokenSub
 import VerifiedStep from '@/components/onboardingTour/steps/paymentStates/tokenSubSteps/VerifiedStep.vue';
 import VerifyingStep from '@/components/onboardingTour/steps/paymentStates/tokenSubSteps/VerifyingStep.vue';
 
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AddingStorjState } from '@/utils/constants/onboardingTourEnums';
 
 @Component({

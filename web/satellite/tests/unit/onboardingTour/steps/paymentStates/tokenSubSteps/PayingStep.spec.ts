@@ -77,6 +77,6 @@ describe('PayingStep.vue', () => {
         wrapper.vm.$data.tokenDepositValue = 70;
         await wrapper.vm.onConfirmAddSTORJ();
 
-        expect(wrapper.vm.$data.tokenDepositValue).toEqual(50);
+        expect(wrapper.vm.$data.tokenDepositValue).toEqual(10);
     });
 });

@@ -74,10 +74,9 @@ export default class TokenDepositSelection extends Vue {
      * Set of default payment options.
      */
     public paymentOptions: PaymentAmountOption[] = [
-        new PaymentAmountOption(50, `USD $50`),
-        new PaymentAmountOption(5, `USD $5`),
         new PaymentAmountOption(10, `USD $10`),
         new PaymentAmountOption(20, `USD $20`),
+        new PaymentAmountOption(50, `USD $50`),
         new PaymentAmountOption(100, `USD $100`),
         new PaymentAmountOption(1000, `USD $1000`),
     ];
