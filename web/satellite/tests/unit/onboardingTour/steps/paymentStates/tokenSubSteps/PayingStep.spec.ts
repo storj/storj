@@ -48,21 +48,21 @@ describe('PayingStep.vue', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('user is unable to add less than 50$ or more than 999999$', async (): Promise<void> => {
+    it('user is unable to add less than 10$ or more than 999999$', async (): Promise<void> => {
         const wrapper = mount(PayingStep, {
             store,
             localVue,
         });
 
-        wrapper.vm.$data.tokenDepositValue = 30;
+        wrapper.vm.$data.tokenDepositValue = 5;
         await wrapper.vm.onConfirmAddSTORJ();
 
-        expect((store.state as any).notificationsModule.notificationQueue[0].message).toMatch('First deposit amount must be more than $50 and less than $1000000');
+        expect((store.state as any).notificationsModule.notificationQueue[0].message).toMatch('First deposit amount must be more than $10 and less than $1000000');
 
         wrapper.vm.$data.tokenDepositValue = 1000000;
         await wrapper.vm.onConfirmAddSTORJ();
 
-        expect((store.state as any).notificationsModule.notificationQueue[1].message).toMatch('First deposit amount must be more than $50 and less than $1000000');
+        expect((store.state as any).notificationsModule.notificationQueue[1].message).toMatch('First deposit amount must be more than $10 and less than $1000000');
     });
 
     it('continue to coin payments works correctly', async (): Promise<void> => {
