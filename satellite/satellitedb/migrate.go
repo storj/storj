@@ -1071,19 +1071,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				DB:          db.DB,
 				Description: "add separate bandwidth column",
 				Version:     107,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					// ensure migration is not flattened and executed separate from 108
-					_, err := tx.Exec(ctx,
-						`ALTER TABLE projects ADD COLUMN bandwidth_limit bigint NOT NULL DEFAULT 0;`,
-					)
-					return ErrMigrate.Wrap(err)
-				}),
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN bandwidth_limit bigint NOT NULL DEFAULT 0;`,
+				},
 			},
 			{
 				DB:          db.DB,
 				Description: "backfill bandwidth column with previous limits",
 				Version:     108,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					// This is in a separate migrate step to prevent TestingMigrateToLatest running it in the same transaction as the previous call.
 					_, err := tx.Exec(ctx,
 						`UPDATE projects SET bandwidth_limit = usage_limit;`,
 					)
