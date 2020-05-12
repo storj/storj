@@ -1072,8 +1072,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Description: "add separate bandwidth column",
 				Version:     107,
 				Action: migrate.SQL{
-					`ALTER TABLE projects ADD COLUMN bandwidth_limit bigint NOT NULL DEFAULT 0;
-					UPDATE projects SET bandwidth_limit = usage_limit;`,
+					`ALTER TABLE projects ADD COLUMN bandwidth_limit bigint NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "update bandwidth column with previous limits",
+				Version:     108,
+				Action: migrate.SQL{
+					`UPDATE projects SET bandwidth_limit = usage_limit;`,
 				},
 			},
 		},

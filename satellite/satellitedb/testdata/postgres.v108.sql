@@ -552,6 +552,4 @@ UPDATE "nodes" SET vetted_at='2020-03-18 12:00:00.000000+00' where id = E'\\363\
 
 INSERT INTO "project_bandwidth_rollups"("project_id", "interval_month", egress_allocated) VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\347'::bytea, '2020-04-01', 10000);
 
--- NEW DATA --
-
 INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_limit", "rate_limit", "partner_id", "owner_id", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\345'::bytea, 'egress101', 'High Bandwidth Project', 0, 0, 2000000, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2020-05-15 08:46:24.000000+00');
