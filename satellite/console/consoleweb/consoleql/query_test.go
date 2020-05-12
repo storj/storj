@@ -49,7 +49,7 @@ func TestGraphqlQuery(t *testing.T) {
 		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
 		require.NoError(t, err)
 
-		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, 0)
+		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, 0, 0)
 
 		service, err := console.NewService(
 			log.Named("console"),

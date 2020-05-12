@@ -561,14 +561,17 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to flush the reported serial rollups to the database
 # reported-rollup.interval: 5m0s
 
+# the default bandwidth usage limit
+# rollup.default-max-bandwidth: 50.0 GB
+
+# the default storage usage limit
+# rollup.default-max-usage: 50.0 GB
+
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true
 
 # how frequently rollup should run
 # rollup.interval: 24h0m0s
-
-# the bandwidth and storage usage limit for the alpha release
-# rollup.max-alpha-usage: 50.0 GB
 
 # public address to listen on
 server.address: :7777

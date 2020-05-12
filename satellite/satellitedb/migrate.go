@@ -1067,6 +1067,29 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					ON CONFLICT(project_id, interval_month) DO UPDATE SET egress_allocated = EXCLUDED.egress_allocated::bigint;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "add separate bandwidth column",
+				Version:     107,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					// ensure migration is not flattened and executed separate from 108
+					_, err := tx.Exec(ctx,
+						`ALTER TABLE projects ADD COLUMN bandwidth_limit bigint NOT NULL DEFAULT 0;`,
+					)
+					return ErrMigrate.Wrap(err)
+				}),
+			},
+			{
+				DB:          db.DB,
+				Description: "backfill bandwidth column with previous limits",
+				Version:     108,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := tx.Exec(ctx,
+						`UPDATE projects SET bandwidth_limit = usage_limit;`,
+					)
+					return ErrMigrate.Wrap(err)
+				}),
+			},
 		},
 	}
 }
