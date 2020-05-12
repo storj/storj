@@ -141,6 +141,7 @@ func TestProjectLimits(t *testing.T) {
 
 		err = db.ProjectAccounting().UpdateProjectUsageLimit(ctx, proj.ID, 1)
 		require.NoError(t, err)
+		err = db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, proj.ID, 2)
 
 		t.Run("get", func(t *testing.T) {
 			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, proj.ID)
@@ -149,12 +150,13 @@ func TestProjectLimits(t *testing.T) {
 
 			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, proj.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, memory.Size(1), bandwidthLimit)
+			assert.Equal(t, memory.Size(2), bandwidthLimit)
 		})
 
 		t.Run("update", func(t *testing.T) {
 			err = db.ProjectAccounting().UpdateProjectUsageLimit(ctx, proj.ID, 4)
 			require.NoError(t, err)
+			err = db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, proj.ID, 3)
 
 			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, proj.ID)
 			assert.NoError(t, err)
@@ -162,7 +164,7 @@ func TestProjectLimits(t *testing.T) {
 
 			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, proj.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, memory.Size(4), bandwidthLimit)
+			assert.Equal(t, memory.Size(3), bandwidthLimit)
 		})
 	})
 }

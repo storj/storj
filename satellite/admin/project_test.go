@@ -39,7 +39,7 @@ func TestAPI(t *testing.T) {
 		link := "http://" + address.String() + "/api/project/" + project.ID.String() + "/limit"
 
 		t.Run("GetProject", func(t *testing.T) {
-			assertGet(t, link, `{"usage":{"amount":"0 B","bytes":0},"rate":{"rps":0}}`)
+			assertGet(t, link, `{"usage":{"amount":"0 B","bytes":0},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0}}`)
 		})
 
 		t.Run("GetUser", func(t *testing.T) {
@@ -63,7 +63,7 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, link, `{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"rate":{"rps":0}}`)
+			assertGet(t, link, `{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0}}`)
 
 			req, err = http.NewRequest(http.MethodPut, link+"?usage=1GB", nil)
 			require.NoError(t, err)
@@ -74,7 +74,20 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"rate":{"rps":0}}`)
+			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0}}`)
+		})
+
+		t.Run("UpdateBandwidth", func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodPut, link+"?bandwidth=1MB", nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "very-secret-token")
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+
+			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"1.0 MB","bytes":1000000},"rate":{"rps":0}}`)
 		})
 
 		t.Run("UpdateRate", func(t *testing.T) {
@@ -87,7 +100,7 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"rate":{"rps":100}}`)
+			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"1.0 MB","bytes":1000000},"rate":{"rps":100}}`)
 		})
 	})
 }

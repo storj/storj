@@ -435,9 +435,10 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				Interval: defaultInterval,
 			},
 			Rollup: rollup.Config{
-				Interval:      defaultInterval,
-				MaxAlphaUsage: 25 * memory.GB,
-				DeleteTallies: false,
+				Interval:            defaultInterval,
+				DefaultMaxUsage:     25 * memory.GB,
+				DefaultMaxBandwidth: 25 * memory.GB,
+				DeleteTallies:       false,
 			},
 			ReportedRollup: reportedrollup.Config{
 				Interval: defaultInterval,

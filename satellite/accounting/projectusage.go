@@ -28,16 +28,18 @@ var (
 type Service struct {
 	projectAccountingDB ProjectAccounting
 	liveAccounting      Cache
-	maxAlphaUsage       memory.Size
+	defaultMaxUsage     memory.Size
+	defaultMaxBandwidth memory.Size
 	nowFn               func() time.Time
 }
 
 // NewService created new instance of project usage service.
-func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, maxAlphaUsage memory.Size) *Service {
+func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, defaultMaxUsage, defaultMaxBandwidth memory.Size) *Service {
 	return &Service{
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,
-		maxAlphaUsage:       maxAlphaUsage,
+		defaultMaxUsage:     defaultMaxUsage,
+		defaultMaxBandwidth: defaultMaxBandwidth,
 		nowFn:               time.Now,
 	}
 }
@@ -146,7 +148,7 @@ func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid
 		return 0, ErrProjectUsage.Wrap(err)
 	}
 	if limit == 0 {
-		return usage.maxAlphaUsage, nil
+		return usage.defaultMaxUsage, nil
 	}
 
 	return limit, nil
@@ -161,7 +163,7 @@ func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uu
 		return 0, ErrProjectUsage.Wrap(err)
 	}
 	if limit == 0 {
-		return usage.maxAlphaUsage, nil
+		return usage.defaultMaxBandwidth, nil
 	}
 
 	return limit, nil
