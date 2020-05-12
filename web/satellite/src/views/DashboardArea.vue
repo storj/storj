@@ -125,12 +125,6 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
-        } catch (error) {
-            await this.$notify.error(`Unable to get usage and charges for previous billing period. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(`Unable to get usage and charges for current billing period. ${error.message}`);

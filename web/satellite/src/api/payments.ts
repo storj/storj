@@ -2,7 +2,14 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectUsageAndCharges, TokenDeposit } from '@/types/payments';
+import {
+    AccountBalance,
+    BillingHistoryItem,
+    CreditCard,
+    PaymentsApi,
+    ProjectUsageAndCharges,
+    TokenDeposit,
+} from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { toUnixTimestamp } from '@/utils/time';
 
@@ -20,19 +27,24 @@ export class PaymentsHttpApi implements PaymentsApi {
      * @returns balance in cents
      * @throws Error
      */
-    public async getBalance(): Promise<number> {
+    public async getBalance(): Promise<AccountBalance> {
         const path = `${this.ROOT_PATH}/account/balance`;
         const response = await this.client.get(path);
 
-        if (response.ok) {
-            return await response.json();
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('Can not get account balance');
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
+        const balance = await response.json();
+        if (balance) {
+            return new AccountBalance(balance.freeCredits, balance.coins);
         }
 
-        throw new Error('can not get balance');
+        return new AccountBalance();
     }
 
     /**
