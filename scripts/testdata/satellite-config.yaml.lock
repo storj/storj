@@ -479,13 +479,13 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.coupon-project-limit: 0 B
 
 # coupon value in cents
-# payments.coupon-value: 30
+# payments.coupon-value: 275
 
 # price user should pay for each TB of egress
 # payments.egress-tb-price: "45"
 
 # minimum value of coin payments in cents before coupon is applied
-# payments.min-coin-payment: 5000
+# payments.min-coin-payment: 1000
 
 # price node receive for storing TB of audit in cents
 # payments.node-audit-bandwidth-price: 1000
