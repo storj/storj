@@ -1076,10 +1076,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					_, err := tx.Exec(ctx,
 						`ALTER TABLE projects ADD COLUMN bandwidth_limit bigint NOT NULL DEFAULT 0;`,
 					)
-					if err != nil {
-						return ErrMigrate.Wrap(err)
-					}
-					return nil
+					return ErrMigrate.Wrap(err)
 				}),
 			},
 			{
@@ -1090,11 +1087,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					_, err := tx.Exec(ctx,
 						`UPDATE projects SET bandwidth_limit = usage_limit;`,
 					)
-					if err != nil {
-						return ErrMigrate.Wrap(err)
-					}
-
-					return nil
+					return ErrMigrate.Wrap(err)
 				}),
 			},
 		},
