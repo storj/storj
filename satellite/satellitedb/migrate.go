@@ -1071,17 +1071,24 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				DB:          db.DB,
 				Description: "add separate bandwidth column",
 				Version:     107,
-				Action: migrate.SQL{
-					`ALTER TABLE projects ADD COLUMN bandwidth_limit bigint NOT NULL DEFAULT 0;`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "update bandwidth column with previous limits",
-				Version:     108,
-				Action: migrate.SQL{
-					`UPDATE projects SET bandwidth_limit = usage_limit;`,
-				},
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					// ensure migration is not flattened as this causes issues on cockroach with this multistep migration
+					_, err := tx.Exec(ctx,
+						`ALTER TABLE projects ADD COLUMN bandwidth_limit bigint NOT NULL DEFAULT 0;`,
+					)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+
+					_, err = tx.Exec(ctx,
+						`UPDATE projects SET bandwidth_limit = usage_limit;`,
+					)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+
+					return nil
+				}),
 			},
 		},
 	}
