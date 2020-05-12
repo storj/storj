@@ -1072,7 +1072,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Description: "add separate bandwidth column",
 				Version:     107,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					// ensure migration is not flattened and executed seperate from 108
+					// ensure migration is not flattened and executed separate from 108
 					_, err := tx.Exec(ctx,
 						`ALTER TABLE projects ADD COLUMN bandwidth_limit bigint NOT NULL DEFAULT 0;`,
 					)
