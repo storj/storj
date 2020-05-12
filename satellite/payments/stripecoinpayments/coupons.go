@@ -42,7 +42,7 @@ type CouponsDB interface {
 	// GetLatest return period_end of latest coupon charge.
 	GetLatest(ctx context.Context, couponID uuid.UUID) (time.Time, error)
 	// ListUnapplied returns coupon usage page with unapplied coupon usages.
-	ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (CouponUsagePage, error)
+	ListUnapplied(ctx context.Context, offset int64, limit int, period time.Time) (CouponUsagePage, error)
 	// ApplyUsage applies coupon usage and updates its status.
 	ApplyUsage(ctx context.Context, couponID uuid.UUID, period time.Time) error
 

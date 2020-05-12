@@ -36,7 +36,7 @@ func (endpoint *Endpoint) PrepareInvoiceRecords(ctx context.Context, req *pb.Pre
 func (endpoint *Endpoint) ApplyInvoiceRecords(ctx context.Context, req *pb.ApplyInvoiceRecordsRequest) (_ *pb.ApplyInvoiceRecordsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.service.InvoiceApplyProjectRecords(ctx)
+	err = endpoint.service.InvoiceApplyProjectRecords(ctx, req.Period)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -48,7 +48,7 @@ func (endpoint *Endpoint) ApplyInvoiceRecords(ctx context.Context, req *pb.Apply
 func (endpoint *Endpoint) ApplyInvoiceCoupons(ctx context.Context, req *pb.ApplyInvoiceCouponsRequest) (_ *pb.ApplyInvoiceCouponsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.service.InvoiceApplyCoupons(ctx)
+	err = endpoint.service.InvoiceApplyCoupons(ctx, req.Period)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -60,7 +60,7 @@ func (endpoint *Endpoint) ApplyInvoiceCoupons(ctx context.Context, req *pb.Apply
 func (endpoint *Endpoint) CreateInvoices(ctx context.Context, req *pb.CreateInvoicesRequest) (_ *pb.CreateInvoicesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.service.CreateInvoices(ctx)
+	err = endpoint.service.CreateInvoices(ctx, req.Period)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -72,7 +72,7 @@ func (endpoint *Endpoint) CreateInvoices(ctx context.Context, req *pb.CreateInvo
 func (endpoint *Endpoint) ApplyInvoiceCredits(ctx context.Context, req *pb.ApplyInvoiceCreditsRequest) (_ *pb.ApplyInvoiceCreditsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.service.InvoiceApplyCredits(ctx)
+	err = endpoint.service.InvoiceApplyCredits(ctx, req.Period)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}

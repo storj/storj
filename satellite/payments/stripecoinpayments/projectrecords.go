@@ -26,7 +26,7 @@ type ProjectRecordsDB interface {
 	// Consume consumes invoice project record.
 	Consume(ctx context.Context, id uuid.UUID) error
 	// ListUnapplied returns project records page with unapplied project records.
-	ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (ProjectRecordsPage, error)
+	ListUnapplied(ctx context.Context, offset int64, limit int, start, end time.Time) (ProjectRecordsPage, error)
 }
 
 // CreateProjectRecord holds info needed for creation new invoice
