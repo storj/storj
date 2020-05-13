@@ -296,7 +296,7 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 		var sumUsages int64
 		for i, coupon := range coupons {
 			sumCoupons += coupon.Amount
-			require.False(t, coupon.IsExpired())
+			require.NotEqual(t, payments.CouponExpired, coupon.Status)
 
 			sumUsages += couponsPage.Usages[i].Amount
 			require.Equal(t, stripecoinpayments.CouponUsageStatusUnapplied, couponsPage.Usages[i].Status)

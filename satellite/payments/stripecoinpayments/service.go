@@ -432,7 +432,13 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 		// Apply any promotional credits (a.k.a. coupons) on the remainder.
 		// TODO: if multiple coupons are available apply them in order of expiration.
 		for _, coupon := range coupons {
-			if coupon.IsExpired() {
+			if coupon.Status == payments.CouponExpired {
+				// this coupon has already been marked as expired.
+				continue
+			}
+
+			if end.After(coupon.ExpirationDate()) {
+				// this coupon is identified as expired for first time, mark it in the database
 				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
 					return err
 				}
