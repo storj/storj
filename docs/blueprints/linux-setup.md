@@ -141,8 +141,8 @@ We are thinking of using native packaging for the following reasons:
 - create a storj debian git
 - Implement the debian package skeleton using dh-make. It will create a debian directory that contains all the necessary files to generate the package using dpkg-buildpackage. Commit it to the storj debian git.
 - Modify the `debian/rules` file to embed a `config.yaml` template file and create a `/var/lib/storj/storagenode/bin` directory (where the binaries will be put).
-- Create the script that will check the storagenode and storagenode-updates latest available versions, download them, put them in the `/var/storagenode/bin`
-- create the `storj-storagenode` system user in the post-installation script (`debian/postinst`). It should own the `/var/storagenode/bin` directory. It should be able to write the storage directory.
+- Create the script that will check the storagenode and storagenode-updates latest available versions, download them, put them in the `/var/lib/storj/storagenode/bin`
+- create the `storj-storagenode` system user in the post-installation script (`debian/postinst`). It should own the `/var/lib/storj/storagenode/bin` directory. It should be able to write the storage directory.
 - Implement a systemD service running storagenode binary. It will be installed by calling `dh_installsystemd` in `debian/rules`
     - https://vincent.bernat.ch/en/blog/2017-systemd-golang
     - https://vincent.bernat.ch/en/blog/2018-systemd-golang-socket-activation
