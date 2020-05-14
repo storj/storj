@@ -63,7 +63,7 @@ A successful request:
 ```json
 {
     "ownerId": "ca7aa0fb-442a-4d4e-aa36-a49abddae837",
-    "projectName": "2af8dc53-cadf-4ced-9b5c-e554afdadb51",
+    "projectName": "My Second Project",
 }
 ```
 
