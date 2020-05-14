@@ -18,7 +18,7 @@ exports[`BillingHistoryItemDate renders correctly if transaction expired 1`] = `
 </div>
 `;
 
-exports[`BillingHistoryItemDate renders correctly if transaction not expired 1`] = `
+exports[`BillingHistoryItemDate renders correctly if transaction is not expired 1`] = `
 <div class="countdown-container">
   <div class="row">
     <p>Expires in </p>
