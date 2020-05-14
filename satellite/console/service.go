@@ -299,11 +299,22 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 	}
 
 	for _, coupon := range coupons {
+		alreadyUsed, err := paymentService.service.accounts.Coupons().TotalUsage(ctx, coupon.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		remaining := coupon.Amount - alreadyUsed
+		if coupon.Status == payments.CouponExpired {
+			remaining = 0
+		}
+
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
 				ID:          coupon.ID.String(),
 				Description: coupon.Description,
 				Amount:      coupon.Amount,
+				Remaining:   remaining,
 				Status:      "Added to balance",
 				Link:        "",
 				Start:       coupon.Created,

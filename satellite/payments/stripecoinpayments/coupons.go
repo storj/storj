@@ -106,6 +106,15 @@ func (coupons *coupons) ListByUserID(ctx context.Context, userID uuid.UUID) (_ [
 	return couponList, Error.Wrap(err)
 }
 
+// TotalUsage returns sum of all usage records for specified coupon.
+func (coupons *coupons) TotalUsage(ctx context.Context, couponID uuid.UUID) (_ int64, err error) {
+	defer mon.Task()(&ctx, couponID)(&err)
+
+	totalUsage, err := coupons.service.db.Coupons().TotalUsage(ctx, couponID)
+
+	return totalUsage, Error.Wrap(err)
+}
+
 // PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
 // a project, payment method and do not have a promotional coupon yet.
 // And updates project limits to selected size.

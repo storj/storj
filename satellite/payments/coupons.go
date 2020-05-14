@@ -18,6 +18,9 @@ type Coupons interface {
 	// ListByUserID return list of all coupons of specified payment account.
 	ListByUserID(ctx context.Context, userID uuid.UUID) ([]Coupon, error)
 
+	// TotalUsage returns sum of all usage records for specified coupon.
+	TotalUsage(ctx context.Context, couponID uuid.UUID) (int64, error)
+
 	// Create attaches a coupon for payment account.
 	Create(ctx context.Context, coupon Coupon) (coup Coupon, err error)
 
