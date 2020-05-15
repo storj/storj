@@ -34,7 +34,7 @@ func TestDeleter(t *testing.T) {
 	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil, nil, pieces.DefaultConfig)
 
 	// Also test that 0 works for maxWorkers
-	deleter := pieces.NewDeleter(zaptest.NewLogger(t), store, 0, 0)
+	deleter := pieces.NewDeleter(zaptest.NewLogger(t), store, 1, 10000)
 	defer ctx.Check(deleter.Close)
 	deleter.SetupTest()
 
@@ -98,11 +98,6 @@ func TestEnqueueUnhandled(t *testing.T) {
 			pieces:       10,
 			expUnhandled: 9,
 		},
-		{
-			queueSize:    0, // should default to a big number
-			pieces:       10,
-			expUnhandled: 0,
-		},
 	}
 
 	for _, tc := range testcases {
@@ -111,7 +106,7 @@ func TestEnqueueUnhandled(t *testing.T) {
 		for i := 0; i < tc.pieces; i++ {
 			pieceIDs = append(pieceIDs, testrand.PieceID())
 		}
-		deleter := pieces.NewDeleter(zaptest.NewLogger(t), nil, 0, tc.queueSize)
+		deleter := pieces.NewDeleter(zaptest.NewLogger(t), nil, 1, tc.queueSize)
 		unhandled := deleter.Enqueue(context.Background(), satelliteID, pieceIDs)
 		require.Equal(t, tc.expUnhandled, unhandled)
 		require.NoError(t, deleter.Close())
