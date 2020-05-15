@@ -110,7 +110,7 @@ export default class Login extends Vue {
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
         this.isLoading = false;
-        await this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
+        await this.$router.push(RouteConfig.ProjectDashboard.path);
     }
 
     private validateFields(): boolean {
