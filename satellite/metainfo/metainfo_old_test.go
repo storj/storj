@@ -261,7 +261,7 @@ func TestCommitSegment(t *testing.T) {
 			_, err = metainfo.CommitSegmentOld(ctx, "bucket", "path", -1, pointer, limits)
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
-			require.Contains(t, err.Error(), "is less than or equal to the repair threshold")
+			require.Contains(t, err.Error(), "is less than the success threshold")
 		}
 
 		{
@@ -320,6 +320,7 @@ func TestCommitSegment(t *testing.T) {
 			}
 			_, err = metainfo.CommitSegmentOld(ctx, "bucket", "path", -1, pointer, limits)
 			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 			require.Contains(t, err.Error(), "is less than the success threshold")
 		}
 	})
