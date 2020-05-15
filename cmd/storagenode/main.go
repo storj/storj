@@ -161,7 +161,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := storagenode.New(log, identity, db, revocationDB, runCfg.Config, version.Build)
+	peer, err := storagenode.New(log, identity, db, revocationDB, runCfg.Config, version.Build, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}

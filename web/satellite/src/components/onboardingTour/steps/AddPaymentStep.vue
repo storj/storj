@@ -3,7 +3,7 @@
 
 <template>
     <div class="payment-step">
-        <h1 class="payment-step__title">Get Started with 5 GB Free</h1>
+        <h1 class="payment-step__title">Get Started with 50 GB Free</h1>
         <p class="payment-step__sub-title">
             Adding a payment method ensures your project won’t be interrupted after your <b>free</b> credit is used.
         </p>

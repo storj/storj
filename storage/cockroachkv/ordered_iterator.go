@@ -71,7 +71,14 @@ func (opi *orderedCockroachIterator) Next(ctx context.Context, item *storage.Lis
 	defer mon.Task()(&ctx)(nil)
 
 	for {
-		for !opi.curRows.Next() {
+		for {
+			nextTask := mon.TaskNamed("check_next_row")(nil)
+			next := opi.curRows.Next()
+			nextTask(nil)
+			if next {
+				break
+			}
+
 			result := func() bool {
 				defer mon.TaskNamed("acquire_new_query")(nil)(nil)
 

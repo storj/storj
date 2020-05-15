@@ -42,7 +42,7 @@ type CouponsDB interface {
 	// GetLatest return period_end of latest coupon charge.
 	GetLatest(ctx context.Context, couponID uuid.UUID) (time.Time, error)
 	// ListUnapplied returns coupon usage page with unapplied coupon usages.
-	ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (CouponUsagePage, error)
+	ListUnapplied(ctx context.Context, offset int64, limit int, period time.Time) (CouponUsagePage, error)
 	// ApplyUsage applies coupon usage and updates its status.
 	ApplyUsage(ctx context.Context, couponID uuid.UUID, period time.Time) error
 
@@ -126,7 +126,7 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration
 			Customer: stripe.String(cus.ID),
 		}
 
-		paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods.List(params)
+		paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods().List(params)
 		for paymentMethodsIterator.Next() {
 			// if user has at least 1 payment method - break a loop.
 			usersIDs = append(usersIDs, cus.UserID)
@@ -164,7 +164,7 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration
 				Customer: stripe.String(cus.ID),
 			}
 
-			paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods.List(params)
+			paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods().List(params)
 			for paymentMethodsIterator.Next() {
 				usersIDs = append(usersIDs, cus.UserID)
 				break

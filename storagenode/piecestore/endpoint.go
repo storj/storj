@@ -53,8 +53,8 @@ type Config struct {
 	DatabaseDir             string        `help:"directory to store databases. if empty, uses data path" default:""`
 	ExpirationGracePeriod   time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
-	DeleteWorkers           int           `help:"how many piece delete workers" default:"0"`
-	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"0"`
+	DeleteWorkers           int           `help:"how many piece delete workers" default:"1"`
+	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"10000"`
 	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"24h0m0s"`
 	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`

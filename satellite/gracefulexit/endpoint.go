@@ -272,6 +272,12 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 					continue
 				}
 				if ErrInvalidArgument.Has(err) {
+					messageBytes, marshalErr := pb.Marshal(request)
+					if marshalErr != nil {
+						return rpcstatus.Error(rpcstatus.Internal, marshalErr.Error())
+					}
+					endpoint.log.Warn("storagenode failed validation for piece transfer", zap.Stringer("node ID", nodeID), zap.Binary("original message from storagenode", messageBytes), zap.Error(err))
+
 					// immediately fail and complete graceful exit for nodes that fail satellite validation
 					err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
 					if err != nil {

@@ -36,9 +36,9 @@ require (
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
-	storj.io/common v0.0.0-20200508071628-78c867902ac1
+	storj.io/common v0.0.0-20200513105542-a376f4c68993
 	storj.io/drpc v0.0.12
 	storj.io/monkit-jaeger v0.0.0-20200424180155-d5f5530ea079
-	storj.io/private v0.0.0-20200427160924-e00b0e612cfb
+	storj.io/private v0.0.0-20200504130741-565a173f6d33
 	storj.io/uplink v1.0.5
 )

@@ -149,7 +149,7 @@ type Core struct {
 func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache,
 	rollupsWriteCache *orders.RollupsWriteCache,
-	versionInfo version.Info, config *Config) (*Core, error) {
+	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Core, error) {
 	peer := &Core{
 		Log:      log,
 		Identity: full,
@@ -171,7 +171,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "Core"
-		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig)
+		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
@@ -248,7 +248,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
-			config.Rollup.MaxAlphaUsage,
+			config.Rollup.DefaultMaxUsage,
+			config.Rollup.DefaultMaxBandwidth,
 		)
 	}
 
@@ -446,8 +447,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		default:
 			peer.Payments.Accounts = mockpayments.Accounts()
 		case "stripecoinpayments":
+			stripeClient := stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+
 			service, err := stripecoinpayments.NewService(
 				peer.Log.Named("payments.stripe:service"),
+				stripeClient,
 				pc.StripeCoinPayments,
 				peer.DB.StripeCoinPayments(),
 				peer.DB.Console().Projects(),

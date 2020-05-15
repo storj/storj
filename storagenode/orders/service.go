@@ -84,7 +84,7 @@ type DB interface {
 // Config defines configuration for sending orders.
 type Config struct {
 	MaxSleep          time.Duration `help:"maximum duration to wait before trying to send orders" releaseDefault:"300s" devDefault:"1s"`
-	SenderInterval    time.Duration `help:"duration between sending" default:"1h0m0s"`
+	SenderInterval    time.Duration `help:"duration between sending" releaseDefault:"1h0m0s" devDefault:"30s"`
 	SenderTimeout     time.Duration `help:"timeout for sending" default:"1h0m0s"`
 	SenderDialTimeout time.Duration `help:"timeout for dialing satellite during sending orders" default:"1m0s"`
 	CleanupInterval   time.Duration `help:"duration between archive cleanups" default:"1h0m0s"`

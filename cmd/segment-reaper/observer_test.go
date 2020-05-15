@@ -225,8 +225,6 @@ func TestObserver_processSegment(t *testing.T) {
 		require.Equal(t, 1, len(obsvr.objects[bucketName]), "objects in object map")
 		require.Contains(t, obsvr.objects[bucketName], objPath, "path in bucket objects map")
 		obj := obsvr.objects[bucketName][objPath]
-		assert.Equal(t, 1, obj.expectedNumberOfSegments, "Object.expectedNumSegments")
-		assert.True(t, obj.hasLastSegment, "Object.hasLastSegment")
 		assert.True(t, obj.skip, "Object.skip")
 
 		// Assert observer global stats
@@ -344,8 +342,6 @@ func TestObserver_processSegment(t *testing.T) {
 		require.Equal(t, 1, len(obsvr.objects[bucketName]), "objects in object map")
 		require.Contains(t, obsvr.objects[bucketName], objPath, "path in bucket objects map")
 		obj := obsvr.objects[bucketName][objPath]
-		assert.Equal(t, 1, obj.expectedNumberOfSegments, "Object.expectedNumSegments")
-		assert.True(t, obj.hasLastSegment, "Object.hasLastSegment")
 		assert.True(t, obj.skip, "Object.skip")
 
 		// Assert observer global stats

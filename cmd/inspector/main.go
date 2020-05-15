@@ -93,23 +93,27 @@ var (
 		RunE:  prepareInvoiceRecords,
 	}
 	createInvoiceItemsCmd = &cobra.Command{
-		Use:   "create-invoice-items",
+		Use:   "create-invoice-items <period>",
 		Short: "Creates stripe invoice line items for not consumed project records",
+		Args:  cobra.MinimumNArgs(1),
 		RunE:  createInvoiceItems,
 	}
 	createInvoiceCouponsCmd = &cobra.Command{
-		Use:   "create-invoice-coupons",
+		Use:   "create-invoice-coupons <period>",
 		Short: "Creates stripe invoice line items for not consumed coupons",
+		Args:  cobra.MinimumNArgs(1),
 		RunE:  createInvoiceCoupons,
 	}
 	createInvoiceCreditsCmd = &cobra.Command{
-		Use:   "create-invoice-credits",
+		Use:   "create-invoice-credits <period>",
 		Short: "Creates stripe invoice line items for not consumed credits",
+		Args:  cobra.MinimumNArgs(1),
 		RunE:  createInvoiceCredits,
 	}
 	createInvoicesCmd = &cobra.Command{
-		Use:   "create-invoices",
+		Use:   "create-invoices <period>",
 		Short: "Creates stripe invoices for all stripe customers known to satellite",
+		Args:  cobra.MinimumNArgs(1),
 		RunE:  createInvoices,
 	}
 )
@@ -125,9 +129,7 @@ type Inspector struct {
 }
 
 // NewInspector creates a new inspector client for access to overlay.
-func NewInspector(address, path string) (*Inspector, error) {
-	ctx := context.Background()
-
+func NewInspector(ctx context.Context, address, path string) (*Inspector, error) {
 	id, err := identity.Config{
 		CertPath: fmt.Sprintf("%s/identity.cert", path),
 		KeyPath:  fmt.Sprintf("%s/identity.key", path),
@@ -156,9 +158,8 @@ func (i *Inspector) Close() error { return i.conn.Close() }
 
 // ObjectHealth gets information about the health of an object on the network
 func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
-	ctx := context.Background()
-
-	i, err := NewInspector(*Addr, *IdentityPath)
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrArgs.Wrap(err)
 	}
@@ -239,9 +240,8 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 
 // SegmentHealth gets information about the health of a segment on the network
 func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
-	ctx := context.Background()
-
-	i, err := NewInspector(*Addr, *IdentityPath)
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrArgs.Wrap(err)
 	}
@@ -404,7 +404,8 @@ func getSegments(cmd *cobra.Command, args []string) error {
 		return ErrArgs.New("limit must be greater than 0")
 	}
 
-	i, err := NewInspector(*Addr, *IdentityPath)
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -418,7 +419,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 			Limit:               irreparableLimit,
 			LastSeenSegmentPath: lastSeenSegmentPath,
 		}
-		res, err := i.irrdbclient.ListIrreparableSegments(context.Background(), req)
+		res, err := i.irrdbclient.ListIrreparableSegments(ctx, req)
 		if err != nil {
 			return ErrRequest.Wrap(err)
 		}
@@ -467,7 +468,7 @@ func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.Irreparabl
 
 func prepareInvoiceRecords(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
-	i, err := NewInspector(*Addr, *IdentityPath)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -494,14 +495,23 @@ func prepareInvoiceRecords(cmd *cobra.Command, args []string) error {
 
 func createInvoiceItems(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
-	i, err := NewInspector(*Addr, *IdentityPath)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
 
 	defer func() { err = errs.Combine(err, i.Close()) }()
 
-	_, err = i.paymentsClient.ApplyInvoiceRecords(ctx, &pb.ApplyInvoiceRecordsRequest{})
+	period, err := parseDateString(args[0])
+	if err != nil {
+		return ErrArgs.New("invalid period specified: %v", err)
+	}
+
+	_, err = i.paymentsClient.ApplyInvoiceRecords(ctx,
+		&pb.ApplyInvoiceRecordsRequest{
+			Period: period,
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -512,14 +522,23 @@ func createInvoiceItems(cmd *cobra.Command, args []string) error {
 
 func createInvoiceCoupons(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
-	i, err := NewInspector(*Addr, *IdentityPath)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
 
 	defer func() { err = errs.Combine(err, i.Close()) }()
 
-	_, err = i.paymentsClient.ApplyInvoiceCoupons(ctx, &pb.ApplyInvoiceCouponsRequest{})
+	period, err := parseDateString(args[0])
+	if err != nil {
+		return ErrArgs.New("invalid period specified: %v", err)
+	}
+
+	_, err = i.paymentsClient.ApplyInvoiceCoupons(ctx,
+		&pb.ApplyInvoiceCouponsRequest{
+			Period: period,
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -530,14 +549,23 @@ func createInvoiceCoupons(cmd *cobra.Command, args []string) error {
 
 func createInvoiceCredits(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
-	i, err := NewInspector(*Addr, *IdentityPath)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
 
 	defer func() { err = errs.Combine(err, i.Close()) }()
 
-	_, err = i.paymentsClient.ApplyInvoiceCredits(ctx, &pb.ApplyInvoiceCreditsRequest{})
+	period, err := parseDateString(args[0])
+	if err != nil {
+		return ErrArgs.New("invalid period specified: %v", err)
+	}
+
+	_, err = i.paymentsClient.ApplyInvoiceCredits(ctx,
+		&pb.ApplyInvoiceCreditsRequest{
+			Period: period,
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -547,14 +575,24 @@ func createInvoiceCredits(cmd *cobra.Command, args []string) error {
 }
 
 func createInvoices(cmd *cobra.Command, args []string) error {
-	i, err := NewInspector(*Addr, *IdentityPath)
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
 
 	defer func() { err = errs.Combine(err, i.Close()) }()
 
-	_, err = i.paymentsClient.CreateInvoices(context.Background(), &pb.CreateInvoicesRequest{})
+	period, err := parseDateString(args[0])
+	if err != nil {
+		return ErrArgs.New("invalid period specified: %v", err)
+	}
+
+	_, err = i.paymentsClient.CreateInvoices(ctx,
+		&pb.CreateInvoicesRequest{
+			Period: period,
+		},
+	)
 	if err != nil {
 		return err
 	}

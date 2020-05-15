@@ -33,7 +33,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
-	c, err := tokens.service.stripeClient.Customers.Get(customerID, nil)
+	c, err := tokens.service.stripeClient.Customers().Get(customerID, nil)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

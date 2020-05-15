@@ -115,6 +115,7 @@ func (credits *credit) InsertCreditsSpending(ctx context.Context, spending strip
 		dbx.CreditsSpending_ProjectId(spending.ProjectID[:]),
 		dbx.CreditsSpending_Amount(spending.Amount),
 		dbx.CreditsSpending_Status(int(spending.Status)),
+		dbx.CreditsSpending_Period(spending.Period),
 	)
 
 	return err
@@ -149,14 +150,14 @@ func (credits *credit) ApplyCreditsSpending(ctx context.Context, spendingID uuid
 }
 
 // ListCreditsSpendingsPaged returns paginated list of user's spendings.
-func (credits *credit) ListCreditsSpendingsPaged(ctx context.Context, status int, offset int64, limit int, before time.Time) (_ stripecoinpayments.CreditsSpendingsPage, err error) {
+func (credits *credit) ListCreditsSpendingsPaged(ctx context.Context, status int, offset int64, limit int, period time.Time) (_ stripecoinpayments.CreditsSpendingsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var page stripecoinpayments.CreditsSpendingsPage
 
-	dbxSpendings, err := credits.db.Limited_CreditsSpending_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(
+	dbxSpendings, err := credits.db.Limited_CreditsSpending_By_Period_And_Status(
 		ctx,
-		dbx.CreditsSpending_CreatedAt(before.UTC()),
+		dbx.CreditsSpending_Period(period.UTC()),
 		dbx.CreditsSpending_Status(status),
 		limit+1,
 		offset,

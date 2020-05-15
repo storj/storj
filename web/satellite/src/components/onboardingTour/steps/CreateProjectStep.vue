@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="new-project-step" @keyup.enter="createProjectClick">
+    <div class="new-project-step">
         <h1 class="new-project-step__title">Name Your Project</h1>
         <p class="new-project-step__sub-title">
             Projects are where buckets are created for storing data. Within a Project, usage is tracked at the bucket
@@ -22,9 +22,11 @@
                 label="Project Name"
                 additional-label="Up To 20 Characters"
                 placeholder="Enter Project Name"
-                class="full-input"
+                class="full-input project-name-input"
                 width="100%"
-                max-symbols="20"
+                is-limit-shown="true"
+                :current-limit="projectName.length"
+                :max-symbols="20"
                 :error="nameError"
                 @setData="setProjectName"
             />
@@ -34,8 +36,11 @@
                 additional-label="Optional"
                 class="full-input"
                 is-multiline="true"
-                height="100px"
-                width="100%"
+                is-limit-shown="true"
+                :current-limit="description.length"
+                :max-symbols="100"
+                height="60px"
+                width="calc(100% - 42px)"
                 @setData="setProjectDescription"
             />
             <div class="new-project-step__container__blur" v-if="isLoading"/>
@@ -128,6 +133,7 @@ export default class CreateProjectStep extends Vue {
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId);
 
         try {
+            await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
             await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         } catch (error) {
             await this.$notify.error(`Unable to get project members. ${error.message}`);
@@ -284,6 +290,7 @@ export default class CreateProjectStep extends Vue {
 
     .full-input {
         width: 100%;
+        margin-top: 25px;
     }
 
     @media screen and (max-width: 1450px) {

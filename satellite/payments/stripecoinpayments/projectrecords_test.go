@@ -52,7 +52,7 @@ func TestProjectRecords(t *testing.T) {
 			assert.Equal(t, stripecoinpayments.ErrProjectRecordExists, err)
 		})
 
-		page, err := projectRecordsDB.ListUnapplied(ctx, 0, 1, time.Now())
+		page, err := projectRecordsDB.ListUnapplied(ctx, 0, 1, start, end)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(page.Records))
 
@@ -61,7 +61,7 @@ func TestProjectRecords(t *testing.T) {
 			require.NoError(t, err)
 		})
 
-		page, err = projectRecordsDB.ListUnapplied(ctx, 0, 1, time.Now())
+		page, err = projectRecordsDB.ListUnapplied(ctx, 0, 1, start, end)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(page.Records))
 	})
@@ -97,13 +97,13 @@ func TestProjectRecordsList(t *testing.T) {
 		err := projectRecordsDB.Create(ctx, createProjectRecords, []stripecoinpayments.CouponUsage{}, []stripecoinpayments.CreditsSpending{}, start, end)
 		require.NoError(t, err)
 
-		page, err := projectRecordsDB.ListUnapplied(ctx, 0, limit, time.Now())
+		page, err := projectRecordsDB.ListUnapplied(ctx, 0, limit, start, end)
 		require.NoError(t, err)
 
 		records := page.Records
 
 		for page.Next {
-			page, err = projectRecordsDB.ListUnapplied(ctx, page.NextOffset, limit, time.Now())
+			page, err = projectRecordsDB.ListUnapplied(ctx, page.NextOffset, limit, start, end)
 			require.NoError(t, err)
 
 			records = append(records, page.Records...)

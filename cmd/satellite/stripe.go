@@ -59,7 +59,7 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 		return err
 	}
 
-	rows, err := dbxDB.Query(ctx, "SELECT id, email FROM users WHERE id NOT IN (SELECT user_id from stripe_customers)")
+	rows, err := dbxDB.Query(ctx, "SELECT id, email FROM users WHERE id NOT IN (SELECT user_id from stripe_customers) AND users.status=1")
 	if err != nil {
 		return err
 	}
@@ -86,8 +86,12 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 
 func setupPayments(log *zap.Logger, db satellite.DB) (handler payments.Accounts, err error) {
 	pc := runCfg.Payments
+
+	stripeClient := stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+
 	service, err := stripecoinpayments.NewService(
 		log.Named("payments.stripe:service"),
+		stripeClient,
 		pc.StripeCoinPayments,
 		db.StripeCoinPayments(),
 		db.Console().Projects(),
