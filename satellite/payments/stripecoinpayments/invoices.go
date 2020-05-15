@@ -33,7 +33,7 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 		Customer: &customerID,
 	}
 
-	invoicesIterator := invoices.service.stripeClient.Invoices.List(params)
+	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
 	for invoicesIterator.Next() {
 		stripeInvoice := invoicesIterator.Invoice()
 

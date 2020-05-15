@@ -86,8 +86,12 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 
 func setupPayments(log *zap.Logger, db satellite.DB) (handler payments.Accounts, err error) {
 	pc := runCfg.Payments
+
+	stripeClient := stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+
 	service, err := stripecoinpayments.NewService(
 		log.Named("payments.stripe:service"),
+		stripeClient,
 		pc.StripeCoinPayments,
 		db.StripeCoinPayments(),
 		db.Console().Projects(),

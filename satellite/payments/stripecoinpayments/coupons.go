@@ -126,7 +126,7 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration
 			Customer: stripe.String(cus.ID),
 		}
 
-		paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods.List(params)
+		paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods().List(params)
 		for paymentMethodsIterator.Next() {
 			// if user has at least 1 payment method - break a loop.
 			usersIDs = append(usersIDs, cus.UserID)
@@ -164,7 +164,7 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration
 				Customer: stripe.String(cus.ID),
 			}
 
-			paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods.List(params)
+			paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods().List(params)
 			for paymentMethodsIterator.Next() {
 				usersIDs = append(usersIDs, cus.UserID)
 				break

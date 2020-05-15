@@ -14,7 +14,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stripe/stripe-go"
-	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -58,7 +57,7 @@ type Service struct {
 	db           DB
 	projectsDB   console.Projects
 	usageDB      accounting.ProjectAccounting
-	stripeClient *client.API
+	stripeClient StripeClient
 	coinPayments *coinpayments.Client
 
 	ByteHourCents   decimal.Decimal
@@ -82,18 +81,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64) (*Service, error) {
-	backendConfig := &stripe.BackendConfig{
-		LeveledLogger: log.Sugar(),
-	}
-
-	stripeClient := client.New(config.StripeSecretKey,
-		&stripe.Backends{
-			API:     stripe.GetBackendWithConfig(stripe.APIBackend, backendConfig),
-			Connect: stripe.GetBackendWithConfig(stripe.ConnectBackend, backendConfig),
-			Uploads: stripe.GetBackendWithConfig(stripe.UploadsBackend, backendConfig),
-		},
-	)
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64) (*Service, error) {
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -319,7 +307,7 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 	params.AddMetadata("txID", tx.ID.String())
 
 	// TODO: 0 amount will return an error, how to handle that?
-	_, err = service.stripeClient.CustomerBalanceTransactions.New(params)
+	_, err = service.stripeClient.CustomerBalanceTransactions().New(params)
 	if err != nil {
 		return err
 	}
@@ -634,21 +622,21 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Storage", projName))
 	projectItem.Amount = stripe.Int64(projectPrice.Storage.IntPart())
-	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	if err != nil {
 		return err
 	}
 
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth", projName))
 	projectItem.Amount = stripe.Int64(projectPrice.Egress.IntPart())
-	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	if err != nil {
 		return err
 	}
 
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee", projName))
 	projectItem.Amount = stripe.Int64(projectPrice.Objects.IntPart())
-	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	return err
 }
 
@@ -755,7 +743,7 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 	projectItem.AddMetadata("projectID", coupon.ProjectID.String())
 	projectItem.AddMetadata("couponID", coupon.ID.String())
 
-	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 
 	return err
 }
@@ -839,7 +827,7 @@ func (service *Service) createInvoiceCreditItem(ctx context.Context, spending Cr
 	projectItem.AddMetadata("projectID", spending.ProjectID.String())
 	projectItem.AddMetadata("userID", spending.UserID.String())
 
-	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 
 	return err
 }
@@ -904,7 +892,7 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 
 	description := fmt.Sprintf("Tardigrade Cloud Storage for %s %d", period.Month(), period.Year())
 
-	_, err = service.stripeClient.Invoices.New(
+	_, err = service.stripeClient.Invoices().New(
 		&stripe.InvoiceParams{
 			Customer:    stripe.String(cusID),
 			AutoAdvance: stripe.Bool(service.AutoAdvance),
@@ -960,7 +948,7 @@ func (service *Service) discountedProjectUsagePrice(ctx context.Context, project
 		return 0, Error.Wrap(err)
 	}
 
-	customer, err := service.stripeClient.Customers.Get(customerID, nil)
+	customer, err := service.stripeClient.Customers().Get(customerID, nil)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
