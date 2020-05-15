@@ -240,14 +240,6 @@ model injuredsegment (
 	field data blob
 	field attempted timestamp (updatable, nullable)
     field num_healthy_pieces int (default 52)
-
-	index (
-		fields attempted
-	)
-
-	index (
-		fields num_healthy_pieces
-	)
 )
 
 //--- satellite console ---//

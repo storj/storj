@@ -1120,6 +1120,29 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					return ErrMigrate.Wrap(err)
 				}),
 			},
+			{
+				DB:          db.DB,
+				Description: "add index for num_healthy_pieces and attempted on injuredsegments",
+				Version:     112,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := tx.Exec(ctx,
+						`CREATE INDEX IF NOT EXISTS injuredsegments_num_healthy_pieces_attempted_index ON injuredsegments (num_healthy_pieces, attempted NULLS FIRST);`,
+					)
+					return ErrMigrate.Wrap(err)
+				}),
+			},
+			{
+				DB:          db.DB,
+				Description: "drop old index on num_healthy_pieces on injuredsegments",
+				Version:     113,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := tx.Exec(ctx,
+						`DROP INDEX IF EXISTS injuredsegments_attempted_index;
+						DROP INDEX IF EXISTS injuredsegments_num_healthy_pieces_index;`,
+					)
+					return ErrMigrate.Wrap(err)
+				}),
+			},
 		},
 	}
 }
