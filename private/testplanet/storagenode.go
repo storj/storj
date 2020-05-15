@@ -135,6 +135,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				OrderLimitGracePeriod:   time.Hour,
 				StreamOperationTimeout:  time.Hour,
 				ReportCapacityThreshold: 100 * memory.MB,
+				DeleteQueueSize:         10000,
+				DeleteWorkers:           1,
 				Orders: orders.Config{
 					SenderInterval:  defaultInterval,
 					SenderTimeout:   10 * time.Minute,
