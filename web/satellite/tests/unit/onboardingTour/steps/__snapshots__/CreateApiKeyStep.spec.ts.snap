@@ -14,9 +14,12 @@ exports[`CreateApiKeyStep.vue create api key works correctly correctly 1`] = `
     </div>
     <div class="input-container full-input">
       <div class="label-container">
-        <!---->
-        <h3 class="label-container__label">API Key Name</h3>
-        <h3 class="label-container__label add-label"></h3>
+        <div class="label-container__main">
+          <!---->
+          <h3 class="label-container__main__label">API Key Name</h3>
+          <h3 class="label-container__main__label add-label"></h3>
+          <!---->
+        </div>
         <!---->
       </div>
       <!---->
@@ -58,9 +61,12 @@ exports[`CreateApiKeyStep.vue renders correctly 1`] = `
     </div>
     <div class="input-container full-input">
       <div class="label-container">
-        <!---->
-        <h3 class="label-container__label">API Key Name</h3>
-        <h3 class="label-container__label add-label"></h3>
+        <div class="label-container__main">
+          <!---->
+          <h3 class="label-container__main__label">API Key Name</h3>
+          <h3 class="label-container__main__label add-label"></h3>
+          <!---->
+        </div>
         <!---->
       </div>
       <!---->

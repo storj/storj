@@ -276,14 +276,14 @@ func (coupons *coupons) GetLatest(ctx context.Context, couponID uuid.UUID) (_ ti
 }
 
 // ListUnapplied returns coupon usage page with unapplied coupon usages.
-func (coupons *coupons) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.CouponUsagePage, err error) {
-	defer mon.Task()(&ctx, offset, limit, before)(&err)
+func (coupons *coupons) ListUnapplied(ctx context.Context, offset int64, limit int, period time.Time) (_ stripecoinpayments.CouponUsagePage, err error) {
+	defer mon.Task()(&ctx, offset, limit, period)(&err)
 
 	var page stripecoinpayments.CouponUsagePage
 
-	dbxRecords, err := coupons.db.Limited_CouponUsage_By_Period_LessOrEqual_And_Status_Equal_Number_OrderBy_Desc_Period(
+	dbxRecords, err := coupons.db.Limited_CouponUsage_By_Period_And_Status_Equal_Number(
 		ctx,
-		dbx.CouponUsage_Period(before),
+		dbx.CouponUsage_Period(period),
 		limit+1,
 		offset,
 	)

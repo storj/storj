@@ -4,14 +4,14 @@ exports[`BucketArea.vue renders correctly with bucket 1`] = `
 <div class="buckets-area">
   <div class="buckets-overflow">
     <div class="buckets-header">
-      <p class="buckets-header__title">Buckets Usage</p>
+      <p class="buckets-header__title">Buckets</p>
       <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
     </div>
     <div class="buckets-container">
       <sortingheader-stub></sortingheader-stub>
       <vlist-stub itemcomponent="function VueComponent (options) {
       this._init(options);
-    }" onitemclick="function () { [native code] }" dataset="[object Object]"></vlist-stub>
+    }" onitemclick="function () { [native code] }" dataset="[object Object]" class="buckets-list"></vlist-stub>
     </div>
     <!---->
   </div>
@@ -23,14 +23,14 @@ exports[`BucketArea.vue renders correctly with pagination 1`] = `
 <div class="buckets-area">
   <div class="buckets-overflow">
     <div class="buckets-header">
-      <p class="buckets-header__title">Buckets Usage</p>
+      <p class="buckets-header__title">Buckets</p>
       <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
     </div>
     <div class="buckets-container">
       <sortingheader-stub></sortingheader-stub>
       <vlist-stub itemcomponent="function VueComponent (options) {
       this._init(options);
-    }" onitemclick="function () { [native code] }" dataset="[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]"></vlist-stub>
+    }" onitemclick="function () { [native code] }" dataset="[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]" class="buckets-list"></vlist-stub>
     </div>
     <!---->
   </div>
@@ -51,7 +51,7 @@ exports[`BucketArea.vue renders correctly without search results 1`] = `
 <div class="buckets-area">
   <div class="buckets-overflow">
     <div class="buckets-header">
-      <p class="buckets-header__title">Buckets Usage</p>
+      <p class="buckets-header__title">Buckets</p>
       <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
     </div>
     <!---->

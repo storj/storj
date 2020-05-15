@@ -6,18 +6,18 @@
  */
 export class Satellite {
     public constructor(
-        public id: string,
-        public storageDaily: Stamp[],
-        public bandwidthDaily: BandwidthUsed[],
-        public egressDaily: EgressUsed[],
-        public ingressDaily: IngressUsed[],
-        public storageSummary: number,
-        public bandwidthSummary: number,
-        public egressSummary: number,
-        public ingressSummary: number,
-        public audit: Metric,
-        public uptime: Metric,
-        public joinDate: Date,
+        public id: string = '',
+        public storageDaily: Stamp[] = [],
+        public bandwidthDaily: BandwidthUsed[] = [],
+        public egressDaily: EgressUsed[] = [],
+        public ingressDaily: IngressUsed[] = [],
+        public storageSummary: number = 0,
+        public bandwidthSummary: number = 0,
+        public egressSummary: number = 0,
+        public ingressSummary: number = 0,
+        public audit: Metric = new Metric(),
+        public uptime: Metric = new Metric(),
+        public joinDate: Date = new Date(),
     ) {}
 }
 
@@ -28,7 +28,7 @@ export class Stamp {
     public atRestTotal: number;
     public intervalStart: Date;
 
-    public constructor(atRestTotal: number, intervalStart: Date) {
+    public constructor(atRestTotal: number = 0, intervalStart: Date = new Date()) {
         this.atRestTotal = atRestTotal;
         this.intervalStart = intervalStart;
     }
@@ -52,11 +52,11 @@ export class Stamp {
  */
 export class Metric {
     public constructor(
-        public totalCount: number,
-        public successCount: number,
-        public alpha: number,
-        public beta: number,
-        public score: number,
+        public totalCount: number = 0,
+        public successCount: number = 0,
+        public alpha: number = 0,
+        public beta: number = 0,
+        public score: number = 0,
     ) {}
 }
 
@@ -65,9 +65,9 @@ export class Metric {
  */
 export class Egress {
     public constructor(
-        public audit: number,
-        public repair: number,
-        public usage: number,
+        public audit: number = 0,
+        public repair: number = 0,
+        public usage: number = 0,
     ) {}
 }
 
@@ -76,8 +76,8 @@ export class Egress {
  */
 export class Ingress {
     public constructor(
-        public repair: number,
-        public usage: number,
+        public repair: number = 0,
+        public usage: number = 0,
     ) {}
 }
 
@@ -120,7 +120,8 @@ export class BandwidthUsed {
 export class EgressUsed {
     public constructor(
         public egress: Egress,
-        public intervalStart: Date) {}
+        public intervalStart: Date,
+    ) {}
 
     /**
      * Used to summarize all egress usage data
@@ -150,7 +151,8 @@ export class EgressUsed {
 export class IngressUsed {
     public constructor(
         public ingress: Ingress,
-        public intervalStart: Date) {}
+        public intervalStart: Date,
+    ) {}
 
     /**
      * Used to summarize all ingress usage data
@@ -179,14 +181,14 @@ export class IngressUsed {
  */
 export class Satellites {
     public constructor(
-        public storageDaily: Stamp[],
-        public bandwidthDaily: BandwidthUsed[],
-        public egressDaily: EgressUsed[],
-        public ingressDaily: IngressUsed[],
-        public storageSummary: number,
-        public bandwidthSummary: number,
-        public egressSummary: number,
-        public ingressSummary: number,
-        public joinDate: Date,
+        public storageDaily: Stamp[] = [],
+        public bandwidthDaily: BandwidthUsed[] = [],
+        public egressDaily: EgressUsed[] = [],
+        public ingressDaily: IngressUsed[] = [],
+        public storageSummary: number = 0,
+        public bandwidthSummary: number = 0,
+        public egressSummary: number = 0,
+        public ingressSummary: number = 0,
+        public joinDate: Date = new Date(),
     ) {}
 }

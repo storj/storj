@@ -14,7 +14,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stripe/stripe-go"
-	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -58,7 +57,7 @@ type Service struct {
 	db           DB
 	projectsDB   console.Projects
 	usageDB      accounting.ProjectAccounting
-	stripeClient *client.API
+	stripeClient StripeClient
 	coinPayments *coinpayments.Client
 
 	ByteHourCents   decimal.Decimal
@@ -82,18 +81,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64) (*Service, error) {
-	backendConfig := &stripe.BackendConfig{
-		LeveledLogger: log.Sugar(),
-	}
-
-	stripeClient := client.New(config.StripeSecretKey,
-		&stripe.Backends{
-			API:     stripe.GetBackendWithConfig(stripe.APIBackend, backendConfig),
-			Connect: stripe.GetBackendWithConfig(stripe.ConnectBackend, backendConfig),
-			Uploads: stripe.GetBackendWithConfig(stripe.UploadsBackend, backendConfig),
-		},
-	)
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64) (*Service, error) {
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -319,7 +307,7 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 	params.AddMetadata("txID", tx.ID.String())
 
 	// TODO: 0 amount will return an error, how to handle that?
-	_, err = service.stripeClient.CustomerBalanceTransactions.New(params)
+	_, err = service.stripeClient.CustomerBalanceTransactions().New(params)
 	if err != nil {
 		return err
 	}
@@ -383,7 +371,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
 
 	if end.After(now) {
-		return Error.New("prepare is for past periods only")
+		return Error.New("allowed for past periods only")
 	}
 
 	projsPage, err := service.projectsDB.List(ctx, 0, fetchLimit, end)
@@ -534,6 +522,7 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 					UserID:    project.OwnerID,
 					ProjectID: project.ID,
 					Status:    CreditsSpendingStatusUnapplied,
+					Period:    start,
 				})
 			}
 		}
@@ -544,12 +533,20 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 
 // InvoiceApplyProjectRecords iterates through unapplied invoice project records and creates invoice line items
 // for stripe customer.
-func (service *Service) InvoiceApplyProjectRecords(ctx context.Context) (err error) {
+func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	before := time.Now().UTC()
+	now := time.Now().UTC()
+	utc := period.UTC()
 
-	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, fetchLimit, before)
+	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+
+	if end.After(now) {
+		return Error.New("allowed for past periods only")
+	}
+
+	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, fetchLimit, start, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -563,7 +560,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context) (err err
 			return Error.Wrap(err)
 		}
 
-		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, recordsPage.NextOffset, fetchLimit, before)
+		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, recordsPage.NextOffset, fetchLimit, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -620,41 +617,45 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 	projectItem := &stripe.InvoiceItemParams{
 		Currency: stripe.String(string(stripe.CurrencyUSD)),
 		Customer: stripe.String(cusID),
-		Period: &stripe.InvoiceItemPeriodParams{
-			Start: stripe.Int64(record.PeriodStart.Unix()),
-			End:   stripe.Int64(record.PeriodEnd.Unix()),
-		},
 	}
 	projectItem.AddMetadata("projectID", record.ProjectID.String())
 
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Storage", projName))
 	projectItem.Amount = stripe.Int64(projectPrice.Storage.IntPart())
-	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	if err != nil {
 		return err
 	}
 
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth", projName))
 	projectItem.Amount = stripe.Int64(projectPrice.Egress.IntPart())
-	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	if err != nil {
 		return err
 	}
 
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee", projName))
 	projectItem.Amount = stripe.Int64(projectPrice.Objects.IntPart())
-	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	return err
 }
 
 // InvoiceApplyCoupons iterates through unapplied project coupons and creates invoice line items
 // for stripe customer.
-func (service *Service) InvoiceApplyCoupons(ctx context.Context) (err error) {
+func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	before := time.Now().UTC()
+	now := time.Now().UTC()
+	utc := period.UTC()
 
-	usagePage, err := service.db.Coupons().ListUnapplied(ctx, 0, fetchLimit, before)
+	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+
+	if end.After(now) {
+		return Error.New("allowed for past periods only")
+	}
+
+	usagePage, err := service.db.Coupons().ListUnapplied(ctx, 0, fetchLimit, start)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -668,7 +669,7 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		usagePage, err = service.db.Coupons().ListUnapplied(ctx, usagePage.NextOffset, fetchLimit, before)
+		usagePage, err = service.db.Coupons().ListUnapplied(ctx, usagePage.NextOffset, fetchLimit, start)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -737,28 +738,32 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 		Customer:    stripe.String(customerID),
 		Description: stripe.String(coupon.Description),
-		Period: &stripe.InvoiceItemPeriodParams{
-			End:   stripe.Int64(usage.Period.AddDate(0, 1, 0).Unix()),
-			Start: stripe.Int64(usage.Period.Unix()),
-		},
 	}
 
 	projectItem.AddMetadata("projectID", coupon.ProjectID.String())
 	projectItem.AddMetadata("couponID", coupon.ID.String())
 
-	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 
 	return err
 }
 
 // InvoiceApplyCredits iterates through credits with status false of project and creates invoice line items
 // for stripe customer.
-func (service *Service) InvoiceApplyCredits(ctx context.Context) (err error) {
+func (service *Service) InvoiceApplyCredits(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	before := time.Now().UTC()
+	now := time.Now().UTC()
+	utc := period.UTC()
 
-	spendingsPage, err := service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, fetchLimit, before)
+	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+
+	if end.After(now) {
+		return Error.New("allowed for past periods only")
+	}
+
+	spendingsPage, err := service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, fetchLimit, start)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -772,7 +777,7 @@ func (service *Service) InvoiceApplyCredits(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), spendingsPage.NextOffset, fetchLimit, before)
+		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), spendingsPage.NextOffset, fetchLimit, start)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -817,27 +822,31 @@ func (service *Service) createInvoiceCreditItem(ctx context.Context, spending Cr
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 		Customer:    stripe.String(customerID),
 		Description: stripe.String("Credits from STORJ deposit bonus"),
-		Period: &stripe.InvoiceItemPeriodParams{
-			End:   stripe.Int64(spending.Created.AddDate(0, 1, 0).Unix()),
-			Start: stripe.Int64(spending.Created.Unix()),
-		},
 	}
 
 	projectItem.AddMetadata("projectID", spending.ProjectID.String())
 	projectItem.AddMetadata("userID", spending.UserID.String())
 
-	_, err = service.stripeClient.InvoiceItems.New(projectItem)
+	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 
 	return err
 }
 
 // CreateInvoices lists through all customers and creates invoices.
-func (service *Service) CreateInvoices(ctx context.Context) (err error) {
+func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	before := time.Now()
+	now := time.Now().UTC()
+	utc := period.UTC()
 
-	cusPage, err := service.db.Customers().List(ctx, 0, fetchLimit, before)
+	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+
+	if end.After(now) {
+		return Error.New("allowed for past periods only")
+	}
+
+	cusPage, err := service.db.Customers().List(ctx, 0, fetchLimit, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -847,7 +856,7 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		if err = service.createInvoice(ctx, cus.ID); err != nil {
+		if err = service.createInvoice(ctx, cus.ID, start); err != nil {
 			return Error.Wrap(err)
 		}
 	}
@@ -857,7 +866,7 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, fetchLimit, before)
+		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, fetchLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -867,7 +876,7 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 				return Error.Wrap(err)
 			}
 
-			if err = service.createInvoice(ctx, cus.ID); err != nil {
+			if err = service.createInvoice(ctx, cus.ID, start); err != nil {
 				return Error.Wrap(err)
 			}
 		}
@@ -878,26 +887,12 @@ func (service *Service) CreateInvoices(ctx context.Context) (err error) {
 
 // createInvoice creates invoice for stripe customer. Returns nil error if there are no
 // pending invoice line items for customer.
-func (service *Service) createInvoice(ctx context.Context, cusID string) (err error) {
+func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	/*var description string
-	// get the first invoice item's period
-	params := &stripe.InvoiceItemListParams{Customer: stripe.String(cusID)}
-	params.Filters.AddFilter("limit", "", "1")
-	iter := service.stripeClient.InvoiceItems.List(params)
-	for iter.Next() {
-		//Add 12 hours to ensure we are in the correct billing month
-		start := time.Unix(iter.InvoiceItem().Period.Start+43200, 0)
-		year, month, _ := start.Date()
-		description = fmt.Sprintf("Billing Period %s %d", month, year)
-	}
-	if iter.Err() != nil {
-		return Error.Wrap(iter.Err())
-	}*/
-	description := "Tardigrade Cloud Storage"
+	description := fmt.Sprintf("Tardigrade Cloud Storage for %s %d", period.Month(), period.Year())
 
-	_, err = service.stripeClient.Invoices.New(
+	_, err = service.stripeClient.Invoices().New(
 		&stripe.InvoiceParams{
 			Customer:    stripe.String(cusID),
 			AutoAdvance: stripe.Bool(service.AutoAdvance),
@@ -953,7 +948,7 @@ func (service *Service) discountedProjectUsagePrice(ctx context.Context, project
 		return 0, Error.Wrap(err)
 	}
 
-	customer, err := service.stripeClient.Customers.Get(customerID, nil)
+	customer, err := service.stripeClient.Customers().Get(customerID, nil)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}

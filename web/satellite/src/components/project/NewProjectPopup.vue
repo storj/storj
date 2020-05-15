@@ -17,7 +17,9 @@
                     placeholder="Enter Project Name"
                     class="full-input"
                     width="100%"
-                    max-symbols="20"
+                    is-limit-shown="true"
+                    :current-limit="projectName.length"
+                    :max-symbols="20"
                     :error="nameError"
                     @setData="setProjectName"
                 />
@@ -27,8 +29,11 @@
                     additional-label="Optional"
                     class="full-input"
                     is-multiline="true"
-                    height="100px"
-                    width="100%"
+                    height="60px"
+                    width="calc(100% - 42px)"
+                    is-limit-shown="true"
+                    :current-limit="description.length"
+                    :max-symbols="100"
                     @setData="setProjectDescription"
                 />
                 <div class="new-project-popup__form-container__button-container">

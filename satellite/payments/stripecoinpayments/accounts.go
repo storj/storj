@@ -47,7 +47,7 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 		Email: stripe.String(email),
 	}
 
-	customer, err := accounts.service.stripeClient.Customers.New(params)
+	customer, err := accounts.service.stripeClient.Customers().New(params)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -65,7 +65,7 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 		return 0, Error.Wrap(err)
 	}
 
-	c, err := accounts.service.stripeClient.Customers.Get(customerID, nil)
+	c, err := accounts.service.stripeClient.Customers().Get(customerID, nil)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
@@ -141,7 +141,7 @@ func (accounts *accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []pa
 	}
 	params.Filters.AddFilter("limit", "", "100")
 
-	iter := accounts.service.stripeClient.Charges.List(params)
+	iter := accounts.service.stripeClient.Charges().List(params)
 
 	var charges []payments.Charge
 	for iter.Next() {

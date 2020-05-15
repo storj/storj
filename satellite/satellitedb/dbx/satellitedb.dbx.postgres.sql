@@ -90,6 +90,7 @@ CREATE TABLE credits_spendings (
 	project_id bytea NOT NULL,
 	amount bigint NOT NULL,
 	status integer NOT NULL,
+	period timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );

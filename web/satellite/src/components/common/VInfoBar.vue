@@ -48,8 +48,8 @@ export default class VInfoBar extends Vue {
         justify-content: space-between;
         align-items: center;
         background-color: #dce5f2;
-        width: calc(100% - 130px);
-        padding: 10px 65px;
+        width: calc(100% - 60px);
+        padding: 10px 30px;
         font-family: 'font_regular', sans-serif;
         color: #2b3543;
 

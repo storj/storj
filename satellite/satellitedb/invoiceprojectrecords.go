@@ -87,6 +87,7 @@ func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoi
 				dbx.CreditsSpending_ProjectId(creditsSpending.ProjectID[:]),
 				dbx.CreditsSpending_Amount(creditsSpending.Amount),
 				dbx.CreditsSpending_Status(int(creditsSpending.Status)),
+				dbx.CreditsSpending_Period(creditsSpending.Period),
 			)
 			if err != nil {
 				return err
@@ -150,13 +151,14 @@ func (db *invoiceProjectRecords) Consume(ctx context.Context, id uuid.UUID) (err
 }
 
 // ListUnapplied returns project records page with unapplied project records.
-func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.ProjectRecordsPage, err error) {
+func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64, limit int, start, end time.Time) (_ stripecoinpayments.ProjectRecordsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var page stripecoinpayments.ProjectRecordsPage
 
-	dbxRecords, err := db.db.Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOrEqual_And_State_OrderBy_Desc_CreatedAt(ctx,
-		dbx.StripecoinpaymentsInvoiceProjectRecord_CreatedAt(before),
+	dbxRecords, err := db.db.Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx,
+		dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodStart(start),
+		dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodEnd(end),
 		dbx.StripecoinpaymentsInvoiceProjectRecord_State(invoiceProjectRecordStateUnapplied.Int()),
 		limit+1,
 		offset,

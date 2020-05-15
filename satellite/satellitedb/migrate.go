@@ -1087,6 +1087,39 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					return ErrMigrate.Wrap(err)
 				}),
 			},
+			{
+				DB:          db.DB,
+				Description: "add period column to the credits_spendings table (step 1)",
+				Version:     109,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := tx.Exec(ctx,
+						`ALTER TABLE credits_spendings ADD COLUMN period timestamp with time zone;`,
+					)
+					return ErrMigrate.Wrap(err)
+				}),
+			},
+			{
+				DB:          db.DB,
+				Description: "add period column to the credits_spendings table (step 2)",
+				Version:     110,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := tx.Exec(ctx,
+						`UPDATE credits_spendings SET period = 'epoch';`,
+					)
+					return ErrMigrate.Wrap(err)
+				}),
+			},
+			{
+				DB:          db.DB,
+				Description: "add period column to the credits_spendings table (step 3)",
+				Version:     111,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := tx.Exec(ctx,
+						`ALTER TABLE credits_spendings ALTER COLUMN period SET NOT NULL;`,
+					)
+					return ErrMigrate.Wrap(err)
+				}),
+			},
 		},
 	}
 }
