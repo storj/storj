@@ -34,10 +34,8 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// Console returns database for satellite console
 	Console() console.DB
-	// Coupons returns database for satellite stripe coupons
-	Coupons() stripecoinpayments.CouponsDB
-	// Credits returns database for satellite stripe credits
-	Credits() stripecoinpayments.CreditsDB
+	// StripeCoinPayments() returns database for satellite stripe coin payments
+	StripeCoinPayments() stripecoinpayments.DB
 }
 
 // Server provides endpoints for debugging.

@@ -9,7 +9,7 @@
     </head>
     <body>
         <header>
-            <nav>
+            <nav class="container">
                 <div class="nav nav-tabs" id="nav-tab" role="tablist">
                     <a class="nav-item nav-link active" id="nav-users-tab" data-toggle="tab" href="#nav-users" role="tab" aria-controls="nav-users" aria-selected="true">Users</a>
                     <a class="nav-item nav-link" id="nav-projects-tab" data-toggle="tab" href="#nav-projects" role="tab" aria-controls="nav-projects" aria-selected="false">Projects</a>
@@ -19,7 +19,7 @@
         </header>
 
 
-        <div class="tab-content" id="nav-tabContent">
+        <div class="container tab-content" id="nav-tabContent">
             <div class="tab-pane fade show active" id="nav-users" role="tabpanel" aria-labelledby="nav-users-tab">
                 <h1>User Handling</h1>
                 {{if not .}}
@@ -42,26 +42,75 @@
                     </div>
                     </fieldset>
                 </form>
+                <form method="post">
+                    <fieldset>
+                    <legend>User Creation</legend>
+                    <div class="form-group">
+                        <label class="col-md-4 control-label" for="email">E-Mail</label>
+                        <div class="col-md-4">
+                            <input id="email" name="email" type="text" placeholder="" class="form-control input-md" required="">
+                            <span class="help-block">email address of the user</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-4 control-label" for="fullName">Full Name</label>
+                        <div class="col-md-4">
+                            <input id="fullName" name="fullName" type="text" placeholder="" class="form-control input-md" required="">
+                            <span class="help-block">full name of the user</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-4 control-label" for="password">Password</label>
+                        <div class="col-md-4">
+                            <input id="password" name="password" type="text" placeholder="" class="form-control input-md" required="">
+                            <span class="help-block">password of the user</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-md-4 control-label" for="submit"></label>
+                        <div class="col-md-4">
+                            <button id="submit" name="request" value="usercreate" class="btn btn-primary">Create User</button>
+                        </div>
+                    </div>
+                    </fieldset>
+                </form>
                 {{else }}
                     <h2>User Information</h2>
                     <table class="table table-hover">
+                    <tr><th>Column</th><th>Value</th></tr>
                     {{range $index, $element := .user}}
                         <tr><td>{{$index}}</td><td>{{$element}}</td></tr>
                     {{end}}
                     </table>
                     <h2>Projects</h2>
+                    <div class="panel-group">
                     {{range .projects}}
-                    <table class="table table-hover">
-                        {{range $index, $element := . }}
-                        <tr><td>{{$index}}</td><td>{{$element}}</td></tr>
-                        {{end}}
-                    </table>
+                        <div class="card panel panel-default">
+                            <div class="panel-heading" id="heading{{index .name}}">
+                                <h5 class="panel-title">
+                                    <a data-toggle="collapse" href="#collapse{{index .name}}">Project {{index .name}}</a>
+                                </h5>
+                            </div>
+                            <div id="collapse{{index .name}}" class="panel-collapse collapse">
+                                <div class="panel-body">
+                                    <table class="table table-hover">
+                                    <tr><th>Column</th><th>Value</th></tr>
+                                        {{range $index, $element := . }}
+                                        <tr><td>{{$index}}</td><td>{{$element}}</td></tr>
+                                        {{end}}
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     {{end}}
+                    </div>
                 {{end}}
             </div>
+
             <div class="tab-pane fade" id="nav-projects" role="tabpanel" aria-labelledby="nav-projects-tab">
                 <h1>Project Handling</h1>
-                {{if not .}}
+                {{if ne .method "projectinfo"}}
                 <form method="post">
                     <fieldset>
                     <legend>Project Details</legend>
@@ -85,16 +134,16 @@
                     <fieldset>
                     <legend>Create Project</legend>
                     <div class="form-group">
-                        <label class="col-md-4 control-label" for="projectname">Project Name</label>
+                        <label class="col-md-4 control-label" for="projectName">Project Name</label>
                         <div class="col-md-4">
-                            <input id="email" name="projectname" type="text" placeholder="Awesome Project" class="form-control input-md" required="">
+                            <input id="email" name="projectName" type="text" placeholder="Awesome Project" class="form-control input-md" required="">
                             <span class="help-block">the new project name</span>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="col-md-4 control-label" for="ownerid">Owner ID</label>
+                        <label class="col-md-4 control-label" for="ownerId">Owner ID</label>
                         <div class="col-md-4">
-                            <input id="email" name="ownerid" type="text" placeholder="a427afd0-71fb-4c44-a2b4-d270dd1ad6e6" class="form-control input-md" required="">
+                            <input id="email" name="ownerId" type="text" placeholder="a427afd0-71fb-4c44-a2b4-d270dd1ad6e6" class="form-control input-md" required="">
                             <span class="help-block">user id that should own the project</span>
                         </div>
                     </div>
@@ -110,6 +159,7 @@
                 {{else}}
                     <h2>Project Information</h2>
                     <table class="table table-hover">
+                    <tr><th>column</th><th>value</th></tr>
                     {{range $index, $element := .}}
                         <tr><td>{{$index}}</td><td>{{range $element}}{{.}}{{end}}</td></tr>
                     {{end}}

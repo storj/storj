@@ -1,14 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/spf13/cobra"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
-
-	"github.com/gorilla/mux"
-	"github.com/spf13/cobra"
 
 	"storj.io/storj/cmd/storj-admin/template"
 )
@@ -34,8 +35,9 @@ func serveRoot(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
-	var resp map[string]interface{}
 	var err error
+
+	resp := map[string]interface{}{}
 
 	_ = r.ParseForm()
 	fmt.Println(r.Form)
@@ -43,35 +45,70 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	switch request {
 	case "userinfo":
-		resp, err = makeRequest("GET", fmt.Sprintf("api/user/%s", r.Form["email"][0]), "")
+		resp, err = makeRequest("GET", fmt.Sprintf("api/user/%s", r.Form["email"][0]), "", nil)
 		if err != nil {
 			fmt.Println(err)
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	case "usercreate":
-		resp, err = makeRequest("POST", "api/user/", fmt.Sprintf("?email=%s&password=%s", r.Form["email"][0], r.Form["password"][0]))
+		input := struct {
+			Email    string `json:"email"`
+			Name     string `json:"name"`
+			Password string `json:"password"`
+		}{
+			Email: r.Form["email"][0],
+			Name:  r.Form["name"][0],
+		}
+
+		byteJson, err := json.Marshal(input)
 		if err != nil {
 			fmt.Println(err)
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		resp, err = makeRequest("POST", "api/user", "", bytes.NewReader(byteJson))
+		if err != nil {
+			fmt.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	case "projectinfo":
-		resp, err = makeRequest("GET", fmt.Sprintf("api/project/%s/limit", r.Form["projectid"][0]), "")
+		resp, err = makeRequest("GET", fmt.Sprintf("api/project/%s/limit", r.Form["projectid"][0]), "", nil)
 		if err != nil {
 			fmt.Println(err)
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	case "projectcreate":
-		resp, err = makeRequest("POST", "api/project/", fmt.Sprintf("?projectName=%s&ownerID=%s", r.Form["projectname"][0], r.Form["ownerid"][0]))
+		input := struct {
+			OwnerID     string `json:"ownerId"`
+			ProjectName string `json:"projectName"`
+		}{
+			OwnerID:     r.Form["ownerId"][0],
+			ProjectName: r.Form["projectName"][0],
+		}
+
+		byteJson, err := json.Marshal(input)
 		if err != nil {
 			fmt.Println(err)
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		resp, err = makeRequest("POST", "api/project", "", bytes.NewReader(byteJson))
+		if err != nil {
+			fmt.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	}
 	resp["method"] = request
 	_ = template.Public.Execute(w, resp)
 }
 
-func makeRequest(method, path, query string) (res map[string]interface{}, err error) {
+func makeRequest(method, path, query string, body io.Reader) (res map[string]interface{}, err error) {
 	queryEndpoint, err := url.Parse(runCfg.EndpointURL)
 	if err != nil {
 		return nil, err
@@ -82,7 +119,7 @@ func makeRequest(method, path, query string) (res map[string]interface{}, err er
 	}
 	fmt.Println(queryEndpoint.String())
 
-	req, err := http.NewRequest(method, queryEndpoint.String(), nil)
+	req, err := http.NewRequest(method, queryEndpoint.String(), body)
 	if err != nil {
 		return nil, err
 	}

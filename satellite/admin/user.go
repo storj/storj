@@ -196,7 +196,7 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// do not change the project limit
-	err = server.db.Coupons().Insert(ctx, payments.Coupon{
+	err = server.db.StripeCoinPayments().Coupons().Insert(ctx, payments.Coupon{
 		ID:          couponID,
 		UserID:      input.UserID,
 		Amount:      input.Amount,
@@ -208,7 +208,7 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	coupons, err := server.db.Coupons().ListByUserID(ctx, input.UserID)
+	coupons, err := server.db.StripeCoinPayments().Coupons().ListByUserID(ctx, input.UserID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get coupons: %v", err), http.StatusInternalServerError)
 	}
@@ -252,7 +252,7 @@ func (server *Server) listCoupons(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	coupons, err := server.db.Coupons().ListByUserID(ctx, input.UserID)
+	coupons, err := server.db.StripeCoinPayments().Coupons().ListByUserID(ctx, input.UserID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get coupons: %v", err), http.StatusInternalServerError)
 	}
@@ -303,7 +303,7 @@ func (server *Server) addCredits(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// do not change the project limit
-	err = server.db.Credits().InsertCredit(ctx, payments.Credit{
+	err = server.db.StripeCoinPayments().Credits().InsertCredit(ctx, payments.Credit{
 		UserID: input.UserID,
 		Amount: input.Amount,
 	})
@@ -312,7 +312,7 @@ func (server *Server) addCredits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	credits, err := server.db.Credits().ListCredits(ctx, input.UserID)
+	credits, err := server.db.StripeCoinPayments().Credits().ListCredits(ctx, input.UserID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get credits: %v", err), http.StatusInternalServerError)
 	}

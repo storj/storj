@@ -215,3 +215,7 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
 }
+
+func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
+	return
+}
