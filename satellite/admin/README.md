@@ -4,6 +4,32 @@ Satellite Admin package provides API endpoints for administrative tasks.
 
 Requires setting `Authorization` header for requests.
 
+## POST /api/user
+
+Adds a new user.
+
+A successful request:
+
+```json
+{
+    "email": "alice@mail.test",
+    "fullName": "Alice Test",
+    "password": "password"
+}
+```
+
+A successful response:
+
+```json
+{
+    "id":           "12345678-1234-1234-1234-123456789abc",
+    "email":        "alice@mail.test",
+    "fullName":     "Alice Test",
+    "shortName":    "",
+    "passwordHash": ""
+}
+```
+
 ## GET /api/user/{user-email}
 
 This endpoint returns information about user and their projects.
