@@ -309,7 +309,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buckets, err := server.db.Buckets().ListBuckets(ctx, projectUUID, storj.BucketListOptions{Limit: 10, Direction: storj.Forward}, macaroon.AllowedBuckets{All: true})
+	buckets, err := server.db.Buckets().ListBuckets(ctx, projectUUID, storj.BucketListOptions{Limit: 1, Direction: storj.Forward}, macaroon.AllowedBuckets{All: true})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("unable to list buckets: %v", err), http.StatusInternalServerError)
 		return
@@ -319,7 +319,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keys, err := server.db.Console().APIKeys().GetPagedByProjectID(ctx, projectUUID, console.APIKeyCursor{Limit: 10, Page: 1})
+	keys, err := server.db.Console().APIKeys().GetPagedByProjectID(ctx, projectUUID, console.APIKeyCursor{Limit: 1, Page: 1})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("unable to list api-keys: %v", err), http.StatusInternalServerError)
 		return
