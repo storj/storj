@@ -53,6 +53,8 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
@@ -395,6 +397,16 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				Interval:                  defaultInterval,
 				IrreparableInterval:       defaultInterval,
 				ReliabilityCacheStaleness: 1 * time.Minute,
+			},
+			Payments: paymentsconfig.Config{
+				StorageTBPrice: "10",
+				EgressTBPrice:  "45",
+				ObjectPrice:    "0.0000022",
+				StripeCoinPayments: stripecoinpayments.Config{
+					TransactionUpdateInterval:    defaultInterval,
+					AccountBalanceUpdateInterval: defaultInterval,
+					ConversionRatesCycleInterval: defaultInterval,
+				},
 			},
 			Repairer: repairer.Config{
 				MaxRepair:                     10,
