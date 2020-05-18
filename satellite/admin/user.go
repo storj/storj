@@ -178,7 +178,7 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input struct {
-		UserID      uuid.UUID `json:"userid"`
+		UserID      uuid.UUID `json:"userId"`
 		Duration    int       `json:"duration"`
 		Amount      int64     `json:"amount"`
 		Description string    `json:"description"`

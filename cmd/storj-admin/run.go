@@ -102,7 +102,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		resp, err = makeRequest(http.MethodDelete, "api/project", "", bytes.NewReader(byteJson))
+		resp, err = makeRequest(http.MethodPost, "api/project", "", bytes.NewReader(byteJson))
 		if err != nil {
 			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -131,7 +131,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 
 		input := struct {
-			UserID      string `json:"userid"`
+			UserID      string `json:"userId"`
 			Duration    int    `json:"duration"`
 			Amount      int64  `json:"amount"`
 			Description string `json:"description"`

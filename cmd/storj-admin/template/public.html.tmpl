@@ -172,17 +172,57 @@
             <fieldset>
                 <legend>Coupon Information</legend>
                 <div class="form-group">
-                    <label class="col-md-4 control-label" for="couponid">Coupon ID</label>
+                    <label class="col-md-4 control-label" for="userId">User ID</label>
                     <div class="col-md-4">
-                        <input id="email" name="couponid" type="text" placeholder="xxx" class="form-control input-md" required="">
-                        <span class="help-block">coupon id</span>
+                        <input id="email" name="userId" type="text" placeholder="xxx" class="form-control input-md" required="">
+                        <span class="help-block">user id to list coupons for</span>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label class="col-md-4 control-label" for="submit"></label>
                     <div class="col-md-4">
-                        <button id="submit" name="submit-coupon-info" class="btn btn-primary">Get Coupon Details</button>
+                        <button id="submit" name="request" value="couponlist" class="btn btn-primary">Get Coupon Information</button>
+                    </div>
+                </div>
+            </fieldset>
+        </form>
+        <form method="post">
+            <fieldset>
+                <legend>User Coupon Creation</legend>
+                <div class="form-group">
+                    <label class="col-md-4 control-label" for="userId">User ID</label>
+                    <div class="col-md-4">
+                        <input id="email" name="userId" type="text" placeholder="xxx" class="form-control input-md" required="">
+                        <span class="help-block">user id to add coupons for</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-md-4 control-label" for="duration">Duration</label>
+                    <div class="col-md-4">
+                        <input id="email" name="duration" type="text" placeholder="2" class="form-control input-md" required="">
+                        <span class="help-block">duration (in billing cycles) the coupon is valid</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-md-4 control-label" for="amount">Amount</label>
+                    <div class="col-md-4">
+                        <input id="email" name="amount" type="text" placeholder="5000" class="form-control input-md" required="">
+                        <span class="help-block">amount in cents</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-md-4 control-label" for="amount">Description</label>
+                    <div class="col-md-4">
+                        <input id="email" name="description" type="text" placeholder="promotional coupon" class="form-control input-md" required="">
+                        <span class="help-block">description for the coupon</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-md-4 control-label" for="submit"></label>
+                    <div class="col-md-4">
+                        <button id="submit" name="request" value="couponcreate" class="btn btn-primary">Crease User Coupon</button>
                     </div>
                 </div>
             </fieldset>
