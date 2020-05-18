@@ -516,6 +516,11 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
+							Name:       "audit_unknown_reputation_score",
+							Type:       "REAL",
+							IsNullable: false,
+						},
+						&dbschema.Column{
 							Name:       "disqualified",
 							Type:       "TIMESTAMP",
 							IsNullable: true,
