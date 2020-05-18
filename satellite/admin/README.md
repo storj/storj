@@ -54,7 +54,7 @@ Updates usage limit for a project.
 
 Updates rate limit for a project.
 
-## DELETE /api/project/{projectid}
+## DELETE /api/project/{project-id}
 
 Deletes the project.
 

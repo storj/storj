@@ -18,6 +18,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo"
 )
 
 // Config defines configuration for debug server.
@@ -33,6 +34,8 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// Console returns database for satellite console
 	Console() console.DB
+	// Buckets returns database for satellite buckets
+	Buckets() metainfo.BucketsDB
 }
 
 // Server provides endpoints for debugging.
