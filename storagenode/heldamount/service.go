@@ -239,6 +239,20 @@ func (service *Service) AllPayStubsPeriodCached(ctx context.Context, periodStart
 	return payStubs, nil
 }
 
+// SatellitePeriods retrieves all periods for concrete satellite in which we have some heldamount data.
+func (service *Service) SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) (_ []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.SatellitePeriods(ctx, satelliteID)
+}
+
+// AllPeriods retrieves all periods in which we have some heldamount data.
+func (service *Service) AllPeriods(ctx context.Context) (_ []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.AllPeriods(ctx)
+}
+
 // HeldbackPeriod amount of held for specific percent rate period.
 type HeldbackPeriod struct {
 	PercentageRate int

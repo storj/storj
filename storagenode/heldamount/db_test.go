@@ -45,8 +45,10 @@ func TestHeldAmountDB(t *testing.T) {
 			Held:           14,
 			Owed:           15,
 			Disposed:       16,
-			Paid:           17,
 		}
+		paystub2 := paystub
+		paystub2.Period = "2020-02"
+		paystub2.Created = paystub.Created.Add(time.Hour * 24 * 30)
 
 		t.Run("Test StorePayStub", func(t *testing.T) {
 			err := heldAmount.StorePayStub(ctx, paystub)
@@ -126,6 +128,49 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, heldback[0].Held, paystub.Held)
 			assert.Equal(t, heldback[0].Period, paystub.Period)
+		})
+
+		t.Run("Test SatellitePeriods", func(t *testing.T) {
+			periods, err := heldAmount.SatellitePeriods(ctx, paystub.SatelliteID)
+			assert.NoError(t, err)
+			assert.NotNil(t, periods)
+			assert.Equal(t, 1, len(periods))
+			assert.Equal(t, paystub.Period, periods[0])
+
+			err = heldAmount.StorePayStub(ctx, paystub2)
+			require.NoError(t, err)
+
+			periods, err = heldAmount.SatellitePeriods(ctx, paystub.SatelliteID)
+			assert.NoError(t, err)
+			assert.NotNil(t, periods)
+			assert.Equal(t, 2, len(periods))
+			assert.Equal(t, paystub.Period, periods[0])
+			assert.Equal(t, paystub2.Period, periods[1])
+		})
+
+		t.Run("Test AllPeriods", func(t *testing.T) {
+			periods, err := heldAmount.AllPeriods(ctx)
+			assert.NoError(t, err)
+			assert.NotNil(t, periods)
+			assert.Equal(t, 2, len(periods))
+			assert.Equal(t, paystub.Period, periods[0])
+			assert.Equal(t, paystub2.Period, periods[1])
+
+			paystub3 := paystub2
+			paystub3.SatelliteID = storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+			paystub3.Period = "2020-03"
+			paystub3.Created = paystub2.Created.Add(time.Hour * 24 * 30)
+
+			err = heldAmount.StorePayStub(ctx, paystub3)
+			require.NoError(t, err)
+
+			periods, err = heldAmount.AllPeriods(ctx)
+			assert.NoError(t, err)
+			assert.NotNil(t, periods)
+			assert.Equal(t, 3, len(periods))
+			assert.Equal(t, paystub.Period, periods[0])
+			assert.Equal(t, paystub2.Period, periods[1])
+			assert.Equal(t, paystub3.Period, periods[2])
 		})
 	})
 }
