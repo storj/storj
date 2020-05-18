@@ -115,7 +115,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-	case "couponadd":
+	case "couponcreate":
 
 		duration, err := strconv.Atoi(r.Form["duration"][0])
 		if err != nil {
