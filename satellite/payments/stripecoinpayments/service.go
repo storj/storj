@@ -560,7 +560,8 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 			return Error.Wrap(err)
 		}
 
-		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, recordsPage.NextOffset, fetchLimit, start, end)
+		// we are always starting from offset 0 because applyProjectRecords is changing project record state to applied
+		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, 0, fetchLimit, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}

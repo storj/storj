@@ -57,30 +57,30 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 }
 
 // Balance returns an integer amount in cents that represents the current balance of payment account.
-func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int64, err error) {
+func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ payments.Balance, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
 	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return payments.Balance{}, Error.Wrap(err)
 	}
 
 	c, err := accounts.service.stripeClient.Customers().Get(customerID, nil)
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return payments.Balance{}, Error.Wrap(err)
 	}
 
 	// add all active coupons amount to balance.
 	coupons, err := accounts.service.db.Coupons().ListByUserIDAndStatus(ctx, userID, payments.CouponActive)
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return payments.Balance{}, Error.Wrap(err)
 	}
 
 	var couponsAmount int64 = 0
 	for _, coupon := range coupons {
 		alreadyUsed, err := accounts.service.db.Coupons().TotalUsage(ctx, coupon.ID)
 		if err != nil {
-			return 0, Error.Wrap(err)
+			return payments.Balance{}, Error.Wrap(err)
 		}
 
 		couponsAmount += coupon.Amount - alreadyUsed
@@ -88,10 +88,15 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int6
 
 	creditBalance, err := accounts.service.db.Credits().Balance(ctx, userID)
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return payments.Balance{}, Error.Wrap(err)
 	}
 
-	return -c.Balance + couponsAmount + creditBalance, nil
+	accountBalance := payments.Balance{
+		FreeCredits: couponsAmount,
+		Coins:       -c.Balance + creditBalance,
+	}
+
+	return accountBalance, nil
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.

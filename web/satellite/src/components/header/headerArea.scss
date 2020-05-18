@@ -48,6 +48,7 @@
     position: absolute;
     top: 100px;
     left: 0;
+    height: calc(100vh - 240px);
 }
 
 .navigation-blur {
@@ -92,5 +93,13 @@
         cursor: pointer;
         position: absolute;
         left: calc(50% - 41px);
+    }
+}
+
+@media screen and (max-height: 950px) {
+
+    .adapted-navigation {
+        padding: 20px 0 50px 0;
+        height: calc(100vh - 170px);
     }
 }

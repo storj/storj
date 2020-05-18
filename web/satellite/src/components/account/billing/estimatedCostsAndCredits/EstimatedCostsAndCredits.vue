@@ -29,25 +29,6 @@
                     />
                 </div>
             </div>
-            <div class="current-month-area__content__credits-area">
-                <div class="current-month-area__content__credits-area__title-area">
-                    <span class="current-month-area__content__credits-area__title-area__title">Earned Credits</span>
-                </div>
-                <span
-                    :style="{ color: balanceColor }"
-                    class="current-month-area__content__credits-area__balance"
-                >
-                    {{ balance | centsToDollars }}
-                </span>
-            </div>
-<!--            <div class="current-month-area__content__credits-area">-->
-<!--                <div class="current-month-area__content__credits-area__title-area">-->
-<!--                    <span class="current-month-area__content__credits-area__title-area__title">Available Credits</span>-->
-<!--                </div>-->
-<!--                <span class="current-month-area__content__credits-area__balance">-->
-<!--                    {{ availableBalance | centsToDollars }}-->
-<!--                </span>-->
-<!--            </div>-->
         </div>
     </div>
 </template>
@@ -106,37 +87,6 @@ export default class EstimatedCostsAndCredits extends Vue {
     }
 
     /**
-     * Returns balance from store in cents.
-     */
-    public get balance(): number {
-        return this.$store.state.paymentsModule.balance;
-    }
-
-    // TODO: use when coupon expiration bug is fixed
-    // /**
-    //  * Returns available balance in cents.
-    //  */
-    // public get availableBalance(): number {
-    //     const total = this.previousRollupPrice + this.currentRollupPrice;
-    //
-    //     switch (true) {
-    //         case this.balance <= total:
-    //             return 0;
-    //         case this.$store.getters.isInvoiceForPreviousRollup:
-    //             return this.balance - this.currentRollupPrice;
-    //         default:
-    //             return this.balance - total;
-    //     }
-    // }
-
-    /**
-     * Returns balance color red if balance below zero and clack if not.
-     */
-    public get balanceColor(): string {
-        return this.$store.state.paymentsModule.balance < 0 ? '#FF0000' : '#000';
-    }
-
-    /**
      * toggleUsageChargesPopup is used to open/close area with list of project charges.
      */
     public toggleUsageChargesPopup(): void {
@@ -146,21 +96,6 @@ export default class EstimatedCostsAndCredits extends Vue {
 
         this.areProjectUsageAndChargesShown = !this.areProjectUsageAndChargesShown;
     }
-
-    // TODO: use when coupon expiration bug is fixed
-    // /**
-    //  * previousRollupPrice is a price of previous rollup.
-    //  */
-    // private get previousRollupPrice(): number {
-    //     return this.$store.state.paymentsModule.previousRollupPrice;
-    // }
-    //
-    // /**
-    //  * currentRollupPrice is a price of current rollup.
-    //  */
-    // private get currentRollupPrice(): number {
-    //     return this.$store.state.paymentsModule.currentRollupPrice;
-    // }
 }
 </script>
 
@@ -242,28 +177,6 @@ export default class EstimatedCostsAndCredits extends Vue {
                     max-height: 228px;
                     overflow-y: auto;
                     padding: 0 20px;
-                }
-            }
-
-            &__credits-area {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 20px;
-                width: calc(100% - 40px);
-                background-color: #f5f6fa;
-                border-radius: 12px;
-                margin-top: 20px;
-
-                &__title-area {
-                    display: flex;
-                    align-items: center;
-
-                    &__title {
-                        font-size: 16px;
-                        line-height: 21px;
-                        color: #354049;
-                    }
                 }
             }
         }
