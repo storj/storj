@@ -104,11 +104,11 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	return nil
 }
 
-// Balance returns an integer amount in cents that represents the current balance of payment account.
-func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ int64, err error) {
+// Balance returns an object that represents current free credits and coins balance in cents.
+func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (balance payments.Balance, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	return 0, nil
+	return payments.Balance{}, nil
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.

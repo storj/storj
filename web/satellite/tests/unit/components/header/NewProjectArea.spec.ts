@@ -11,7 +11,13 @@ import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { makeUsersModule, USER_MUTATIONS } from '@/store/modules/users';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { BillingHistoryItem, BillingHistoryItemStatus, BillingHistoryItemType, CreditCard } from '@/types/payments';
+import {
+    AccountBalance,
+    BillingHistoryItem,
+    BillingHistoryItemStatus,
+    BillingHistoryItemType,
+    CreditCard,
+} from '@/types/payments';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { createLocalVue, mount } from '@vue/test-utils';
@@ -68,7 +74,7 @@ describe('NewProjectArea', () => {
             BillingHistoryItemStatus.Completed, 'test', new Date(), new Date(), BillingHistoryItemType.Transaction);
         store.commit(PAYMENTS_MUTATIONS.CLEAR);
         store.commit(PAYMENTS_MUTATIONS.SET_BILLING_HISTORY, [billingTransactionItem]);
-        store.commit(PAYMENTS_MUTATIONS.SET_BALANCE, 50);
+        store.commit(PAYMENTS_MUTATIONS.SET_BALANCE, new AccountBalance(0, 5000));
 
         const wrapper = mount(NewProjectArea, {
             store,

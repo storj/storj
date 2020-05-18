@@ -3,6 +3,7 @@
 
 import { StoreModule } from '@/store';
 import {
+    AccountBalance,
     BillingHistoryItem,
     BillingHistoryItemStatus,
     BillingHistoryItemType,
@@ -53,8 +54,6 @@ const {
     UPDATE_CARDS_DEFAULT,
     SET_BILLING_HISTORY,
     SET_PROJECT_USAGE_AND_CHARGES,
-    SET_CURRENT_ROLLUP_PRICE,
-    SET_PREVIOUS_ROLLUP_PRICE,
     SET_PRICE_SUMMARY,
 } = PAYMENTS_MUTATIONS;
 
@@ -79,13 +78,11 @@ export class PaymentsState {
     /**
      * balance stores in cents
      */
-    public balance: number = 0;
+    public balance: AccountBalance = new AccountBalance();
     public creditCards: CreditCard[] = [];
     public billingHistory: BillingHistoryItem[] = [];
     public usageAndCharges: ProjectUsageAndCharges[] = [];
     public priceSummary: number = 0;
-    public currentRollupPrice: number = 0;
-    public previousRollupPrice: number = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
 }
@@ -99,7 +96,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
     return {
         state: new PaymentsState(),
         mutations: {
-            [SET_BALANCE](state: PaymentsState, balance: number): void {
+            [SET_BALANCE](state: PaymentsState, balance: AccountBalance): void {
                 state.balance = balance;
             },
             [SET_CREDIT_CARDS](state: PaymentsState, creditCards: CreditCard[]): void {
@@ -141,12 +138,6 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             [SET_PROJECT_USAGE_AND_CHARGES](state: PaymentsState, usageAndCharges: ProjectUsageAndCharges[]): void {
                 state.usageAndCharges = usageAndCharges;
             },
-            [SET_CURRENT_ROLLUP_PRICE](state: PaymentsState): void {
-                state.currentRollupPrice = state.priceSummary;
-            },
-            [SET_PREVIOUS_ROLLUP_PRICE](state: PaymentsState): void {
-                state.previousRollupPrice = state.priceSummary;
-            },
             [SET_PRICE_SUMMARY](state: PaymentsState, charges: ProjectUsageAndCharges[]): void {
                 if (charges.length === 0) {
                     state.priceSummary = 0;
@@ -159,20 +150,18 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 state.priceSummary = usageItemSummaries.reduce((accumulator, current) => accumulator + current);
             },
             [CLEAR](state: PaymentsState) {
-                state.balance = 0;
+                state.balance = new AccountBalance();
                 state.billingHistory = [];
                 state.usageAndCharges = [];
                 state.priceSummary = 0;
-                state.previousRollupPrice = 0;
-                state.currentRollupPrice = 0;
                 state.creditCards = [];
                 state.startDate = new Date();
                 state.endDate = new Date();
             },
         },
         actions: {
-            [GET_BALANCE]: async function({commit}: any): Promise<number> {
-                const balance = await api.getBalance();
+            [GET_BALANCE]: async function({commit}: any): Promise<AccountBalance> {
+                const balance: AccountBalance = await api.getBalance();
 
                 commit(SET_BALANCE, balance);
 
@@ -245,7 +234,6 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
                 commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
-                commit(SET_CURRENT_ROLLUP_PRICE);
             },
             [GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP]: async function({commit}: any): Promise<void> {
                 const now = new Date();
@@ -257,7 +245,6 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
                 commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
-                commit(SET_PREVIOUS_ROLLUP_PRICE);
             },
         },
         getters: {
@@ -265,7 +252,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 return (state.billingHistory.some((billingItem: BillingHistoryItem) => {
                     return billingItem.amount >= 50 && billingItem.type === BillingHistoryItemType.Transaction
                         && billingItem.status === BillingHistoryItemStatus.Completed;
-                }) && state.balance > 0) || state.creditCards.length > 0;
+                }) && state.balance.sum > 0) || state.creditCards.length > 0;
             },
             isTransactionProcessing: (state: PaymentsState): boolean => {
                 return state.billingHistory.some((billingItem: BillingHistoryItem) => {
@@ -273,28 +260,13 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                         && (billingItem.status === BillingHistoryItemStatus.Pending
                         || billingItem.status === BillingHistoryItemStatus.Paid
                         || billingItem.status === BillingHistoryItemStatus.Completed);
-                }) && state.balance === 0;
+                }) && state.balance.sum === 0;
             },
             isTransactionCompleted: (state: PaymentsState): boolean => {
                 return (state.billingHistory.some((billingItem: BillingHistoryItem) => {
                     return billingItem.amount >= 50 && billingItem.type === BillingHistoryItemType.Transaction
                         && billingItem.status === BillingHistoryItemStatus.Completed;
-                }) && state.balance > 0);
-            },
-            isInvoiceForPreviousRollup: (state: PaymentsState): boolean => {
-                const now = new Date();
-
-                return state.billingHistory.some((billingItem: BillingHistoryItem) => {
-                    if (now.getUTCMonth() === 0) {
-                        return billingItem.type === BillingHistoryItemType.Invoice
-                            && billingItem.start.getUTCFullYear() === now.getUTCFullYear() - 1
-                            && billingItem.start.getUTCMonth() === 11;
-                    }
-
-                    return billingItem.type === BillingHistoryItemType.Invoice
-                        && billingItem.start.getUTCFullYear() === now.getUTCFullYear()
-                        && billingItem.start.getUTCMonth() === now.getUTCMonth() - 1;
-                });
+                }) && state.balance.sum > 0);
             },
         },
     };

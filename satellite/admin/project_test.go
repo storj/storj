@@ -15,10 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/macaroon"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 )
 
 func TestAPI(t *testing.T) {
@@ -32,8 +35,8 @@ func TestAPI(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		address := satellite.Admin.Admin.Listener.Addr()
+		sat := planet.Satellites[0]
+		address := sat.Admin.Admin.Listener.Addr()
 		project := planet.Uplinks[0].Projects[0]
 
 		link := "http://" + address.String() + "/api/project/" + project.ID.String() + "/limit"
@@ -158,12 +161,40 @@ func TestDeleteProject(t *testing.T) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
 		projectID := planet.Uplinks[0].Projects[0].ID
 
+		// Ensure there are no buckets left
+		buckets, err := planet.Satellites[0].DB.Buckets().ListBuckets(ctx, projectID, storj.BucketListOptions{Limit: 1, Direction: storj.Forward}, macaroon.AllowedBuckets{All: true})
+		require.NoError(t, err)
+		require.Len(t, buckets.Items, 0)
+
+		apikeys, err := planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
+			Page:   1,
+			Limit:  2,
+			Search: "",
+		})
+		require.NoError(t, err)
+		require.Len(t, apikeys.APIKeys, 1)
+
+		// the deletion with an existing API key should fail
 		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s", projectID), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "very-secret-token")
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
+
+		require.NoError(t, response.Body.Close())
+		require.Equal(t, http.StatusConflict, response.StatusCode)
+
+		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apikeys.APIKeys[0].ID)
+		require.NoError(t, err)
+
+		req, err = http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s", projectID), nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "very-secret-token")
+
+		response, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusOK, response.StatusCode)
 
 		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)

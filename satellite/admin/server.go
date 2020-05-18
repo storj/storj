@@ -18,6 +18,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+  "storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
@@ -36,6 +37,8 @@ type DB interface {
 	Console() console.DB
 	// StripeCoinPayments() returns database for satellite stripe coin payments
 	StripeCoinPayments() stripecoinpayments.DB
+	// Buckets returns database for satellite buckets
+	Buckets() metainfo.BucketsDB
 }
 
 // Server provides endpoints for debugging.

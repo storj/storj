@@ -42,14 +42,14 @@ func TestObserver_processSegment(t *testing.T) {
 
 		obsvr := &observer{objects: make(bucketsObjects)}
 
-		testdata1 := generateTestdataObjects(ctx, t, false, false)
+		testdata1 := generateTestdataObjects(ctx, t, false)
 		// Call processSegment with testadata objects of the first project
 		for _, objSeg := range testdata1.objSegments {
 			err := obsvr.processSegment(ctx, objSeg.path, objSeg.pointer)
 			require.NoError(t, err)
 		}
 
-		testdata2 := generateTestdataObjects(ctx, t, false, false)
+		testdata2 := generateTestdataObjects(ctx, t, false)
 		// Call processSegment with testadata objects of the second project
 		for _, objSeg := range testdata2.objSegments {
 			err := obsvr.processSegment(ctx, objSeg.path, objSeg.pointer)
@@ -74,7 +74,7 @@ func TestObserver_processSegment(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		var testdata = generateTestdataObjects(ctx, t, true, false)
+		var testdata = generateTestdataObjects(ctx, t, true)
 		var obsvr = &observer{objects: make(bucketsObjects)}
 
 		// Call processSegment with the testdata
@@ -177,7 +177,7 @@ func TestObserver_processSegment(t *testing.T) {
 		defer ctx.Cleanup()
 
 		var (
-			testdata = generateTestdataObjects(ctx, t, false, true)
+			testdata = generateTestdataObjects(ctx, t, false)
 			obsvr    = &observer{
 				objects: make(bucketsObjects),
 			}
@@ -827,30 +827,19 @@ type testdataObjects struct {
 //
 // When withoutLastSegment is true, there will be objects without last segment,
 // otherwise all of them will have a last segment.
-//
-// When withMoreThanOldMaxNumSegments is true, there will be objects with more
-// segments than the oldMaxNumOfSegments, otherwise all of them will have less or
-// equal than it.
 func generateTestdataObjects(
-	ctx context.Context, t *testing.T, withoutLastSegment bool, withMoreThanOldMaxNumSegments bool,
-) testdataObjects {
+	ctx context.Context, t *testing.T, withoutLastSegment bool) testdataObjects {
 	t.Helper()
-	const oldMaxNumOfSegments = 64
+
 	var (
 		testdata = testdataObjects{
 			expectedObjects: make(bucketsObjects),
 		}
-		bucketName                      = "0"
-		numObjs                         = rand.Intn(10) + 2
-		projID                          = testrand.UUID()
-		withoutLastSegmentCount         = 0
-		withMoreThanMaxNumSegmentsCount = 0
-		numMaxGeneratedSegments         = 10
+		bucketName              = "0"
+		numObjs                 = rand.Intn(10) + 2
+		projID                  = testrand.UUID()
+		withoutLastSegmentCount = 0
 	)
-
-	if withMoreThanOldMaxNumSegments {
-		numMaxGeneratedSegments = 100
-	}
 
 	testdata.projectID = &projID
 
@@ -858,23 +847,8 @@ func generateTestdataObjects(
 		var (
 			inline          = (rand.Int() % 2) == 0
 			withNumSegments = (rand.Int() % 2) == 0
-			numSegments     = rand.Intn(numMaxGeneratedSegments) + 2
+			numSegments     = rand.Intn(1000) + 2
 		)
-
-		if numSegments > (oldMaxNumOfSegments + 1) {
-			withMoreThanMaxNumSegmentsCount++
-		}
-
-		// If withMoreThanMaxNumSegments is true and all the objects created in all
-		// the previous iterations have less or equal than maximum number of segments
-		// and this is the last iteration then force that the object crated in this
-		// iteration has more segments than the maximum.
-		if withMoreThanOldMaxNumSegments &&
-			withMoreThanMaxNumSegmentsCount == 0 &&
-			i == (numObjs-1) {
-			numSegments += oldMaxNumOfSegments
-			withMoreThanMaxNumSegmentsCount++
-		}
 
 		if rand.Int()%2 == 0 {
 			bucketName = fmt.Sprintf("bucket-%d", i)

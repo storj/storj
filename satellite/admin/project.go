@@ -12,7 +12,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
@@ -234,6 +236,26 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, fmt.Sprintf("invalid form: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	buckets, err := server.db.Buckets().ListBuckets(ctx, projectUUID, storj.BucketListOptions{Limit: 1, Direction: storj.Forward}, macaroon.AllowedBuckets{All: true})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to list buckets: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if len(buckets.Items) > 0 {
+		http.Error(w, fmt.Sprintf("buckets still exist"), http.StatusConflict)
+		return
+	}
+
+	keys, err := server.db.Console().APIKeys().GetPagedByProjectID(ctx, projectUUID, console.APIKeyCursor{Limit: 1, Page: 1})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to list api-keys: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if keys.TotalCount > 0 {
+		http.Error(w, fmt.Sprintf("api-keys still exist"), http.StatusConflict)
 		return
 	}
 

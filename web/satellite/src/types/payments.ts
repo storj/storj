@@ -15,10 +15,10 @@ export interface PaymentsApi {
     /**
      * Get account balance
      *
-     * @returns balance in cents
+     * @returns account balance object. Represents free credits and coins in cents.
      * @throws Error
      */
-    getBalance(): Promise<number>;
+    getBalance(): Promise<AccountBalance>;
 
     /**
      * projectsUsagesAndCharges returns usage and how much money current user will be charged for each project which he owns.
@@ -69,6 +69,17 @@ export interface PaymentsApi {
      * @throws Error
      */
     makeTokenDeposit(amount: number): Promise<TokenDeposit>;
+}
+
+export class AccountBalance {
+    constructor(
+        public freeCredits: number = 0,
+        public coins: number = 0,
+    ) {}
+
+    public get sum(): number {
+        return this.freeCredits + this.coins;
+    }
 }
 
 export class CreditCard {

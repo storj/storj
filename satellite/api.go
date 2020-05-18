@@ -129,9 +129,8 @@ type API struct {
 	}
 
 	Payments struct {
-		Accounts  payments.Accounts
-		Inspector *stripecoinpayments.Endpoint
-		Version   *stripecoinpayments.VersionService
+		Accounts payments.Accounts
+		Version  *stripecoinpayments.VersionService
 	}
 
 	Referrals struct {
@@ -552,16 +551,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 
 			peer.Payments.Accounts = service.Accounts()
-			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
-
 			peer.Payments.Version = stripecoinpayments.NewVersionService(
 				peer.Log.Named("payments.stripe:version"),
 				service,
 				pc.StripeCoinPayments.ConversionRatesCycleInterval)
-
-			if err := pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector); err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
 
 			peer.Services.Add(lifecycle.Item{
 				Name:  "payments.stripe:version",
