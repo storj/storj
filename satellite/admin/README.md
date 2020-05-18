@@ -54,6 +54,10 @@ Updates usage limit for a project.
 
 Updates rate limit for a project.
 
+## DELETE /api/project/{project-id}
+
+Deletes the project.
+
 ## POST /api/project
 
 Adds a project for specific user.
