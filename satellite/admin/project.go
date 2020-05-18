@@ -217,5 +217,29 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
-	return
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		http.Error(w, "project-uuid missing", http.StatusBadRequest)
+		return
+	}
+
+	projectUUID, err := uuid.FromString(projectUUIDString)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid project-uuid: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, fmt.Sprintf("invalid form: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	err = server.db.Console().Projects().Delete(ctx, projectUUID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to delete project: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
