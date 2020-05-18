@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"storj.io/storj/satellite/console"
 	"strings"
 	"testing"
 
@@ -20,6 +19,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 )
 
 func TestAPI(t *testing.T) {
