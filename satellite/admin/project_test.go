@@ -181,6 +181,7 @@ func TestDeleteProject(t *testing.T) {
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusConflict, response.StatusCode)
 
 		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apikeys.APIKeys[0].ID)
@@ -192,6 +193,7 @@ func TestDeleteProject(t *testing.T) {
 
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusOK, response.StatusCode)
 
 		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
