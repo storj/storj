@@ -110,7 +110,7 @@
 
     <div class="tab-pane fade" id="nav-projects" role="tabpanel" aria-labelledby="nav-projects-tab">
         <h1>Project Handling</h1>
-        {{if ne .method "projectinfo"}}
+        {{if not .}}
             <form method="post">
                 <fieldset>
                     <legend>Project Details</legend>
