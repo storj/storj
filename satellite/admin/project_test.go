@@ -162,13 +162,13 @@ func TestDeleteProject(t *testing.T) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 
 		// Ensure there are no buckets left
-		buckets, err := planet.Satellites[0].DB.Buckets().ListBuckets(ctx, projectID, storj.BucketListOptions{Limit: 10, Direction: storj.Forward}, macaroon.AllowedBuckets{All: true})
+		buckets, err := planet.Satellites[0].DB.Buckets().ListBuckets(ctx, projectID, storj.BucketListOptions{Limit: 1, Direction: storj.Forward}, macaroon.AllowedBuckets{All: true})
 		require.NoError(t, err)
 		require.Len(t, buckets.Items, 0)
 
 		apikeys, err := planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
 			Page:   1,
-			Limit:  10,
+			Limit:  2,
 			Search: "",
 		})
 		require.NoError(t, err)
