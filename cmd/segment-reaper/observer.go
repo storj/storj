@@ -43,6 +43,7 @@ func newObserver(db metainfo.PointerDB, w *csv.Writer, from, to *time.Time) (*ob
 		"Bucket",
 		"EncodedEncryptedPath",
 		"CreationDate",
+		"Size",
 	}
 	err := w.Write(headers)
 	if err != nil {
@@ -270,7 +271,7 @@ func (obsvr *observer) printSegment(ctx context.Context, segmentIndex int, bucke
 	} else {
 		segmentIndexStr = "s" + strconv.Itoa(segmentIndex)
 	}
-	creationDate, err := pointerCreationDate(ctx, obsvr.db, obsvr.lastProjectID, segmentIndexStr, bucket, path)
+	creationDate, size, err := pointerCreationDateAndSize(ctx, obsvr.db, obsvr.lastProjectID, segmentIndexStr, bucket, path)
 	if err != nil {
 		return err
 	}
@@ -281,6 +282,7 @@ func (obsvr *observer) printSegment(ctx context.Context, segmentIndex int, bucke
 		bucket,
 		encodedPath,
 		creationDate,
+		strconv.FormatInt(size, 10),
 	})
 	if err != nil {
 		return err
@@ -289,19 +291,22 @@ func (obsvr *observer) printSegment(ctx context.Context, segmentIndex int, bucke
 	return nil
 }
 
-func pointerCreationDate(ctx context.Context, db metainfo.PointerDB, projectID, segmentIndex, bucket, path string) (string, error) {
+func pointerCreationDateAndSize(
+	ctx context.Context, db metainfo.PointerDB, projectID, segmentIndex, bucket, path string,
+) (creationDate string, size int64, _ error) {
 	key := []byte(storj.JoinPaths(projectID, segmentIndex, bucket, path))
 	pointerBytes, err := db.Get(ctx, key)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	pointer := &pb.Pointer{}
 	err = pb.Unmarshal(pointerBytes, pointer)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	return pointer.CreationDate.Format(time.RFC3339Nano), nil
+
+	return pointer.CreationDate.Format(time.RFC3339Nano), pointer.SegmentSize, nil
 }
 
 func (obsvr *observer) resetZombieBuffer() {

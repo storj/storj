@@ -22,11 +22,15 @@ A successful response:
 
 ```json
 {
-    "userId": "12345678-1234-1234-1234-123456789abc"
+    "id":           "12345678-1234-1234-1234-123456789abc",
+    "email":        "alice@mail.test",
+    "fullName":     "Alice Test",
+    "shortName":    "",
+    "passwordHash": ""
 }
 ```
 
-## GET /api/user/{useremail}
+## GET /api/user/{user-email}
 
 This endpoint returns information about user and their projects.
 

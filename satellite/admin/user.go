@@ -45,7 +45,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Password is not set", http.StatusBadRequest)
 		return
 	}
-	// TODO: pass proper config value in from console config
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), 0)
 	if err != nil {
 		http.Error(w, "Unable to save password hash", http.StatusInternalServerError)

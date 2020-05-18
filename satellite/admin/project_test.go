@@ -45,15 +45,6 @@ func TestAPI(t *testing.T) {
 			assertGet(t, link, `{"usage":{"amount":"0 B","bytes":0},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0}}`)
 		})
 
-		t.Run("GetUser", func(t *testing.T) {
-			userLink := "http://" + address.String() + "/api/user/" + project.Owner.Email
-			expected := `{` +
-				fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s"},`, project.Owner.ID, project.Owner.Email) +
-				fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}]`, project.ID, project.Owner.ID) +
-				`}`
-			assertGet(t, userLink, expected)
-		})
-
 		t.Run("UpdateUsage", func(t *testing.T) {
 			data := url.Values{"usage": []string{"1TiB"}}
 			req, err := http.NewRequest(http.MethodPost, link, strings.NewReader(data.Encode()))
