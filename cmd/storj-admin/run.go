@@ -7,12 +7,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/spf13/cobra"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+
+	"github.com/gorilla/mux"
+	"github.com/spf13/cobra"
 
 	"storj.io/storj/cmd/storj-admin/template"
 )
@@ -43,14 +44,13 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{}
 
 	_ = r.ParseForm()
-	fmt.Println(r.Form)
 	request := r.Form["request"][0]
 
 	switch request {
 	case "userinfo":
 		resp, err = makeRequest("GET", fmt.Sprintf("api/user/%s", r.Form["email"][0]), "", nil)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -66,21 +66,21 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 
 		byteJson, err := json.Marshal(input)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		resp, err = makeRequest("POST", "api/user", "", bytes.NewReader(byteJson))
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	case "projectinfo":
 		resp, err = makeRequest("GET", fmt.Sprintf("api/project/%s/limit", r.Form["projectid"][0]), "", nil)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -95,14 +95,14 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 
 		byteJson, err := json.Marshal(input)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		resp, err = makeRequest("POST", "api/project", "", bytes.NewReader(byteJson))
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -120,7 +120,6 @@ func makeRequest(method, path, query string, body io.Reader) (res map[string]int
 	if query != "" {
 		queryEndpoint.RawQuery = url.PathEscape(query)
 	}
-	fmt.Println(queryEndpoint.String())
 
 	req, err := http.NewRequest(method, queryEndpoint.String(), body)
 	if err != nil {
