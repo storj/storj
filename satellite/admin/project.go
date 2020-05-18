@@ -14,7 +14,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
@@ -284,4 +286,52 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+}
+
+func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		http.Error(w, "project-uuid missing", http.StatusBadRequest)
+		return
+	}
+
+	projectUUID, err := uuid.FromString(projectUUIDString)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid project-uuid: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, fmt.Sprintf("invalid form: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	buckets, err := server.db.Buckets().ListBuckets(ctx, projectUUID, storj.BucketListOptions{Limit: 1, Direction: storj.Forward}, macaroon.AllowedBuckets{All: true})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to list buckets: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if len(buckets.Items) > 0 {
+		http.Error(w, fmt.Sprintf("buckets still exist"), http.StatusConflict)
+		return
+	}
+
+	keys, err := server.db.Console().APIKeys().GetPagedByProjectID(ctx, projectUUID, console.APIKeyCursor{Limit: 1, Page: 1})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to list api-keys: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if keys.TotalCount > 0 {
+		http.Error(w, fmt.Sprintf("api-keys still exist"), http.StatusConflict)
+		return
+	}
+
+	err = server.db.Console().Projects().Delete(ctx, projectUUID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to delete project: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
