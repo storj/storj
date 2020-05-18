@@ -4,7 +4,29 @@ Satellite Admin package provides API endpoints for administrative tasks.
 
 Requires setting `Authorization` header for requests.
 
-## GET /api/user/{user-email}
+## POST /api/user
+
+Adds a new user.
+
+A successful request:
+
+```json
+{
+    "email": "alice@mail.test",
+    "fullName": "Alice Test",
+    "password": "password"
+}
+```
+
+A successful response:
+
+```json
+{
+    "userId": "12345678-1234-1234-1234-123456789abc"
+}
+```
+
+## GET /api/user/{useremail}
 
 This endpoint returns information about user and their projects.
 
@@ -28,7 +50,48 @@ A successful response:
 }
 ```
 
-## GET /api/project/{project-id}/limit
+## POST /api/user/{useremail}/coupon
+
+Adds a coupon for specific user.
+
+A successful request:
+
+```json
+{
+    "userid": "12345678-1234-1234-1234-123456789abc",
+    "duration": 2,
+    "amount": 3000,
+    "description": "promotional coupon (valid for 2 billing cycles)"
+}
+```
+
+A successful response (which lists all coupons for the given user):
+```json
+{
+    "coupons": [{"id": "12345678-1234-1234-1234-123456789abc"}]
+}
+```
+
+## GET /api/user/{useremail}/coupon
+
+Gets all coupons for specific user.
+
+A successful request:
+
+```json
+{
+    "userid": "12345678-1234-1234-1234-123456789abc"
+}
+```
+
+A successful response (which lists all coupons for the given user):
+```json
+{
+    "coupons": [{"id": "12345678-1234-1234-1234-123456789abc"}]
+}
+```
+
+## GET /api/project/{projectid}/limit
 
 This endpoint returns information about project limits.
 
@@ -46,11 +109,11 @@ A successful response:
 }
 ```
 
-## POST /api/project/{project-id}/limit?usage={value}
+## POST /api/project/{projectid}/limit?usage={value}
 
 Updates usage limit for a project.
 
-## POST /api/project/{project-id}/limit?rate={value}
+## POST /api/project/{projectid}/limit?rate={value}
 
 Updates rate limit for a project.
 

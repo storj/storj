@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
@@ -52,17 +53,24 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Password is not set", http.StatusBadRequest)
 		return
 	}
+	// TODO: pass proper config value in
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), 0)
+	if err != nil {
+		http.Error(w, "Unable to save password hash", http.StatusInternalServerError)
+		return
+	}
 
 	userID, err := uuid.New()
 	if err != nil {
 		http.Error(w, "Unable to create UUID", http.StatusInternalServerError)
+		return
 	}
 
 	user, err := server.db.Console().Users().Insert(ctx, &console.User{
 		ID:           userID,
 		Email:        input.Email,
 		FullName:     input.Name,
-		PasswordHash: []byte("test"),
+		PasswordHash: hash,
 		Status:       1,
 	})
 	if err != nil {
