@@ -1,30 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
-        <title>Storj Admin UI</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <title>Storj Admin UI</title>
 
-    </head>
-    <body>
-        <header>
-            <nav class="container">
-                <div class="nav nav-tabs" id="nav-tab" role="tablist">
-                    <a class="nav-item nav-link active" id="nav-users-tab" data-toggle="tab" href="#nav-users" role="tab" aria-controls="nav-users" aria-selected="true">Users</a>
-                    <a class="nav-item nav-link" id="nav-projects-tab" data-toggle="tab" href="#nav-projects" role="tab" aria-controls="nav-projects" aria-selected="false">Projects</a>
-                    <a class="nav-item nav-link" id="nav-coupons-tab" data-toggle="tab" href="#nav-coupons" role="tab" aria-controls="nav-coupons" aria-selected="false">Coupons</a>
-                </div>
-            </nav>
-        </header>
+</head>
+<body>
+<header>
+    <nav class="container">
+        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+            <a class="nav-item nav-link active" id="nav-users-tab" data-toggle="tab" href="#nav-users" role="tab" aria-controls="nav-users" aria-selected="true">Users</a>
+            <a class="nav-item nav-link" id="nav-projects-tab" data-toggle="tab" href="#nav-projects" role="tab" aria-controls="nav-projects" aria-selected="false">Projects</a>
+            <a class="nav-item nav-link" id="nav-coupons-tab" data-toggle="tab" href="#nav-coupons" role="tab" aria-controls="nav-coupons" aria-selected="false">Coupons</a>
+        </div>
+    </nav>
+</header>
 
 
-        <div class="container tab-content" id="nav-tabContent">
-            <div class="tab-pane fade show active" id="nav-users" role="tabpanel" aria-labelledby="nav-users-tab">
-                <h1>User Handling</h1>
-                {{if not .}}
-                <form method="post">
-                    <fieldset>
+<div class="container tab-content" id="nav-tabContent">
+    <div class="tab-pane fade show active" id="nav-users" role="tabpanel" aria-labelledby="nav-users-tab">
+        <h1>User Handling</h1>
+        {{if not .}}
+            <form method="post">
+                <fieldset>
                     <legend>User Info</legend>
                     <div class="form-group">
                         <label class="col-md-4 control-label" for="email">E-Mail</label>
@@ -40,10 +40,10 @@
                             <button id="submit" name="request" value="userinfo" class="btn btn-primary">Get Info</button>
                         </div>
                     </div>
-                    </fieldset>
-                </form>
-                <form method="post">
-                    <fieldset>
+                </fieldset>
+            </form>
+            <form method="post">
+                <fieldset>
                     <legend>User Creation</legend>
                     <div class="form-group">
                         <label class="col-md-4 control-label" for="email">E-Mail</label>
@@ -73,46 +73,46 @@
                             <button id="submit" name="request" value="usercreate" class="btn btn-primary">Create User</button>
                         </div>
                     </div>
-                    </fieldset>
-                </form>
-                {{else }}
-                    <h2>User Information</h2>
-                    <table class="table table-hover">
-                    <tr><th>Column</th><th>Value</th></tr>
-                    {{range $index, $element := .user}}
-                        <tr><td>{{$index}}</td><td>{{$element}}</td></tr>
-                    {{end}}
-                    </table>
-                    <h2>Projects</h2>
-                    <div class="panel-group">
-                    {{range .projects}}
-                        <div class="card panel panel-default">
-                            <div class="panel-heading" id="heading{{index .name}}">
-                                <h5 class="panel-title">
-                                    <a data-toggle="collapse" href="#collapse{{index .name}}">Project {{index .name}}</a>
-                                </h5>
-                            </div>
-                            <div id="collapse{{index .name}}" class="panel-collapse collapse">
-                                <div class="panel-body">
-                                    <table class="table table-hover">
+                </fieldset>
+            </form>
+        {{else }}
+            <h2>User Information</h2>
+            <table class="table table-hover">
+                <tr><th>Column</th><th>Value</th></tr>
+                {{range $index, $element := .user}}
+                    <tr><td>{{$index}}</td><td>{{$element}}</td></tr>
+                {{end}}
+            </table>
+            <h2>Projects</h2>
+            <div class="panel-group">
+                {{range .projects}}
+                    <div class="card panel panel-default">
+                        <div class="panel-heading" id="heading{{index .name}}">
+                            <h5 class="panel-title">
+                                <a data-toggle="collapse" href="#collapse{{index .name}}">Project {{index .name}}</a>
+                            </h5>
+                        </div>
+                        <div id="collapse{{index .name}}" class="panel-collapse collapse">
+                            <div class="panel-body">
+                                <table class="table table-hover">
                                     <tr><th>Column</th><th>Value</th></tr>
-                                        {{range $index, $element := . }}
+                                    {{range $index, $element := . }}
                                         <tr><td>{{$index}}</td><td>{{$element}}</td></tr>
-                                        {{end}}
-                                    </table>
-                                </div>
+                                    {{end}}
+                                </table>
                             </div>
                         </div>
-                    {{end}}
                     </div>
                 {{end}}
             </div>
+        {{end}}
+    </div>
 
-            <div class="tab-pane fade" id="nav-projects" role="tabpanel" aria-labelledby="nav-projects-tab">
-                <h1>Project Handling</h1>
-                {{if ne .method "projectinfo"}}
-                <form method="post">
-                    <fieldset>
+    <div class="tab-pane fade" id="nav-projects" role="tabpanel" aria-labelledby="nav-projects-tab">
+        <h1>Project Handling</h1>
+        {{if ne .method "projectinfo"}}
+            <form method="post">
+                <fieldset>
                     <legend>Project Details</legend>
                     <div class="form-group">
                         <label class="col-md-4 control-label" for="projectname">Project ID</label>
@@ -128,10 +128,10 @@
                             <button id="submit" name="request" value="projectinfo" class="btn btn-primary">Get Project Details</button>
                         </div>
                     </div>
-                    </fieldset>
-                </form>
-                <form method="post">
-                    <fieldset>
+                </fieldset>
+            </form>
+            <form method="post">
+                <fieldset>
                     <legend>Create Project</legend>
                     <div class="form-group">
                         <label class="col-md-4 control-label" for="projectName">Project Name</label>
@@ -154,46 +154,46 @@
                             <button id="submit" name="request" value="projectcreate" class="btn btn-primary">Create Project</button>
                         </div>
                     </div>
-                    </fieldset>
-                </form>
-                {{else}}
-                    <h2>Project Information</h2>
-                    <table class="table table-hover">
-                    <tr><th>column</th><th>value</th></tr>
-                    {{range $index, $element := .}}
-                        <tr><td>{{$index}}</td><td>{{range $element}}{{.}}{{end}}</td></tr>
-                    {{end}}
-                    </table>
+                </fieldset>
+            </form>
+        {{else}}
+            <h2>Project Information</h2>
+            <table class="table table-hover">
+                <tr><th>column</th><th>value</th></tr>
+                {{range $index, $element := .}}
+                    <tr><td>{{$index}}</td><td>{{range $element}}{{.}}{{end}}</td></tr>
                 {{end}}
-            </div>
-            <div class="tab-pane fade" id="nav-coupons" role="tabpanel" aria-labelledby="nav-coupons-tab">
-                <h1>Coupon Handling</h1>
-                <form method="post">
-                    <fieldset>
-                    <legend>Coupon Information</legend>
-                    <div class="form-group">
-                        <label class="col-md-4 control-label" for="couponid">Coupon ID</label>
-                        <div class="col-md-4">
-                            <input id="email" name="couponid" type="text" placeholder="xxx" class="form-control input-md" required="">
-                            <span class="help-block">coupon id</span>
-                        </div>
+            </table>
+        {{end}}
+    </div>
+    <div class="tab-pane fade" id="nav-coupons" role="tabpanel" aria-labelledby="nav-coupons-tab">
+        <h1>Coupon Handling</h1>
+        <form method="post">
+            <fieldset>
+                <legend>Coupon Information</legend>
+                <div class="form-group">
+                    <label class="col-md-4 control-label" for="couponid">Coupon ID</label>
+                    <div class="col-md-4">
+                        <input id="email" name="couponid" type="text" placeholder="xxx" class="form-control input-md" required="">
+                        <span class="help-block">coupon id</span>
                     </div>
+                </div>
 
-                    <div class="form-group">
-                        <label class="col-md-4 control-label" for="submit"></label>
-                        <div class="col-md-4">
-                            <button id="submit" name="submit-coupon-info" class="btn btn-primary">Get Coupon Details</button>
-                        </div>
+                <div class="form-group">
+                    <label class="col-md-4 control-label" for="submit"></label>
+                    <div class="col-md-4">
+                        <button id="submit" name="submit-coupon-info" class="btn btn-primary">Get Coupon Details</button>
                     </div>
-                    </fieldset>
-                </form>
-            </div>
-        </div>
+                </div>
+            </fieldset>
+        </form>
+    </div>
+</div>
 
-        <footer class="footer">
-            <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
-            <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
-            <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
-        </footer>
-    </body>
+<footer class="footer">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+</footer>
+</body>
 </html>

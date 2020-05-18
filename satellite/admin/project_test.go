@@ -144,6 +144,34 @@ func TestAddProject(t *testing.T) {
 	})
 }
 
+func TestDeleteProject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s", projectID), nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "very-secret-token")
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+
+		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
+		require.Error(t, err)
+		require.Nil(t, project)
+	})
+}
+
 func assertGet(t *testing.T, link string, expected string) {
 	t.Helper()
 

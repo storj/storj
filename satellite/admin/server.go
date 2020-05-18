@@ -66,8 +66,8 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, config Config) *Se
 	// When adding new options, also update README.md
 	server.mux.HandleFunc("/api/user", server.addUser).Methods("POST")
 	server.mux.HandleFunc("/api/user/{useremail}", server.userInfo).Methods("GET")
-	server.mux.HandleFunc("/api/user/{useremail}/coupon", server.addCoupon).Methods("POST")
-	server.mux.HandleFunc("/api/user/{useremail}/coupon", server.listCoupons).Methods("GET")
+	server.mux.HandleFunc("/api/user/coupon", server.addCoupon).Methods("POST")
+	server.mux.HandleFunc("/api/user/coupon/{userid}", server.listCoupons).Methods("GET")
 	//server.mux.HandleFunc("/api/user/{useremail}/credits", server.addCredits).Methods("POST")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.getProjectLimit).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
