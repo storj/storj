@@ -639,7 +639,7 @@ func TestObserver_processSegment_single_project(t *testing.T) {
 	}
 }
 
-func TestObserver_analyzeProject(t *testing.T) {
+func TestObserver_findZombieSegments(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
