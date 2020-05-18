@@ -58,11 +58,12 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	case "usercreate":
 		input := struct {
 			Email    string `json:"email"`
-			Name     string `json:"name"`
+			Name     string `json:"fullName"`
 			Password string `json:"password"`
 		}{
-			Email: r.Form["email"][0],
-			Name:  r.Form["name"][0],
+			Email:    r.Form["email"][0],
+			Name:     r.Form["fullName"][0],
+			Password: r.Form["password"][0],
 		}
 
 		byteJson, err := json.Marshal(input)

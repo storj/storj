@@ -28,15 +28,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		Email    string `json:"email"`
-		Name     string `json:"name"`
-		Password string `json:"password"`
-	}
-
-	var output struct {
-		UserID uuid.UUID `json:"userId"`
-	}
+	var input console.CreateUser
 
 	err = json.Unmarshal(body, &input)
 	if err != nil {
@@ -53,7 +45,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Password is not set", http.StatusBadRequest)
 		return
 	}
-	// TODO: pass proper config value in
+	// TODO: pass proper config value in from console config
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), 0)
 	if err != nil {
 		http.Error(w, "Unable to save password hash", http.StatusInternalServerError)
@@ -66,20 +58,39 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := server.db.Console().Users().Insert(ctx, &console.User{
+	user := console.CreateUser{
+		Email:    input.Email,
+		FullName: input.FullName,
+		Password: input.Password,
+	}
+
+	err = user.IsValid()
+	if err != nil {
+		http.Error(w, "User data is not valid", http.StatusBadRequest)
+		return
+	}
+
+	newuser, err := server.db.Console().Users().Insert(ctx, &console.User{
 		ID:           userID,
-		Email:        input.Email,
-		FullName:     input.Name,
+		FullName:     user.FullName,
+		ShortName:    user.ShortName,
+		Email:        user.Email,
 		PasswordHash: hash,
-		Status:       1,
 	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to insert user: %v", err), http.StatusInternalServerError)
 		return
 	}
+	//Set User Status to be activated, as we manually created it
+	newuser.Status = console.Active
+	newuser.PasswordHash = nil
+	err = server.db.Console().Users().Update(ctx, newuser)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to activate user: %v", err), http.StatusInternalServerError)
+		return
+	}
 
-	output.UserID = user.ID
-	data, err := json.Marshal(output)
+	data, err := json.Marshal(newuser)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
 		return
