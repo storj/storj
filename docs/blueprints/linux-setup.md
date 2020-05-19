@@ -24,7 +24,7 @@ Most commonly used linux distributions seem to be (there are no reliable stats):
 - Red Hat-based (Fedora)
 - Arch Linux (Manjaro is on the rise according to [distrowatch](https://distrowatch.com/dwres.php?resource=popularity)).
 
-All these distributions are shipped with systemD as a service manager.
+All these distributions are shipped with systemd as a service manager.
 
 
 
@@ -36,11 +36,13 @@ The installer will be a debian package. We choose to auto-update the binary, eve
   - Email
   - External address/port
   - Advertised storage
-  - Identity directory
+  - Identity directory 
   - Storage directory
 - Generate `config.yaml` file with the user configuration.
 
-We choose to reuse the storagenode-updater and the recovery mechanism used in windows. They will be daemonized using systemD. The storagenode updater will auto-update. A recovery will be triggered if the updated updater service fails to restart.
+The default value for these directories can be defined using the [XDG Base Directory](https://wiki.archlinux.org/index.php/XDG_Base_Directory).
+
+We choose to reuse the storagenode-updater and the recovery mechanism used in windows. They will be daemonized using systemd. The storagenode updater will auto-update. A recovery will be triggered if the updated updater service fails to restart.
 We will use debconf to retrieve user data. 
 
 The debian package will NOT contain the storagenode and storagenode-updater binaries. They will be downloaded as part of the post-installation script. A separate git repository will be created for holding the debian package.
@@ -52,8 +54,8 @@ The debian package will be available by direct download and on a APT repository 
 ## Rationale
 
 ### storagenode service
-As stated earlier, systemD is the commonly used service manager. It is the default on raspbian, debian, ubuntu, redhat, archlinux.
-Hence, we should use systemD for building our storagenode service. 
+As stated earlier, systemd is the commonly used service manager. It is the default on raspbian, debian, ubuntu, redhat, archlinux.
+Hence, we should use systemd for building our storagenode service.
 
 ### Installation
 #### Custom installer
@@ -143,7 +145,7 @@ We are thinking of using native packaging for the following reasons:
 - Modify the `debian/rules` file to embed a `config.yaml` template file and create a `/var/lib/storj/storagenode/bin` directory (where the binaries will be put).
 - Create the script that will check the storagenode and storagenode-updates latest available versions, download them, put them in the `/var/lib/storj/storagenode/bin`
 - create the `storj-storagenode` system user in the post-installation script (`debian/postinst`). It should own the `/var/lib/storj/storagenode/bin` directory. It should be able to write the storage directory.
-- Implement a systemD service running storagenode binary. It will be installed by calling `dh_installsystemd` in `debian/rules`
+- Implement a systemd service running storagenode binary. It will be installed by calling `dh_installsystemd` in `debian/rules`
     - https://vincent.bernat.ch/en/blog/2017-systemd-golang
     - https://vincent.bernat.ch/en/blog/2018-systemd-golang-socket-activation
 - Create the debconf script that will gather user inputs and saves the config.yaml file in the configuration folder.
@@ -181,5 +183,5 @@ We still need to support docker images. The Docker image we provide should make 
 
 ## Wrapup
 - As a first step and as part of the PoC, the git repository and the debian package skeleton will be created.
-- The PoC will create the user and the directories, download a binary (will not check for the latest) and install a basic storagenode systemD service.
+- The PoC will create the user and the directories, download a binary (will not check for the latest) and install a basic storagenode systemd service.
 - The PoC will also contain first Dockerfile for the reprepro repository.
