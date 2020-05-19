@@ -89,7 +89,7 @@ func (coupons *coupons) Get(ctx context.Context, couponID uuid.UUID) (_ payments
 // Get returns coupon by ID.
 func (coupons *coupons) Delete(ctx context.Context, couponID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, couponID)(&err)
-	//TODO: Do we need to handle the bool?
+
 	_, err = coupons.db.Delete_Coupon_By_Id(ctx, dbx.Coupon_Id(couponID[:]))
 	return err
 }
