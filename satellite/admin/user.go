@@ -203,6 +203,9 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 	case input.Amount == 0:
 		http.Error(w, "Amount is not set", http.StatusBadRequest)
 		return
+	case input.Description == "":
+		http.Error(w, "Description is not set", http.StatusBadRequest)
+		return
 	case input.UserID.IsZero():
 		http.Error(w, "UserID is not set", http.StatusBadRequest)
 		return
