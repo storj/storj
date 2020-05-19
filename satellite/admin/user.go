@@ -209,11 +209,23 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ID is the primary key which we should NEVER change and do not change activation status
-	input.ID = user.ID
-	input.Status = user.Status
+	if input.FullName != "" {
+		user.FullName = input.FullName
+	}
+	if input.ShortName != "" {
+		user.ShortName = input.ShortName
+	}
+	if input.Email != "" {
+		user.Email = input.Email
+	}
+	if !input.PartnerID.IsZero() {
+		user.PartnerID = input.PartnerID
+	}
+	if len(input.PasswordHash) > 0 {
+		user.PasswordHash = input.PasswordHash
+	}
 
-	err = server.db.Console().Users().Update(ctx, &input)
+	err = server.db.Console().Users().Update(ctx, user)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to update user: %v", err), http.StatusInternalServerError)
 		return
