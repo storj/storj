@@ -19,7 +19,7 @@ type Coupons interface {
 	ListByUserID(ctx context.Context, userID uuid.UUID) ([]Coupon, error)
 
 	// Create attaches a coupon for payment account.
-	Create(ctx context.Context, coupon Coupon) (err error)
+	Create(ctx context.Context, coupon Coupon) (coup Coupon, err error)
 
 	// AddPromotionalCoupon is used to add a promotional coupon for specified users who already have
 	// a project and do not have a promotional coupon yet.

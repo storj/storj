@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
 )
 
 func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +127,12 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	coupons, err := server.db.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get user coupons %q: %v", userEmail, err), http.StatusInternalServerError)
+		return
+	}
+
 	type User struct {
 		ID       uuid.UUID `json:"id"`
 		FullName string    `json:"fullName"`
@@ -139,8 +146,9 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var output struct {
-		User     User      `json:"user"`
-		Projects []Project `json:"projects"`
+		User     User              `json:"user"`
+		Projects []Project         `json:"projects"`
+		Coupons  []payments.Coupon `json:"coupons"`
 	}
 
 	output.User = User{
@@ -156,8 +164,110 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 			OwnerID:     p.OwnerID,
 		})
 	}
+	output.Coupons = coupons
 
 	data, err := json.Marshal(output)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+}
+
+func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to read body: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	var input struct {
+		UserID      uuid.UUID `json:"userId"`
+		Duration    int       `json:"duration"`
+		Amount      int64     `json:"amount"`
+		Description string    `json:"description"`
+	}
+
+	var output payments.Coupon
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to unmarshal request: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if input.Duration == 0 {
+		http.Error(w, "Duration is not set", http.StatusBadRequest)
+		return
+	}
+
+	if input.Amount == 0 {
+		http.Error(w, "Amount is not set", http.StatusBadRequest)
+		return
+	}
+
+	if input.UserID.IsZero() {
+		http.Error(w, "UserID is not set", http.StatusBadRequest)
+		return
+	}
+
+	// do not change the project limit
+	coupon, err := server.db.StripeCoinPayments().Coupons().Insert(ctx, payments.Coupon{
+		UserID:      input.UserID,
+		Amount:      input.Amount,
+		Duration:    input.Duration,
+		Description: input.Description,
+	})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to insert coupon: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	output, err = server.db.StripeCoinPayments().Coupons().Get(ctx, coupon.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get coupons: %v", err), http.StatusInternalServerError)
+	}
+
+	data, err := json.Marshal(output)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+}
+
+func (server *Server) couponInfo(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	id, ok := vars["couponid"]
+	if !ok {
+		http.Error(w, "couponId missing", http.StatusBadRequest)
+		return
+	}
+
+	couponID, err := uuid.FromString(id)
+	if err != nil {
+		http.Error(w, "invalid couponId", http.StatusBadRequest)
+	}
+
+	coupon, err := server.db.StripeCoinPayments().Coupons().Get(ctx, couponID)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, fmt.Sprintf("coupon with id %q not found", couponID), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get coupon %q: %v", couponID, err), http.StatusInternalServerError)
+		return
+	}
+
+	data, err := json.Marshal(coupon)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
 		return

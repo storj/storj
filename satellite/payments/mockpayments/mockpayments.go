@@ -180,10 +180,10 @@ func (tokens *storjTokens) ListTransactionInfos(ctx context.Context, userID uuid
 }
 
 // Create attaches a coupon for payment account.
-func (coupons *coupons) Create(ctx context.Context, coupon payments.Coupon) (err error) {
+func (coupons *coupons) Create(ctx context.Context, coupon payments.Coupon) (coup payments.Coupon, err error) {
 	defer mon.Task()(&ctx, coupon)(&err)
 
-	return nil
+	return payments.Coupon{}, nil
 }
 
 // ListByUserID return list of all coupons of specified payment account.
