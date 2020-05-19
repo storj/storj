@@ -419,7 +419,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # orders.settlement-batch-size: 250
 
 # disable node cache
-# overlay.node-selection-cache.disabled: true
+# overlay.node-selection-cache.disabled: false
 
 # how stale the node selection cache can be
 # overlay.node-selection-cache.staleness: 3m0s
