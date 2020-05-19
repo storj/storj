@@ -155,7 +155,8 @@ func TestCouponInfo(t *testing.T) {
 		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
 		require.NoError(t, err)
 
-		var comparison, output payments.Coupon
+		var output payments.Coupon
+		var id uuid.UUID
 
 		body := strings.NewReader(fmt.Sprintf(`{"userId": "%s", "duration": 2, "amount": 3000, "description": "testcoupon-alice"}`, user.ID))
 		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/user/coupon", body)
@@ -170,10 +171,10 @@ func TestCouponInfo(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
 
-		err = json.Unmarshal(responseBody, &comparison)
+		err = json.Unmarshal(responseBody, &id)
 		require.NoError(t, err)
 
-		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/user/coupon/%s", comparison.ID.String()), nil)
+		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/user/coupon/%s", id.String()), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "very-secret-token")
 
@@ -187,6 +188,9 @@ func TestCouponInfo(t *testing.T) {
 
 		err = json.Unmarshal(responseBody, &output)
 		require.NoError(t, err)
-		require.Equal(t, comparison, output)
+		require.Equal(t, id, output.ID)
+		require.Equal(t, 2, output.Duration)
+		require.Equal(t, int64(3000), output.Amount)
+		require.Equal(t, "testcoupon-alice", output.Description)
 	})
 }
