@@ -36,12 +36,11 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Email == "" {
+	switch {
+	case input.Email == "":
 		http.Error(w, "Email is not set", http.StatusBadRequest)
 		return
-	}
-
-	if input.Password == "" {
+	case input.Password == "":
 		http.Error(w, "Password is not set", http.StatusBadRequest)
 		return
 	}
@@ -192,30 +191,23 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 		Description string    `json:"description"`
 	}
 
-	var output payments.Coupon
-
 	err = json.Unmarshal(body, &input)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to unmarshal request: %v", err), http.StatusBadRequest)
 		return
 	}
-
-	if input.Duration == 0 {
+	switch {
+	case input.Duration == 0:
 		http.Error(w, "Duration is not set", http.StatusBadRequest)
 		return
-	}
-
-	if input.Amount == 0 {
+	case input.Amount == 0:
 		http.Error(w, "Amount is not set", http.StatusBadRequest)
 		return
-	}
-
-	if input.UserID.IsZero() {
+	case input.UserID.IsZero():
 		http.Error(w, "UserID is not set", http.StatusBadRequest)
 		return
 	}
 
-	// do not change the project limit
 	coupon, err := server.db.StripeCoinPayments().Coupons().Insert(ctx, payments.Coupon{
 		UserID:      input.UserID,
 		Amount:      input.Amount,
@@ -227,12 +219,7 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	output, err = server.db.StripeCoinPayments().Coupons().Get(ctx, coupon.ID)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get coupons: %v", err), http.StatusInternalServerError)
-	}
-
-	data, err := json.Marshal(output)
+	data, err := json.Marshal(coupon.ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
 		return

@@ -81,7 +81,7 @@ A successful request:
 }
 ```
 
-A successful response (which lists all coupons for the given user):
+A successful response:
 ```json
 {
     "id": "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89"
@@ -93,14 +93,13 @@ A successful response (which lists all coupons for the given user):
 Gets a coupon with the specified id.
 
 A successful request:
-
 ```json
 {
     "id": "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89"
 }
 ```
 
-A successful response (which lists all coupons for the given user):
+A successful response:
 ```json
 {
     "id":          "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89",

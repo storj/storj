@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -125,12 +126,12 @@ func TestAddCoupon(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
 
-		var output payments.Coupon
+		var output uuid.UUID
 
 		err = json.Unmarshal(responseBody, &output)
 		require.NoError(t, err)
 
-		coupon, err := planet.Satellites[0].DB.StripeCoinPayments().Coupons().Get(ctx, output.ID)
+		coupon, err := planet.Satellites[0].DB.StripeCoinPayments().Coupons().Get(ctx, output)
 		require.NoError(t, err)
 		require.Equal(t, user.ID, coupon.UserID)
 		require.Equal(t, 2, coupon.Duration)
