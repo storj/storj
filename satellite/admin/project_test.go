@@ -172,7 +172,6 @@ func TestDeleteProject(t *testing.T) {
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
-
 		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusConflict, response.StatusCode)
 
