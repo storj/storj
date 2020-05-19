@@ -96,3 +96,40 @@ func TestAddUser(t *testing.T) {
 		require.Equal(t, email, user.Email)
 	})
 }
+
+func TestUpdateUser(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		require.NoError(t, err)
+
+		body := strings.NewReader(`{"email":"alice+2@mail.test","fullName":"Alice Newtest","shortName":"Newbie"}`)
+		req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), body)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "very-secret-token")
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+		responseBody, err := ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.NoError(t, response.Body.Close())
+		require.Len(t, responseBody, 0)
+
+		updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, "alice+2@mail.test", updatedUser.Email)
+		require.Equal(t, "Alice Newtest", updatedUser.FullName)
+		require.Equal(t, user.ID, updatedUser.ID)
+		require.Equal(t, user.Status, updatedUser.Status)
+	})
+}

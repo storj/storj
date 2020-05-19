@@ -174,3 +174,48 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
 }
+
+func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		http.Error(w, "user-email missing", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, fmt.Sprintf("user with email %q not found", userEmail), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get user %q: %v", userEmail, err), http.StatusInternalServerError)
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to read body: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	var input console.User
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to unmarshal request: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// ID is the primary key which we should NEVER change and do not change activation status
+	input.ID = user.ID
+	input.Status = user.Status
+
+	err = server.db.Console().Users().Update(ctx, &input)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to update user: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
