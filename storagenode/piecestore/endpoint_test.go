@@ -306,7 +306,7 @@ func TestDelete(t *testing.T) {
 		uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
 
 		nodeurl := planet.StorageNodes[0].NodeURL()
-		conn, err := planet.Uplinks[0].Dialer.DialAddressID(ctx, nodeurl.Address, nodeurl.ID)
+		conn, err := planet.Uplinks[0].Dialer.DialNodeURL(ctx, nodeurl)
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -376,7 +376,7 @@ func TestDeletePieces(t *testing.T) {
 		storagenode := planet.StorageNodes[0]
 
 		nodeurl := storagenode.NodeURL()
-		conn, err := planet.Satellites[0].Dialer.DialAddressID(ctx, nodeurl.Address, nodeurl.ID)
+		conn, err := planet.Satellites[0].Dialer.DialNodeURL(ctx, nodeurl)
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -446,7 +446,7 @@ func TestDeletePieces(t *testing.T) {
 		})
 
 		t.Run("error: permission denied", func(t *testing.T) {
-			conn, err := planet.Uplinks[0].Dialer.DialAddressID(ctx, nodeurl.Address, nodeurl.ID)
+			conn, err := planet.Uplinks[0].Dialer.DialNodeURL(ctx, nodeurl)
 			require.NoError(t, err)
 			defer ctx.Check(conn.Close)
 			client := pb.NewDRPCPiecestoreClient(conn)
@@ -493,11 +493,11 @@ func TestTooManyRequests(t *testing.T) {
 		for i, uplink := range planet.Uplinks {
 			i, uplink := i, uplink
 			uploads.Go(func() (err error) {
-				storageNode := planet.StorageNodes[0].Local()
+				storageNode := planet.StorageNodes[0]
 				config := piecestore.DefaultConfig
 				config.UploadBufferSize = 0 // disable buffering so we can detect write error early
 
-				client, err := piecestore.Dial(ctx, uplink.Dialer, &storageNode.Node, uplink.Log, config)
+				client, err := piecestore.DialNodeURL(ctx, uplink.Dialer, storageNode.NodeURL(), uplink.Log, config)
 				if err != nil {
 					return err
 				}

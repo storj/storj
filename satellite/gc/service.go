@@ -162,7 +162,12 @@ func (service *Service) sendRetainRequest(ctx context.Context, id storj.NodeID, 
 		defer cancel()
 	}
 
-	client, err := piecestore.Dial(ctx, service.dialer, &dossier.Node, log, piecestore.DefaultConfig)
+	nodeurl := storj.NodeURL{
+		ID:      id,
+		Address: dossier.Address.Address,
+	}
+
+	client, err := piecestore.DialNodeURL(ctx, service.dialer, nodeurl, log, piecestore.DefaultConfig)
 	if err != nil {
 		return Error.Wrap(err)
 	}

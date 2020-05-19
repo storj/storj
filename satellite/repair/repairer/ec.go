@@ -52,9 +52,9 @@ func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.S
 	}
 }
 
-func (ec *ECRepairer) dialPiecestore(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
-	logger := ec.log.Named(n.Id.String())
-	return piecestore.Dial(ctx, ec.dialer, n, logger, piecestore.DefaultConfig)
+func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
+	logger := ec.log.Named(n.ID.String())
+	return piecestore.DialNodeURL(ctx, ec.dialer, n, logger, piecestore.DefaultConfig)
 }
 
 // Get downloads pieces from storagenodes using the provided order limits, and decodes those pieces into a segment.
@@ -174,9 +174,9 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	downloadCtx, cancel := context.WithTimeout(ctx, ec.downloadTimeout)
 	defer cancel()
 
-	ps, err := ec.dialPiecestore(downloadCtx, &pb.Node{
-		Id:      limit.GetLimit().StorageNodeId,
-		Address: limit.GetStorageNodeAddress(),
+	ps, err := ec.dialPiecestore(downloadCtx, storj.NodeURL{
+		ID:      limit.GetLimit().StorageNodeId,
+		Address: limit.GetStorageNodeAddress().Address,
 	})
 	if err != nil {
 		return nil, err
@@ -411,9 +411,9 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 
 	storageNodeID := limit.GetLimit().StorageNodeId
 	pieceID := limit.GetLimit().PieceId
-	ps, err := ec.dialPiecestore(ctx, &pb.Node{
-		Id:      storageNodeID,
-		Address: limit.GetStorageNodeAddress(),
+	ps, err := ec.dialPiecestore(ctx, storj.NodeURL{
+		ID:      storageNodeID,
+		Address: limit.GetStorageNodeAddress().Address,
 	})
 	if err != nil {
 		ec.log.Debug("Failed dialing for putting piece to node",

@@ -65,7 +65,10 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 
 	worker.log.Debug("running worker")
 
-	conn, err := worker.dialer.DialAddressID(ctx, worker.satelliteAddr, worker.satelliteID)
+	conn, err := worker.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      worker.satelliteID,
+		Address: worker.satelliteAddr,
+	})
 	if err != nil {
 		return errs.Wrap(err)
 	}

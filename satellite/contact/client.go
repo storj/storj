@@ -18,7 +18,10 @@ type client struct {
 
 // dialNode dials the target contact endpoint
 func dialNode(ctx context.Context, dialer rpc.Dialer, address string, id storj.NodeID) (*client, error) {
-	conn, err := dialer.DialAddressID(ctx, address, id)
+	conn, err := dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      id,
+		Address: address,
+	})
 	if err != nil {
 		return nil, err
 	}

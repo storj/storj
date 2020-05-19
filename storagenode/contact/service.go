@@ -114,7 +114,10 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 		return errPingSatellite.Wrap(err)
 	}
 
-	conn, err := service.dialer.DialAddressID(ctx, address, id)
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      id,
+		Address: address,
+	})
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}

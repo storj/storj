@@ -33,10 +33,10 @@ func TestBasic(t *testing.T) {
 			}
 
 			for _, sat := range planet.Satellites {
-				satellite := sat.Local().Node
 				for _, sn := range planet.StorageNodes {
 					node := sn.Local()
-					conn, err := sn.Dialer.DialNode(ctx, &satellite)
+					conn, err := sn.Dialer.DialNodeURL(ctx, sat.NodeURL())
+
 					require.NoError(t, err)
 					defer ctx.Check(conn.Close)
 					_, err = pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
