@@ -50,7 +50,66 @@ A successful response:
             "description": "Project to store data.",
             "ownerId": "12345678-1234-1234-1234-123456789abc"
         }
+    ],
+    "coupons": [
+        {
+            "id":          "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89",
+            "userId":      "12345678-1234-1234-1234-123456789abc",
+            "duration":    2,
+            "amount":      3000,
+            "description": "promotional coupon (valid for 2 billing cycles)",
+            "type":        0, 
+            "status":      0,
+            "created":     "2020-05-19T00:34:13.265761+02:00"
+        }
     ]
+}
+```
+
+## POST /api/coupon
+
+Adds a coupon for specific user.
+
+A successful request:
+
+```json
+{
+    "userId":      "12345678-1234-1234-1234-123456789abc",
+    "duration":    2,
+    "amount":      3000,
+    "description": "promotional coupon (valid for 2 billing cycles)"
+}
+```
+
+A successful response:
+```json
+{
+    "id": "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89"
+}
+```
+
+## GET /api/coupon/{coupon-id}
+
+Gets a coupon with the specified id.
+
+A successful request:
+```json
+{
+    "id": "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89"
+}
+```
+
+A successful response:
+```json
+{
+    "id":          "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89",
+    "userId":      "12345678-1234-1234-1234-123456789abc",
+    "duration":    2,
+    "amount":      3000,
+    "description": "promotional coupon (valid for 2 billing cycles)",
+    "type":        0, 
+    "status":      0,
+    "created":     "2020-05-19T00:34:13.265761+02:00"
 }
 ```
 

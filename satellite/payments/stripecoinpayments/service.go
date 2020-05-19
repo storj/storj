@@ -462,7 +462,7 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 		// TODO: if multiple coupons are available apply them in order of expiration.
 		for _, coupon := range coupons {
 			if coupon.IsExpired() {
-				if err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
+				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
 					return err
 				}
 				continue
@@ -728,7 +728,7 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 		return err
 	}
 	if totalUsage == coupon.Amount {
-		err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponUsed)
+		_, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponUsed)
 		if err != nil {
 			return err
 		}

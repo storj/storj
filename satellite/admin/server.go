@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
 // Config defines configuration for debug server.
@@ -34,6 +35,8 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// Console returns database for satellite console
 	Console() console.DB
+	// StripeCoinPayments returns database for satellite stripe coin payments
+	StripeCoinPayments() stripecoinpayments.DB
 	// Buckets returns database for satellite buckets
 	Buckets() metainfo.BucketsDB
 }
@@ -66,6 +69,8 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, config Config) *Se
 	// When adding new options, also update README.md
 	server.mux.HandleFunc("/api/user", server.addUser).Methods("POST")
 	server.mux.HandleFunc("/api/user/{useremail}", server.userInfo).Methods("GET")
+	server.mux.HandleFunc("/api/coupon", server.addCoupon).Methods("POST")
+	server.mux.HandleFunc("/api/coupon/{couponid}", server.couponInfo).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.getProjectLimit).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
 	server.mux.HandleFunc("/api/project/{project}", server.deleteProject).Methods("DELETE")
