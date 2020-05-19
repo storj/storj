@@ -115,7 +115,7 @@ func TestAddCoupon(t *testing.T) {
 		require.NoError(t, err)
 
 		body := strings.NewReader(fmt.Sprintf(`{"userId": "%s", "duration": 2, "amount": 3000, "description": "testcoupon-alice"}`, user.ID))
-		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/user/coupon", body)
+		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/coupon", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "very-secret-token")
 
