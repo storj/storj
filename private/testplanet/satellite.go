@@ -22,8 +22,10 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/private/debug"
 	"storj.io/private/version"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	versionchecker "storj.io/storj/private/version/checker"
@@ -202,6 +204,79 @@ func (system *Satellite) URL() string { return system.NodeURL().String() }
 // NodeURL returns the storj.NodeURL from the Satellite system API.
 func (system *Satellite) NodeURL() storj.NodeURL {
 	return storj.NodeURL{ID: system.API.ID(), Address: system.API.Addr()}
+}
+
+// AddUser adds user to a satellite.
+func (system *Satellite) AddUser(ctx context.Context, fullName, email string, maxNumberOfProjects int) (*console.User, error) {
+	regToken, err := system.API.Console.Service.CreateRegToken(ctx, maxNumberOfProjects)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := system.API.Console.Service.CreateUser(ctx, console.CreateUser{
+		FullName: fullName,
+		Email:    email,
+		Password: fullName,
+	}, regToken.Secret, "")
+	if err != nil {
+		return nil, err
+	}
+
+	activationToken, err := system.API.Console.Service.GenerateActivationToken(ctx, user.ID, user.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
+	if err != nil {
+		return nil, err
+	}
+
+	authCtx, err := system.authenticatedContext(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	err = system.API.Console.Service.Payments().SetupAccount(authCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// AddProject adds project to a satellite and makes specified user an owner.
+func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name string) (*console.Project, error) {
+	authCtx, err := system.authenticatedContext(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	project, err := system.API.Console.Service.CreateProject(authCtx, console.ProjectInfo{
+		Name: name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return project, nil
+}
+
+func (system *Satellite) authenticatedContext(ctx context.Context, userID uuid.UUID) (context.Context, error) {
+	user, err := system.API.Console.Service.GetUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// we are using full name as a password
+	token, err := system.API.Console.Service.Token(ctx, user.Email, user.FullName)
+	if err != nil {
+		return nil, err
+	}
+
+	auth, err := system.API.Console.Service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+	if err != nil {
+		return nil, err
+	}
+
+	return console.WithAuth(ctx, auth), nil
 }
 
 // Close closes all the subsystems in the Satellite system
