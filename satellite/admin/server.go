@@ -35,7 +35,7 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// Console returns database for satellite console
 	Console() console.DB
-	// StripeCoinPayments() returns database for satellite stripe coin payments
+	// StripeCoinPayments returns database for satellite stripe coin payments
 	StripeCoinPayments() stripecoinpayments.DB
 	// Buckets returns database for satellite buckets
 	Buckets() metainfo.BucketsDB
