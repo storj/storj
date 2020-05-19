@@ -210,8 +210,7 @@ type NodeStats struct {
 
 // NodeLastContact contains the ID, address, and timestamp
 type NodeLastContact struct {
-	ID                 storj.NodeID
-	Address            string
+	URL                storj.NodeURL
 	LastIPPort         string
 	LastContactSuccess time.Time
 	LastContactFailure time.Time

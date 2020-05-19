@@ -826,8 +826,7 @@ func (cache *overlaycache) GetSuccesfulNodesNotCheckedInSince(ctx context.Contex
 		}
 
 		nodeLastContact := overlay.NodeLastContact{
-			ID:                 nodeID,
-			Address:            node.Address,
+			URL:                storj.NodeURL{ID: nodeID, Address: node.Address},
 			LastContactSuccess: node.LastContactSuccess.UTC(),
 			LastContactFailure: node.LastContactFailure.UTC(),
 		}
@@ -874,8 +873,7 @@ func (cache *overlaycache) GetOfflineNodesLimited(ctx context.Context, limit int
 		}
 
 		nodeLastContact := overlay.NodeLastContact{
-			ID:                 nodeID,
-			Address:            node.Address,
+			URL:                storj.NodeURL{ID: nodeID, Address: node.Address},
 			LastContactSuccess: node.LastContactSuccess.UTC(),
 			LastContactFailure: node.LastContactFailure.UTC(),
 		}

@@ -62,7 +62,7 @@ func (chore *EstimationChore) Run(ctx context.Context) (err error) {
 		for _, node := range offlineNodes {
 			node := node
 			chore.limiter.Go(ctx, func() {
-				success, err := chore.service.CheckAndUpdateNodeAvailability(ctx, node.ID, node.Address)
+				success, err := chore.service.CheckAndUpdateNodeAvailability(ctx, node.URL)
 				if err != nil {
 					chore.log.Error("error during downtime estimation ping back",
 						zap.Bool("success", success),
@@ -73,10 +73,10 @@ func (chore *EstimationChore) Run(ctx context.Context) (err error) {
 					now := time.Now().UTC()
 					duration := now.Sub(node.LastContactFailure)
 
-					err = chore.db.Add(ctx, node.ID, now, duration)
+					err = chore.db.Add(ctx, node.URL.ID, now, duration)
 					if err != nil {
 						chore.log.Error("error adding node seconds offline information.",
-							zap.Stringer("node ID", node.ID),
+							zap.Stringer("node ID", node.URL.ID),
 							zap.Stringer("duration", duration),
 							zap.Error(err))
 					}

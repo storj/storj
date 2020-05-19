@@ -13,6 +13,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -63,7 +64,11 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
 	}
 
-	pingNodeSuccess, pingErrorMessage, err := endpoint.service.PingBack(ctx, req.Address, nodeID)
+	nodeurl := storj.NodeURL{
+		ID:      nodeID,
+		Address: req.Address,
+	}
+	pingNodeSuccess, pingErrorMessage, err := endpoint.service.PingBack(ctx, nodeurl)
 	if err != nil {
 		endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		if errPingBackDial.Has(err) {

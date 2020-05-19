@@ -682,18 +682,18 @@ func TestCache_DowntimeTracking(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, nodes, 4)
 		// order of nodes should be least recently checked first
-		require.Equal(t, allIDs[2], nodes[0].ID)
-		require.Equal(t, allIDs[4], nodes[1].ID)
-		require.Equal(t, allIDs[6], nodes[2].ID)
-		require.Equal(t, allIDs[8], nodes[3].ID)
+		require.Equal(t, allIDs[2], nodes[0].URL.ID)
+		require.Equal(t, allIDs[4], nodes[1].URL.ID)
+		require.Equal(t, allIDs[6], nodes[2].URL.ID)
+		require.Equal(t, allIDs[8], nodes[3].URL.ID)
 
 		// test with limit
 		nodes, err = cache.GetOfflineNodesLimited(ctx, 2)
 		require.NoError(t, err)
 		require.Len(t, nodes, 2)
 		// order of nodes should be least recently checked first
-		require.Equal(t, allIDs[2], nodes[0].ID)
-		require.Equal(t, allIDs[4], nodes[1].ID)
+		require.Equal(t, allIDs[2], nodes[0].URL.ID)
+		require.Equal(t, allIDs[4], nodes[1].URL.ID)
 	})
 }
 

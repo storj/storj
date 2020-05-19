@@ -18,7 +18,6 @@ func TestCheckNodeAvailability(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
-		nodeDossier := planet.StorageNodes[0].Contact.Service.Local()
 		satellite := planet.Satellites[0]
 
 		node.Contact.Chore.Pause(ctx)
@@ -31,7 +30,7 @@ func TestCheckNodeAvailability(t *testing.T) {
 		require.True(t, dossier.Reputation.LastContactSuccess.Before(beforeSuccessfulCheck))
 		require.True(t, dossier.Reputation.LastContactFailure.Before(beforeSuccessfulCheck))
 
-		success, err := satellite.DowntimeTracking.Service.CheckAndUpdateNodeAvailability(ctx, nodeDossier.Id, nodeDossier.Address.GetAddress())
+		success, err := satellite.DowntimeTracking.Service.CheckAndUpdateNodeAvailability(ctx, node.NodeURL())
 		require.NoError(t, err)
 		require.True(t, success)
 
@@ -51,7 +50,7 @@ func TestCheckNodeAvailability(t *testing.T) {
 
 		// now test that CheckAndUpdateNodeAvailability updated with a failure, and the last contact success is the same
 		beforeFailedCheck := time.Now()
-		success, err = satellite.DowntimeTracking.Service.CheckAndUpdateNodeAvailability(ctx, nodeDossier.Id, nodeDossier.Address.GetAddress())
+		success, err = satellite.DowntimeTracking.Service.CheckAndUpdateNodeAvailability(ctx, node.NodeURL())
 		require.NoError(t, err)
 		require.False(t, success)
 
