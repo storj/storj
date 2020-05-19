@@ -135,15 +135,15 @@ A successful response:
 }
 ```
 
-## POST /api/project/{projectid}/limit?usage={value}
+## POST /api/project/{project-id}/limit?usage={value}
 
 Updates usage limit for a project.
 
-## POST /api/project/{projectid}/limit?rate={value}
+## POST /api/project/{project-id}/limit?rate={value}
 
 Updates rate limit for a project.
 
-## DELETE /api/project/{projectid}
+## DELETE /api/project/{project-id}
 
 Deletes the project.
 
