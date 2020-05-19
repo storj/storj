@@ -14,11 +14,6 @@ exports[`EstimatedCostsAndCredits renders correctly with project and no project 
       </div>
       <!---->
     </div>
-    <div class="current-month-area__content__credits-area">
-      <div class="current-month-area__content__credits-area__title-area"><span class="current-month-area__content__credits-area__title-area__title">Earned Credits</span></div> <span class="current-month-area__content__credits-area__balance" style="color: rgb(0, 0, 0);">
-                    USD $0.00
-                </span>
-    </div>
   </div>
 </div>
 `;
@@ -39,11 +34,6 @@ exports[`EstimatedCostsAndCredits renders correctly with project and project usa
         </div> <span>Estimated total <span class="summary">USD $3.00</span></span>
       </div>
       <!---->
-    </div>
-    <div class="current-month-area__content__credits-area">
-      <div class="current-month-area__content__credits-area__title-area"><span class="current-month-area__content__credits-area__title-area__title">Earned Credits</span></div> <span class="current-month-area__content__credits-area__balance" style="color: rgb(0, 0, 0);">
-                    USD $55.00
-                </span>
     </div>
   </div>
 </div>

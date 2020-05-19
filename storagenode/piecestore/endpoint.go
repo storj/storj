@@ -22,7 +22,6 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/rpc/rpctimeout"
 	"storj.io/common/signing"
@@ -40,8 +39,6 @@ var (
 	mon = monkit.Package()
 )
 
-var _ pbgrpc.PiecestoreServer = (*Endpoint)(nil)
-
 // OldConfig contains everything necessary for a server
 type OldConfig struct {
 	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
@@ -56,8 +53,8 @@ type Config struct {
 	DatabaseDir             string        `help:"directory to store databases. if empty, uses data path" default:""`
 	ExpirationGracePeriod   time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
-	DeleteWorkers           int           `help:"how many piece delete workers" default:"0"`
-	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"0"`
+	DeleteWorkers           int           `help:"how many piece delete workers" default:"1"`
+	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"10000"`
 	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"24h0m0s"`
 	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
@@ -78,9 +75,8 @@ type pingStatsSource interface {
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log          *zap.Logger
-	config       Config
-	grpcReqLimit int
+	log    *zap.Logger
+	config Config
 
 	signer    signing.Signer
 	trust     *trust.Pool
@@ -94,32 +90,14 @@ type Endpoint struct {
 	usedSerials  UsedSerials
 	pieceDeleter *pieces.Deleter
 
-	// liveRequests tracks the total number of incoming rpc requests. For gRPC
-	// requests only, this number is compared to config.MaxConcurrentRequests
-	// and limits the number of gRPC requests. dRPC requests are tracked but
-	// not limited.
 	liveRequests int32
 }
 
-// drpcEndpoint wraps streaming methods so that they can be used with drpc
-type drpcEndpoint struct{ *Endpoint }
-
-// DRPC returns a DRPC form of the endpoint.
-func (endpoint *Endpoint) DRPC() pb.DRPCPiecestoreServer { return &drpcEndpoint{Endpoint: endpoint} }
-
 // NewEndpoint creates a new piecestore endpoint.
 func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
-	// If config.MaxConcurrentRequests is set we want to repsect it for grpc.
-	// However, if it is 0 (unlimited) we force a limit.
-	grpcReqLimit := config.MaxConcurrentRequests
-	if grpcReqLimit <= 0 {
-		grpcReqLimit = 7
-	}
-
 	return &Endpoint{
-		log:          log,
-		config:       config,
-		grpcReqLimit: grpcReqLimit,
+		log:    log,
+		config: config,
 
 		signer:    signer,
 		trust:     trust,
@@ -199,24 +177,7 @@ func (endpoint *Endpoint) DeletePieces(
 }
 
 // Upload handles uploading a piece on piece store.
-func (endpoint *Endpoint) Upload(stream pbgrpc.Piecestore_UploadServer) (err error) {
-	return endpoint.doUpload(stream, endpoint.grpcReqLimit)
-}
-
-// Upload handles uploading a piece on piece store.
-func (endpoint *drpcEndpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err error) {
-	return endpoint.doUpload(stream, endpoint.config.MaxConcurrentRequests)
-}
-
-// uploadStream is the minimum interface required to perform settlements.
-type uploadStream interface {
-	Context() context.Context
-	Recv() (*pb.PieceUploadRequest, error)
-	SendAndClose(*pb.PieceUploadResponse) error
-}
-
-// doUpload handles uploading a piece on piece store.
-func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err error) {
+func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -226,12 +187,12 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 
 	endpoint.pingStats.WasPinged(time.Now())
 
-	if requestLimit > 0 && int(liveRequests) > requestLimit {
+	if endpoint.config.MaxConcurrentRequests > 0 && int(liveRequests) > endpoint.config.MaxConcurrentRequests {
 		endpoint.log.Error("upload rejected, too many requests",
 			zap.Int32("live requests", liveRequests),
-			zap.Int("requestLimit", requestLimit),
+			zap.Int("requestLimit", endpoint.config.MaxConcurrentRequests),
 		)
-		errMsg := fmt.Sprintf("storage node overloaded, request limit: %d", requestLimit)
+		errMsg := fmt.Sprintf("storage node overloaded, request limit: %d", endpoint.config.MaxConcurrentRequests)
 		return rpcstatus.Error(rpcstatus.Unavailable, errMsg)
 	}
 
@@ -453,25 +414,8 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 	}
 }
 
-// Download handles Downloading a piece on piece store.
-func (endpoint *Endpoint) Download(stream pbgrpc.Piecestore_DownloadServer) (err error) {
-	return endpoint.doDownload(stream)
-}
-
-// Download handles Downloading a piece on piece store.
-func (endpoint *drpcEndpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err error) {
-	return endpoint.doDownload(stream)
-}
-
-// downloadStream is the minimum interface required to perform settlements.
-type downloadStream interface {
-	Context() context.Context
-	Recv() (*pb.PieceDownloadRequest, error)
-	Send(*pb.PieceDownloadResponse) error
-}
-
-// Download implements downloading a piece from piece store.
-func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
+// Download handles Downloading a piece on piecestore.
+func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)

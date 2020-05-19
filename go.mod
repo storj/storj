@@ -17,13 +17,12 @@ require (
 	github.com/gorilla/schema v1.1.0
 	github.com/graphql-go/graphql v0.7.9
 	github.com/lib/pq v1.3.0
-	github.com/mattn/go-isatty v0.0.9 // indirect
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
-	github.com/sirupsen/logrus v1.4.2 // indirect
+	github.com/sirupsen/logrus v1.5.0 // indirect
 	github.com/spacemonkeygo/monkit/v3 v3.0.6
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.6
@@ -34,15 +33,16 @@ require (
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/zeebo/errs v1.2.2
 	go.etcd.io/bbolt v1.3.4
-	go.uber.org/zap v1.14.1
+	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
+	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
-	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
+	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
-	google.golang.org/grpc v1.28.0
-	storj.io/common v0.0.0-20200502180824-cd9fcc3a6556
-	storj.io/drpc v0.0.12-0.20200413163255-debb458a7474
+	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
+	storj.io/common v0.0.0-20200513105542-a376f4c68993
+	storj.io/drpc v0.0.12
 	storj.io/monkit-jaeger v0.0.0-20200424180155-d5f5530ea079
-	storj.io/private v0.0.0-20200427160924-e00b0e612cfb
+	storj.io/private v0.0.0-20200504130741-565a173f6d33
 	storj.io/uplink v1.0.5
 )

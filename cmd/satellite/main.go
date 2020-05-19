@@ -32,7 +32,9 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // Satellite defines satellite configuration
@@ -166,6 +168,45 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdRecordOneOffPayments,
 	}
+	billingCmd = &cobra.Command{
+		Use:   "billing",
+		Short: "Customer billing commands",
+	}
+	prepareCustomerInvoiceRecordsCmd = &cobra.Command{
+		Use:   "prepare-invoice-records [period]",
+		Short: "Prepares invoice project records",
+		Long:  "Prepares invoice project records that will be used during invoice line items creation.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdPrepareCustomerInvoiceRecords,
+	}
+	createCustomerInvoiceItemsCmd = &cobra.Command{
+		Use:   "create-invoice-items [period]",
+		Short: "Creates stripe invoice line items",
+		Long:  "Creates stripe invoice line items for not consumed project records.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCreateCustomerInvoiceItems,
+	}
+	createCustomerInvoiceCouponsCmd = &cobra.Command{
+		Use:   "create-invoice-coupons [period]",
+		Short: "Adds coupons to stripe invoices",
+		Long:  "Creates stripe invoice line items for not consumed coupons.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCreateCustomerInvoiceCoupons,
+	}
+	createCustomerInvoiceCreditsCmd = &cobra.Command{
+		Use:   "create-invoice-credits [period]",
+		Short: "Adds credits to stripe invoices",
+		Long:  "Creates stripe invoice line items for not consumed credits.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCreateCustomerInvoiceCredits,
+	}
+	createCustomerInvoicesCmd = &cobra.Command{
+		Use:   "create-invoices [period]",
+		Short: "Creates stripe invoices from pending invoice items",
+		Long:  "Creates stripe invoices for all stripe customers known to satellite",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCreateCustomerInvoices,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -221,14 +262,20 @@ func init() {
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
 	rootCmd.AddCommand(compensationCmd)
+	rootCmd.AddCommand(billingCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(gracefulExitCmd)
 	reportsCmd.AddCommand(verifyGracefulExitReceiptCmd)
-	reportsCmd.AddCommand(stripeCustomerCmd)
 	compensationCmd.AddCommand(generateInvoicesCmd)
 	compensationCmd.AddCommand(recordPeriodCmd)
 	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
+	billingCmd.AddCommand(stripeCustomerCmd)
+	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
+	billingCmd.AddCommand(createCustomerInvoiceItemsCmd)
+	billingCmd.AddCommand(createCustomerInvoiceCouponsCmd)
+	billingCmd.AddCommand(createCustomerInvoiceCreditsCmd)
+	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -243,8 +290,13 @@ func init() {
 	process.Bind(recordOneOffPaymentsCmd, &recordOneOffPaymentsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(verifyGracefulExitReceiptCmd, &verifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerInvoiceCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerInvoiceCreditsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -299,7 +351,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, rollupsWriteCache.CloseAndFlush(context2.WithoutCancellation(ctx)))
 	}()
 
-	peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, version.Build, &runCfg.Config)
+	peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
@@ -568,6 +620,71 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, start, end, file)
+}
+
+func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := parseBillingPeriod(args[0])
+	if err != nil {
+		return errs.New("invalid period specified: %v", err)
+	}
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.PrepareInvoiceProjectRecords(ctx, period)
+	})
+}
+
+func cmdCreateCustomerInvoiceItems(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := parseBillingPeriod(args[0])
+	if err != nil {
+		return errs.New("invalid period specified: %v", err)
+	}
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.InvoiceApplyProjectRecords(ctx, period)
+	})
+}
+
+func cmdCreateCustomerInvoiceCoupons(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := parseBillingPeriod(args[0])
+	if err != nil {
+		return errs.New("invalid period specified: %v", err)
+	}
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.InvoiceApplyCoupons(ctx, period)
+	})
+}
+
+func cmdCreateCustomerInvoiceCredits(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := parseBillingPeriod(args[0])
+	if err != nil {
+		return errs.New("invalid period specified: %v", err)
+	}
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.InvoiceApplyCredits(ctx, period)
+	})
+}
+
+func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := parseBillingPeriod(args[0])
+	if err != nil {
+		return errs.New("invalid period specified: %v", err)
+	}
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.CreateInvoices(ctx, period)
+	})
 }
 
 func main() {

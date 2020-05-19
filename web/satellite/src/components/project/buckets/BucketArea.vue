@@ -6,7 +6,7 @@
         <NoBucketArea v-if="isNoBucketAreaShown"/>
         <div class="buckets-overflow" v-else>
             <div class="buckets-header">
-                <p class="buckets-header__title">Buckets Usage</p>
+                <p class="buckets-header__title">Buckets</p>
                 <VHeader
                     class="buckets-header-component"
                     placeholder="Buckets"
@@ -16,6 +16,7 @@
             <div v-if="buckets.length" class="buckets-container">
                 <SortingHeader/>
                 <VList
+                    class="buckets-list"
                     :data-set="buckets"
                     :item-component="itemComponent"
                     :on-item-click="doNothing"
@@ -177,7 +178,7 @@ export default class BucketArea extends Vue {
 
 <style scoped lang="scss">
     .buckets-area {
-        margin-top: 30px;
+        margin-top: 36px;
         position: relative;
 
         &__pagination-area {
@@ -192,18 +193,14 @@ export default class BucketArea extends Vue {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 25px 30px 15px 30px;
-        background-color: #fff;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
+        margin-bottom: 10px;
 
         &__title {
-            white-space: nowrap;
+            margin: 0;
             font-family: 'font_bold', sans-serif;
-            font-size: 18px;
-            line-height: 18px;
-            color: #354049;
-            margin: 0 50px 0 0;
+            font-size: 22px;
+            line-height: 27px;
+            color: #384b65;
         }
     }
 
@@ -212,26 +209,28 @@ export default class BucketArea extends Vue {
     }
 
     .buckets-container {
-        padding: 0 30px;
         background-color: #fff;
-        border-bottom-left-radius: 6px;
-        border-bottom-right-radius: 6px;
+        border-radius: 6px;
+        padding-bottom: 20px;
     }
 
     .empty-search-result-area {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding-bottom: 20px;
+        padding: 20px 0;
         background-color: #fff;
-        border-bottom-left-radius: 6px;
-        border-bottom-right-radius: 6px;
+        border-radius: 6px;
 
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
         }
+    }
+
+    .buckets-list {
+        padding-top: 20px;
     }
 
     /deep/ .pagination-container {

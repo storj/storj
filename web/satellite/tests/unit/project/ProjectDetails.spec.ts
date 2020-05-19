@@ -47,7 +47,7 @@ describe('ProjectDetails.vue', () => {
 
         expect(wrapper).toMatchSnapshot();
 
-        wrapper.vm.$data.newDescription = 'new description';
+        wrapper.vm.$data.value = 'new description';
         await wrapper.vm.onSaveButtonClick();
 
         expect(wrapper).toMatchSnapshot();

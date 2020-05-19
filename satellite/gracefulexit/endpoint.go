@@ -16,7 +16,6 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
-	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -36,16 +35,6 @@ var (
 	// ErrIneligibleNodeAge is an error class for when a node has not been on the network long enough to graceful exit.
 	ErrIneligibleNodeAge = errs.Class("node is not yet eligible for graceful exit")
 )
-
-// drpcEndpoint wraps streaming methods so that they can be used with drpc
-type drpcEndpoint struct{ *Endpoint }
-
-// processStream is the minimum interface required to process requests.
-type processStream interface {
-	Context() context.Context
-	Send(*pb.SatelliteMessage) error
-	Recv() (*pb.StorageNodeMessage, error)
-}
 
 // Endpoint for handling the transfer of pieces for Graceful Exit.
 type Endpoint struct {
@@ -97,11 +86,6 @@ func (pm *connectionsTracker) delete(nodeID storj.NodeID) {
 	delete(pm.data, nodeID)
 }
 
-// DRPC returns a DRPC form of the endpoint.
-func (endpoint *Endpoint) DRPC() pb.DRPCSatelliteGracefulExitServer {
-	return &drpcEndpoint{Endpoint: endpoint}
-}
-
 // NewEndpoint creates a new graceful exit endpoint.
 func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overlay.DB, overlay *overlay.Service, metainfo *metainfo.Service, orders *orders.Service,
 	peerIdentities overlay.PeerIdentities, config Config) *Endpoint {
@@ -122,16 +106,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overla
 }
 
 // Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
-func (endpoint *Endpoint) Process(stream pbgrpc.SatelliteGracefulExit_ProcessServer) (err error) {
-	return endpoint.doProcess(stream)
-}
-
-// Process is called by storage nodes to receive pieces to transfer to new nodes and get exit status.
-func (endpoint *drpcEndpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStream) error {
-	return endpoint.doProcess(stream)
-}
-
-func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
+func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
@@ -297,6 +272,12 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 					continue
 				}
 				if ErrInvalidArgument.Has(err) {
+					messageBytes, marshalErr := pb.Marshal(request)
+					if marshalErr != nil {
+						return rpcstatus.Error(rpcstatus.Internal, marshalErr.Error())
+					}
+					endpoint.log.Warn("storagenode failed validation for piece transfer", zap.Stringer("node ID", nodeID), zap.Binary("original message from storagenode", messageBytes), zap.Error(err))
+
 					// immediately fail and complete graceful exit for nodes that fail satellite validation
 					err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
 					if err != nil {
@@ -332,7 +313,7 @@ func (endpoint *Endpoint) doProcess(stream processStream) (err error) {
 	return nil
 }
 
-func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processStream, pending *PendingMap, incomplete *TransferQueueItem) error {
+func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, pending *PendingMap, incomplete *TransferQueueItem) error {
 	nodeID := incomplete.NodeID
 
 	if incomplete.OrderLimitSendCount >= endpoint.config.MaxOrderLimitSendCount {
@@ -456,7 +437,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream processS
 	return err
 }
 
-func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream processStream, pending *PendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
+func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, pending *PendingMap, exitingNodeID storj.NodeID, message *pb.StorageNodeMessage_Succeeded) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	originalPieceID := message.Succeeded.OriginalPieceId
@@ -667,7 +648,7 @@ func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID sto
 	return false, nil
 }
 
-func (endpoint *Endpoint) handleFinished(ctx context.Context, stream processStream, exitStatusRequest *overlay.ExitStatusRequest, failedReason pb.ExitFailed_Reason) error {
+func (endpoint *Endpoint) handleFinished(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, exitStatusRequest *overlay.ExitStatusRequest, failedReason pb.ExitFailed_Reason) error {
 	finishedMsg, err := endpoint.getFinishedMessage(ctx, exitStatusRequest.NodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess, failedReason)
 	if err != nil {
 		return Error.Wrap(err)

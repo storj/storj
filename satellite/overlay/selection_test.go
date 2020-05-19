@@ -71,8 +71,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 		require.NoError(t, err)
 
 		req := overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 2,
-			RequestedCount:       2,
+			RequestedCount: 2,
 		}
 
 		// request 2 nodes, expect failure from not enough nodes
@@ -541,9 +540,8 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		excludedNodeAddr = res.LastIPPort
 
 		req := overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 2,
-			RequestedCount:       2,
-			ExcludedIDs:          excludedNodes,
+			RequestedCount: 2,
+			ExcludedIDs:    excludedNodes,
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)
@@ -565,9 +563,8 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		require.NotEqual(t, n3[1].LastIPPort, excludedNodeAddr)
 
 		req = overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 4,
-			RequestedCount:       4,
-			ExcludedIDs:          excludedNodes,
+			RequestedCount: 4,
+			ExcludedIDs:    excludedNodes,
 		}
 		n, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.Error(t, err)
@@ -576,12 +573,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		require.Equal(t, len(n), len(n1))
 		n2, err = satellite.Overlay.Service.SelectionCache.GetNodes(ctx, req)
 		require.Error(t, err)
-		// GetNodes returns 1 more node than FindStorageNodesWithPreferences because of the way the queries are...
-		// FindStorageNodesWithPreferences gets the IPs for the excludedNodeIDs and excludes all those IPs from the selection
-		// (which results in filtering out any node on the same network as a excludedNodeID),
-		// but the selection cache only filters IPs at time of selection which makes it so that it can include a node that shares a network
-		// with an exclueded ID
-		require.Equal(t, len(n1)+1, len(n2))
+		require.Equal(t, len(n1), len(n2))
 	})
 }
 
@@ -620,9 +612,8 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 		excludedNodeAddr = res.LastIPPort
 
 		req := overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 2,
-			RequestedCount:       2,
-			ExcludedIDs:          excludedNodes,
+			RequestedCount: 2,
+			ExcludedIDs:    excludedNodes,
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)

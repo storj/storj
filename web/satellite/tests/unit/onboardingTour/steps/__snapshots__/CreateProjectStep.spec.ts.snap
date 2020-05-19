@@ -12,8 +12,8 @@ exports[`CreateProjectStep.vue renders correctly 1`] = `
       <h2 class="new-project-step__container__title-area__title">Project Details</h2>
       <!---->
     </div>
-    <headeredinput-stub label="Project Name" placeholder="Enter Project Name" height="48px" width="100%" error="" maxsymbols="20" initvalue="" additionallabel="Up To 20 Characters" class="full-input"></headeredinput-stub>
-    <headeredinput-stub label="Description" placeholder="Enter Project Description" height="100px" width="100%" error="" maxsymbols="9007199254740991" initvalue="" additionallabel="Optional" ismultiline="true" class="full-input"></headeredinput-stub>
+    <headeredinput-stub label="Project Name" placeholder="Enter Project Name" height="48px" width="100%" error="" maxsymbols="20" initvalue="" additionallabel="Up To 20 Characters" currentlimit="0" islimitshown="true" class="full-input project-name-input"></headeredinput-stub>
+    <headeredinput-stub label="Description" placeholder="Enter Project Description" height="60px" width="calc(100% - 42px)" error="" maxsymbols="100" initvalue="" additionallabel="Optional" currentlimit="0" islimitshown="true" ismultiline="true" class="full-input"></headeredinput-stub>
     <!---->
   </div>
   <vbutton-stub label="Create Project" width="156px" height="48px" isdisabled="true" onpress="function () { [native code] }" class="create-project-button"></vbutton-stub>

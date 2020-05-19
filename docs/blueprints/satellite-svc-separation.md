@@ -66,8 +66,8 @@ Inspectors allow private diagnostics on certain systems. The following inspector
 #### kademlia
 Kademlia, discovery, bootstrap, and vouchers are being removed and not included in this doc. See [kademlia removal design doc](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md) for more details.
 
-#### GRPC endpoints
-The Satellite has the following GRPC endpoints:
+#### RPC endpoints
+The Satellite has the following RPC endpoints:
 - Public: metainfo, nodestats, orders, overlay (currently part of kademlia, but may be added here)
 - Private: inspectors
 
@@ -100,10 +100,10 @@ The plan is to break the Satellite into multiple processes. Each process runs in
 Currently there is only one Satellite process. We propose to add the following processes:
 
 #### satellite api
-The satellite api will handle all public GRPC and HTTP requests, this includes all public endpoints for nodestats, overlay, orders, metainfo, and console web UI. It will need all the code to successfully process these public requests, but no more than that. For example, if the console needs the mail service to successfully complete any request, then that code should be added, but make sure to only include the necessary parts. There shouldn't be any background jobs running here nor persistent state, meaning if there are no requests coming in, the satellite api should be idle.
+The satellite api will handle all public RPC and HTTP requests, this includes all public endpoints for nodestats, overlay, orders, metainfo, and console web UI. It will need all the code to successfully process these public requests, but no more than that. For example, if the console needs the mail service to successfully complete any request, then that code should be added, but make sure to only include the necessary parts. There shouldn't be any background jobs running here nor persistent state, meaning if there are no requests coming in, the satellite api should be idle.
 
 #### private api
-The private api process handles all private GRPC and HTTP requests, this includes inspectors (overlay, health, irreparable), debug endpoints, and the marketing web UI. Open question: do we need the inspectors, if not should they be removed?
+The private api process handles all private RPC and HTTP requests, this includes inspectors (overlay, health, irreparable), debug endpoints, and the marketing web UI. Open question: do we need the inspectors, if not should they be removed?
 
 #### metainfo loop and the observer system
 The metainfo loop process iterates over all the segments in metainfoDB repeatedly on an interval. With each loop, the process can also execute the code for the observer systems that take a segment as input and performs some action with it. The observer systems currently include: audit observer, gc observer, repair checker observer, and accounting tally.
@@ -158,7 +158,7 @@ For the metainfo loop and observer system its not critical to have high availabi
 
 #### satellite api
 
-For creating the satellite api, there are two options for design. One, a single process containing all public GRPC/HTTP endpoints **and** all code necessary to process any request to those endpoints. Or two, a single process that contains all public GRPC/HTTP endpoints but does **not** contain the code to process requests, instead the api would act as a proxy passing along requests to the correct backend services. Here we will do the first option since it is less complex and it fulfills our need to run replicas to handle lots of traffic. In the future we can migrate to option two should the additional complexity be needed to satisfy some other need.
+For creating the satellite api, there are two options for design. One, a single process containing all public RPC/HTTP endpoints **and** all code necessary to process any request to those endpoints. Or two, a single process that contains all public RPC/HTTP endpoints but does **not** contain the code to process requests, instead the api would act as a proxy passing along requests to the correct backend services. Here we will do the first option since it is less complex and it fulfills our need to run replicas to handle lots of traffic. In the future we can migrate to option two should the additional complexity be needed to satisfy some other need.
 
 #### version
 

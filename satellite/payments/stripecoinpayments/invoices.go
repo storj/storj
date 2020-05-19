@@ -33,14 +33,23 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 		Customer: &customerID,
 	}
 
-	invoicesIterator := invoices.service.stripeClient.Invoices.List(params)
+	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
 	for invoicesIterator.Next() {
 		stripeInvoice := invoicesIterator.Invoice()
+
+		total := stripeInvoice.Total
+		for _, line := range stripeInvoice.Lines.Data {
+			// If amount is negative, this is a coupon or a credit line item.
+			// Add them to the total.
+			if line.Amount < 0 {
+				total -= line.Amount
+			}
+		}
 
 		invoicesList = append(invoicesList, payments.Invoice{
 			ID:          stripeInvoice.ID,
 			Description: stripeInvoice.Description,
-			Amount:      stripeInvoice.Total,
+			Amount:      total,
 			Status:      string(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),

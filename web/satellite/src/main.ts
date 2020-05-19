@@ -79,7 +79,7 @@ Vue.filter('leadingZero', function (value: number): string {
  * centsToDollars is a Vue filter that converts amount of cents in dollars string.
  */
 Vue.filter('centsToDollars', (cents: number): string => {
-    return `USD $${(cents / 100).toFixed(2)}`;
+    return `$${(cents / 100).toFixed(2)}`;
 });
 
 new Vue({

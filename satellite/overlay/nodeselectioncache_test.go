@@ -19,12 +19,13 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-var nodeCfg = overlay.NodeSelectionConfig{
+var nodeSelectionConfig = overlay.NodeSelectionConfig{
 	AuditCount:       1,
 	UptimeCount:      1,
 	NewNodeFraction:  0.2,
@@ -51,7 +52,7 @@ func TestRefresh(t *testing.T) {
 		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
-			nodeCfg,
+			nodeSelectionConfig,
 		)
 		// the cache should have no nodes to start
 		err := cache.Refresh(ctx)
@@ -98,7 +99,7 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 				Release:    true,
 			},
 		}
-		err := db.UpdateCheckIn(ctx, n, time.Now().UTC(), nodeCfg)
+		err := db.UpdateCheckIn(ctx, n, time.Now().UTC(), nodeSelectionConfig)
 		require.NoError(t, err)
 
 		// make half of the nodes reputable
@@ -119,6 +120,8 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 type mockdb struct {
 	mu        sync.Mutex
 	callCount int
+	reputable []*overlay.SelectedNode
+	new       []*overlay.SelectedNode
 }
 
 func (m *mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
@@ -126,8 +129,19 @@ func (m *mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg o
 	defer m.mu.Unlock()
 	sync2.Sleep(ctx, 500*time.Millisecond)
 	m.callCount++
-	return []*overlay.SelectedNode{}, []*overlay.SelectedNode{}, nil
+
+	reputable = make([]*overlay.SelectedNode, len(m.reputable))
+	for i, n := range m.reputable {
+		reputable[i] = n.Clone()
+	}
+	new = make([]*overlay.SelectedNode, len(m.new))
+	for i, n := range m.new {
+		new[i] = n.Clone()
+	}
+
+	return reputable, new, nil
 }
+
 func TestRefreshConcurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -138,7 +152,7 @@ func TestRefreshConcurrent(t *testing.T) {
 	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
-		nodeCfg,
+		nodeSelectionConfig,
 	)
 
 	var group errgroup.Group
@@ -159,7 +173,7 @@ func TestRefreshConcurrent(t *testing.T) {
 	cache = overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
 		lowStaleness,
-		nodeCfg,
+		nodeSelectionConfig,
 	)
 	group.Go(func() error {
 		return cache.Refresh(ctx)
@@ -173,9 +187,9 @@ func TestRefreshConcurrent(t *testing.T) {
 	require.Equal(t, 2, mockDB.callCount)
 }
 
-func TestGetNode(t *testing.T) {
+func TestGetNodes(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		var nodeCfg = overlay.NodeSelectionConfig{
+		var nodeSelectionConfig = overlay.NodeSelectionConfig{
 			AuditCount:       0,
 			UptimeCount:      0,
 			NewNodeFraction:  0.2,
@@ -187,7 +201,7 @@ func TestGetNode(t *testing.T) {
 		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
-			nodeCfg,
+			nodeSelectionConfig,
 		)
 		// the cache should have no nodes to start
 		reputable, new := cache.Size()
@@ -214,26 +228,57 @@ func TestGetNode(t *testing.T) {
 		}
 	})
 }
-func TestGetNodeConcurrent(t *testing.T) {
+
+func TestGetNodesConcurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	reputableNodes := []*overlay.SelectedNode{{
+		ID:         storj.NodeID{1},
+		Address:    &pb.NodeAddress{Address: "127.0.0.9"},
+		LastNet:    "127.0.0",
+		LastIPPort: "127.0.0.9:8000",
+	}}
+	newNodes := []*overlay.SelectedNode{{
+		ID:         storj.NodeID{1},
+		Address:    &pb.NodeAddress{Address: "127.0.0.10"},
+		LastNet:    "127.0.0",
+		LastIPPort: "127.0.0.10:8000",
+	}}
+
 	// concurrent GetNodes with high staleness, where high staleness means the
 	// cache should only be refreshed the first time we call cache.GetNodes
-	mockDB := mockdb{}
+	mockDB := mockdb{
+		reputable: reputableNodes,
+		new:       newNodes,
+	}
 	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
-		nodeCfg,
+		nodeSelectionConfig,
 	)
 
 	var group errgroup.Group
 	group.Go(func() error {
-		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{})
+		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+			RequestedCount: 1,
+		})
+		for i := range nodes {
+			nodes[i].ID = storj.NodeID{byte(i)}
+			nodes[i].Address.Address = "123.123.123.123"
+		}
+		nodes[0] = nil
 		return err
 	})
 	group.Go(func() error {
-		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{})
+		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+			RequestedCount: 1,
+		})
+		for i := range nodes {
+			nodes[i].ID = storj.NodeID{byte(i)}
+			nodes[i].Address.Address = "123.123.123.123"
+		}
+		nodes[0] = nil
 		return err
 	})
 	err := group.Wait()
@@ -243,19 +288,36 @@ func TestGetNodeConcurrent(t *testing.T) {
 
 	// concurrent get nodes with low staleness, where low staleness means that
 	// the cache will refresh each time cache.GetNodes is called
-	mockDB = mockdb{}
+	mockDB = mockdb{
+		reputable: reputableNodes,
+		new:       newNodes,
+	}
 	cache = overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
 		lowStaleness,
-		nodeCfg,
+		nodeSelectionConfig,
 	)
 
 	group.Go(func() error {
-		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{})
+		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+			RequestedCount: 1,
+		})
+		for i := range nodes {
+			nodes[i].ID = storj.NodeID{byte(i)}
+			nodes[i].Address.Address = "123.123.123.123"
+		}
+		nodes[0] = nil
 		return err
 	})
 	group.Go(func() error {
-		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{})
+		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+			RequestedCount: 1,
+		})
+		for i := range nodes {
+			nodes[i].ID = storj.NodeID{byte(i)}
+			nodes[i].Address.Address = "123.123.123.123"
+		}
+		nodes[0] = nil
 		return err
 	})
 	err = group.Wait()
@@ -264,7 +326,101 @@ func TestGetNodeConcurrent(t *testing.T) {
 	require.Equal(t, 2, mockDB.callCount)
 }
 
-func TestGetNodeError(t *testing.T) {
+func TestGetNodesDistinct(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	reputableNodes := []*overlay.SelectedNode{{
+		ID:         testrand.NodeID(),
+		Address:    &pb.NodeAddress{Address: "127.0.0.9"},
+		LastNet:    "127.0.0",
+		LastIPPort: "127.0.0.9:8000",
+	}, {
+		ID:         testrand.NodeID(),
+		Address:    &pb.NodeAddress{Address: "127.0.0.6"},
+		LastNet:    "127.0.0",
+		LastIPPort: "127.0.0.6:8000",
+	}, {
+		ID:         testrand.NodeID(),
+		Address:    &pb.NodeAddress{Address: "127.0.1.7"},
+		LastNet:    "127.0.1",
+		LastIPPort: "127.0.1.7:8000",
+	}, {
+		ID:         testrand.NodeID(),
+		Address:    &pb.NodeAddress{Address: "127.0.2.7"},
+		LastNet:    "127.0.2",
+		LastIPPort: "127.0.2.7:8000",
+	}}
+
+	newNodes := []*overlay.SelectedNode{{
+		ID:         testrand.NodeID(),
+		Address:    &pb.NodeAddress{Address: "127.0.0.10"},
+		LastNet:    "127.0.0",
+		LastIPPort: "127.0.0.10:8000",
+	}, {
+		ID:         testrand.NodeID(),
+		Address:    &pb.NodeAddress{Address: "127.0.1.8"},
+		LastNet:    "127.0.1",
+		LastIPPort: "127.0.1.8:8000",
+	}, {
+		ID:         testrand.NodeID(),
+		Address:    &pb.NodeAddress{Address: "127.0.2.8"},
+		LastNet:    "127.0.2",
+		LastIPPort: "127.0.2.8:8000",
+	}}
+
+	mockDB := mockdb{
+		reputable: reputableNodes,
+		new:       newNodes,
+	}
+
+	{
+		// test that distinct ip doesn't return same last net
+		config := nodeSelectionConfig
+		config.NewNodeFraction = 0.5
+		config.DistinctIP = true
+		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+			&mockDB,
+			highStaleness,
+			config,
+		)
+
+		// selecting 3 should be possible
+		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+			RequestedCount: 3,
+		})
+		require.NoError(t, err)
+		seen := make(map[string]bool)
+		for _, n := range nodes {
+			require.False(t, seen[n.LastNet])
+			seen[n.LastNet] = true
+		}
+
+		// selecting 6 is impossible
+		_, err = cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+			RequestedCount: 6,
+		})
+		require.Error(t, err)
+	}
+
+	{ // test that distinctIP=true allows selecting 6 nodes
+		config := nodeSelectionConfig
+		config.NewNodeFraction = 0.5
+		config.DistinctIP = false
+		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+			&mockDB,
+			highStaleness,
+			config,
+		)
+
+		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+			RequestedCount: 6,
+		})
+		require.NoError(t, err)
+	}
+}
+
+func TestGetNodesError(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -272,7 +428,7 @@ func TestGetNodeError(t *testing.T) {
 	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
-		nodeCfg,
+		nodeSelectionConfig,
 	)
 
 	// there should be 0 nodes in the cache
@@ -289,7 +445,7 @@ func TestGetNodeError(t *testing.T) {
 func TestNewNodeFraction(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		newNodeFraction := 0.2
-		var nodeCfg = overlay.NodeSelectionConfig{
+		var nodeSelectionConfig = overlay.NodeSelectionConfig{
 			AuditCount:       1,
 			UptimeCount:      1,
 			NewNodeFraction:  newNodeFraction,
@@ -301,7 +457,7 @@ func TestNewNodeFraction(t *testing.T) {
 		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
-			nodeCfg,
+			nodeSelectionConfig,
 		)
 		// the cache should have no nodes to start
 		err := cache.Refresh(ctx)

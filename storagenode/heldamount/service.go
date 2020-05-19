@@ -68,7 +68,7 @@ func NewService(log *zap.Logger, db DB, dialer rpc.Dialer, trust *trust.Pool) *S
 	}
 }
 
-// GetPaystubStats retrieves held amount for particular satellite from satellite using grpc.
+// GetPaystubStats retrieves held amount for particular satellite from satellite using RPC.
 func (service *Service) GetPaystubStats(ctx context.Context, satelliteID storj.NodeID, period string) (_ *PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 

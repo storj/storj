@@ -32,15 +32,15 @@ type coupons struct {
 }
 
 // Insert inserts a coupon into the database.
-func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (err error) {
+func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (coup payments.Coupon, err error) {
 	defer mon.Task()(&ctx, coupon)(&err)
 
 	id, err := uuid.New()
 	if err != nil {
-		return err
+		return payments.Coupon{}, err
 	}
 
-	_, err = coupons.db.Create_Coupon(
+	cpx, err := coupons.db.Create_Coupon(
 		ctx,
 		dbx.Coupon_Id(id[:]),
 		dbx.Coupon_ProjectId(coupon.ProjectID[:]),
@@ -51,23 +51,27 @@ func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (err
 		dbx.Coupon_Status(int(coupon.Status)),
 		dbx.Coupon_Duration(int64(coupon.Duration)),
 	)
-
-	return err
+	if err != nil {
+		return payments.Coupon{}, err
+	}
+	return fromDBXCoupon(cpx)
 }
 
 // Update updates coupon in database.
-func (coupons *coupons) Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) (err error) {
+func (coupons *coupons) Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) (coup payments.Coupon, err error) {
 	defer mon.Task()(&ctx, couponID)(&err)
 
-	_, err = coupons.db.Update_Coupon_By_Id(
+	cpx, err := coupons.db.Update_Coupon_By_Id(
 		ctx,
 		dbx.Coupon_Id(couponID[:]),
 		dbx.Coupon_Update_Fields{
 			Status: dbx.Coupon_Status(int(status)),
 		},
 	)
-
-	return err
+	if err != nil {
+		return payments.Coupon{}, err
+	}
+	return fromDBXCoupon(cpx)
 }
 
 // Get returns coupon by ID.
@@ -276,14 +280,14 @@ func (coupons *coupons) GetLatest(ctx context.Context, couponID uuid.UUID) (_ ti
 }
 
 // ListUnapplied returns coupon usage page with unapplied coupon usages.
-func (coupons *coupons) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.CouponUsagePage, err error) {
-	defer mon.Task()(&ctx, offset, limit, before)(&err)
+func (coupons *coupons) ListUnapplied(ctx context.Context, offset int64, limit int, period time.Time) (_ stripecoinpayments.CouponUsagePage, err error) {
+	defer mon.Task()(&ctx, offset, limit, period)(&err)
 
 	var page stripecoinpayments.CouponUsagePage
 
-	dbxRecords, err := coupons.db.Limited_CouponUsage_By_Period_LessOrEqual_And_Status_Equal_Number_OrderBy_Desc_Period(
+	dbxRecords, err := coupons.db.Limited_CouponUsage_By_Period_And_Status_Equal_Number(
 		ctx,
-		dbx.CouponUsage_Period(before),
+		dbx.CouponUsage_Period(period),
 		limit+1,
 		offset,
 	)
@@ -371,7 +375,7 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []
 
 	return coupons.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for _, id := range ids {
-			err = coupons.Insert(ctx, payments.Coupon{
+			_, err = coupons.Insert(ctx, payments.Coupon{
 				UserID:      id.UserID,
 				ProjectID:   id.ProjectID,
 				Amount:      amount,

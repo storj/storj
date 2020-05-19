@@ -28,7 +28,7 @@ var (
 
 // Config is for referrals service.
 type Config struct {
-	ReferralManagerURL storj.NodeURL
+	ReferralManagerURL storj.NodeURL `help:"the URL for referral manager"`
 }
 
 // Service allows communicating with the Referral Manager

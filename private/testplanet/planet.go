@@ -21,6 +21,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/dbutil/pgutil"
@@ -226,6 +227,9 @@ func (planet *Planet) Start(ctx context.Context) {
 
 // StopPeer stops a single peer in the planet
 func (planet *Planet) StopPeer(peer Peer) error {
+	if peer == nil {
+		return errors.New("peer is nil")
+	}
 	for i := range planet.peers {
 		p := &planet.peers[i]
 		if p.peer == peer {
@@ -233,6 +237,33 @@ func (planet *Planet) StopPeer(peer Peer) error {
 		}
 	}
 	return errors.New("unknown peer")
+}
+
+// StopNodeAndUpdate stops storage node and updates satellite overlay.
+func (planet *Planet) StopNodeAndUpdate(ctx context.Context, node *StorageNode) error {
+	err := planet.StopPeer(node)
+	if err != nil {
+		return err
+	}
+
+	for _, satellite := range planet.Satellites {
+		err := satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+			NodeID:  node.ID(),
+			Address: &pb.NodeAddress{Address: node.Addr()},
+			IsUp:    true,
+			Version: &pb.NodeVersion{
+				Version:    "v0.0.0",
+				CommitHash: "",
+				Timestamp:  time.Time{},
+				Release:    false,
+			},
+		}, time.Now().Add(-4*time.Hour))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Size returns number of nodes in the network

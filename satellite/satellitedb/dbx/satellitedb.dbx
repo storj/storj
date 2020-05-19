@@ -284,16 +284,17 @@ read one (
 model project (
     key id
 
-    field id             blob
+    field id              blob
 
-    field name           text
-    field description    text      ( updatable )
-    field usage_limit    int64     ( updatable, default 0 )
-    field rate_limit     int       ( nullable, updatable )
-    field partner_id     blob      ( nullable  )
-    field owner_id       blob
+    field name            text
+    field description     text      ( updatable )
+    field usage_limit     int64     ( updatable, default 0 )
+    field bandwidth_limit int64     ( updatable, default 0 )
+    field rate_limit      int       ( nullable, updatable )
+    field partner_id      blob      ( nullable  )
+    field owner_id        blob
 
-    field created_at     timestamp ( autoinsert )
+    field created_at      timestamp ( autoinsert )
 )
 
 create project ( )
@@ -306,6 +307,10 @@ read one (
 )
 read one (
     select project.usage_limit
+    where  project.id = ?
+)
+read one (
+    select project.bandwidth_limit
     where  project.id = ?
 )
 read all (
@@ -1136,9 +1141,9 @@ read one (
 )
 read limitoffset (
     select stripecoinpayments_invoice_project_record
-    where stripecoinpayments_invoice_project_record.created_at <= ?
+    where stripecoinpayments_invoice_project_record.period_start = ?
+    where stripecoinpayments_invoice_project_record.period_end = ?
     where stripecoinpayments_invoice_project_record.state = ?
-    orderby desc stripecoinpayments_invoice_project_record.created_at
 )
 
 model stripecoinpayments_tx_conversion_rate (
@@ -1222,9 +1227,8 @@ model coupon_usage (
 create coupon_usage ()
 read limitoffset (
     select coupon_usage
-    where coupon_usage.period <= ?
+    where coupon_usage.period = ?
     where coupon_usage.status = 0
-    orderby desc coupon_usage.period
 )
 update coupon_usage (
     where coupon_usage.coupon_id = ?
@@ -1269,6 +1273,7 @@ model credits_spending (
 	field project_id blob
 	field amount     int64
 	field status     int   ( updatable )
+	field period     timestamp
 
 	field created_at timestamp ( autoinsert )
 )
@@ -1287,7 +1292,6 @@ read all (
 
 read limitoffset (
 	select credits_spending
-	where credits_spending.created_at <= ?
-	where credits_spending.status     =  ?
-	orderby desc credits_spending.created_at
+	where credits_spending.period = ?
+	where credits_spending.status = ?
 )

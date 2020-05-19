@@ -2,7 +2,7 @@
 
 exports[`AddPaymentStep.vue renders correctly 1`] = `
 <div class="payment-step">
-  <h1 class="payment-step__title">Get Started with 5 GB Free</h1>
+  <h1 class="payment-step__title">Get Started with 50 GB Free</h1>
   <p class="payment-step__sub-title">
     Adding a payment method ensures your project won’t be interrupted after your <b>free</b> credit is used.
   </p>
@@ -24,7 +24,7 @@ exports[`AddPaymentStep.vue renders correctly 1`] = `
 
 exports[`AddPaymentStep.vue renders correctly 2`] = `
 <div class="payment-step">
-  <h1 class="payment-step__title">Get Started with 5 GB Free</h1>
+  <h1 class="payment-step__title">Get Started with 50 GB Free</h1>
   <p class="payment-step__sub-title">
     Adding a payment method ensures your project won’t be interrupted after your <b>free</b> credit is used.
   </p>

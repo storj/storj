@@ -14,7 +14,7 @@ exports[`BillingItem renders correctly if charge 1`] = `
             </span></b>
     <!---->
   </p>
-  <p class="container__item download"><a class="download-link" target="_blank" href="test">PDF</a></p>
+  <p class="container__item download"><a class="download-link" target="_blank" href="test">Invoice PDF</a></p>
 </div>
 `;
 
@@ -32,7 +32,7 @@ exports[`BillingItem renders correctly if invoice 1`] = `
             </span></b>
     <!---->
   </p>
-  <p class="container__item download"><a class="download-link" target="_blank" href="test">PDF</a></p>
+  <p class="container__item download"><a class="download-link" target="_blank" href="test">Invoice PDF</a></p>
 </div>
 `;
 

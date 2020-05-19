@@ -23,8 +23,8 @@ type Accounts interface {
 	// If account is already set up it will return nil.
 	Setup(ctx context.Context, userID uuid.UUID, email string) error
 
-	// Balance returns an integer amount in cents that represents the current balance of payment account.
-	Balance(ctx context.Context, userID uuid.UUID) (int64, error)
+	// Balance returns an object that represents current free credits and coins balance in cents.
+	Balance(ctx context.Context, userID uuid.UUID) (Balance, error)
 
 	// ProjectCharges returns how much money current user will be charged for each project.
 	ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) ([]ProjectCharge, error)

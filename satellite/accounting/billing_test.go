@@ -13,15 +13,12 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
 
@@ -255,7 +252,8 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 
 		// Cause repair traffic
 		stoppedNodeID := ptr.GetRemote().GetRemotePieces()[0].NodeId
-		stopNodeByID(ctx, t, planet, stoppedNodeID)
+		err = planet.StopNodeAndUpdate(ctx, planet.FindNode(stoppedNodeID))
+		require.NoError(t, err)
 
 		runningNodes := make([]*testplanet.StorageNode, 0)
 		for _, node := range planet.StorageNodes {
@@ -482,32 +480,4 @@ func getProjectTotalFromStorageNodes(
 	require.NoError(t, err)
 
 	return usage
-}
-
-func stopNodeByID(ctx context.Context, t *testing.T, planet *testplanet.Planet, nodeID storj.NodeID) {
-	t.Helper()
-
-	for _, node := range planet.StorageNodes {
-		if node.ID() == nodeID {
-
-			err := planet.StopPeer(node)
-			require.NoError(t, err)
-			for _, satellite := range planet.Satellites {
-				err := satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
-					NodeID:  node.ID(),
-					Address: &pb.NodeAddress{Address: node.Addr()},
-					IsUp:    true,
-					Version: &pb.NodeVersion{
-						Version:    "v0.0.0",
-						CommitHash: "",
-						Timestamp:  time.Time{},
-						Release:    false,
-					},
-				}, time.Now().Add(-4*time.Hour))
-				require.NoError(t, err)
-			}
-
-			break
-		}
-	}
 }

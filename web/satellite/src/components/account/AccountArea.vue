@@ -34,25 +34,7 @@ export default class AccountArea extends Vue {}
     }
 
     .account-area-container {
-        padding: 0 65px;
+        padding: 0 30px;
         height: auto;
-
-        &__navigation {
-            position: absolute;
-            right: 55px;
-            z-index: 99;
-            background-color: #f5f6fa;
-        }
-    }
-
-    @media screen and (max-width: 1024px) {
-
-        .account-area-container {
-            padding: 44px 40px 55px 40px;
-
-            &__navigation {
-                right: 40px;
-            }
-        }
     }
 </style>

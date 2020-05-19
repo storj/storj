@@ -19,9 +19,9 @@ import (
 // architecture: Database
 type CouponsDB interface {
 	// Insert inserts a coupon into the database.
-	Insert(ctx context.Context, coupon payments.Coupon) error
+	Insert(ctx context.Context, coupon payments.Coupon) (payments.Coupon, error)
 	// Update updates coupon in database.
-	Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) error
+	Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) (payments.Coupon, error)
 	// Get returns coupon by ID.
 	Get(ctx context.Context, couponID uuid.UUID) (payments.Coupon, error)
 	// List returns all coupons with specified status.
@@ -42,7 +42,7 @@ type CouponsDB interface {
 	// GetLatest return period_end of latest coupon charge.
 	GetLatest(ctx context.Context, couponID uuid.UUID) (time.Time, error)
 	// ListUnapplied returns coupon usage page with unapplied coupon usages.
-	ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (CouponUsagePage, error)
+	ListUnapplied(ctx context.Context, offset int64, limit int, period time.Time) (CouponUsagePage, error)
 	// ApplyUsage applies coupon usage and updates its status.
 	ApplyUsage(ctx context.Context, couponID uuid.UUID, period time.Time) error
 
@@ -89,10 +89,12 @@ type coupons struct {
 }
 
 // Create attaches a coupon for payment account.
-func (coupons *coupons) Create(ctx context.Context, coupon payments.Coupon) (err error) {
+func (coupons *coupons) Create(ctx context.Context, coupon payments.Coupon) (coup payments.Coupon, err error) {
 	defer mon.Task()(&ctx, coupon)(&err)
 
-	return Error.Wrap(coupons.service.db.Coupons().Insert(ctx, coupon))
+	coup, err = coupons.service.db.Coupons().Insert(ctx, coupon)
+
+	return coup, Error.Wrap(err)
 }
 
 // ListByUserID return list of all coupons of specified payment account.
@@ -126,7 +128,7 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration
 			Customer: stripe.String(cus.ID),
 		}
 
-		paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods.List(params)
+		paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods().List(params)
 		for paymentMethodsIterator.Next() {
 			// if user has at least 1 payment method - break a loop.
 			usersIDs = append(usersIDs, cus.UserID)
@@ -164,7 +166,7 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration
 				Customer: stripe.String(cus.ID),
 			}
 
-			paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods.List(params)
+			paymentMethodsIterator := coupons.service.stripeClient.PaymentMethods().List(params)
 			for paymentMethodsIterator.Next() {
 				usersIDs = append(usersIDs, cus.UserID)
 				break

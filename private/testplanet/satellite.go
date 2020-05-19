@@ -53,6 +53,8 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
@@ -396,6 +398,16 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				IrreparableInterval:       defaultInterval,
 				ReliabilityCacheStaleness: 1 * time.Minute,
 			},
+			Payments: paymentsconfig.Config{
+				StorageTBPrice: "10",
+				EgressTBPrice:  "45",
+				ObjectPrice:    "0.0000022",
+				StripeCoinPayments: stripecoinpayments.Config{
+					TransactionUpdateInterval:    defaultInterval,
+					AccountBalanceUpdateInterval: defaultInterval,
+					ConversionRatesCycleInterval: defaultInterval,
+				},
+			},
 			Repairer: repairer.Config{
 				MaxRepair:                     10,
 				Interval:                      defaultInterval,
@@ -435,9 +447,10 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				Interval: defaultInterval,
 			},
 			Rollup: rollup.Config{
-				Interval:      defaultInterval,
-				MaxAlphaUsage: 25 * memory.GB,
-				DeleteTallies: false,
+				Interval:            defaultInterval,
+				DefaultMaxUsage:     25 * memory.GB,
+				DefaultMaxBandwidth: 25 * memory.GB,
+				DeleteTallies:       false,
 			},
 			ReportedRollup: reportedrollup.Config{
 				Interval: defaultInterval,
@@ -523,7 +536,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 		rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 		planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, versionInfo, &config)
+		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, versionInfo, &config, nil)
 		if err != nil {
 			return xs, err
 		}
@@ -657,7 +670,7 @@ func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db sate
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo)
+	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
 }
 
 func (planet *Planet) newAdmin(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
@@ -671,7 +684,7 @@ func (planet *Planet) newAdmin(count int, identity *identity.FullIdentity, db sa
 	}
 	planet.databases = append(planet.databases, revocationDB)
 
-	return satellite.NewAdmin(log, identity, db, pointerDB, revocationDB, versionInfo, &config)
+	return satellite.NewAdmin(log, identity, db, pointerDB, revocationDB, versionInfo, &config, nil)
 }
 
 func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
@@ -687,7 +700,7 @@ func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), rollupsWriteCache, db.Irreparable(), versionInfo, &config)
+	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), rollupsWriteCache, db.Irreparable(), versionInfo, &config, nil)
 }
 
 type rollupsWriteCacheCloser struct {
@@ -707,5 +720,5 @@ func (planet *Planet) newGarbageCollection(count int, identity *identity.FullIde
 		return nil, errs.Wrap(err)
 	}
 	planet.databases = append(planet.databases, revocationDB)
-	return satellite.NewGarbageCollection(log, identity, db, pointerDB, revocationDB, versionInfo, &config)
+	return satellite.NewGarbageCollection(log, identity, db, pointerDB, revocationDB, versionInfo, &config, nil)
 }

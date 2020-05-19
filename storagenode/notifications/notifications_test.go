@@ -56,6 +56,8 @@ func TestNotificationsDB(t *testing.T) {
 		assert.Equal(t, expectedNotification0.Type, notificationFromDB0.Type)
 		assert.Equal(t, expectedNotification0.Title, notificationFromDB0.Title)
 		assert.Equal(t, expectedNotification0.Message, notificationFromDB0.Message)
+		// Ensure that every insert gets a different "created at" time.
+		waitForTimeToChange()
 
 		notificationFromDB1, err := notificationsdb.Insert(ctx, expectedNotification1)
 		assert.NoError(t, err)
@@ -63,6 +65,7 @@ func TestNotificationsDB(t *testing.T) {
 		assert.Equal(t, expectedNotification1.Type, notificationFromDB1.Type)
 		assert.Equal(t, expectedNotification1.Title, notificationFromDB1.Title)
 		assert.Equal(t, expectedNotification1.Message, notificationFromDB1.Message)
+		waitForTimeToChange()
 
 		notificationFromDB2, err := notificationsdb.Insert(ctx, expectedNotification2)
 		assert.NoError(t, err)
@@ -158,4 +161,11 @@ func TestEmptyNotificationsDB(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	})
+}
+
+func waitForTimeToChange() {
+	t := time.Now()
+	for time.Since(t) == 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
 }

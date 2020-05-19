@@ -90,6 +90,7 @@ CREATE TABLE credits_spendings (
 	project_id bytea NOT NULL,
 	amount bigint NOT NULL,
 	status integer NOT NULL,
+	period timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -225,6 +226,7 @@ CREATE TABLE projects (
 	name text NOT NULL,
 	description text NOT NULL,
 	usage_limit bigint NOT NULL DEFAULT 0,
+	bandwidth_limit bigint NOT NULL DEFAULT 0,
 	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,

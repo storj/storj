@@ -379,7 +379,7 @@ export default class ApiKeysArea extends Vue {
 <style scoped lang="scss">
     .api-keys-area {
         position: relative;
-        padding: 40px 65px 55px 65px;
+        padding: 40px 30px 55px 30px;
         font-family: 'font_regular', sans-serif;
 
         &__title {
@@ -517,12 +517,5 @@ export default class ApiKeysArea extends Vue {
     ::-webkit-scrollbar-track,
     ::-webkit-scrollbar-thumb {
         width: 0;
-    }
-
-    @media screen and (max-width: 1024px) {
-
-        .api-keys-area {
-            padding: 40px 40px 55px 40px;
-        }
     }
 </style>

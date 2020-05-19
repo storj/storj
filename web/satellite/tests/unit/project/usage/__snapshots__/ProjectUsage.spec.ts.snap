@@ -2,14 +2,7 @@
 
 exports[`ProjectUsage.vue renders correctly 1`] = `
 <div class="project-usage">
-  <div class="project-usage__title-area">
-    <h1 class="project-usage__title-area__title">Project Usage</h1> <a href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212" target="_blank" class="project-usage__title-area__link">
-      Request Limit Increase -&gt;
-    </a>
-  </div>
-  <div class="project-usage__usage-area">
-    <usagearea-stub title="Storage" used="100" limit="1000" class="project-usage__usage-area__storage-used"></usagearea-stub>
-    <usagearea-stub title="Bandwidth" used="100" limit="1000" class="project-usage__usage-area__bandwidth-used"></usagearea-stub>
-  </div>
+  <usagearea-stub title="Storage" used="100" limit="1000" class="project-usage__storage-used"></usagearea-stub>
+  <usagearea-stub title="Bandwidth" used="100" limit="1000" class="project-usage__bandwidth-used"></usagearea-stub>
 </div>
 `;

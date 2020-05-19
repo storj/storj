@@ -6,8 +6,10 @@ package orders
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"math"
-	"math/rand"
+	mathrand "math/rand"
 	"sync"
 	"time"
 
@@ -48,7 +50,7 @@ type Service struct {
 	repairMaxExcessRateOptimalThreshold float64
 	nodeStatusLogging                   bool
 	rngMu                               sync.Mutex
-	rng                                 *rand.Rand
+	rng                                 *mathrand.Rand
 }
 
 // NewService creates new service for creating order limits.
@@ -66,7 +68,7 @@ func NewService(
 		orderExpiration:                     orderExpiration,
 		repairMaxExcessRateOptimalThreshold: repairMaxExcessRateOptimalThreshold,
 		nodeStatusLogging:                   nodeStatusLogging,
-		rng:                                 rand.New(rand.NewSource(time.Now().UnixNano())),
+		rng:                                 mathrand.New(mathrand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -76,13 +78,18 @@ func (service *Service) VerifyOrderLimitSignature(ctx context.Context, signed *p
 	return signing.VerifyOrderLimitSignature(ctx, service.satellite, signed)
 }
 
-func (service *Service) createSerial(ctx context.Context) (_ storj.SerialNumber, err error) {
+func (service *Service) createSerial(ctx context.Context, orderExpiration time.Time) (_ storj.SerialNumber, err error) {
 	defer mon.Task()(&ctx)(&err)
-	id, err := uuid.New()
+
+	var serial storj.SerialNumber
+
+	binary.BigEndian.PutUint64(serial[0:8], uint64(orderExpiration.Unix()))
+	_, err = rand.Read(serial[8:])
 	if err != nil {
 		return storj.SerialNumber{}, Error.Wrap(err)
 	}
-	return storj.SerialNumber(id), nil
+
+	return serial, nil
 }
 
 func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, expiresAt time.Time) (err error) {
@@ -132,7 +139,7 @@ func (service *Service) CreateGetOrderLimitsOld(ctx context.Context, bucketID []
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	serialNumber, err := service.createSerial(ctx)
+	serialNumber, err := service.createSerial(ctx, orderExpiration)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -226,7 +233,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	serialNumber, err := service.createSerial(ctx)
+	serialNumber, err := service.createSerial(ctx, orderExpiration)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -358,7 +365,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byt
 		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	serialNumber, err := service.createSerial(ctx)
+	serialNumber, err := service.createSerial(ctx, orderExpiration)
 	if err != nil {
 		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -425,7 +432,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	serialNumber, err := service.createSerial(ctx)
+	serialNumber, err := service.createSerial(ctx, orderExpiration)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -506,7 +513,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	serialNumber, err := service.createSerial(ctx)
+	serialNumber, err := service.createSerial(ctx, orderExpiration)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -593,7 +600,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	serialNumber, err := service.createSerial(ctx)
+	serialNumber, err := service.createSerial(ctx, orderExpiration)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -673,7 +680,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	serialNumber, err := service.createSerial(ctx)
+	serialNumber, err := service.createSerial(ctx, orderExpiration)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -754,7 +761,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	serialNumber, err := service.createSerial(ctx)
+	serialNumber, err := service.createSerial(ctx, orderExpiration)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -857,7 +864,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	serialNumber, err := service.createSerial(ctx)
+	serialNumber, err := service.createSerial(ctx, orderExpiration)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
