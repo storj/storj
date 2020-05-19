@@ -19,7 +19,7 @@ func TestDetectionChore(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
-		nodeDossier := planet.StorageNodes[0].Local()
+		nodeDossier := planet.StorageNodes[0].Contact.Service.Local()
 		satellite := planet.Satellites[0]
 
 		node.Contact.Chore.Pause(ctx)

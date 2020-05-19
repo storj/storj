@@ -34,7 +34,7 @@ func TestBasic(t *testing.T) {
 
 			for _, sat := range planet.Satellites {
 				for _, sn := range planet.StorageNodes {
-					node := sn.Local()
+					node := sn.Contact.Service.Local()
 					conn, err := sn.Dialer.DialNodeURL(ctx, sat.NodeURL())
 
 					require.NoError(t, err)

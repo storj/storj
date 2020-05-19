@@ -659,7 +659,7 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 }
 
 func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *testplanet.StorageNode, isUp bool, timestamp time.Time) error {
-	local := node.Local()
+	local := node.Contact.Service.Local()
 	checkInInfo := overlay.NodeCheckInInfo{
 		NodeID:     node.ID(),
 		Address:    local.Address,

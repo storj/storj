@@ -21,7 +21,7 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		nodeDossier := planet.StorageNodes[0].Local()
+		nodeDossier := planet.StorageNodes[0].Contact.Service.Local()
 		ident := planet.StorageNodes[0].Identity
 
 		peer := rpcpeer.Peer{

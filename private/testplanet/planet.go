@@ -38,7 +38,6 @@ type Peer interface {
 	Addr() string
 	URL() string
 	NodeURL() storj.NodeURL
-	Local() overlay.NodeDossier
 
 	Run(context.Context) error
 	Close() error

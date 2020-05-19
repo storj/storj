@@ -46,7 +46,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 
 		node0 := planet.StorageNodes[0]
 		node0.Contact.Chore.Pause(ctx)
-		nodeDossier := node0.Local()
+		nodeDossier := node0.Contact.Service.Local()
 		ident := node0.Identity
 		peer := rpcpeer.Peer{
 			Addr: &net.TCPAddr{
@@ -308,7 +308,7 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 	satellite := planet.Satellites[0]
 	// ensure all storagenodes are in overlay
 	for _, storageNode := range planet.StorageNodes {
-		n := storageNode.Local()
+		n := storageNode.Contact.Service.Local()
 		d := overlay.NodeCheckInInfo{
 			NodeID:     storageNode.ID(),
 			Address:    n.Address,
