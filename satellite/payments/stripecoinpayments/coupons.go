@@ -19,9 +19,9 @@ import (
 // architecture: Database
 type CouponsDB interface {
 	// Insert inserts a coupon into the database.
-	Insert(ctx context.Context, coupon payments.Coupon) error
+	Insert(ctx context.Context, coupon payments.Coupon) (payments.Coupon, error)
 	// Update updates coupon in database.
-	Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) error
+	Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) (payments.Coupon, error)
 	// Get returns coupon by ID.
 	Get(ctx context.Context, couponID uuid.UUID) (payments.Coupon, error)
 	// List returns all coupons with specified status.
@@ -89,10 +89,12 @@ type coupons struct {
 }
 
 // Create attaches a coupon for payment account.
-func (coupons *coupons) Create(ctx context.Context, coupon payments.Coupon) (err error) {
+func (coupons *coupons) Create(ctx context.Context, coupon payments.Coupon) (coup payments.Coupon, err error) {
 	defer mon.Task()(&ctx, coupon)(&err)
 
-	return Error.Wrap(coupons.service.db.Coupons().Insert(ctx, coupon))
+	coup, err = coupons.service.db.Coupons().Insert(ctx, coupon)
+
+	return coup, Error.Wrap(err)
 }
 
 // ListByUserID return list of all coupons of specified payment account.

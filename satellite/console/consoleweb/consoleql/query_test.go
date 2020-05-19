@@ -22,7 +22,8 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments/mockpayments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage/redis/redisserver"
@@ -51,6 +52,30 @@ func TestGraphqlQuery(t *testing.T) {
 
 		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, 0, 0)
 
+		// TODO maybe switch this test to testplanet to avoid defining config and Stripe service
+		pc := paymentsconfig.Config{
+			StorageTBPrice: "10",
+			EgressTBPrice:  "45",
+			ObjectPrice:    "0.0000022",
+		}
+
+		paymentsService, err := stripecoinpayments.NewService(
+			log.Named("payments.stripe:service"),
+			stripecoinpayments.NewStripeMock(),
+			pc.StripeCoinPayments,
+			db.StripeCoinPayments(),
+			db.Console().Projects(),
+			db.ProjectAccounting(),
+			pc.StorageTBPrice,
+			pc.EgressTBPrice,
+			pc.ObjectPrice,
+			pc.BonusRate,
+			pc.CouponValue,
+			pc.CouponDuration,
+			pc.CouponProjectLimit,
+			pc.MinCoinPayment)
+		require.NoError(t, err)
+
 		service, err := console.NewService(
 			log.Named("console"),
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
@@ -59,7 +84,7 @@ func TestGraphqlQuery(t *testing.T) {
 			projectUsage,
 			db.Rewards(),
 			partnersService,
-			mockpayments.Accounts(),
+			paymentsService.Accounts(),
 			console.Config{PasswordCost: console.TestPasswordCost},
 			5000,
 		)
@@ -98,6 +123,9 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, refUserID)
+		require.NoError(t, err)
+
+		err = paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {

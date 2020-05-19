@@ -573,12 +573,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		require.Equal(t, len(n), len(n1))
 		n2, err = satellite.Overlay.Service.SelectionCache.GetNodes(ctx, req)
 		require.Error(t, err)
-		// GetNodes returns 1 more node than FindStorageNodesWithPreferences because of the way the queries are...
-		// FindStorageNodesWithPreferences gets the IPs for the excludedNodeIDs and excludes all those IPs from the selection
-		// (which results in filtering out any node on the same network as a excludedNodeID),
-		// but the selection cache only filters IPs at time of selection which makes it so that it can include a node that shares a network
-		// with an exclueded ID
-		require.Equal(t, len(n1)+1, len(n2))
+		require.Equal(t, len(n1), len(n2))
 	})
 }
 

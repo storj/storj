@@ -47,7 +47,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -131,6 +130,7 @@ type API struct {
 	Payments struct {
 		Accounts payments.Accounts
 		Version  *stripecoinpayments.VersionService
+		Service  *stripecoinpayments.Service
 	}
 
 	Referrals struct {
@@ -524,44 +524,45 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup payments
 		pc := config.Payments
 
+		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
 		default:
-			peer.Payments.Accounts = mockpayments.Accounts()
+			stripeClient = stripecoinpayments.NewStripeMock()
 		case "stripecoinpayments":
-			stripeClient := stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
-
-			service, err := stripecoinpayments.NewService(
-				peer.Log.Named("payments.stripe:service"),
-				stripeClient,
-				pc.StripeCoinPayments,
-				peer.DB.StripeCoinPayments(),
-				peer.DB.Console().Projects(),
-				peer.DB.ProjectAccounting(),
-				pc.StorageTBPrice,
-				pc.EgressTBPrice,
-				pc.ObjectPrice,
-				pc.BonusRate,
-				pc.CouponValue,
-				pc.CouponDuration,
-				pc.CouponProjectLimit,
-				pc.MinCoinPayment)
-
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			peer.Payments.Accounts = service.Accounts()
-			peer.Payments.Version = stripecoinpayments.NewVersionService(
-				peer.Log.Named("payments.stripe:version"),
-				service,
-				pc.StripeCoinPayments.ConversionRatesCycleInterval)
-
-			peer.Services.Add(lifecycle.Item{
-				Name:  "payments.stripe:version",
-				Run:   peer.Payments.Version.Run,
-				Close: peer.Payments.Version.Close,
-			})
+			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
+
+		peer.Payments.Service, err = stripecoinpayments.NewService(
+			peer.Log.Named("payments.stripe:service"),
+			stripeClient,
+			pc.StripeCoinPayments,
+			peer.DB.StripeCoinPayments(),
+			peer.DB.Console().Projects(),
+			peer.DB.ProjectAccounting(),
+			pc.StorageTBPrice,
+			pc.EgressTBPrice,
+			pc.ObjectPrice,
+			pc.BonusRate,
+			pc.CouponValue,
+			pc.CouponDuration,
+			pc.CouponProjectLimit,
+			pc.MinCoinPayment)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Payments.Accounts = peer.Payments.Service.Accounts()
+		peer.Payments.Version = stripecoinpayments.NewVersionService(
+			peer.Log.Named("payments.stripe:version"),
+			peer.Payments.Service,
+			pc.StripeCoinPayments.ConversionRatesCycleInterval)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "payments.stripe:version",
+			Run:   peer.Payments.Version.Run,
+			Close: peer.Payments.Version.Close,
+		})
 	}
 
 	{ // setup console

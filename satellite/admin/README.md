@@ -50,11 +50,23 @@ A successful response:
             "description": "Project to store data.",
             "ownerId": "12345678-1234-1234-1234-123456789abc"
         }
+    ],
+    "coupons": [
+        {
+            "id":          "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89",
+            "userId":      "12345678-1234-1234-1234-123456789abc",
+            "duration":    2,
+            "amount":      3000,
+            "description": "promotional coupon (valid for 2 billing cycles)",
+            "type":        0, 
+            "status":      0,
+            "created":     "2020-05-19T00:34:13.265761+02:00"
+        }
     ]
 }
 ```
 
-## POST /api/user/{useremail}/coupon
+## POST /api/coupon
 
 Adds a coupon for specific user.
 
@@ -62,40 +74,46 @@ A successful request:
 
 ```json
 {
-    "userid": "12345678-1234-1234-1234-123456789abc",
-    "duration": 2,
-    "amount": 3000,
+    "userId":      "12345678-1234-1234-1234-123456789abc",
+    "duration":    2,
+    "amount":      3000,
     "description": "promotional coupon (valid for 2 billing cycles)"
 }
 ```
 
-A successful response (which lists all coupons for the given user):
+A successful response:
 ```json
 {
-    "coupons": [{"id": "12345678-1234-1234-1234-123456789abc"}]
+    "id": "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89"
 }
 ```
 
-## GET /api/user/{useremail}/coupon
+## GET /api/coupon/{coupon-id}
 
-Gets all coupons for specific user.
+Gets a coupon with the specified id.
 
 A successful request:
-
 ```json
 {
-    "userid": "12345678-1234-1234-1234-123456789abc"
+    "id": "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89"
 }
 ```
 
-A successful response (which lists all coupons for the given user):
+A successful response:
 ```json
 {
-    "coupons": [{"id": "12345678-1234-1234-1234-123456789abc"}]
+    "id":          "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89",
+    "userId":      "12345678-1234-1234-1234-123456789abc",
+    "duration":    2,
+    "amount":      3000,
+    "description": "promotional coupon (valid for 2 billing cycles)",
+    "type":        0, 
+    "status":      0,
+    "created":     "2020-05-19T00:34:13.265761+02:00"
 }
 ```
 
-## GET /api/project/{projectid}/limit
+## GET /api/project/{project-id}/limit
 
 This endpoint returns information about project limits.
 

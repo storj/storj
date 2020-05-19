@@ -36,12 +36,11 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Email == "" {
+	switch {
+	case input.Email == "":
 		http.Error(w, "Email is not set", http.StatusBadRequest)
 		return
-	}
-
-	if input.Password == "" {
+	case input.Password == "":
 		http.Error(w, "Password is not set", http.StatusBadRequest)
 		return
 	}
@@ -127,6 +126,12 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	coupons, err := server.db.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get user coupons %q: %v", userEmail, err), http.StatusInternalServerError)
+		return
+	}
+
 	type User struct {
 		ID       uuid.UUID `json:"id"`
 		FullName string    `json:"fullName"`
@@ -140,8 +145,9 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var output struct {
-		User     User      `json:"user"`
-		Projects []Project `json:"projects"`
+		User     User              `json:"user"`
+		Projects []Project         `json:"projects"`
+		Coupons  []payments.Coupon `json:"coupons"`
 	}
 
 	output.User = User{
@@ -157,6 +163,7 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 			OwnerID:     p.OwnerID,
 		})
 	}
+	output.Coupons = coupons
 
 	data, err := json.Marshal(output)
 	if err != nil {
@@ -184,39 +191,28 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 		Description string    `json:"description"`
 	}
 
-	var output struct {
-		Coupons []payments.Coupon `json:"coupons"`
-	}
-
 	err = json.Unmarshal(body, &input)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to unmarshal request: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	if input.Duration == 0 {
+	switch {
+	case input.Duration == 0:
 		http.Error(w, "Duration is not set", http.StatusBadRequest)
 		return
-	}
-
-	if input.Amount == 0 {
+	case input.Amount == 0:
 		http.Error(w, "Amount is not set", http.StatusBadRequest)
 		return
-	}
-
-	if input.UserID.IsZero() {
+	case input.Description == "":
+		http.Error(w, "Description is not set", http.StatusBadRequest)
+		return
+	case input.UserID.IsZero():
 		http.Error(w, "UserID is not set", http.StatusBadRequest)
 		return
 	}
 
-	couponID, err := uuid.New()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to insert coupon: %v", err), http.StatusInternalServerError)
-	}
-
-	// do not change the project limit
-	err = server.db.StripeCoinPayments().Coupons().Insert(ctx, payments.Coupon{
-		ID:          couponID,
+	coupon, err := server.db.StripeCoinPayments().Coupons().Insert(ctx, payments.Coupon{
 		UserID:      input.UserID,
 		Amount:      input.Amount,
 		Duration:    input.Duration,
@@ -227,13 +223,8 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	coupons, err := server.db.StripeCoinPayments().Coupons().ListByUserID(ctx, input.UserID)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get coupons: %v", err), http.StatusInternalServerError)
-	}
-	output.Coupons = coupons
+	data, err := json.Marshal(coupon.ID)
 
-	data, err := json.Marshal(output)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
 		return
@@ -243,41 +234,33 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
 }
 
-func (server *Server) listCoupons(w http.ResponseWriter, r *http.Request) {
+func (server *Server) couponInfo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to read body: %v", err), http.StatusInternalServerError)
+	vars := mux.Vars(r)
+	id, ok := vars["couponid"]
+	if !ok {
+		http.Error(w, "couponId missing", http.StatusBadRequest)
 		return
 	}
 
-	var input struct {
-		UserID uuid.UUID `json:"userid"`
-	}
-
-	var output struct {
-		Coupons []payments.Coupon `json:"coupons"`
-	}
-
-	err = json.Unmarshal(body, &input)
+	couponID, err := uuid.FromString(id)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to unmarshal request: %v", err), http.StatusBadRequest)
+		http.Error(w, "invalid couponId", http.StatusBadRequest)
+	}
+
+	coupon, err := server.db.StripeCoinPayments().Coupons().Get(ctx, couponID)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, fmt.Sprintf("coupon with id %q not found", couponID), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get coupon %q: %v", couponID, err), http.StatusInternalServerError)
 		return
 	}
 
-	if input.UserID.IsZero() {
-		http.Error(w, "UserID is not set", http.StatusBadRequest)
-		return
-	}
+	data, err := json.Marshal(coupon)
 
-	coupons, err := server.db.StripeCoinPayments().Coupons().ListByUserID(ctx, input.UserID)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get coupons: %v", err), http.StatusInternalServerError)
-	}
-	output.Coupons = coupons
-
-	data, err := json.Marshal(output)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
 		return
@@ -338,7 +321,7 @@ func (server *Server) addCredits(w http.ResponseWriter, r *http.Request) {
 	output.Credits = credits
 
 	data, err := json.Marshal(output)
-	if err != nil {
+  if err != nil {
 		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
 		return
 	}
