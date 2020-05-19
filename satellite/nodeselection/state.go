@@ -53,7 +53,7 @@ type Selector interface {
 }
 
 // NewState returns a state based on the input.
-func NewState(newNodes, reputableNodes []*Node) *State {
+func NewState(reputableNodes, newNodes []*Node) *State {
 	state := &State{}
 
 	state.netByID = map[storj.NodeID]string{}
