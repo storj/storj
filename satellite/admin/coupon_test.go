@@ -18,7 +18,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -130,30 +129,32 @@ func TestCouponDelete(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-		projectID := planet.Uplinks[0].Projects[0].ID
-
-		apikeys, err := planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
-			Page:   1,
-			Limit:  2,
-			Search: "",
-		})
+		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
 		require.NoError(t, err)
-		require.Len(t, apikeys.APIKeys, 1)
 
-		// the deletion with an existing API key should fail
-		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s", projectID), nil)
+		var id uuid.UUID
+
+		body := strings.NewReader(fmt.Sprintf(`{"userId": "%s", "duration": 2, "amount": 3000, "description": "testcoupon-alice"}`, user.ID))
+		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/coupon", body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "very-secret-token")
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
-		require.NoError(t, response.Body.Close())
-		require.Equal(t, http.StatusConflict, response.StatusCode)
+		require.Equal(t, http.StatusOK, response.StatusCode)
 
-		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apikeys.APIKeys[0].ID)
+		responseBody, err := ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.NoError(t, response.Body.Close())
+
+		err = json.Unmarshal(responseBody, &id)
 		require.NoError(t, err)
 
-		req, err = http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s", projectID), nil)
+		coupons, err := planet.Satellites[0].DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, coupons, 1)
+
+		req, err = http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/coupon/%s", id), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "very-secret-token")
 
@@ -162,8 +163,8 @@ func TestCouponDelete(t *testing.T) {
 		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusOK, response.StatusCode)
 
-		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
-		require.Error(t, err)
-		require.Nil(t, project)
+		coupons, err = planet.Satellites[0].DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, coupons, 0)
 	})
 }

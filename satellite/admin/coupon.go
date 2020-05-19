@@ -108,3 +108,26 @@ func (server *Server) couponInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
 }
+
+func (server *Server) deleteCoupon(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	UUIDString, ok := vars["couponid"]
+	if !ok {
+		http.Error(w, "couponid missing", http.StatusBadRequest)
+		return
+	}
+
+	couponID, err := uuid.FromString(UUIDString)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid couponid: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	err = server.db.StripeCoinPayments().Coupons().Delete(ctx, couponID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to delete coupon: %v", err), http.StatusInternalServerError)
+		return
+	}
+}

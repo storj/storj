@@ -32,7 +32,7 @@ type coupons struct {
 }
 
 // Insert inserts a coupon into the database.
-func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (coup payments.Coupon, err error) {
+func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (_ payments.Coupon, err error) {
 	defer mon.Task()(&ctx, coupon)(&err)
 
 	id, err := uuid.New()
@@ -58,7 +58,7 @@ func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (cou
 }
 
 // Update updates coupon in database.
-func (coupons *coupons) Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) (coup payments.Coupon, err error) {
+func (coupons *coupons) Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) (_ payments.Coupon, err error) {
 	defer mon.Task()(&ctx, couponID)(&err)
 
 	cpx, err := coupons.db.Update_Coupon_By_Id(
@@ -84,6 +84,14 @@ func (coupons *coupons) Get(ctx context.Context, couponID uuid.UUID) (_ payments
 	}
 
 	return fromDBXCoupon(dbxCoupon)
+}
+
+// Get returns coupon by ID.
+func (coupons *coupons) Delete(ctx context.Context, couponID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx, couponID)(&err)
+	//TODO: Do we need to handle the bool?
+	_, err = coupons.db.Delete_Coupon_By_Id(ctx, dbx.Coupon_Id(couponID[:]))
+	return err
 }
 
 // List returns all coupons of specified user.

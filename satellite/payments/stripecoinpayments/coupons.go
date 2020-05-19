@@ -24,6 +24,8 @@ type CouponsDB interface {
 	Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) (payments.Coupon, error)
 	// Get returns coupon by ID.
 	Get(ctx context.Context, couponID uuid.UUID) (payments.Coupon, error)
+	// Delete removes a coupon from the database
+	Delete(ctx context.Context, couponID uuid.UUID) error
 	// List returns all coupons with specified status.
 	List(ctx context.Context, status payments.CouponStatus) ([]payments.Coupon, error)
 	// ListByUserID returns all coupons of specified user.
