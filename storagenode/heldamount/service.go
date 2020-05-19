@@ -304,15 +304,12 @@ func (service *Service) AllHeldbackHistory(ctx context.Context, id storj.NodeID)
 func (service *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	address, err := service.trust.GetAddress(ctx, satelliteID)
+	nodeurl, err := service.trust.GetNodeURL(ctx, satelliteID)
 	if err != nil {
 		return nil, errs.New("unable to find satellite %s: %w", satelliteID, err)
 	}
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
-		ID:      satelliteID,
-		Address: address,
-	})
+	conn, err := service.dialer.DialNodeURL(ctx, nodeurl)
 	if err != nil {
 		return nil, errs.New("unable to connect to the satellite %s: %w", satelliteID, err)
 	}

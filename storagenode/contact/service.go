@@ -108,21 +108,18 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err error) {
 	defer mon.Task()(&ctx, id)(&err)
 
-	self := service.Local()
-	address, err := service.trust.GetAddress(ctx, id)
+	nodeurl, err := service.trust.GetNodeURL(ctx, id)
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
-		ID:      id,
-		Address: address,
-	})
+	conn, err := service.dialer.DialNodeURL(ctx, nodeurl)
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, conn.Close()) }()
 
+	self := service.Local()
 	_, err = pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
 		Address:  self.Address.GetAddress(),
 		Version:  &self.Version,

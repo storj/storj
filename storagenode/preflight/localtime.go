@@ -103,14 +103,11 @@ func (localTime *LocalTime) Check(ctx context.Context) (err error) {
 func (localTime *LocalTime) getSatelliteTime(ctx context.Context, satelliteID storj.NodeID) (_ *pb.GetTimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	address, err := localTime.trust.GetAddress(ctx, satelliteID)
+	nodeurl, err := localTime.trust.GetNodeURL(ctx, satelliteID)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := localTime.dialer.DialNodeURL(ctx, storj.NodeURL{
-		ID:      satelliteID,
-		Address: address,
-	})
+	conn, err := localTime.dialer.DialNodeURL(ctx, nodeurl)
 	if err != nil {
 		return nil, err
 	}

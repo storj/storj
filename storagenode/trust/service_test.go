@@ -151,9 +151,9 @@ func TestPoolGetAddress(t *testing.T) {
 	id := testrand.NodeID()
 
 	// Assert the ID is not trusted
-	address, err := pool.GetAddress(context.Background(), id)
+	nodeurl, err := pool.GetNodeURL(context.Background(), id)
 	require.EqualError(t, err, fmt.Sprintf("trust: satellite %q is untrusted", id))
-	require.Empty(t, address)
+	require.Empty(t, nodeurl)
 
 	// Refresh the pool with the new trust entry
 	source.entries = []trust.Entry{
@@ -168,9 +168,10 @@ func TestPoolGetAddress(t *testing.T) {
 	require.NoError(t, pool.Refresh(context.Background()))
 
 	// Assert the ID is now trusted and the correct address is returned
-	address, err = pool.GetAddress(context.Background(), id)
+	nodeurl, err = pool.GetNodeURL(context.Background(), id)
 	require.NoError(t, err)
-	require.Equal(t, "foo.test:7777", address)
+	require.Equal(t, id, nodeurl.ID)
+	require.Equal(t, "foo.test:7777", nodeurl.Address)
 
 	// Refresh the pool with an updated trust entry with a new address
 	source.entries = []trust.Entry{
@@ -185,9 +186,10 @@ func TestPoolGetAddress(t *testing.T) {
 	require.NoError(t, pool.Refresh(context.Background()))
 
 	// Assert the ID is now trusted and the correct address is returned
-	address, err = pool.GetAddress(context.Background(), id)
+	nodeurl, err = pool.GetNodeURL(context.Background(), id)
 	require.NoError(t, err)
-	require.Equal(t, "bar.test:7777", address)
+	require.Equal(t, id, nodeurl.ID)
+	require.Equal(t, "bar.test:7777", nodeurl.Address)
 }
 
 func newPoolTest(t *testing.T) (*testcontext.Context, *trust.Pool, *fakeSource, *fakeIdentityResolver) {

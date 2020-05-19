@@ -150,7 +150,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	}
 
 	for _, rep := range stats {
-		url, err := s.trust.GetAddress(ctx, rep.SatelliteID)
+		url, err := s.trust.GetNodeURL(ctx, rep.SatelliteID)
 		if err != nil {
 			return nil, SNOServiceErr.Wrap(err)
 		}
@@ -160,7 +160,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 				ID:           rep.SatelliteID,
 				Disqualified: rep.Disqualified,
 				Suspended:    rep.Suspended,
-				URL:          url,
+				URL:          url.Address,
 			},
 		)
 	}
