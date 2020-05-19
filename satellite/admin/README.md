@@ -66,7 +66,7 @@ A successful response:
 }
 ```
 
-## POST /api/user/coupon
+## POST /api/coupon
 
 Adds a coupon for specific user.
 
@@ -88,7 +88,7 @@ A successful response:
 }
 ```
 
-## GET /api/user/coupon/{coupon-id}
+## GET /api/coupon/{coupon-id}
 
 Gets a coupon with the specified id.
 
