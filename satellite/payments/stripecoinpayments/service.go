@@ -34,9 +34,6 @@ var (
 	mon = monkit.Package()
 )
 
-// fetchLimit sets the maximum amount of items before we start paging on requests
-const fetchLimit = 100
-
 // Config stores needed information for payment service initialization.
 type Config struct {
 	StripeSecretKey              string        `help:"stripe API secret key" default:""`
@@ -47,6 +44,7 @@ type Config struct {
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
 	AutoAdvance                  bool          `help:"toogle autoadvance feature for invoice creation" default:"false"`
+	ListingLimit                 int           `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -78,6 +76,9 @@ type Service struct {
 	mu       sync.Mutex
 	rates    coinpayments.CurrencyRateInfos
 	ratesErr error
+
+	listingLimit int
+	nowFn        func() time.Time
 }
 
 // NewService creates a Service instance.
@@ -134,6 +135,8 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		CouponProjectLimit: couponProjectLimit,
 		MinCoinPayment:     minCoinPayment,
 		AutoAdvance:        config.AutoAdvance,
+		listingLimit:       config.ListingLimit,
+		nowFn:              time.Now,
 	}, nil
 }
 
@@ -146,9 +149,9 @@ func (service *Service) Accounts() payments.Accounts {
 func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	before := time.Now()
+	before := service.nowFn()
 
-	txsPage, err := service.db.Transactions().ListPending(ctx, 0, fetchLimit, before)
+	txsPage, err := service.db.Transactions().ListPending(ctx, 0, service.listingLimit, before)
 	if err != nil {
 		return err
 	}
@@ -162,7 +165,7 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 			return err
 		}
 
-		txsPage, err = service.db.Transactions().ListPending(ctx, txsPage.NextOffset, fetchLimit, before)
+		txsPage, err = service.db.Transactions().ListPending(ctx, txsPage.NextOffset, service.listingLimit, before)
 		if err != nil {
 			return err
 		}
@@ -236,9 +239,9 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	before := time.Now()
+	before := service.nowFn()
 
-	txsPage, err := service.db.Transactions().ListUnapplied(ctx, 0, fetchLimit, before)
+	txsPage, err := service.db.Transactions().ListUnapplied(ctx, 0, service.listingLimit, before)
 	if err != nil {
 		return err
 	}
@@ -258,7 +261,7 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 			return err
 		}
 
-		txsPage, err = service.db.Transactions().ListUnapplied(ctx, txsPage.NextOffset, fetchLimit, before)
+		txsPage, err = service.db.Transactions().ListUnapplied(ctx, txsPage.NextOffset, service.listingLimit, before)
 		if err != nil {
 			return err
 		}
@@ -364,7 +367,7 @@ func (service *Service) GetRate(ctx context.Context, curr1, curr2 coinpayments.C
 func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().UTC()
+	now := service.nowFn().UTC()
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -374,7 +377,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 		return Error.New("allowed for past periods only")
 	}
 
-	projsPage, err := service.projectsDB.List(ctx, 0, fetchLimit, end)
+	projsPage, err := service.projectsDB.List(ctx, 0, service.listingLimit, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -388,7 +391,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 			return Error.Wrap(err)
 		}
 
-		projsPage, err = service.projectsDB.List(ctx, projsPage.NextOffset, fetchLimit, end)
+		projsPage, err = service.projectsDB.List(ctx, projsPage.NextOffset, service.listingLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -436,11 +439,6 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 			},
 		)
 
-		coupons, err := service.db.Coupons().ListByProjectID(ctx, project.ID)
-		if err != nil {
-			return err
-		}
-
 		leftToCharge := service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount).TotalInt64()
 		if leftToCharge == 0 {
 			continue
@@ -456,6 +454,11 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 
 		if leftToCharge == 0 {
 			continue
+		}
+
+		coupons, err := service.db.Coupons().ListByProjectID(ctx, project.ID)
+		if err != nil {
+			return err
 		}
 
 		// Apply any promotional credits (a.k.a. coupons) on the remainder.
@@ -536,7 +539,7 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().UTC()
+	now := service.nowFn().UTC()
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -546,7 +549,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 		return Error.New("allowed for past periods only")
 	}
 
-	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, fetchLimit, start, end)
+	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, service.listingLimit, start, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -561,7 +564,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 		}
 
 		// we are always starting from offset 0 because applyProjectRecords is changing project record state to applied
-		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, 0, fetchLimit, start, end)
+		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, 0, service.listingLimit, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -646,7 +649,7 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().UTC()
+	now := service.nowFn().UTC()
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -656,7 +659,7 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 		return Error.New("allowed for past periods only")
 	}
 
-	usagePage, err := service.db.Coupons().ListUnapplied(ctx, 0, fetchLimit, start)
+	usagePage, err := service.db.Coupons().ListUnapplied(ctx, 0, service.listingLimit, start)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -671,7 +674,7 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 		}
 
 		// we are always starting from offset 0 because applyCoupons is changing coupon usage state to applied
-		usagePage, err = service.db.Coupons().ListUnapplied(ctx, 0, fetchLimit, start)
+		usagePage, err = service.db.Coupons().ListUnapplied(ctx, 0, service.listingLimit, start)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -755,7 +758,7 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 func (service *Service) InvoiceApplyCredits(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().UTC()
+	now := service.nowFn().UTC()
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -765,7 +768,7 @@ func (service *Service) InvoiceApplyCredits(ctx context.Context, period time.Tim
 		return Error.New("allowed for past periods only")
 	}
 
-	spendingsPage, err := service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, fetchLimit, start)
+	spendingsPage, err := service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, service.listingLimit, start)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -780,7 +783,7 @@ func (service *Service) InvoiceApplyCredits(ctx context.Context, period time.Tim
 		}
 
 		// we are always starting from offset 0 because applySpendings is changing credits spendings state to applied
-		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, fetchLimit, start)
+		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, service.listingLimit, start)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -839,7 +842,7 @@ func (service *Service) createInvoiceCreditItem(ctx context.Context, spending Cr
 func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().UTC()
+	now := service.nowFn().UTC()
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -849,7 +852,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 		return Error.New("allowed for past periods only")
 	}
 
-	cusPage, err := service.db.Customers().List(ctx, 0, fetchLimit, end)
+	cusPage, err := service.db.Customers().List(ctx, 0, service.listingLimit, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -869,7 +872,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 			return Error.Wrap(err)
 		}
 
-		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, fetchLimit, end)
+		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, service.listingLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -984,4 +987,10 @@ func (service *Service) discountedProjectUsagePrice(ctx context.Context, project
 	}
 
 	return projectUsagePrice, nil
+}
+
+// SetNow allows tests to have the Service act as if the current time is whatever
+// they want. This avoids races and sleeping, making tests more reliable and efficient.
+func (service *Service) SetNow(now func() time.Time) {
+	service.nowFn = now
 }
