@@ -152,7 +152,8 @@ func TestCouponDelete(t *testing.T) {
 
 		coupons, err := planet.Satellites[0].DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
 		require.NoError(t, err)
-		require.Len(t, coupons, 1)
+		// each created user have always one coupon already
+		require.Len(t, coupons, 2)
 
 		req, err = http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/coupon/%s", id), nil)
 		require.NoError(t, err)
@@ -165,6 +166,6 @@ func TestCouponDelete(t *testing.T) {
 
 		coupons, err = planet.Satellites[0].DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
 		require.NoError(t, err)
-		require.Len(t, coupons, 0)
+		require.Len(t, coupons, 1)
 	})
 }

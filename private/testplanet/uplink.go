@@ -25,7 +25,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/satellite/console"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
 	"storj.io/uplink/private/piecestore"
@@ -119,81 +118,48 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 	}
 
 	for j, satellite := range planet.Satellites {
-		// TODO: find a nicer way to do this
-		// populate satellites console with example
-		// project and API key and pass that to uplinks
-		consoleDB := satellite.DB.Console()
+		console := satellite.API.Console
 
 		projectName := fmt.Sprintf("%s_%d", name, j)
-		key, err := macaroon.NewAPIKey([]byte("testSecret"))
-		if err != nil {
-			return nil, err
-		}
-
-		ownerID, err := uuid.New()
-		if err != nil {
-			return nil, err
-		}
-
-		owner, err := consoleDB.Users().Insert(ctx,
-			&console.User{
-				ID:       ownerID,
-				FullName: fmt.Sprintf("User %s", projectName),
-				Email:    fmt.Sprintf("user@%s.test", projectName),
-			},
+		user, err := satellite.AddUser(
+			ctx,
+			fmt.Sprintf("User %s", projectName),
+			fmt.Sprintf("user@%s.test", projectName),
+			10,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		owner.Status = console.Active
-		err = consoleDB.Users().Update(ctx, owner)
+		project, err := satellite.AddProject(ctx, user.ID, projectName)
 		if err != nil {
 			return nil, err
 		}
 
-		project, err := consoleDB.Projects().Insert(ctx,
-			&console.Project{
-				Name:    projectName,
-				OwnerID: owner.ID,
-			},
-		)
+		authCtx, err := satellite.authenticatedContext(ctx, user.ID)
+		if err != nil {
+			return nil, err
+		}
+		_, apiKey, err := console.Service.CreateAPIKey(authCtx, project.ID, "root")
 		if err != nil {
 			return nil, err
 		}
 
-		_, err = consoleDB.ProjectMembers().Insert(ctx, owner.ID, project.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = consoleDB.APIKeys().Create(ctx,
-			key.Head(),
-			console.APIKeyInfo{
-				Name:      "root",
-				ProjectID: project.ID,
-				Secret:    []byte("testSecret"),
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		uplink.APIKey[satellite.ID()] = key
+		uplink.APIKey[satellite.ID()] = apiKey
 
 		uplink.Projects = append(uplink.Projects, &Project{
 			client: uplink,
 
 			ID: project.ID,
 			Owner: ProjectOwner{
-				ID:    owner.ID,
-				Email: owner.Email,
+				ID:    user.ID,
+				Email: user.Email,
 			},
 
 			Satellite: satellite,
-			APIKey:    key.Serialize(),
+			APIKey:    apiKey.Serialize(),
 
-			RawAPIKey: key,
+			RawAPIKey: apiKey,
 		})
 	}
 
