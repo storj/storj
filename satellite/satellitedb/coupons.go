@@ -86,7 +86,7 @@ func (coupons *coupons) Get(ctx context.Context, couponID uuid.UUID) (_ payments
 	return fromDBXCoupon(dbxCoupon)
 }
 
-// Get returns coupon by ID.
+// Delete removes a coupon from the database by its ID
 func (coupons *coupons) Delete(ctx context.Context, couponID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, couponID)(&err)
 
