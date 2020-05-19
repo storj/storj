@@ -113,6 +113,10 @@ A successful response:
 }
 ```
 
+## DELETE /api/coupon/{coupon-id}
+
+Deletes the specified coupon.
+
 ## GET /api/project/{project-id}/limit
 
 This endpoint returns information about project limits.
