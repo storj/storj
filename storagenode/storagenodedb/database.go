@@ -1413,6 +1413,42 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				DB:          db.satellitesDB,
+				Description: "Make satellite_id foreign key in satellite_exit_progress table",
+				Version:     41,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE satellite_exit_progress_new (
+							satellite_id BLOB NOT NULL,
+							initiated_at TIMESTAMP,
+							finished_at TIMESTAMP,
+							starting_disk_usage INTEGER NOT NULL,
+							bytes_deleted INTEGER NOT NULL,
+							completion_receipt BLOB,
+							FOREIGN KEY (satellite_id) REFERENCES satellites (node_id)
+						);
+
+						INSERT INTO satellite_exit_progress_new SELECT
+							satellite_id,
+							initiated_at,
+							finished_at,
+							starting_disk_usage,
+							bytes_deleted,
+							completion_receipt
+						FROM satellite_exit_progress;
+
+						DROP TABLE satellite_exit_progress;
+
+						ALTER TABLE satellite_exit_progress_new RENAME TO satellite_exit_progress;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
 		},
 	}
 }
