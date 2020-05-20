@@ -18,7 +18,6 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/macaroon"
-	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
@@ -33,7 +32,6 @@ import (
 // Uplink is a general purpose
 type Uplink struct {
 	Log              *zap.Logger
-	Info             pb.Node
 	Identity         *identity.FullIdentity
 	Dialer           rpc.Dialer
 	StorageNodeCount int
@@ -109,14 +107,6 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 	uplink.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
-	uplink.Info = pb.Node{
-		Id: uplink.Identity.ID,
-		Address: &pb.NodeAddress{
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
-			Address:   "",
-		},
-	}
-
 	for j, satellite := range planet.Satellites {
 		console := satellite.API.Console
 
@@ -169,13 +159,10 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 }
 
 // ID returns uplink id
-func (client *Uplink) ID() storj.NodeID { return client.Info.Id }
+func (client *Uplink) ID() storj.NodeID { return client.Identity.ID }
 
 // Addr returns uplink address
-func (client *Uplink) Addr() string { return client.Info.Address.Address }
-
-// Local returns uplink info
-func (client *Uplink) Local() pb.Node { return client.Info }
+func (client *Uplink) Addr() string { return "" }
 
 // Shutdown shuts down all uplink dependencies
 func (client *Uplink) Shutdown() error { return nil }

@@ -691,9 +691,6 @@ func (peer *API) Close() error {
 // ID returns the peer ID.
 func (peer *API) ID() storj.NodeID { return peer.Identity.ID }
 
-// Local returns the peer local node info.
-func (peer *API) Local() overlay.NodeDossier { return peer.Contact.Service.Local() }
-
 // Addr returns the public address.
 func (peer *API) Addr() string { return peer.Server.Addr().String() }
 
