@@ -48,7 +48,7 @@ func Dialer(dialer rpc.Dialer) IdentityResolver {
 	return IdentityResolverFunc(func(ctx context.Context, url storj.NodeURL) (_ *identity.PeerIdentity, err error) {
 		defer mon.Task()(&ctx)(&err)
 
-		conn, err := dialer.DialAddressID(ctx, url.Address, url.ID)
+		conn, err := dialer.DialNodeURL(ctx, url)
 		if err != nil {
 			return nil, err
 		}

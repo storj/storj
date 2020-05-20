@@ -177,7 +177,7 @@ func TestConcurrentConnections(t *testing.T) {
 		for i := 0; i < concurrentCalls; i++ {
 			group.Go(func() (err error) {
 				// connect to satellite so we initiate the exit.
-				conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+				conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 				require.NoError(t, err)
 				defer func() {
 					err = errs.Combine(err, conn.Close())
@@ -199,7 +199,7 @@ func TestConcurrentConnections(t *testing.T) {
 		}
 
 		// connect to satellite so we initiate the exit ("main" call)
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -400,7 +400,7 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 		err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID())
 		require.NoError(t, err)
 
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -947,7 +947,7 @@ func TestExitDisabled(t *testing.T) {
 		require.Nil(t, satellite.GracefulExit.Chore)
 		require.Nil(t, satellite.GracefulExit.Endpoint)
 
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -1023,7 +1023,7 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 		require.NoError(t, err)
 
 		// reconnect to the satellite.
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -1260,7 +1260,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		require.NoError(t, err)
 
 		// connect to satellite so we initiate the exit.
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -1388,7 +1388,7 @@ func TestIneligibleNodeAge(t *testing.T) {
 		require.NoError(t, err)
 
 		// connect to satellite so we initiate the exit.
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -1446,7 +1446,7 @@ func testTransfers(t *testing.T, objects int, verifier func(t *testing.T, ctx *t
 		require.NoError(t, err)
 
 		// connect to satellite so we initiate the exit.
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 

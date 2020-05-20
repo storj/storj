@@ -107,7 +107,10 @@ func (localTime *LocalTime) getSatelliteTime(ctx context.Context, satelliteID st
 	if err != nil {
 		return nil, err
 	}
-	conn, err := localTime.dialer.DialAddressID(ctx, address, satelliteID)
+	conn, err := localTime.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      satelliteID,
+		Address: address,
+	})
 	if err != nil {
 		return nil, err
 	}

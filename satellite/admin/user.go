@@ -175,8 +175,25 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
 }
 
-func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
+func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		http.Error(w, "user-email missing", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, fmt.Sprintf("user with email %q not found", userEmail), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get user %q: %v", userEmail, err), http.StatusInternalServerError)
+		return
+	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -184,85 +201,33 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input struct {
-		UserID      uuid.UUID `json:"userId"`
-		Duration    int       `json:"duration"`
-		Amount      int64     `json:"amount"`
-		Description string    `json:"description"`
-	}
+	var input console.User
 
 	err = json.Unmarshal(body, &input)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to unmarshal request: %v", err), http.StatusBadRequest)
 		return
 	}
-	switch {
-	case input.Duration == 0:
-		http.Error(w, "Duration is not set", http.StatusBadRequest)
-		return
-	case input.Amount == 0:
-		http.Error(w, "Amount is not set", http.StatusBadRequest)
-		return
-	case input.Description == "":
-		http.Error(w, "Description is not set", http.StatusBadRequest)
-		return
-	case input.UserID.IsZero():
-		http.Error(w, "UserID is not set", http.StatusBadRequest)
-		return
+
+	if input.FullName != "" {
+		user.FullName = input.FullName
+	}
+	if input.ShortName != "" {
+		user.ShortName = input.ShortName
+	}
+	if input.Email != "" {
+		user.Email = input.Email
+	}
+	if !input.PartnerID.IsZero() {
+		user.PartnerID = input.PartnerID
+	}
+	if len(input.PasswordHash) > 0 {
+		user.PasswordHash = input.PasswordHash
 	}
 
-	coupon, err := server.db.StripeCoinPayments().Coupons().Insert(ctx, payments.Coupon{
-		UserID:      input.UserID,
-		Amount:      input.Amount,
-		Duration:    input.Duration,
-		Description: input.Description,
-	})
+	err = server.db.Console().Users().Update(ctx, user)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to insert coupon: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to update user: %v", err), http.StatusInternalServerError)
 		return
 	}
-
-	data, err := json.Marshal(coupon.ID)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
-}
-
-func (server *Server) couponInfo(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	vars := mux.Vars(r)
-	id, ok := vars["couponid"]
-	if !ok {
-		http.Error(w, "couponId missing", http.StatusBadRequest)
-		return
-	}
-
-	couponID, err := uuid.FromString(id)
-	if err != nil {
-		http.Error(w, "invalid couponId", http.StatusBadRequest)
-	}
-
-	coupon, err := server.db.StripeCoinPayments().Coupons().Get(ctx, couponID)
-	if errors.Is(err, sql.ErrNoRows) {
-		http.Error(w, fmt.Sprintf("coupon with id %q not found", couponID), http.StatusNotFound)
-		return
-	}
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get coupon %q: %v", couponID, err), http.StatusInternalServerError)
-		return
-	}
-
-	data, err := json.Marshal(coupon)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("json encoding failed: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
 }

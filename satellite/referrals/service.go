@@ -183,5 +183,5 @@ func (service *Service) referralManagerConn(ctx context.Context) (*rpc.Conn, err
 		return nil, errs.New("missing referral manager url configuration")
 	}
 
-	return service.dialer.DialAddressID(ctx, service.config.ReferralManagerURL.Address, service.config.ReferralManagerURL.ID)
+	return service.dialer.DialNodeURL(ctx, service.config.ReferralManagerURL)
 }

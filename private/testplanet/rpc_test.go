@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
@@ -24,7 +23,7 @@ import (
 	"storj.io/storj/storagenode"
 )
 
-func TestDialNode(t *testing.T) {
+func TestDialNodeURL(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 0, StorageNodeCount: 2, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -53,31 +52,19 @@ func TestDialNode(t *testing.T) {
 
 		unsignedDialer := rpc.NewDefaultDialer(unsignedClientOpts)
 
-		t.Run("DialNode with invalid targets", func(t *testing.T) {
-			targets := []*pb.Node{
+		t.Run("DialNodeURL with invalid targets", func(t *testing.T) {
+			targets := []storj.NodeURL{
 				{
-					Id:      storj.NodeID{},
-					Address: nil,
+					ID:      storj.NodeID{},
+					Address: "",
 				},
 				{
-					Id: storj.NodeID{},
-					Address: &pb.NodeAddress{
-						Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					},
+					ID:      storj.NodeID{123},
+					Address: "127.0.0.1:100",
 				},
 				{
-					Id: storj.NodeID{123},
-					Address: &pb.NodeAddress{
-						Transport: pb.NodeTransport_TCP_TLS_GRPC,
-						Address:   "127.0.0.1:100",
-					},
-				},
-				{
-					Id: storj.NodeID{},
-					Address: &pb.NodeAddress{
-						Transport: pb.NodeTransport_TCP_TLS_GRPC,
-						Address:   planet.StorageNodes[1].Addr(),
-					},
+					ID:      storj.NodeID{},
+					Address: planet.StorageNodes[1].Addr(),
 				},
 			}
 
@@ -85,7 +72,7 @@ func TestDialNode(t *testing.T) {
 				tag := fmt.Sprintf("%+v", target)
 
 				timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-				conn, err := dialer.DialNode(timedCtx, target)
+				conn, err := dialer.DialNodeURL(timedCtx, target)
 				cancel()
 				assert.Error(t, err, tag)
 				assert.Nil(t, conn, tag)
@@ -93,16 +80,8 @@ func TestDialNode(t *testing.T) {
 		})
 
 		t.Run("DialNode with valid signed target", func(t *testing.T) {
-			target := &pb.Node{
-				Id: planet.StorageNodes[1].ID(),
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   planet.StorageNodes[1].Addr(),
-				},
-			}
-
 			timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-			conn, err := dialer.DialNode(timedCtx, target)
+			conn, err := dialer.DialNodeURL(timedCtx, planet.StorageNodes[1].NodeURL())
 			cancel()
 
 			assert.NoError(t, err)
@@ -112,16 +91,8 @@ func TestDialNode(t *testing.T) {
 		})
 
 		t.Run("DialNode with unsigned identity", func(t *testing.T) {
-			target := &pb.Node{
-				Id: planet.StorageNodes[1].ID(),
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   planet.StorageNodes[1].Addr(),
-				},
-			}
-
 			timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-			conn, err := unsignedDialer.DialNode(timedCtx, target)
+			conn, err := unsignedDialer.DialNodeURL(timedCtx, planet.StorageNodes[1].NodeURL())
 			cancel()
 
 			assert.NotNil(t, conn)
@@ -181,20 +152,12 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 
 		dialer := rpc.NewDefaultDialer(tlsOptions)
 
-		t.Run("DialNode with bad server certificate", func(t *testing.T) {
-			target := &pb.Node{
-				Id: planet.StorageNodes[1].ID(),
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   planet.StorageNodes[1].Addr(),
-				},
-			}
-
+		t.Run("DialNodeURL with bad server certificate", func(t *testing.T) {
 			timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-			conn, err := dialer.DialNode(timedCtx, target)
+			conn, err := dialer.DialNodeURL(timedCtx, planet.StorageNodes[1].NodeURL())
 			cancel()
 
-			tag := fmt.Sprintf("%+v", target)
+			tag := fmt.Sprintf("%+v", planet.StorageNodes[1].NodeURL())
 			assert.Nil(t, conn, tag)
 			require.Error(t, err, tag)
 			assert.Contains(t, err.Error(), "not signed by any CA in the whitelist")
@@ -202,7 +165,7 @@ func TestDialNode_BadServerCertificate(t *testing.T) {
 
 		t.Run("DialAddress with bad server certificate", func(t *testing.T) {
 			timedCtx, cancel := context.WithTimeout(ctx, time.Second)
-			conn, err := dialer.DialAddressID(timedCtx, planet.StorageNodes[1].Addr(), planet.StorageNodes[1].ID())
+			conn, err := dialer.DialNodeURL(timedCtx, planet.StorageNodes[1].NodeURL())
 			cancel()
 
 			assert.Nil(t, conn)

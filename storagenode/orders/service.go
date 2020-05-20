@@ -276,7 +276,10 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 		return OrderError.New("unable to get satellite address: %w", err)
 	}
 
-	conn, err := service.dialer.DialAddressID(ctx, address, satelliteID)
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      satelliteID,
+		Address: address,
+	})
 	if err != nil {
 		return OrderError.New("unable to connect to the satellite: %w", err)
 	}

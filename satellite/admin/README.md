@@ -30,6 +30,20 @@ A successful response:
 }
 ```
 
+## PUT /api/user/{user-email}
+
+Updates the details of existing user found by its email.
+
+A successful update request:
+
+```json
+{
+    "email": "alice+2@mail.test",
+    "shortName": "Al",
+    "passwordHash": "1234abcd"
+}
+```
+
 ## GET /api/user/{user-email}
 
 This endpoint returns information about user and their projects.
@@ -112,6 +126,10 @@ A successful response:
     "created":     "2020-05-19T00:34:13.265761+02:00"
 }
 ```
+
+## DELETE /api/coupon/{coupon-id}
+
+Deletes the specified coupon.
 
 ## GET /api/project/{project-id}/limit
 

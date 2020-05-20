@@ -216,13 +216,12 @@ func (client *Uplink) Shutdown() error { return nil }
 
 // DialMetainfo dials destination with apikey and returns metainfo Client
 func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey *macaroon.APIKey) (*metainfo.Client, error) {
-	return metainfo.Dial(ctx, client.Dialer, destination.Addr(), apikey, "Test/1.0")
+	return metainfo.DialNodeURL(ctx, client.Dialer, destination.NodeURL().String(), apikey, "Test/1.0")
 }
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.
 func (client *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
-	node := destination.Local()
-	return piecestore.Dial(ctx, client.Dialer, &node.Node, client.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
+	return piecestore.DialNodeURL(ctx, client.Dialer, destination.NodeURL(), client.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
 }
 
 // Upload data to specific satellite

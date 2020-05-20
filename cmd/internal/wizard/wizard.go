@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -18,7 +19,7 @@ import (
 
 // PromptForAccessName handles user input for access name to be used with wizards
 func PromptForAccessName() (string, error) {
-	_, err := fmt.Printf("Choose an access name [\"default\"]: ")
+	_, err := fmt.Printf("Choose an access name (use lowercase letters) [\"default\"]: ")
 	if err != nil {
 		return "", err
 	}
@@ -32,6 +33,11 @@ func PromptForAccessName() (string, error) {
 	if accessName == "" {
 		return "default", nil
 	}
+
+	if accessName != strings.ToLower(accessName) {
+		return "", errs.New("Please only use lowercase letters for access name.")
+	}
+
 	return accessName, nil
 }
 

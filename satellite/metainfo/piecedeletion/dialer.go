@@ -150,7 +150,10 @@ func batchJobs(jobs []Job, maxBatchSize int) (pieces []storj.PieceID, promises [
 }
 
 func dialPieceStore(ctx context.Context, dialer rpc.Dialer, target *pb.Node) (pb.DRPCPiecestoreClient, *rpc.Conn, error) {
-	conn, err := dialer.DialNode(ctx, target)
+	conn, err := dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      target.Id,
+		Address: target.Address.Address,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
