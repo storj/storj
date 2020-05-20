@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/bandwidth"
@@ -371,15 +370,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-		self := &overlay.NodeDossier{
-			Node: pb.Node{
-				Id: peer.ID(),
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   c.ExternalAddress,
-				},
-			},
-			Type: pb.NodeType_STORAGE,
+		self := contact.NodeInfo{
+			ID:      peer.ID(),
+			Address: c.ExternalAddress,
 			Operator: pb.NodeOperator{
 				Email:  config.Operator.Email,
 				Wallet: config.Operator.Wallet,

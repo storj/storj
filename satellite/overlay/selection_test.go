@@ -6,6 +6,7 @@ package overlay_test
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"net"
 	"runtime"
 	"strings"
@@ -46,11 +47,11 @@ func TestMinimumDiskSpace(t *testing.T) {
 
 		node0 := planet.StorageNodes[0]
 		node0.Contact.Chore.Pause(ctx)
-		nodeDossier := node0.Contact.Service.Local()
+		nodeInfo := node0.Contact.Service.Local()
 		ident := node0.Identity
 		peer := rpcpeer.Peer{
 			Addr: &net.TCPAddr{
-				IP:   net.ParseIP(nodeDossier.Address.GetAddress()),
+				IP:   net.ParseIP(nodeInfo.Address),
 				Port: 5,
 			},
 			State: tls.ConnectionState{
@@ -61,12 +62,12 @@ func TestMinimumDiskSpace(t *testing.T) {
 
 		// report disk space less than minimum
 		_, err := planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
-			Address: nodeDossier.Address.GetAddress(),
-			Version: &nodeDossier.Version,
+			Address: nodeInfo.Address,
+			Version: &nodeInfo.Version,
 			Capacity: &pb.NodeCapacity{
 				FreeDisk: 9 * memory.MB.Int64(),
 			},
-			Operator: &nodeDossier.Operator,
+			Operator: &nodeInfo.Operator,
 		})
 		require.NoError(t, err)
 
@@ -88,12 +89,12 @@ func TestMinimumDiskSpace(t *testing.T) {
 
 		// report disk space greater than minimum
 		_, err = planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
-			Address: nodeDossier.Address.GetAddress(),
-			Version: &nodeDossier.Version,
+			Address: nodeInfo.Address,
+			Version: &nodeInfo.Version,
 			Capacity: &pb.NodeCapacity{
 				FreeDisk: 11 * memory.MB.Int64(),
 			},
-			Operator: &nodeDossier.Operator,
+			Operator: &nodeInfo.Operator,
 		})
 		require.NoError(t, err)
 
@@ -314,15 +315,21 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 	// ensure all storagenodes are in overlay
 	for _, storageNode := range planet.StorageNodes {
 		n := storageNode.Contact.Service.Local()
+
+		lastNet, err := ipToLastNet(n.Address)
+		require.NoError(t, err)
+
 		d := overlay.NodeCheckInInfo{
-			NodeID:     storageNode.ID(),
-			Address:    n.Address,
+			NodeID: storageNode.ID(),
+			Address: &pb.NodeAddress{
+				Address: n.Address,
+			},
 			LastIPPort: storageNode.Addr(),
-			LastNet:    n.LastNet,
+			LastNet:    lastNet,
 			Version:    &n.Version,
 		}
-		err := satellite.Overlay.DB.UpdateCheckIn(ctx, d, time.Now().UTC(), satellite.Config.Overlay.Node)
-		assert.NoError(t, err)
+		err = satellite.Overlay.DB.UpdateCheckIn(ctx, d, time.Now().UTC(), satellite.Config.Overlay.Node)
+		require.NoError(t, err)
 	}
 
 	type test struct {
@@ -408,6 +415,32 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 
 		assert.Equal(t, tt.ExpectedCount, len(response))
 	}
+}
+
+// ipToLastNet converts target address to its IP and /24 subnet IPv4 or /64 subnet IPv6
+func ipToLastNet(target string) (network string, err error) {
+	host, _, err := net.SplitHostPort(target)
+	if err != nil {
+		return "", err
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return "", errors.New("invalid ip " + host)
+	}
+
+	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
+	if ipv4 := ip.To4(); ipv4 != nil {
+		//Filter all IPv4 Addresses into /24 Subnet's
+		mask := net.CIDRMask(24, 32)
+		return ipv4.Mask(mask).String(), nil
+	}
+	if ipv6 := ip.To16(); ipv6 != nil {
+		//Filter all IPv6 Addresses into /64 Subnet's
+		mask := net.CIDRMask(64, 128)
+		return ipv6.Mask(mask).String(), nil
+	}
+
+	return "", errors.New("unable to get network for address " + ip.String())
 }
 
 func TestNodeSelectionGracefulExit(t *testing.T) {

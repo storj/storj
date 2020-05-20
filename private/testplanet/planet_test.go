@@ -40,7 +40,7 @@ func TestBasic(t *testing.T) {
 					require.NoError(t, err)
 					defer ctx.Check(conn.Close)
 					_, err = pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
-						Address:  node.GetAddress().GetAddress(),
+						Address:  node.Address,
 						Version:  &node.Version,
 						Capacity: &node.Capacity,
 						Operator: &node.Operator,

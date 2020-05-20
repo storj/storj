@@ -136,7 +136,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	defer mon.Task()(&ctx)(&err)
 	data := new(Dashboard)
 
-	data.NodeID = s.contact.Local().Id
+	data.NodeID = s.contact.Local().ID
 	data.Wallet = s.walletAddress
 	data.Version = s.versionInfo.Version
 	data.StartedAt = s.startedAt
