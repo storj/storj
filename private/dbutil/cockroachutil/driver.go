@@ -140,7 +140,8 @@ func wrapRows(rows driver.Rows) (crdbRows *cockroachRows, err error) {
 // QueryContext (when implemented by a driver.Conn) provides QueryContext
 // functionality to a sql.DB instance. This implementation provides
 // retry semantics for single statements.
-func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (_ driver.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
 	for {
 		result, err := c.underlying.QueryContext(ctx, query, args)
 		if err != nil {
@@ -273,7 +274,8 @@ func (stmt *cockroachStmt) ExecContext(ctx context.Context, args []driver.NamedV
 }
 
 // QueryContext executes a query in the specified context.
-func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (_ driver.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
 	for {
 		result, err := stmt.underlyingStmt.QueryContext(ctx, args)
 		if err != nil {
