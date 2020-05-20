@@ -670,7 +670,8 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 			return Error.Wrap(err)
 		}
 
-		usagePage, err = service.db.Coupons().ListUnapplied(ctx, usagePage.NextOffset, fetchLimit, start)
+		// we are always starting from offset 0 because applyCoupons is changing coupon usage state to applied
+		usagePage, err = service.db.Coupons().ListUnapplied(ctx, 0, fetchLimit, start)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -778,7 +779,8 @@ func (service *Service) InvoiceApplyCredits(ctx context.Context, period time.Tim
 			return Error.Wrap(err)
 		}
 
-		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), spendingsPage.NextOffset, fetchLimit, start)
+		// we are always starting from offset 0 because applySpendings is changing credits spendings state to applied
+		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, fetchLimit, start)
 		if err != nil {
 			return Error.Wrap(err)
 		}
