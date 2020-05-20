@@ -7,7 +7,6 @@ import (
 	"context"
 	"sync"
 
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 )
@@ -15,7 +14,7 @@ import (
 // Handler handles piece deletion requests from a queue.
 type Handler interface {
 	// Handle should call queue.PopAll until finished.
-	Handle(ctx context.Context, node *pb.Node, queue Queue)
+	Handle(ctx context.Context, node storj.NodeURL, queue Queue)
 }
 
 // NewQueue is a constructor func for queues.
@@ -73,7 +72,7 @@ type Combiner struct {
 // worker handles a batch of jobs.
 type worker struct {
 	waitFor chan struct{}
-	node    *pb.Node
+	node    storj.NodeURL
 	jobs    Queue
 	done    chan struct{}
 }
@@ -97,11 +96,11 @@ func (combiner *Combiner) Close() {
 }
 
 // Enqueue adds a deletion job to the queue.
-func (combiner *Combiner) Enqueue(node *pb.Node, job Job) {
+func (combiner *Combiner) Enqueue(node storj.NodeURL, job Job) {
 	combiner.mu.Lock()
 	defer combiner.mu.Unlock()
 
-	last := combiner.workerByID[node.Id]
+	last := combiner.workerByID[node.ID]
 
 	// Check whether we can use the last worker.
 	if last != nil && last.jobs.TryPush(job) {
@@ -118,7 +117,7 @@ func (combiner *Combiner) Enqueue(node *pb.Node, job Job) {
 	if last != nil {
 		next.waitFor = last.done
 	}
-	combiner.workerByID[node.Id] = next
+	combiner.workerByID[node.ID] = next
 	if !next.jobs.TryPush(job) {
 		// This should never happen.
 		job.Resolve.Failure()

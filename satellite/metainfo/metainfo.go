@@ -2353,7 +2353,10 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 	var requests []piecedeletion.Request
 	for _, node := range nodes {
 		requests = append(requests, piecedeletion.Request{
-			Node:   node,
+			Node: storj.NodeURL{
+				ID:      node.Id,
+				Address: node.Address.Address,
+			},
 			Pieces: nodesPieces[node.Id],
 		})
 	}

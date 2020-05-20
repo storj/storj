@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
@@ -23,7 +22,7 @@ type CountHandler struct {
 	Count int64
 }
 
-func (handler *CountHandler) Handle(ctx context.Context, node *pb.Node, queue piecedeletion.Queue) {
+func (handler *CountHandler) Handle(ctx context.Context, node storj.NodeURL, queue piecedeletion.Queue) {
 	for {
 		list, ok := queue.PopAll()
 		if !ok {
@@ -48,10 +47,10 @@ func TestCombiner(t *testing.T) {
 		queueSize     = 5
 	)
 
-	nodes := []*pb.Node{}
+	nodes := []storj.NodeURL{}
 	for i := 0; i < nodeCount; i++ {
-		nodes = append(nodes, &pb.Node{
-			Id: testrand.NodeID(),
+		nodes = append(nodes, storj.NodeURL{
+			ID: testrand.NodeID(),
 		})
 	}
 
