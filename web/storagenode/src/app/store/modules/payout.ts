@@ -44,6 +44,7 @@ export function makePayoutModule(api: PayoutApi) {
             [PAYOUT_MUTATIONS.SET_TOTAL](state: PayoutState, totalPayoutInfo: TotalPayoutInfo): void {
                 state.totalEarnings = totalPayoutInfo.totalEarnings;
                 state.totalHeldAmount = totalPayoutInfo.totalHeldAmount;
+                state.currentMonthEarnings = totalPayoutInfo.currentMonthEarnings;
             },
             [PAYOUT_MUTATIONS.SET_RANGE](state: PayoutState, periodRange: PayoutInfoRange): void {
                 state.periodRange = periodRange;
@@ -93,7 +94,7 @@ export function makePayoutModule(api: PayoutApi) {
                     + currentDiskSpace * DISK_SPACE_PRICE_PER_TB) / TB;
 
                 commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, getHeldPercentage(rootState.node.selectedSatellite.joinDate));
-                commit(PAYOUT_MUTATIONS.SET_TOTAL, new TotalPayoutInfo(totalPayoutInfo.totalHeldAmount, thisMonthEarnings));
+                commit(PAYOUT_MUTATIONS.SET_TOTAL, new TotalPayoutInfo(totalPayoutInfo.totalHeldAmount, totalPayoutInfo.totalEarnings, thisMonthEarnings));
             },
             [PAYOUT_ACTIONS.SET_PERIODS_RANGE]: function ({commit}: any, periodRange: PayoutInfoRange): void {
                 commit(PAYOUT_MUTATIONS.SET_RANGE, periodRange);

@@ -149,10 +149,7 @@
             label="STORJ Wallet Address"
             :wallet-address="wallet"
         />
-        <section class="info-area__total-info-area">
-            <SingleInfo width="48%" label="Current Month Earnings" :value="totalEarnings | centsToDollars" />
-            <SingleInfo width="48%" label="Total Held Amount" :value="totalHeld | centsToDollars" />
-        </section>
+        <TotalPayoutArea class="info-area__total-area" />
     </div>
 </template>
 
@@ -166,18 +163,18 @@ import DiskSpaceChart from '@/app/components/DiskSpaceChart.vue';
 import EgressChart from '@/app/components/EgressChart.vue';
 import IngressChart from '@/app/components/IngressChart.vue';
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
-import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 import PayoutArea from '@/app/components/PayoutArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
+import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
 
 import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
 import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 
 import { RouteConfig } from '@/app/router';
-import { APPSTATE_ACTIONS, appStateModule } from '@/app/store/modules/appState';
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { formatBytes } from '@/app/utils/converter';
-import { BandwidthInfo, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
+import { DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
 
 /**
  * Checks class holds info for Checks entity.
@@ -194,6 +191,7 @@ class Checks {
 
 @Component ({
     components: {
+        TotalPayoutArea,
         EstimationArea,
         EgressChart,
         IngressChart,
@@ -206,7 +204,6 @@ class Checks {
         LargeDisqualificationIcon,
         LargeSuspensionIcon,
         BlueArrowRight,
-        SingleInfo,
     },
 })
 export default class SNOContentFilling extends Vue {
@@ -217,14 +214,6 @@ export default class SNOContentFilling extends Vue {
     public $refs: {
         chart: HTMLElement;
     };
-
-    public get totalEarnings(): number {
-        return this.$store.state.payoutModule.totalEarnings;
-    }
-
-    public get totalHeld(): number {
-        return this.$store.state.payoutModule.totalHeldAmount;
-    }
 
     public get isDarkMode(): boolean {
         return this.$store.state.appStateModule.isDarkMode;
@@ -569,11 +558,7 @@ export default class SNOContentFilling extends Vue {
             margin-top: 11px;
         }
 
-        &__total-info-area {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
+        &__total-area {
             margin-top: 20px;
         }
     }
@@ -672,18 +657,6 @@ export default class SNOContentFilling extends Vue {
 
                 .checks-area-container {
                     width: calc(100% - 60px) !important;
-                }
-            }
-
-            &__total-info-area {
-                flex-direction: column;
-
-                .info-container {
-                    width: 100% !important;
-
-                    &:first-of-type {
-                        margin-bottom: 12px;
-                    }
                 }
             }
 

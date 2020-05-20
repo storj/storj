@@ -39,12 +39,13 @@ describe('mutations', () => {
     });
 
     it('sets total payout information', () => {
-        const totalInfo = new TotalPayoutInfo(50, 100);
+        const totalInfo = new TotalPayoutInfo(50, 100, 22);
 
         store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalInfo);
 
         expect(state.payoutModule.totalHeldAmount).toBe(50);
         expect(state.payoutModule.totalEarnings).toBe(100);
+        expect(state.payoutModule.currentMonthEarnings).toBe(22);
     });
 
     it('sets period range', () => {
@@ -131,13 +132,14 @@ describe('actions', () => {
 
     it('success get total', async () => {
         jest.spyOn(payoutApi, 'getTotal').mockReturnValue(
-            Promise.resolve(new TotalPayoutInfo(10, 20)),
+            Promise.resolve(new TotalPayoutInfo(10, 20, 5)),
         );
 
         await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
 
         expect(state.payoutModule.totalHeldAmount).toBe(10);
-        expect(state.payoutModule.totalEarnings).toBe(0);
+        expect(state.payoutModule.totalEarnings).toBe(20);
+        expect(state.payoutModule.currentMonthEarnings).toBe(0);
     });
 
     it('get total throws an error when api call fails', async () => {
@@ -148,7 +150,8 @@ describe('actions', () => {
             expect(true).toBe(false);
         } catch (error) {
             expect(state.payoutModule.totalHeldAmount).toBe(10);
-            expect(state.payoutModule.totalEarnings).toBe(0);
+            expect(state.payoutModule.totalEarnings).toBe(20);
+            expect(state.payoutModule.currentMonthEarnings).toBe(0);
         }
     });
 
