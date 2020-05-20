@@ -148,11 +148,13 @@ type UpdateRequest struct {
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
-	AuditLambda           float64
-	AuditWeight           float64
-	AuditDQ               float64
-	SuspensionGracePeriod time.Duration
-	SuspensionDQEnabled   bool
+	AuditLambda               float64
+	AuditWeight               float64
+	AuditDQ                   float64
+	SuspensionGracePeriod     time.Duration
+	SuspensionDQEnabled       bool
+	AuditsRequiredForVetting  int64
+	UptimesRequiredForVetting int64
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -194,6 +196,7 @@ type NodeDossier struct {
 // NodeStats contains statistics about a node.
 type NodeStats struct {
 	Latency90                   int64
+	VettedAt                    *time.Time
 	AuditSuccessCount           int64
 	AuditCount                  int64
 	UptimeSuccessCount          int64
@@ -419,6 +422,8 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.AuditDQ = service.config.Node.AuditReputationDQ
 		request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
 		request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
+		request.AuditsRequiredForVetting = service.config.Node.AuditCount
+		request.UptimesRequiredForVetting = service.config.Node.UptimeCount
 	}
 	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize)
 }
@@ -432,6 +437,8 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.AuditDQ = service.config.Node.AuditReputationDQ
 	request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
 	request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
+	request.AuditsRequiredForVetting = service.config.Node.AuditCount
+	request.UptimesRequiredForVetting = service.config.Node.UptimeCount
 
 	return service.db.UpdateStats(ctx, request)
 }

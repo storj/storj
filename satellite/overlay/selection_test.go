@@ -282,6 +282,11 @@ func TestNodeSelection(t *testing.T) {
 func TestNodeSelectionWithBatch(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.UpdateStatsBatchSize = 1
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -291,12 +296,12 @@ func TestNodeSelectionWithBatch(t *testing.T) {
 		for i, node := range planet.StorageNodes {
 			for k := 0; k < i; k++ {
 				// These are done individually b/c the previous stat data is important
-				_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
+				_, err := satellite.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 					NodeID:       node.ID(),
 					IsUp:         true,
 					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-				}}, 1)
+				}})
 				require.NoError(t, err)
 			}
 		}
@@ -671,20 +676,23 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			UniqueIPCount: 3,
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.UpdateStatsBatchSize = 1
+			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		// This sets a reputable audit count for nodes[8] and nodes[9].
 		for i := 9; i > 7; i-- {
 			// These are done individually b/c the previous stat data is important
-			_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
+			_, err := satellite.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 				NodeID:       planet.StorageNodes[i].ID(),
 				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
-			}}, 1)
+			}})
 			assert.NoError(t, err)
 		}
 		testDistinctIPs(t, ctx, planet)
