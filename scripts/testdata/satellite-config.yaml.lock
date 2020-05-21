@@ -509,7 +509,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.storage-tb-price: "10"
 
 # amount of time we wait before running next account balance update loop
-# payments.stripe-coin-payments.account-balance-update-interval: 1h30m0s
+# payments.stripe-coin-payments.account-balance-update-interval: 2m0s
 
 # toogle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
