@@ -31,10 +31,9 @@ import (
 
 // Uplink is a general purpose
 type Uplink struct {
-	Log              *zap.Logger
-	Identity         *identity.FullIdentity
-	Dialer           rpc.Dialer
-	StorageNodeCount int
+	Log      *zap.Logger
+	Identity *identity.FullIdentity
+	Dialer   rpc.Dialer
 
 	APIKey map[storj.NodeID]*macaroon.APIKey
 
@@ -66,11 +65,11 @@ func (project *Project) DialMetainfo(ctx context.Context) (*metainfo.Client, err
 	return project.client.DialMetainfo(ctx, project.Satellite, project.RawAPIKey)
 }
 
-// newUplinks creates initializes uplinks, requires peer to have at least one satellite
-func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
+// newUplinks creates initializes uplinks, requires peer to have at least one satellite.
+func (planet *Planet) newUplinks(prefix string, count int) ([]*Uplink, error) {
 	var xs []*Uplink
 	for i := 0; i < count; i++ {
-		uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount)
+		uplink, err := planet.newUplink(prefix + strconv.Itoa(i))
 		if err != nil {
 			return nil, err
 		}
@@ -80,8 +79,8 @@ func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]
 	return xs, nil
 }
 
-// newUplink creates a new uplink
-func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, error) {
+// newUplink creates a new uplink.
+func (planet *Planet) newUplink(name string) (*Uplink, error) {
 	ctx := context.TODO()
 
 	identity, err := planet.NewIdentity()
@@ -97,10 +96,9 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 	}
 
 	uplink := &Uplink{
-		Log:              planet.log.Named(name),
-		Identity:         identity,
-		StorageNodeCount: storageNodeCount,
-		APIKey:           map[storj.NodeID]*macaroon.APIKey{},
+		Log:      planet.log.Named(name),
+		Identity: identity,
+		APIKey:   map[storj.NodeID]*macaroon.APIKey{},
 	}
 
 	uplink.Log.Debug("id=" + identity.ID.String())
@@ -369,10 +367,10 @@ func (client *Uplink) GetConfig(satellite *Satellite) UplinkConfig {
 
 	config.Client.DialTimeout = 10 * time.Second
 
-	config.RS.MinThreshold = atLeastOne(client.StorageNodeCount * 1 / 5)     // 20% of storage nodes
-	config.RS.RepairThreshold = atLeastOne(client.StorageNodeCount * 2 / 5)  // 40% of storage nodes
-	config.RS.SuccessThreshold = atLeastOne(client.StorageNodeCount * 3 / 5) // 60% of storage nodes
-	config.RS.MaxThreshold = atLeastOne(client.StorageNodeCount * 4 / 5)     // 80% of storage nodes
+	config.RS.MinThreshold = satellite.Config.Metainfo.RS.MinThreshold
+	config.RS.RepairThreshold = satellite.Config.Metainfo.RS.RepairThreshold
+	config.RS.SuccessThreshold = satellite.Config.Metainfo.RS.SuccessThreshold
+	config.RS.MaxThreshold = satellite.Config.Metainfo.RS.MaxTotalThreshold
 
 	config.TLS.UsePeerCAWhitelist = false
 	config.TLS.Extensions.Revocation = false
