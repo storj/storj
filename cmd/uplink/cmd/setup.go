@@ -96,6 +96,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	uplinkConfig := uplink.Config{
+		UserAgent:   setupCfg.Client.UserAgent,
 		DialTimeout: setupCfg.Client.DialTimeout,
 	}
 
