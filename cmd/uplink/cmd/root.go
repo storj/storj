@@ -85,7 +85,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 }
 
 func (cliCfg *UplinkFlags) getProject(ctx context.Context, encryptionBypass bool) (_ *uplink.Project, err error) {
-	access, err := cfg.GetNewAccess()
+	access, err := cfg.GetAccess()
 	if err != nil {
 		return nil, err
 	}
