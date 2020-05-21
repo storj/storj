@@ -530,7 +530,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.stripe-coin-payments.stripe-secret-key: ""
 
 # amount of time we wait before running next transaction update loop
-# payments.stripe-coin-payments.transaction-update-interval: 30m0s
+# payments.stripe-coin-payments.transaction-update-interval: 2m0s
 
 # the URL for referral manager
 # referrals.referral-manager-url: ""

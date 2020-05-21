@@ -43,7 +43,7 @@ type Config struct {
 	StripePublicKey              string        `help:"stripe API public key" default:""`
 	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
 	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
-	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
+	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"2m"`
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
 	AutoAdvance                  bool          `help:"toogle autoadvance feature for invoice creation" default:"false"`
