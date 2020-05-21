@@ -3,9 +3,9 @@
 
 import {
     AccountBalance,
-    BillingHistoryItem,
     CreditCard,
     PaymentsApi,
+    PaymentsHistoryItem,
     ProjectUsageAndCharges,
     TokenDeposit,
 } from '@/types/payments';
@@ -42,7 +42,7 @@ export class PaymentsMock implements PaymentsApi {
         throw new Error('Method not implemented');
     }
 
-    billingHistory(): Promise<BillingHistoryItem[]> {
+    paymentsHistory(): Promise<PaymentsHistoryItem[]> {
         return Promise.resolve([]);
     }
 

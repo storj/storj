@@ -6,7 +6,12 @@ import Vuex from 'vuex';
 import AddStorjState from '@/components/onboardingTour/steps/paymentStates/AddStorjState.vue';
 
 import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
-import { AccountBalance, BillingHistoryItem, BillingHistoryItemStatus, BillingHistoryItemType } from '@/types/payments';
+import {
+    AccountBalance,
+    PaymentsHistoryItem,
+    PaymentsHistoryItemStatus,
+    PaymentsHistoryItemType,
+} from '@/types/payments';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { PaymentsMock } from '../../../mock/api/payments';
@@ -29,9 +34,9 @@ describe('AddStorjState.vue', () => {
     });
 
     it('renders correctly with pending transaction', (): void => {
-        const billingTransactionItem = new BillingHistoryItem('itemId', 'test', 50, 50,
-            BillingHistoryItemStatus.Pending, 'test', new Date(), new Date(), BillingHistoryItemType.Transaction);
-        store.commit(PAYMENTS_MUTATIONS.SET_BILLING_HISTORY, [billingTransactionItem]);
+        const billingTransactionItem = new PaymentsHistoryItem('itemId', 'test', 50, 50,
+            PaymentsHistoryItemStatus.Pending, 'test', new Date(), new Date(), PaymentsHistoryItemType.Transaction);
+        store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [billingTransactionItem]);
         const wrapper = shallowMount(AddStorjState, {
             store,
             localVue,
@@ -41,9 +46,9 @@ describe('AddStorjState.vue', () => {
     });
 
     it('renders correctly with completed transaction', (): void => {
-        const billingTransactionItem = new BillingHistoryItem('itemId', 'test', 50, 50,
-            BillingHistoryItemStatus.Completed, 'test', new Date(), new Date(), BillingHistoryItemType.Transaction);
-        store.commit(PAYMENTS_MUTATIONS.SET_BILLING_HISTORY, [billingTransactionItem]);
+        const billingTransactionItem = new PaymentsHistoryItem('itemId', 'test', 50, 50,
+            PaymentsHistoryItemStatus.Completed, 'test', new Date(), new Date(), PaymentsHistoryItemType.Transaction);
+        store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [billingTransactionItem]);
         store.commit(PAYMENTS_MUTATIONS.SET_BALANCE, new AccountBalance(275, 5000));
         const wrapper = shallowMount(AddStorjState, {
             store,

@@ -18,10 +18,10 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { BillingHistoryItemStatus, BillingHistoryItemType } from '@/types/payments';
+import { PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
 
 @Component
-export default class BillingHistoryDate extends Vue {
+export default class PaymentsHistoryItemDate extends Vue {
     /**
      * expiration date.
      */
@@ -33,9 +33,9 @@ export default class BillingHistoryDate extends Vue {
     @Prop({default: () => new Date()})
     private readonly start: Date;
     @Prop({default: 0})
-    private readonly type: BillingHistoryItemType;
+    private readonly type: PaymentsHistoryItemType;
     @Prop({default: ''})
-    private readonly status: BillingHistoryItemStatus;
+    private readonly status: PaymentsHistoryItemStatus;
 
     private readonly expirationTimeInSeconds: number;
     private nowInSeconds = Math.trunc(new Date().getTime() / 1000);
@@ -52,7 +52,7 @@ export default class BillingHistoryDate extends Vue {
         this.expirationTimeInSeconds = Math.trunc(new Date(this.expiration).getTime() / 1000);
         this.isExpired = (this.expirationTimeInSeconds - this.nowInSeconds) < 0;
 
-        if (this.type === BillingHistoryItemType.Transaction) {
+        if (this.type === PaymentsHistoryItemType.Transaction) {
             this.isExpired = this.isTransactionCompleted;
         }
 
@@ -91,7 +91,7 @@ export default class BillingHistoryDate extends Vue {
      * Indicates if transaction status is completed, paid or cancelled.
      */
     private get isTransactionCompleted(): boolean {
-        return this.status !== BillingHistoryItemStatus.Pending;
+        return this.status !== PaymentsHistoryItemStatus.Pending;
     }
 
     /**

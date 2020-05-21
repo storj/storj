@@ -3,19 +3,19 @@
 exports[`SortingHeader renders correctly 1`] = `
 <div class="sort-header-container">
   <div class="sort-header-container__item date">
-    <p class="sort-header-container__item__name">Date</p>
+    <p class="sort-header-container__item__name">DATE</p>
   </div>
   <div class="sort-header-container__item description">
-    <p class="sort-header-container__item__name">Description</p>
+    <p class="sort-header-container__item__name">DESCRIPTION</p>
   </div>
   <div class="sort-header-container__item status">
-    <p class="sort-header-container__item__name">Status</p>
+    <p class="sort-header-container__item__name">STATUS</p>
   </div>
   <div class="sort-header-container__item amount">
-    <p class="sort-header-container__item__name">Amount</p>
+    <p class="sort-header-container__item__name">AMOUNT</p>
   </div>
   <div class="sort-header-container__item download">
-    <p class="sort-header-container__item__name">Download</p>
+    <p class="sort-header-container__item__name">DOWNLOAD</p>
   </div>
 </div>
 `;

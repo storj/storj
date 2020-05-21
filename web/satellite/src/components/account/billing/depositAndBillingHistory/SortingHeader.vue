@@ -4,19 +4,19 @@
 <template>
     <div class="sort-header-container">
         <div class="sort-header-container__item date">
-            <p class="sort-header-container__item__name">Date</p>
+            <p class="sort-header-container__item__name">DATE</p>
         </div>
         <div class="sort-header-container__item description">
-            <p class="sort-header-container__item__name">Description</p>
+            <p class="sort-header-container__item__name">DESCRIPTION</p>
         </div>
         <div class="sort-header-container__item status">
-            <p class="sort-header-container__item__name">Status</p>
+            <p class="sort-header-container__item__name">STATUS</p>
         </div>
         <div class="sort-header-container__item amount">
-            <p class="sort-header-container__item__name">Amount</p>
+            <p class="sort-header-container__item__name">AMOUNT</p>
         </div>
         <div class="sort-header-container__item download">
-            <p class="sort-header-container__item__name">Download</p>
+            <p class="sort-header-container__item__name">DOWNLOAD</p>
         </div>
     </div>
 </template>
@@ -31,19 +31,19 @@ export default class SortingHeader extends Vue {}
 <style scoped lang="scss">
     .sort-header-container {
         display: flex;
-        background-color: rgba(245, 246, 250, 0.5);
-        width: calc(100% - 60px);
-        padding: 0 30px;
+        width: 100%;
+        padding-bottom: 32px;
 
         &__item {
             text-align: left;
-            min-width: 25%;
+            min-width: 20%;
 
             &__name {
                 font-family: 'font_medium', sans-serif;
-                font-size: 16px;
-                line-height: 10px;
-                color: #afb7c1;
+                font-size: 14px;
+                line-height: 19px;
+                color: #adadad;
+                margin: 0;
             }
         }
     }
@@ -53,7 +53,7 @@ export default class SortingHeader extends Vue {}
     }
 
     .status {
-        min-width: 12%;
+        min-width: 17%;
     }
 
     .amount {

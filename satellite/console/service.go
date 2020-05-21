@@ -315,7 +315,7 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 				Description: coupon.Description,
 				Amount:      coupon.Amount,
 				Remaining:   remaining,
-				Status:      "Added to balance",
+				Status:      "Added as Free Credits",
 				Link:        "",
 				Start:       coupon.Created,
 				Type:        Coupon,

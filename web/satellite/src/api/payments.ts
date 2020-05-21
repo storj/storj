@@ -4,9 +4,9 @@
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import {
     AccountBalance,
-    BillingHistoryItem,
     CreditCard,
     PaymentsApi,
+    PaymentsHistoryItem,
     ProjectUsageAndCharges,
     TokenDeposit,
 } from '@/types/payments';
@@ -194,12 +194,12 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * Returns a list of invoices, transactions and all others billing history items for payment account.
+     * Returns a list of invoices, transactions and all others payments history items for payment account.
      *
-     * @returns list of billing history items
+     * @returns list of payments history items
      * @throws Error
      */
-    public async billingHistory(): Promise<BillingHistoryItem[]> {
+    public async paymentsHistory(): Promise<PaymentsHistoryItem[]> {
         const path = `${this.ROOT_PATH}/billing-history`;
         const response = await this.client.get(path);
 
@@ -210,11 +210,11 @@ export class PaymentsHttpApi implements PaymentsApi {
             throw new Error('can not list billing history');
         }
 
-        const billingHistoryItems = await response.json();
+        const paymentsHistoryItems = await response.json();
 
-        if (billingHistoryItems) {
-            return billingHistoryItems.map(item =>
-                new BillingHistoryItem(
+        if (paymentsHistoryItems) {
+            return paymentsHistoryItems.map(item =>
+                new PaymentsHistoryItem(
                     item.id,
                     item.description,
                     item.amount,

@@ -3,8 +3,8 @@
 
 <template>
     <div class="container">
-        <BillingHistoryItemDate
-            class="container__item"
+        <PaymentsHistoryItemDate
+            class="container__item date"
             :start="billingItem.start"
             :expiration="billingItem.end"
             :type="billingItem.type"
@@ -33,18 +33,18 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import BillingHistoryItemDate from '@/components/account/billing/billingHistory/BillingHistoryItemDate.vue';
+import PaymentsHistoryItemDate from '@/components/account/billing/depositAndBillingHistory/PaymentsHistoryItemDate.vue';
 
-import { BillingHistoryItem } from '@/types/payments';
+import { PaymentsHistoryItem } from '@/types/payments';
 
 @Component({
     components: {
-        BillingHistoryItemDate,
+        PaymentsHistoryItemDate,
     },
 })
-export default class BillingItem extends Vue {
-    @Prop({default: () => new BillingHistoryItem()})
-    private readonly billingItem: BillingHistoryItem;
+export default class PaymentsItem extends Vue {
+    @Prop({default: () => new PaymentsHistoryItem()})
+    private readonly billingItem: PaymentsHistoryItem;
 }
 </script>
 
@@ -60,18 +60,23 @@ export default class BillingItem extends Vue {
 
     .container {
         display: flex;
-        padding: 0 30px;
         align-items: center;
-        width: calc(100% - 60px);
-        border-top: 1px solid rgba(169, 181, 193, 0.3);
+        width: 100%;
+        border-top: 1px solid #c7cdd2;
 
         &__item {
-            min-width: 25%;
+            min-width: 20%;
             font-family: 'font_medium', sans-serif;
             font-size: 16px;
             text-align: left;
-            color: #61666b;
+            color: #768394;
+            margin: 30px 0;
         }
+    }
+
+    .date {
+        font-family: 'font_bold', sans-serif;
+        margin: 0;
     }
 
     .description {
@@ -79,7 +84,7 @@ export default class BillingItem extends Vue {
     }
 
     .status {
-        min-width: 12%;
+        min-width: 17%;
     }
 
     .amount {

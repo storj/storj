@@ -11,7 +11,7 @@ import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { makeUsersModule, USER_MUTATIONS } from '@/store/modules/users';
 import { NOTIFICATION_MUTATIONS } from '@/store/mutationConstants';
-import { BillingHistoryItem, BillingHistoryItemStatus, BillingHistoryItemType } from '@/types/payments';
+import { PaymentsHistoryItem, PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { Notificator } from '@/utils/plugins/notificator';
@@ -76,11 +76,11 @@ describe('AddStorjForm', () => {
 
     it('user is able to add less than 10$ after coupon is applied', async () => {
         window.open = jest.fn();
-        const billingTransactionItem = new BillingHistoryItem('itemId', 'test', 10, 10,
-            BillingHistoryItemStatus.Completed, 'test', new Date(), new Date(), BillingHistoryItemType.Transaction);
+        const billingTransactionItem = new PaymentsHistoryItem('itemId', 'test', 10, 10,
+            PaymentsHistoryItemStatus.Completed, 'test', new Date(), new Date(), PaymentsHistoryItemType.Transaction);
         const project = new Project('testId', 'test', 'test', 'test', 'id', true);
         store.commit(NOTIFICATION_MUTATIONS.CLEAR);
-        store.commit(PAYMENTS_MUTATIONS.SET_BILLING_HISTORY, [billingTransactionItem]);
+        store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [billingTransactionItem]);
         store.commit(PROJECTS_MUTATIONS.ADD, project);
         const wrapper = mount(AddStorjForm, {
             store,

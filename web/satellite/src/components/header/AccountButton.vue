@@ -27,11 +27,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import HideIcon from '@/../static/images/common/ArrowHide.svg';
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-import HideIcon from '../../../static/images/common/ArrowHide.svg';
 import AccountDropdown from './AccountDropdown.vue';
 
 @Component({

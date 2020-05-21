@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="deposit-and-billing-area" v-if="billingHistoryItems.length > 0">
-        <div class="deposit-and-billing-area__header">
-            <h1 class="deposit-and-billing-area__header__title">Deposit & Billing History</h1>
+    <div class="deposit-area" v-if="depositHistoryItems.length > 0">
+        <div class="deposit-area__header">
+            <h1 class="deposit-area__header__title">Deposit History</h1>
             <div class="button" @click="onViewAllClick">View All</div>
         </div>
         <SortingHeader/>
-        <BillingItem
-            v-for="item in billingHistoryItems"
+        <PaymentsItem
+            v-for="item in depositHistoryItems"
             :billing-item="item"
             :key="item.id"
         />
@@ -19,31 +19,33 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import BillingItem from '@/components/account/billing/billingHistory/BillingItem.vue';
-import SortingHeader from '@/components/account/billing/billingHistory/SortingHeader.vue';
+import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
+import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
 
 import { RouteConfig } from '@/router';
-import { BillingHistoryItem } from '@/types/payments';
+import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
 @Component({
     components: {
-        BillingItem,
+        PaymentsItem,
         SortingHeader,
     },
 })
-export default class DepositAndBilling extends Vue {
+export default class SmallDepositHistory extends Vue {
     /**
-     * Changes location to billing history route.
+     * Changes location to deposit history route.
      */
     public onViewAllClick(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
+        this.$router.push(RouteConfig.Account.with(RouteConfig.DepositHistory).path);
     }
 
     /**
-     * Returns first 3 of billing history items.
+     * Returns first 3 of deposit history items.
      */
-    public get billingHistoryItems(): BillingHistoryItem[] {
-        return this.$store.state.paymentsModule.billingHistory.slice(0, 3);
+    public get depositHistoryItems(): PaymentsHistoryItem[] {
+        return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.Coupon;
+        }).slice(0, 3);
     }
 }
 </script>
@@ -55,9 +57,9 @@ export default class DepositAndBilling extends Vue {
         color: #354049;
     }
 
-    .deposit-and-billing-area {
+    .deposit-area {
         margin-bottom: 32px;
-        padding: 40px;
+        padding: 40px 40px 10px 40px;
         background-color: #fff;
         border-radius: 8px;
         font-family: 'font_regular', sans-serif;
@@ -96,14 +98,14 @@ export default class DepositAndBilling extends Vue {
 
     @media screen and (max-height: 850px) {
 
-        .deposit-and-billing-area {
+        .deposit-area {
             margin-bottom: 50px;
         }
     }
 
     @media screen and (max-height: 650px) {
 
-        .deposit-and-billing-area {
+        .deposit-area {
             margin-bottom: 75px;
         }
     }

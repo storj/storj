@@ -146,7 +146,7 @@ export default class CreateProjectStep extends Vue {
         }
 
         try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
         } catch (error) {
             await this.$notify.error(`Unable to get billing history. ${error.message}`);
         }

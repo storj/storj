@@ -6,7 +6,7 @@ import Router, { RouteRecord } from 'vue-router';
 
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
-import BillingHistory from '@/components/account/billing/billingHistory/BillingHistory.vue';
+import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
@@ -42,6 +42,7 @@ export abstract class RouteConfig {
     public static Settings = new NavigationLink('settings', 'Settings');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
+    public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
     // TODO: disabled until implementation
     // public static Referral = new NavigationLink('referral', 'Referral');
 
@@ -55,6 +56,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.ForgotPassword.name,
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
+    RouteConfig.DepositHistory.name,
     RouteConfig.Settings.name,
     // RouteConfig.Referral.name,
 ];
@@ -102,7 +104,12 @@ export const router = new Router({
                         {
                             path: RouteConfig.BillingHistory.path,
                             name: RouteConfig.BillingHistory.name,
-                            component: BillingHistory,
+                            component: DetailedHistory,
+                        },
+                        {
+                            path: RouteConfig.DepositHistory.path,
+                            name: RouteConfig.DepositHistory.name,
+                            component: DetailedHistory,
                         },
                         // {
                         //     path: RouteConfig.Referral.path,

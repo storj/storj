@@ -13,10 +13,10 @@ import { makeUsersModule, USER_MUTATIONS } from '@/store/modules/users';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import {
     AccountBalance,
-    BillingHistoryItem,
-    BillingHistoryItemStatus,
-    BillingHistoryItemType,
     CreditCard,
+    PaymentsHistoryItem,
+    PaymentsHistoryItemStatus,
+    PaymentsHistoryItemType,
 } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
@@ -70,10 +70,10 @@ describe('NewProjectArea', () => {
     });
 
     it('renders correctly without projects and with completed 50$ transaction', () => {
-        const billingTransactionItem = new BillingHistoryItem('itemId', 'test', 50, 50,
-            BillingHistoryItemStatus.Completed, 'test', new Date(), new Date(), BillingHistoryItemType.Transaction);
+        const billingTransactionItem = new PaymentsHistoryItem('itemId', 'test', 50, 50,
+            PaymentsHistoryItemStatus.Completed, 'test', new Date(), new Date(), PaymentsHistoryItemType.Transaction);
         store.commit(PAYMENTS_MUTATIONS.CLEAR);
-        store.commit(PAYMENTS_MUTATIONS.SET_BILLING_HISTORY, [billingTransactionItem]);
+        store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [billingTransactionItem]);
         store.commit(PAYMENTS_MUTATIONS.SET_BALANCE, new AccountBalance(0, 5000));
 
         const wrapper = mount(NewProjectArea, {

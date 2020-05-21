@@ -61,7 +61,7 @@ const {
     SETUP_ACCOUNT,
     GET_BALANCE,
     GET_CREDIT_CARDS,
-    GET_BILLING_HISTORY,
+    GET_PAYMENTS_HISTORY,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
 } = PAYMENTS_ACTIONS;
@@ -119,9 +119,9 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(GET_BILLING_HISTORY);
+            await this.$store.dispatch(GET_PAYMENTS_HISTORY);
         } catch (error) {
-            await this.$notify.error(`Unable to get account billing history. ${error.message}`);
+            await this.$notify.error(`Unable to get account payments history. ${error.message}`);
         }
 
         try {

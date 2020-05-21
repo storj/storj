@@ -101,7 +101,6 @@ import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 const {
     GET_CREDIT_CARDS,
-    GET_BILLING_HISTORY,
     GET_BALANCE,
 } = PAYMENTS_ACTIONS;
 

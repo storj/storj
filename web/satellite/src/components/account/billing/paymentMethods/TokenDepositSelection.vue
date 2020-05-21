@@ -113,7 +113,7 @@ export default class TokenDepositSelection extends Vue {
      * Indicates if dropdown expands top.
      */
     public get isExpandingTop(): boolean {
-        return this.$store.state.paymentsModule.billingHistory.length === 0;
+        return this.$store.state.paymentsModule.paymentsHistory.length === 0;
     }
 
     /**

@@ -26,7 +26,6 @@ import { ProjectOwning } from '@/utils/projectOwning';
 const {
     ADD_CREDIT_CARD,
     GET_CREDIT_CARDS,
-    GET_BILLING_HISTORY,
     GET_BALANCE,
 } = PAYMENTS_ACTIONS;
 

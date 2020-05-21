@@ -55,12 +55,12 @@ export interface PaymentsApi {
     makeCreditCardDefault(cardId: string): Promise<void>;
 
     /**
-     * Returns a list of invoices, transactions and all others billing history items for payment account.
+     * Returns a list of invoices, transactions and all others payments history items for payment account.
      *
-     * @returns list of billing history items
+     * @returns list of payments history items
      * @throws Error
      */
-    billingHistory(): Promise<BillingHistoryItem[]>;
+    paymentsHistory(): Promise<PaymentsHistoryItem[]>;
 
     /**
      * Creates token transaction in CoinPayments
@@ -103,7 +103,7 @@ export class PaymentAmountOption {
 }
 
 // BillingHistoryItem holds all public information about billing history line.
-export class BillingHistoryItem {
+export class PaymentsHistoryItem {
     public constructor(
         public readonly id: string = '',
         public readonly description: string = '',
@@ -113,11 +113,11 @@ export class BillingHistoryItem {
         public readonly link: string = '',
         public readonly start: Date = new Date(),
         public readonly end: Date = new Date(),
-        public readonly type: BillingHistoryItemType = BillingHistoryItemType.Invoice,
+        public readonly type: PaymentsHistoryItemType = PaymentsHistoryItemType.Invoice,
     ) {}
 
     public get quantity(): Amount {
-        if (this.type === BillingHistoryItemType.Transaction) {
+        if (this.type === PaymentsHistoryItemType.Transaction) {
             return new Amount('USD $', this.amountDollars(this.amount), this.amountDollars(this.received));
         }
 
@@ -137,28 +137,30 @@ export class BillingHistoryItem {
             return '';
         }
 
-        const downloadLabel = this.type === BillingHistoryItemType.Transaction ? 'Checkout' : 'Invoice PDF';
+        const downloadLabel = this.type === PaymentsHistoryItemType.Transaction ? 'Checkout' : 'Invoice PDF';
 
         return `<a class="download-link" target="_blank" href="${this.link}">${downloadLabel}</a>`;
     }
 }
 
 /**
- * BillingHistoryItemType indicates type of billing history item.
+ * PaymentsHistoryItemType indicates type of history item.
   */
-export enum BillingHistoryItemType {
+export enum PaymentsHistoryItemType {
     // Invoice is a Stripe invoice billing item.
     Invoice = 0,
     // Transaction is a Coinpayments transaction billing item.
     Transaction = 1,
     // Charge is a credit card charge billing item.
     Charge = 2,
+    // Coupon is a promotional coupon item.
+    Coupon = 3,
 }
 
 /**
- * BillingHistoryStatusType indicates status of billing history item.
+ * PaymentsHistoryItemStatus indicates status of history item.
  */
-export enum BillingHistoryItemStatus {
+export enum PaymentsHistoryItemStatus {
     /**
      * Status showed if transaction successfully completed.
      */

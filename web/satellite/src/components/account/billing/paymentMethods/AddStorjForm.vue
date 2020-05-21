@@ -41,7 +41,7 @@ import { ProjectOwning } from '@/utils/projectOwning';
 
 const {
     MAKE_TOKEN_DEPOSIT,
-    GET_BILLING_HISTORY,
+    GET_PAYMENTS_HISTORY,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -85,7 +85,7 @@ export default class AddStorjForm extends Vue {
 
         this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
         try {
-            await this.$store.dispatch(GET_BILLING_HISTORY);
+            await this.$store.dispatch(GET_PAYMENTS_HISTORY);
         } catch (error) {
             await this.$notify.error(error.message);
             this.$emit('toggleIsLoading');

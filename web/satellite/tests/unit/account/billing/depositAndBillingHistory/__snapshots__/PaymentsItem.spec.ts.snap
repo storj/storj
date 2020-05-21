@@ -1,8 +1,8 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`BillingItem renders correctly if charge 1`] = `
+exports[`PaymentsItem renders correctly if charge 1`] = `
 <div class="container">
-  <div class="countdown-container container__item">
+  <div class="countdown-container container__item date">
     <div>January 01, 1970</div>
   </div>
   <p class="container__item description">Charge</p>
@@ -18,9 +18,9 @@ exports[`BillingItem renders correctly if charge 1`] = `
 </div>
 `;
 
-exports[`BillingItem renders correctly if invoice 1`] = `
+exports[`PaymentsItem renders correctly if invoice 1`] = `
 <div class="container">
-  <div class="countdown-container container__item">
+  <div class="countdown-container container__item date">
     <div>January 01, 1970</div>
   </div>
   <p class="container__item description">Invoice</p>
@@ -36,9 +36,9 @@ exports[`BillingItem renders correctly if invoice 1`] = `
 </div>
 `;
 
-exports[`BillingItem renders correctly if transaction 1`] = `
+exports[`PaymentsItem renders correctly if transaction 1`] = `
 <div class="container">
-  <div class="countdown-container container__item">
+  <div class="countdown-container container__item date">
     <div>January 01, 1970</div>
   </div>
   <p class="container__item description">Transaction</p>
