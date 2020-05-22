@@ -329,6 +329,12 @@ func (service *Service) UpdateRates(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rates, err := service.coinPayments.ConversionRates().Get(ctx)
+	if coinpayments.ErrMissingPublicKey.Has(err) {
+		rates = coinpayments.CurrencyRateInfos{}
+		err = nil
+
+		service.log.Info("Coinpayment client is missing public key")
+	}
 
 	service.mu.Lock()
 	defer service.mu.Unlock()
