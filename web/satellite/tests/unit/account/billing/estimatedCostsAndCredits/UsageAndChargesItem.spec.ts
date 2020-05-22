@@ -26,13 +26,13 @@ const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);
 const store = new Vuex.Store({ modules: { projectsModule, paymentsModule }});
 
-describe('UsageAndChargesItem', () => {
+describe('UsageAndChargesItem', (): void => {
     const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);
     projectsApi.setMockProjects([project]);
     const date = new Date(Date.UTC(1970, 1, 1));
     const projectCharge = new ProjectUsageAndCharges(date, date, 100, 100, 100, 'id', 100, 100, 100);
 
-    it('renders correctly', () => {
+    it('renders correctly', (): void => {
         const wrapper = shallowMount(UsageAndChargesItem, {
             store,
             localVue,
@@ -41,7 +41,7 @@ describe('UsageAndChargesItem', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('toggling dropdown works correctly', async () => {
+    it('toggling dropdown works correctly', async (): Promise<void> => {
         const wrapper = shallowMount(UsageAndChargesItem, {
             store,
             localVue,

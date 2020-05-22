@@ -3,32 +3,16 @@
 
 <template>
     <div class="current-month-area">
-        <div class="current-month-area__title-area">
-            <h1 class="current-month-area__title-area__title">Estimated Costs for This Billing Period</h1>
-            <span class="current-month-area__title-area__costs">{{ priceSummary | centsToDollars }}</span>
-        </div>
+        <h1 class="current-month-area__costs">{{ priceSummary | centsToDollars }}</h1>
+        <span class="current-month-area__title">Estimated Charges for {{ chosenPeriod }}</span>
         <div class="current-month-area__content">
-            <h2 class="current-month-area__content__title">DETAILS</h2>
-            <div class="current-month-area__content__usage-charges" @click="toggleUsageChargesPopup">
-                <div class="current-month-area__content__usage-charges__head">
-                    <div class="current-month-area__content__usage-charges__head__name-area">
-                        <div class="current-month-area__content__usage-charges__head__name-area__image-container" v-if="projectUsageAndCharges.length > 0">
-                            <ArrowRightIcon v-if="!areProjectUsageAndChargesShown"/>
-                            <ArrowDownIcon v-else/>
-                        </div>
-                        <span class="current-month-area__content__usage-charges__head__name-area__title">Usage Charges</span>
-                    </div>
-                    <span>Estimated total <span class="summary">{{ priceSummary | centsToDollars }}</span></span>
-                </div>
-                <div class="current-month-area__content__usage-charges__content" v-if="areProjectUsageAndChargesShown" @click.stop>
-                    <UsageAndChargesItem
-                        v-for="usageAndCharges in projectUsageAndCharges"
-                        :item="usageAndCharges"
-                        :key="usageAndCharges.projectId"
-                        class="item"
-                    />
-                </div>
-            </div>
+            <p class="current-month-area__content__title">DETAILS</p>
+            <UsageAndChargesItem
+                v-for="usageAndCharges in projectUsageAndCharges"
+                :item="usageAndCharges"
+                :key="usageAndCharges.projectId"
+                class="item"
+            />
         </div>
     </div>
 </template>
@@ -39,18 +23,14 @@ import { Component, Vue } from 'vue-property-decorator';
 import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import ArrowRightIcon from '@/../static/images/common/BlueArrowRight.svg';
-import ArrowDownIcon from '@/../static/images/common/BlueExpand.svg';
-
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { ProjectUsageAndCharges } from '@/types/payments';
+import { MONTHS_NAMES } from '@/utils/constants/date';
 
 @Component({
     components: {
         VButton,
         UsageAndChargesItem,
-        ArrowRightIcon,
-        ArrowDownIcon,
     },
 })
 export default class EstimatedCostsAndCredits extends Vue {
@@ -68,11 +48,6 @@ export default class EstimatedCostsAndCredits extends Vue {
     }
 
     /**
-     * areProjectUsageAndChargesShown indicates if area with all projects is expanded.
-     */
-    public areProjectUsageAndChargesShown: boolean = false;
-
-    /**
      * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
      */
     public get projectUsageAndCharges(): ProjectUsageAndCharges[] {
@@ -87,14 +62,12 @@ export default class EstimatedCostsAndCredits extends Vue {
     }
 
     /**
-     * toggleUsageChargesPopup is used to open/close area with list of project charges.
+     * chosenPeriod returns billing period chosen by user.
      */
-    public toggleUsageChargesPopup(): void {
-        if (this.projectUsageAndCharges.length === 0) {
-            return;
-        }
+    public get chosenPeriod(): string {
+        const dateFromStore = this.$store.state.paymentsModule.startDate;
 
-        this.areProjectUsageAndChargesShown = !this.areProjectUsageAndChargesShown;
+        return `${MONTHS_NAMES[dateFromStore.getUTCMonth()]} ${dateFromStore.getUTCFullYear()}`;
     }
 }
 </script>
@@ -110,29 +83,26 @@ export default class EstimatedCostsAndCredits extends Vue {
 
     .current-month-area {
         margin-bottom: 32px;
-        padding: 40px;
+        padding: 40px 40px 0 40px;
         background-color: #fff;
         border-radius: 8px;
         font-family: 'font_regular', sans-serif;
 
-        &__title-area {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 40px;
-            border-bottom: 1px solid rgba(169, 181, 193, 0.3);
+        &__costs {
+            font-size: 36px;
+            line-height: 53px;
+            color: #384b65;
+            font-family: 'font_medium', sans-serif;
+        }
 
-            &__title,
-            &__costs {
-                font-size: 28px;
-                line-height: 42px;
-                font-family: 'font_bold', sans-serif;
-                color: #354049;
-            }
+        &__title {
+            font-size: 16px;
+            line-height: 24px;
+            color: #909090;
         }
 
         &__content {
-            margin-top: 20px;
+            margin-top: 35px;
 
             &__title {
                 font-size: 16px;
@@ -140,53 +110,19 @@ export default class EstimatedCostsAndCredits extends Vue {
                 letter-spacing: 0.04em;
                 text-transform: uppercase;
                 color: #919191;
+                margin-bottom: 25px;
             }
 
             &__usage-charges {
-                position: relative;
                 margin: 18px 0 0 0;
                 background-color: #f5f6fa;
                 border-radius: 12px;
                 cursor: pointer;
-
-                &__head {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 20px;
-
-                    &__name-area {
-                        display: flex;
-                        align-items: center;
-
-                        &__image-container {
-                            max-width: 14px;
-                            max-height: 14px;
-                            width: 14px;
-                            height: 14px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            margin-right: 12px;
-                        }
-                    }
-                }
-
-                &__content {
-                    cursor: default;
-                    max-height: 228px;
-                    overflow-y: auto;
-                    padding: 0 20px;
-                }
             }
         }
     }
 
     .item {
-        border-top: 1px solid rgba(169, 181, 193, 0.3);
-    }
-
-    .summary {
-        user-select: text;
+        border-top: 1px solid #c7cdd2;
     }
 </style>

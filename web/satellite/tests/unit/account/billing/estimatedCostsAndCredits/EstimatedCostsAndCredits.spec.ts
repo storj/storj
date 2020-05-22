@@ -32,18 +32,25 @@ const paymentsModule = makePaymentsModule(paymentsApi);
 const store = new Vuex.Store({ modules: { usersModule, projectsModule, paymentsModule }});
 
 const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);
+const project1 = new Project('id1', 'projectName1', 'projectDescription1', 'test', 'testOwnerId1', false);
 const user = new User('testOwnerId');
 const date = new Date(1970, 1, 1);
 const projectCharge = new ProjectUsageAndCharges(date, date, 100, 100, 100, 'id', 100, 100, 100);
+const projectCharge1 = new ProjectUsageAndCharges(date, date, 100, 100, 100, 'id1', 100, 100, 100);
 const {
     SET_PROJECT_USAGE_AND_CHARGES,
     SET_PRICE_SUMMARY,
 } = PAYMENTS_MUTATIONS;
 
-describe('EstimatedCostsAndCredits', () => {
-    it('renders correctly with project and no project usage and charges', () => {
-        store.commit(USER_MUTATIONS.SET_USER, user);
-        store.commit(PROJECTS_MUTATIONS.ADD, project);
+describe('EstimatedCostsAndCredits', (): void => {
+    beforeEach(() => {
+        spyOn(Date.prototype, 'getUTCMonth').and.returnValue(4);
+        spyOn(Date.prototype, 'getUTCFullYear').and.returnValue(2020);
+    });
+
+    it('renders correctly with project and no project usage and charges', async (): Promise<void> => {
+        await store.commit(USER_MUTATIONS.SET_USER, user);
+        await store.commit(PROJECTS_MUTATIONS.ADD, project);
 
         const wrapper = mount(EstimatedCostsAndCredits, {
             store,
@@ -53,9 +60,22 @@ describe('EstimatedCostsAndCredits', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('renders correctly with project and project usage and charges', () => {
-        store.commit(SET_PROJECT_USAGE_AND_CHARGES, [projectCharge]);
-        store.commit(SET_PRICE_SUMMARY, [projectCharge]);
+    it('renders correctly with project and project usage and charges', async (): Promise<void> => {
+        await store.commit(SET_PROJECT_USAGE_AND_CHARGES, [projectCharge]);
+        await store.commit(SET_PRICE_SUMMARY, [projectCharge]);
+
+        const wrapper = mount(EstimatedCostsAndCredits, {
+            store,
+            localVue,
+        });
+
+        expect(wrapper).toMatchSnapshot();
+    });
+
+    it('renders correctly with 2 projects and project usage and charges', async (): Promise<void> => {
+        await store.commit(PROJECTS_MUTATIONS.ADD, project1);
+        await store.commit(SET_PROJECT_USAGE_AND_CHARGES, [projectCharge, projectCharge1]);
+        await store.commit(SET_PRICE_SUMMARY, [projectCharge, projectCharge1]);
 
         const wrapper = mount(EstimatedCostsAndCredits, {
             store,

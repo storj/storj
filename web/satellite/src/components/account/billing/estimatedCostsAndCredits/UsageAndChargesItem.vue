@@ -3,17 +3,15 @@
 
 <template>
     <div class="usage-charges-item-container">
-        <div class="usage-charges-item-container__summary" @click.self="toggleDetailedInfo">
-            <div class="usage-charges-item-container__summary__name-container" @click="toggleDetailedInfo">
-                <svg class="usage-charges-item-container__summary__name-container__expand-image" v-if="!isDetailedInfoShown" width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0.328889 13.6272C-0.10963 13.1302 -0.10963 12.3243 0.328889 11.8273L4.58792 7L0.328889 2.17268C-0.10963 1.67565 -0.10963 0.869804 0.328889 0.372774C0.767408 -0.124258 1.47839 -0.124258 1.91691 0.372774L7.76396 7L1.91691 13.6272C1.47839 14.1243 0.767409 14.1243 0.328889 13.6272Z" fill="#2683FF"/>
-                </svg>
-                <svg class="usage-charges-item-container__summary__name-container__expand-image" v-if="isDetailedInfoShown" width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M0.372773 0.338888C0.869804 -0.112963 1.67565 -0.112963 2.17268 0.338888L7 4.72741L11.8273 0.338888C12.3243 -0.112963 13.1302 -0.112963 13.6272 0.338888C14.1243 0.790739 14.1243 1.52333 13.6272 1.97519L7 8L0.372773 1.97519C-0.124258 1.52333 -0.124258 0.790739 0.372773 0.338888Z" fill="#2683FF"/>
-                </svg>
+        <div class="usage-charges-item-container__summary" @click="toggleDetailedInfo">
+            <div class="usage-charges-item-container__summary__name-container" >
+                <ChargesExpandIcon v-if="isDetailedInfoShown"/>
+                <ChargesHideIcon v-else/>
                 <span>{{ projectName }}</span>
             </div>
-            <div class="usage-charges-item-container__summary__report-link" @click="onReportClick">Advanced Report -></div>
+            <span class="usage-charges-item-container__summary__amount">
+                Estimated Total {{ item.summary() | centsToDollars }}
+            </span>
         </div>
         <div class="usage-charges-item-container__detailed-info-container" v-if="isDetailedInfoShown">
             <div class="usage-charges-item-container__detailed-info-container__info-header">
@@ -44,7 +42,11 @@
                     <p class="price">{{ item.objectPrice | centsToDollars }}</p>
                 </div>
             </div>
-            <span class="usage-charges-item-container__detailed-info-container__summary">{{ item.summary() | centsToDollars }}</span>
+            <div class="usage-charges-item-container__detailed-info-container__link-container">
+                <span class="usage-charges-item-container__detailed-info-container__link-container__link" @click="onReportClick">
+                    Advanced Report ->
+                </span>
+            </div>
         </div>
     </div>
 </template>
@@ -52,13 +54,22 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import ChargesExpandIcon from '@/../static/images/account/billing/chargesExpand.svg';
+import ChargesHideIcon from '@/../static/images/account/billing/chargesHide.svg';
+
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
+import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { toUnixTimestamp } from '@/utils/time';
 
-@Component
+@Component({
+    components: {
+        ChargesHideIcon,
+        ChargesExpandIcon,
+    },
+})
 export default class UsageAndChargesItem extends Vue {
     /**
      * item represents usage and charges of current project by period.
@@ -85,9 +96,8 @@ export default class UsageAndChargesItem extends Vue {
      * Returns string of date range.
      */
     public get period(): string {
-        const months: string[] = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const since: string = `${months[this.item.since.getUTCMonth()]} ${this.item.since.getUTCDate()}`;
-        const before: string = `${months[this.item.before.getUTCMonth()]} ${this.item.before.getUTCDate()}`;
+        const since: string = `${SHORT_MONTHS_NAMES[this.item.since.getUTCMonth()]} ${this.item.since.getUTCDate()}`;
+        const before: string = `${SHORT_MONTHS_NAMES[this.item.before.getUTCMonth()]} ${this.item.before.getUTCDate()}`;
 
         return `${since} - ${before}`;
     }
@@ -168,7 +178,7 @@ export default class UsageAndChargesItem extends Vue {
     .usage-charges-item-container {
         font-size: 16px;
         line-height: 21px;
-        padding: 20px 0;
+        padding: 30px 0;
         font-family: 'font_regular', sans-serif;
 
         &__summary {
@@ -181,20 +191,24 @@ export default class UsageAndChargesItem extends Vue {
                 display: flex;
                 align-items: center;
 
-                &__expand-image {
+                &__expand-image,
+                &__hide-image {
                     width: 14px;
                     height: 14px;
                     margin-right: 12px;
                 }
+
+                &__expand-image {
+                    height: 8px;
+                }
             }
 
-            &__report-link {
-                padding: 3px 5px;
-                font-size: 13px;
-                line-height: 19px;
-                color: #2683ff;
-                background-color: rgba(38, 131, 255, 0.16);
-                border-radius: 6px;
+            &__amount {
+                width: 100%;
+                font-size: 16px;
+                line-height: 21px;
+                text-align: right;
+                color: #354049;
             }
         }
 
@@ -212,15 +226,13 @@ export default class UsageAndChargesItem extends Vue {
                 font-size: 14px;
                 line-height: 19px;
                 color: #adadad;
-                border-bottom: 1px solid #b9b9b9;
                 height: 25px;
                 width: 100%;
             }
 
             &__content-area {
                 width: 100%;
-                padding: 10px 0;
-                border-bottom: 1px solid #b9b9b9;
+                padding: 10px 0 0 0;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -245,12 +257,19 @@ export default class UsageAndChargesItem extends Vue {
                 }
             }
 
-            &__summary {
+            &__link-container {
                 width: 100%;
-                font-size: 14px;
-                line-height: 18px;
-                text-align: right;
-                margin-top: 13px;
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                margin-top: 25px;
+
+                &__link {
+                    font-size: 13px;
+                    line-height: 19px;
+                    color: #2683ff;
+                    cursor: pointer;
+                }
             }
         }
     }
