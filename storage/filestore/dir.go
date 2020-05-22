@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/storage"
 )
@@ -33,6 +34,7 @@ var pathEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPa
 
 // Dir represents single folder for storing blobs
 type Dir struct {
+	log  *zap.Logger
 	path string
 
 	mu          sync.Mutex
@@ -41,8 +43,9 @@ type Dir struct {
 }
 
 // NewDir returns folder for storing blobs
-func NewDir(path string) (*Dir, error) {
+func NewDir(log *zap.Logger, path string) (*Dir, error) {
 	dir := &Dir{
+		log:      log,
 		path:     path,
 		trashnow: time.Now,
 	}
@@ -646,7 +649,7 @@ func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path 
 				// don't need to pass on this error
 				continue
 			}
-			err := walkNamespaceWithPrefix(ctx, namespace, nsDir, keyPrefix, walkFunc)
+			err := walkNamespaceWithPrefix(ctx, dir.log, namespace, nsDir, keyPrefix, walkFunc)
 			if err != nil {
 				return err
 			}
@@ -673,7 +676,7 @@ func decodeBlobInfo(namespace []byte, keyPrefix, keyDir string, keyInfo os.FileI
 	return newBlobInfo(ref, filepath.Join(keyDir, blobFileName), keyInfo, formatVer), true
 }
 
-func walkNamespaceWithPrefix(ctx context.Context, namespace []byte, nsDir, keyPrefix string, walkFunc func(storage.BlobInfo) error) (err error) {
+func walkNamespaceWithPrefix(ctx context.Context, log *zap.Logger, namespace []byte, nsDir, keyPrefix string, walkFunc func(storage.BlobInfo) error) (err error) {
 	keyDir := filepath.Join(nsDir, keyPrefix)
 	openDir, err := os.Open(keyDir)
 	if err != nil {
@@ -685,25 +688,34 @@ func walkNamespaceWithPrefix(ctx context.Context, namespace []byte, nsDir, keyPr
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		keyInfos, err := openDir.Readdir(nameBatchSize)
+		names, err := openDir.Readdirnames(nameBatchSize)
 		if err != nil && err != io.EOF {
 			return err
 		}
-		if os.IsNotExist(err) || len(keyInfos) == 0 {
+		if os.IsNotExist(err) || len(names) == 0 {
 			return nil
 		}
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		for _, keyInfo := range keyInfos {
-			if keyInfo.Mode().IsDir() {
+		for _, name := range names {
+			info, err := os.Lstat(keyDir + "/" + name)
+			if err != nil {
+				if pErr, ok := err.(*os.PathError); ok {
+					if pErr.Err.Error() == "lstat" {
+						log.Error("Unable to read the disk, please verify the disk is not corrupt")
+					}
+				}
+				return err
+			}
+			if info.Mode().IsDir() {
 				continue
 			}
-			info, ok := decodeBlobInfo(namespace, keyPrefix, keyDir, keyInfo)
+			blobInfo, ok := decodeBlobInfo(namespace, keyPrefix, keyDir, info)
 			if !ok {
 				continue
 			}
-			err = walkFunc(info)
+			err = walkFunc(blobInfo)
 			if err != nil {
 				return err
 			}

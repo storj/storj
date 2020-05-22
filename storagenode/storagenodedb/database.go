@@ -111,7 +111,7 @@ type DB struct {
 
 // New creates a new master database for storage node
 func New(log *zap.Logger, config Config) (*DB, error) {
-	piecesDir, err := filestore.NewDir(config.Pieces)
+	piecesDir, err := filestore.NewDir(log, config.Pieces)
 	if err != nil {
 		return nil, err
 	}
