@@ -25,6 +25,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
@@ -158,6 +159,74 @@ func TestUpload(t *testing.T) {
 				signee := signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity)
 				require.NoError(t, signing.VerifyPieceHashSignature(ctx, signee, pieceHash))
 			}
+		}
+	})
+}
+
+func TestUploadOverAvailable(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewLimitedSpaceDB(log.Named("overload"), db, 3000000), nil
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Storage2.Monitor.MinimumDiskSpace = 3 * memory.MB
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
+		require.NoError(t, err)
+		defer ctx.Check(client.Close)
+
+		var tt struct {
+			pieceID       storj.PieceID
+			contentLength memory.Size
+			action        pb.PieceAction
+			err           string
+		}
+
+		tt.pieceID = storj.PieceID{1}
+		tt.contentLength = 5 * memory.MB
+		tt.action = pb.PieceAction_PUT
+		tt.err = "not enough available disk space, have: 3000000, need: 5000000"
+
+		data := testrand.Bytes(tt.contentLength)
+		serialNumber := testrand.SerialNumber()
+
+		orderLimit, piecePrivateKey := GenerateOrderLimit(
+			t,
+			planet.Satellites[0].ID(),
+			planet.StorageNodes[0].ID(),
+			tt.pieceID,
+			tt.action,
+			serialNumber,
+			24*time.Hour,
+			24*time.Hour,
+			int64(len(data)),
+		)
+		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+		require.NoError(t, err)
+
+		uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
+		require.NoError(t, err)
+
+		_, err = uploader.Write(data)
+		require.Error(t, err)
+
+		pieceHash, err := uploader.Commit(ctx)
+		if tt.err != "" {
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.err)
+		} else {
+			require.NoError(t, err)
+
+			expectedHash := pkcrypto.SHA256Hash(data)
+			assert.Equal(t, expectedHash, pieceHash.Hash)
+
+			signee := signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity)
+			require.NoError(t, signing.VerifyPieceHashSignature(ctx, signee, pieceHash))
 		}
 	})
 }
