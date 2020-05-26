@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/nodeselection"
@@ -167,10 +167,12 @@ func createRandomNodes(n int, subnet string) []*nodeselection.Node {
 	for i := range xs {
 		addr := subnet + "." + strconv.Itoa(i) + ":8080"
 		xs[i] = &nodeselection.Node{
-			ID:         testrand.NodeID(),
+			NodeURL: storj.NodeURL{
+				ID:      testrand.NodeID(),
+				Address: addr,
+			},
 			LastNet:    subnet,
 			LastIPPort: addr,
-			Address:    &pb.NodeAddress{Address: addr},
 		}
 	}
 	return xs
