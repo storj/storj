@@ -122,9 +122,6 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		// Setup: create 50KiB of data for the uplink to upload
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
-		// Setup: get the expected size of the data that will be stored in pointer
-		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
-
 		// TODO uplink currently hardcode block size so we need to use the same value in test
 		encryptionParameters := storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
@@ -143,9 +140,9 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		require.NoError(t, err)
 
 		// Confirm the correct number of shares were stored
-		uplinkRS := uplinkConfig.GetRedundancyScheme()
-		if !correctRedundencyScheme(len(obs.Node), uplinkRS) {
-			t.Fatalf("expected between: %d and %d, actual: %d", uplinkRS.RepairShares, uplinkRS.TotalShares, len(obs.Node))
+		rs := satelliteRS(planet.Satellites[0])
+		if !correctRedundencyScheme(len(obs.Node), rs) {
+			t.Fatalf("expected between: %d and %d, actual: %d", rs.RepairShares, rs.TotalShares, len(obs.Node))
 		}
 
 		// Confirm the correct number of bytes were stored on each node
@@ -175,7 +172,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
-		redundancyScheme := planet.Uplinks[0].GetConfig(satellitePeer).GetRedundancyScheme()
+		redundancyScheme := satelliteRS(satellitePeer)
 		expectedBucketTallies := make(map[string]*accounting.BucketTally)
 		for _, tt := range testCases {
 			tt := tt // avoid scopelint error
@@ -211,7 +208,7 @@ func TestTallyIgnoresExpiredPointers(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
-		redundancyScheme := planet.Uplinks[0].GetConfig(satellitePeer).GetRedundancyScheme()
+		redundancyScheme := satelliteRS(satellitePeer)
 
 		project := "9656af6e-2d9c-42fa-91f2-bfd516a722d7"
 		bucket := "bucket"
@@ -398,4 +395,13 @@ func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bo
 	// RequiredShares is the min number of shares required to recover a segment and
 	// TotalShares is the number of shares to encode
 	return int(uplinkRS.RepairShares) <= shareCount && shareCount <= int(uplinkRS.TotalShares)
+}
+
+func satelliteRS(satellite *testplanet.Satellite) storj.RedundancyScheme {
+	return storj.RedundancyScheme{
+		RequiredShares: int16(satellite.Config.Metainfo.RS.MinThreshold),
+		RepairShares:   int16(satellite.Config.Metainfo.RS.RepairThreshold),
+		OptimalShares:  int16(satellite.Config.Metainfo.RS.SuccessThreshold),
+		TotalShares:    int16(satellite.Config.Metainfo.RS.TotalThreshold),
+	}
 }

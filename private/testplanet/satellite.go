@@ -797,3 +797,11 @@ func (planet *Planet) newGarbageCollection(count int, identity *identity.FullIde
 	planet.databases = append(planet.databases, revocationDB)
 	return satellite.NewGarbageCollection(log, identity, db, pointerDB, revocationDB, versionInfo, &config, nil)
 }
+
+// atLeastOne returns 1 if value < 1, or value otherwise.
+func atLeastOne(value int) int {
+	if value < 1 {
+		return 1
+	}
+	return value
+}
