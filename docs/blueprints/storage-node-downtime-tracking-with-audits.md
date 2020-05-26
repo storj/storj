@@ -51,12 +51,9 @@ By keeping track of the offline percentage per window and then averaging the sco
 
 ### 1) Determine the business requirement for the minimum frequency of audits per node. Implement the necessary changes to make this happen. 
 
-This will determine what window sizes we can work with.
+This will determine what window sizes we can work with. Ideally we should be completing multiple audit queues over the course of a single window.
 
-### 2) Add new columns, `offline_scored_at` and `offline_suspended`, and `under_review` to `nodes` table
-We do not need to evaluate a node's standing every time it is audited because we are only interested in complete windows. Therefore, we only need to evaluate a node's standing once per window. If `offline_scored_at` does not fall within the current window then we need to set `offline_scored_at` to the current time and evaluate whether the node needs to be suspended, reinstated, or disqualified.
-
-`offline_scored_at` and `under_review` should be timestamps. `offline_suspended` could be a timestamp or a boolean. The boolean would use less space, but the timestamp might be more informative on a SNO dashboard.
+### 2) Add new nullable timestamp columns `offline_suspended` and `under_review` to `nodes` table
 
 ### 3) Implement a DB table to store audit history
 
@@ -66,37 +63,23 @@ CREATE TABLE audit_history (
     data BYTEA,
 )
 ```
+`data` refers to a serialzed data structure containing the node's audit history.
 
 ```
-type AuditWindow struct {
+type AuditResults struct {
     Offline int
     Total   int
 }
 
-type AuditHistory struct {
-    Windows map[time.Time]auditWindow
-}
-
-type State int 
-const (
-  StateNew State = 1
-  StateVetted State = 2
-  StateSuspended State = 3
-  StateReviewing State = 4
-  StateDisqualified State = 5
-}
-
-func ParseAuditHistory(serializedBytes []byte) *AuditHistory 
-func (a *AuditHistory) Serialize() []byte
-func (a *AuditHistory) AuditResult(success bool, when time.Time, currentState State) (newState State, stateChange bool)
-func (a *AuditHistory) Score() float64
-```
-The `window_start` column refers to the start boundary of the window. This can be determined by truncating the current time down to the nearest multiple of the window size.
-
-### 4) Add `AuditWindowConfig` to overlay config. 
+type AuditHistory map[time.Time]AuditResults
 
 ```
-type AuditWindowConfig struct {
+The map key refers to the start boundary of the window. This can be determined by truncating the current time down to the nearest multiple of the window size.
+
+### 4) Add `AuditHistoryConfig` to overlay config. 
+
+```
+type AuditHistoryConfig struct {
     WindowSize       time.Duration `help:"the length of time spanning a single audit window."`
     TrackingPeriod   time.Duration `help:"the length of time to track audit windows for node suspension and disqualification."`
     GracePeriod      time.Duration `help:"The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification."`
@@ -104,23 +87,15 @@ type AuditWindowConfig struct {
 }
 ```
 
-### 5) Write to audit windows and evaluate node standing. 
+### 5) Write to audit history and evaluate node standing. 
 The overlay DB method `BatchUpdateStats` is where a node's audit reputation is updated by audit results. It iterates through each node, retrieving its dossier from the `nodes` table and updates its reputation. We also need to update and read information from the node dossier to set and evaluate a node's standing regarding audit windows, so this method is a good place to do this. 
 
 Add a new argument to `BatchUpdateStats` to pass in `AuditWindowConfig`. This gives us the window size parameter required to write to the audit windows table and the tracking period, grace period, and offline threshold parameters required to evaluate whether a node needs to be suspended, reinstated, or disqualified.
 
-For each node, take the `offline_suspended`, `offline_scored_at`, and `under_review` values from the node dossier. 
-Determine whether we need to evaluate the node's standing (see implementation step 2 above).
-If so, evaluate the node's current standing by scoring each window by finding what percentage of audits were offline per window, then finding the average score across all complete windows within the tracking period.
-
-```sql
-SELECT SUM(offline_score)/COUNT(*)
-FROM (
-    SELECT (offline/total) AS offline_score
-    FROM audit_windows
-    WHERE node_id = $1 AND window_start >= $2 AND window_start < $3
-) t
-```
+For each node, take the `offline_suspended` and `under_review` values from the node dossier. 
+Select and unmarshal the node's entry in the audit history table. 
+If a value does not exist in the windows map for the current window, this means that the previous window is now complete, and we need to evaluate the node and delete any windows which have fallen out of scope.
+We evaluate the node's current standing by finding what percentage of audits were offline per window, then finding the average score across all complete windows within the tracking period.
 
 With this information, there are a number of conditions we need to evaluate:
 
@@ -130,7 +105,7 @@ With this information, there are a number of conditions we need to evaluate:
 
     - Reinstate the node if it is suspended.
 
-    - Check if the review period has expired. We can do this by taking the start boundary of the current window and subtracting the tracking period and grace period lengths from it. If this value is greater than the `under_review` value, this means that the node's review period has elapsed and the `under_review` column can be cleared.
+    - Check if the review period has expired. We can do this by taking the start boundary of the current window and subtracting the tracking period and grace period lengths from it. If this value is greater than the `under_review` value, this means that the node's review period has elapsed and the `under_review` field can be cleared.
 
     1b. The node is not under review
 
@@ -146,14 +121,12 @@ With this information, there are a number of conditions we need to evaluate:
         
     2b. The node is not under review
 
-    - Suspend the node and set its `under_review` column to the current time.
+    - Suspend the node and set its `under_review` field in the audit history struct to the current time.
 
+After the evaluation is complete, insert a new window into the Windows map and write the serialized audit history back to the database.
 
-After the evaluation is complete, insert or update the appropriate window in the audit_windows table.
-
-### 6) Implement email and node dashboard notifications of offline suspension
-
-### 7) Create a chore to delete audit windows after a certain time 
+### 6) Implement email and node dashboard notifications of offline suspension and under review status
+The `NodeStats` protobuf will need to be updated to send and receive these new fields
 
 ## Wrapup
 
