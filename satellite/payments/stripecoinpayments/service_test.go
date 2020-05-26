@@ -16,6 +16,8 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -23,7 +25,7 @@ import (
 
 func TestService_InvoiceElementsProcessing(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -32,10 +34,6 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-
-		// delete preconfigured project to not mess with test flow
-		err := satellite.DB.Console().Projects().Delete(ctx, planet.Uplinks[0].Projects[0].ID)
-		require.NoError(t, err)
 
 		numberOfProjects := 19
 		// generate test data, each user has one project, one coupon and some credits
@@ -63,7 +61,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		satellite.API.Payments.Service.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})
-		err = satellite.API.Payments.Service.PrepareInvoiceProjectRecords(ctx, period)
+		err := satellite.API.Payments.Service.PrepareInvoiceProjectRecords(ctx, period)
 		require.NoError(t, err)
 
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -107,5 +105,99 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		spendingsPage, err = satellite.DB.StripeCoinPayments().Credits().ListCreditsSpendingsPaged(ctx, int(stripecoinpayments.CreditsSpendingStatusUnapplied), 0, 40, start)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(spendingsPage.Spendings))
+	})
+}
+
+func TestService_InvoiceUserWithManyProjects(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		period := time.Now()
+		payments.Service.SetNow(func() time.Time {
+			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+
+		numberOfProjects := 5
+		storageHours := 24
+
+		user, err := satellite.AddUser(ctx, "testuser", "user@test", numberOfProjects)
+		require.NoError(t, err)
+
+		projects := make([]*console.Project, numberOfProjects)
+		projectsEgress := make([]int64, len(projects))
+		projectsStorage := make([]int64, len(projects))
+		for i := 0; i < len(projects); i++ {
+			projects[i], err = satellite.AddProject(ctx, user.ID, "testproject-"+strconv.Itoa(i))
+			require.NoError(t, err)
+
+			// generate egress
+			projectsEgress[i] = int64(i+10) * memory.GiB.Int64()
+			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, projects[i].ID, []byte("testbucket"),
+				pb.PieceAction_GET, projectsEgress[i], period)
+			require.NoError(t, err)
+
+			// generate storage
+			// we need at least two tallies across time to calculate storage
+			projectsStorage[i] = int64(i+1) * memory.TiB.Int64()
+			tally := &accounting.BucketTally{
+				BucketName:  []byte("testbucket"),
+				ProjectID:   projects[i].ID,
+				RemoteBytes: projectsStorage[i],
+				ObjectCount: int64(i + 1),
+			}
+			tallies := map[string]*accounting.BucketTally{
+				"0": tally,
+			}
+			err = satellite.DB.ProjectAccounting().SaveTallies(ctx, period, tallies)
+			require.NoError(t, err)
+
+			err = satellite.DB.ProjectAccounting().SaveTallies(ctx, period.Add(time.Duration(storageHours)*time.Hour), tallies)
+			require.NoError(t, err)
+
+			// verify that projects don't have records yet
+			projectRecord, err := satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, projects[i].ID, start, end)
+			require.NoError(t, err)
+			require.Nil(t, projectRecord)
+		}
+
+		err = payments.Service.PrepareInvoiceProjectRecords(ctx, period)
+		require.NoError(t, err)
+
+		for i := 0; i < len(projects); i++ {
+			projectRecord, err := satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, projects[i].ID, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, projectRecord)
+			require.Equal(t, projects[i].ID, projectRecord.ProjectID)
+			require.Equal(t, projectsEgress[i], projectRecord.Egress)
+
+			expectedStorage := float64(projectsStorage[i] * int64(storageHours))
+			require.Equal(t, expectedStorage, projectRecord.Storage)
+
+			expectedObjectsCount := float64((i + 1) * storageHours)
+			require.Equal(t, expectedObjectsCount, projectRecord.Objects)
+		}
+
+		// run all parts of invoice generation to see if there are no unexpected errors
+		err = payments.Service.InvoiceApplyProjectRecords(ctx, period)
+		require.NoError(t, err)
+
+		err = payments.Service.InvoiceApplyCoupons(ctx, period)
+		require.NoError(t, err)
+
+		err = payments.Service.InvoiceApplyCredits(ctx, period)
+		require.NoError(t, err)
+
+		err = payments.Service.CreateInvoices(ctx, period)
+		require.NoError(t, err)
 	})
 }
