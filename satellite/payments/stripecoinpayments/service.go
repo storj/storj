@@ -34,6 +34,9 @@ var (
 	mon = monkit.Package()
 )
 
+// hoursPerMonth is the number of months in a billing month. For the purpose of billing, the billing month is always 30 days.
+const hoursPerMonth = 24 * 30
+
 // Config stores needed information for payment service initialization.
 type Config struct {
 	StripeSecretKey              string        `help:"stripe API secret key" default:""`
@@ -58,9 +61,9 @@ type Service struct {
 	stripeClient StripeClient
 	coinPayments *coinpayments.Client
 
-	ByteHourCents   decimal.Decimal
-	EgressByteCents decimal.Decimal
-	ObjectHourCents decimal.Decimal
+	StorageMBMonthPriceCents decimal.Decimal
+	EgressMBPriceCents       decimal.Decimal
+	ObjectMonthPriceCents    decimal.Decimal
 	// BonusRate amount of percents
 	BonusRate int64
 	// Coupon Values
@@ -91,7 +94,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		},
 	)
 
-	tbMonthDollars, err := decimal.NewFromString(storageTBPrice)
+	storageTBMonthDollars, err := decimal.NewFromString(storageTBPrice)
 	if err != nil {
 		return nil, err
 	}
@@ -104,39 +107,29 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		return nil, err
 	}
 
-	// change the precision from dollars to cents
-	tbMonthCents := tbMonthDollars.Shift(2)
-	egressTBCents := egressTBDollars.Shift(2)
-	objectHourCents := objectMonthDollars.Shift(2)
-
-	// get per hour prices from storage and objects
-	hoursPerMonth := decimal.New(30*24, 0)
-
-	tbHourCents := tbMonthCents.Div(hoursPerMonth)
-	objectHourCents = objectHourCents.Div(hoursPerMonth)
-
-	// convert tb to bytes for storage and egress
-	byteHourCents := tbHourCents.Div(decimal.New(1000000000000, 0))
-	egressByteCents := egressTBCents.Div(decimal.New(1000000000000, 0))
+	// change the precision from TB dollars to MB cents
+	storageMBMonthPriceCents := storageTBMonthDollars.Shift(-6).Shift(2)
+	egressMBPriceCents := egressTBDollars.Shift(-6).Shift(2)
+	objectMonthPriceCents := objectMonthDollars.Shift(2)
 
 	return &Service{
-		log:                log,
-		db:                 db,
-		projectsDB:         projectsDB,
-		usageDB:            usageDB,
-		stripeClient:       stripeClient,
-		coinPayments:       coinPaymentsClient,
-		ByteHourCents:      byteHourCents,
-		EgressByteCents:    egressByteCents,
-		ObjectHourCents:    objectHourCents,
-		BonusRate:          bonusRate,
-		CouponValue:        couponValue,
-		CouponDuration:     couponDuration,
-		CouponProjectLimit: couponProjectLimit,
-		MinCoinPayment:     minCoinPayment,
-		AutoAdvance:        config.AutoAdvance,
-		listingLimit:       config.ListingLimit,
-		nowFn:              time.Now,
+		log:                      log,
+		db:                       db,
+		projectsDB:               projectsDB,
+		usageDB:                  usageDB,
+		stripeClient:             stripeClient,
+		coinPayments:             coinPaymentsClient,
+		StorageMBMonthPriceCents: storageMBMonthPriceCents,
+		EgressMBPriceCents:       egressMBPriceCents,
+		ObjectMonthPriceCents:    objectMonthPriceCents,
+		BonusRate:                bonusRate,
+		CouponValue:              couponValue,
+		CouponDuration:           couponDuration,
+		CouponProjectLimit:       couponProjectLimit,
+		MinCoinPayment:           minCoinPayment,
+		AutoAdvance:              config.AutoAdvance,
+		listingLimit:             config.ListingLimit,
+		nowFn:                    time.Now,
 	}, nil
 }
 
@@ -622,30 +615,34 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 		return err
 	}
 
-	projectPrice := service.calculateProjectUsagePrice(record.Egress, record.Storage, record.Objects)
-
 	projectItem := &stripe.InvoiceItemParams{
 		Currency: stripe.String(string(stripe.CurrencyUSD)),
 		Customer: stripe.String(cusID),
 	}
 	projectItem.AddMetadata("projectID", record.ProjectID.String())
 
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Storage", projName))
-	projectItem.Amount = stripe.Int64(projectPrice.Storage.IntPart())
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Storage (MB-Month)", projName))
+	projectItem.Quantity = stripe.Int64(storageMBMonthDecimal(record.Storage).IntPart())
+	storagePrice, _ := service.StorageMBMonthPriceCents.Float64()
+	projectItem.UnitAmountDecimal = stripe.Float64(storagePrice)
 	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	if err != nil {
 		return err
 	}
 
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth", projName))
-	projectItem.Amount = stripe.Int64(projectPrice.Egress.IntPart())
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth (MB)", projName))
+	projectItem.Quantity = stripe.Int64(egressMBDecimal(record.Egress).IntPart())
+	egressPrice, _ := service.EgressMBPriceCents.Float64()
+	projectItem.UnitAmountDecimal = stripe.Float64(egressPrice)
 	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	if err != nil {
 		return err
 	}
 
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee", projName))
-	projectItem.Amount = stripe.Int64(projectPrice.Objects.IntPart())
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee (Object-Month)", projName))
+	projectItem.Quantity = stripe.Int64(objectMonthDecimal(record.Objects).IntPart())
+	objectPrice, _ := service.ObjectMonthPriceCents.Float64()
+	projectItem.UnitAmountDecimal = stripe.Float64(objectPrice)
 	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	return err
 }
@@ -946,9 +943,9 @@ func (price projectUsagePrice) TotalInt64() int64 {
 // calculateProjectUsagePrice calculate project usage price.
 func (service *Service) calculateProjectUsagePrice(egress int64, storage, objects float64) projectUsagePrice {
 	return projectUsagePrice{
-		Storage: service.ByteHourCents.Mul(decimal.NewFromFloat(storage)),
-		Egress:  service.EgressByteCents.Mul(decimal.New(egress, 0)),
-		Objects: service.ObjectHourCents.Mul(decimal.NewFromFloat(objects)),
+		Storage: service.StorageMBMonthPriceCents.Mul(storageMBMonthDecimal(storage)).Round(0),
+		Egress:  service.EgressMBPriceCents.Mul(egressMBDecimal(egress)).Round(0),
+		Objects: service.ObjectMonthPriceCents.Mul(objectMonthDecimal(objects)).Round(0),
 	}
 }
 
@@ -999,4 +996,22 @@ func (service *Service) discountedProjectUsagePrice(ctx context.Context, project
 // they want. This avoids races and sleeping, making tests more reliable and efficient.
 func (service *Service) SetNow(now func() time.Time) {
 	service.nowFn = now
+}
+
+// storageMBMonthDecimal converts storage usage from Byte-Hours to Megabyte-Months.
+// The result is rounded to the nearest whole number, but returned as Decimal for convenience.
+func storageMBMonthDecimal(storage float64) decimal.Decimal {
+	return decimal.NewFromFloat(storage).Shift(-6).Div(decimal.NewFromInt(hoursPerMonth)).Round(0)
+}
+
+// egressMBDecimal converts egress usage from bytes to Megabytes
+// The result is rounded to the nearest whole number, but returned as Decimal for convenience.
+func egressMBDecimal(egress int64) decimal.Decimal {
+	return decimal.NewFromInt(egress).Shift(-6).Round(0)
+}
+
+// objectMonthDecimal converts objects usage from Object-Hours to Object-Months.
+// The result is rounded to the nearest whole number, but returned as Decimal for convenience.
+func objectMonthDecimal(objects float64) decimal.Decimal {
+	return decimal.NewFromFloat(objects).Div(decimal.NewFromInt(hoursPerMonth)).Round(0)
 }
