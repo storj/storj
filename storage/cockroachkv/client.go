@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/tagsql"
@@ -106,37 +107,57 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 
 // GetAll finds all values for the provided keys (up to LookupLimit).
 // If more keys are provided than the maximum, an error will be returned.
-func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
+func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (values storage.Values, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(keys) > client.lookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
 
+	for {
+		values, err = client.getAllOnce(ctx, keys)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nil, Error.Wrap(err)
+		}
+		return values, nil
+	}
+}
+
+func (client *Client) getAllOnce(ctx context.Context, keys storage.Keys) (values storage.Values, err error) {
+	defer mon.Task()(&ctx)(&err)
 	q := `
-		SELECT metadata
-		FROM pathdata pd
-			RIGHT JOIN
-				unnest($1:::BYTEA[]) WITH ORDINALITY pk(request, ord)
-			ON (pd.fullpath = pk.request)
-		ORDER BY pk.ord
-	`
+			SELECT metadata
+			FROM pathdata pd
+				RIGHT JOIN
+					unnest($1:::BYTEA[]) WITH ORDINALITY pk(request, ord)
+				ON (pd.fullpath = pk.request)
+			ORDER BY pk.ord
+		`
 	rows, err := client.db.QueryContext(ctx, q, pq.ByteaArray(keys.ByteSlices()))
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, err
 	}
-	defer func() { err = errs.Combine(err, Error.Wrap(rows.Close())) }()
-
-	values := make([]storage.Value, 0, len(keys))
+	defer func() {
+		closeErr := rows.Close()
+		if closeErr != nil && closeErr != err {
+			err = errs.Combine(err, closeErr)
+		}
+	}()
+	values = make([]storage.Value, 0, len(keys))
 	for rows.Next() {
 		var value []byte
 		if err := rows.Scan(&value); err != nil {
-			return nil, Error.Wrap(err)
+			return nil, err
 		}
 		values = append(values, storage.Value(value))
 	}
-
-	return values, Error.Wrap(rows.Err())
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return values, nil
 }
 
 // Delete deletes the given key and its associated value.
@@ -164,22 +185,37 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 }
 
 // DeleteMultiple deletes keys ignoring missing keys
-func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
-	defer mon.Task()(&ctx, len(keys))(&err)
+func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (items storage.Items, err error) {
+	defer mon.Task()(&ctx)(&err)
+	for {
+		items, err = client.deleteMultipleOnce(ctx, keys)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nil, Error.Wrap(err)
+		}
+		return items, nil
+	}
+}
 
+func (client *Client) deleteMultipleOnce(ctx context.Context, keys storage.Keys) (items storage.Items, err error) {
+	defer mon.Task()(&ctx)(&err)
 	rows, err := client.db.QueryContext(ctx, `
 		DELETE FROM pathdata
 		WHERE fullpath = any($1::BYTEA[])
 		RETURNING fullpath, metadata`,
-		pq.ByteaArray(storage.Keys(keys).ByteSlices()))
+		pq.ByteaArray(keys.ByteSlices()))
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		err = errs.Combine(err, rows.Close())
+		closeErr := rows.Close()
+		if closeErr != nil && closeErr != err {
+			err = errs.Combine(err, closeErr)
+		}
 	}()
-
-	var items storage.Items
+	items = make([]storage.ListItem, 0, len(keys))
 	for rows.Next() {
 		var key, value []byte
 		err := rows.Scan(&key, &value)
@@ -191,8 +227,10 @@ func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_
 			Value: value,
 		})
 	}
-
-	return items, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 // List returns either a list of known keys, in order, or an error.
