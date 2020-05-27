@@ -130,6 +130,7 @@ export default class IngressChart extends BaseChart {
         border-radius: 14px;
         color: #535f77;
         pointer-events: none;
+        z-index: 9999;
     }
 
     #ingress-tooltip-arrow {

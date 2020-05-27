@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/storage"
 )
 
@@ -82,15 +83,29 @@ func (opi *orderedCockroachIterator) Next(ctx context.Context, item *storage.Lis
 			result := func() bool {
 				defer mon.TaskNamed("acquire_new_query")(nil)(nil)
 
+				retry := false
 				if err := opi.curRows.Err(); err != nil && err != sql.ErrNoRows {
-					opi.errEncountered = errs.Wrap(err)
-					return false
+					// This NeedsRetry needs to be exported here because it is
+					// expected behavior for cockroach to return retryable errors
+					// that will be captured in this Rows object.
+					if cockroachutil.NeedsRetry(err) {
+						mon.Event("needed_retry")
+						retry = true
+					} else {
+						opi.errEncountered = errs.Wrap(err)
+						return false
+					}
 				}
 				if err := opi.curRows.Close(); err != nil {
-					opi.errEncountered = errs.Wrap(err)
-					return false
+					if cockroachutil.NeedsRetry(err) {
+						mon.Event("needed_retry")
+						retry = true
+					} else {
+						opi.errEncountered = errs.Wrap(err)
+						return false
+					}
 				}
-				if opi.curIndex < opi.batchSize {
+				if opi.curIndex < opi.batchSize && !retry {
 					return false
 				}
 				newRows, err := opi.doNextQuery(ctx)
