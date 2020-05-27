@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -45,7 +44,7 @@ func TestCollector(t *testing.T) {
 		// imagine we are 30 minutes in the future
 		for _, storageNode := range planet.StorageNodes {
 			pieceStore := storageNode.DB.Pieces()
-			usedSerials := storageNode.DB.UsedSerials()
+			usedSerials := storageNode.UsedSerials
 
 			// verify that we actually have some data on storage nodes
 			used, err := pieceStore.SpaceUsedForBlobs(ctx)
@@ -59,43 +58,37 @@ func TestCollector(t *testing.T) {
 			err = storageNode.Collector.Collect(ctx, time.Now().Add(30*time.Minute))
 			require.NoError(t, err)
 
-			// ensure we haven't deleted used serials
-			err = usedSerials.IterateAll(ctx, func(_ storj.NodeID, _ storj.SerialNumber, _ time.Time) {
-				serialsPresent++
-			})
-			require.NoError(t, err)
+			serialsPresent += usedSerials.Count()
 
 			collections++
 		}
 
 		require.NotZero(t, collections)
+		// ensure we haven't deleted used serials
 		require.Equal(t, 2, serialsPresent)
 
 		serialsPresent = 0
 
 		// imagine we are 2 hours in the future
 		for _, storageNode := range planet.StorageNodes {
-			usedSerials := storageNode.DB.UsedSerials()
+			usedSerials := storageNode.UsedSerials
 
 			// collect all the data
 			err = storageNode.Collector.Collect(ctx, time.Now().Add(2*time.Hour))
 			require.NoError(t, err)
 
-			// ensure we have deleted used serials
-			err = usedSerials.IterateAll(ctx, func(id storj.NodeID, serial storj.SerialNumber, expiration time.Time) {
-				serialsPresent++
-			})
-			require.NoError(t, err)
+			serialsPresent += usedSerials.Count()
 
 			collections++
 		}
 
+		// ensure we have deleted used serials
 		require.Equal(t, 0, serialsPresent)
 
 		// imagine we are 10 days in the future
 		for _, storageNode := range planet.StorageNodes {
 			pieceStore := storageNode.DB.Pieces()
-			usedSerials := storageNode.DB.UsedSerials()
+			usedSerials := storageNode.UsedSerials
 
 			// collect all the data
 			err = storageNode.Collector.Collect(ctx, time.Now().Add(10*24*time.Hour))
@@ -106,15 +99,12 @@ func TestCollector(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, int64(0), used)
 
-			// ensure we have deleted used serials
-			err = usedSerials.IterateAll(ctx, func(id storj.NodeID, serial storj.SerialNumber, expiration time.Time) {
-				serialsPresent++
-			})
-			require.NoError(t, err)
+			serialsPresent += usedSerials.Count()
 
 			collections++
 		}
 
+		// ensure we have deleted used serials
 		require.Equal(t, 0, serialsPresent)
 	})
 }

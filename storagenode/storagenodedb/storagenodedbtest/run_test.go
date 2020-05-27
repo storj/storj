@@ -35,8 +35,8 @@ func TestDatabase(t *testing.T) {
 		canceledCtx, cancel := context.WithCancel(ctx)
 		cancel()
 
-		serials := db.UsedSerials()
-		err := serials.Add(canceledCtx, testrand.NodeID(), testrand.SerialNumber(), time.Now().Add(time.Hour))
+		bw := db.Bandwidth()
+		err := bw.Add(canceledCtx, testrand.NodeID(), pb.PieceAction_GET, 0, time.Now())
 		require.True(t, errs2.IsCanceled(err), err)
 	})
 }

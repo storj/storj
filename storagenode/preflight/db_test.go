@@ -28,8 +28,8 @@ func TestPreflightSchema(t *testing.T) {
 
 		// add index to used serials db
 		rawDBs := db.(*storagenodedb.DB).RawDatabases()
-		usedSerialsDB := rawDBs[storagenodedb.UsedSerialsDBName]
-		_, err = usedSerialsDB.GetDB().Exec(ctx, "CREATE INDEX a_new_index ON used_serial_(serial_number)")
+		satellitesDB := rawDBs[storagenodedb.SatellitesDBName]
+		_, err = satellitesDB.GetDB().Exec(ctx, "CREATE INDEX a_new_index ON satellites(status)")
 		require.NoError(t, err)
 
 		// expect error from preflight check for addition
@@ -45,8 +45,8 @@ func TestPreflightSchema(t *testing.T) {
 
 		// remove index from used serials db
 		rawDBs := db.(*storagenodedb.DB).RawDatabases()
-		usedSerialsDB := rawDBs[storagenodedb.UsedSerialsDBName]
-		_, err = usedSerialsDB.GetDB().Exec(ctx, "DROP INDEX idx_used_serial_;")
+		bandwidthDB := rawDBs[storagenodedb.BandwidthDBName]
+		_, err = bandwidthDB.GetDB().Exec(ctx, "DROP INDEX idx_bandwidth_usage_created;")
 		require.NoError(t, err)
 
 		// expect error from preflight check for removal
@@ -62,8 +62,8 @@ func TestPreflightSchema(t *testing.T) {
 
 		// add test_table to used serials db
 		rawDBs := db.(*storagenodedb.DB).RawDatabases()
-		usedSerialsDB := rawDBs[storagenodedb.UsedSerialsDBName]
-		_, err = usedSerialsDB.GetDB().Exec(ctx, "CREATE TABLE test_table(id int NOT NULL, name varchar(30), PRIMARY KEY (id));")
+		bandwidthDB := rawDBs[storagenodedb.BandwidthDBName]
+		_, err = bandwidthDB.GetDB().Exec(ctx, "CREATE TABLE test_table(id int NOT NULL, name varchar(30), PRIMARY KEY (id));")
 		require.NoError(t, err)
 
 		// expect no error from preflight check with added test_table
