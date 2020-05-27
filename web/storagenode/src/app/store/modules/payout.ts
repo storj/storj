@@ -12,6 +12,7 @@ import {
     TotalPayoutInfo,
 } from '@/app/types/payout';
 import { TB } from '@/app/utils/converter';
+import { getHeldPercentage } from '@/app/utils/payout';
 
 export const PAYOUT_MUTATIONS = {
     SET_HELD_INFO: 'SET_HELD_INFO',
@@ -19,6 +20,7 @@ export const PAYOUT_MUTATIONS = {
     SET_TOTAL: 'SET_TOTAL',
     SET_HELD_PERCENT: 'SET_HELD_PERCENT',
     SET_HELD_HISTORY: 'SET_HELD_HISTORY',
+    SET_PERIODS: 'SET_PERIODS',
 };
 
 export const PAYOUT_ACTIONS = {
@@ -26,6 +28,7 @@ export const PAYOUT_ACTIONS = {
     SET_PERIODS_RANGE: 'SET_PERIODS_RANGE',
     GET_TOTAL: 'GET_TOTAL',
     GET_HELD_HISTORY: 'GET_HELD_HISTORY',
+    GET_PERIODS: 'GET_PERIODS',
 };
 
 export const BANDWIDTH_DOWNLOAD_PRICE_PER_TB = 2000;
@@ -57,6 +60,9 @@ export function makePayoutModule(api: PayoutApi) {
             },
             [PAYOUT_MUTATIONS.SET_HELD_HISTORY](state: PayoutState, heldHistory: HeldHistory): void {
                 state.heldHistory = heldHistory;
+            },
+            [PAYOUT_MUTATIONS.SET_PERIODS](state: PayoutState, periods: PayoutPeriod[]): void {
+                state.payoutPeriods = periods;
             },
         },
         actions: {
@@ -110,29 +116,11 @@ export function makePayoutModule(api: PayoutApi) {
 
                 commit(PAYOUT_MUTATIONS.SET_HELD_HISTORY, heldHistory);
             },
+            [PAYOUT_ACTIONS.GET_PERIODS]: async function ({commit}: any, satelliteId: string = ''): Promise<void> {
+                const periods = await api.getPayoutPeriods(satelliteId);
+
+                commit(PAYOUT_MUTATIONS.SET_PERIODS, periods);
+            },
         },
     };
-}
-
-/**
- * Returns held percentage depends on number of months that node is online.
- * @param startedAt date since node is online.
- */
-export function getHeldPercentage(startedAt: Date): number {
-    const now = new Date();
-    const secondsInMonthApproximately = 2628000;
-    const differenceInSeconds = (now.getTime() - startedAt.getTime()) / 1000;
-
-    const monthsOnline = Math.ceil(differenceInSeconds / secondsInMonthApproximately);
-
-    switch (true) {
-        case monthsOnline < 4:
-            return 75;
-        case monthsOnline < 7:
-            return 50;
-        case monthsOnline < 10:
-            return 25;
-        default:
-            return 0;
-    }
 }

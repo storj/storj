@@ -135,6 +135,12 @@ export default class SatelliteSelectionDropdown extends Vue {
         } catch (error) {
             console.error(error.message);
         }
+
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PERIODS, id);
+        } catch (error) {
+            console.error(error.message);
+        }
     }
 }
 </script>

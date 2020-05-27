@@ -7,6 +7,7 @@ import {
     HeldInfo,
     PaymentInfoParameters,
     PayoutApi,
+    PayoutPeriod,
     TotalPayoutInfo,
 } from '@/app/types/payout';
 import { HttpClient } from '@/storagenode/utils/httpClient';
@@ -104,6 +105,32 @@ export class PayoutHttpApi implements PayoutApi {
             paid,
             0,
         );
+    }
+
+    /**
+     * Fetches available payout periods.
+     *
+     * @returns payout periods list
+     * @throws Error
+     */
+    public async getPayoutPeriods(id: string): Promise<PayoutPeriod[]> {
+        let path = `${this.ROOT_PATH}/periods`;
+
+        if (id) {
+            path += '?id=' + id;
+        }
+
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('can not get payout periods');
+        }
+
+        const result = await response.json() || [];
+
+        return result.map(period => {
+            return PayoutPeriod.fromString(period);
+        });
     }
 
     /**

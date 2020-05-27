@@ -49,6 +49,16 @@ export class PayoutPeriod {
     public get period(): string {
         return this.month < 9 ? `${this.year}-0${this.month + 1}` : `${this.year}-${this.month + 1}`;
     }
+
+    /**
+     * Parses PayoutPeriod from string.
+     * @param period string
+     */
+    public static fromString(period: string): PayoutPeriod {
+        const periodArray = period.split('-');
+
+        return new PayoutPeriod(parseInt(periodArray[0]), parseInt(periodArray[1]) - 1);
+    }
 }
 
 /**
@@ -83,6 +93,7 @@ export class PayoutState {
         public totalEarnings: number = 0,
         public currentMonthEarnings: number = 0,
         public heldPercentage: number = 0,
+        public payoutPeriods: PayoutPeriod[] = [],
         public heldHistory: HeldHistory = new HeldHistory(),
     ) {}
 }
@@ -102,6 +113,12 @@ export interface PayoutApi {
      * @throws Error
      */
     getHeldInfoByMonth(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo>;
+
+    /**
+     * Fetches available payout periods.
+     * @throws Error
+     */
+    getPayoutPeriods(id: string): Promise<PayoutPeriod[]>;
 
     /**
      * Fetches total payout information.

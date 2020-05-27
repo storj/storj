@@ -89,6 +89,18 @@ describe('mutations', (): void => {
         expect(state.payoutModule.heldHistory.monthlyBreakdown.length).toBe(testHeldHistory.monthlyBreakdown.length);
         expect(state.payoutModule.heldHistory.monthlyBreakdown[1].satelliteName).toBe(testHeldHistory.monthlyBreakdown[1].satelliteName);
     });
+
+    it('sets available periods', (): void => {
+        const firstExpectedPeriod = '2020-04';
+        const secondExpectedPeriod = '1999-11';
+        const incomingDataSet = [firstExpectedPeriod, secondExpectedPeriod];
+
+        store.commit(PAYOUT_MUTATIONS.SET_PERIODS, incomingDataSet);
+
+        expect(state.payoutModule.payoutPeriods.length).toBe(2);
+        expect(state.payoutModule.payoutPeriods[0]).toBe(firstExpectedPeriod);
+        expect(state.payoutModule.payoutPeriods[1]).toBe(secondExpectedPeriod);
+    });
 });
 
 describe('actions', () => {
@@ -176,17 +188,33 @@ describe('actions', () => {
         }
     });
 
-    it('success sets period range', async (): Promise<void> => {
-        await store.dispatch(
-            PAYOUT_ACTIONS.SET_PERIODS_RANGE,
-            new PayoutInfoRange(
-                new PayoutPeriod(2020, 1),
-                new PayoutPeriod(2020, 2),
-            ),
+    it('success fetches available periods', async (): Promise<void> => {
+        const firstExpectedPeriod = '2020-04';
+        const secondExpectedPeriod = '1999-11';
+
+        jest.spyOn(payoutApi, 'getPayoutPeriods').mockReturnValue(
+            Promise.resolve([
+                PayoutPeriod.fromString(firstExpectedPeriod),
+                PayoutPeriod.fromString(secondExpectedPeriod),
+            ]),
         );
 
-        expect(state.payoutModule.periodRange.start.period).toBe('2020-02');
-        expect(state.payoutModule.periodRange.end.period).toBe('2020-03');
+        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
+
+        expect(state.payoutModule.payoutPeriods.length).toBe(2);
+        expect(state.payoutModule.payoutPeriods[0].period).toBe(firstExpectedPeriod);
+        expect(state.payoutModule.payoutPeriods[1].period).toBe(secondExpectedPeriod);
+    });
+
+    it('get available periods throws an error when api call fails', async () => {
+        jest.spyOn(payoutApi, 'getPayoutPeriods').mockImplementation(() => { throw new Error(); });
+
+        try {
+            await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
+            expect(true).toBe(false);
+        } catch (error) {
+            expect(state.payoutModule.payoutPeriods.length).toBe(2);
+        }
     });
 
     it('success get held history', async (): Promise<void> => {

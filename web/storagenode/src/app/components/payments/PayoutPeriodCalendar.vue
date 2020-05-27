@@ -290,17 +290,13 @@ export default class PayoutPeriodCalendar extends Vue {
         }
 
         const months: MonthButton[] = [];
-        const isCurrentYear = year === this.now.getUTCFullYear();
-        const nowMonth = this.now.getUTCMonth();
-        const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
+        const availablePeriods: string[] = this.$store.state.payoutModule.payoutPeriods.map(payoutPeriod => payoutPeriod.period);
 
-        for (let i = 0; i < 12; i++) {
-            const notBeforeNodeStart =
-                nodeStartedAt.getUTCFullYear() < year
-                || (nodeStartedAt.getUTCFullYear() === year && nodeStartedAt.getUTCMonth() <= i);
-            const inFutureOrCurrent = isCurrentYear && i >= nowMonth;
+        // Creates month entities and adds them to list.
+        for (let i = 1; i <= 12; i++) {
+            const period = `${year}-${i < 9 ? '0' + i : i}`;
+            const isMonthActive: boolean = availablePeriods.includes(period);
 
-            const isMonthActive = notBeforeNodeStart && !inFutureOrCurrent;
             months.push(new MonthButton(year, i, isMonthActive, false));
         }
 
