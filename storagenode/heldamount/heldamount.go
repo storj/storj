@@ -23,7 +23,7 @@ type DB interface {
 	// AllPayStubs retrieves paystub data from all satellites in specific period from DB.
 	AllPayStubs(ctx context.Context, period string) ([]PayStub, error)
 	// SatellitesHeldbackHistory retrieves heldback history for specific satellite from DB.
-	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]Heldback, error)
+	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]AmountPeriod, error)
 	// SatellitePeriods retrieves all periods for concrete satellite in which we have some heldamount data.
 	SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) ([]string, error)
 	// AllPeriods retrieves all periods in which we have some heldamount data.
@@ -58,8 +58,8 @@ type PayStub struct {
 	Paid           int64        `json:"paid"`
 }
 
-// Heldback is node's heldback amount for period.
-type Heldback struct {
+// AmountPeriod is node's held amount for period.
+type AmountPeriod struct {
 	Period string `json:"period"`
 	Held   int64  `json:"held"`
 }
@@ -67,6 +67,7 @@ type Heldback struct {
 // EstimatedPayout contains amount in cents of estimated payout for current and previous months.
 type EstimatedPayout struct {
 	CurrentMonthEstimatedAmount int64         `json:"currentAmount"`
+	CurrentMonthHeld            int64         `json:"currentHeld"`
 	PreviousMonthPayout         PayoutMonthly `json:"previousPayout"`
 }
 

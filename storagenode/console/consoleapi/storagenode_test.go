@@ -148,6 +148,7 @@ func TestStorageNodeApi(t *testing.T) {
 
 				expected, err := json.Marshal(heldamount.EstimatedPayout{
 					CurrentMonthEstimatedAmount: estimated1 + estimated2,
+					CurrentMonthHeld:            int64(sum1 + sum2 - sum1AfterHeld - sum2AfterHeld),
 					PreviousMonthPayout: heldamount.PayoutMonthly{
 						EgressBandwidth:   0,
 						EgressPayout:      0,
@@ -177,6 +178,7 @@ func TestStorageNodeApi(t *testing.T) {
 
 				expected2, err := json.Marshal(heldamount.EstimatedPayout{
 					CurrentMonthEstimatedAmount: estimated1,
+					CurrentMonthHeld:            int64(sum1 - sum1AfterHeld),
 					PreviousMonthPayout: heldamount.PayoutMonthly{
 						EgressBandwidth:   0,
 						EgressPayout:      0,
