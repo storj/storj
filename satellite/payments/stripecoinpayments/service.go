@@ -702,36 +702,45 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 		return err
 	}
 
-	projectItem := &stripe.InvoiceItemParams{
-		Currency: stripe.String(string(stripe.CurrencyUSD)),
-		Customer: stripe.String(cusID),
-	}
-	projectItem.AddMetadata("projectID", record.ProjectID.String())
+	items := service.InvoiceItemsFromProjectRecord(projName, record)
+	for _, item := range items {
+		item.Currency = stripe.String(string(stripe.CurrencyUSD))
+		item.Customer = stripe.String(cusID)
+		item.AddMetadata("projectID", record.ProjectID.String())
 
+		_, err = service.stripeClient.InvoiceItems().New(item)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// InvoiceItemsFromProjectRecord calculates Stripe invoice item from project record.
+func (service *Service) InvoiceItemsFromProjectRecord(projName string, record ProjectRecord) (result []*stripe.InvoiceItemParams) {
+	projectItem := &stripe.InvoiceItemParams{}
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Storage (MB-Month)", projName))
 	projectItem.Quantity = stripe.Int64(storageMBMonthDecimal(record.Storage).IntPart())
 	storagePrice, _ := service.StorageMBMonthPriceCents.Float64()
 	projectItem.UnitAmountDecimal = stripe.Float64(storagePrice)
-	_, err = service.stripeClient.InvoiceItems().New(projectItem)
-	if err != nil {
-		return err
-	}
+	result = append(result, projectItem)
 
+	projectItem = &stripe.InvoiceItemParams{}
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth (MB)", projName))
 	projectItem.Quantity = stripe.Int64(egressMBDecimal(record.Egress).IntPart())
 	egressPrice, _ := service.EgressMBPriceCents.Float64()
 	projectItem.UnitAmountDecimal = stripe.Float64(egressPrice)
-	_, err = service.stripeClient.InvoiceItems().New(projectItem)
-	if err != nil {
-		return err
-	}
+	result = append(result, projectItem)
 
+	projectItem = &stripe.InvoiceItemParams{}
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee (Object-Month)", projName))
 	projectItem.Quantity = stripe.Int64(objectMonthDecimal(record.Objects).IntPart())
 	objectPrice, _ := service.ObjectMonthPriceCents.Float64()
 	projectItem.UnitAmountDecimal = stripe.Float64(objectPrice)
-	_, err = service.stripeClient.InvoiceItems().New(projectItem)
-	return err
+	result = append(result, projectItem)
+
+	return result
 }
 
 // InvoiceApplyCoupons iterates through unapplied project coupons and creates invoice line items

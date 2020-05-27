@@ -572,3 +572,68 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 		require.Equal(t, len(projects), len(recordsPage.Records))
 	})
 }
+
+func TestService_InvoiceItemsFromProjectRecord(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// these numbers are fraction of cents, not of dollars.
+		expectedStoragePrice := 0.001
+		expectedEgressPrice := 0.0045
+		expectedObjectPrice := 0.00022
+
+		type TestCase struct {
+			Storage float64
+			Egress  int64
+			Objects float64
+
+			StorageQuantity int64
+			EgressQuantity  int64
+			ObjectsQuantity int64
+		}
+
+		var testCases = []TestCase{
+			{}, // all zeros
+			{
+				Storage: 10000000000, // Byte-Hours
+				// storage quantity is calculated to Megabyte-Months
+				// (10000000000 / 1000000) Byte-Hours to Megabytes-Hours
+				// round(10000 / 720) Megabytes-Hours to Megabyte-Months, 720 - hours in month
+				StorageQuantity: 14, // Megabyte-Months
+			},
+			{
+				Egress: 134 * memory.GB.Int64(), // Bytes
+				// egress quantity is calculated to Megabytes
+				// (134000000000 / 1000000) Bytes to Megabytes
+				EgressQuantity: 134000, // Megabytes
+			},
+			{
+				Objects: 400000, // Object-Hours
+				// object quantity is calculated to Object-Months
+				// round(400000 / 720) Object-Hours to Object-Months, 720 - hours in month
+				ObjectsQuantity: 556, // Object-Months
+			},
+		}
+
+		for _, tc := range testCases {
+			record := stripecoinpayments.ProjectRecord{
+				Storage: tc.Storage,
+				Egress:  tc.Egress,
+				Objects: tc.Objects,
+			}
+
+			items := satellite.API.Payments.Service.InvoiceItemsFromProjectRecord("project name", record)
+
+			require.Equal(t, tc.StorageQuantity, *items[0].Quantity)
+			require.Equal(t, expectedStoragePrice, *items[0].UnitAmountDecimal)
+
+			require.Equal(t, tc.EgressQuantity, *items[1].Quantity)
+			require.Equal(t, expectedEgressPrice, *items[1].UnitAmountDecimal)
+
+			require.Equal(t, tc.ObjectsQuantity, *items[2].Quantity)
+			require.Equal(t, expectedObjectPrice, *items[2].UnitAmountDecimal)
+		}
+	})
+}
