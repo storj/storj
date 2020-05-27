@@ -4,14 +4,12 @@
 package nodeselection
 
 import (
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 )
 
 // Node defines necessary information for node-selection.
 type Node struct {
-	ID         storj.NodeID
-	Address    *pb.NodeAddress
+	storj.NodeURL
 	LastNet    string
 	LastIPPort string
 }
@@ -19,11 +17,7 @@ type Node struct {
 // Clone returns a deep clone of the selected node.
 func (node *Node) Clone() *Node {
 	return &Node{
-		ID: node.ID,
-		Address: &pb.NodeAddress{
-			Transport: node.Address.Transport,
-			Address:   node.Address.Address,
-		},
+		NodeURL:    node.NodeURL,
 		LastNet:    node.LastNet,
 		LastIPPort: node.LastIPPort,
 	}

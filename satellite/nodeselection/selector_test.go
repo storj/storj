@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -26,24 +25,30 @@ func TestSelectByID(t *testing.T) {
 	// create 3 nodes, 2 with same subnet
 	lastNetDuplicate := "1.0.1"
 	subnetA1 := &nodeselection.Node{
-		ID:         testrand.NodeID(),
+		NodeURL: storj.NodeURL{
+			ID:      testrand.NodeID(),
+			Address: lastNetDuplicate + ".4:8080",
+		},
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".4:8080",
-		Address:    &pb.NodeAddress{Address: lastNetDuplicate + ".4:8080"},
 	}
 	subnetA2 := &nodeselection.Node{
-		ID:         testrand.NodeID(),
+		NodeURL: storj.NodeURL{
+			ID:      testrand.NodeID(),
+			Address: lastNetDuplicate + ".5:8080",
+		},
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".5:8080",
-		Address:    &pb.NodeAddress{Address: lastNetDuplicate + ".5:8080"},
 	}
 
 	lastNetSingle := "1.0.2"
 	subnetB1 := &nodeselection.Node{
-		ID:         testrand.NodeID(),
+		NodeURL: storj.NodeURL{
+			ID:      testrand.NodeID(),
+			Address: lastNetSingle + ".5:8080",
+		},
 		LastNet:    lastNetSingle,
 		LastIPPort: lastNetSingle + ".5:8080",
-		Address:    &pb.NodeAddress{Address: lastNetSingle + ".5:8080"},
 	}
 
 	nodes := []*nodeselection.Node{subnetA1, subnetA2, subnetB1}
@@ -89,24 +94,30 @@ func TestSelectBySubnet(t *testing.T) {
 	// create 3 nodes, 2 with same subnet
 	lastNetDuplicate := "1.0.1"
 	subnetA1 := &nodeselection.Node{
-		ID:         testrand.NodeID(),
+		NodeURL: storj.NodeURL{
+			ID:      testrand.NodeID(),
+			Address: lastNetDuplicate + ".4:8080",
+		},
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".4:8080",
-		Address:    &pb.NodeAddress{Address: lastNetDuplicate + ".4:8080"},
 	}
 	subnetA2 := &nodeselection.Node{
-		ID:         testrand.NodeID(),
+		NodeURL: storj.NodeURL{
+			ID:      testrand.NodeID(),
+			Address: lastNetDuplicate + ".5:8080",
+		},
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".5:8080",
-		Address:    &pb.NodeAddress{Address: lastNetDuplicate + ".5:8080"},
 	}
 
 	lastNetSingle := "1.0.2"
 	subnetB1 := &nodeselection.Node{
-		ID:         testrand.NodeID(),
+		NodeURL: storj.NodeURL{
+			ID:      testrand.NodeID(),
+			Address: lastNetSingle + ".5:8080",
+		},
 		LastNet:    lastNetSingle,
 		LastIPPort: lastNetSingle + ".5:8080",
-		Address:    &pb.NodeAddress{Address: lastNetSingle + ".5:8080"},
 	}
 
 	nodes := []*nodeselection.Node{subnetA1, subnetA2, subnetB1}
@@ -164,24 +175,30 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 	// create 3 nodes, 2 with same subnet
 	lastNetDuplicate := "1.0.1"
 	subnetA1 := &nodeselection.Node{
-		ID:         testrand.NodeID(),
+		NodeURL: storj.NodeURL{
+			ID:      testrand.NodeID(),
+			Address: lastNetDuplicate + ".4:8080",
+		},
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".4:8080",
-		Address:    &pb.NodeAddress{Address: lastNetDuplicate + ".4:8080"},
 	}
 	subnetA2 := &nodeselection.Node{
-		ID:         testrand.NodeID(),
+		NodeURL: storj.NodeURL{
+			ID:      testrand.NodeID(),
+			Address: lastNetDuplicate + ".5:8080",
+		},
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".5:8080",
-		Address:    &pb.NodeAddress{Address: lastNetDuplicate + ".5:8080"},
 	}
 
 	lastNetSingle := "1.0.2"
 	subnetB1 := &nodeselection.Node{
-		ID:         testrand.NodeID(),
+		NodeURL: storj.NodeURL{
+			ID:      testrand.NodeID(),
+			Address: lastNetSingle + ".5:8080",
+		},
 		LastNet:    lastNetSingle,
 		LastIPPort: lastNetSingle + ".5:8080",
-		Address:    &pb.NodeAddress{Address: lastNetSingle + ".5:8080"},
 	}
 
 	nodes := []*nodeselection.Node{subnetA1, subnetA2, subnetB1}
