@@ -74,6 +74,14 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 GOBIN="$RELEASE_DIR"/bin make -C "$RELEASE_DIR" install-sim
 GOBIN="$BRANCH_DIR"/bin  make -C "$BRANCH_DIR" install-sim
 
+echo "Overriding default max segment size to 6MiB"
+pushd $RELEASE_DIR
+    GOBIN=$RELEASE_DIR/bin go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
+popd
+pushd $BRANCH_DIR
+    GOBIN=$BRANCH_DIR/bin go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
+popd
+
 # setup the network using the release
 PATH="$RELEASE_DIR"/bin:"$PATH" storj-sim -x --host "$STORJ_NETWORK_HOST4" network --postgres="$STORJ_SIM_POSTGRES" setup
 

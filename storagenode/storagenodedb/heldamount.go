@@ -252,3 +252,63 @@ func (db *heldamountDB) SatellitesHeldbackHistory(ctx context.Context, id storj.
 
 	return heldback, nil
 }
+
+// SatellitePeriods retrieves all periods for concrete satellite in which we have some heldamount data.
+func (db *heldamountDB) SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) (_ []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT distinct period FROM paystubs WHERE satellite_id = ? ORDER BY created_at`
+
+	rows, err := db.QueryContext(ctx, query, satelliteID[:])
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var periodList []string
+	for rows.Next() {
+		var period string
+		err := rows.Scan(&period)
+		if err != nil {
+			return nil, ErrHeldAmount.Wrap(err)
+		}
+
+		periodList = append(periodList, period)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, ErrHeldAmount.Wrap(err)
+	}
+
+	return periodList, nil
+}
+
+// AllPeriods retrieves all periods in which we have some heldamount data.
+func (db *heldamountDB) AllPeriods(ctx context.Context) (_ []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT distinct period FROM paystubs ORDER BY created_at`
+
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var periodList []string
+	for rows.Next() {
+		var period string
+		err := rows.Scan(&period)
+		if err != nil {
+			return nil, ErrHeldAmount.Wrap(err)
+		}
+
+		periodList = append(periodList, period)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, ErrHeldAmount.Wrap(err)
+	}
+
+	return periodList, nil
+}

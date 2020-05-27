@@ -21,24 +21,56 @@ type repairQueue struct {
 	db *satelliteDB
 }
 
-func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment, numHealthy int) (err error) {
+func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment, numHealthy int) (alreadyInserted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// insert if not exists, or update healthy count if does exist
-	query := `
-		INSERT INTO injuredsegments
-		(
-			path, data, num_healthy_pieces
-		)
-		VALUES (
-			$1, $2, $3
-		)
-		ON CONFLICT (path)
-		DO UPDATE
-		SET
-			num_healthy_pieces=$3
+	var query string
+
+	// we want to insert the segment if it is not in the queue, but update the number of healthy pieces if it already is in the queue
+	// we also want to know if the result was an insert or an update - this is the reasoning for the xmax section of the postgres query
+	// and the separate cockroach query (which the xmax trick does not work for)
+	switch r.db.implementation {
+	case dbutil.Postgres:
+		query = `
+			INSERT INTO injuredsegments
+			(
+				path, data, num_healthy_pieces
+			)
+			VALUES (
+				$1, $2, $3
+			)
+			ON CONFLICT (path)
+			DO UPDATE
+			SET num_healthy_pieces=$3
+			RETURNING (xmax != 0) AS alreadyInserted
 		`
-	_, err = r.db.ExecContext(ctx, query, seg.Path, seg, numHealthy)
-	return err
+	case dbutil.Cockroach:
+		query = `
+			WITH updater AS (
+				UPDATE injuredsegments SET num_healthy_pieces = $3 WHERE path = $1
+				RETURNING *
+			)
+			INSERT INTO injuredsegments (path, data, num_healthy_pieces)
+			SELECT $1, $2, $3
+			WHERE NOT EXISTS (SELECT * FROM updater)
+			RETURNING false
+		`
+	}
+	rows, err := r.db.QueryContext(ctx, query, seg.Path, seg, numHealthy)
+	if err != nil {
+		return false, err
+	}
+
+	if !rows.Next() {
+		// cockroach query does not return anything if the segment is already in the queue
+		alreadyInserted = true
+	} else {
+		err = rows.Scan(&alreadyInserted)
+		if err != nil {
+			return false, err
+		}
+	}
+	return alreadyInserted, err
 }
 
 func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err error) {

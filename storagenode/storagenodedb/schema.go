@@ -516,6 +516,11 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
+							Name:       "audit_unknown_reputation_score",
+							Type:       "REAL",
+							IsNullable: false,
+						},
+						&dbschema.Column{
 							Name:       "disqualified",
 							Type:       "TIMESTAMP",
 							IsNullable: true,
@@ -572,8 +577,7 @@ func Schema() map[string]*dbschema.Schema {
 		"satellites": &dbschema.Schema{
 			Tables: []*dbschema.Table{
 				&dbschema.Table{
-					Name:       "satellite_exit_progress",
-					PrimaryKey: []string{"satellite_id"},
+					Name: "satellite_exit_progress",
 					Columns: []*dbschema.Column{
 						&dbschema.Column{
 							Name:       "bytes_deleted",
@@ -599,6 +603,7 @@ func Schema() map[string]*dbschema.Schema {
 							Name:       "satellite_id",
 							Type:       "BLOB",
 							IsNullable: false,
+							Reference:  &dbschema.Reference{Table: "satellites", Column: "node_id", OnDelete: "", OnUpdate: ""},
 						},
 						&dbschema.Column{
 							Name:       "starting_disk_usage",

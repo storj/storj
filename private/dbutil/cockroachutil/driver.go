@@ -89,7 +89,7 @@ func (c *cockroachConn) Close() error {
 // retry semantics for single statements.
 func (c *cockroachConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	result, err := c.underlying.ExecContext(ctx, query, args)
-	for err != nil && !c.isInTransaction() && needsRetry(err) {
+	for err != nil && !c.isInTransaction() && NeedsRetry(err) {
 		result, err = c.underlying.ExecContext(ctx, query, args)
 	}
 	return result, err
@@ -140,11 +140,12 @@ func wrapRows(rows driver.Rows) (crdbRows *cockroachRows, err error) {
 // QueryContext (when implemented by a driver.Conn) provides QueryContext
 // functionality to a sql.DB instance. This implementation provides
 // retry semantics for single statements.
-func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (_ driver.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
 	for {
 		result, err := c.underlying.QueryContext(ctx, query, args)
 		if err != nil {
-			if needsRetry(err) {
+			if NeedsRetry(err) {
 				if c.isInTransaction() {
 					return nil, err
 				}
@@ -157,7 +158,7 @@ func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []d
 			// If this returns an error it's probably the same error
 			// we got from calling Next inside wrapRows.
 			_ = result.Close()
-			if needsRetry(err) {
+			if NeedsRetry(err) {
 				if c.isInTransaction() {
 					return nil, err
 				}
@@ -246,7 +247,7 @@ func (stmt *cockroachStmt) Exec(args []driver.Value) (driver.Result, error) {
 		namedArgs[i] = driver.NamedValue{Ordinal: i + 1, Value: arg}
 	}
 	result, err := stmt.underlyingStmt.ExecContext(context.Background(), namedArgs)
-	for err != nil && !stmt.conn.isInTransaction() && needsRetry(err) {
+	for err != nil && !stmt.conn.isInTransaction() && NeedsRetry(err) {
 		result, err = stmt.underlyingStmt.ExecContext(context.Background(), namedArgs)
 	}
 	return result, err
@@ -266,18 +267,19 @@ func (stmt *cockroachStmt) Query(args []driver.Value) (driver.Rows, error) {
 // ExecContext executes SQL statements in the specified context.
 func (stmt *cockroachStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	result, err := stmt.underlyingStmt.ExecContext(ctx, args)
-	for err != nil && !stmt.conn.isInTransaction() && needsRetry(err) {
+	for err != nil && !stmt.conn.isInTransaction() && NeedsRetry(err) {
 		result, err = stmt.underlyingStmt.ExecContext(ctx, args)
 	}
 	return result, err
 }
 
 // QueryContext executes a query in the specified context.
-func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (_ driver.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
 	for {
 		result, err := stmt.underlyingStmt.QueryContext(ctx, args)
 		if err != nil {
-			if needsRetry(err) {
+			if NeedsRetry(err) {
 				if stmt.conn.isInTransaction() {
 					return nil, err
 				}
@@ -290,7 +292,7 @@ func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.Named
 			// If this returns an error it's probably the same error
 			// we got from calling Next inside wrapRows.
 			_ = result.Close()
-			if needsRetry(err) {
+			if NeedsRetry(err) {
 				if stmt.conn.isInTransaction() {
 					return nil, err
 				}
@@ -311,8 +313,9 @@ func translateName(name string) string {
 	return name
 }
 
-// borrowed from code in crdb
-func needsRetry(err error) bool {
+// NeedsRetry checks if the error code means a retry is needed,
+// borrowed from code in crdb.
+func NeedsRetry(err error) bool {
 	code := errCode(err)
 	return code == "40001" || code == "CR000"
 }

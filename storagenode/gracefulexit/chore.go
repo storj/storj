@@ -70,24 +70,24 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			if satellite.FinishedAt != nil {
 				continue
 			}
-			satelliteID := satellite.SatelliteID
-			addr, err := chore.trust.GetAddress(ctx, satelliteID)
+
+			nodeurl, err := chore.trust.GetNodeURL(ctx, satellite.SatelliteID)
 			if err != nil {
 				chore.log.Error("failed to get satellite address.", zap.Error(err))
 				continue
 			}
 
-			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.dialer, satelliteID, addr, chore.config)
-			if _, ok := chore.exitingMap.LoadOrStore(satelliteID, worker); ok {
+			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.dialer, nodeurl, chore.config)
+			if _, ok := chore.exitingMap.LoadOrStore(nodeurl.ID, worker); ok {
 				// already running a worker for this satellite
-				chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("Satellite ID", satelliteID))
+				chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("Satellite ID", nodeurl.ID))
 				continue
 			}
 
 			chore.limiter.Go(ctx, func() {
 				err := worker.Run(ctx, func() {
-					chore.log.Debug("finished for satellite.", zap.Stringer("Satellite ID", satelliteID))
-					chore.exitingMap.Delete(satelliteID)
+					chore.log.Debug("finished for satellite.", zap.Stringer("Satellite ID", nodeurl.ID))
+					chore.exitingMap.Delete(nodeurl.ID)
 				})
 
 				if err != nil {

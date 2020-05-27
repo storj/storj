@@ -17,7 +17,6 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -40,13 +39,22 @@ type Config struct {
 	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
 }
 
+// NodeInfo contains information necessary for introducing storagenode to satellite.
+type NodeInfo struct {
+	ID       storj.NodeID
+	Address  string
+	Version  pb.NodeVersion
+	Capacity pb.NodeCapacity
+	Operator pb.NodeOperator
+}
+
 // Service is the contact service between storage nodes and satellites
 type Service struct {
 	log    *zap.Logger
 	dialer rpc.Dialer
 
 	mu   sync.Mutex
-	self *overlay.NodeDossier
+	self NodeInfo
 
 	trust *trust.Pool
 
@@ -54,7 +62,7 @@ type Service struct {
 }
 
 // NewService creates a new contact service
-func NewService(log *zap.Logger, dialer rpc.Dialer, self *overlay.NodeDossier, trust *trust.Pool) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool) *Service {
 	return &Service{
 		log:    log,
 		dialer: dialer,
@@ -108,23 +116,20 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err error) {
 	defer mon.Task()(&ctx, id)(&err)
 
-	self := service.Local()
-	address, err := service.trust.GetAddress(ctx, id)
+	nodeurl, err := service.trust.GetNodeURL(ctx, id)
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
-		ID:      id,
-		Address: address,
-	})
+	conn, err := service.dialer.DialNodeURL(ctx, nodeurl)
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, conn.Close()) }()
 
+	self := service.Local()
 	_, err = pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
-		Address:  self.Address.GetAddress(),
+		Address:  self.Address,
 		Version:  &self.Version,
 		Capacity: &self.Capacity,
 		Operator: &self.Operator,
@@ -135,11 +140,11 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	return nil
 }
 
-// Local returns the storagenode node-dossier
-func (service *Service) Local() overlay.NodeDossier {
+// Local returns the storagenode info.
+func (service *Service) Local() NodeInfo {
 	service.mu.Lock()
 	defer service.mu.Unlock()
-	return *service.self
+	return service.self
 }
 
 // UpdateSelf updates the local node with the capacity
@@ -149,6 +154,5 @@ func (service *Service) UpdateSelf(capacity *pb.NodeCapacity) {
 	if capacity != nil {
 		service.self.Capacity = *capacity
 	}
-
 	service.initialized.Release()
 }

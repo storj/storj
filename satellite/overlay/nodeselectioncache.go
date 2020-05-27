@@ -10,6 +10,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/nodeselection"
 )
 
@@ -132,14 +134,26 @@ func (cache *NodeSelectionCache) Size() (reputableNodeCount int, newNodeCount in
 
 func convNodesToSelectedNodes(nodes []*nodeselection.Node) (xs []*SelectedNode) {
 	for _, n := range nodes {
-		xs = append(xs, (*SelectedNode)(n))
+		xs = append(xs, &SelectedNode{
+			ID:         n.ID,
+			Address:    &pb.NodeAddress{Address: n.Address},
+			LastNet:    n.LastNet,
+			LastIPPort: n.LastIPPort,
+		})
 	}
 	return xs
 }
 
 func convSelectedNodesToNodes(nodes []*SelectedNode) (xs []*nodeselection.Node) {
 	for _, n := range nodes {
-		xs = append(xs, (*nodeselection.Node)(n))
+		xs = append(xs, &nodeselection.Node{
+			NodeURL: storj.NodeURL{
+				ID:      n.ID,
+				Address: n.Address.Address,
+			},
+			LastNet:    n.LastNet,
+			LastIPPort: n.LastIPPort,
+		})
 	}
 	return xs
 }

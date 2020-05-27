@@ -1062,7 +1062,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( project_id, interval_month )
 					);
 					INSERT INTO project_bandwidth_rollups(project_id, interval_month, egress_allocated)  (
-						SELECT project_id, date_trunc('MONTH',now())::DATE, sum(allocated)::bigint FROM bucket_bandwidth_rollups 
+						SELECT project_id, date_trunc('MONTH',now())::DATE, sum(allocated)::bigint FROM bucket_bandwidth_rollups
 						WHERE action = 2 AND interval_start >= date_trunc('MONTH',now())::timestamp group by project_id)
 					ON CONFLICT(project_id, interval_month) DO UPDATE SET egress_allocated = EXCLUDED.egress_allocated::bigint;`,
 				},

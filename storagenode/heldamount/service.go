@@ -239,6 +239,20 @@ func (service *Service) AllPayStubsPeriodCached(ctx context.Context, periodStart
 	return payStubs, nil
 }
 
+// SatellitePeriods retrieves all periods for concrete satellite in which we have some heldamount data.
+func (service *Service) SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) (_ []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.SatellitePeriods(ctx, satelliteID)
+}
+
+// AllPeriods retrieves all periods in which we have some heldamount data.
+func (service *Service) AllPeriods(ctx context.Context) (_ []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.AllPeriods(ctx)
+}
+
 // HeldbackPeriod amount of held for specific percent rate period.
 type HeldbackPeriod struct {
 	PercentageRate int
@@ -304,15 +318,12 @@ func (service *Service) AllHeldbackHistory(ctx context.Context, id storj.NodeID)
 func (service *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	address, err := service.trust.GetAddress(ctx, satelliteID)
+	nodeurl, err := service.trust.GetNodeURL(ctx, satelliteID)
 	if err != nil {
 		return nil, errs.New("unable to find satellite %s: %w", satelliteID, err)
 	}
 
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
-		ID:      satelliteID,
-		Address: address,
-	})
+	conn, err := service.dialer.DialNodeURL(ctx, nodeurl)
 	if err != nil {
 		return nil, errs.New("unable to connect to the satellite %s: %w", satelliteID, err)
 	}

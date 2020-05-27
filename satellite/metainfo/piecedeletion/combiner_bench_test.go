@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
@@ -24,7 +23,7 @@ type SleepyHandler struct {
 	TotalHandled int64
 }
 
-func (handler *SleepyHandler) Handle(ctx context.Context, node *pb.Node, queue piecedeletion.Queue) {
+func (handler *SleepyHandler) Handle(ctx context.Context, node storj.NodeURL, queue piecedeletion.Queue) {
 	if !sync2.Sleep(ctx, handler.Min) {
 		return
 	}
@@ -63,10 +62,10 @@ func BenchmarkCombiner(b *testing.B) {
 	activeLimits := []int{8, 32, 64, -1}
 	queueSizes := []int{1, 8, 64, 128, -1}
 
-	nodes := []*pb.Node{}
+	nodes := []storj.NodeURL{}
 	for i := 0; i < nodeCount; i++ {
-		nodes = append(nodes, &pb.Node{
-			Id: testrand.NodeID(),
+		nodes = append(nodes, storj.NodeURL{
+			ID: testrand.NodeID(),
 		})
 	}
 

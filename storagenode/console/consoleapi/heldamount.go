@@ -185,6 +185,50 @@ func (heldAmount *HeldAmount) HeldbackHistory(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// HeldAmountPeriods retrieves all periods in which we have some heldamount data.
+// Have optional parameter - satelliteID.
+// If satelliteID specified - will retrieve periods only for concrete satellite.
+func (heldAmount *HeldAmount) HeldAmountPeriods(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set(contentType, applicationJSON)
+
+	queryParams := r.URL.Query()
+
+	id := queryParams.Get("id")
+	if id == "" {
+		payStubs, err := heldAmount.service.AllPeriods(ctx)
+		if err != nil {
+			heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
+			return
+		}
+
+		if err := json.NewEncoder(w).Encode(payStubs); err != nil {
+			heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+			return
+		}
+	} else {
+		satelliteID, err := storj.NodeIDFromString(id)
+		if err != nil {
+			heldAmount.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))
+			return
+		}
+
+		payStubs, err := heldAmount.service.SatellitePeriods(ctx, satelliteID)
+		if err != nil {
+			heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
+			return
+		}
+
+		if err := json.NewEncoder(w).Encode(payStubs); err != nil {
+			heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+			return
+		}
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (heldAmount *HeldAmount) serveJSONError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)

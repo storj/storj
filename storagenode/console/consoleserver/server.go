@@ -68,6 +68,7 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	storageNodeRouter.HandleFunc("/", storageNodeController.StorageNode).Methods(http.MethodGet)
 	storageNodeRouter.HandleFunc("/satellites", storageNodeController.Satellites).Methods(http.MethodGet)
 	storageNodeRouter.HandleFunc("/satellite/{id}", storageNodeController.Satellite).Methods(http.MethodGet)
+	storageNodeRouter.HandleFunc("/estimatedPayout", storageNodeController.EstimatedPayout).Methods(http.MethodGet)
 
 	notificationController := consoleapi.NewNotifications(server.log, server.notifications)
 	notificationRouter := router.PathPrefix("/api/notifications").Subrouter()
@@ -82,6 +83,7 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	heldAmountRouter.HandleFunc("/paystubs/{period}", heldAmountController.PayStubMonthly).Methods(http.MethodGet)
 	heldAmountRouter.HandleFunc("/paystubs/{start}/{end}", heldAmountController.PayStubPeriod).Methods(http.MethodGet)
 	heldAmountRouter.HandleFunc("/heldback/{id}", heldAmountController.HeldbackHistory).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/periods", heldAmountController.HeldAmountPeriods).Methods(http.MethodGet)
 
 	if assets != nil {
 		fs := http.FileServer(assets)

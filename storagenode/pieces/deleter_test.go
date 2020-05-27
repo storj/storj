@@ -25,7 +25,7 @@ func TestDeleter(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	dir, err := filestore.NewDir(ctx.Dir("piecedeleter"))
+	dir, err := filestore.NewDir(zaptest.NewLogger(t), ctx.Dir("piecedeleter"))
 	require.NoError(t, err)
 
 	blobs := filestore.New(zaptest.NewLogger(t), dir, filestore.DefaultConfig)

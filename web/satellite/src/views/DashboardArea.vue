@@ -174,6 +174,7 @@ export default class DashboardArea extends Vue {
             return;
         }
 
+        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
         } catch (error) {

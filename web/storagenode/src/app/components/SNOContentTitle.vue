@@ -263,7 +263,6 @@ export default class SNOContentTitle extends Vue {
             }
 
             &__info-container {
-                justify-content: flex-start;
 
                 &__info-item {
                     padding: 12px 8px;
@@ -273,6 +272,16 @@ export default class SNOContentTitle extends Vue {
 
         .title-area-divider {
             display: none;
+        }
+    }
+
+    @media screen and (max-width: 600px) {
+
+        .title-area {
+
+            &__info-container {
+                justify-content: flex-start;
+            }
         }
     }
 </style>

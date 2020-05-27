@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
@@ -24,7 +24,7 @@ func (*HandleLimitVerifier) NewQueue() piecedeletion.Queue {
 	panic("should not be called")
 }
 
-func (verifier *HandleLimitVerifier) Handle(ctx context.Context, node *pb.Node, queue piecedeletion.Queue) {
+func (verifier *HandleLimitVerifier) Handle(ctx context.Context, node storj.NodeURL, queue piecedeletion.Queue) {
 	current := atomic.AddInt64(&verifier.Active, 1)
 	if current > verifier.ExpectedLimit {
 		panic("over limit")
@@ -46,7 +46,7 @@ func TestLimitedHandler(t *testing.T) {
 
 	for i := 0; i < 800; i++ {
 		ctx.Go(func() error {
-			limited.Handle(ctx, nil, nil)
+			limited.Handle(ctx, storj.NodeURL{}, nil)
 			return nil
 		})
 	}

@@ -95,6 +95,7 @@ export class PayoutHttpApi implements PayoutApi {
         return new TotalPayoutInfo(
             held,
             paid,
+            0,
         );
     }
 

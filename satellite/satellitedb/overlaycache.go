@@ -429,7 +429,6 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		}
 
 		updateFields := cache.populateUpdateFields(dbNode, updateReq)
-
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 		if err != nil {
 			return err
@@ -826,8 +825,7 @@ func (cache *overlaycache) GetSuccesfulNodesNotCheckedInSince(ctx context.Contex
 		}
 
 		nodeLastContact := overlay.NodeLastContact{
-			ID:                 nodeID,
-			Address:            node.Address,
+			URL:                storj.NodeURL{ID: nodeID, Address: node.Address},
 			LastContactSuccess: node.LastContactSuccess.UTC(),
 			LastContactFailure: node.LastContactFailure.UTC(),
 		}
@@ -874,8 +872,7 @@ func (cache *overlaycache) GetOfflineNodesLimited(ctx context.Context, limit int
 		}
 
 		nodeLastContact := overlay.NodeLastContact{
-			ID:                 nodeID,
-			Address:            node.Address,
+			URL:                storj.NodeURL{ID: nodeID, Address: node.Address},
 			LastContactSuccess: node.LastContactSuccess.UTC(),
 			LastContactFailure: node.LastContactFailure.UTC(),
 		}
@@ -951,6 +948,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
 		Latency90:                   dbNode.Latency90,
+		VettedAt:                    dbNode.VettedAt,
 		AuditCount:                  dbNode.TotalAuditCount,
 		AuditSuccessCount:           dbNode.AuditSuccessCount,
 		UptimeCount:                 dbNode.TotalUptimeCount,
@@ -987,7 +985,14 @@ func buildUpdateStatement(update updateNodeStats) string {
 	}
 	atLeastOne := false
 	sql := "UPDATE nodes SET "
+	if update.VettedAt.set {
+		atLeastOne = true
+		sql += fmt.Sprintf("vetted_at = '%v'", update.VettedAt.value.Format(time.RFC3339Nano))
+	}
 	if update.TotalAuditCount.set {
+		if atLeastOne {
+			sql += ","
+		}
 		atLeastOne = true
 		sql += fmt.Sprintf("total_audit_count = %v", update.TotalAuditCount.value)
 	}
@@ -1114,6 +1119,7 @@ type timeField struct {
 
 type updateNodeStats struct {
 	NodeID                      storj.NodeID
+	VettedAt                    timeField
 	TotalAuditCount             int64Field
 	TotalUptimeCount            int64Field
 	AuditReputationAlpha        float64Field
@@ -1140,6 +1146,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	unknownAuditAlpha := dbNode.UnknownAuditReputationAlpha
 	unknownAuditBeta := dbNode.UnknownAuditReputationBeta
 	totalAuditCount := dbNode.TotalAuditCount
+	vettedAt := dbNode.VettedAt
 
 	var updatedTotalAuditCount int64
 
@@ -1205,6 +1212,10 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 		UnknownAuditReputationBeta:  float64Field{set: true, value: unknownAuditBeta},
 	}
 
+	if vettedAt == nil && updatedTotalAuditCount >= updateReq.AuditsRequiredForVetting && totalUptimeCount >= updateReq.UptimesRequiredForVetting {
+		updateFields.VettedAt = timeField{set: true, value: time.Now().UTC()}
+	}
+
 	// disqualification case a
 	//   a) Success/fail audit reputation falls below audit DQ threshold
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
@@ -1264,6 +1275,9 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 
 	update := cache.populateUpdateNodeStats(dbNode, updateReq)
 	updateFields := dbx.Node_Update_Fields{}
+	if update.VettedAt.set {
+		updateFields.VettedAt = dbx.Node_VettedAt(update.VettedAt.value)
+	}
 	if update.TotalAuditCount.set {
 		updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(update.TotalAuditCount.value)
 	}

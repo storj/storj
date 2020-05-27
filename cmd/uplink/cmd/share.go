@@ -107,7 +107,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		})
 	}
 
-	access, err := shareCfg.GetNewAccess()
+	access, err := shareCfg.GetAccess()
 	if err != nil {
 		return err
 	}
@@ -130,9 +130,11 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// TODO extend libuplink to give this value
-	// fmt.Println("Sharing access to satellite", access.SatelliteAddr)
-
+	satelliteAddr, _, _, err := parseAccess(newAccessData)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Sharing access to satellite", satelliteAddr)
 	fmt.Println("=========== ACCESS RESTRICTIONS ==========================================================")
 	fmt.Println("Download  :", formatPermission(permission.AllowDownload))
 	fmt.Println("Upload    :", formatPermission(permission.AllowUpload))

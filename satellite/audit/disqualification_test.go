@@ -219,7 +219,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
 
-		_, err = satellitePeer.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
+		_, err = satellitePeer.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 			NodeID:                disqualifiedNode.ID(),
 			IsUp:                  true,
 			AuditOutcome:          overlay.AuditSuccess,
@@ -228,9 +228,8 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 			AuditDQ:               0, // make sure new reputation scores are larger than the DQ thresholds
 			SuspensionGracePeriod: time.Hour,
 			SuspensionDQEnabled:   true,
-		}}, 100)
+		}})
 		require.NoError(t, err)
-
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
 	})
 }

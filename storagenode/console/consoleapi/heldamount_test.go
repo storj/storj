@@ -386,6 +386,51 @@ func TestHeldAmountApi(t *testing.T) {
 
 				require.Equal(t, "{\"error\":\"heldAmount console web error: node ID error: checksum error\"}\n", string(body2))
 			})
+
+			t.Run("test Periods", func(t *testing.T) {
+				url := fmt.Sprintf("%s/periods", baseURL)
+				res, err := http.Get(url)
+				require.NoError(t, err)
+				require.NotNil(t, res)
+				require.Equal(t, http.StatusOK, res.StatusCode)
+
+				var periods []string
+				periods = append(periods, "2020-03", "2020-02")
+
+				expected, err := json.Marshal(periods)
+				require.NoError(t, err)
+
+				defer func() {
+					err = res.Body.Close()
+					require.NoError(t, err)
+				}()
+				body, err := ioutil.ReadAll(res.Body)
+				require.NoError(t, err)
+
+				require.Equal(t, string(expected)+"\n", string(body))
+
+				//
+				url = fmt.Sprintf("%s/periods?id=%s", baseURL, paystub2.SatelliteID.String())
+				res2, err := http.Get(url)
+				require.NoError(t, err)
+				require.NotNil(t, res)
+				require.Equal(t, http.StatusOK, res.StatusCode)
+
+				var periods2 []string
+				periods2 = append(periods2, "2020-03")
+
+				expected2, err := json.Marshal(periods2)
+				require.NoError(t, err)
+
+				defer func() {
+					err = res2.Body.Close()
+					require.NoError(t, err)
+				}()
+				body2, err := ioutil.ReadAll(res2.Body)
+				require.NoError(t, err)
+
+				require.Equal(t, string(expected2)+"\n", string(body2))
+			})
 		},
 	)
 }

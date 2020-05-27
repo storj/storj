@@ -4,7 +4,7 @@
 <template>
     <div class="new-project-container">
         <div
-            v-if="isButtonShown"
+            v-if="isButtonShown && !isOnboardingTour"
             class="new-project-button-container"
             @click="toggleSelection"
             id="newProjectButton"
@@ -45,16 +45,6 @@ export default class NewProjectArea extends Vue {
         }
 
         this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-    }
-
-    /**
-     * Life cycle hook after initial render.
-     * Hides new project button visibility if user is on onboarding tour.
-     */
-    public mounted(): void {
-        if (this.isOnboardingTour) {
-            this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
-        }
     }
 
     /**

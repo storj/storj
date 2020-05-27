@@ -192,9 +192,6 @@ type Satellite struct {
 // ID returns the ID of the Satellite system.
 func (system *Satellite) ID() storj.NodeID { return system.API.Identity.ID }
 
-// Local returns the peer local node info from the Satellite system API.
-func (system *Satellite) Local() overlay.NodeDossier { return system.API.Contact.Service.Local() }
-
 // Addr returns the public address from the Satellite system API.
 func (system *Satellite) Addr() string { return system.API.Server.Addr().String() }
 
@@ -481,7 +478,10 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					TransactionUpdateInterval:    defaultInterval,
 					AccountBalanceUpdateInterval: defaultInterval,
 					ConversionRatesCycleInterval: defaultInterval,
+					ListingLimit:                 100,
 				},
+				CouponDuration: 2,
+				CouponValue:    275,
 			},
 			Repairer: repairer.Config{
 				MaxRepair:                     10,

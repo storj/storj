@@ -115,14 +115,8 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 			require.NoError(t, err)
 			totalUsedSpace += piecesTotal
 
-			// Get pb node and all the pieces of the storage node
-			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
-			require.NoError(t, err)
-
-			nodePieces := piecedeletion.Request{
-				Node: &dossier.Node,
-			}
-
+			// Get all the pieces of the storage node
+			nodePieces := piecedeletion.Request{Node: sn.NodeURL()}
 			err = sn.Storage2.Store.WalkSatellitePieces(ctx, satelliteSys.ID(),
 				func(store pieces.StoredPieceAccess) error {
 					nodePieces.Pieces = append(nodePieces.Pieces, store.PieceID())
@@ -184,15 +178,9 @@ func TestService_DeletePieces_SomeNodesDown(t *testing.T) {
 		var requests []piecedeletion.Request
 
 		for i, sn := range planet.StorageNodes {
-			// Get pb node and all the pieces of the storage node
-			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
-			require.NoError(t, err)
-
-			nodePieces := piecedeletion.Request{
-				Node: &dossier.Node,
-			}
-
-			err = sn.Storage2.Store.WalkSatellitePieces(ctx, satelliteSys.ID(),
+			// Get all the pieces of the storage node
+			nodePieces := piecedeletion.Request{Node: sn.NodeURL()}
+			err := sn.Storage2.Store.WalkSatellitePieces(ctx, satelliteSys.ID(),
 				func(store pieces.StoredPieceAccess) error {
 					nodePieces.Pieces = append(nodePieces.Pieces, store.PieceID())
 					return nil
@@ -260,14 +248,8 @@ func TestService_DeletePieces_AllNodesDown(t *testing.T) {
 			require.NoError(t, err)
 			expectedTotalUsedSpace += piecesTotal
 
-			// Get pb node and all the pieces of the storage node
-			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
-			require.NoError(t, err)
-
-			nodePieces := piecedeletion.Request{
-				Node: &dossier.Node,
-			}
-
+			// Get all the pieces of the storage node
+			nodePieces := piecedeletion.Request{Node: sn.NodeURL()}
 			err = sn.Storage2.Store.WalkSatellitePieces(ctx, satelliteSys.ID(),
 				func(store pieces.StoredPieceAccess) error {
 					nodePieces.Pieces = append(nodePieces.Pieces, store.PieceID())
@@ -354,14 +336,8 @@ func TestService_DeletePieces_Timeout(t *testing.T) {
 			require.NoError(t, err)
 			expectedTotalUsedSpace += piecesTotal
 
-			// Get pb node and all the pieces of the storage node
-			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
-			require.NoError(t, err)
-
-			nodePieces := piecedeletion.Request{
-				Node: &dossier.Node,
-			}
-
+			// Get all the pieces of the storage node
+			nodePieces := piecedeletion.Request{Node: sn.NodeURL()}
 			err = sn.Storage2.Store.WalkSatellitePieces(ctx, satelliteSys.ID(),
 				func(store pieces.StoredPieceAccess) error {
 					nodePieces.Pieces = append(nodePieces.Pieces, store.PieceID())

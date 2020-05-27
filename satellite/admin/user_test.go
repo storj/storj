@@ -35,12 +35,18 @@ func TestGetUser(t *testing.T) {
 		address := sat.Admin.Admin.Listener.Addr()
 		project := planet.Uplinks[0].Projects[0]
 
+		coupons, err := sat.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		couponsMarshaled, err := json.Marshal(coupons)
+		require.NoError(t, err)
+
 		t.Run("GetUser", func(t *testing.T) {
 			userLink := "http://" + address.String() + "/api/user/" + project.Owner.Email
 			expected := `{` +
 				fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s"},`, project.Owner.ID, project.Owner.Email) +
 				fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}],`, project.ID, project.Owner.ID) +
-				`"coupons":[]}`
+				fmt.Sprintf(`"coupons":%s}`, couponsMarshaled)
 
 			req, err := http.NewRequest(http.MethodGet, userLink, nil)
 			require.NoError(t, err)

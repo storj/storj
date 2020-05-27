@@ -53,7 +53,7 @@ func (chore *DetectionChore) Run(ctx context.Context) (err error) {
 			zap.Int("count", len(nodeLastContacts)))
 
 		for _, nodeLastContact := range nodeLastContacts {
-			success, err := chore.service.CheckAndUpdateNodeAvailability(ctx, nodeLastContact.ID, nodeLastContact.Address)
+			success, err := chore.service.CheckAndUpdateNodeAvailability(ctx, nodeLastContact.URL)
 			if err != nil {
 				chore.log.Error("error during downtime detection ping back.",
 					zap.Bool("success", success),

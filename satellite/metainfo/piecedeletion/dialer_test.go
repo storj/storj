@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -36,16 +35,9 @@ func TestDialer(t *testing.T) {
 		dialer := piecedeletion.NewDialer(log, planet.Satellites[0].Dialer, 5*time.Second, 5*time.Second, 100)
 		require.NotNil(t, dialer)
 
-		storageNode := &pb.Node{
-			Id: planet.StorageNodes[0].ID(),
-			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   planet.StorageNodes[0].Addr(),
-			},
-		}
+		storageNode := planet.StorageNodes[0].NodeURL()
 
 		promise, jobs := makeJobsQueue(t, 2)
-
 		dialer.Handle(ctx, storageNode, jobs)
 
 		require.Equal(t, int64(2), promise.SuccessCount)
@@ -70,13 +62,7 @@ func TestDialer_DialTimeout(t *testing.T) {
 
 		require.NoError(t, planet.StopPeer(planet.StorageNodes[0]))
 
-		storageNode := &pb.Node{
-			Id: planet.StorageNodes[0].ID(),
-			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   planet.StorageNodes[0].Addr(),
-			},
-		}
+		storageNode := planet.StorageNodes[0].NodeURL()
 
 		{
 			promise, jobs := makeJobsQueue(t, 1)

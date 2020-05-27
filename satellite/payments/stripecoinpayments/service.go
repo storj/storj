@@ -34,8 +34,8 @@ var (
 	mon = monkit.Package()
 )
 
-// fetchLimit sets the maximum amount of items before we start paging on requests
-const fetchLimit = 100
+// hoursPerMonth is the number of months in a billing month. For the purpose of billing, the billing month is always 30 days.
+const hoursPerMonth = 24 * 30
 
 // Config stores needed information for payment service initialization.
 type Config struct {
@@ -47,6 +47,7 @@ type Config struct {
 	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
 	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
 	AutoAdvance                  bool          `help:"toogle autoadvance feature for invoice creation" default:"false"`
+	ListingLimit                 int           `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -60,9 +61,9 @@ type Service struct {
 	stripeClient StripeClient
 	coinPayments *coinpayments.Client
 
-	ByteHourCents   decimal.Decimal
-	EgressByteCents decimal.Decimal
-	ObjectHourCents decimal.Decimal
+	StorageMBMonthPriceCents decimal.Decimal
+	EgressMBPriceCents       decimal.Decimal
+	ObjectMonthPriceCents    decimal.Decimal
 	// BonusRate amount of percents
 	BonusRate int64
 	// Coupon Values
@@ -78,6 +79,9 @@ type Service struct {
 	mu       sync.Mutex
 	rates    coinpayments.CurrencyRateInfos
 	ratesErr error
+
+	listingLimit int
+	nowFn        func() time.Time
 }
 
 // NewService creates a Service instance.
@@ -90,7 +94,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		},
 	)
 
-	tbMonthDollars, err := decimal.NewFromString(storageTBPrice)
+	storageTBMonthDollars, err := decimal.NewFromString(storageTBPrice)
 	if err != nil {
 		return nil, err
 	}
@@ -103,37 +107,29 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		return nil, err
 	}
 
-	// change the precision from dollars to cents
-	tbMonthCents := tbMonthDollars.Shift(2)
-	egressTBCents := egressTBDollars.Shift(2)
-	objectHourCents := objectMonthDollars.Shift(2)
-
-	// get per hour prices from storage and objects
-	hoursPerMonth := decimal.New(30*24, 0)
-
-	tbHourCents := tbMonthCents.Div(hoursPerMonth)
-	objectHourCents = objectHourCents.Div(hoursPerMonth)
-
-	// convert tb to bytes for storage and egress
-	byteHourCents := tbHourCents.Div(decimal.New(1000000000000, 0))
-	egressByteCents := egressTBCents.Div(decimal.New(1000000000000, 0))
+	// change the precision from TB dollars to MB cents
+	storageMBMonthPriceCents := storageTBMonthDollars.Shift(-6).Shift(2)
+	egressMBPriceCents := egressTBDollars.Shift(-6).Shift(2)
+	objectMonthPriceCents := objectMonthDollars.Shift(2)
 
 	return &Service{
-		log:                log,
-		db:                 db,
-		projectsDB:         projectsDB,
-		usageDB:            usageDB,
-		stripeClient:       stripeClient,
-		coinPayments:       coinPaymentsClient,
-		ByteHourCents:      byteHourCents,
-		EgressByteCents:    egressByteCents,
-		ObjectHourCents:    objectHourCents,
-		BonusRate:          bonusRate,
-		CouponValue:        couponValue,
-		CouponDuration:     couponDuration,
-		CouponProjectLimit: couponProjectLimit,
-		MinCoinPayment:     minCoinPayment,
-		AutoAdvance:        config.AutoAdvance,
+		log:                      log,
+		db:                       db,
+		projectsDB:               projectsDB,
+		usageDB:                  usageDB,
+		stripeClient:             stripeClient,
+		coinPayments:             coinPaymentsClient,
+		StorageMBMonthPriceCents: storageMBMonthPriceCents,
+		EgressMBPriceCents:       egressMBPriceCents,
+		ObjectMonthPriceCents:    objectMonthPriceCents,
+		BonusRate:                bonusRate,
+		CouponValue:              couponValue,
+		CouponDuration:           couponDuration,
+		CouponProjectLimit:       couponProjectLimit,
+		MinCoinPayment:           minCoinPayment,
+		AutoAdvance:              config.AutoAdvance,
+		listingLimit:             config.ListingLimit,
+		nowFn:                    time.Now,
 	}, nil
 }
 
@@ -146,9 +142,9 @@ func (service *Service) Accounts() payments.Accounts {
 func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	before := time.Now()
+	before := service.nowFn()
 
-	txsPage, err := service.db.Transactions().ListPending(ctx, 0, fetchLimit, before)
+	txsPage, err := service.db.Transactions().ListPending(ctx, 0, service.listingLimit, before)
 	if err != nil {
 		return err
 	}
@@ -162,7 +158,7 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 			return err
 		}
 
-		txsPage, err = service.db.Transactions().ListPending(ctx, txsPage.NextOffset, fetchLimit, before)
+		txsPage, err = service.db.Transactions().ListPending(ctx, txsPage.NextOffset, service.listingLimit, before)
 		if err != nil {
 			return err
 		}
@@ -236,9 +232,9 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	before := time.Now()
+	before := service.nowFn()
 
-	txsPage, err := service.db.Transactions().ListUnapplied(ctx, 0, fetchLimit, before)
+	txsPage, err := service.db.Transactions().ListUnapplied(ctx, 0, service.listingLimit, before)
 	if err != nil {
 		return err
 	}
@@ -258,7 +254,7 @@ func (service *Service) updateAccountBalanceLoop(ctx context.Context) (err error
 			return err
 		}
 
-		txsPage, err = service.db.Transactions().ListUnapplied(ctx, txsPage.NextOffset, fetchLimit, before)
+		txsPage, err = service.db.Transactions().ListUnapplied(ctx, txsPage.NextOffset, service.listingLimit, before)
 		if err != nil {
 			return err
 		}
@@ -326,6 +322,12 @@ func (service *Service) UpdateRates(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rates, err := service.coinPayments.ConversionRates().Get(ctx)
+	if coinpayments.ErrMissingPublicKey.Has(err) {
+		rates = coinpayments.CurrencyRateInfos{}
+		err = nil
+
+		service.log.Info("Coinpayment client is missing public key")
+	}
 
 	service.mu.Lock()
 	defer service.mu.Unlock()
@@ -364,7 +366,7 @@ func (service *Service) GetRate(ctx context.Context, curr1, curr2 coinpayments.C
 func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().UTC()
+	now := service.nowFn().UTC()
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -374,7 +376,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 		return Error.New("allowed for past periods only")
 	}
 
-	projsPage, err := service.projectsDB.List(ctx, 0, fetchLimit, end)
+	projsPage, err := service.projectsDB.List(ctx, 0, service.listingLimit, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -388,7 +390,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 			return Error.Wrap(err)
 		}
 
-		projsPage, err = service.projectsDB.List(ctx, projsPage.NextOffset, fetchLimit, end)
+		projsPage, err = service.projectsDB.List(ctx, projsPage.NextOffset, service.listingLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -436,11 +438,6 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 			},
 		)
 
-		coupons, err := service.db.Coupons().ListByProjectID(ctx, project.ID)
-		if err != nil {
-			return err
-		}
-
 		leftToCharge := service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount).TotalInt64()
 		if leftToCharge == 0 {
 			continue
@@ -456,6 +453,11 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 
 		if leftToCharge == 0 {
 			continue
+		}
+
+		coupons, err := service.db.Coupons().ListByProjectID(ctx, project.ID)
+		if err != nil {
+			return err
 		}
 
 		// Apply any promotional credits (a.k.a. coupons) on the remainder.
@@ -536,7 +538,7 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().UTC()
+	now := service.nowFn().UTC()
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -546,7 +548,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 		return Error.New("allowed for past periods only")
 	}
 
-	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, fetchLimit, start, end)
+	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, service.listingLimit, start, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -561,7 +563,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 		}
 
 		// we are always starting from offset 0 because applyProjectRecords is changing project record state to applied
-		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, 0, fetchLimit, start, end)
+		recordsPage, err = service.db.ProjectRecords().ListUnapplied(ctx, 0, service.listingLimit, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -613,30 +615,34 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 		return err
 	}
 
-	projectPrice := service.calculateProjectUsagePrice(record.Egress, record.Storage, record.Objects)
-
 	projectItem := &stripe.InvoiceItemParams{
 		Currency: stripe.String(string(stripe.CurrencyUSD)),
 		Customer: stripe.String(cusID),
 	}
 	projectItem.AddMetadata("projectID", record.ProjectID.String())
 
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Storage", projName))
-	projectItem.Amount = stripe.Int64(projectPrice.Storage.IntPart())
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Storage (MB-Month)", projName))
+	projectItem.Quantity = stripe.Int64(storageMBMonthDecimal(record.Storage).IntPart())
+	storagePrice, _ := service.StorageMBMonthPriceCents.Float64()
+	projectItem.UnitAmountDecimal = stripe.Float64(storagePrice)
 	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	if err != nil {
 		return err
 	}
 
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth", projName))
-	projectItem.Amount = stripe.Int64(projectPrice.Egress.IntPart())
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth (MB)", projName))
+	projectItem.Quantity = stripe.Int64(egressMBDecimal(record.Egress).IntPart())
+	egressPrice, _ := service.EgressMBPriceCents.Float64()
+	projectItem.UnitAmountDecimal = stripe.Float64(egressPrice)
 	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	if err != nil {
 		return err
 	}
 
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee", projName))
-	projectItem.Amount = stripe.Int64(projectPrice.Objects.IntPart())
+	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee (Object-Month)", projName))
+	projectItem.Quantity = stripe.Int64(objectMonthDecimal(record.Objects).IntPart())
+	objectPrice, _ := service.ObjectMonthPriceCents.Float64()
+	projectItem.UnitAmountDecimal = stripe.Float64(objectPrice)
 	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 	return err
 }
@@ -646,7 +652,7 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().UTC()
+	now := service.nowFn().UTC()
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -656,7 +662,7 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 		return Error.New("allowed for past periods only")
 	}
 
-	usagePage, err := service.db.Coupons().ListUnapplied(ctx, 0, fetchLimit, start)
+	usagePage, err := service.db.Coupons().ListUnapplied(ctx, 0, service.listingLimit, start)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -670,7 +676,8 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 			return Error.Wrap(err)
 		}
 
-		usagePage, err = service.db.Coupons().ListUnapplied(ctx, usagePage.NextOffset, fetchLimit, start)
+		// we are always starting from offset 0 because applyCoupons is changing coupon usage state to applied
+		usagePage, err = service.db.Coupons().ListUnapplied(ctx, 0, service.listingLimit, start)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -754,7 +761,7 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 func (service *Service) InvoiceApplyCredits(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().UTC()
+	now := service.nowFn().UTC()
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -764,7 +771,7 @@ func (service *Service) InvoiceApplyCredits(ctx context.Context, period time.Tim
 		return Error.New("allowed for past periods only")
 	}
 
-	spendingsPage, err := service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, fetchLimit, start)
+	spendingsPage, err := service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, service.listingLimit, start)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -778,7 +785,8 @@ func (service *Service) InvoiceApplyCredits(ctx context.Context, period time.Tim
 			return Error.Wrap(err)
 		}
 
-		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), spendingsPage.NextOffset, fetchLimit, start)
+		// we are always starting from offset 0 because applySpendings is changing credits spendings state to applied
+		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, service.listingLimit, start)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -837,7 +845,7 @@ func (service *Service) createInvoiceCreditItem(ctx context.Context, spending Cr
 func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().UTC()
+	now := service.nowFn().UTC()
 	utc := period.UTC()
 
 	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -847,7 +855,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 		return Error.New("allowed for past periods only")
 	}
 
-	cusPage, err := service.db.Customers().List(ctx, 0, fetchLimit, end)
+	cusPage, err := service.db.Customers().List(ctx, 0, service.listingLimit, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -867,7 +875,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 			return Error.Wrap(err)
 		}
 
-		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, fetchLimit, end)
+		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, service.listingLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -935,9 +943,9 @@ func (price projectUsagePrice) TotalInt64() int64 {
 // calculateProjectUsagePrice calculate project usage price.
 func (service *Service) calculateProjectUsagePrice(egress int64, storage, objects float64) projectUsagePrice {
 	return projectUsagePrice{
-		Storage: service.ByteHourCents.Mul(decimal.NewFromFloat(storage)),
-		Egress:  service.EgressByteCents.Mul(decimal.New(egress, 0)),
-		Objects: service.ObjectHourCents.Mul(decimal.NewFromFloat(objects)),
+		Storage: service.StorageMBMonthPriceCents.Mul(storageMBMonthDecimal(storage)).Round(0),
+		Egress:  service.EgressMBPriceCents.Mul(egressMBDecimal(egress)).Round(0),
+		Objects: service.ObjectMonthPriceCents.Mul(objectMonthDecimal(objects)).Round(0),
 	}
 }
 
@@ -982,4 +990,28 @@ func (service *Service) discountedProjectUsagePrice(ctx context.Context, project
 	}
 
 	return projectUsagePrice, nil
+}
+
+// SetNow allows tests to have the Service act as if the current time is whatever
+// they want. This avoids races and sleeping, making tests more reliable and efficient.
+func (service *Service) SetNow(now func() time.Time) {
+	service.nowFn = now
+}
+
+// storageMBMonthDecimal converts storage usage from Byte-Hours to Megabyte-Months.
+// The result is rounded to the nearest whole number, but returned as Decimal for convenience.
+func storageMBMonthDecimal(storage float64) decimal.Decimal {
+	return decimal.NewFromFloat(storage).Shift(-6).Div(decimal.NewFromInt(hoursPerMonth)).Round(0)
+}
+
+// egressMBDecimal converts egress usage from bytes to Megabytes
+// The result is rounded to the nearest whole number, but returned as Decimal for convenience.
+func egressMBDecimal(egress int64) decimal.Decimal {
+	return decimal.NewFromInt(egress).Shift(-6).Round(0)
+}
+
+// objectMonthDecimal converts objects usage from Object-Hours to Object-Months.
+// The result is rounded to the nearest whole number, but returned as Decimal for convenience.
+func objectMonthDecimal(objects float64) decimal.Decimal {
+	return decimal.NewFromFloat(objects).Div(decimal.NewFromInt(hoursPerMonth)).Round(0)
 }

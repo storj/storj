@@ -76,10 +76,6 @@ export default class AddCardForm extends Vue {
         this.$emit('toggleIsLoading');
         this.$emit('toggleIsLoaded');
 
-        if (!this.userHasOwnProject) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-        }
-
         setTimeout(() => {
             this.$emit('cancel');
             this.$emit('toggleIsLoaded');
@@ -87,6 +83,7 @@ export default class AddCardForm extends Vue {
             setTimeout(() => {
                 if (!this.userHasOwnProject) {
                     this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+                    this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
                 }
             }, 500);
         }, 2000);

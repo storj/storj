@@ -46,7 +46,7 @@
         </ServiceInstall>
         <ServiceControl Id="StoragenodeStartService" Start="install" Stop="both" Remove="both" Name="storagenode" Wait="yes" />
 
-        <fire:FirewallException Id="StoragenodePort" Name="storagenode.exe" Port="28967" Scope="any"/>
+        <fire:FirewallException Id="StoragenodePort" Name="storagenode.exe" Port="28967" Scope="any" IgnoreFailure="yes"/>
       </Component>
       
       <Component Id="ExecutableUpdater" Guid="{CBD06EA1-73F7-4B3E-9D31-EEB2A8175542}" Win64='yes'>

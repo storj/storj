@@ -139,19 +139,27 @@ A successful response:
 
 ```json
 {
-    "usage": {
-        "amount":"0 B",
-        "bytes":0
-    },
-    "rate":{
-        "rps":0
-    }
+  "usage": {
+    "amount": "1.0 TB",
+    "bytes": 1000000000000
+  },
+  "bandwidth": {
+    "amount": "1.0 TB",
+    "bytes": 1000000000000
+  },
+  "rate": {
+    "rps": 0
+  }
 }
 ```
 
 ## POST /api/project/{project-id}/limit?usage={value}
 
 Updates usage limit for a project.
+
+## POST /api/project/{project-id}/limit?bandwidth={value}
+
+Updates bandwidth limit for a project.
 
 ## POST /api/project/{project-id}/limit?rate={value}
 
