@@ -51,7 +51,7 @@ By keeping track of the offline percentage per window and then averaging the sco
 
 ### 1) Determine the business requirement for the minimum frequency of audits per node. Implement the necessary changes to make this happen. 
 
-This will determine what window sizes we can work with. Ideally we should be completing multiple audit queues over the course of a single window.
+This will determine what window sizes we can work with. Ideally even the least audited nodes should be audited multiple times over the course of a window.
 
 ### 2) Add new nullable timestamp columns `offline_suspended` and `under_review` to `nodes` table
 
@@ -87,7 +87,7 @@ type AuditHistoryConfig struct {
 }
 ```
 
-### 5) Write to audit history and evaluate node standing. 
+### 5) Write to audit history and evaluate node standing
 The overlay DB method `BatchUpdateStats` is where a node's audit reputation is updated by audit results. It iterates through each node, retrieving its dossier from the `nodes` table and updates its reputation. We also need to update and read information from the node dossier to set and evaluate a node's standing regarding audit windows, so this method is a good place to do this. 
 
 Add a new argument to `BatchUpdateStats` to pass in `AuditWindowConfig`. This gives us the window size parameter required to write to the audit windows table and the tracking period, grace period, and offline threshold parameters required to evaluate whether a node needs to be suspended, reinstated, or disqualified.
@@ -125,6 +125,8 @@ With this information, there are a number of conditions we need to evaluate:
 
 After the evaluation is complete, insert a new window into the Windows map and write the serialized audit history back to the database.
 
+NOTE: We should not implement disqualification right away. It might also be good to implement the `offline_suspended` column, but not use it for anything to begin with. This way we can have a bit of time to observe how well the system works (how many nodes enter suspension, testing the notifications)
+
 ### 6) Implement email and node dashboard notifications of offline suspension and under review status
 The `NodeStats` protobuf will need to be updated to send and receive these new fields
 
@@ -147,3 +149,16 @@ Once the design outlined in the document is implemented, other documents detaili
     A node which is under review can be suspended and reinstated any number of times until the end of the review period. We could end up with a situation where a node is suspended, comes back, gets more pieces, and is suspended again. If the completion of the review period results in disqualification, all of those pieces will become unhealthy.
 
     An alternative approach might be to simply not give new pieces to nodes under review, whether suspended or not. However, some nodes might think that waiting for the review period to end in order to get more pieces is not worth it. If they shut their node down and start over, all the pieces would need to repaired as well.
+
+3) Network issues
+
+    Failing to connect to a node does not necessarily mean that it is offline.
+
+    Satellite side network issues could results in many nodes being counted as offline.
+    One solution for satellite side issues could be that we cache and batch audit history writes. Upon syncing to the DB, we determine the total percentage of offline audits the batch contains. If it is above some threshold, we decide that there must have been some network issues and we either throw out the results or give everyone a perfect score for that period. 
+
+    It will be more difficult to differentiate network problems from real downtime for a single node. 
+
+    We've received some suggestions about retrying a connection before determining that a node is offline. One the one hand, this gives us more confidence that the node is in fact offline. On the other hand, this increases code complexity and decreases audit throughput.
+
+    If we decide not to attempt retries, we should adjust the offline threshold accordingly to account for offline false positives and ensure that even the smallest nodes are still audited enough that any false positives should not pose a real threat.
