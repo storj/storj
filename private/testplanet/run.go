@@ -4,6 +4,7 @@
 package testplanet
 
 import (
+	"context"
 	"testing"
 
 	"go.uber.org/zap/zaptest"
@@ -11,6 +12,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/uplink"
 )
 
 // Run runs testplanet in multiple configurations.
@@ -54,7 +56,22 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			planet.Start(ctx)
 
+			provisionUplinks(ctx, t, planet)
+
 			test(t, ctx, planet)
 		})
+	}
+}
+
+func provisionUplinks(ctx context.Context, t *testing.T, planet *Planet) {
+	for _, planetUplink := range planet.Uplinks {
+		for _, satellite := range planet.Satellites {
+			apiKey := planetUplink.APIKey[satellite.ID()]
+			access, err := uplink.RequestAccessWithPassphrase(ctx, satellite.URL(), apiKey.Serialize(), "")
+			if err != nil {
+				t.Fatalf("%+v", err)
+			}
+			planetUplink.Access[satellite.ID()] = access
+		}
 	}
 }

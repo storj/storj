@@ -36,8 +36,12 @@ func TestAllowedPathPrefixListing(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(up.Close)
 
-		uplinkConfig := testUplink.GetConfig(testSatellite)
-		access, err := uplinkConfig.GetAccess()
+		newAccess := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+
+		serializedNewAccess, err := newAccess.Serialize()
+		require.NoError(t, err)
+
+		access, err := uplink.ParseScope(serializedNewAccess)
 		require.NoError(t, err)
 
 		encryptionAccess := access.EncryptionAccess
@@ -99,8 +103,12 @@ func TestUploadNotAllowedPath(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(up.Close)
 
-		uplinkConfig := testUplink.GetConfig(testSatellite)
-		access, err := uplinkConfig.GetAccess()
+		newAccess := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+
+		serializedNewAccess, err := newAccess.Serialize()
+		require.NoError(t, err)
+
+		access, err := uplink.ParseScope(serializedNewAccess)
 		require.NoError(t, err)
 
 		encryptionAccess := access.EncryptionAccess

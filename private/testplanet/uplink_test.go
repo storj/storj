@@ -242,12 +242,13 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 func TestDeleteWithOfflineStoragenode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.MaxSegmentSize(1 * memory.MiB),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		expectedData := testrand.Bytes(5 * memory.MiB)
 
-		config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-		config.Client.SegmentSize = 1 * memory.MiB
-		err := planet.Uplinks[0].UploadWithClientConfig(ctx, planet.Satellites[0], config, "test-bucket", "test-file", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket", "test-file", expectedData)
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {

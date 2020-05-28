@@ -4,9 +4,11 @@
 package gc_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -126,11 +128,15 @@ func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Sa
 	require.NoError(t, err)
 	require.Len(t, projects, 1)
 
-	encParameters := upl.GetConfig(satellite).GetEncryptionParameters()
-	cipherSuite := encParameters.CipherSuite
-	store := encryption.NewStore()
-	store.SetDefaultKey(new(storj.Key))
-	encryptedPath, err := encryption.EncryptPath(bucket, paths.NewUnencrypted(path), cipherSuite, store)
+	access := upl.Access[satellite.ID()]
+
+	serializedAccess, err := access.Serialize()
+	require.NoError(t, err)
+
+	store, err := encryptionAccess(serializedAccess)
+	require.NoError(t, err)
+
+	encryptedPath, err := encryption.EncryptPathWithStoreCipher(bucket, paths.NewUnencrypted(path), store)
 	require.NoError(t, err)
 
 	lastSegPath = storj.JoinPaths(projects[0].ID.String(), "l", bucket, encryptedPath.Raw())
@@ -138,4 +144,27 @@ func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Sa
 	require.NoError(t, err)
 
 	return lastSegPath, pointer
+}
+
+func encryptionAccess(access string) (*encryption.Store, error) {
+	data, version, err := base58.CheckDecode(access)
+	if err != nil || version != 0 {
+		return nil, errors.New("invalid access grant format")
+	}
+
+	p := new(pb.Scope)
+	if err := pb.Unmarshal(data, p); err != nil {
+		return nil, err
+	}
+
+	key, err := storj.NewKey(p.EncryptionAccess.DefaultKey)
+	if err != nil {
+		return nil, err
+	}
+
+	store := encryption.NewStore()
+	store.SetDefaultKey(key)
+	store.SetDefaultPathCipher(storj.EncAESGCM)
+
+	return store, nil
 }

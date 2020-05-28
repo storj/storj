@@ -69,7 +69,7 @@ func TestWorkerSuccess(t *testing.T) {
 		require.Len(t, queueItems, 1)
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.Peer.Storage2.Trust, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
 			gracefulexit.Config{
 				ChoreInterval:          0,
 				NumWorkers:             2,
@@ -147,7 +147,7 @@ func TestWorkerTimeout(t *testing.T) {
 		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB(), pieces.DefaultConfig)
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.Peer.Storage2.Trust, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
 			gracefulexit.Config{
 				ChoreInterval:          0,
 				NumWorkers:             2,
@@ -209,7 +209,7 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), piecesContentSize)
 		require.NoError(t, err)
 
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.Peer.Storage2.Trust, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
 			gracefulexit.Config{
 				ChoreInterval:          0,
 				NumWorkers:             2,
