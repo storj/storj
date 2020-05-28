@@ -282,7 +282,7 @@ func verifyOrderLimitSignature(ctx context.Context, satellite signing.Signee, li
 
 // Repair takes a provided segment, encodes it with the provided redundancy strategy,
 // and uploads the pieces in need of repair to new nodes provided by order limits.
-func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, path storj.Path, successfulNeeded int) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pieceCount := len(limits)
@@ -366,6 +366,13 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		}
 		successfulHashes[info.i] = info.hash
 		successfulCount++
+
+		if successfulCount >= int32(successfulNeeded) {
+			ec.log.Debug("Number of successful uploads met. Canceling the long tail...",
+				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
+			)
+			cancel()
+		}
 	}
 
 	// Ensure timer is stopped
