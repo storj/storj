@@ -28,9 +28,9 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/processgroup"
 	"storj.io/common/storj"
-	"storj.io/storj/lib/uplink"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/uplink"
 )
 
 const (
@@ -41,8 +41,7 @@ const (
 )
 
 var (
-	defaultAPIKeyData = "13YqgH45XZLg7nm6KsQ72QgXfjbDu2uhTaeSdMVP2A85QuANthM9K58ww5Y4nhMowrZDoqdA4Kyqt1ioQghQcm9fT5uR2drPHpFEqeb"
-	defaultAPIKey, _  = uplink.ParseAPIKey(defaultAPIKeyData)
+	defaultAccess = "17jgVrPRktsquJQFzpT533WHmZnF6QDkuv8w3Ry5XPzAkh3vj7D1dbJ5MatQRiyRE2ZEiA1Y6fYnhoWqr2n7VgycdXSUPz1QzhthBsHqGXCrRcjSp8RbbVE1VJqDej9nLgB5YDPh3Q5JrVjQeMe9saHAL5rE5tUYJAeynVdre8HeTJMXcwau5"
 )
 
 const (
@@ -437,20 +436,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			Address:    net.JoinHostPort(host, port(gatewayPeer, i, publicRPC)),
 		})
 
-		encAccess := uplink.NewEncryptionAccessWithDefaultKey(storj.Key{})
-		encAccess.SetDefaultPathCipher(storj.EncAESGCM)
-
-		accessData, err := (&uplink.Scope{
-			SatelliteAddr:    satellite.Address,
-			APIKey:           defaultAPIKey,
-			EncryptionAccess: encAccess,
-		}).Serialize()
-		if err != nil {
-			return nil, err
-		}
-
 		// gateway must wait for the corresponding satellite to start up
 		process.WaitForStart(satellite)
+
+		accessData := defaultAccess
+
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--non-interactive",
@@ -498,24 +488,19 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					time.Sleep(100 * time.Millisecond)
 				}
 
-				access, err := uplink.ParseScope(runAccessData)
-				if err != nil {
-					return err
-				}
-				access.APIKey, err = uplink.ParseAPIKey(apiKey)
-				if err != nil {
-					return err
-				}
-
 				satNodeID, err := identity.NodeIDFromCertPath(filepath.Join(satellite.Directory, "identity.cert"))
 				if err != nil {
 					return err
 				}
 				nodeURL := storj.NodeURL{
 					ID:      satNodeID,
-					Address: access.SatelliteAddr,
+					Address: satellite.Address,
 				}
-				access.SatelliteAddr = nodeURL.String()
+
+				access, err := uplink.RequestAccessWithPassphrase(context.Background(), nodeURL.String(), apiKey, "")
+				if err != nil {
+					return err
+				}
 
 				accessData, err := access.Serialize()
 				if err != nil {
@@ -530,9 +515,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			if runAccessData := vip.GetString("access"); runAccessData != accessData {
 				process.AddExtra("ACCESS", runAccessData)
-				if access, err := uplink.ParseScope(runAccessData); err == nil {
-					process.AddExtra("API_KEY", access.APIKey.Serialize())
-				}
 			}
 
 			process.AddExtra("ACCESS_KEY", vip.GetString("minio.access-key"))
