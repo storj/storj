@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/big"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -288,34 +289,75 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 		return err
 	}
 
-	if err = service.db.Transactions().Consume(ctx, tx.ID); err != nil {
-		return err
-	}
-
 	cents := convertToCents(rate, &tx.Received)
 
-	params := &stripe.CustomerBalanceTransactionParams{
-		Amount:      stripe.Int64(-cents),
-		Customer:    stripe.String(cusID),
-		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Description: stripe.String("storj token deposit"),
+	if cents <= 0 {
+		service.log.Warn("Trying to deposit non-positive amount.",
+			zap.Int64("USD cents", cents),
+			zap.Stringer("Transaction ID", tx.ID),
+			zap.Stringer("User ID", tx.AccountID),
+		)
+		return service.db.Transactions().Consume(ctx, tx.ID)
 	}
 
-	params.AddMetadata("txID", tx.ID.String())
+	// Check for balance transactions created from previous failed attempt
+	var depositDone, bonusDone bool
+	it := service.stripeClient.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{Customer: stripe.String(cusID)})
+	for it.Next() {
+		cbt := it.CustomerBalanceTransaction()
 
-	// TODO: 0 amount will return an error, how to handle that?
-	_, err = service.stripeClient.CustomerBalanceTransactions().New(params)
-	if err != nil {
-		return err
+		if cbt.Type != stripe.CustomerBalanceTransactionTypeAdjustment {
+			continue
+		}
+
+		txID, ok := cbt.Metadata["txID"]
+		if !ok {
+			continue
+		}
+		if txID != tx.ID.String() {
+			continue
+		}
+
+		switch cbt.Description {
+		case StripeDepositTransactionDescription:
+			depositDone = true
+		case StripeDepositBonusTransactionDescription:
+			bonusDone = true
+		}
 	}
 
-	credit := payments.Credit{
-		UserID:        tx.AccountID,
-		Amount:        cents / 100 * service.BonusRate,
-		TransactionID: tx.ID,
+	// The first balance transaction is for the actual deposit
+	if !depositDone {
+		params := &stripe.CustomerBalanceTransactionParams{
+			Amount:      stripe.Int64(-cents),
+			Customer:    stripe.String(cusID),
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+			Description: stripe.String(StripeDepositTransactionDescription),
+		}
+		params.AddMetadata("txID", tx.ID.String())
+		_, err = service.stripeClient.CustomerBalanceTransactions().New(params)
+		if err != nil {
+			return err
+		}
 	}
 
-	return service.db.Credits().InsertCredit(ctx, credit)
+	// The second balance transaction for the bonus
+	if !bonusDone {
+		params := &stripe.CustomerBalanceTransactionParams{
+			Amount:      stripe.Int64(-cents * service.BonusRate / 100),
+			Customer:    stripe.String(cusID),
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+			Description: stripe.String(StripeDepositBonusTransactionDescription),
+		}
+		params.AddMetadata("txID", tx.ID.String())
+		params.AddMetadata("percentage", strconv.Itoa(int(service.BonusRate)))
+		_, err = service.stripeClient.CustomerBalanceTransactions().New(params)
+		if err != nil {
+			return err
+		}
+	}
+
+	return service.db.Transactions().Consume(ctx, tx.ID)
 }
 
 // UpdateRates fetches new rates and updates service rate cache.

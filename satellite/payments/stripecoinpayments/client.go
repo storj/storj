@@ -7,6 +7,7 @@ import (
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/charge"
 	"github.com/stripe/stripe-go/client"
+	"github.com/stripe/stripe-go/customerbalancetransaction"
 	"github.com/stripe/stripe-go/invoice"
 	"github.com/stripe/stripe-go/paymentmethod"
 	"go.uber.org/zap"
@@ -56,6 +57,7 @@ type StripeCharges interface {
 // StripeCustomerBalanceTransactions Stripe CustomerBalanceTransactions interface.
 type StripeCustomerBalanceTransactions interface {
 	New(params *stripe.CustomerBalanceTransactionParams) (*stripe.CustomerBalanceTransaction, error)
+	List(listParams *stripe.CustomerBalanceTransactionListParams) *customerbalancetransaction.Iter
 }
 
 type stripeClient struct {

@@ -324,7 +324,24 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 				Amount:      credit.Amount,
 				Status:      "Added to balance",
 				Start:       credit.Created,
-				Type:        Credits,
+				Type:        DepositBonus,
+			},
+		)
+	}
+
+	bonuses, err := paymentService.service.accounts.StorjTokens().ListDepositBonuses(ctx, auth.User.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, bonus := range bonuses {
+		billingHistory = append(billingHistory,
+			&BillingHistoryItem{
+				Description: fmt.Sprintf("%d%% bonus for deposit made in STORJ", bonus.Percentage),
+				Amount:      bonus.AmountCents,
+				Status:      "Added to balance",
+				Start:       bonus.CreatedAt,
+				Type:        DepositBonus,
 			},
 		)
 	}

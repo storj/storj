@@ -131,6 +131,7 @@ type API struct {
 		Accounts payments.Accounts
 		Version  *stripecoinpayments.VersionService
 		Service  *stripecoinpayments.Service
+		Stripe   stripecoinpayments.StripeClient
 	}
 
 	Referrals struct {
@@ -552,6 +553,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
 		peer.Payments.Version = stripecoinpayments.NewVersionService(
 			peer.Log.Named("payments.stripe:version"),

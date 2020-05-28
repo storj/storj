@@ -17,8 +17,10 @@ import (
 type StorjTokens interface {
 	// Deposit creates deposit transaction for specified amount in cents.
 	Deposit(ctx context.Context, userID uuid.UUID, amount int64) (*Transaction, error)
-	// ListTransactionInfos returns all transaction associated with user.
+	// ListTransactionInfos returns all transactions associated with user.
 	ListTransactionInfos(ctx context.Context, userID uuid.UUID) ([]TransactionInfo, error)
+	// ListDepositBonuses returns all deposit bonuses associated with user.
+	ListDepositBonuses(ctx context.Context, userID uuid.UUID) ([]DepositBonus, error)
 }
 
 // TransactionStatus defines allowed statuses
@@ -116,4 +118,12 @@ func ParseTokenAmount(s string) (*TokenAmount, error) {
 func TokenAmountFromBigFloat(f *big.Float) *TokenAmount {
 	inner := (*f).SetMode(big.ToNearestEven).SetPrec(STORJTokenPrecision)
 	return &TokenAmount{inner: *inner}
+}
+
+// DepositBonus defines a bonus received for depositing tokens.
+type DepositBonus struct {
+	TransactionID TransactionID
+	AmountCents   int64
+	Percentage    int64
+	CreatedAt     time.Time
 }

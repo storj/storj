@@ -5,9 +5,11 @@ package stripecoinpayments
 
 import (
 	"errors"
+	"time"
 
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/charge"
+	"github.com/stripe/stripe-go/customerbalancetransaction"
 	"github.com/stripe/stripe-go/form"
 	"github.com/stripe/stripe-go/invoice"
 	"github.com/stripe/stripe-go/paymentmethod"
@@ -32,7 +34,7 @@ func NewStripeMock() StripeClient {
 		paymentMethods:              &mockPaymentMethods{},
 		invoices:                    &mockInvoices{},
 		invoiceItems:                &mockInvoiceItems{},
-		customerBalanceTransactions: &mockCustomerBalanceTransactions{},
+		customerBalanceTransactions: newMockCustomerBalanceTransactions(),
 		charges:                     &mockCharges{},
 	}
 }
@@ -163,10 +165,44 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 }
 
 type mockCustomerBalanceTransactions struct {
+	transactions map[string][]*stripe.CustomerBalanceTransaction
+}
+
+func newMockCustomerBalanceTransactions() *mockCustomerBalanceTransactions {
+	return &mockCustomerBalanceTransactions{
+		transactions: make(map[string][]*stripe.CustomerBalanceTransaction),
+	}
 }
 
 func (m *mockCustomerBalanceTransactions) New(params *stripe.CustomerBalanceTransactionParams) (*stripe.CustomerBalanceTransaction, error) {
-	return nil, nil
+	tx := &stripe.CustomerBalanceTransaction{
+		Type:        stripe.CustomerBalanceTransactionTypeAdjustment,
+		Amount:      *params.Amount,
+		Description: *params.Description,
+		Metadata:    params.Metadata,
+		Created:     time.Now().Unix(),
+	}
+
+	m.transactions[*params.Customer] = append(m.transactions[*params.Customer], tx)
+
+	return tx, nil
+}
+
+func (m *mockCustomerBalanceTransactions) List(listParams *stripe.CustomerBalanceTransactionListParams) *customerbalancetransaction.Iter {
+	return &customerbalancetransaction.Iter{Iter: stripe.GetIter(listParams, func(p *stripe.Params, b *form.Values) ([]interface{}, stripe.ListMeta, error) {
+		txs := m.transactions[*listParams.Customer]
+		ret := make([]interface{}, len(txs))
+
+		for i, v := range txs {
+			ret[i] = v
+		}
+
+		listMeta := stripe.ListMeta{
+			TotalCount: uint32(len(txs)),
+		}
+
+		return ret, listMeta, nil
+	})}
 }
 
 type mockCharges struct {
