@@ -77,7 +77,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				continue
 			}
 
-			worker := NewWorker(chore.log, chore.store, chore.satelliteDB, chore.dialer, nodeurl, chore.config)
+			worker := NewWorker(chore.log, chore.store, chore.trust, chore.satelliteDB, chore.dialer, nodeurl, chore.config)
 			if _, ok := chore.exitingMap.LoadOrStore(nodeurl.ID, worker); ok {
 				// already running a worker for this satellite
 				chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("Satellite ID", nodeurl.ID))
