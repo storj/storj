@@ -1,0 +1,63 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`DiskStatChart renders correctly 1`] = `
+<div class="disk-stat-area">
+  <p class="disk-stat-area__title">Total Disk Space</p>
+  <p class="disk-stat-area__amount">0KB</p>
+  <doughnutchart-stub chartid="doughnut-chart" width="400" height="400" cssclasses="" plugins="" chartdata="[object Object]" class="disk-stat-area__chart"></doughnutchart-stub>
+  <div class="disk-stat-area__info-area">
+    <div class="disk-stat-area__info-area__item">
+      <div class="disk-stat-area__info-area__item__labels-area">
+        <div class="disk-stat-area__info-area__item__labels-area__circle used"></div>
+        <p class="disk-stat-area__info-area__item__labels-area__label">Used</p>
+      </div>
+      <p class="disk-stat-area__info-area__item__labels-area__amount">0 Bytes</p>
+    </div>
+    <div class="disk-stat-area__info-area__item">
+      <div class="disk-stat-area__info-area__item__labels-area">
+        <div class="disk-stat-area__info-area__item__labels-area__circle free"></div>
+        <p class="disk-stat-area__info-area__item__labels-area__label">Free</p>
+      </div>
+      <p class="disk-stat-area__info-area__item__labels-area__amount">0KB</p>
+    </div>
+    <div class="disk-stat-area__info-area__item">
+      <div class="disk-stat-area__info-area__item__labels-area">
+        <div class="disk-stat-area__info-area__item__labels-area__circle trash"></div>
+        <p class="disk-stat-area__info-area__item__labels-area__label">Trash</p>
+      </div>
+      <p class="disk-stat-area__info-area__item__labels-area__amount">0 Bytes</p>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`DiskStatChart renders correctly with actual values 1`] = `
+<div class="disk-stat-area">
+  <p class="disk-stat-area__title">Total Disk Space</p>
+  <p class="disk-stat-area__amount">1MB</p>
+  <doughnutchart-stub chartid="doughnut-chart" width="400" height="400" cssclasses="" plugins="" chartdata="[object Object]" class="disk-stat-area__chart"></doughnutchart-stub>
+  <div class="disk-stat-area__info-area">
+    <div class="disk-stat-area__info-area__item">
+      <div class="disk-stat-area__info-area__item__labels-area">
+        <div class="disk-stat-area__info-area__item__labels-area__circle used"></div>
+        <p class="disk-stat-area__info-area__item__labels-area__label">Used</p>
+      </div>
+      <p class="disk-stat-area__info-area__item__labels-area__amount">550KB</p>
+    </div>
+    <div class="disk-stat-area__info-area__item">
+      <div class="disk-stat-area__info-area__item__labels-area">
+        <div class="disk-stat-area__info-area__item__labels-area__circle free"></div>
+        <p class="disk-stat-area__info-area__item__labels-area__label">Free</p>
+      </div>
+      <p class="disk-stat-area__info-area__item__labels-area__amount">428KB</p>
+    </div>
+    <div class="disk-stat-area__info-area__item">
+      <div class="disk-stat-area__info-area__item__labels-area">
+        <div class="disk-stat-area__info-area__item__labels-area__circle trash"></div>
+        <p class="disk-stat-area__info-area__item__labels-area__label">Trash</p>
+      </div>
+      <p class="disk-stat-area__info-area__item__labels-area__amount">22KB</p>
+    </div>
+  </div>
+</div>
+`;

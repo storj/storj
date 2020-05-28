@@ -176,7 +176,7 @@ func NewCustom(log *zap.Logger, config Config, satelliteDatabases satellitedbtes
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount, config.StorageNodeCount)
+	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}

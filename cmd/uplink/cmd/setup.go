@@ -5,10 +5,8 @@ package cmd
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -53,17 +51,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return Error.Wrap(err)
 	}
 
-	// apply helpful default host and port to the address
-	vip, err := process.Viper(cmd)
-	if err != nil {
-		return err
-	}
-	satelliteAddress, err = ApplyDefaultHostAndPortToAddr(
-		satelliteAddress, vip.GetString("satellite-addr"))
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	var (
 		accessName                    string
 		defaultSerializedAccessExists bool
@@ -96,6 +83,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	uplinkConfig := uplink.Config{
+		UserAgent:   setupCfg.Client.UserAgent,
 		DialTimeout: setupCfg.Client.DialTimeout,
 	}
 
@@ -163,41 +151,4 @@ Some things to try next:
 * See https://documentation.tardigrade.io/api-reference/uplink-cli for some example commands`)
 
 	return nil
-}
-
-// ApplyDefaultHostAndPortToAddr applies the default host and/or port if either is missing in the specified address.
-func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, error) {
-	defaultHost, defaultPort, err := net.SplitHostPort(defaultAddress)
-	if err != nil {
-		return "", Error.Wrap(err)
-	}
-
-	addressParts := strings.Split(address, ":")
-	numberOfParts := len(addressParts)
-
-	if numberOfParts > 1 && len(addressParts[0]) > 0 && len(addressParts[1]) > 0 {
-		// address is host:port so skip applying any defaults.
-		return address, nil
-	}
-
-	// We are missing a host:port part. Figure out which part we are missing.
-	indexOfPortSeparator := strings.Index(address, ":")
-	lengthOfFirstPart := len(addressParts[0])
-
-	if indexOfPortSeparator < 0 {
-		if lengthOfFirstPart == 0 {
-			// address is blank.
-			return defaultAddress, nil
-		}
-		// address is host
-		return net.JoinHostPort(addressParts[0], defaultPort), nil
-	}
-
-	if indexOfPortSeparator == 0 {
-		// address is :1234
-		return net.JoinHostPort(defaultHost, addressParts[1]), nil
-	}
-
-	// address is host:
-	return net.JoinHostPort(addressParts[0], defaultPort), nil
 }

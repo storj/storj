@@ -19,6 +19,9 @@ import (
 // Error is error class API errors.
 var Error = errs.Class("coinpayments client error")
 
+// ErrMissingPublicKey is returned when Coinpayments client is missing public key.
+var ErrMissingPublicKey = errs.Class("missing public key")
+
 // Credentials contains public and private API keys for client.
 type Credentials struct {
 	PublicKey  string
@@ -54,6 +57,10 @@ func (c *Client) ConversionRates() ConversionRates {
 
 // do handles base API request routines.
 func (c *Client) do(ctx context.Context, cmd string, values url.Values) (_ json.RawMessage, err error) {
+	if c.creds.PublicKey == "" {
+		return nil, Error.Wrap(ErrMissingPublicKey.New(""))
+	}
+
 	values.Set("version", "1")
 	values.Set("format", "json")
 	values.Set("key", c.creds.PublicKey)

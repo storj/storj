@@ -4,8 +4,27 @@
 <template>
     <div class="estimation-container">
         <div class="estimation-container__header">
-            <p class="estimation-container__header__title">Info & Estimation</p>
-            <EstimationPeriodDropdown />
+            <p class="estimation-container__header__title">Info & Estimation,
+                <span class="estimation-container__header__period">{{ currentPeriod }}</span>
+            </p>
+            <div class="estimation-container__header__selection-area">
+                <div
+                    class="estimation-container__header__selection-area__item"
+                    :class="{ active: isCurrentPeriod }"
+                    @click.stop="selectCurrentPeriod"
+                >
+                    <p class="estimation-container__header__selection-area__item__label long-text">
+                        Current Period
+                    </p>
+                    <p class="estimation-container__header__selection-area__item__label short-text">
+                        Current Per.
+                    </p>
+                </div>
+                <EstimationPeriodDropdown
+                    class="estimation-container__header__selection-area__item"
+                    :class="{ active: !isCurrentPeriod }"
+                />
+            </div>
         </div>
         <div class="estimation-container__divider"></div>
         <div class="estimation-table-container" v-if="!isPayoutNoDataState">
@@ -95,13 +114,23 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import {
     BANDWIDTH_DOWNLOAD_PRICE_PER_TB,
     BANDWIDTH_REPAIR_PRICE_PER_TB,
-    DISK_SPACE_PRICE_PER_TB,
+    DISK_SPACE_PRICE_PER_TB, PAYOUT_ACTIONS,
 } from '@/app/store/modules/payout';
-import { HeldInfo } from '@/app/types/payout';
+import { HeldInfo, PayoutInfoRange, PayoutPeriod } from '@/app/types/payout';
 import { formatBytes, TB } from '@/app/utils/converter';
+
+/**
+ * Holds all months names.
+ */
+const monthNames = [
+    'January', 'February', 'March', 'April',
+    'May', 'June', 'July',	'August',
+    'September', 'October', 'November',	'December',
+];
 
 /**
  * Describes table row data item.
@@ -124,6 +153,18 @@ class EstimationTableRow {
 })
 export default class EstimationArea extends Vue {
     public now: Date = new Date();
+
+    /**
+     * Returns formatted selected payout period.
+     */
+    public get currentPeriod(): string {
+        const start: PayoutPeriod = this.$store.state.payoutModule.periodRange.start;
+        const end: PayoutPeriod = this.$store.state.payoutModule.periodRange.end;
+
+        return start && start.period !== end.period ?
+            `${monthNames[start.month].slice(0, 3)} ${start.year} - ${monthNames[end.month].slice(0, 3)} ${end.year}`
+            : `${monthNames[end.month].slice(0, 3)} ${end.year}`;
+    }
 
     /**
      * Indicates if current month selected.
@@ -279,6 +320,21 @@ export default class EstimationArea extends Vue {
     }
 
     /**
+     * Selects current month as selected payout period.
+     */
+    public async selectCurrentPeriod(): Promise<void> {
+        const now = new Date();
+
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
+        await this.$store.dispatch(
+            PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+                null,
+                new PayoutPeriod(now.getUTCFullYear(), now.getUTCMonth()),
+            ),
+        );
+    }
+
+    /**
      * Returns current month held amount based on currend day of month.
      */
     private currentMonthHeld(): number {
@@ -303,11 +359,49 @@ export default class EstimationArea extends Vue {
             flex-direction: row;
             align-items: center;
             justify-content: space-between;
+            height: 40px;
 
             &__title {
                 font-weight: 500;
                 font-size: 18px;
                 color: var(--regular-text-color);
+            }
+
+            &__period {
+                color: #909bad;
+            }
+
+            &__selection-area {
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                height: 100%;
+
+                &__item {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    height: 100%;
+                    padding: 0 20px;
+                    border-bottom: 3px solid transparent;
+                    z-index: 102;
+
+                    &__label {
+                        text-align: center;
+                        font-size: 16px;
+                        color: var(--regular-text-color);
+                    }
+
+                    &.active {
+                        border-bottom: 3px solid var(--navigation-link-color);
+
+                        &__label {
+                            font-size: 16px;
+                            color: var(--regular-text-color);
+                        }
+                    }
+                }
             }
         }
 
@@ -341,7 +435,6 @@ export default class EstimationArea extends Vue {
         &__divider {
             width: 100%;
             height: 1px;
-            margin-top: 18px;
             background-color: #eaeaea;
         }
     }
@@ -428,6 +521,10 @@ export default class EstimationArea extends Vue {
         }
     }
 
+    .short-text {
+        display: none;
+    }
+
     .column {
         display: flex;
         flex-direction: row;
@@ -493,6 +590,33 @@ export default class EstimationArea extends Vue {
         }
     }
 
+    @media screen and (max-width: 870px) {
+
+        .estimation-container {
+
+            &__header {
+                flex-direction: column;
+                align-items: flex-start;
+                height: auto;
+
+                &__selection-area {
+                    width: 100%;
+                    height: 41px;
+                    margin: 20px 0;
+
+                    &__item {
+                        width: calc(50% - 40px);
+                        border-bottom: 3px solid #eaeaea;
+                    }
+                }
+            }
+
+            &__divider {
+                display: none;
+            }
+        }
+    }
+
     @media screen and (max-width: 640px) {
 
         .estimation-container {
@@ -512,6 +636,26 @@ export default class EstimationArea extends Vue {
 
         .column-6 {
             width: 30%;
+        }
+    }
+
+    @media screen and (max-width: 505px) {
+
+        .short-text {
+            display: inline-block;
+            font-size: 14px;
+        }
+
+        .long-text {
+            display: none;
+        }
+    }
+
+    @media screen and (max-width: 430px) {
+
+        .estimation-container__header__period {
+            display: block;
+            margin-top: 8px;
         }
     }
 </style>

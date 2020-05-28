@@ -478,7 +478,10 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					TransactionUpdateInterval:    defaultInterval,
 					AccountBalanceUpdateInterval: defaultInterval,
 					ConversionRatesCycleInterval: defaultInterval,
+					ListingLimit:                 100,
 				},
+				CouponDuration: 2,
+				CouponValue:    275,
 			},
 			Repairer: repairer.Config{
 				MaxRepair:                     10,

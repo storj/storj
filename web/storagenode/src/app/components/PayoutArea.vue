@@ -108,6 +108,13 @@ export default class PayoutArea extends Vue {
             justify-content: flex-start;
             align-items: flex-start;
 
+            &__wallet-address-section {
+
+                &__label {
+                    margin: 20px 0 6px 0;
+                }
+            }
+
             &__button {
                 position: inherit;
                 left: 0;

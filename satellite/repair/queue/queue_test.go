@@ -26,8 +26,9 @@ func TestInsertSelect(t *testing.T) {
 			Path:       []byte("abc"),
 			LostPieces: []int32{int32(1), int32(3)},
 		}
-		err := q.Insert(ctx, seg, 10)
+		alreadyInserted, err := q.Insert(ctx, seg, 10)
 		require.NoError(t, err)
+		require.False(t, alreadyInserted)
 		s, err := q.Select(ctx)
 		require.NoError(t, err)
 		err = q.Delete(ctx, s)
@@ -44,10 +45,12 @@ func TestInsertDuplicate(t *testing.T) {
 			Path:       []byte("abc"),
 			LostPieces: []int32{int32(1), int32(3)},
 		}
-		err := q.Insert(ctx, seg, 10)
+		alreadyInserted, err := q.Insert(ctx, seg, 10)
 		require.NoError(t, err)
-		err = q.Insert(ctx, seg, 10)
+		require.False(t, alreadyInserted)
+		alreadyInserted, err = q.Insert(ctx, seg, 10)
 		require.NoError(t, err)
+		require.True(t, alreadyInserted)
 	})
 }
 
@@ -65,15 +68,16 @@ func TestSequential(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
-		const N = 100
+		const N = 20
 		var addSegs []*pb.InjuredSegment
 		for i := 0; i < N; i++ {
 			seg := &pb.InjuredSegment{
 				Path:       []byte(strconv.Itoa(i)),
 				LostPieces: []int32{int32(i)},
 			}
-			err := q.Insert(ctx, seg, 10)
+			alreadyInserted, err := q.Insert(ctx, seg, 10)
 			require.NoError(t, err)
+			require.False(t, alreadyInserted)
 			addSegs = append(addSegs, seg)
 		}
 
@@ -102,7 +106,7 @@ func TestSequential(t *testing.T) {
 func TestParallel(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
-		const N = 100
+		const N = 20
 		entries := make(chan *pb.InjuredSegment, N)
 
 		var inserts errs2.Group
@@ -110,10 +114,11 @@ func TestParallel(t *testing.T) {
 		for i := 0; i < N; i++ {
 			i := i
 			inserts.Go(func() error {
-				return q.Insert(ctx, &pb.InjuredSegment{
+				_, err := q.Insert(ctx, &pb.InjuredSegment{
 					Path:       []byte(strconv.Itoa(i)),
 					LostPieces: []int32{int32(i)},
 				}, 10)
+				return err
 			})
 		}
 		require.Empty(t, inserts.Wait(), "unexpected queue.Insert errors")

@@ -49,8 +49,8 @@ export function makeNodeModule(api: SNOApi) {
                 },
                 diskSpace: {
                     used: 0,
-                    remaining: 1,
                     available: 1,
+                    trash: 0,
                 },
             },
             satellites: new Array<SatelliteInfo>(),
@@ -82,8 +82,8 @@ export function makeNodeModule(api: SNOApi) {
                 state.info.allowedVersion = nodeInfo.allowedVersion;
                 state.info.wallet = nodeInfo.wallet;
                 state.utilization.diskSpace.used = nodeInfo.diskSpace.used;
-                state.utilization.diskSpace.remaining = nodeInfo.diskSpace.available - nodeInfo.diskSpace.used;
                 state.utilization.diskSpace.available = nodeInfo.diskSpace.available;
+                state.utilization.diskSpace.trash = nodeInfo.diskSpace.trash;
                 state.utilization.bandwidth.used = nodeInfo.bandwidth.used;
 
                 state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => satellite.disqualified);

@@ -130,6 +130,9 @@ func (db *invoiceProjectRecords) Get(ctx context.Context, projectID uuid.UUID, s
 	)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 

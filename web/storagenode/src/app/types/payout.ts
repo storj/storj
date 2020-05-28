@@ -68,6 +68,7 @@ export class TotalPayoutInfo {
     public constructor(
         public totalHeldAmount: number = 0,
         public totalEarnings: number = 0,
+        public currentMonthEarnings: number = 0,
     ) {}
 }
 
@@ -80,6 +81,7 @@ export class PayoutState {
         public periodRange: PayoutInfoRange = new PayoutInfoRange(),
         public totalHeldAmount: number = 0,
         public totalEarnings: number = 0,
+        public currentMonthEarnings: number = 0,
         public heldPercentage: number = 0,
     ) {}
 }
