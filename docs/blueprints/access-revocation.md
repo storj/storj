@@ -50,10 +50,15 @@ also be revoked, and any other macaroons created from Macaroon A.
 
 ### Revoking a macaroon
 
-We will create an API that receives revocation requests. The holder of an API
-key will send a request to the satellite to revoke a macaroon, and will include
-the macaroon they wish to revoke in the request. (See open issues below.) The
-satellite will respond with a success or failure, whether the macaroon was
+We will create a satellite endpoint that receives revocation requests. A request
+to this endpoint must include the _macaroon to revoke_. The request must also
+include a macaroon authorizing this request. To be authorized, the _authorizing
+macaroon_ must be a _parent_ of the macaroon to revoke. This means the final
+tail of the authorizing macaroon must match a tail in the macaroon to revoke. In
+this way we allow a holder of a macaroon to revoke any further-attenuated
+macaroons that are based on the one they hold.
+
+The satellite will respond with a success or failure, whether the macaroon was
 successfully revoked.
 
 ### Handling revocation requests
@@ -137,4 +142,4 @@ can be used for both whitelist and blacklist.
 
 ## Open issues
 
-- How do we validate the request to revoke, and who has permissions to do that?
+- None
