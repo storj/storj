@@ -62,6 +62,10 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		node.Reputation.AuditReputationAlpha,
 		node.Reputation.AuditReputationBeta)
 
+	unknownScore := calculateReputationScore(
+		node.Reputation.UnknownAuditReputationAlpha,
+		node.Reputation.UnknownAuditReputationBeta)
+
 	return &pb.GetStatsResponse{
 		UptimeCheck: &pb.ReputationStats{
 			TotalCount:   node.Reputation.UptimeCount,
@@ -75,6 +79,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 			UnknownReputationAlpha: node.Reputation.UnknownAuditReputationAlpha,
 			UnknownReputationBeta:  node.Reputation.UnknownAuditReputationBeta,
 			ReputationScore:        auditScore,
+			UnknownReputationScore: unknownScore,
 		},
 		Disqualified: node.Disqualified,
 		Suspended:    node.Suspended,

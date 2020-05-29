@@ -46,4 +46,5 @@ type Metric struct {
 	UnknownAlpha float64 `json:"unknownAlpha"`
 	UnknownBeta  float64 `json:"unknownBeta"`
 	Score        float64 `json:"score"`
+	UnknownScore float64 `json:"unknownScore"`
 }

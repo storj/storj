@@ -49,7 +49,7 @@ export class SNOApi {
             return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended);
         });
 
-        const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available);
+        const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available, json.diskSpace.trash);
         const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used);
 
         return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,

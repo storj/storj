@@ -149,7 +149,7 @@ func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellit
 	}
 
 	return &pb.AddressedOrderLimit{
-		StorageNodeAddress: storageNode.Local().Address,
+		StorageNodeAddress: &pb.NodeAddress{Address: storageNode.Addr()},
 		Limit:              limit,
 	}, nil
 }

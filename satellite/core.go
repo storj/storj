@@ -40,7 +40,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 )
@@ -149,7 +148,7 @@ type Core struct {
 func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache,
 	rollupsWriteCache *orders.RollupsWriteCache,
-	versionInfo version.Info, config *Config) (*Core, error) {
+	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Core, error) {
 	peer := &Core{
 		Log:      log,
 		Identity: full,
@@ -171,7 +170,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "Core"
-		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig)
+		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
@@ -443,46 +442,50 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup payments
 		pc := config.Payments
 
+		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
 		default:
-			peer.Payments.Accounts = mockpayments.Accounts()
+			stripeClient = stripecoinpayments.NewStripeMock()
 		case "stripecoinpayments":
-			service, err := stripecoinpayments.NewService(
-				peer.Log.Named("payments.stripe:service"),
-				pc.StripeCoinPayments,
-				peer.DB.StripeCoinPayments(),
-				peer.DB.Console().Projects(),
-				peer.DB.ProjectAccounting(),
-				pc.StorageTBPrice,
-				pc.EgressTBPrice,
-				pc.ObjectPrice,
-				pc.BonusRate,
-				pc.CouponValue,
-				pc.CouponDuration,
-				pc.CouponProjectLimit,
-				pc.MinCoinPayment)
-
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			peer.Payments.Accounts = service.Accounts()
-
-			peer.Payments.Chore = stripecoinpayments.NewChore(
-				peer.Log.Named("payments.stripe:clearing"),
-				service,
-				pc.StripeCoinPayments.TransactionUpdateInterval,
-				pc.StripeCoinPayments.AccountBalanceUpdateInterval,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name: "payments.stripe:service",
-				Run:  peer.Payments.Chore.Run,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Payments Stripe Transactions", peer.Payments.Chore.TransactionCycle),
-				debug.Cycle("Payments Stripe Account Balance", peer.Payments.Chore.AccountBalanceCycle),
-			)
+			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
+
+		service, err := stripecoinpayments.NewService(
+			peer.Log.Named("payments.stripe:service"),
+			stripeClient,
+			pc.StripeCoinPayments,
+			peer.DB.StripeCoinPayments(),
+			peer.DB.Console().Projects(),
+			peer.DB.ProjectAccounting(),
+			pc.StorageTBPrice,
+			pc.EgressTBPrice,
+			pc.ObjectPrice,
+			pc.BonusRate,
+			pc.CouponValue,
+			pc.CouponDuration,
+			pc.CouponProjectLimit,
+			pc.MinCoinPayment)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Payments.Accounts = service.Accounts()
+
+		peer.Payments.Chore = stripecoinpayments.NewChore(
+			peer.Log.Named("payments.stripe:clearing"),
+			service,
+			pc.StripeCoinPayments.TransactionUpdateInterval,
+			pc.StripeCoinPayments.AccountBalanceUpdateInterval,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name: "payments.stripe:service",
+			Run:  peer.Payments.Chore.Run,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Payments Stripe Transactions", peer.Payments.Chore.TransactionCycle),
+			debug.Cycle("Payments Stripe Account Balance", peer.Payments.Chore.AccountBalanceCycle),
+		)
 	}
 
 	{ // setup graceful exit

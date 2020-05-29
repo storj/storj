@@ -53,7 +53,7 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := satellite.NewAdmin(log, identity, db, pointerDB, revocationDB, version.Build, &runCfg.Config)
+	peer, err := satellite.NewAdmin(log, identity, db, pointerDB, revocationDB, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}

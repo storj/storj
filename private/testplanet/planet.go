@@ -38,7 +38,6 @@ type Peer interface {
 	Addr() string
 	URL() string
 	NodeURL() storj.NodeURL
-	Local() overlay.NodeDossier
 
 	Run(context.Context) error
 	Close() error
@@ -177,7 +176,7 @@ func NewCustom(log *zap.Logger, config Config, satelliteDatabases satellitedbtes
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount, config.StorageNodeCount)
+	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}

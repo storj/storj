@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/identity/testidentity"
+	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite"
@@ -50,6 +51,15 @@ var ShortenOnlineWindow = Reconfigure{
 	},
 }
 
+// Combine combines satellite reconfigure functions.
+var Combine = func(elements ...func(log *zap.Logger, index int, config *satellite.Config)) func(log *zap.Logger, index int, config *satellite.Config) {
+	return func(log *zap.Logger, index int, config *satellite.Config) {
+		for _, f := range elements {
+			f(log, index, config)
+		}
+	}
+}
+
 // ReconfigureRS returns function to change satellite redundancy scheme values
 var ReconfigureRS = func(minThreshold, repairThreshold, successThreshold, totalThreshold int) func(log *zap.Logger, index int, config *satellite.Config) {
 	return func(log *zap.Logger, index int, config *satellite.Config) {
@@ -57,5 +67,12 @@ var ReconfigureRS = func(minThreshold, repairThreshold, successThreshold, totalT
 		config.Metainfo.RS.RepairThreshold = repairThreshold
 		config.Metainfo.RS.SuccessThreshold = successThreshold
 		config.Metainfo.RS.TotalThreshold = totalThreshold
+	}
+}
+
+// MaxSegmentSize returns function to change satellite max segment size value.
+var MaxSegmentSize = func(maxSegmentSize memory.Size) func(log *zap.Logger, index int, config *satellite.Config) {
+	return func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Metainfo.MaxSegmentSize = maxSegmentSize
 	}
 }

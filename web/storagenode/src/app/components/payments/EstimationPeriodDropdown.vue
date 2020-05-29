@@ -3,7 +3,8 @@
 
 <template>
     <div class="period-container" @click.stop="openPeriodDropdown">
-        <p class="period-container__label">{{ currentPeriod }}</p>
+        <p class="period-container__label long-text">Custom Date Range</p>
+        <p class="period-container__label short-text">Custom Range</p>
         <BlackArrowHide v-if="isCalendarShown" />
         <BlackArrowExpand v-else />
         <PayoutPeriodCalendar
@@ -23,16 +24,6 @@ import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { PayoutPeriod } from '@/app/types/payout';
-
-/**
- * Holds all months names.
- */
-const monthNames = [
-    'January', 'February', 'March', 'April',
-    'May', 'June', 'July',	'August',
-    'September', 'October', 'November',	'December',
-];
 
 @Component({
     components: {
@@ -42,18 +33,6 @@ const monthNames = [
     },
 })
 export default class EstimationPeriodDropdown extends Vue {
-    /**
-     * Returns formatted selected payout period.
-     */
-    public get currentPeriod(): string {
-        const start: PayoutPeriod = this.$store.state.payoutModule.periodRange.start;
-        const end: PayoutPeriod = this.$store.state.payoutModule.periodRange.end;
-
-        return start && start.period !== end.period ?
-            `${monthNames[start.month]}, ${start.year} - ${monthNames[end.month]}, ${end.year}`
-            : `${monthNames[end.month]}, ${end.year}`;
-    }
-
     /**
      * Indicates if period selection calendar should appear.
      */
@@ -92,7 +71,7 @@ export default class EstimationPeriodDropdown extends Vue {
             font-family: 'font_regular', sans-serif;
             font-weight: 500;
             font-size: 16px;
-            color: var(--month-label-color);
+            color: var(--regular-text-color);
         }
 
         &__calendar {
@@ -102,10 +81,37 @@ export default class EstimationPeriodDropdown extends Vue {
         }
     }
 
+    .active {
+
+        .period-container__label {
+            color: var(--navigation-link-color);
+        }
+    }
+
     .arrow {
 
         path {
             fill: var(--period-selection-arrow-color);
+        }
+    }
+
+    .short-text {
+        display: none;
+    }
+
+    @media screen and (max-width: 505px) {
+
+        .period-container__label {
+            margin-right: 4px;
+        }
+
+        .short-text {
+            display: inline-block;
+            font-size: 14px;
+        }
+
+        .long-text {
+            display: none;
         }
     }
 </style>

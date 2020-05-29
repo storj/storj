@@ -13,7 +13,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -82,52 +81,19 @@ var (
 		Args:  cobra.MinimumNArgs(4),
 		RunE:  SegmentHealth,
 	}
-	paymentsCmd = &cobra.Command{
-		Use:   "payments",
-		Short: "commands for payments",
-	}
-	prepareInvoiceRecordsCmd = &cobra.Command{
-		Use:   "prepare-invoice-records <period>",
-		Short: "Prepares invoice project records that will be used during invoice line items creation",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  prepareInvoiceRecords,
-	}
-	createInvoiceItemsCmd = &cobra.Command{
-		Use:   "create-invoice-items",
-		Short: "Creates stripe invoice line items for not consumed project records",
-		RunE:  createInvoiceItems,
-	}
-	createInvoiceCouponsCmd = &cobra.Command{
-		Use:   "create-invoice-coupons",
-		Short: "Creates stripe invoice line items for not consumed coupons",
-		RunE:  createInvoiceCoupons,
-	}
-	createInvoiceCreditsCmd = &cobra.Command{
-		Use:   "create-invoice-credits",
-		Short: "Creates stripe invoice line items for not consumed credits",
-		RunE:  createInvoiceCredits,
-	}
-	createInvoicesCmd = &cobra.Command{
-		Use:   "create-invoices",
-		Short: "Creates stripe invoices for all stripe customers known to satellite",
-		RunE:  createInvoices,
-	}
 )
 
 // Inspector gives access to overlay.
 type Inspector struct {
-	conn           *rpc.Conn
-	identity       *identity.FullIdentity
-	overlayclient  pb.DRPCOverlayInspectorClient
-	irrdbclient    pb.DRPCIrreparableInspectorClient
-	healthclient   pb.DRPCHealthInspectorClient
-	paymentsClient pb.DRPCPaymentsClient
+	conn          *rpc.Conn
+	identity      *identity.FullIdentity
+	overlayclient pb.DRPCOverlayInspectorClient
+	irrdbclient   pb.DRPCIrreparableInspectorClient
+	healthclient  pb.DRPCHealthInspectorClient
 }
 
 // NewInspector creates a new inspector client for access to overlay.
-func NewInspector(address, path string) (*Inspector, error) {
-	ctx := context.Background()
-
+func NewInspector(ctx context.Context, address, path string) (*Inspector, error) {
 	id, err := identity.Config{
 		CertPath: fmt.Sprintf("%s/identity.cert", path),
 		KeyPath:  fmt.Sprintf("%s/identity.key", path),
@@ -142,12 +108,11 @@ func NewInspector(address, path string) (*Inspector, error) {
 	}
 
 	return &Inspector{
-		conn:           conn,
-		identity:       id,
-		overlayclient:  pb.NewDRPCOverlayInspectorClient(conn),
-		irrdbclient:    pb.NewDRPCIrreparableInspectorClient(conn),
-		healthclient:   pb.NewDRPCHealthInspectorClient(conn),
-		paymentsClient: pb.NewDRPCPaymentsClient(conn),
+		conn:          conn,
+		identity:      id,
+		overlayclient: pb.NewDRPCOverlayInspectorClient(conn),
+		irrdbclient:   pb.NewDRPCIrreparableInspectorClient(conn),
+		healthclient:  pb.NewDRPCHealthInspectorClient(conn),
 	}, nil
 }
 
@@ -156,9 +121,8 @@ func (i *Inspector) Close() error { return i.conn.Close() }
 
 // ObjectHealth gets information about the health of an object on the network
 func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
-	ctx := context.Background()
-
-	i, err := NewInspector(*Addr, *IdentityPath)
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrArgs.Wrap(err)
 	}
@@ -239,9 +203,8 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 
 // SegmentHealth gets information about the health of a segment on the network
 func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
-	ctx := context.Background()
-
-	i, err := NewInspector(*Addr, *IdentityPath)
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrArgs.Wrap(err)
 	}
@@ -404,7 +367,8 @@ func getSegments(cmd *cobra.Command, args []string) error {
 		return ErrArgs.New("limit must be greater than 0")
 	}
 
-	i, err := NewInspector(*Addr, *IdentityPath)
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -418,7 +382,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 			Limit:               irreparableLimit,
 			LastSeenSegmentPath: lastSeenSegmentPath,
 		}
-		res, err := i.irrdbclient.ListIrreparableSegments(context.Background(), req)
+		res, err := i.irrdbclient.ListIrreparableSegments(ctx, req)
 		if err != nil {
 			return ErrRequest.Wrap(err)
 		}
@@ -465,143 +429,13 @@ func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.Irreparabl
 	return objects
 }
 
-func prepareInvoiceRecords(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	defer func() { err = errs.Combine(err, i.Close()) }()
-
-	period, err := parseDateString(args[0])
-	if err != nil {
-		return ErrArgs.New("invalid period specified: %v", err)
-	}
-
-	_, err = i.paymentsClient.PrepareInvoiceRecords(ctx,
-		&pb.PrepareInvoiceRecordsRequest{
-			Period: period,
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("successfully created invoice project records")
-	return nil
-}
-
-func createInvoiceItems(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	defer func() { err = errs.Combine(err, i.Close()) }()
-
-	_, err = i.paymentsClient.ApplyInvoiceRecords(ctx, &pb.ApplyInvoiceRecordsRequest{})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("successfully created invoice line items")
-	return nil
-}
-
-func createInvoiceCoupons(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	defer func() { err = errs.Combine(err, i.Close()) }()
-
-	_, err = i.paymentsClient.ApplyInvoiceCoupons(ctx, &pb.ApplyInvoiceCouponsRequest{})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("successfully created invoice coupon line items")
-	return nil
-}
-
-func createInvoiceCredits(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	defer func() { err = errs.Combine(err, i.Close()) }()
-
-	_, err = i.paymentsClient.ApplyInvoiceCredits(ctx, &pb.ApplyInvoiceCreditsRequest{})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("successfully created invoice credits line items")
-	return nil
-}
-
-func createInvoices(cmd *cobra.Command, args []string) error {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	defer func() { err = errs.Combine(err, i.Close()) }()
-
-	_, err = i.paymentsClient.CreateInvoices(context.Background(), &pb.CreateInvoicesRequest{})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("successfully created invoices")
-	return nil
-}
-
-// parseDateString parses provided date string and returns corresponding time.Time.
-func parseDateString(s string) (time.Time, error) {
-	values := strings.Split(s, "/")
-
-	if len(values) != 2 {
-		return time.Time{}, errs.New("invalid date format %s, use mm/yyyy", s)
-	}
-
-	month, err := strconv.ParseInt(values[0], 10, 64)
-	if err != nil {
-		return time.Time{}, errs.New("can not parse month: %v", err)
-	}
-	year, err := strconv.ParseInt(values[1], 10, 64)
-	if err != nil {
-		return time.Time{}, errs.New("can not parse year: %v", err)
-	}
-
-	date := time.Date(int(year), time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-	if date.Year() != int(year) || date.Month() != time.Month(month) || date.Day() != 1 {
-		return date, errs.New("dates mismatch have %s result %s", s, date)
-	}
-
-	return date, nil
-}
-
 func init() {
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(irreparableCmd)
 	rootCmd.AddCommand(healthCmd)
-	rootCmd.AddCommand(paymentsCmd)
 
 	healthCmd.AddCommand(objectHealthCmd)
 	healthCmd.AddCommand(segmentHealthCmd)
-
-	paymentsCmd.AddCommand(prepareInvoiceRecordsCmd)
-	paymentsCmd.AddCommand(createInvoiceItemsCmd)
-	paymentsCmd.AddCommand(createInvoiceCouponsCmd)
-	paymentsCmd.AddCommand(createInvoiceCreditsCmd)
-	paymentsCmd.AddCommand(createInvoicesCmd)
 
 	objectHealthCmd.Flags().StringVar(&CSVPath, "csv-path", "stdout", "csv path where command output is written")
 

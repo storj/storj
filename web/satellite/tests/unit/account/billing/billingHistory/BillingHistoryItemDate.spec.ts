@@ -3,7 +3,7 @@
 
 import BillingHistoryItemDate from '@/components/account/billing/billingHistory/BillingHistoryItemDate.vue';
 
-import { BillingHistoryItemType } from '@/types/payments';
+import { BillingHistoryItemStatus, BillingHistoryItemType } from '@/types/payments';
 import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
@@ -52,7 +52,7 @@ describe('BillingHistoryItemDate', (): void => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('renders correctly if transaction not expired', (): void => {
+    it('renders correctly if transaction is not expired', (): void => {
         const startDate = new Date(2019, 5, 5, 5, 5, 5, 5);
         const expirationDate = new Date(2019, 5, 5, 6, 5, 5, 5);
         const testTimeNow = expirationDate.getTime();
@@ -65,6 +65,7 @@ describe('BillingHistoryItemDate', (): void => {
                 expiration: expirationDate,
                 start: startDate,
                 type: BillingHistoryItemType.Transaction,
+                status: BillingHistoryItemStatus.Pending,
             },
         });
 
@@ -81,6 +82,7 @@ describe('BillingHistoryItemDate', (): void => {
                 expiration: expirationDate,
                 start: startDate,
                 type: BillingHistoryItemType.Transaction,
+                status: BillingHistoryItemStatus.Completed,
             },
         });
 

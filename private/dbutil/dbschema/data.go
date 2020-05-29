@@ -5,6 +5,7 @@ package dbschema
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -23,8 +24,35 @@ type TableData struct {
 	Rows    []RowData
 }
 
+// ColumnData is a value of a column within a row.
+type ColumnData struct {
+	Column string
+	Value  string
+}
+
+// String returns a string representation of the column.
+func (c ColumnData) String() string {
+	return fmt.Sprintf("%s:%s", c.Column, c.Value)
+}
+
 // RowData is content of a single row
-type RowData []string
+type RowData []ColumnData
+
+// Less returns true if one row is less than the other.
+func (row RowData) Less(b RowData) bool {
+	n := len(row)
+	if len(b) < n {
+		n = len(b)
+	}
+	for k := 0; k < n; k++ {
+		if row[k].Value < b[k].Value {
+			return true
+		} else if row[k].Value > b[k].Value {
+			return false
+		}
+	}
+	return len(row) < len(b)
+}
 
 // AddTable adds a new table.
 func (data *Data) AddTable(table *TableData) {
@@ -32,8 +60,17 @@ func (data *Data) AddTable(table *TableData) {
 }
 
 // AddRow adds a new row.
-func (table *TableData) AddRow(row RowData) {
+func (table *TableData) AddRow(row RowData) error {
+	if len(row) != len(table.Columns) {
+		return errs.New("inconsistent row added to table")
+	}
+	for i, cdata := range row {
+		if cdata.Column != table.Columns[i] {
+			return errs.New("inconsistent row added to table")
+		}
+	}
 	table.Rows = append(table.Rows, row)
+	return nil
 }
 
 // FindTable finds a table by name
@@ -56,7 +93,7 @@ func (data *Data) Sort() {
 // Sort sorts all rows.
 func (table *TableData) Sort() {
 	sort.Slice(table.Rows, func(i, k int) bool {
-		return lessStrings(table.Rows[i], table.Rows[k])
+		return table.Rows[i].Less(table.Rows[k])
 	})
 }
 
@@ -96,7 +133,8 @@ func QueryData(ctx context.Context, db Queryer, schema *Schema, quoteColumn func
 			row := make(RowData, len(columnNames))
 			rowargs := make([]interface{}, len(columnNames))
 			for i := range row {
-				rowargs[i] = &row[i]
+				row[i].Column = columnNames[i]
+				rowargs[i] = &row[i].Value
 			}
 
 			for rows.Next() {
@@ -105,7 +143,9 @@ func QueryData(ctx context.Context, db Queryer, schema *Schema, quoteColumn func
 					return err
 				}
 
-				table.AddRow(row.Clone())
+				if err := table.AddRow(row.Clone()); err != nil {
+					return err
+				}
 			}
 
 			return rows.Err()
@@ -115,5 +155,6 @@ func QueryData(ctx context.Context, db Queryer, schema *Schema, quoteColumn func
 		}
 	}
 
+	data.Sort()
 	return data, nil
 }

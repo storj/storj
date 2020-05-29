@@ -12,9 +12,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/orders"
 )
 

@@ -11,6 +11,7 @@ require (
 	github.com/fatih/color v1.7.0
 	github.com/go-redis/redis v6.14.1+incompatible
 	github.com/golang-migrate/migrate/v4 v4.7.0
+	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/gorilla/mux v1.7.1
 	github.com/gorilla/schema v1.1.0
@@ -21,7 +22,8 @@ require (
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
-	github.com/spacemonkeygo/monkit/v3 v3.0.6
+	github.com/sirupsen/logrus v1.5.0 // indirect
+	github.com/spacemonkeygo/monkit/v3 v3.0.7-0.20200515175308-072401d8c752
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
@@ -31,14 +33,16 @@ require (
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/zeebo/errs v1.2.2
 	go.etcd.io/bbolt v1.3.4
-	go.uber.org/zap v1.14.1
+	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
+	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
-	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
+	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
-	storj.io/common v0.0.0-20200511085419-1c3a750b78af
+	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
+	storj.io/common v0.0.0-20200519171747-3ff8acf78c46
 	storj.io/drpc v0.0.12
 	storj.io/monkit-jaeger v0.0.0-20200424180155-d5f5530ea079
-	storj.io/private v0.0.0-20200427160924-e00b0e612cfb
-	storj.io/uplink v1.0.5
+	storj.io/private v0.0.0-20200504130741-565a173f6d33
+	storj.io/uplink v1.0.6
 )

@@ -6,6 +6,7 @@ package overlay_test
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"net"
 	"runtime"
 	"strings"
@@ -46,11 +47,11 @@ func TestMinimumDiskSpace(t *testing.T) {
 
 		node0 := planet.StorageNodes[0]
 		node0.Contact.Chore.Pause(ctx)
-		nodeDossier := node0.Local()
+		nodeInfo := node0.Contact.Service.Local()
 		ident := node0.Identity
 		peer := rpcpeer.Peer{
 			Addr: &net.TCPAddr{
-				IP:   net.ParseIP(nodeDossier.Address.GetAddress()),
+				IP:   net.ParseIP(nodeInfo.Address),
 				Port: 5,
 			},
 			State: tls.ConnectionState{
@@ -61,12 +62,12 @@ func TestMinimumDiskSpace(t *testing.T) {
 
 		// report disk space less than minimum
 		_, err := planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
-			Address: nodeDossier.Address.GetAddress(),
-			Version: &nodeDossier.Version,
+			Address: nodeInfo.Address,
+			Version: &nodeInfo.Version,
 			Capacity: &pb.NodeCapacity{
 				FreeDisk: 9 * memory.MB.Int64(),
 			},
-			Operator: &nodeDossier.Operator,
+			Operator: &nodeInfo.Operator,
 		})
 		require.NoError(t, err)
 
@@ -88,12 +89,12 @@ func TestMinimumDiskSpace(t *testing.T) {
 
 		// report disk space greater than minimum
 		_, err = planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
-			Address: nodeDossier.Address.GetAddress(),
-			Version: &nodeDossier.Version,
+			Address: nodeInfo.Address,
+			Version: &nodeInfo.Version,
 			Capacity: &pb.NodeCapacity{
 				FreeDisk: 11 * memory.MB.Int64(),
 			},
-			Operator: &nodeDossier.Operator,
+			Operator: &nodeInfo.Operator,
 		})
 		require.NoError(t, err)
 
@@ -282,6 +283,11 @@ func TestNodeSelection(t *testing.T) {
 func TestNodeSelectionWithBatch(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.UpdateStatsBatchSize = 1
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -291,12 +297,12 @@ func TestNodeSelectionWithBatch(t *testing.T) {
 		for i, node := range planet.StorageNodes {
 			for k := 0; k < i; k++ {
 				// These are done individually b/c the previous stat data is important
-				_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
+				_, err := satellite.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 					NodeID:       node.ID(),
 					IsUp:         true,
 					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-				}}, 1)
+				}})
 				require.NoError(t, err)
 			}
 		}
@@ -308,16 +314,22 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 	satellite := planet.Satellites[0]
 	// ensure all storagenodes are in overlay
 	for _, storageNode := range planet.StorageNodes {
-		n := storageNode.Local()
+		n := storageNode.Contact.Service.Local()
+
+		lastNet, err := ipToLastNet(n.Address)
+		require.NoError(t, err)
+
 		d := overlay.NodeCheckInInfo{
-			NodeID:     storageNode.ID(),
-			Address:    n.Address,
+			NodeID: storageNode.ID(),
+			Address: &pb.NodeAddress{
+				Address: n.Address,
+			},
 			LastIPPort: storageNode.Addr(),
-			LastNet:    n.LastNet,
+			LastNet:    lastNet,
 			Version:    &n.Version,
 		}
-		err := satellite.Overlay.DB.UpdateCheckIn(ctx, d, time.Now().UTC(), satellite.Config.Overlay.Node)
-		assert.NoError(t, err)
+		err = satellite.Overlay.DB.UpdateCheckIn(ctx, d, time.Now().UTC(), satellite.Config.Overlay.Node)
+		require.NoError(t, err)
 	}
 
 	type test struct {
@@ -403,6 +415,32 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 
 		assert.Equal(t, tt.ExpectedCount, len(response))
 	}
+}
+
+// ipToLastNet converts target address to its IP and /24 subnet IPv4 or /64 subnet IPv6
+func ipToLastNet(target string) (network string, err error) {
+	host, _, err := net.SplitHostPort(target)
+	if err != nil {
+		return "", err
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return "", errors.New("invalid ip " + host)
+	}
+
+	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
+	if ipv4 := ip.To4(); ipv4 != nil {
+		//Filter all IPv4 Addresses into /24 Subnet's
+		mask := net.CIDRMask(24, 32)
+		return ipv4.Mask(mask).String(), nil
+	}
+	if ipv6 := ip.To16(); ipv6 != nil {
+		//Filter all IPv6 Addresses into /64 Subnet's
+		mask := net.CIDRMask(64, 128)
+		return ipv6.Mask(mask).String(), nil
+	}
+
+	return "", errors.New("unable to get network for address " + ip.String())
 }
 
 func TestNodeSelectionGracefulExit(t *testing.T) {
@@ -573,12 +611,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		require.Equal(t, len(n), len(n1))
 		n2, err = satellite.Overlay.Service.SelectionCache.GetNodes(ctx, req)
 		require.Error(t, err)
-		// GetNodes returns 1 more node than FindStorageNodesWithPreferences because of the way the queries are...
-		// FindStorageNodesWithPreferences gets the IPs for the excludedNodeIDs and excludes all those IPs from the selection
-		// (which results in filtering out any node on the same network as a excludedNodeID),
-		// but the selection cache only filters IPs at time of selection which makes it so that it can include a node that shares a network
-		// with an exclueded ID
-		require.Equal(t, len(n1)+1, len(n2))
+		require.Equal(t, len(n1), len(n2))
 	})
 }
 
@@ -676,20 +709,23 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			UniqueIPCount: 3,
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.UpdateStatsBatchSize = 1
+			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		// This sets a reputable audit count for nodes[8] and nodes[9].
 		for i := 9; i > 7; i-- {
 			// These are done individually b/c the previous stat data is important
-			_, err := satellite.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
+			_, err := satellite.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 				NodeID:       planet.StorageNodes[i].ID(),
 				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
-			}}, 1)
+			}})
 			assert.NoError(t, err)
 		}
 		testDistinctIPs(t, ctx, planet)

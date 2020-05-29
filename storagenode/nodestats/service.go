@@ -145,12 +145,12 @@ func (s *Service) GetPricingModel(ctx context.Context, satelliteID storj.NodeID)
 func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	address, err := s.trust.GetAddress(ctx, satelliteID)
+	nodeurl, err := s.trust.GetNodeURL(ctx, satelliteID)
 	if err != nil {
 		return nil, errs.New("unable to find satellite %s: %w", satelliteID, err)
 	}
 
-	conn, err := s.dialer.DialAddressID(ctx, address, satelliteID)
+	conn, err := s.dialer.DialNodeURL(ctx, nodeurl)
 	if err != nil {
 		return nil, errs.New("unable to connect to the satellite %s: %w", satelliteID, err)
 	}

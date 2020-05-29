@@ -135,6 +135,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				OrderLimitGracePeriod:   time.Hour,
 				StreamOperationTimeout:  time.Hour,
 				ReportCapacityThreshold: 100 * memory.MB,
+				DeleteQueueSize:         10000,
+				DeleteWorkers:           1,
 				Orders: orders.Config{
 					SenderInterval:  defaultInterval,
 					SenderTimeout:   10 * time.Minute,
@@ -151,6 +153,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					CachePath:       filepath.Join(storageDir, "trust-cache.json"),
 					RefreshInterval: defaultInterval,
 				},
+				MaxUsedSerialsSize: memory.MiB,
 			},
 			Pieces:    pieces.DefaultConfig,
 			Filestore: filestore.DefaultConfig,
@@ -207,7 +210,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		}
 		planet.databases = append(planet.databases, revocationDB)
 
-		peer, err := storagenode.New(log, identity, db, revocationDB, config, verisonInfo)
+		peer, err := storagenode.New(log, identity, db, revocationDB, config, verisonInfo, nil)
 		if err != nil {
 			return xs, err
 		}

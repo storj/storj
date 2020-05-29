@@ -38,7 +38,7 @@ func TestPieces(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	dir, err := filestore.NewDir(ctx.Dir("pieces"))
+	dir, err := filestore.NewDir(zaptest.NewLogger(t), ctx.Dir("pieces"))
 	require.NoError(t, err)
 
 	blobs := filestore.New(zaptest.NewLogger(t), dir, filestore.DefaultConfig)
@@ -310,7 +310,7 @@ func TestTrashAndRestore(t *testing.T) {
 	}
 
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		dir, err := filestore.NewDir(ctx.Dir("store"))
+		dir, err := filestore.NewDir(zaptest.NewLogger(t), ctx.Dir("store"))
 		require.NoError(t, err)
 
 		blobs := filestore.New(zaptest.NewLogger(t), dir, filestore.DefaultConfig)

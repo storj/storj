@@ -1062,7 +1062,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( project_id, interval_month )
 					);
 					INSERT INTO project_bandwidth_rollups(project_id, interval_month, egress_allocated)  (
-						SELECT project_id, date_trunc('MONTH',now())::DATE, sum(allocated)::bigint FROM bucket_bandwidth_rollups 
+						SELECT project_id, date_trunc('MONTH',now())::DATE, sum(allocated)::bigint FROM bucket_bandwidth_rollups
 						WHERE action = 2 AND interval_start >= date_trunc('MONTH',now())::timestamp group by project_id)
 					ON CONFLICT(project_id, interval_month) DO UPDATE SET egress_allocated = EXCLUDED.egress_allocated::bigint;`,
 				},
@@ -1086,6 +1086,62 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					)
 					return ErrMigrate.Wrap(err)
 				}),
+			},
+			{
+				DB:          db.DB,
+				Description: "add period column to the credits_spendings table (step 1)",
+				Version:     109,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := tx.Exec(ctx,
+						`ALTER TABLE credits_spendings ADD COLUMN period timestamp with time zone;`,
+					)
+					return ErrMigrate.Wrap(err)
+				}),
+			},
+			{
+				DB:          db.DB,
+				Description: "add period column to the credits_spendings table (step 2)",
+				Version:     110,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := tx.Exec(ctx,
+						`UPDATE credits_spendings SET period = 'epoch';`,
+					)
+					return ErrMigrate.Wrap(err)
+				}),
+			},
+			{
+				DB:          db.DB,
+				Description: "add period column to the credits_spendings table (step 3)",
+				Version:     111,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := tx.Exec(ctx,
+						`ALTER TABLE credits_spendings ALTER COLUMN period SET NOT NULL;`,
+					)
+					return ErrMigrate.Wrap(err)
+				}),
+			},
+			{
+				DB:          db.DB,
+				Description: "fix incorrect calculations on backported paystub data",
+				Version:     112,
+				Action: migrate.SQL{`
+					UPDATE storagenode_paystubs SET
+						comp_at_rest = (
+							((owed + held - disposed)::float / GREATEST(surge_percent::float / 100, 1))::int
+							- comp_get - comp_get_repair - comp_get_audit
+						)
+					WHERE
+						(
+							abs(
+								((owed + held - disposed)::float / GREATEST(surge_percent::float / 100, 1))::int
+								- comp_get - comp_get_repair - comp_get_audit
+							) >= 10
+							OR comp_at_rest < 0
+						)
+						AND codes not like '%O%'
+						AND codes not like '%D%'
+						AND period < '2020-03'
+				`},
 			},
 		},
 	}

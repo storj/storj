@@ -45,8 +45,10 @@ func TestHeldAmountDB(t *testing.T) {
 			Held:           14,
 			Owed:           15,
 			Disposed:       16,
-			Paid:           17,
 		}
+		paystub2 := paystub
+		paystub2.Period = "2020-02"
+		paystub2.Created = paystub.Created.Add(time.Hour * 24 * 30)
 
 		t.Run("Test StorePayStub", func(t *testing.T) {
 			err := heldAmount.StorePayStub(ctx, paystub)
@@ -127,13 +129,57 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.Equal(t, heldback[0].Held, paystub.Held)
 			assert.Equal(t, heldback[0].Period, paystub.Period)
 		})
+
+		t.Run("Test SatellitePeriods", func(t *testing.T) {
+			periods, err := heldAmount.SatellitePeriods(ctx, paystub.SatelliteID)
+			assert.NoError(t, err)
+			assert.NotNil(t, periods)
+			assert.Equal(t, 1, len(periods))
+			assert.Equal(t, paystub.Period, periods[0])
+
+			err = heldAmount.StorePayStub(ctx, paystub2)
+			require.NoError(t, err)
+
+			periods, err = heldAmount.SatellitePeriods(ctx, paystub.SatelliteID)
+			assert.NoError(t, err)
+			assert.NotNil(t, periods)
+			assert.Equal(t, 2, len(periods))
+			assert.Equal(t, paystub.Period, periods[0])
+			assert.Equal(t, paystub2.Period, periods[1])
+		})
+
+		t.Run("Test AllPeriods", func(t *testing.T) {
+			periods, err := heldAmount.AllPeriods(ctx)
+			assert.NoError(t, err)
+			assert.NotNil(t, periods)
+			assert.Equal(t, 2, len(periods))
+			assert.Equal(t, paystub.Period, periods[0])
+			assert.Equal(t, paystub2.Period, periods[1])
+
+			paystub3 := paystub2
+			paystub3.SatelliteID = storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+			paystub3.Period = "2020-03"
+			paystub3.Created = paystub2.Created.Add(time.Hour * 24 * 30)
+
+			err = heldAmount.StorePayStub(ctx, paystub3)
+			require.NoError(t, err)
+
+			periods, err = heldAmount.AllPeriods(ctx)
+			assert.NoError(t, err)
+			assert.NotNil(t, periods)
+			assert.Equal(t, 3, len(periods))
+			assert.Equal(t, paystub.Period, periods[0])
+			assert.Equal(t, paystub2.Period, periods[1])
+			assert.Equal(t, paystub3.Period, periods[2])
+		})
 	})
 }
 
 func TestSatellitePayStubPeriodCached(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		heldAmountDB := db.HeldAmount()
-		service := heldamount.NewService(nil, heldAmountDB, rpc.Dialer{}, nil)
+		reputationDB := db.Reputation()
+		service := heldamount.NewService(nil, heldAmountDB, reputationDB, rpc.Dialer{}, nil)
 
 		payStub := heldamount.PayStub{
 			SatelliteID:    storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -181,7 +227,8 @@ func TestSatellitePayStubPeriodCached(t *testing.T) {
 func TestAllPayStubPeriodCached(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		heldAmountDB := db.HeldAmount()
-		service := heldamount.NewService(nil, heldAmountDB, rpc.Dialer{}, nil)
+		reputationDB := db.Reputation()
+		service := heldamount.NewService(nil, heldAmountDB, reputationDB, rpc.Dialer{}, nil)
 
 		payStub := heldamount.PayStub{
 			SatelliteID:    storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -230,60 +277,5 @@ func TestAllPayStubPeriodCached(t *testing.T) {
 		payStubs, err = service.AllPayStubsPeriodCached(ctx, "2019-01", "2019-01")
 		require.NoError(t, err)
 		require.Equal(t, 0, len(payStubs))
-	})
-}
-
-func TestAllHeldbackHistory(t *testing.T) {
-	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		heldAmountDB := db.HeldAmount()
-		service := heldamount.NewService(nil, heldAmountDB, rpc.Dialer{}, nil)
-
-		id := storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-
-		payStub := heldamount.PayStub{
-			SatelliteID:    id,
-			Created:        time.Now().UTC(),
-			Codes:          "code",
-			UsageAtRest:    1,
-			UsageGet:       2,
-			UsagePut:       3,
-			UsageGetRepair: 4,
-			UsagePutRepair: 5,
-			UsageGetAudit:  6,
-			CompAtRest:     7,
-			CompGet:        8,
-			CompPut:        9,
-			CompGetRepair:  10,
-			CompPutRepair:  11,
-			CompGetAudit:   12,
-			SurgePercent:   13,
-			Held:           14,
-			Owed:           15,
-			Disposed:       16,
-			Paid:           17,
-		}
-
-		for j := 1; j < 5; j++ {
-			payStub.Period = fmt.Sprintf("2020-0%d", j)
-			err := heldAmountDB.StorePayStub(ctx, payStub)
-			require.NoError(t, err)
-		}
-
-		heldback, err := service.AllHeldbackHistory(ctx, id)
-		require.NoError(t, err)
-
-		var expectedResult []heldamount.HeldbackPeriod
-
-		period75 := heldamount.HeldbackPeriod{
-			PercentageRate: 75,
-			Held:           payStub.Held * 3,
-		}
-		period50 := heldamount.HeldbackPeriod{
-			PercentageRate: 50,
-			Held:           payStub.Held,
-		}
-
-		expectedResult = append(expectedResult, period75, period50)
-		require.Equal(t, expectedResult, heldback)
 	})
 }

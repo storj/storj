@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/bandwidth"
@@ -47,6 +46,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -78,7 +78,6 @@ type DB interface {
 	PieceExpirationDB() pieces.PieceExpirationDB
 	PieceSpaceUsedDB() pieces.PieceSpaceUsedDB
 	Bandwidth() bandwidth.DB
-	UsedSerials() piecestore.UsedSerials
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
@@ -182,9 +181,10 @@ func isAddressValid(addrstring string) error {
 // architecture: Peer
 type Peer struct {
 	// core dependencies
-	Log      *zap.Logger
-	Identity *identity.FullIdentity
-	DB       DB
+	Log         *zap.Logger
+	Identity    *identity.FullIdentity
+	DB          DB
+	UsedSerials *usedserials.Table
 
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
@@ -263,7 +263,7 @@ type Peer struct {
 }
 
 // New creates a new Storage Node.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config Config, versionInfo version.Info) (*Peer, error) {
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*Peer, error) {
 	peer := &Peer{
 		Log:      log,
 		Identity: full,
@@ -289,7 +289,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "Storage Node"
-		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig)
+		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
@@ -371,15 +371,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-		self := &overlay.NodeDossier{
-			Node: pb.Node{
-				Id: peer.ID(),
-				Address: &pb.NodeAddress{
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
-					Address:   c.ExternalAddress,
-				},
-			},
-			Type: pb.NodeType_STORAGE,
+		self := contact.NodeInfo{
+			ID:      peer.ID(),
+			Address: c.ExternalAddress,
 			Operator: pb.NodeOperator{
 				Email:  config.Operator.Email,
 				Wallet: config.Operator.Wallet,
@@ -478,6 +472,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Close: peer.Storage2.RetainService.Close,
 		})
 
+		peer.UsedSerials = usedserials.NewTable(config.Storage2.MaxUsedSerialsSize)
+
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
 			signing.SignerFromFullIdentity(peer.Identity),
@@ -489,7 +485,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.PieceDeleter,
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
-			peer.DB.UsedSerials(),
+			peer.UsedSerials,
 			config.Storage2,
 		)
 		if err != nil {
@@ -533,6 +529,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Heldamount.Service = heldamount.NewService(
 			peer.Log.Named("heldamount:service"),
 			peer.DB.HeldAmount(),
+			peer.DB.Reputation(),
 			peer.Dialer,
 			peer.Storage2.Trust,
 		)
@@ -661,7 +658,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Graceful Exit", peer.GracefulExit.Chore.Loop))
 	}
 
-	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
+	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.UsedSerials, config.Collector)
 	peer.Services.Add(lifecycle.Item{
 		Name:  "collector",
 		Run:   peer.Collector.Run,
@@ -715,9 +712,6 @@ func (peer *Peer) Close() error {
 
 // ID returns the peer ID.
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
-
-// Local returns the peer local node info.
-func (peer *Peer) Local() overlay.NodeDossier { return peer.Contact.Service.Local() }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }

@@ -44,7 +44,7 @@ func NewDialer(log *zap.Logger, dialer rpc.Dialer, requestTimeout, failThreshold
 }
 
 // Handle tries to send the deletion requests to the specified node.
-func (dialer *Dialer) Handle(ctx context.Context, node *pb.Node, queue Queue) {
+func (dialer *Dialer) Handle(ctx context.Context, node storj.NodeURL, queue Queue) {
 	defer FailPending(queue)
 
 	if dialer.recentlyFailed(ctx, node) {
@@ -53,13 +53,13 @@ func (dialer *Dialer) Handle(ctx context.Context, node *pb.Node, queue Queue) {
 
 	client, conn, err := dialPieceStore(ctx, dialer.dialer, node)
 	if err != nil {
-		dialer.log.Debug("failed to dial", zap.Stringer("id", node.Id), zap.Error(err))
+		dialer.log.Debug("failed to dial", zap.Stringer("id", node.ID), zap.Error(err))
 		dialer.markFailed(ctx, node)
 		return
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
-			dialer.log.Debug("closing connection failed", zap.Stringer("id", node.Id), zap.Error(err))
+			dialer.log.Debug("closing connection failed", zap.Stringer("id", node.ID), zap.Error(err))
 		}
 	}()
 
@@ -92,7 +92,7 @@ func (dialer *Dialer) Handle(ctx context.Context, node *pb.Node, queue Queue) {
 			}
 
 			if err != nil {
-				dialer.log.Debug("deletion request failed", zap.Stringer("id", node.Id), zap.Error(err))
+				dialer.log.Debug("deletion request failed", zap.Stringer("id", node.ID), zap.Error(err))
 				// don't try to send to this storage node a bit, when the deletion times out
 				if errs2.IsCanceled(err) {
 					dialer.markFailed(ctx, node)
@@ -114,22 +114,22 @@ func (dialer *Dialer) Handle(ctx context.Context, node *pb.Node, queue Queue) {
 
 // markFailed marks node as something failed recently, so we shouldn't try again,
 // for some time.
-func (dialer *Dialer) markFailed(ctx context.Context, node *pb.Node) {
+func (dialer *Dialer) markFailed(ctx context.Context, node storj.NodeURL) {
 	dialer.mu.Lock()
 	defer dialer.mu.Unlock()
 
 	now := time.Now()
 
-	lastFailed, ok := dialer.dialFailed[node.Id]
+	lastFailed, ok := dialer.dialFailed[node.ID]
 	if !ok || lastFailed.Before(now) {
-		dialer.dialFailed[node.Id] = now
+		dialer.dialFailed[node.ID] = now
 	}
 }
 
 // recentlyFailed checks whether a request to node recently failed.
-func (dialer *Dialer) recentlyFailed(ctx context.Context, node *pb.Node) bool {
+func (dialer *Dialer) recentlyFailed(ctx context.Context, node storj.NodeURL) bool {
 	dialer.mu.RLock()
-	lastFailed, ok := dialer.dialFailed[node.Id]
+	lastFailed, ok := dialer.dialFailed[node.ID]
 	dialer.mu.RUnlock()
 
 	// when we recently failed to dial, then fail immediately
@@ -149,11 +149,10 @@ func batchJobs(jobs []Job, maxBatchSize int) (pieces []storj.PieceID, promises [
 	return pieces, promises, nil
 }
 
-func dialPieceStore(ctx context.Context, dialer rpc.Dialer, target *pb.Node) (pb.DRPCPiecestoreClient, *rpc.Conn, error) {
-	conn, err := dialer.DialNode(ctx, target)
+func dialPieceStore(ctx context.Context, dialer rpc.Dialer, target storj.NodeURL) (pb.DRPCPiecestoreClient, *rpc.Conn, error) {
+	conn, err := dialer.DialNodeURL(ctx, target)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return pb.NewDRPCPiecestoreClient(conn), conn, nil
 }

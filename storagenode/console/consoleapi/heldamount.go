@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/heldamount"
 )
 
@@ -152,28 +152,15 @@ func (heldAmount *HeldAmount) PayStubPeriod(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// HeldbackHistory returns heldback for each % period for specific satellite.
-func (heldAmount *HeldAmount) HeldbackHistory(w http.ResponseWriter, r *http.Request) {
+// HeldHistory returns held amount for each % period for all satellites.
+func (heldAmount *HeldAmount) HeldHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	w.Header().Set(contentType, applicationJSON)
 
-	segmentParams := mux.Vars(r)
-	id, ok := segmentParams["id"]
-	if !ok {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
-		return
-	}
-
-	satelliteID, err := storj.NodeIDFromString(id)
-	if err != nil {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))
-		return
-	}
-
-	heldbackHistory, err := heldAmount.service.AllHeldbackHistory(ctx, satelliteID)
+	heldbackHistory, err := heldAmount.service.AllHeldbackHistory(ctx)
 	if err != nil {
 		heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
 		return
@@ -182,6 +169,50 @@ func (heldAmount *HeldAmount) HeldbackHistory(w http.ResponseWriter, r *http.Req
 	if err := json.NewEncoder(w).Encode(heldbackHistory); err != nil {
 		heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
 		return
+	}
+}
+
+// HeldAmountPeriods retrieves all periods in which we have some heldamount data.
+// Have optional parameter - satelliteID.
+// If satelliteID specified - will retrieve periods only for concrete satellite.
+func (heldAmount *HeldAmount) HeldAmountPeriods(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set(contentType, applicationJSON)
+
+	queryParams := r.URL.Query()
+
+	id := queryParams.Get("id")
+	if id == "" {
+		payStubs, err := heldAmount.service.AllPeriods(ctx)
+		if err != nil {
+			heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
+			return
+		}
+
+		if err := json.NewEncoder(w).Encode(payStubs); err != nil {
+			heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+			return
+		}
+	} else {
+		satelliteID, err := storj.NodeIDFromString(id)
+		if err != nil {
+			heldAmount.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))
+			return
+		}
+
+		payStubs, err := heldAmount.service.SatellitePeriods(ctx, satelliteID)
+		if err != nil {
+			heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
+			return
+		}
+
+		if err := json.NewEncoder(w).Encode(payStubs); err != nil {
+			heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+			return
+		}
 	}
 }
 

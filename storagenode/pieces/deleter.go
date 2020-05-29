@@ -43,14 +43,6 @@ type Deleter struct {
 
 // NewDeleter creates a new Deleter.
 func NewDeleter(log *zap.Logger, store *Store, numWorkers int, queueSize int) *Deleter {
-	if numWorkers == 0 {
-		numWorkers = 1
-	}
-	if queueSize == 0 {
-		// Default queueSize is chosen as a large number that uses a manageable
-		// amount of memory.
-		queueSize = 10000
-	}
 	return &Deleter{
 		ch:         make(chan DeleteRequest, queueSize),
 		numWorkers: numWorkers,

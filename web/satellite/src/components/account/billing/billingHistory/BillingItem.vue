@@ -8,6 +8,7 @@
             :start="billingItem.start"
             :expiration="billingItem.end"
             :type="billingItem.type"
+            :status="billingItem.status"
         />
         <p class="container__item description">{{ billingItem.description }}</p>
         <p class="container__item status">{{ billingItem.formattedStatus }}</p>

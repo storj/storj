@@ -47,7 +47,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -129,9 +128,9 @@ type API struct {
 	}
 
 	Payments struct {
-		Accounts  payments.Accounts
-		Inspector *stripecoinpayments.Endpoint
-		Version   *stripecoinpayments.VersionService
+		Accounts payments.Accounts
+		Version  *stripecoinpayments.VersionService
+		Service  *stripecoinpayments.Service
 	}
 
 	Referrals struct {
@@ -169,7 +168,7 @@ type API struct {
 // NewAPI creates a new satellite API process
 func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
-	config *Config, versionInfo version.Info) (*API, error) {
+	config *Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*API, error) {
 	peer := &API{
 		Log:      log,
 		Identity: full,
@@ -191,7 +190,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "API"
-		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig)
+		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
@@ -525,47 +524,45 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup payments
 		pc := config.Payments
 
+		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
 		default:
-			peer.Payments.Accounts = mockpayments.Accounts()
+			stripeClient = stripecoinpayments.NewStripeMock()
 		case "stripecoinpayments":
-			service, err := stripecoinpayments.NewService(
-				peer.Log.Named("payments.stripe:service"),
-				pc.StripeCoinPayments,
-				peer.DB.StripeCoinPayments(),
-				peer.DB.Console().Projects(),
-				peer.DB.ProjectAccounting(),
-				pc.StorageTBPrice,
-				pc.EgressTBPrice,
-				pc.ObjectPrice,
-				pc.BonusRate,
-				pc.CouponValue,
-				pc.CouponDuration,
-				pc.CouponProjectLimit,
-				pc.MinCoinPayment)
-
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			peer.Payments.Accounts = service.Accounts()
-			peer.Payments.Inspector = stripecoinpayments.NewEndpoint(service)
-
-			peer.Payments.Version = stripecoinpayments.NewVersionService(
-				peer.Log.Named("payments.stripe:version"),
-				service,
-				pc.StripeCoinPayments.ConversionRatesCycleInterval)
-
-			if err := pb.DRPCRegisterPayments(peer.Server.PrivateDRPC(), peer.Payments.Inspector); err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			peer.Services.Add(lifecycle.Item{
-				Name:  "payments.stripe:version",
-				Run:   peer.Payments.Version.Run,
-				Close: peer.Payments.Version.Close,
-			})
+			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
+
+		peer.Payments.Service, err = stripecoinpayments.NewService(
+			peer.Log.Named("payments.stripe:service"),
+			stripeClient,
+			pc.StripeCoinPayments,
+			peer.DB.StripeCoinPayments(),
+			peer.DB.Console().Projects(),
+			peer.DB.ProjectAccounting(),
+			pc.StorageTBPrice,
+			pc.EgressTBPrice,
+			pc.ObjectPrice,
+			pc.BonusRate,
+			pc.CouponValue,
+			pc.CouponDuration,
+			pc.CouponProjectLimit,
+			pc.MinCoinPayment)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Payments.Accounts = peer.Payments.Service.Accounts()
+		peer.Payments.Version = stripecoinpayments.NewVersionService(
+			peer.Log.Named("payments.stripe:version"),
+			peer.Payments.Service,
+			pc.StripeCoinPayments.ConversionRatesCycleInterval)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "payments.stripe:version",
+			Run:   peer.Payments.Version.Run,
+			Close: peer.Payments.Version.Close,
+		})
 	}
 
 	{ // setup console
@@ -693,9 +690,6 @@ func (peer *API) Close() error {
 
 // ID returns the peer ID.
 func (peer *API) ID() storj.NodeID { return peer.Identity.ID }
-
-// Local returns the peer local node info.
-func (peer *API) Local() overlay.NodeDossier { return peer.Contact.Service.Local() }
 
 // Addr returns the public address.
 func (peer *API) Addr() string { return peer.Server.Addr().String() }

@@ -17,9 +17,7 @@ func TestVouchers(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0].Local().Node
-
-		conn, err := planet.StorageNodes[0].Dialer.DialNode(ctx, &satellite)
+		conn, err := planet.StorageNodes[0].Dialer.DialNodeURL(ctx, planet.Satellites[0].NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 

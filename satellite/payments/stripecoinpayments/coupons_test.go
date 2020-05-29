@@ -35,7 +35,7 @@ func TestCouponRepository(t *testing.T) {
 		now := time.Now().UTC()
 
 		t.Run("insert", func(t *testing.T) {
-			err := couponsRepo.Insert(ctx, coupon)
+			_, err := couponsRepo.Insert(ctx, coupon)
 			require.NoError(t, err)
 
 			coupons, err := couponsRepo.List(ctx, payments.CouponActive)
@@ -45,7 +45,7 @@ func TestCouponRepository(t *testing.T) {
 		})
 
 		t.Run("update", func(t *testing.T) {
-			err := couponsRepo.Update(ctx, coupon.ID, payments.CouponUsed)
+			_, err := couponsRepo.Update(ctx, coupon.ID, payments.CouponUsed)
 			require.NoError(t, err)
 
 			coupons, err := couponsRepo.List(ctx, payments.CouponUsed)
@@ -215,7 +215,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		require.NoError(t, err)
 
 		couponID := testrand.UUID()
-		err = couponsRepo.Insert(ctx, payments.Coupon{
+		_, err = couponsRepo.Insert(ctx, payments.Coupon{
 			ID:          couponID,
 			UserID:      user5.ID,
 			ProjectID:   proj4.ID,

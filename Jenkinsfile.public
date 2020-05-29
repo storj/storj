@@ -62,7 +62,7 @@ pipeline {
                             'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
                         STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                        COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/lib/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...'}"
+                        COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...'}"
                     }
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
@@ -152,13 +152,6 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
                         sh 'make test-sim-backwards-compatible'
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
-                    }
-                }
-
-               stage('Build [gomobile]') {
-                    steps {
-                        // just to verify its building with recent changes
-                        sh '(cd .build && ./../lib/uplink-gomobile/build.sh)'
                     }
                 }
 

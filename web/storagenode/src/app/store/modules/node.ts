@@ -49,8 +49,8 @@ export function makeNodeModule(api: SNOApi) {
                 },
                 diskSpace: {
                     used: 0,
-                    remaining: 1,
                     available: 1,
+                    trash: 0,
                 },
             },
             satellites: new Array<SatelliteInfo>(),
@@ -82,8 +82,8 @@ export function makeNodeModule(api: SNOApi) {
                 state.info.allowedVersion = nodeInfo.allowedVersion;
                 state.info.wallet = nodeInfo.wallet;
                 state.utilization.diskSpace.used = nodeInfo.diskSpace.used;
-                state.utilization.diskSpace.remaining = nodeInfo.diskSpace.available - nodeInfo.diskSpace.used;
                 state.utilization.diskSpace.available = nodeInfo.diskSpace.available;
+                state.utilization.diskSpace.trash = nodeInfo.diskSpace.trash;
                 state.utilization.bandwidth.used = nodeInfo.bandwidth.used;
 
                 state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => satellite.disqualified);
@@ -91,16 +91,12 @@ export function makeNodeModule(api: SNOApi) {
 
                 state.satellites = nodeInfo.satellites || [];
 
-                state.info.status = StatusOffline;
-
                 state.info.startedAt = nodeInfo.startedAt;
                 state.info.lastPinged = nodeInfo.lastPinged;
 
                 const minutesPassed = Duration.difference(new Date(), new Date(nodeInfo.lastPinged)) / millisecondsInSecond / secondsInMinute;
 
-                if (minutesPassed < statusThreshHoldMinutes) {
-                    state.info.status = StatusOnline;
-                }
+                state.info.status = minutesPassed < statusThreshHoldMinutes ? StatusOnline : StatusOffline;
             },
             [SELECT_SATELLITE](state: any, satelliteInfo: Satellite): void {
                 const selectedSatellite = state.satellites.find(satellite => satelliteInfo.id === satellite.id);
@@ -122,7 +118,7 @@ export function makeNodeModule(api: SNOApi) {
             },
             [SELECT_ALL_SATELLITES](state: any, satelliteInfo: Satellites): void {
                 state.selectedSatellite = {
-                    id: null,
+                    id: '',
                     disqualified: null,
                     joinDate: satelliteInfo.joinDate,
                 };

@@ -81,7 +81,10 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 		// Use RSConfig for ensuring that we don't have long-tail cancellations
 		// and the upload doesn't leave garbage in the SNs
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+				testplanet.MaxSegmentSize(15*memory.KiB),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplnk := planet.Uplinks[0]
@@ -91,13 +94,7 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
-				Client: testplanet.ClientConfig{
-					SegmentSize: 10 * memory.KiB,
-				},
-			},
-				"a-bucket", "object-filename", data,
-			)
+			err := uplnk.Upload(ctx, satelliteSys, "a-bucket", "object-filename", data)
 			require.NoError(t, err)
 		}
 
@@ -115,14 +112,8 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 			require.NoError(t, err)
 			totalUsedSpace += piecesTotal
 
-			// Get pb node and all the pieces of the storage node
-			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
-			require.NoError(t, err)
-
-			nodePieces := piecedeletion.Request{
-				Node: &dossier.Node,
-			}
-
+			// Get all the pieces of the storage node
+			nodePieces := piecedeletion.Request{Node: sn.NodeURL()}
 			err = sn.Storage2.Store.WalkSatellitePieces(ctx, satelliteSys.ID(),
 				func(store pieces.StoredPieceAccess) error {
 					nodePieces.Pieces = append(nodePieces.Pieces, store.PieceID())
@@ -162,7 +153,10 @@ func TestService_DeletePieces_SomeNodesDown(t *testing.T) {
 		// Use RSConfig for ensuring that we don't have long-tail cancellations
 		// and the upload doesn't leave garbage in the SNs
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+				testplanet.MaxSegmentSize(15*memory.KiB),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplnk := planet.Uplinks[0]
@@ -171,28 +165,16 @@ func TestService_DeletePieces_SomeNodesDown(t *testing.T) {
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
-				Client: testplanet.ClientConfig{
-					SegmentSize: 10 * memory.KiB,
-				},
-			},
-				"a-bucket", "object-filename", data,
-			)
+			err := uplnk.Upload(ctx, satelliteSys, "a-bucket", "object-filename", data)
 			require.NoError(t, err)
 		}
 
 		var requests []piecedeletion.Request
 
 		for i, sn := range planet.StorageNodes {
-			// Get pb node and all the pieces of the storage node
-			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
-			require.NoError(t, err)
-
-			nodePieces := piecedeletion.Request{
-				Node: &dossier.Node,
-			}
-
-			err = sn.Storage2.Store.WalkSatellitePieces(ctx, satelliteSys.ID(),
+			// Get all the pieces of the storage node
+			nodePieces := piecedeletion.Request{Node: sn.NodeURL()}
+			err := sn.Storage2.Store.WalkSatellitePieces(ctx, satelliteSys.ID(),
 				func(store pieces.StoredPieceAccess) error {
 					nodePieces.Pieces = append(nodePieces.Pieces, store.PieceID())
 					return nil
@@ -232,7 +214,10 @@ func TestService_DeletePieces_AllNodesDown(t *testing.T) {
 		// Use RSConfig for ensuring that we don't have long-tail cancellations
 		// and the upload doesn't leave garbage in the SNs
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+				testplanet.MaxSegmentSize(15*memory.KiB),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplnk := planet.Uplinks[0]
@@ -240,13 +225,7 @@ func TestService_DeletePieces_AllNodesDown(t *testing.T) {
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
-				Client: testplanet.ClientConfig{
-					SegmentSize: 10 * memory.KiB,
-				},
-			},
-				"a-bucket", "object-filename", data,
-			)
+			err := uplnk.Upload(ctx, satelliteSys, "a-bucket", "object-filename", data)
 			require.NoError(t, err)
 		}
 
@@ -260,14 +239,8 @@ func TestService_DeletePieces_AllNodesDown(t *testing.T) {
 			require.NoError(t, err)
 			expectedTotalUsedSpace += piecesTotal
 
-			// Get pb node and all the pieces of the storage node
-			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
-			require.NoError(t, err)
-
-			nodePieces := piecedeletion.Request{
-				Node: &dossier.Node,
-			}
-
+			// Get all the pieces of the storage node
+			nodePieces := piecedeletion.Request{Node: sn.NodeURL()}
 			err = sn.Storage2.Store.WalkSatellitePieces(ctx, satelliteSys.ID(),
 				func(store pieces.StoredPieceAccess) error {
 					nodePieces.Pieces = append(nodePieces.Pieces, store.PieceID())
@@ -326,6 +299,7 @@ func TestService_DeletePieces_Timeout(t *testing.T) {
 				config.Metainfo.RS.RepairThreshold = 2
 				config.Metainfo.RS.SuccessThreshold = 4
 				config.Metainfo.RS.TotalThreshold = 4
+				config.Metainfo.MaxSegmentSize = 15 * memory.KiB
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -334,13 +308,7 @@ func TestService_DeletePieces_Timeout(t *testing.T) {
 
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
-				Client: testplanet.ClientConfig{
-					SegmentSize: 10 * memory.KiB,
-				},
-			},
-				"a-bucket", "object-filename", data,
-			)
+			err := uplnk.Upload(ctx, satelliteSys, "a-bucket", "object-filename", data)
 			require.NoError(t, err)
 		}
 
@@ -354,14 +322,8 @@ func TestService_DeletePieces_Timeout(t *testing.T) {
 			require.NoError(t, err)
 			expectedTotalUsedSpace += piecesTotal
 
-			// Get pb node and all the pieces of the storage node
-			dossier, err := satelliteSys.Overlay.Service.Get(ctx, sn.ID())
-			require.NoError(t, err)
-
-			nodePieces := piecedeletion.Request{
-				Node: &dossier.Node,
-			}
-
+			// Get all the pieces of the storage node
+			nodePieces := piecedeletion.Request{Node: sn.NodeURL()}
 			err = sn.Storage2.Store.WalkSatellitePieces(ctx, satelliteSys.ID(),
 				func(store pieces.StoredPieceAccess) error {
 					nodePieces.Pieces = append(nodePieces.Pieces, store.PieceID())

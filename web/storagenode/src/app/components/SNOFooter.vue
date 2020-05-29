@@ -109,15 +109,16 @@ export default class SNOFooter extends Vue {
 
         .footer {
             height: auto;
-            padding: 25px 36px;
+            padding: 10px 36px;
+            min-height: 29px;
 
             &__content-holder {
                 flex-direction: column;
                 justify-content: flex-start;
                 align-items: flex-start;
 
-                &__links-area {
-                    margin-top: 25px;
+                &__icon {
+                    display: none;
                 }
             }
         }

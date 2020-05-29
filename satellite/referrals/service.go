@@ -28,7 +28,7 @@ var (
 
 // Config is for referrals service.
 type Config struct {
-	ReferralManagerURL storj.NodeURL
+	ReferralManagerURL storj.NodeURL `help:"the URL for referral manager"`
 }
 
 // Service allows communicating with the Referral Manager
@@ -183,5 +183,5 @@ func (service *Service) referralManagerConn(ctx context.Context) (*rpc.Conn, err
 		return nil, errs.New("missing referral manager url configuration")
 	}
 
-	return service.dialer.DialAddressID(ctx, service.config.ReferralManagerURL.Address, service.config.ReferralManagerURL.ID)
+	return service.dialer.DialNodeURL(ctx, service.config.ReferralManagerURL)
 }

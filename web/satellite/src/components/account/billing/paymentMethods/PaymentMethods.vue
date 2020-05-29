@@ -388,6 +388,7 @@ export default class PaymentMethods extends Vue {
             border-radius: 0 0 8px 8px;
 
             &__info {
+                margin-left: 5px;
                 font-size: 15px;
                 line-height: 18px;
                 color: #34bf89;

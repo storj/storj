@@ -114,11 +114,11 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 	}
 
 	lastPingedAt := inspector.pingStats.WhenLastPinged()
-
+	self := inspector.contact.Local()
 	return &pb.DashboardResponse{
-		NodeId:           inspector.contact.Local().Id,
+		NodeId:           self.ID,
 		InternalAddress:  "",
-		ExternalAddress:  inspector.contact.Local().Address.Address,
+		ExternalAddress:  self.Address,
 		LastPinged:       lastPingedAt,
 		DashboardAddress: inspector.dashboardAddress.String(),
 		Uptime:           time.Since(inspector.startTime).String(),

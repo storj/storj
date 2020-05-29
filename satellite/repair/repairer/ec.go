@@ -52,9 +52,9 @@ func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.S
 	}
 }
 
-func (ec *ECRepairer) dialPiecestore(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
-	logger := ec.log.Named(n.Id.String())
-	return piecestore.Dial(ctx, ec.dialer, n, logger, piecestore.DefaultConfig)
+func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
+	logger := ec.log.Named(n.ID.String())
+	return piecestore.DialNodeURL(ctx, ec.dialer, n, logger, piecestore.DefaultConfig)
 }
 
 // Get downloads pieces from storagenodes using the provided order limits, and decodes those pieces into a segment.
@@ -170,13 +170,15 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
 func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (pieceReadCloser io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// contact node
 	downloadCtx, cancel := context.WithTimeout(ctx, ec.downloadTimeout)
 	defer cancel()
 
-	ps, err := ec.dialPiecestore(downloadCtx, &pb.Node{
-		Id:      limit.GetLimit().StorageNodeId,
-		Address: limit.GetStorageNodeAddress(),
+	ps, err := ec.dialPiecestore(downloadCtx, storj.NodeURL{
+		ID:      limit.GetLimit().StorageNodeId,
+		Address: limit.GetStorageNodeAddress().Address,
 	})
 	if err != nil {
 		return nil, err
@@ -282,7 +284,7 @@ func verifyOrderLimitSignature(ctx context.Context, satellite signing.Signee, li
 
 // Repair takes a provided segment, encodes it with the provided redundancy strategy,
 // and uploads the pieces in need of repair to new nodes provided by order limits.
-func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, path storj.Path, successfulNeeded int) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pieceCount := len(limits)
@@ -366,6 +368,13 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		}
 		successfulHashes[info.i] = info.hash
 		successfulCount++
+
+		if successfulCount >= int32(successfulNeeded) {
+			ec.log.Debug("Number of successful uploads met. Canceling the long tail...",
+				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
+			)
+			cancel()
+		}
 	}
 
 	// Ensure timer is stopped
@@ -397,6 +406,8 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 }
 
 func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, path storj.Path) (hash *pb.PieceHash, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	nodeName := "nil"
 	if limit != nil {
 		nodeName = limit.GetLimit().StorageNodeId.String()[0:8]
@@ -411,9 +422,9 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 
 	storageNodeID := limit.GetLimit().StorageNodeId
 	pieceID := limit.GetLimit().PieceId
-	ps, err := ec.dialPiecestore(ctx, &pb.Node{
-		Id:      storageNodeID,
-		Address: limit.GetStorageNodeAddress(),
+	ps, err := ec.dialPiecestore(ctx, storj.NodeURL{
+		ID:      storageNodeID,
+		Address: limit.GetStorageNodeAddress().Address,
 	})
 	if err != nil {
 		ec.log.Debug("Failed dialing for putting piece to node",

@@ -52,7 +52,7 @@ func New(log *zap.Logger, dir *Dir, config Config) storage.Blobs {
 
 // NewAt creates a new disk blob store in the specified directory
 func NewAt(log *zap.Logger, path string, config Config) (storage.Blobs, error) {
-	dir, err := NewDir(path)
+	dir, err := NewDir(log, path)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

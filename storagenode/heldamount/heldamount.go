@@ -23,7 +23,11 @@ type DB interface {
 	// AllPayStubs retrieves paystub data from all satellites in specific period from DB.
 	AllPayStubs(ctx context.Context, period string) ([]PayStub, error)
 	// SatellitesHeldbackHistory retrieves heldback history for specific satellite from DB.
-	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]Heldback, error)
+	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]AmountPeriod, error)
+	// SatellitePeriods retrieves all periods for concrete satellite in which we have some heldamount data.
+	SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) ([]string, error)
+	// AllPeriods retrieves all periods in which we have some heldamount data.
+	AllPeriods(ctx context.Context) ([]string, error)
 }
 
 // ErrNoPayStubForPeriod represents errors from the heldamount database.
@@ -54,8 +58,26 @@ type PayStub struct {
 	Paid           int64        `json:"paid"`
 }
 
-// Heldback is node's heldback amount for period.
-type Heldback struct {
+// AmountPeriod is node's held amount for period.
+type AmountPeriod struct {
 	Period string `json:"period"`
 	Held   int64  `json:"held"`
+}
+
+// EstimatedPayout contains amount in cents of estimated payout for current and previous months.
+type EstimatedPayout struct {
+	CurrentMonthEstimatedAmount int64         `json:"currentAmount"`
+	CurrentMonthHeld            int64         `json:"currentHeld"`
+	PreviousMonthPayout         PayoutMonthly `json:"previousPayout"`
+}
+
+// PayoutMonthly contains bandwidth and payout amount for month.
+type PayoutMonthly struct {
+	EgressBandwidth   int64   `json:"egressBandwidth"`
+	EgressPayout      int64   `json:"egressPayout"`
+	EgressRepairAudit int64   `json:"egressRepairAudit"`
+	RepairAuditPayout int64   `json:"repairAuditPayout"`
+	DiskSpace         float64 `json:"diskSpace"`
+	DiskSpaceAmount   int64   `json:"diskSpaceAmount"`
+	HeldPercentRate   int64   `json:"heldRate"`
 }

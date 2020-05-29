@@ -86,23 +86,23 @@ export default class UsageArea extends Vue {
     }
 
     .usage-area {
-        padding: 25px;
-        border: 1px solid #d7d7d7;
+        padding: 35px;
         border-radius: 6px;
+        background-color: #fff;
 
         &__title {
             font-size: 16px;
             line-height: 16px;
-            color: rgba(56, 75, 101, 0.4);
-            margin-bottom: 15px;
-            font-family: 'font_regular', sans-serif;
+            color: #384b65;
+            margin-bottom: 25px;
+            font-family: 'font_bold', sans-serif;
         }
 
         &__remaining {
             font-size: 16px;
             line-height: 16px;
             color: #354049;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
             font-family: 'font_regular', sans-serif;
         }
 

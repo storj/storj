@@ -419,7 +419,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # orders.settlement-batch-size: 250
 
 # disable node cache
-# overlay.node-selection-cache.disabled: true
+# overlay.node-selection-cache.disabled: false
 
 # how stale the node selection cache can be
 # overlay.node-selection-cache.staleness: 3m0s
@@ -446,7 +446,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.node.distinct-ip: true
 
 # how much disk space a node at minimum must have to be selected for upload
-# overlay.node.minimum-disk-space: 100.0 MB
+# overlay.node.minimum-disk-space: 500.0 MB
 
 # the minimum node software version for node selection queries
 # overlay.node.minimum-version: ""
@@ -532,6 +532,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of time we wait before running next transaction update loop
 # payments.stripe-coin-payments.transaction-update-interval: 30m0s
 
+# the URL for referral manager
 # referrals.referral-manager-url: ""
 
 # time limit for downloading pieces from a node for repair

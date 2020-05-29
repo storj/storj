@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
@@ -111,7 +110,7 @@ type DB struct {
 
 // New creates a new master database for storage node
 func New(log *zap.Logger, config Config) (*DB, error) {
-	piecesDir, err := filestore.NewDir(config.Pieces)
+	piecesDir, err := filestore.NewDir(log, config.Pieces)
 	if err != nil {
 		return nil, err
 	}
@@ -434,11 +433,6 @@ func (db *DB) Reputation() reputation.DB {
 // StorageUsage returns the instance of the StorageUsage database.
 func (db *DB) StorageUsage() storageusage.DB {
 	return db.storageUsageDB
-}
-
-// UsedSerials returns the instance of the UsedSerials database.
-func (db *DB) UsedSerials() piecestore.UsedSerials {
-	return db.usedSerialsDB
 }
 
 // Satellites returns the instance of the Satellites database.
@@ -1264,7 +1258,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 			},
 			{
 				DB:          db.reputationDB,
-				Description: "Add unknown_audit_reputation_alpha and unknown_audit_reputation_beta fields to satellites db and remove uptime_reputation_alpha, uptime_reputation_beta, uptime_reputation_score",
+				Description: "Add unknown_audit_reputation_alpha and unknown_audit_reputation_beta fields to satellites db",
 				Version:     39,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
 					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_alpha REAL`)
@@ -1325,6 +1319,137 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 							FROM reputation;
 						DROP TABLE reputation;
 						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          db.reputationDB,
+				Description: "Add unknown_audit_reputation_score field to satellites db",
+				Version:     40,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					stx, err := db.satellitesDB.Begin(ctx)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+					defer func() {
+						if err != nil {
+							err = errs.Combine(err, stx.Rollback())
+						} else {
+							err = errs.Wrap(stx.Commit())
+						}
+					}()
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_score REAL`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `UPDATE reputation SET audit_unknown_reputation_score = ?`,
+						1.0)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							uptime_success_count INTEGER NOT NULL,
+							uptime_total_count INTEGER NOT NULL,
+							uptime_reputation_alpha REAL NOT NULL,
+							uptime_reputation_beta REAL NOT NULL,
+							uptime_reputation_score REAL NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							audit_unknown_reputation_score REAL NOT NULL,
+							disqualified TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							uptime_success_count,
+							uptime_total_count,
+							uptime_reputation_alpha,
+							uptime_reputation_beta,
+							uptime_reputation_score,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
+							audit_unknown_reputation_score,
+							disqualified,
+							updated_at,
+							suspended,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          db.satellitesDB,
+				Description: "Make satellite_id foreign key in satellite_exit_progress table",
+				Version:     41,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE satellite_exit_progress_new (
+							satellite_id BLOB NOT NULL,
+							initiated_at TIMESTAMP,
+							finished_at TIMESTAMP,
+							starting_disk_usage INTEGER NOT NULL,
+							bytes_deleted INTEGER NOT NULL,
+							completion_receipt BLOB,
+							FOREIGN KEY (satellite_id) REFERENCES satellites (node_id)
+						);
+
+						INSERT INTO satellite_exit_progress_new SELECT
+							satellite_id,
+							initiated_at,
+							finished_at,
+							starting_disk_usage,
+							bytes_deleted,
+							completion_receipt
+						FROM satellite_exit_progress;
+
+						DROP TABLE satellite_exit_progress;
+
+						ALTER TABLE satellite_exit_progress_new RENAME TO satellite_exit_progress;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          db.usedSerialsDB,
+				Description: "Drop used serials table",
+				Version:     42,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `
+						DROP TABLE used_serial_;
 					`)
 					if err != nil {
 						return errs.Wrap(err)

@@ -88,13 +88,14 @@ export class PayoutHttpApi implements PayoutApi {
         let paid: number = 0;
 
         data.forEach((paystub: any) => {
-            held += paystub.held / this.PRICE_DIVIDER;
+            held += (paystub.held - paystub.disposed) / this.PRICE_DIVIDER;
             paid += paystub.paid / this.PRICE_DIVIDER;
         });
 
         return new TotalPayoutInfo(
             held,
             paid,
+            0,
         );
     }
 

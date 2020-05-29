@@ -150,6 +150,7 @@ export default class BandwidthChart extends BaseChart {
         border-radius: 14px;
         color: var(--regular-text-color);
         pointer-events: none;
+        z-index: 9999;
     }
 
     #bandwidth-tooltip-arrow {

@@ -6,7 +6,7 @@ import Vuex from 'vuex';
 import AddStorjState from '@/components/onboardingTour/steps/paymentStates/AddStorjState.vue';
 
 import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
-import { BillingHistoryItem, BillingHistoryItemStatus, BillingHistoryItemType } from '@/types/payments';
+import { AccountBalance, BillingHistoryItem, BillingHistoryItemStatus, BillingHistoryItemType } from '@/types/payments';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { PaymentsMock } from '../../../mock/api/payments';
@@ -44,7 +44,7 @@ describe('AddStorjState.vue', () => {
         const billingTransactionItem = new BillingHistoryItem('itemId', 'test', 50, 50,
             BillingHistoryItemStatus.Completed, 'test', new Date(), new Date(), BillingHistoryItemType.Transaction);
         store.commit(PAYMENTS_MUTATIONS.SET_BILLING_HISTORY, [billingTransactionItem]);
-        store.commit(PAYMENTS_MUTATIONS.SET_BALANCE, 5000);
+        store.commit(PAYMENTS_MUTATIONS.SET_BALANCE, new AccountBalance(275, 5000));
         const wrapper = shallowMount(AddStorjState, {
             store,
             localVue,

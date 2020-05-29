@@ -2,39 +2,41 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="payout-area-container">
-        <header class="payout-area-container__header">
-            <router-link to="/" class="payout-area-container__header__back-link">
-                <BackArrowIcon />
-            </router-link>
-            <p class="payout-area-container__header__text">Payout Information</p>
-        </header>
-        <SatelliteSelection />
-        <p class="payout-area-container__section-title">Payout</p>
-        <EstimationArea class="payout-area-container__estimation"/>
-        <p class="payout-area-container__section-title">Held Amount</p>
-        <p class="additional-text">
-            Learn more about held back
-            <a
-                class="additional-text__link"
-                href="https://documentation.storj.io/resources/faq/held-back-amount"
-                target="_blank"
-            >
-                here
-            </a>
-        </p>
-        <section class="payout-area-container__held-info-area">
-            <SingleInfo v-if="selectedSatellite" width="48%" label="Held Amount Rate" :value="heldPercentage + '%'" />
-            <SingleInfo width="48%" label="Total Held Amount" :value="totalHeld | centsToDollars" />
-        </section>
-        <HeldProgress v-if="selectedSatellite" class="payout-area-container__process-area" />
-<!--        <section class="payout-area-container__held-history-container">-->
-<!--            <div class="payout-area-container__held-history-container__header">-->
-<!--                <p class="payout-area-container__held-history-container__header__title">Held Amount history</p>-->
-<!--            </div>-->
-<!--            <div class="payout-area-container__held-history-container__divider"></div>-->
-<!--            <HeldHistoryTable />-->
-<!--        </section>-->
+    <div class="payout-area-container-overflow">
+        <div class="payout-area-container">
+            <header class="payout-area-container__header">
+                <router-link to="/" class="payout-area-container__header__back-link">
+                    <BackArrowIcon />
+                </router-link>
+                <p class="payout-area-container__header__text">Payout Information</p>
+            </header>
+            <SatelliteSelection />
+            <p class="payout-area-container__section-title">Payout</p>
+            <EstimationArea class="payout-area-container__estimation"/>
+            <p class="payout-area-container__section-title">Held Amount</p>
+            <p class="additional-text">
+                Learn more about held back
+                <a
+                        class="additional-text__link"
+                        href="https://documentation.storj.io/resources/faq/held-back-amount"
+                        target="_blank"
+                >
+                    here
+                </a>
+            </p>
+            <section class="payout-area-container__held-info-area">
+                <SingleInfo v-if="selectedSatellite" width="48%" label="Held Amount Rate" :value="heldPercentage + '%'" />
+                <SingleInfo width="48%" label="Total Held Amount" :value="totalHeld | centsToDollars" />
+            </section>
+            <HeldProgress v-if="selectedSatellite" class="payout-area-container__process-area" />
+            <!--        <section class="payout-area-container__held-history-container">-->
+            <!--            <div class="payout-area-container__held-history-container__header">-->
+            <!--                <p class="payout-area-container__held-history-container__header__title">Held Amount history</p>-->
+            <!--            </div>-->
+            <!--            <div class="payout-area-container__held-history-container__divider"></div>-->
+            <!--            <HeldHistoryTable />-->
+            <!--        </section>-->
+        </div>
     </div>
 </template>
 
@@ -109,13 +111,21 @@ export default class PayoutArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .payout-area-container {
-        width: 822px;
-        font-family: 'font_regular', sans-serif;
+    .payout-area-container-overflow {
+        position: relative;
+        padding: 0 36px;
+        width: calc(100% - 72px);
         overflow-y: scroll;
         overflow-x: hidden;
-        min-height: calc(100vh - 89px - 89px - 50px);
-        padding-bottom: 50px;
+        display: flex;
+        justify-content: center;
+    }
+
+    .payout-area-container {
+        position: relative;
+        width: 822px;
+        font-family: 'font_regular', sans-serif;
+        height: 100%;
 
         &__header {
             width: 100%;
@@ -227,6 +237,11 @@ export default class PayoutArea extends Vue {
     }
 
     @media screen and (max-width: 640px) {
+
+        .payout-area-container-overflow {
+            padding: 0 15px 80px 15px;
+            width: calc(100% - 30px);
+        }
 
         .payout-area-container {
             width: calc(100% - 20px - 20px);

@@ -272,6 +272,12 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 					continue
 				}
 				if ErrInvalidArgument.Has(err) {
+					messageBytes, marshalErr := pb.Marshal(request)
+					if marshalErr != nil {
+						return rpcstatus.Error(rpcstatus.Internal, marshalErr.Error())
+					}
+					endpoint.log.Warn("storagenode failed validation for piece transfer", zap.Stringer("node ID", nodeID), zap.Binary("original message from storagenode", messageBytes), zap.Error(err))
+
 					// immediately fail and complete graceful exit for nodes that fail satellite validation
 					err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
 					if err != nil {
@@ -521,10 +527,12 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 	pieceID := message.Failed.OriginalPieceId
 	transfer, ok := pending.Get(pieceID)
 	if !ok {
-		endpoint.log.Debug("could not find transfer message in pending queue. skipping.", zap.Stringer("Piece ID", pieceID))
+		endpoint.log.Warn("could not find transfer message in pending queue. skipping.", zap.Stringer("Piece ID", pieceID), zap.Stringer("Node ID", nodeID))
 
-		// TODO we should probably error out here so we don't get stuck in a loop with a SN that is not behaving properl
+		// this should be rare and it is not likely this is someone trying to do something malicious since it is a "failure"
+		return nil
 	}
+
 	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.Path, transfer.PieceNum)
 	if err != nil {
 		return Error.Wrap(err)

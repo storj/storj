@@ -48,7 +48,7 @@ func Dialer(dialer rpc.Dialer) IdentityResolver {
 	return IdentityResolverFunc(func(ctx context.Context, url storj.NodeURL) (_ *identity.PeerIdentity, err error) {
 		defer mon.Task()(&ctx)(&err)
 
-		conn, err := dialer.DialAddressID(ctx, url.Address, url.ID)
+		conn, err := dialer.DialNodeURL(ctx, url)
 		if err != nil {
 			return nil, err
 		}
@@ -160,15 +160,15 @@ func (pool *Pool) GetSatellites(ctx context.Context) (satellites []storj.NodeID)
 	return satellites
 }
 
-// GetAddress returns the address of a satellite in the trusted list
-func (pool *Pool) GetAddress(ctx context.Context, id storj.NodeID) (_ string, err error) {
+// GetNodeURL returns the node url of a satellite in the trusted list.
+func (pool *Pool) GetNodeURL(ctx context.Context, id storj.NodeID) (_ storj.NodeURL, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	info, err := pool.getInfo(id)
 	if err != nil {
-		return "", err
+		return storj.NodeURL{}, err
 	}
-	return info.url.Address, nil
+	return info.url, nil
 }
 
 // Refresh refreshes the set of trusted satellites in the pool. Concurrent

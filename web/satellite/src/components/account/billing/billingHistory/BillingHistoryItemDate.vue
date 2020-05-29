@@ -18,7 +18,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { BillingHistoryItemType } from '@/types/payments';
+import { BillingHistoryItemStatus, BillingHistoryItemType } from '@/types/payments';
 
 @Component
 export default class BillingHistoryDate extends Vue {
@@ -34,6 +34,8 @@ export default class BillingHistoryDate extends Vue {
     private readonly start: Date;
     @Prop({default: 0})
     private readonly type: BillingHistoryItemType;
+    @Prop({default: ''})
+    private readonly status: BillingHistoryItemStatus;
 
     private readonly expirationTimeInSeconds: number;
     private nowInSeconds = Math.trunc(new Date().getTime() / 1000);
@@ -49,6 +51,10 @@ export default class BillingHistoryDate extends Vue {
 
         this.expirationTimeInSeconds = Math.trunc(new Date(this.expiration).getTime() / 1000);
         this.isExpired = (this.expirationTimeInSeconds - this.nowInSeconds) < 0;
+
+        if (this.type === BillingHistoryItemType.Transaction) {
+            this.isExpired = this.isTransactionCompleted;
+        }
 
         this.ready();
     }
@@ -82,11 +88,18 @@ export default class BillingHistoryDate extends Vue {
     }
 
     /**
+     * Indicates if transaction status is completed, paid or cancelled.
+     */
+    private get isTransactionCompleted(): boolean {
+        return this.status !== BillingHistoryItemStatus.Pending;
+    }
+
+    /**
      * Starts expiration timer if item is not expired.
      */
     private ready(): void {
         this.intervalID = window.setInterval(() => {
-            if ((this.expirationTimeInSeconds - this.nowInSeconds) < 0) {
+            if ((this.expirationTimeInSeconds - this.nowInSeconds) < 0 || this.isTransactionCompleted) {
                 this.isExpired = true;
                 clearInterval(this.intervalID);
 

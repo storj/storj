@@ -108,37 +108,6 @@ export default class PayoutPeriodCalendar extends Vue {
             return;
         }
 
-        // TODO: remove checks when buttons will be separated
-        if (!this.secondSelectedMonth) {
-            const now = new Date();
-            if (this.firstSelectedMonth.year === now.getUTCFullYear() && this.firstSelectedMonth.index === now.getUTCMonth()) {
-                await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
-                await this.$store.dispatch(
-                    PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
-                        null,
-                        new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
-                    ),
-                );
-
-                this.close();
-
-                return;
-            }
-        }
-        if (this.secondSelectedMonth && this.secondSelectedMonth.year === this.firstSelectedMonth.year && this.secondSelectedMonth.index === this.firstSelectedMonth.index) {
-            await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
-            await this.$store.dispatch(
-                PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
-                    null,
-                    new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
-                ),
-            );
-
-            this.close();
-
-            return;
-        }
-
         this.secondSelectedMonth ? await this.$store.dispatch(
             PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
                 new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
@@ -183,8 +152,23 @@ export default class PayoutPeriodCalendar extends Vue {
     public selectAllTime(): void {
         const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
 
+        if (nodeStartedAt.getUTCMonth() === this.now.getUTCMonth() && nodeStartedAt.getUTCFullYear() === this.now.getUTCFullYear()) {
+            return;
+        }
+
         this.firstSelectedMonth = new MonthButton(nodeStartedAt.getUTCFullYear(), nodeStartedAt.getUTCMonth());
-        this.secondSelectedMonth = new MonthButton(this.now.getUTCFullYear(), this.now.getUTCMonth());
+        this.secondSelectedMonth = this.now.getUTCMonth() === 0 ?
+            new MonthButton(this.now.getUTCFullYear() - 1, 11)
+            : new MonthButton(this.now.getUTCFullYear(), this.now.getUTCMonth() - 1);
+
+        if (
+            this.firstSelectedMonth.year === this.secondSelectedMonth.year
+            && this.firstSelectedMonth.index === this.secondSelectedMonth.index
+        ) {
+            this.secondSelectedMonth = null;
+            this.checkMonth(this.firstSelectedMonth);
+        }
+
         this.updateMonthsSelection(true);
         this.updatePeriod();
     }
@@ -260,7 +244,21 @@ export default class PayoutPeriodCalendar extends Vue {
      * Marks all months between first and second selected as selected/unselected.
      */
     private updateMonthsSelection(value: boolean): void {
-        if (!this.secondSelectedMonth || !this.firstSelectedMonth) return;
+        if (!this.firstSelectedMonth) return;
+
+        if (!this.secondSelectedMonth) {
+            const selectedMonth = this.displayedMonths[this.firstSelectedMonth.year].find(month => {
+                if (this.firstSelectedMonth) {
+                    return month.index === this.firstSelectedMonth.index;
+                }
+            });
+
+            if (selectedMonth) {
+                selectedMonth.selected = value;
+            }
+
+            return;
+        }
 
         for (let i = this.firstSelectedMonth.year; i <= this.secondSelectedMonth.year; i++) {
             if (!this.displayedMonths[i]) {
@@ -300,9 +298,9 @@ export default class PayoutPeriodCalendar extends Vue {
             const notBeforeNodeStart =
                 nodeStartedAt.getUTCFullYear() < year
                 || (nodeStartedAt.getUTCFullYear() === year && nodeStartedAt.getUTCMonth() <= i);
-            const inFuture = isCurrentYear && i > nowMonth;
+            const inFutureOrCurrent = isCurrentYear && i >= nowMonth;
 
-            const isMonthActive = notBeforeNodeStart && !inFuture;
+            const isMonthActive = notBeforeNodeStart && !inFutureOrCurrent;
             months.push(new MonthButton(year, i, isMonthActive, false));
         }
 

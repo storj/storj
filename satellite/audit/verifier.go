@@ -637,11 +637,12 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 		defer cancel()
 	}
 
-	storageNodeID := limit.GetLimit().StorageNodeId
-	log := verifier.log.Named(storageNodeID.String())
-	target := &pb.Node{Id: storageNodeID, Address: limit.GetStorageNodeAddress()}
-
-	ps, err := piecestore.Dial(timedCtx, verifier.dialer, target, log, piecestore.DefaultConfig)
+	nodeurl := storj.NodeURL{
+		ID:      limit.GetLimit().StorageNodeId,
+		Address: limit.GetStorageNodeAddress().Address,
+	}
+	log := verifier.log.Named(nodeurl.ID.String())
+	ps, err := piecestore.DialNodeURL(timedCtx, verifier.dialer, nodeurl, log, piecestore.DefaultConfig)
 	if err != nil {
 		return Share{}, Error.Wrap(err)
 	}
@@ -669,7 +670,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	return Share{
 		Error:    nil,
 		PieceNum: pieceNum,
-		NodeID:   storageNodeID,
+		NodeID:   nodeurl.ID,
 		Data:     buf,
 	}, nil
 }

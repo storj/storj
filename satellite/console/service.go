@@ -149,12 +149,12 @@ func (paymentService PaymentsService) SetupAccount(ctx context.Context) (err err
 }
 
 // AccountBalance return account balance.
-func (paymentService PaymentsService) AccountBalance(ctx context.Context) (balance int64, err error) {
+func (paymentService PaymentsService) AccountBalance(ctx context.Context) (balance payments.Balance, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
 	if err != nil {
-		return 0, err
+		return payments.Balance{}, err
 	}
 
 	return paymentService.service.accounts.Balance(ctx, auth.User.ID)
@@ -866,7 +866,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, Error.Wrap(err)
 	}
 
-	if len(cards) == 0 && balance < s.minCoinPayment {
+	if len(cards) == 0 && balance.Coins < s.minCoinPayment {
 		err = errs.New("no valid payment methods found")
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 		return nil, Error.Wrap(err)

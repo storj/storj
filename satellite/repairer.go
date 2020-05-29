@@ -71,7 +71,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
 	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB,
 	rollupsWriteCache *orders.RollupsWriteCache, irrDB irreparable.DB,
-	versionInfo version.Info, config *Config) (*Repairer, error) {
+	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Repairer, error) {
 	peer := &Repairer{
 		Log:      log,
 		Identity: full,
@@ -92,7 +92,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "Repair"
-		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig)
+		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
