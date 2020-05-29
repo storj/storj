@@ -10,9 +10,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/btcsuite/btcutil/base58"
+	"github.com/zeebo/errs"
+
 	"storj.io/common/identity"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/lib/uplink"
 )
 
 // This tool can be use to update existing access satellite address field to
@@ -33,12 +36,18 @@ func main() {
 		panic(err)
 	}
 
-	access, err := uplink.ParseScope(serializedAccess)
-	if err != nil {
-		panic(err)
+	scope := new(pb.Scope)
+
+	data, version, err := base58.CheckDecode(serializedAccess)
+	if err != nil || version != 0 {
+		panic(errs.New("invalid scope format"))
 	}
 
-	nodeURL, err := storj.ParseNodeURL(access.SatelliteAddr)
+	if err := pb.Unmarshal(data, scope); err != nil {
+		panic(errs.New("unable to unmarshal scope: %v", err))
+	}
+
+	nodeURL, err := storj.ParseNodeURL(scope.SatelliteAddr)
 	if err != nil {
 		panic(err)
 	}
@@ -50,14 +59,16 @@ func main() {
 
 	nodeURL = storj.NodeURL{
 		ID:      satNodeID,
-		Address: access.SatelliteAddr,
+		Address: scope.SatelliteAddr,
 	}
 
-	access.SatelliteAddr = nodeURL.String()
+	scope.SatelliteAddr = nodeURL.String()
 
-	serializedAccess, err = access.Serialize()
+	newdata, err := pb.Marshal(scope)
 	if err != nil {
-		panic(err)
+		panic(errs.New("unable to marshal scope: %v", err))
 	}
-	fmt.Println(serializedAccess)
+
+	serialized := base58.CheckEncode(newdata, 0)
+	fmt.Println(serialized)
 }
