@@ -14,6 +14,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -173,6 +174,10 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 		err = payments.Service.PrepareInvoiceProjectRecords(ctx, period)
 		require.NoError(t, err)
 
+		couponsPage, err := satellite.DB.StripeCoinPayments().Coupons().ListUnapplied(ctx, 0, 40, start)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(couponsPage.Usages))
+
 		for i := 0; i < len(projects); i++ {
 			projectRecord, err := satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, projects[i].ID, start, end)
 			require.NoError(t, err)
@@ -199,5 +204,110 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 
 		err = payments.Service.CreateInvoices(ctx, period)
 		require.NoError(t, err)
+	})
+}
+
+func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.CouponValue = 3
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		paymentsAPI := satellite.API.Payments
+
+		period := time.Now()
+		paymentsAPI.Service.SetNow(func() time.Time {
+			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+
+		storageHours := 24
+
+		user, err := satellite.AddUser(ctx, "testuser", "user@test", 5)
+		require.NoError(t, err)
+
+		project, err := satellite.AddProject(ctx, user.ID, "testproject")
+		require.NoError(t, err)
+
+		sumOfCoupons := int64(0)
+		for i := 0; i < 5; i++ {
+			coupon, err := satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.Coupon{
+				ID:       testrand.UUID(),
+				UserID:   user.ID,
+				Amount:   int64(i + 4),
+				Duration: 2,
+				Status:   payments.CouponActive,
+				Type:     payments.CouponTypePromotional,
+			})
+			require.NoError(t, err)
+			sumOfCoupons += coupon.Amount
+		}
+
+		{
+			// generate egress
+			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
+				pb.PieceAction_GET, 10*memory.GiB.Int64(), period)
+			require.NoError(t, err)
+
+			// generate storage
+			// we need at least two tallies across time to calculate storage
+			tally := &accounting.BucketTally{
+				BucketName:  []byte("testbucket"),
+				ProjectID:   project.ID,
+				RemoteBytes: memory.TiB.Int64(),
+				ObjectCount: 45,
+			}
+			tallies := map[string]*accounting.BucketTally{
+				"0": tally,
+			}
+			err = satellite.DB.ProjectAccounting().SaveTallies(ctx, period, tallies)
+			require.NoError(t, err)
+
+			err = satellite.DB.ProjectAccounting().SaveTallies(ctx, period.Add(time.Duration(storageHours)*time.Hour), tallies)
+			require.NoError(t, err)
+		}
+
+		err = paymentsAPI.Service.PrepareInvoiceProjectRecords(ctx, period)
+		require.NoError(t, err)
+
+		// we should have usages for coupons: created with user + created in test
+		couponsPage, err := satellite.DB.StripeCoinPayments().Coupons().ListUnapplied(ctx, 0, 40, start)
+		require.NoError(t, err)
+		require.Equal(t, 1+5, len(couponsPage.Usages))
+
+		coupons, err := satellite.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, len(coupons), len(couponsPage.Usages))
+
+		var sumCoupons int64
+		var sumUsages int64
+		for i, coupon := range coupons {
+			sumCoupons += coupon.Amount
+			require.False(t, coupon.IsExpired())
+
+			sumUsages += couponsPage.Usages[i].Amount
+			require.Equal(t, stripecoinpayments.CouponUsageStatusUnapplied, couponsPage.Usages[i].Status)
+		}
+
+		require.Equal(t, sumCoupons, sumUsages)
+
+		err = paymentsAPI.Service.InvoiceApplyCoupons(ctx, period)
+		require.NoError(t, err)
+
+		coupons, err = satellite.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, len(coupons), len(couponsPage.Usages))
+
+		for _, coupon := range coupons {
+			require.Equal(t, payments.CouponUsed, coupon.Status)
+		}
+
+		couponsPage, err = satellite.DB.StripeCoinPayments().Coupons().ListUnapplied(ctx, 0, 40, start)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(couponsPage.Usages))
 	})
 }
