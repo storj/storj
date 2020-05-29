@@ -5,8 +5,8 @@
     <div class="input-wrap">
         <div class="label-container">
             <ErrorIcon v-if="error"/>
-            <h3 class="label-container__label" v-if="isLabelShown" :style="style.labelStyle">{{label}}</h3>
-            <h3 class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</h3>
+            <p class="label-container__label" v-if="isLabelShown" :style="style.labelStyle">{{label}}</p>
+            <p class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</p>
         </div>
         <input
             class="headerless-input"

@@ -56,6 +56,9 @@ export default class RegisterArea extends Vue {
 
     public isPasswordStrengthShown: boolean = false;
 
+    // tardigrade logic
+    public isDropdownShown: boolean = false;
+
     /**
      * Lifecycle hook after initial render.
      * Sets up variables from route params.
@@ -103,10 +106,17 @@ export default class RegisterArea extends Vue {
     }
 
     /**
-     * Checks if page is inside iframe.
+     * Toggles satellite selection dropdown visibility (Tardigrade).
      */
-    public get isInsideIframe(): boolean {
-        return window.self !== window.top;
+    public toggleDropdown(): void {
+        this.isDropdownShown = !this.isDropdownShown;
+    }
+
+    /**
+     * Closes satellite selection dropdown (Tardigrade).
+     */
+    public closeDropdown(): void {
+        this.isDropdownShown = false;
     }
 
     /**
@@ -241,9 +251,12 @@ export default class RegisterArea extends Vue {
                 referralToken: this.referralToken,
             });
 
-            if (this.isInsideIframe) {
+            const satellitesString: string = MetaUtils.getMetaContent('partnered-satellite-names');
+            const partneredSatellites: string[] = satellitesString.split(',');
+            const satelliteName: string = MetaUtils.getMetaContent('satellite-name');
+
+            if (partneredSatellites.includes(satelliteName)) {
                 const verificationPageURL: string = MetaUtils.getMetaContent('verification-page-url');
-                const satelliteName: string = MetaUtils.getMetaContent('satellite-name');
                 const url = new URL(verificationPageURL);
 
                 url.searchParams.append('name', satelliteName);

@@ -88,6 +88,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # enable open registration
 # console.open-registration-enabled: false
 
+# names of partnered satellites
+# console.partnered-satellite-names: US-Central-1,Europe-West-1,Asia-East-1
+
 # number of events before the limit kicks in
 # console.rate-limit.burst: 5
 
@@ -116,7 +119,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
 
 # url link to sign up verification page
-# console.verification-page-url: https://tardigrade.io/satellites/verify
+# console.verification-page-url: https://tardigrade.io/verify
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""

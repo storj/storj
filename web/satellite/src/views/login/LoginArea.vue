@@ -38,6 +38,9 @@ export default class Login extends Vue {
     public readonly forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
     public isActivatedBannerShown: boolean = false;
 
+    // Tardigrade logic
+    public isDropdownShown: boolean = false;
+
     public mounted(): void {
         if (this.$route.query.activated === 'true') {
             this.isActivatedBannerShown = true;
@@ -76,8 +79,22 @@ export default class Login extends Vue {
     }
 
     /**
+     * Toggles satellite selection dropdown visibility (Tardigrade).
+     */
+    public toggleDropdown(): void {
+        this.isDropdownShown = !this.isDropdownShown;
+    }
+
+    /**
+     * Closes satellite selection dropdown (Tardigrade).
+     */
+    public closeDropdown(): void {
+        this.isDropdownShown = false;
+    }
+
+    /**
      * Performs login action.
-     * Then changes location to billing page.
+     * Then changes location to project dashboard page.
      */
     public async onLogin(): Promise<void> {
         if (this.isLoading) {
