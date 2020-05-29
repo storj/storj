@@ -90,6 +90,7 @@ func (c *cockroachConn) Close() error {
 func (c *cockroachConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	result, err := c.underlying.ExecContext(ctx, query, args)
 	for err != nil && !c.isInTransaction() && NeedsRetry(err) {
+		mon.Event("needed_retry")
 		result, err = c.underlying.ExecContext(ctx, query, args)
 	}
 	return result, err
@@ -149,6 +150,7 @@ func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []d
 				if c.isInTransaction() {
 					return nil, err
 				}
+				mon.Event("needed_retry")
 				continue
 			}
 			return nil, err
@@ -162,6 +164,7 @@ func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []d
 				if c.isInTransaction() {
 					return nil, err
 				}
+				mon.Event("needed_retry")
 				continue
 			}
 			return nil, err
@@ -248,6 +251,7 @@ func (stmt *cockroachStmt) Exec(args []driver.Value) (driver.Result, error) {
 	}
 	result, err := stmt.underlyingStmt.ExecContext(context.Background(), namedArgs)
 	for err != nil && !stmt.conn.isInTransaction() && NeedsRetry(err) {
+		mon.Event("needed_retry")
 		result, err = stmt.underlyingStmt.ExecContext(context.Background(), namedArgs)
 	}
 	return result, err
@@ -268,6 +272,7 @@ func (stmt *cockroachStmt) Query(args []driver.Value) (driver.Rows, error) {
 func (stmt *cockroachStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	result, err := stmt.underlyingStmt.ExecContext(ctx, args)
 	for err != nil && !stmt.conn.isInTransaction() && NeedsRetry(err) {
+		mon.Event("needed_retry")
 		result, err = stmt.underlyingStmt.ExecContext(ctx, args)
 	}
 	return result, err
@@ -283,6 +288,7 @@ func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.Named
 				if stmt.conn.isInTransaction() {
 					return nil, err
 				}
+				mon.Event("needed_retry")
 				continue
 			}
 			return nil, err
@@ -296,6 +302,7 @@ func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.Named
 				if stmt.conn.isInTransaction() {
 					return nil, err
 				}
+				mon.Event("needed_retry")
 				continue
 			}
 			return nil, err
@@ -317,7 +324,12 @@ func translateName(name string) string {
 // borrowed from code in crdb.
 func NeedsRetry(err error) bool {
 	code := errCode(err)
-	return code == "40001" || code == "CR000"
+
+	// 57P01 occurs when a CRDB node rejoins the cluster but is not ready to accept connections
+	// CRDB support recommended a retry at this point
+	// Support ticket: https://support.cockroachlabs.com/hc/en-us/requests/5510
+	// TODO re-evaluate this if support provides a better solution
+	return code == "40001" || code == "CR000" || code == "57P01"
 }
 
 // borrowed from crdb
