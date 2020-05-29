@@ -44,7 +44,7 @@ exports[`UploadDataStep.vue renders correctly 1`] = `
         </h3>
         <p class="upload-data-area__container__docs-area__option__info">
           Integrate Tardigrade into your existing stack.
-        </p> <a href="https://documentation.tardigrade.io/concepts/connectors" target="_blank" class="upload-data-area__container__docs-area__option__link">
+        </p> <a href="https://tardigrade.io/connectors/" target="_blank" class="upload-data-area__container__docs-area__option__link">
           App Connectors
         </a>
       </div>

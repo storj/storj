@@ -16,7 +16,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/private/date"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/trust"

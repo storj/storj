@@ -170,6 +170,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
 func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (pieceReadCloser io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// contact node
 	downloadCtx, cancel := context.WithTimeout(ctx, ec.downloadTimeout)
 	defer cancel()
@@ -282,7 +284,7 @@ func verifyOrderLimitSignature(ctx context.Context, satellite signing.Signee, li
 
 // Repair takes a provided segment, encodes it with the provided redundancy strategy,
 // and uploads the pieces in need of repair to new nodes provided by order limits.
-func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, path storj.Path, successfulNeeded int) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pieceCount := len(limits)
@@ -366,6 +368,13 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		}
 		successfulHashes[info.i] = info.hash
 		successfulCount++
+
+		if successfulCount >= int32(successfulNeeded) {
+			ec.log.Debug("Number of successful uploads met. Canceling the long tail...",
+				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
+			)
+			cancel()
+		}
 	}
 
 	// Ensure timer is stopped
@@ -397,6 +406,8 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 }
 
 func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, path storj.Path) (hash *pb.PieceHash, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	nodeName := "nil"
 	if limit != nil {
 		nodeName = limit.GetLimit().StorageNodeId.String()[0:8]

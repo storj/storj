@@ -61,7 +61,7 @@
                     </p>
                     <a
                         class="upload-data-area__container__docs-area__option__link"
-                        href="https://documentation.tardigrade.io/concepts/connectors"
+                        href="https://tardigrade.io/connectors/"
                         target="_blank"
                     >
                         App Connectors

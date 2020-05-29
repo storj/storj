@@ -30,7 +30,7 @@ export abstract class RouteConfig {
     // root paths
     public static Root = new NavigationLink('/', 'Root');
     public static Login = new NavigationLink('/login', 'Login');
-    public static Register = new NavigationLink('/register', 'Register');
+    public static Register = new NavigationLink('/signup', 'Register');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');

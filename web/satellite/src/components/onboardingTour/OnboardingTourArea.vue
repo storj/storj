@@ -171,20 +171,20 @@ export default class OnboardingTourArea extends Vue {
 
 <style scoped lang="scss">
     .tour-area {
-        padding: 0 100px;
+        padding: 0 100px 80px 100px;
     }
 
     @media screen and (max-width: 1380px) {
 
         .tour-area {
-            padding: 0 50px;
+            padding: 0 50px 80px 50px;
         }
     }
 
     @media screen and (max-width: 1000px) {
 
         .tour-area {
-            padding: 0 25px;
+            padding: 0 25px 80px 25px;
         }
     }
 </style>

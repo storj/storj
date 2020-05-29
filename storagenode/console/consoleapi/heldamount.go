@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/heldamount"
 )
 

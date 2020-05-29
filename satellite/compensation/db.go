@@ -6,7 +6,7 @@ package compensation
 import (
 	"context"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/private/currency"
 )
 
