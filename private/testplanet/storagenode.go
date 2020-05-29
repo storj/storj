@@ -153,6 +153,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					CachePath:       filepath.Join(storageDir, "trust-cache.json"),
 					RefreshInterval: defaultInterval,
 				},
+				MaxUsedSerialsSize: memory.MiB,
 			},
 			Pieces:    pieces.DefaultConfig,
 			Filestore: filestore.DefaultConfig,

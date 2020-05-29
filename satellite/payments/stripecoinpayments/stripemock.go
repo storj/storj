@@ -152,7 +152,7 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 }
 
 func (m *mockInvoices) List(listParams *stripe.InvoiceListParams) *invoice.Iter {
-	return nil
+	return &invoice.Iter{Iter: &stripe.Iter{}}
 }
 
 type mockInvoiceItems struct {
@@ -173,5 +173,5 @@ type mockCharges struct {
 }
 
 func (m *mockCharges) List(listParams *stripe.ChargeListParams) *charge.Iter {
-	return nil
+	return &charge.Iter{Iter: &stripe.Iter{}}
 }

@@ -16,8 +16,9 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/private/date"
+	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -52,19 +53,21 @@ func (c *Client) Close() error {
 type Service struct {
 	log *zap.Logger
 
-	db DB
+	db           DB
+	reputationDB reputation.DB
 
 	dialer rpc.Dialer
 	trust  *trust.Pool
 }
 
 // NewService creates new instance of service
-func NewService(log *zap.Logger, db DB, dialer rpc.Dialer, trust *trust.Pool) *Service {
+func NewService(log *zap.Logger, db DB, reputationDB reputation.DB, dialer rpc.Dialer, trust *trust.Pool) *Service {
 	return &Service{
-		log:    log,
-		db:     db,
-		dialer: dialer,
-		trust:  trust,
+		log:          log,
+		db:           db,
+		reputationDB: reputationDB,
+		dialer:       dialer,
+		trust:        trust,
 	}
 }
 
@@ -253,62 +256,58 @@ func (service *Service) AllPeriods(ctx context.Context) (_ []string, err error) 
 	return service.db.AllPeriods(ctx)
 }
 
-// HeldbackPeriod amount of held for specific percent rate period.
-type HeldbackPeriod struct {
-	PercentageRate int
-	Held           int64
+// HeldHistory amount of held for specific percent rate period.
+type HeldHistory struct {
+	SatelliteID   storj.NodeID `json:"satelliteID"`
+	SatelliteName string       `json:"satelliteName"`
+	Age           int64        `json:"age"`
+	FirstPeriod   int64        `json:"firstPeriod"`
+	SecondPeriod  int64        `json:"secondPeriod"`
+	ThirdPeriod   int64        `json:"thirdPeriod"`
+	FourthPeriod  int64        `json:"fourthPeriod"`
 }
 
-// AllHeldbackHistory retrieves heldback history for all specific satellite from storagenode database.
-func (service *Service) AllHeldbackHistory(ctx context.Context, id storj.NodeID) (result []HeldbackPeriod, err error) {
-	defer mon.Task()(&ctx, &id)(&err)
+// AllHeldbackHistory retrieves heldback history for all satellites from storagenode database.
+func (service *Service) AllHeldbackHistory(ctx context.Context) (result []HeldHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	heldback, err := service.db.SatellitesHeldbackHistory(ctx, id)
-	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
+	satellites := service.trust.GetSatellites(ctx)
+	for i := 0; i < len(satellites); i++ {
+		var history HeldHistory
 
-	var total75, total50, total25, total0 int64
-
-	for i, t := range heldback {
-		switch i {
-		case 0, 1, 2:
-			total75 += t.Held
-		case 3, 4, 5:
-			total50 += t.Held
-		case 6, 7, 8:
-			total25 += t.Held
-		default:
-			total0 += t.Held
+		heldback, err := service.db.SatellitesHeldbackHistory(ctx, satellites[i])
+		if err != nil {
+			return nil, ErrHeldAmountService.Wrap(err)
 		}
-	}
 
-	period75percent := HeldbackPeriod{
-		PercentageRate: 75,
-		Held:           total75,
-	}
-	period50percent := HeldbackPeriod{
-		PercentageRate: 50,
-		Held:           total50,
-	}
-	period25percent := HeldbackPeriod{
-		PercentageRate: 25,
-		Held:           total25,
-	}
-	period0percent := HeldbackPeriod{
-		PercentageRate: 0,
-		Held:           total0,
-	}
+		for i, t := range heldback {
+			switch i {
+			case 0, 1, 2:
+				history.FirstPeriod += t.Held
+			case 3, 4, 5:
+				history.SecondPeriod += t.Held
+			case 6, 7, 8:
+				history.ThirdPeriod += t.Held
+			default:
+				history.FourthPeriod += t.Held
+			}
+		}
 
-	result = append(result, period75percent)
+		history.SatelliteID = satellites[i]
+		url, err := service.trust.GetNodeURL(ctx, satellites[i])
+		if err != nil {
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
 
-	switch {
-	case len(heldback) > 3:
-		result = append(result, period50percent)
-	case len(heldback) > 6:
-		result = append(result, period25percent)
-	case len(heldback) > 9:
-		result = append(result, period0percent)
+		stats, err := service.reputationDB.Get(ctx, satellites[i])
+		if err != nil {
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
+
+		history.Age = int64(date.MonthsCountSince(stats.JoinedAt))
+		history.SatelliteName = url.String()
+
+		result = append(result, history)
 	}
 
 	return result, nil

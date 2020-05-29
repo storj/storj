@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
+	"storj.io/uplink/private/testuplink"
 )
 
 func TestEndpoint_DeleteObjectPieces(t *testing.T) {
@@ -45,7 +46,10 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					Reconfigure: testplanet.Reconfigure{
 						// Reconfigure RS for ensuring that we don't have long-tail cancellations
 						// and the upload doesn't leave garbage in the SNs
-						Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+						Satellite: testplanet.Combine(
+							testplanet.ReconfigureRS(2, 2, 4, 4),
+							testplanet.MaxSegmentSize(13*memory.KiB),
+						),
 					},
 				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 					var (
@@ -59,13 +63,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 						percentExp = 0.75
 					)
 
-					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
-						Client: testplanet.ClientConfig{
-							SegmentSize: 10 * memory.KiB,
-						},
-					},
-						bucketName, objectName, tc.objData,
-					)
+					err := uplnk.Upload(ctx, satelliteSys, bucketName, objectName, tc.objData)
 					require.NoError(t, err)
 
 					// calculate the SNs total used space after data upload
@@ -131,7 +129,10 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					Reconfigure: testplanet.Reconfigure{
 						// Reconfigure RS for ensuring that we don't have long-tail cancellations
 						// and the upload doesn't leave garbage in the SNs
-						Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+						Satellite: testplanet.Combine(
+							testplanet.ReconfigureRS(2, 2, 4, 4),
+							testplanet.MaxSegmentSize(13*memory.KiB),
+						),
 					},
 				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 					numToShutdown := 2
@@ -141,11 +142,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 						satelliteSys = planet.Satellites[0]
 					)
 
-					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
-						Client: testplanet.ClientConfig{
-							SegmentSize: 10 * memory.KiB,
-						},
-					}, bucketName, objectName, tc.objData)
+					err := uplnk.Upload(ctx, satelliteSys, bucketName, objectName, tc.objData)
 					require.NoError(t, err)
 
 					// Shutdown the first numToShutdown storage nodes before we delete the pieces
@@ -210,7 +207,10 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					Reconfigure: testplanet.Reconfigure{
 						// Reconfigure RS for ensuring that we don't have long-tail cancellations
 						// and the upload doesn't leave garbage in the SNs
-						Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+						Satellite: testplanet.Combine(
+							testplanet.ReconfigureRS(2, 2, 4, 4),
+							testplanet.MaxSegmentSize(13*memory.KiB),
+						),
 					},
 				}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 					var (
@@ -218,11 +218,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 						satelliteSys = planet.Satellites[0]
 					)
 
-					err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
-						Client: testplanet.ClientConfig{
-							SegmentSize: 10 * memory.KiB,
-						},
-					}, bucketName, objectName, tc.objData)
+					err := uplnk.Upload(ctx, satelliteSys, bucketName, objectName, tc.objData)
 					require.NoError(t, err)
 
 					// Shutdown all the storage nodes before we delete the pieces
@@ -500,13 +496,8 @@ func uploadFirstObjectWithoutSomeSegmentsPointers(
 		t.Fatal("noSegments list must have at least one segment")
 	}
 
-	err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
-		Client: testplanet.ClientConfig{
-			SegmentSize: segmentSize,
-		},
-	},
-		bucketName, objectName, objectData,
-	)
+	uploadCtx := testuplink.WithMaxSegmentSize(ctx, segmentSize)
+	err := uplnk.Upload(uploadCtx, satelliteSys, bucketName, objectName, objectData)
 	require.NoError(t, err)
 
 	projectID, encryptedPath = getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)

@@ -31,7 +31,12 @@ func TestProjectListBuckets(t *testing.T) {
 			cfg.Volatile.Log = zaptest.NewLogger(t)
 			cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
-			access, err := planet.Uplinks[0].GetConfig(planet.Satellites[0]).GetAccess()
+			newAccess := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+
+			serializedNewAccess, err := newAccess.Serialize()
+			require.NoError(t, err)
+
+			access, err := uplink.ParseScope(serializedNewAccess)
 			require.NoError(t, err)
 
 			ul, err := uplink.NewUplink(ctx, &cfg)
@@ -128,7 +133,9 @@ func TestProjectOpenNewBucket(t *testing.T) {
 		require.NoError(t, err)
 
 		// download uploaded file with old libuplink
-		oldUplink, err := planet.Uplinks[0].NewLibuplink(ctx)
+		config := uplink.Config{}
+		config.Volatile.TLS.SkipPeerCAWhitelist = true
+		oldUplink, err := uplink.NewUplink(ctx, &config)
 		require.NoError(t, err)
 
 		scope, err := uplink.ParseScope(serializedAccess)

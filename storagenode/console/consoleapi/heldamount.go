@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/heldamount"
 )
 
@@ -152,28 +152,15 @@ func (heldAmount *HeldAmount) PayStubPeriod(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// HeldbackHistory returns heldback for each % period for specific satellite.
-func (heldAmount *HeldAmount) HeldbackHistory(w http.ResponseWriter, r *http.Request) {
+// HeldHistory returns held amount for each % period for all satellites.
+func (heldAmount *HeldAmount) HeldHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	w.Header().Set(contentType, applicationJSON)
 
-	segmentParams := mux.Vars(r)
-	id, ok := segmentParams["id"]
-	if !ok {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
-		return
-	}
-
-	satelliteID, err := storj.NodeIDFromString(id)
-	if err != nil {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))
-		return
-	}
-
-	heldbackHistory, err := heldAmount.service.AllHeldbackHistory(ctx, satelliteID)
+	heldbackHistory, err := heldAmount.service.AllHeldbackHistory(ctx)
 	if err != nil {
 		heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
 		return

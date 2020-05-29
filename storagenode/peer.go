@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -77,7 +78,6 @@ type DB interface {
 	PieceExpirationDB() pieces.PieceExpirationDB
 	PieceSpaceUsedDB() pieces.PieceSpaceUsedDB
 	Bandwidth() bandwidth.DB
-	UsedSerials() piecestore.UsedSerials
 	Reputation() reputation.DB
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
@@ -181,9 +181,10 @@ func isAddressValid(addrstring string) error {
 // architecture: Peer
 type Peer struct {
 	// core dependencies
-	Log      *zap.Logger
-	Identity *identity.FullIdentity
-	DB       DB
+	Log         *zap.Logger
+	Identity    *identity.FullIdentity
+	DB          DB
+	UsedSerials *usedserials.Table
 
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
@@ -471,6 +472,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Close: peer.Storage2.RetainService.Close,
 		})
 
+		peer.UsedSerials = usedserials.NewTable(config.Storage2.MaxUsedSerialsSize)
+
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
 			signing.SignerFromFullIdentity(peer.Identity),
@@ -482,7 +485,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.PieceDeleter,
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
-			peer.DB.UsedSerials(),
+			peer.UsedSerials,
 			config.Storage2,
 		)
 		if err != nil {
@@ -526,6 +529,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Heldamount.Service = heldamount.NewService(
 			peer.Log.Named("heldamount:service"),
 			peer.DB.HeldAmount(),
+			peer.DB.Reputation(),
 			peer.Dialer,
 			peer.Storage2.Trust,
 		)
@@ -654,7 +658,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Graceful Exit", peer.GracefulExit.Chore.Loop))
 	}
 
-	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.UsedSerials(), config.Collector)
+	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.UsedSerials, config.Collector)
 	peer.Services.Add(lifecycle.Item{
 		Name:  "collector",
 		Run:   peer.Collector.Run,

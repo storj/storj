@@ -13,7 +13,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/piecestore/usedserials"
 )
 
 var mon = monkit.Package()
@@ -29,13 +29,13 @@ type Config struct {
 type Service struct {
 	log         *zap.Logger
 	pieces      *pieces.Store
-	usedSerials piecestore.UsedSerials
+	usedSerials *usedserials.Table
 
 	Loop *sync2.Cycle
 }
 
 // NewService creates a new collector service.
-func NewService(log *zap.Logger, pieces *pieces.Store, usedSerials piecestore.UsedSerials, config Config) *Service {
+func NewService(log *zap.Logger, pieces *pieces.Store, usedSerials *usedserials.Table, config Config) *Service {
 	return &Service{
 		log:         log,
 		pieces:      pieces,
@@ -70,9 +70,7 @@ func (service *Service) Close() (err error) {
 func (service *Service) Collect(ctx context.Context, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if deleteErr := service.usedSerials.DeleteExpired(ctx, now); err != nil {
-		service.log.Error("unable to delete expired used serials", zap.Error(deleteErr))
-	}
+	service.usedSerials.DeleteExpired(now)
 
 	const maxBatches = 100
 	const batchSize = 1000

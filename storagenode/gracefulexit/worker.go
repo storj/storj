@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/satellites"
+	"storj.io/storj/storagenode/trust"
 	"storj.io/uplink/private/ecclient"
 )
 
@@ -31,6 +32,7 @@ import (
 type Worker struct {
 	log                *zap.Logger
 	store              *pieces.Store
+	trust              *trust.Pool
 	satelliteDB        satellites.DB
 	dialer             rpc.Dialer
 	limiter            *sync2.Limiter
@@ -41,10 +43,11 @@ type Worker struct {
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, store *pieces.Store, satelliteDB satellites.DB, dialer rpc.Dialer, satelliteURL storj.NodeURL, config Config) *Worker {
+func NewWorker(log *zap.Logger, store *pieces.Store, trust *trust.Pool, satelliteDB satellites.DB, dialer rpc.Dialer, satelliteURL storj.NodeURL, config Config) *Worker {
 	return &Worker{
 		log:                log,
 		store:              store,
+		trust:              trust,
 		satelliteDB:        satelliteDB,
 		dialer:             dialer,
 		limiter:            sync2.NewLimiter(config.NumConcurrentTransfers),
@@ -194,6 +197,40 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 			zap.Error(errs.Wrap(err)))
 		worker.handleFailure(ctx, pb.TransferFailed_UNKNOWN, pieceID, c.Send)
 		return err
+	}
+
+	satelliteSigner, err := worker.trust.GetSignee(ctx, worker.satelliteURL.ID)
+	if err != nil {
+		worker.log.Error("failed to get satellite signer identity from trust store!",
+			zap.Stringer("Satellite ID", worker.satelliteURL.ID),
+			zap.Error(errs.Wrap(err)))
+		worker.handleFailure(ctx, pb.TransferFailed_UNKNOWN, pieceID, c.Send)
+		return err
+	}
+
+	// verify the satellite signature on the original order limit; if we hand in something
+	// with an invalid signature, the satellite will assume we're cheating and disqualify
+	// immediately.
+	err = signing.VerifyOrderLimitSignature(ctx, satelliteSigner, &originalOrderLimit)
+	if err != nil {
+		worker.log.Error("The order limit stored for this piece does not have a valid signature from the owning satellite! It was verified before storing, so something went wrong in storage. We have to report this to the satellite as a missing piece.",
+			zap.Stringer("Satellite ID", worker.satelliteURL.ID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Error(errs.Wrap(err)))
+		worker.handleFailure(ctx, pb.TransferFailed_NOT_FOUND, pieceID, c.Send)
+		return err
+	}
+
+	// verify that the public key on the order limit signed the original piece hash; if we
+	// hand in something with an invalid signature, the satellite will assume we're cheating
+	// and disqualify immediately.
+	err = signing.VerifyUplinkPieceHashSignature(ctx, originalOrderLimit.UplinkPublicKey, &originalHash)
+	if err != nil {
+		worker.log.Error("The piece hash stored for this piece does not have a valid signature from the public key stored in the order limit! It was verified before storing, so something went wrong in storage. We have to report this to the satellite as a missing piece.",
+			zap.Stringer("Satellite ID", worker.satelliteURL.ID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Error(errs.Wrap(err)))
+		worker.handleFailure(ctx, pb.TransferFailed_NOT_FOUND, pieceID, c.Send)
 	}
 
 	if worker.minBytesPerSecond == 0 {

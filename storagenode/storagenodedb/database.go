@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
@@ -434,11 +433,6 @@ func (db *DB) Reputation() reputation.DB {
 // StorageUsage returns the instance of the StorageUsage database.
 func (db *DB) StorageUsage() storageusage.DB {
 	return db.storageUsageDB
-}
-
-// UsedSerials returns the instance of the UsedSerials database.
-func (db *DB) UsedSerials() piecestore.UsedSerials {
-	return db.usedSerialsDB
 }
 
 // Satellites returns the instance of the Satellites database.
@@ -1441,6 +1435,21 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 						DROP TABLE satellite_exit_progress;
 
 						ALTER TABLE satellite_exit_progress_new RENAME TO satellite_exit_progress;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          db.usedSerialsDB,
+				Description: "Drop used serials table",
+				Version:     42,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `
+						DROP TABLE used_serial_;
 					`)
 					if err != nil {
 						return errs.Wrap(err)

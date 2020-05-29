@@ -220,7 +220,7 @@ func (db *heldamountDB) AllPayStubs(ctx context.Context, period string) (_ []hel
 }
 
 // SatellitesHeldbackHistory retrieves heldback history for specific satellite.
-func (db *heldamountDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []heldamount.Heldback, err error) {
+func (db *heldamountDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []heldamount.AmountPeriod, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT 
@@ -235,9 +235,9 @@ func (db *heldamountDB) SatellitesHeldbackHistory(ctx context.Context, id storj.
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var heldback []heldamount.Heldback
+	var heldback []heldamount.AmountPeriod
 	for rows.Next() {
-		var held heldamount.Heldback
+		var held heldamount.AmountPeriod
 
 		err := rows.Scan(&held.Period, &held.Held)
 		if err != nil {

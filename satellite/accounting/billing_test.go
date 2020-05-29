@@ -389,6 +389,9 @@ func TestBilling_ZombieSegments(t *testing.T) {
 	t.Skip("Zombie segments do get billed. Wait for resolution of SM-592")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.MaxSegmentSize(5 * memory.KiB),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const (
 			bucketName = "a-bucket"
@@ -403,10 +406,7 @@ func TestBilling_ZombieSegments(t *testing.T) {
 		uplnk := planet.Uplinks[0]
 		{
 			data := testrand.Bytes(10 * memory.KiB)
-			err := uplnk.UploadWithClientConfig(ctx, satelliteSys, testplanet.UplinkConfig{
-				Client: testplanet.ClientConfig{
-					SegmentSize: 5 * memory.KiB,
-				}}, bucketName, objectKey, data)
+			err := uplnk.Upload(ctx, satelliteSys, bucketName, objectKey, data)
 			require.NoError(t, err)
 		}
 
