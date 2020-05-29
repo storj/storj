@@ -12,13 +12,13 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
+	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/useragent"
 	"storj.io/common/uuid"
 	"storj.io/drpc/drpccache"
-	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/attribution"
 )
 
