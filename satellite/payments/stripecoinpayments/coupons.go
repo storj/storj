@@ -32,8 +32,6 @@ type CouponsDB interface {
 	ListByUserID(ctx context.Context, userID uuid.UUID) ([]payments.Coupon, error)
 	// ListByUserIDAndStatus returns all coupons of specified user and status.
 	ListByUserIDAndStatus(ctx context.Context, userID uuid.UUID, status payments.CouponStatus) ([]payments.Coupon, error)
-	// ListByProjectID returns all active coupons for specified project.
-	ListByProjectID(ctx context.Context, projectID uuid.UUID) ([]payments.Coupon, error)
 	// ListPending returns paginated list of coupons with specified status.
 	ListPaged(ctx context.Context, offset int64, limit int, before time.Time, status payments.CouponStatus) (payments.CouponsPage, error)
 

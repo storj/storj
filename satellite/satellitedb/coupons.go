@@ -43,7 +43,7 @@ func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (_ p
 	cpx, err := coupons.db.Create_Coupon(
 		ctx,
 		dbx.Coupon_Id(id[:]),
-		dbx.Coupon_ProjectId(coupon.ProjectID[:]),
+		dbx.Coupon_ProjectId([]byte{}),
 		dbx.Coupon_UserId(coupon.UserID[:]),
 		dbx.Coupon_Amount(coupon.Amount),
 		dbx.Coupon_Description(coupon.Description),
@@ -172,29 +172,9 @@ func (coupons *coupons) ListPaged(ctx context.Context, offset int64, limit int, 
 	return page, nil
 }
 
-// ListByProjectID returns all active coupons for specified project.
-func (coupons *coupons) ListByProjectID(ctx context.Context, projectID uuid.UUID) (_ []payments.Coupon, err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-
-	dbxCoupons, err := coupons.db.All_Coupon_By_ProjectId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(
-		ctx,
-		dbx.Coupon_ProjectId(projectID[:]),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return couponsFromDbxSlice(dbxCoupons)
-}
-
 // fromDBXCoupon converts *dbx.Coupon to *payments.Coupon.
 func fromDBXCoupon(dbxCoupon *dbx.Coupon) (coupon payments.Coupon, err error) {
 	coupon.UserID, err = uuid.FromBytes(dbxCoupon.UserId)
-	if err != nil {
-		return payments.Coupon{}, err
-	}
-
-	coupon.ProjectID, err = uuid.FromBytes(dbxCoupon.ProjectId)
 	if err != nil {
 		return payments.Coupon{}, err
 	}
@@ -385,7 +365,6 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []
 		for _, id := range ids {
 			_, err = coupons.Insert(ctx, payments.Coupon{
 				UserID:      id.UserID,
-				ProjectID:   id.ProjectID,
 				Amount:      amount,
 				Duration:    duration,
 				Description: fmt.Sprintf("Promotional credits (limited time - %d billing periods)", duration),

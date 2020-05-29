@@ -781,7 +781,6 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 		Description: stripe.String(coupon.Description),
 	}
 
-	projectItem.AddMetadata("projectID", coupon.ProjectID.String())
 	projectItem.AddMetadata("couponID", coupon.ID.String())
 
 	_, err = service.stripeClient.InvoiceItems().New(projectItem)
