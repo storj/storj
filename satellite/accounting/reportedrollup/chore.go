@@ -46,6 +46,16 @@ type Chore struct {
 
 // NewChore creates new chore for flushing the reported serials to the database as rollups.
 func NewChore(log *zap.Logger, db orders.DB, config Config) *Chore {
+	if config.QueueBatchSize == 0 {
+		config.QueueBatchSize = 10000
+	}
+	if config.RollupBatchSize == 0 {
+		config.RollupBatchSize = 1000
+	}
+	if config.ConsumedSerialBatchSize == 0 {
+		config.ConsumedSerialBatchSize = 10000
+	}
+
 	return &Chore{
 		log:    log,
 		db:     db,
