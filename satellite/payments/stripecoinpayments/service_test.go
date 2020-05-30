@@ -36,6 +36,10 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
+		// pick a specific date so that it doesn't fail if it's the last day of the month
+		// keep month + 1 because user needs to be created before calculation
+		period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
 		numberOfProjects := 19
 		// generate test data, each user has one project, one coupon and some credits
 		for i := 0; i < numberOfProjects; i++ {
@@ -54,11 +58,10 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 			require.NoError(t, err)
 
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
-				pb.PieceAction_GET, int64(i+10)*memory.GiB.Int64(), time.Now())
+				pb.PieceAction_GET, int64(i+10)*memory.GiB.Int64(), period)
 			require.NoError(t, err)
 		}
 
-		period := time.Now()
 		satellite.API.Payments.Service.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})
@@ -121,7 +124,10 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 		satellite := planet.Satellites[0]
 		payments := satellite.API.Payments
 
-		period := time.Now()
+		// pick a specific date so that it doesn't fail if it's the last day of the month
+		// keep month + 1 because user needs to be created before calculation
+		period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
 		payments.Service.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})
@@ -219,7 +225,10 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 		satellite := planet.Satellites[0]
 		paymentsAPI := satellite.API.Payments
 
-		period := time.Now()
+		// pick a specific date so that it doesn't fail if it's the last day of the month
+		// keep month + 1 because user needs to be created before calculation
+		period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
 		paymentsAPI.Service.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})
