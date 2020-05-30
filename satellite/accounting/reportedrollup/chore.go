@@ -27,7 +27,10 @@ var (
 
 // Config is a configuration struct for the Chore.
 type Config struct {
-	Interval time.Duration `help:"how often to flush the reported serial rollups to the database" default:"5m"`
+	Interval                time.Duration `help:"how often to flush the reported serial rollups to the database" default:"5m"`
+	QueueBatchSize          int           `help:"default queue batch size" default:"10000"`
+	RollupBatchSize         int           `help:"default rollup batch size" default:"1000"`
+	ConsumedSerialBatchSize int           `help:"default consumed serial batch size" default:"10000"`
 }
 
 // Chore for flushing reported serials to the database as rollups.
@@ -37,14 +40,17 @@ type Chore struct {
 	log  *zap.Logger
 	db   orders.DB
 	Loop *sync2.Cycle
+
+	config Config
 }
 
 // NewChore creates new chore for flushing the reported serials to the database as rollups.
 func NewChore(log *zap.Logger, db orders.DB, config Config) *Chore {
 	return &Chore{
-		log:  log,
-		db:   db,
-		Loop: sync2.NewCycle(config.Interval),
+		log:    log,
+		db:     db,
+		Loop:   sync2.NewCycle(config.Interval),
+		config: config,
 	}
 }
 
@@ -81,13 +87,6 @@ func (chore *Chore) RunOnce(ctx context.Context, now time.Time) (err error) {
 	}
 }
 
-// TODO: jeeze make configurable
-const (
-	defaultQueueBatchSize           = 10000
-	defaultRollupBatchSize          = 1000
-	defaultConsumedSerialsBatchSize = 10000
-)
-
 func (chore *Chore) readWork(ctx context.Context, now time.Time, queue orders.Queue) (
 	bucketRollups []orders.BucketBandwidthRollup,
 	storagenodeRollups []orders.StoragenodeBandwidthRollup,
@@ -119,12 +118,12 @@ func (chore *Chore) readWork(ctx context.Context, now time.Time, queue orders.Qu
 	seenConsumedSerials := make(map[consumedSerialKey]struct{})
 
 	// Loop until our batch is big enough, but not too big in any dimension.
-	for len(byBucket) < defaultRollupBatchSize &&
-		len(byStoragenode) < defaultRollupBatchSize &&
-		len(seenConsumedSerials) < defaultConsumedSerialsBatchSize {
+	for len(byBucket) < chore.config.RollupBatchSize &&
+		len(byStoragenode) < chore.config.RollupBatchSize &&
+		len(seenConsumedSerials) < chore.config.ConsumedSerialBatchSize {
 
 		// Get a batch of pending serials from the queue.
-		pendingSerials, queueDone, err := queue.GetPendingSerialsBatch(ctx, defaultQueueBatchSize)
+		pendingSerials, queueDone, err := queue.GetPendingSerialsBatch(ctx, chore.config.QueueBatchSize)
 		if err != nil {
 			return nil, nil, nil, false, errs.Wrap(err)
 		}

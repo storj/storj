@@ -562,8 +562,17 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # time limit for an entire repair job, from queue pop to upload completion
 # repairer.total-timeout: 45m0s
 
+# default consumed serial batch size
+# reported-rollup.consumed-serial-batch-size: 10000
+
 # how often to flush the reported serial rollups to the database
 # reported-rollup.interval: 5m0s
+
+# default queue batch size
+# reported-rollup.queue-batch-size: 10000
+
+# default rollup batch size
+# reported-rollup.rollup-batch-size: 1000
 
 # the default bandwidth usage limit
 # rollup.default-max-bandwidth: 50.0 GB
