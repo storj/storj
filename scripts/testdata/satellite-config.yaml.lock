@@ -565,6 +565,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to flush the reported serial rollups to the database
 # reported-rollup.interval: 5m0s
 
+# default queue batch size
+# reported-rollup.queue-batch-size: 10000
+
 # the default bandwidth usage limit
 # rollup.default-max-bandwidth: 50.0 GB
 

@@ -27,23 +27,32 @@ var (
 
 // Config is a configuration struct for the Chore.
 type Config struct {
-	Interval time.Duration `help:"how often to flush the reported serial rollups to the database" default:"5m"`
+	Interval       time.Duration `help:"how often to flush the reported serial rollups to the database" default:"5m"`
+	QueueBatchSize int           `help:"default queue batch size" default:"10000"`
 }
 
 // Chore for flushing reported serials to the database as rollups.
 //
 // architecture: Chore
 type Chore struct {
-	log  *zap.Logger
-	db   orders.DB
+	log    *zap.Logger
+	db     orders.DB
+	config Config
+
 	Loop *sync2.Cycle
 }
 
 // NewChore creates new chore for flushing the reported serials to the database as rollups.
 func NewChore(log *zap.Logger, db orders.DB, config Config) *Chore {
+	if config.QueueBatchSize == 0 {
+		config.QueueBatchSize = 10000
+	}
+
 	return &Chore{
-		log:  log,
-		db:   db,
+		log:    log,
+		db:     db,
+		config: config,
+
 		Loop: sync2.NewCycle(config.Interval),
 	}
 }
@@ -81,13 +90,6 @@ func (chore *Chore) RunOnce(ctx context.Context, now time.Time) (err error) {
 	}
 }
 
-// TODO: jeeze make configurable
-const (
-	defaultQueueBatchSize           = 10000
-	defaultRollupBatchSize          = 1000
-	defaultConsumedSerialsBatchSize = 10000
-)
-
 func (chore *Chore) readWork(ctx context.Context, now time.Time, queue orders.Queue) (
 	bucketRollups []orders.BucketBandwidthRollup,
 	storagenodeRollups []orders.StoragenodeBandwidthRollup,
@@ -118,68 +120,61 @@ func (chore *Chore) readWork(ctx context.Context, now time.Time, queue orders.Qu
 	}
 	seenConsumedSerials := make(map[consumedSerialKey]struct{})
 
-	// Loop until our batch is big enough, but not too big in any dimension.
-	for len(byBucket) < defaultRollupBatchSize &&
-		len(byStoragenode) < defaultRollupBatchSize &&
-		len(seenConsumedSerials) < defaultConsumedSerialsBatchSize {
+	// Get a batch of pending serials from the queue.
+	pendingSerials, queueDone, err := queue.GetPendingSerialsBatch(ctx, chore.config.QueueBatchSize)
+	if err != nil {
+		return nil, nil, nil, false, errs.Wrap(err)
+	}
 
-		// Get a batch of pending serials from the queue.
-		pendingSerials, queueDone, err := queue.GetPendingSerialsBatch(ctx, defaultQueueBatchSize)
+	for _, row := range pendingSerials {
+		row := row
+
+		// If we have seen this serial inside of this function already, don't
+		// count it again and record it now.
+		key := consumedSerialKey{
+			nodeID:       row.NodeID,
+			serialNumber: row.SerialNumber,
+		}
+		if _, exists := seenConsumedSerials[key]; exists {
+			continue
+		}
+		seenConsumedSerials[key] = struct{}{}
+
+		// Parse the node id, project id, and bucket name from the reported serial.
+		projectID, bucketName, err := orders.SplitBucketID(row.BucketID)
 		if err != nil {
-			return nil, nil, nil, false, errs.Wrap(err)
+			chore.log.Error("bad row inserted into reported serials",
+				zap.Binary("bucket_id", row.BucketID),
+				zap.String("node_id", row.NodeID.String()),
+				zap.String("serial_number", row.SerialNumber.String()))
+			continue
 		}
+		action := pb.PieceAction(row.Action)
+		settled := row.Settled
 
-		for _, row := range pendingSerials {
-			row := row
+		// Update our batch state to include it.
+		byBucket[bucketKey{
+			projectID:  projectID,
+			bucketName: string(bucketName),
+			action:     action,
+		}] += settled
 
-			// If we have seen this serial inside of this function already, don't
-			// count it again and record it now.
-			key := consumedSerialKey{
-				nodeID:       row.NodeID,
-				serialNumber: row.SerialNumber,
-			}
-			if _, exists := seenConsumedSerials[key]; exists {
-				continue
-			}
-			seenConsumedSerials[key] = struct{}{}
+		byStoragenode[storagenodeKey{
+			nodeID: row.NodeID,
+			action: action,
+		}] += settled
 
-			// Parse the node id, project id, and bucket name from the reported serial.
-			projectID, bucketName, err := orders.SplitBucketID(row.BucketID)
-			if err != nil {
-				chore.log.Error("bad row inserted into reported serials",
-					zap.Binary("bucket_id", row.BucketID),
-					zap.String("node_id", row.NodeID.String()),
-					zap.String("serial_number", row.SerialNumber.String()))
-				continue
-			}
-			action := pb.PieceAction(row.Action)
-			settled := row.Settled
+		consumedSerials = append(consumedSerials, orders.ConsumedSerial{
+			NodeID:       row.NodeID,
+			SerialNumber: row.SerialNumber,
+			ExpiresAt:    row.ExpiresAt,
+		})
+	}
 
-			// Update our batch state to include it.
-			byBucket[bucketKey{
-				projectID:  projectID,
-				bucketName: string(bucketName),
-				action:     action,
-			}] += settled
-
-			byStoragenode[storagenodeKey{
-				nodeID: row.NodeID,
-				action: action,
-			}] += settled
-
-			consumedSerials = append(consumedSerials, orders.ConsumedSerial{
-				NodeID:       row.NodeID,
-				SerialNumber: row.SerialNumber,
-				ExpiresAt:    row.ExpiresAt,
-			})
-		}
-
-		// If we didn't get a full batch, the queue must have run out. We should signal
-		// this fact to our caller so that they can stop looping.
-		if queueDone {
-			done = true
-			break
-		}
+	// If we didn't get a full batch, the queue must have run out. We should signal
+	// this fact to our caller so that they can stop looping.
+	if queueDone {
+		done = true
 	}
 
 	// Convert bucket rollups into a slice.
