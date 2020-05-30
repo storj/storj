@@ -528,7 +528,10 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				DeleteTallies:       false,
 			},
 			ReportedRollup: reportedrollup.Config{
-				Interval: defaultInterval,
+				Interval:                defaultInterval,
+				QueueBatchSize:          10000,
+				RollupBatchSize:         1000,
+				ConsumedSerialBatchSize: 10000,
 			},
 			LiveAccounting: live.Config{
 				StorageBackend: "redis://" + redis.Addr() + "?db=0",
