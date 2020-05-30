@@ -482,7 +482,7 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 		_, err = tx.tx.Tx.ExecContext(ctx, `
 		INSERT INTO project_bandwidth_rollups(project_id, interval_month, egress_allocated)
 			SELECT unnest($1::bytea[]), $2, unnest($3::bigint[])
-		ON CONFLICT(project_id, interval_month) 
+		ON CONFLICT(project_id, interval_month)
 		DO UPDATE SET egress_allocated = project_bandwidth_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint;
 		`,
 			pq.ByteaArray(projectRUIDs), projectInterval, pq.Array(projectRUAllocated))
@@ -657,11 +657,6 @@ func (db *ordersDB) WithQueue(ctx context.Context, cb func(ctx context.Context, 
 func (queue *ordersDBQueue) GetPendingSerialsBatch(ctx context.Context, size int) (pendingSerials []orders.PendingSerial, done bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var cont rawPendingSerial
-	if len(queue.produced) > 0 {
-		cont = queue.produced[len(queue.produced)-1]
-	}
-
 	// TODO: this might end up being WORSE on cockroach because it does a hash-join after a
 	// full scan of the consumed_serials table, but it's massively better on postgres because
 	// it does an indexed anti-join. hopefully we can get rid of the entire serials system
@@ -677,10 +672,8 @@ func (queue *ordersDBQueue) GetPendingSerialsBatch(ctx context.Context, size int
 					AND consumed_serials.serial_number = pending_serial_queue.serial_number
 			), 0) as consumed
 		FROM pending_serial_queue
-		WHERE (storage_node_id, bucket_id, serial_number) > ($1, $2, $3)
-		ORDER BY storage_node_id, bucket_id, serial_number
-		LIMIT $4
-	`, cont.nodeID, cont.bucketID, cont.serialNumber, size)
+		LIMIT $1
+	`, size)
 	if err != nil {
 		return nil, false, Error.Wrap(err)
 	}
