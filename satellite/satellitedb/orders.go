@@ -17,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -609,71 +610,74 @@ type rawPendingSerial struct {
 }
 
 type ordersDBQueue struct {
-	db       *satelliteDB
-	log      *zap.Logger
-	produced []rawPendingSerial
+	impl dbutil.Implementation
+	log  *zap.Logger
+	tx   tagsql.Tx
 }
 
 func (db *ordersDB) WithQueue(ctx context.Context, cb func(ctx context.Context, queue orders.Queue) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	queue := &ordersDBQueue{
-		db:  db.db,
-		log: db.db.log,
-	}
-
-	err = cb(ctx, queue)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	var nodeIDs, bucketIDs, serialNumbers [][]byte
-	for _, pending := range queue.produced {
-		nodeIDs = append(nodeIDs, pending.nodeID)
-		bucketIDs = append(bucketIDs, pending.bucketID)
-		serialNumbers = append(serialNumbers, pending.serialNumber)
-	}
-
-	_, err = db.db.ExecContext(ctx, `
-			DELETE FROM pending_serial_queue WHERE (
-				storage_node_id, bucket_id, serial_number
-			) IN (
-				SELECT
-					unnest($1::bytea[]),
-					unnest($2::bytea[]),
-					unnest($3::bytea[])
-			)
-		`,
-		pq.ByteaArray(nodeIDs),
-		pq.ByteaArray(bucketIDs),
-		pq.ByteaArray(serialNumbers))
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
+	return Error.Wrap(db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		return cb(ctx, &ordersDBQueue{
+			impl: db.db.implementation,
+			log:  db.db.log,
+			tx:   tx.Tx,
+		})
+	}))
 }
 
 func (queue *ordersDBQueue) GetPendingSerialsBatch(ctx context.Context, size int) (pendingSerials []orders.PendingSerial, done bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: this might end up being WORSE on cockroach because it does a hash-join after a
-	// full scan of the consumed_serials table, but it's massively better on postgres because
-	// it does an indexed anti-join. hopefully we can get rid of the entire serials system
-	// before it matters.
+	// TODO: no idea of this query makes sense on cockroach. it may do a terrible job with it.
+	// but it's blazing fast on postgres and that's where we have the problem! :D :D :D
 
-	rows, err := queue.db.Query(ctx, `
-		SELECT storage_node_id, bucket_id, serial_number, action, settled, expires_at,
-			coalesce((
-				SELECT 1
-				FROM consumed_serials
+	var rows *sql.Rows
+	switch queue.impl {
+	case dbutil.Postgres:
+		rows, err = queue.tx.Query(ctx, `
+			DELETE
+				FROM pending_serial_queue
 				WHERE
-					consumed_serials.storage_node_id = pending_serial_queue.storage_node_id
-					AND consumed_serials.serial_number = pending_serial_queue.serial_number
-			), 0) as consumed
-		FROM pending_serial_queue
-		LIMIT $1
-	`, size)
+					ctid = any (array(
+						SELECT
+							ctid
+						FROM pending_serial_queue
+						LIMIT $1
+					))
+				RETURNING storage_node_id, bucket_id, serial_number, action, settled, expires_at, (
+					coalesce((
+						SELECT 1
+						FROM consumed_serials
+						WHERE
+							consumed_serials.storage_node_id = pending_serial_queue.storage_node_id
+							AND consumed_serials.serial_number = pending_serial_queue.serial_number
+					), 0))
+		`, size)
+	case dbutil.Cockroach:
+		rows, err = queue.tx.Query(ctx, `
+			DELETE
+				FROM pending_serial_queue
+				WHERE
+					(storage_node_id, bucket_id, serial_number) = any (array(
+						SELECT
+							(storage_node_id, bucket_id, serial_number)
+						FROM pending_serial_queue
+						LIMIT $1
+					))
+				RETURNING storage_node_id, bucket_id, serial_number, action, settled, expires_at, (
+					coalesce((
+						SELECT 1
+						FROM consumed_serials
+						WHERE
+							consumed_serials.storage_node_id = pending_serial_queue.storage_node_id
+							AND consumed_serials.serial_number = pending_serial_queue.serial_number
+					), 0))
+		`, size)
+	default:
+		return nil, false, Error.New("unhandled implementation")
+	}
 	if err != nil {
 		return nil, false, Error.Wrap(err)
 	}
@@ -697,7 +701,6 @@ func (queue *ordersDBQueue) GetPendingSerialsBatch(ctx context.Context, size int
 			return nil, false, Error.Wrap(err)
 		}
 
-		queue.produced = append(queue.produced, rawPending)
 		size--
 
 		if consumed != 0 {
