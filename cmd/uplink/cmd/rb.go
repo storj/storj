@@ -53,18 +53,24 @@ func deleteBucket(cmd *cobra.Command, args []string) (err error) {
 	}
 	defer closeProject(project)
 
-	counter := 0
+	successes := 0
+	failures := 0
 	defer func() {
-		// print number of deleted files no mater if we end with error or without
-		if counter > 0 {
-			fmt.Printf("Files (%d) from bucket %s deleted\n", counter, dst.Bucket())
+		if successes > 0 {
+			fmt.Printf("(%d) files from bucket %s have been deleted\n", successes, dst.Bucket())
 		}
-		if err == nil {
-			fmt.Printf("Bucket %s deleted\n", dst.Bucket())
+		if failures > 0 {
+			fmt.Printf("(%d) files from bucket %s have NOT been deleted\n", failures, dst.Bucket())
+		}
+		if err == nil && failures == 0 {
+			fmt.Printf("Bucket %s have been deleted\n", dst.Bucket())
+		} else {
+			fmt.Printf("Bucket %s have NOT been deleted\n", dst.Bucket())
 		}
 	}()
 
 	if *rbForceFlag {
+		// TODO add retry in case of failures
 		objects := project.ListObjects(ctx, dst.Bucket(), &uplink.ListObjectsOptions{
 			Recursive: true,
 		})
@@ -74,11 +80,13 @@ func deleteBucket(cmd *cobra.Command, args []string) (err error) {
 			path := object.Key
 			_, err := project.DeleteObject(ctx, dst.Bucket(), path)
 			if err != nil {
-				return fmt.Errorf("failed to delete encrypted object, cannot empty bucket: %q", path)
+				fmt.Println(fmt.Sprintf("failed to delete encrypted object, cannot empty bucket %q: %+v", dst.Bucket(), err))
+				failures++
+				continue
 			}
-			counter++
-			if counter%10 == 0 {
-				fmt.Printf("Files (%d) from bucket %s deleted\n", counter, dst.Bucket())
+			successes++
+			if successes%10 == 0 {
+				fmt.Printf("(%d) files from bucket %s have been deleted\n", successes, dst.Bucket())
 			}
 		}
 		if err := objects.Err(); err != nil {
@@ -86,8 +94,10 @@ func deleteBucket(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	if _, err := project.DeleteBucket(ctx, dst.Bucket()); err != nil {
-		return convertError(err, dst)
+	if failures == 0 {
+		if _, err := project.DeleteBucket(ctx, dst.Bucket()); err != nil {
+			return convertError(err, dst)
+		}
 	}
 
 	return nil

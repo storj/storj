@@ -112,10 +112,6 @@ test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
 
-.PHONY: test-libuplink-gomobile
-test-libuplink-gomobile: ## Run gomobile tests
-	@./lib/uplink-gomobile/test-sim.sh
-
 .PHONY: check-satellite-config-lock
 check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
 	@echo "Running ${@}"
@@ -289,15 +285,6 @@ binaries: ${BINARIES} ## Build certificates, identity, inspector, satellite, sto
 .PHONY: sign-windows-installer
 sign-windows-installer:
 	storj-sign release/${TAG}/storagenode_windows_amd64.msi
-
-.PHONY: libuplink
-libuplink:
-	go build -ldflags="-s -w" -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
-	cp lib/uplinkc/uplink_definitions.h uplink_definitions.h
-
-.PHONY: libuplink-gomobile
-libuplink-gomobile:
-	@./lib/uplink-gomobile/build.sh
 
 ##@ Deploy
 

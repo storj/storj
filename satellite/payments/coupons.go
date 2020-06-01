@@ -47,15 +47,13 @@ type Coupon struct {
 	Created     time.Time    `json:"created"`
 }
 
-// IsExpired checks if coupon is not after its rollup period.
-func (coupon *Coupon) IsExpired() bool {
-	expirationDate := time.Date(coupon.Created.Year(), coupon.Created.Month(), 1, 0, 0, 0, 0, coupon.Created.Location())
-	expirationDate = expirationDate.AddDate(0, coupon.Duration, 0)
-
-	now := time.Now().UTC()
-	now = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, coupon.Created.Location())
-
-	return expirationDate.Before(now)
+// ExpirationDate returns coupon expiration date.
+//
+// A coupon is valid for Duration number of full months. The month the user
+// signs up is not counted in the duration. The expirated date is at the last
+// day of the last valid month.
+func (coupon *Coupon) ExpirationDate() time.Time {
+	return time.Date(coupon.Created.Year(), coupon.Created.Month()+time.Month(coupon.Duration)+1, 0, 0, 0, 0, 0, time.UTC)
 }
 
 // CouponType indicates the type of the coupon.

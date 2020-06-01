@@ -43,9 +43,9 @@ type Config struct {
 	StripePublicKey              string        `help:"stripe API public key" default:""`
 	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
 	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
-	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" devDefault:"1m" releaseDefault:"30m"`
-	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" devDefault:"3m" releaseDefault:"1h30m"`
-	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" devDefault:"1m" releaseDefault:"10m"`
+	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" default:"2m"`
+	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" default:"2m"`
+	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" default:"10m"`
 	AutoAdvance                  bool          `help:"toogle autoadvance feature for invoice creation" default:"false"`
 	ListingLimit                 int           `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
 }
@@ -376,26 +376,26 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 		return Error.New("allowed for past periods only")
 	}
 
-	projsPage, err := service.projectsDB.List(ctx, 0, service.listingLimit, end)
+	customersPage, err := service.db.Customers().List(ctx, 0, service.listingLimit, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	if err = service.createProjectRecords(ctx, projsPage.Projects, start, end); err != nil {
+	if err = service.processCustomers(ctx, customersPage.Customers, start, end); err != nil {
 		return Error.Wrap(err)
 	}
 
-	for projsPage.Next {
+	for customersPage.Next {
 		if err = ctx.Err(); err != nil {
 			return Error.Wrap(err)
 		}
 
-		projsPage, err = service.projectsDB.List(ctx, projsPage.NextOffset, service.listingLimit, end)
+		customersPage, err = service.db.Customers().List(ctx, customersPage.NextOffset, service.listingLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
-		if err = service.createProjectRecords(ctx, projsPage.Projects, start, end); err != nil {
+		if err = service.processCustomers(ctx, customersPage.Customers, start, end); err != nil {
 			return Error.Wrap(err)
 		}
 	}
@@ -403,59 +403,28 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	return nil
 }
 
-// createProjectRecords creates invoice project record if none exists.
-func (service *Service) createProjectRecords(ctx context.Context, projects []console.Project, start, end time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var records []CreateProjectRecord
+func (service *Service) processCustomers(ctx context.Context, customers []Customer, start, end time.Time) error {
+	var allRecords []CreateProjectRecord
 	var usages []CouponUsage
 	var creditsSpendings []CreditsSpending
-	for _, project := range projects {
-		if err = ctx.Err(); err != nil {
-			return err
-		}
-
-		if err = service.db.ProjectRecords().Check(ctx, project.ID, start, end); err != nil {
-			if err == ErrProjectRecordExists {
-				continue
-			}
-
-			return err
-		}
-
-		usage, err := service.usageDB.GetProjectTotal(ctx, project.ID, start, end)
+	for _, customer := range customers {
+		projects, err := service.projectsDB.GetByUserID(ctx, customer.UserID)
 		if err != nil {
 			return err
 		}
 
-		// TODO: account for usage data.
-		records = append(records,
-			CreateProjectRecord{
-				ProjectID: project.ID,
-				Storage:   usage.Storage,
-				Egress:    usage.Egress,
-				Objects:   usage.ObjectCount,
-			},
-		)
-
-		leftToCharge := service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount).TotalInt64()
-		if leftToCharge == 0 {
-			continue
-		}
-
-		// If there is a Stripe coupon applied for the project owner, apply its
-		// discount first before applying other credits of this user. This
-		// avoids the issue with negative totals in invoices.
-		leftToCharge, err = service.discountedProjectUsagePrice(ctx, project, leftToCharge)
+		leftToCharge, records, err := service.createProjectRecords(ctx, customer.ID, projects, start, end)
 		if err != nil {
 			return err
 		}
+
+		allRecords = append(allRecords, records...)
 
 		if leftToCharge == 0 {
 			continue
 		}
 
-		coupons, err := service.db.Coupons().ListByProjectID(ctx, project.ID)
+		coupons, err := service.db.Coupons().ListByUserIDAndStatus(ctx, customer.UserID, payments.CouponActive)
 		if err != nil {
 			return err
 		}
@@ -463,7 +432,13 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 		// Apply any promotional credits (a.k.a. coupons) on the remainder.
 		// TODO: if multiple coupons are available apply them in order of expiration.
 		for _, coupon := range coupons {
-			if coupon.IsExpired() {
+			if coupon.Status == payments.CouponExpired {
+				// this coupon has already been marked as expired.
+				continue
+			}
+
+			if end.After(coupon.ExpirationDate()) {
+				// this coupon is identified as expired for first time, mark it in the database
 				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
 					return err
 				}
@@ -501,7 +476,7 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 		}
 
 		// Last, apply any credits from STORJ deposit bonuses on the remainder.
-		userBonuses, err := service.db.Credits().Balance(ctx, project.OwnerID)
+		userBonuses, err := service.db.Credits().Balance(ctx, customer.UserID)
 		if err != nil {
 			return err
 		}
@@ -519,18 +494,70 @@ func (service *Service) createProjectRecords(ctx context.Context, projects []con
 
 			if amountChargedFromBonuses > 0 {
 				creditsSpendings = append(creditsSpendings, CreditsSpending{
-					ID:        creditSpendingID,
-					Amount:    amountChargedFromBonuses,
-					UserID:    project.OwnerID,
-					ProjectID: project.ID,
-					Status:    CreditsSpendingStatusUnapplied,
-					Period:    start,
+					ID:     creditSpendingID,
+					Amount: amountChargedFromBonuses,
+					UserID: customer.UserID,
+					Status: CreditsSpendingStatusUnapplied,
+					Period: start,
 				})
 			}
 		}
 	}
 
-	return service.db.ProjectRecords().Create(ctx, records, usages, creditsSpendings, start, end)
+	return service.db.ProjectRecords().Create(ctx, allRecords, usages, creditsSpendings, start, end)
+}
+
+// createProjectRecords creates invoice project record if none exists.
+func (service *Service) createProjectRecords(ctx context.Context, customerID string, projects []console.Project, start, end time.Time) (_ int64, _ []CreateProjectRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var records []CreateProjectRecord
+	sumLeftToCharge := int64(0)
+	for _, project := range projects {
+		if err = ctx.Err(); err != nil {
+			return 0, nil, err
+		}
+
+		if err = service.db.ProjectRecords().Check(ctx, project.ID, start, end); err != nil {
+			if err == ErrProjectRecordExists {
+				continue
+			}
+
+			return 0, nil, err
+		}
+
+		usage, err := service.usageDB.GetProjectTotal(ctx, project.ID, start, end)
+		if err != nil {
+			return 0, nil, err
+		}
+
+		// TODO: account for usage data.
+		records = append(records,
+			CreateProjectRecord{
+				ProjectID: project.ID,
+				Storage:   usage.Storage,
+				Egress:    usage.Egress,
+				Objects:   usage.ObjectCount,
+			},
+		)
+
+		leftToCharge := service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.ObjectCount).TotalInt64()
+		if leftToCharge == 0 {
+			continue
+		}
+
+		// If there is a Stripe coupon applied for the project owner, apply its
+		// discount first before applying other credits of this user. This
+		// avoids the issue with negative totals in invoices.
+		leftToCharge, err = service.discountedProjectUsagePrice(ctx, customerID, project, leftToCharge)
+		if err != nil {
+			return 0, nil, err
+		}
+
+		sumLeftToCharge += leftToCharge
+	}
+
+	return sumLeftToCharge, records, nil
 }
 
 // InvoiceApplyProjectRecords iterates through unapplied invoice project records and creates invoice line items
@@ -951,12 +978,7 @@ func (service *Service) calculateProjectUsagePrice(egress int64, storage, object
 
 // discountedProjectUsagePrice reduces the project usage price with the discount applied for the Stripe customer.
 // The promotional coupons and bonus credits are not applied yet.
-func (service *Service) discountedProjectUsagePrice(ctx context.Context, project console.Project, projectUsagePrice int64) (int64, error) {
-	customerID, err := service.db.Customers().GetCustomerID(ctx, project.OwnerID)
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-
+func (service *Service) discountedProjectUsagePrice(ctx context.Context, customerID string, project console.Project, projectUsagePrice int64) (int64, error) {
 	customer, err := service.stripeClient.Customers().Get(customerID, nil)
 	if err != nil {
 		return 0, Error.Wrap(err)

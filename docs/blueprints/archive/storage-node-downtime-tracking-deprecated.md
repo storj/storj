@@ -1,4 +1,4 @@
-# Storage Node Downtime Tracking
+# Storage Node Downtime Tracking (DEPRECATED)
 
 ## Abstract
 

@@ -74,7 +74,8 @@ type Config struct {
 	TermsAndConditionsURL        string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
 	SegmentIOPublicKey           string `help:"used to initialize segment.io at web satellite console" default:""`
 	AccountActivationRedirectURL string `help:"url link for account activation redirect" default:""`
-	VerificationPageURL          string `help:"url link to sign up verification page" default:"https://tardigrade.io/satellites/verify"`
+	VerificationPageURL          string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
+	PartneredSatelliteNames      string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -265,16 +266,18 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		SatelliteName       string
-		SegmentIOPublicKey  string
-		StripePublicKey     string
-		VerificationPageURL string
+		SatelliteName           string
+		SegmentIOPublicKey      string
+		StripePublicKey         string
+		VerificationPageURL     string
+		PartneredSatelliteNames string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
 	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
 	data.VerificationPageURL = server.config.VerificationPageURL
+	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
 		server.log.Error("index template could not be executed")

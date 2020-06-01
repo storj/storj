@@ -28,6 +28,9 @@ export default class ForgotPassword extends Vue {
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
+    // tardigrade logic
+    public isDropdownShown: boolean = false;
+
     /**
      * Checks if page is inside iframe
      */
@@ -38,6 +41,20 @@ export default class ForgotPassword extends Vue {
     public setEmail(value: string): void {
         this.email = value;
         this.emailError = '';
+    }
+
+    /**
+     * Toggles satellite selection dropdown visibility (Tardigrade).
+     */
+    public toggleDropdown(): void {
+        this.isDropdownShown = !this.isDropdownShown;
+    }
+
+    /**
+     * Closes satellite selection dropdown (Tardigrade).
+     */
+    public closeDropdown(): void {
+        this.isDropdownShown = false;
     }
 
     /**
