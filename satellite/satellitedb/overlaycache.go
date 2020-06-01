@@ -887,7 +887,6 @@ func (cache *overlaycache) GetOfflineNodesLimited(ctx context.Context, limit int
 }
 
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
-	defer mon.Task()(&ctx)(&err)
 	if info == nil {
 		return nil, Error.New("missing info")
 	}
