@@ -1515,3 +1515,120 @@ func TestInlineSegmentThreshold(t *testing.T) {
 		}
 	})
 }
+
+// TestCommitObjectMetadataSize ensures that CommitObject returns an error when the metadata provided by the user is too large.
+func TestCommitObjectMetadataSize(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.MaxMetadataSize(2 * memory.KiB),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		metainfoService := planet.Satellites[0].Metainfo.Service
+
+		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		projectID := projects[0].ID
+
+		bucket := storj.Bucket{
+			Name:      "initial-bucket",
+			ProjectID: projectID,
+		}
+		_, err = metainfoService.CreateBucket(ctx, bucket)
+		require.NoError(t, err)
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		params := metainfo.BeginObjectParams{
+			Bucket:        []byte(bucket.Name),
+			EncryptedPath: []byte("encrypted-path"),
+			Redundancy: storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				ShareSize:      256,
+				RequiredShares: 1,
+				RepairShares:   1,
+				OptimalShares:  3,
+				TotalShares:    4,
+			},
+			EncryptionParameters: storj.EncryptionParameters{},
+			ExpiresAt:            time.Now().Add(24 * time.Hour),
+		}
+		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
+		require.NoError(t, err)
+
+		segmentID, limits, _, err := metainfoClient.BeginSegment(ctx, metainfo.BeginSegmentParams{
+			StreamID: beginObjectResponse.StreamID,
+			Position: storj.SegmentPosition{
+				Index: 0,
+			},
+			MaxOrderLimit: memory.MiB.Int64(),
+		})
+		require.NoError(t, err)
+
+		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			fullIDMap[node.ID()] = node.Identity
+		}
+
+		makeResult := func(num int32) *pb.SegmentPieceUploadResult {
+			nodeID := limits[num].Limit.StorageNodeId
+			hash := &pb.PieceHash{
+				PieceId:   limits[num].Limit.PieceId,
+				PieceSize: 1048832,
+				Timestamp: time.Now(),
+			}
+
+			fullID := fullIDMap[nodeID]
+			require.NotNil(t, fullID)
+			signer := signing.SignerFromFullIdentity(fullID)
+			signedHash, err := signing.SignPieceHash(ctx, signer, hash)
+			require.NoError(t, err)
+
+			return &pb.SegmentPieceUploadResult{
+				PieceNum: num,
+				NodeId:   nodeID,
+				Hash:     signedHash,
+			}
+		}
+		err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
+			SegmentID: segmentID,
+
+			SizeEncryptedData: memory.MiB.Int64(),
+			UploadResult: []*pb.SegmentPieceUploadResult{
+				makeResult(0),
+				makeResult(1),
+				makeResult(2),
+			},
+		})
+		require.NoError(t, err)
+
+		// 5KiB metadata should fail because it is too large.
+		metadata, err := pb.Marshal(&pb.StreamMeta{
+			EncryptedStreamInfo: testrand.Bytes(5 * memory.KiB),
+			NumberOfSegments:    1,
+		})
+		require.NoError(t, err)
+		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
+			StreamID:          beginObjectResponse.StreamID,
+			EncryptedMetadata: metadata,
+		})
+		require.Error(t, err)
+		assertInvalidArgument(t, err, true)
+
+		// 1KiB metadata should not fail.
+		metadata, err = pb.Marshal(&pb.StreamMeta{
+			EncryptedStreamInfo: testrand.Bytes(1 * memory.KiB),
+			NumberOfSegments:    1,
+		})
+		require.NoError(t, err)
+		err = metainfoClient.CommitObject(ctx, metainfo.CommitObjectParams{
+			StreamID:          beginObjectResponse.StreamID,
+			EncryptedMetadata: metadata,
+		})
+		require.NoError(t, err)
+	})
+
+}

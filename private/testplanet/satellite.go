@@ -423,6 +423,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				MinRemoteSegmentSize: 0,  // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 4 * memory.KiB,
 				MaxSegmentSize:       64 * memory.MiB,
+				MaxMetadataSize:      2 * memory.KiB,
 				MaxCommitInterval:    1 * time.Hour,
 				Overlay:              true,
 				RS: metainfo.RSConfig{

@@ -76,3 +76,10 @@ var MaxSegmentSize = func(maxSegmentSize memory.Size) func(log *zap.Logger, inde
 		config.Metainfo.MaxSegmentSize = maxSegmentSize
 	}
 }
+
+// MaxMetadataSize returns function to change satellite max metadata size value.
+var MaxMetadataSize = func(maxMetadataSize memory.Size) func(log *zap.Logger, index int, config *satellite.Config) {
+	return func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Metainfo.MaxMetadataSize = maxMetadataSize
+	}
+}

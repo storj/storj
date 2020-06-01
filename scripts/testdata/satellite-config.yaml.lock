@@ -316,6 +316,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 4.0 KiB
 
+# maximum segment metadata size
+# metainfo.max-metadata-size: 2.0 KiB
+
 # maximum segment size
 # metainfo.max-segment-size: 64.0 MiB
 
