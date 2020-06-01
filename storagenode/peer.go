@@ -299,7 +299,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	var err error
 
-	{
+	{ // version setup
 		if !versionInfo.IsZero() {
 			peer.Log.Debug("Version info",
 				zap.Stringer("Version", versionInfo.Version.Version),
@@ -310,8 +310,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
-		versionCheckInterval := 24 * time.Hour
-		peer.Version.Chore = version2.NewChore(peer.Version.Service, peer.Notifications.Service, peer.Identity.ID, versionCheckInterval)
+		versionCheckInterval := 12 * time.Hour
+		peer.Version.Chore = version2.NewChore(peer.Log.Named("version:chore"), peer.Version.Service, peer.Notifications.Service, peer.Identity.ID, versionCheckInterval)
 		peer.Services.Add(lifecycle.Item{
 			Name: "version",
 			Run:  peer.Version.Chore.Run,
