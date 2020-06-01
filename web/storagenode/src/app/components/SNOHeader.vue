@@ -61,6 +61,7 @@ import SettingsIcon from '@/../static/images/SettingsDots.svg';
 import StorjIcon from '@/../static/images/storjIcon.svg';
 
 import { RouteConfig } from '@/app/router';
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
@@ -151,6 +152,7 @@ export default class SNOHeader extends Vue {
 
     public async onRefresh(): Promise<void> {
         const selectedSatellite = this.$store.state.node.selectedSatellite.id;
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
 
         try {
             await this.$store.dispatch(GET_NODE_INFO);
