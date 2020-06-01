@@ -4,8 +4,9 @@
 import Vuex from 'vuex';
 
 import { makeNodeModule } from '@/app/store/modules/node';
-import { getHeldPercentage, makePayoutModule, PAYOUT_ACTIONS, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
+import { makePayoutModule, PAYOUT_ACTIONS, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
 import { HeldInfo, PayoutInfoRange, PayoutPeriod, TotalPayoutInfo } from '@/app/types/payout';
+import { getHeldPercentage, getMonthsBeforeNow } from '@/app/utils/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
 import { SNOApi } from '@/storagenode/api/storagenode';
 import { createLocalVue } from '@vue/test-utils';
@@ -23,12 +24,12 @@ const store = new Vuex.Store({ modules: { payoutModule, node: nodeModule } });
 
 const state = store.state as any;
 
-describe('mutations', () => {
+describe('mutations', (): void => {
     beforeEach(() => {
         createLocalVue().use(Vuex);
     });
 
-    it('sets held information', () => {
+    it('sets held information', (): void => {
         const heldInfo = new HeldInfo(13, 12, 11);
 
         store.commit(PAYOUT_MUTATIONS.SET_HELD_INFO, heldInfo);
@@ -38,7 +39,7 @@ describe('mutations', () => {
         expect(state.payoutModule.heldInfo.usagePut).toBe(11);
     });
 
-    it('sets total payout information', () => {
+    it('sets total payout information', (): void => {
         const totalInfo = new TotalPayoutInfo(50, 100, 22);
 
         store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalInfo);
@@ -48,7 +49,7 @@ describe('mutations', () => {
         expect(state.payoutModule.currentMonthEarnings).toBe(22);
     });
 
-    it('sets period range', () => {
+    it('sets period range', (): void => {
         const range = new PayoutInfoRange(new PayoutPeriod(2019, 2), new PayoutPeriod(2020, 3));
 
         store.commit(PAYOUT_MUTATIONS.SET_RANGE, range);
@@ -61,7 +62,7 @@ describe('mutations', () => {
         expect(state.payoutModule.periodRange.end.period).toBe('2020-04');
     });
 
-    it('sets held percentage', () => {
+    it('sets held percentage', (): void => {
         const expectedHeldPercentage = 75;
 
         store.commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, expectedHeldPercentage);
@@ -75,7 +76,7 @@ describe('actions', () => {
         jest.resetAllMocks();
     });
 
-    it('success get held info by month', async () => {
+    it('success get held info by month', async (): Promise<void> => {
         jest.spyOn(payoutApi, 'getHeldInfoByMonth').mockReturnValue(
             Promise.resolve(new HeldInfo(1, 2 , 3, 4, 5)),
         );
@@ -91,7 +92,7 @@ describe('actions', () => {
         expect(state.payoutModule.heldPercentage).toBe(getHeldPercentage(new Date()));
     });
 
-    it('get held info by month throws an error when api call fails', async () => {
+    it('get held info by month throws an error when api call fails', async (): Promise<void> => {
         jest.spyOn(payoutApi, 'getHeldInfoByMonth').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -103,7 +104,7 @@ describe('actions', () => {
         }
     });
 
-    it('success get held info by period', async () => {
+    it('success get held info by period', async (): Promise<void> => {
         jest.spyOn(payoutApi, 'getHeldInfoByPeriod').mockReturnValue(
             Promise.resolve(new HeldInfo(1, 2 , 3, 4, 5)),
         );
@@ -118,7 +119,7 @@ describe('actions', () => {
         expect(state.payoutModule.heldInfo.held).toBe(0);
     });
 
-    it('get held info by period throws an error when api call fails', async () => {
+    it('get held info by period throws an error when api call fails', async (): Promise<void> => {
         jest.spyOn(payoutApi, 'getHeldInfoByPeriod').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -130,7 +131,7 @@ describe('actions', () => {
         }
     });
 
-    it('success get total', async () => {
+    it('success get total', async (): Promise<void> => {
         jest.spyOn(payoutApi, 'getTotal').mockReturnValue(
             Promise.resolve(new TotalPayoutInfo(10, 20, 5)),
         );
@@ -142,7 +143,7 @@ describe('actions', () => {
         expect(state.payoutModule.currentMonthEarnings).toBe(0);
     });
 
-    it('get total throws an error when api call fails', async () => {
+    it('get total throws an error when api call fails', async (): Promise<void> => {
         jest.spyOn(payoutApi, 'getTotal').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -155,7 +156,7 @@ describe('actions', () => {
         }
     });
 
-    it('success sets period range', async () => {
+    it('success sets period range', async (): Promise<void> => {
         await store.dispatch(
             PAYOUT_ACTIONS.SET_PERIODS_RANGE,
             new PayoutInfoRange(
@@ -169,17 +170,53 @@ describe('actions', () => {
     });
 });
 
-describe('utils functions', () => {
-    it('get correct help percentage', () => {
-        const nowTime = new Date().getTime();
-        const testDifferencesInMilliseconds: number[] = [5e9, 1.4e10, 2.3e10, 4e10];
+describe('utils functions', (): void => {
+    const _Date = Date;
+
+    // TODO: investigate reset mocks in config
+    beforeEach(() => {
+        jest.resetAllMocks();
+    });
+
+    afterEach(() => {
+        global.Date = _Date;
+    });
+
+    it('get correct held percentage', (): void => {
+        const testDates: Date[] = [
+            new Date(Date.UTC(2020, 0, 30)),
+            new Date(Date.UTC(2019, 10, 29)),
+            new Date(Date.UTC(2019, 7, 24)),
+            new Date(Date.UTC(2018, 1, 24)),
+        ];
         const expectedHeldPercentages: number[] = [75, 50, 25, 0];
 
-        for (let i = 0; i < testDifferencesInMilliseconds.length; i++) {
-            const date = new Date(nowTime - testDifferencesInMilliseconds[i]);
-            const heldPercentage = getHeldPercentage(date);
+        const mockedDate = new Date(1580522290000); // Sat Feb 01 2020
+        global.Date = jest.fn(() => mockedDate);
+
+        for (let i = 0; i < testDates.length; i++) {
+            const heldPercentage = getHeldPercentage(testDates[i]);
 
             expect(heldPercentage).toBe(expectedHeldPercentages[i]);
+        }
+    });
+
+    it('get correct months difference', (): void => {
+        const testDates: Date[] = [
+            new Date(Date.UTC(2020, 0, 30)),
+            new Date(Date.UTC(2019, 10, 29)),
+            new Date(Date.UTC(2019, 7, 24)),
+            new Date(Date.UTC(2018, 1, 24)),
+        ];
+        const expectedMonthsCount: number[] = [2, 4, 7, 25];
+
+        const mockedDate = new Date(1580522290000); // Sat Feb 01 2020
+        global.Date = jest.fn(() => mockedDate);
+
+        for (let i = 0; i < testDates.length; i++) {
+            const heldPercentage = getMonthsBeforeNow(testDates[i]);
+
+            expect(heldPercentage).toBe(expectedMonthsCount[i]);
         }
     });
 });

@@ -283,23 +283,8 @@ describe('actions', () => {
 
 describe('getters', () => {
     it('getter monthsOnNetwork returns correct value',  () => {
-        const dashboardInfo = new Dashboard(
-            '1',
-            '2',
-            [
-                new SatelliteInfo('3', 'url1', null, null),
-                new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
-            ],
-            new DiskSpaceInfo(99, 100, 4),
-            new BandwidthInfo(50),
-            new Date(),
-            new Date(2019, 3, 1),
-            '0.1.1',
-            '0.2.2',
-            false,
-        );
-        const now = new Date();
-        const testJoinAt = new Date(now.getTime() - 1000000);
+        const _Date = Date;
+        const testJoinAt = new Date(Date.UTC(2020, 0, 30));
 
         const satelliteInfo = new Satellite(
             '3',
@@ -316,15 +301,39 @@ describe('getters', () => {
             testJoinAt,
         );
 
+        const firstTestDate = new Date(2020, 1, 1);
+        const secondTestDate = new Date(Date.UTC(2019, 10, 29));
+
+        const mockedDate = new Date(1580522290000);
+        global.Date = jest.fn(() => mockedDate); // Sat Feb 01 2020
+
+        const dashboardInfo = new Dashboard(
+            '1',
+            '2',
+            [
+                new SatelliteInfo('3', 'url1', null, null),
+                new SatelliteInfo('4', 'url2', firstTestDate, new Date(2020, 0, 1)),
+            ],
+            new DiskSpaceInfo(99, 100, 4),
+            new BandwidthInfo(50),
+            new Date(),
+            firstTestDate,
+            '0.1.1',
+            '0.2.2',
+            false,
+        );
+
         store.commit(NODE_MUTATIONS.POPULATE_STORE, dashboardInfo);
         store.commit(NODE_MUTATIONS.SELECT_SATELLITE, satelliteInfo);
 
-        expect(store.getters.monthsOnNetwork).toBe(1);
+        expect(store.getters.monthsOnNetwork).toBe(2);
 
-        satelliteInfo.joinDate = new Date(testJoinAt.getTime() - 9e9);
+        satelliteInfo.joinDate = secondTestDate;
 
         store.commit(NODE_MUTATIONS.SELECT_SATELLITE, satelliteInfo);
 
         expect(store.getters.monthsOnNetwork).toBe(4);
+
+        global.Date = _Date;
     });
 });

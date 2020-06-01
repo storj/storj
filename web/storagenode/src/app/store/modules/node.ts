@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { Duration, millisecondsInSecond, secondsInMinute } from '@/app/utils/duration';
+import { getMonthsBeforeNow } from '@/app/utils/payout';
 import { SNOApi } from '@/storagenode/api/storagenode';
 import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
 import { BandwidthUsed, EgressUsed, IngressUsed, Satellite, Satellites, Stamp } from '@/storagenode/satellite';
@@ -155,11 +156,7 @@ export function makeNodeModule(api: SNOApi) {
         },
         getters: {
             monthsOnNetwork: (state): number => {
-                const now = new Date();
-                const secondsInMonthApproximately = 2628000;
-                const differenceInSeconds = (now.getTime() - state.selectedSatellite.joinDate.getTime()) / 1000;
-
-                return Math.ceil(differenceInSeconds / secondsInMonthApproximately);
+                return getMonthsBeforeNow(state.selectedSatellite.joinDate);
             },
         },
     };
