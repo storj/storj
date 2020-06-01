@@ -50,7 +50,7 @@ func TestGraphqlQuery(t *testing.T) {
 		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
 		require.NoError(t, err)
 
-		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, 0, 0)
+		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, 0, 0, 5*time.Minute)
 
 		// TODO maybe switch this test to testplanet to avoid defining config and Stripe service
 		pc := paymentsconfig.Config{

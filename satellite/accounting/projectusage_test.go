@@ -675,3 +675,79 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestProjectUsage_BandwidthCache(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		project := planet.Uplinks[0].Projects[0]
+		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
+
+		badwidthUsed := int64(42)
+
+		err := projectUsage.UpdateProjectBandwidthUsage(ctx, project.ID, badwidthUsed)
+		require.NoError(t, err)
+
+		// verify cache key creation.
+		fromCache, err := projectUsage.GetProjectBandwidthUsage(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, badwidthUsed, fromCache)
+
+		// verify cache key increment.
+		increment := int64(10)
+		err = projectUsage.UpdateProjectBandwidthUsage(ctx, project.ID, increment)
+		require.NoError(t, err)
+		fromCache, err = projectUsage.GetProjectBandwidthUsage(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, badwidthUsed+increment, fromCache)
+
+	})
+}
+
+func TestProjectUsage_BandwidthDownloadLimit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satDB := planet.Satellites[0].DB
+		acctDB := satDB.ProjectAccounting()
+
+		now := time.Now()
+		project := planet.Uplinks[0].Projects[0]
+
+		// set custom bandwidth limit for project 512 Kb
+		bandwidthLimit := 500 * memory.KiB
+		err := acctDB.UpdateProjectBandwidthLimit(ctx, project.ID, bandwidthLimit)
+		require.NoError(t, err)
+
+		dataSize := 100 * memory.KiB
+		data := testrand.Bytes(dataSize)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path1", data)
+		require.NoError(t, err)
+
+		// Let's calculate the maximum number of iterations
+		// Bandwidth limit: 512 Kb
+		// Pointer Segment size: 103.936 Kb
+		// (5 x 103.936) = 519.68
+		// We'll be able to download 5X before reach the limit.
+		for i := 0; i < 5; i++ {
+			_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
+			require.NoError(t, err)
+		}
+
+		// An extra download should return 'Exceeded Usage Limit' error
+		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+
+		// Simulate new billing cycle (newxt month)
+		planet.Satellites[0].API.Accounting.ProjectUsage.SetNow(func() time.Time {
+			return time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+
+		// Should not return an error since it's a new month
+		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
+		require.NoError(t, err)
+	})
+
+}

@@ -1956,6 +1956,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, err
 	}
 
+	// Update the current bandwidth cache value incrementing the SegmentSize.
+	err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfo.ProjectID, pointer.SegmentSize)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
 	segmentID, err := endpoint.packSegmentID(ctx, &pb.SatSegmentID{})
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())

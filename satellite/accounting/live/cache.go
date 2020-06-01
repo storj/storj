@@ -5,6 +5,7 @@ package live
 
 import (
 	"strings"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -21,7 +22,8 @@ var (
 
 // Config contains configurable values for the live accounting service.
 type Config struct {
-	StorageBackend string `help:"what to use for storing real-time accounting data"`
+	StorageBackend    string        `help:"what to use for storing real-time accounting data"`
+	BandwidthCacheTTL time.Duration `default:"5m" help:"bandwidth cache key time to live"`
 }
 
 // NewCache creates a new accounting.Cache instance using the type specified backend in

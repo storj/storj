@@ -194,6 +194,8 @@ type ProjectAccounting interface {
 // architecture: Database
 type Cache interface {
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error)
+	GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error)
+	UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration, now time.Time) error
 	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) error
 	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]int64, error)
 	Close() error

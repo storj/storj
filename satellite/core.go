@@ -249,6 +249,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.LiveAccounting.Cache,
 			config.Rollup.DefaultMaxUsage,
 			config.Rollup.DefaultMaxBandwidth,
+			config.LiveAccounting.BandwidthCacheTTL,
 		)
 	}
 

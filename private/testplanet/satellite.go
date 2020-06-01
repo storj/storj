@@ -532,7 +532,8 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				Interval: defaultInterval,
 			},
 			LiveAccounting: live.Config{
-				StorageBackend: "redis://" + redis.Addr() + "?db=0",
+				StorageBackend:    "redis://" + redis.Addr() + "?db=0",
+				BandwidthCacheTTL: 5 * time.Minute,
 			},
 			Mail: mailservice.Config{
 				SMTPServerAddress: "smtp.mail.test:587",

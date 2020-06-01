@@ -112,6 +112,13 @@ func (client *Client) IncrBy(ctx context.Context, key storage.Key, value int64) 
 	return err
 }
 
+// Eval evaluates a Lua 5.1 script on Redis Server.
+// This arguments can be accessed by Lua using the KEYS global variable
+// in the form of a one-based array (so KEYS[1], KEYS[2], ...).
+func (client *Client) Eval(ctx context.Context, script string, keys []string) (err error) {
+	return eval(ctx, client.db, script, keys)
+}
+
 // List returns either a list of keys for which boltdb has values or an error.
 func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -323,6 +330,15 @@ func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err er
 	err = cmdable.Del(key.String()).Err()
 	if err != nil && err != redis.TxFailedErr {
 		return Error.New("delete error: %v", err)
+	}
+	return errs.Wrap(err)
+}
+
+func eval(ctx context.Context, cmdable redis.Cmdable, script string, keys []string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = cmdable.Eval(script, keys, nil).Err()
+	if err != nil && err != redis.TxFailedErr {
+		return Error.New("eval error: %v", err)
 	}
 	return errs.Wrap(err)
 }
