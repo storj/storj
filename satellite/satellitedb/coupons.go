@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/lib/pq"
@@ -108,7 +109,7 @@ func (coupons *coupons) ListByUserID(ctx context.Context, userID uuid.UUID) (_ [
 	return couponsFromDbxSlice(dbxCoupons)
 }
 
-// ListByUserIDAndStatus returns all coupons of specified user and status.
+// ListByUserIDAndStatus returns all coupons of specified user and status. Results are ordered (asc) by expiration date.
 func (coupons *coupons) ListByUserIDAndStatus(ctx context.Context, userID uuid.UUID, status payments.CouponStatus) (_ []payments.Coupon, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
@@ -121,7 +122,18 @@ func (coupons *coupons) ListByUserIDAndStatus(ctx context.Context, userID uuid.U
 		return nil, err
 	}
 
-	return couponsFromDbxSlice(dbxCoupons)
+	result, err := couponsFromDbxSlice(dbxCoupons)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(result, func(i, k int) bool {
+		iDate := result[i].ExpirationDate()
+		kDate := result[k].ExpirationDate()
+		return iDate.Before(kDate)
+	})
+
+	return result, nil
 }
 
 // List returns all coupons with specified status.
