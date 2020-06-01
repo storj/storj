@@ -4,10 +4,12 @@
 package stripecoinpayments_test
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -396,6 +398,125 @@ func TestService_ApplyCouponsInTheOrder(t *testing.T) {
 		for _, coupon := range activeCoupons {
 			require.Greater(t, coupon.Duration, 3)
 			require.EqualValues(t, 24, coupon.Amount)
+		}
+	})
+}
+
+func TestService_CouponStatus(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		for i, tt := range []struct {
+			duration       int
+			amount         int64
+			egress         memory.Size
+			expectedStatus payments.CouponStatus
+		}{
+			{
+				duration:       2,   // expires one month after billed period
+				amount:         100, // $1.00
+				egress:         0,   // $0.00
+				expectedStatus: payments.CouponActive,
+			},
+			{
+				duration:       2,              // expires one month after billed period
+				amount:         100,            // $1.00
+				egress:         10 * memory.GB, // $0.45
+				expectedStatus: payments.CouponActive,
+			},
+			{
+				duration:       2,              // expires one month after billed period
+				amount:         10,             // $0.10
+				egress:         10 * memory.GB, // $0.45
+				expectedStatus: payments.CouponUsed,
+			},
+			{
+				duration:       1,   // the billed period is the last valid month
+				amount:         100, // $1.00
+				egress:         0,   // $0.00
+				expectedStatus: payments.CouponExpired,
+			},
+			{
+				duration:       1,              // the billed period is the last valid month
+				amount:         100,            // $1.00
+				egress:         10 * memory.GB, // $0.45
+				expectedStatus: payments.CouponExpired,
+			},
+			{
+				duration:       1,              // the billed period is the last valid month
+				amount:         10,             // $0.10
+				egress:         10 * memory.GB, // $0.45
+				expectedStatus: payments.CouponUsed,
+			},
+			{
+				duration:       0,   // expired before the billed period
+				amount:         100, // $1.00
+				egress:         0,   // $0.00
+				expectedStatus: payments.CouponExpired,
+			},
+			{
+				duration:       0,              // expired before the billed period
+				amount:         100,            // $1.00
+				egress:         10 * memory.GB, // $0.45
+				expectedStatus: payments.CouponExpired,
+			},
+			{
+				duration:       0,              // expired before the billed period
+				amount:         10,             // $0.10
+				egress:         10 * memory.GB, // $0.45
+				expectedStatus: payments.CouponExpired,
+			},
+		} {
+			errTag := fmt.Sprintf("%d. %+v", i, tt)
+
+			user, err := satellite.AddUser(ctx, "testuser"+strconv.Itoa(i), "test@test"+strconv.Itoa(i), 1)
+			require.NoError(t, err, errTag)
+
+			project, err := satellite.AddProject(ctx, user.ID, "testproject-"+strconv.Itoa(i))
+			require.NoError(t, err, errTag)
+
+			// Delete any automatically added coupons
+			coupons, err := satellite.API.Payments.Accounts.Coupons().ListByUserID(ctx, user.ID)
+			require.NoError(t, err, errTag)
+			for _, coupon := range coupons {
+				err = satellite.DB.StripeCoinPayments().Coupons().Delete(ctx, coupon.ID)
+				require.NoError(t, err, errTag)
+			}
+
+			// create a new coupon
+			_, err = satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.Coupon{
+				ID:       testrand.UUID(),
+				UserID:   user.ID,
+				Amount:   tt.amount,
+				Duration: tt.duration,
+			})
+			require.NoError(t, err, errTag)
+
+			// pick a specific date so that it doesn't fail if it's the last day of the month
+			// keep month + 1 because user needs to be created before calculation
+			period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
+			// generate egress
+			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
+				pb.PieceAction_GET, tt.egress.Int64(), period)
+			require.NoError(t, err, errTag)
+
+			satellite.API.Payments.Service.SetNow(func() time.Time {
+				return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+			})
+
+			err = satellite.API.Payments.Service.PrepareInvoiceProjectRecords(ctx, period)
+			require.NoError(t, err, errTag)
+
+			err = satellite.API.Payments.Service.InvoiceApplyCoupons(ctx, period)
+			require.NoError(t, err, errTag)
+
+			coupons, err = satellite.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
+			require.NoError(t, err, errTag)
+			require.Len(t, coupons, 1, errTag)
+			assert.Equal(t, tt.expectedStatus, coupons[0].Status, errTag)
 		}
 	})
 }

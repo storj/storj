@@ -421,10 +421,6 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 
 		allRecords = append(allRecords, records...)
 
-		if leftToCharge == 0 {
-			continue
-		}
-
 		coupons, err := service.db.Coupons().ListByUserIDAndStatus(ctx, customer.UserID, payments.CouponActive)
 		if err != nil {
 			return err
@@ -471,8 +467,13 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 				})
 
 				leftToCharge -= amountToChargeFromCoupon
-				if leftToCharge == 0 {
-					break
+			}
+
+			if amountToChargeFromCoupon < remaining && end.Equal(coupon.ExpirationDate()) {
+				// the coupon was not fully spent, but this is the last month
+				// it is valid for, so mark it as expired in database
+				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
+					return err
 				}
 			}
 		}
