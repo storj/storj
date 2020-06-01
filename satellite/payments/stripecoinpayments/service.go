@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -429,8 +430,13 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 			return err
 		}
 
+		sort.Slice(coupons, func(i, k int) bool {
+			iDate := coupons[i].ExpirationDate()
+			kDate := coupons[k].ExpirationDate()
+			return iDate.Before(kDate)
+		})
+
 		// Apply any promotional credits (a.k.a. coupons) on the remainder.
-		// TODO: if multiple coupons are available apply them in order of expiration.
 		for _, coupon := range coupons {
 			if coupon.Status == payments.CouponExpired {
 				// this coupon has already been marked as expired.
@@ -775,7 +781,6 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 		Description: stripe.String(coupon.Description),
 	}
 
-	projectItem.AddMetadata("projectID", coupon.ProjectID.String())
 	projectItem.AddMetadata("couponID", coupon.ID.String())
 
 	_, err = service.stripeClient.InvoiceItems().New(projectItem)

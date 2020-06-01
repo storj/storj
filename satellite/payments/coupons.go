@@ -38,7 +38,6 @@ type Coupons interface {
 type Coupon struct {
 	ID          uuid.UUID    `json:"id"`
 	UserID      uuid.UUID    `json:"userId"`
-	ProjectID   uuid.UUID    `json:"projectId"`
 	Amount      int64        `json:"amount"`   // Amount is stored in cents.
 	Duration    int          `json:"duration"` // Duration is stored in number ob billing periods.
 	Description string       `json:"description"`

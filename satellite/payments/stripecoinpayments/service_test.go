@@ -320,3 +320,82 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 		require.Equal(t, 0, len(couponsPage.Usages))
 	})
 }
+
+func TestService_ApplyCouponsInTheOrder(t *testing.T) {
+	// apply coupons in the order of their expiration date
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.CouponValue = 24
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		paymentsAPI := satellite.API.Payments
+
+		// pick a specific date so that it doesn't fail if it's the last day of the month
+		// keep month + 1 because user needs to be created before calculation
+		period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
+		paymentsAPI.Service.SetNow(func() time.Time {
+			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+
+		user, err := satellite.AddUser(ctx, "testuser", "user@test", 5)
+		require.NoError(t, err)
+
+		project, err := satellite.AddProject(ctx, user.ID, "testproject")
+		require.NoError(t, err)
+
+		additionalCoupons := 3
+		// we will have coupons with duration 5, 4, 3 and 2 from coupon create with AddUser
+		for i := 0; i < additionalCoupons; i++ {
+			_, err = satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.Coupon{
+				ID:       testrand.UUID(),
+				UserID:   user.ID,
+				Amount:   24,
+				Duration: additionalCoupons - i + 2,
+				Status:   payments.CouponActive,
+				Type:     payments.CouponTypePromotional,
+			})
+			require.NoError(t, err)
+		}
+
+		{
+			// generate egress - 48 cents
+			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
+				pb.PieceAction_GET, 10*memory.GiB.Int64(), period)
+			require.NoError(t, err)
+		}
+
+		err = paymentsAPI.Service.PrepareInvoiceProjectRecords(ctx, period)
+		require.NoError(t, err)
+
+		// we should have usages for 2 coupons for which left to charge will be 0
+		couponsPage, err := satellite.DB.StripeCoinPayments().Coupons().ListUnapplied(ctx, 0, 40, start)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(couponsPage.Usages))
+
+		err = paymentsAPI.Service.InvoiceApplyCoupons(ctx, period)
+		require.NoError(t, err)
+
+		usedCoupons, err := satellite.DB.StripeCoinPayments().Coupons().ListByUserIDAndStatus(ctx, user.ID, payments.CouponUsed)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(usedCoupons))
+		// coupons with duration 2 and 3 should be used
+		for _, coupon := range usedCoupons {
+			require.Less(t, coupon.Duration, 4)
+		}
+
+		activeCoupons, err := satellite.DB.StripeCoinPayments().Coupons().ListByUserIDAndStatus(ctx, user.ID, payments.CouponActive)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(activeCoupons))
+		// coupons with duration 4 and 5 should be NOT used
+		for _, coupon := range activeCoupons {
+			require.Greater(t, coupon.Duration, 3)
+			require.EqualValues(t, 24, coupon.Amount)
+		}
+	})
+}
