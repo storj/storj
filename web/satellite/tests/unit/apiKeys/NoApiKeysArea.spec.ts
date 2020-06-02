@@ -5,7 +5,7 @@ import NoApiKeysArea from '@/components/apiKeys/NoApiKeysArea.vue';
 
 import { shallowMount } from '@vue/test-utils';
 
-describe('NoApiKeysArea.vue', () => {
+describe('NoApiKeysArea.vue', (): void => {
     it('renders correctly', (): void => {
         const wrapper = shallowMount(NoApiKeysArea);
 

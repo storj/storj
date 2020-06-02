@@ -31,11 +31,11 @@ import AccountSettingsIcon from '@/../static/images/header/accountSettings.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
+import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import {
-    API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     NOTIFICATION_ACTIONS,
     PM_ACTIONS,

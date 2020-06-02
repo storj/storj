@@ -31,12 +31,12 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import ProjectSelectionIcon from '@/../static/images/header/projectSelection.svg';
 
+import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import {
-    API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';

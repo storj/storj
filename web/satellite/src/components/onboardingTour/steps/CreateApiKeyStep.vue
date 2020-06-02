@@ -81,8 +81,8 @@ import VButton from '@/components/common/VButton.vue';
 
 import InfoImage from '@/../static/images/onboardingTour/info.svg';
 
+import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { ApiKey } from '@/types/apiKeys';
-import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AddingApiKeyState } from '@/utils/constants/onboardingTourEnums';
 

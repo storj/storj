@@ -41,6 +41,7 @@ import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
+import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -50,7 +51,6 @@ import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { Size } from '@/utils/bytesSize';
 import {
-    API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
