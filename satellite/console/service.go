@@ -331,7 +331,7 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 	for _, credit := range credits {
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
-				Description: "10% bonus for deposit made in STORJ",
+				Description: "10% Bonus for STORJ Token Deposit",
 				Amount:      credit.Amount,
 				Status:      "Added to balance",
 				Start:       credit.Created,
@@ -348,7 +348,7 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 	for _, bonus := range bonuses {
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
-				Description: fmt.Sprintf("%d%% bonus for deposit made in STORJ", bonus.Percentage),
+				Description: fmt.Sprintf("%d%% Bonus for STORJ Token Deposit", bonus.Percentage),
 				Amount:      bonus.AmountCents,
 				Status:      "Added to balance",
 				Start:       bonus.CreatedAt,
