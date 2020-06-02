@@ -1957,6 +1957,9 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	segmentID, err := endpoint.packSegmentID(ctx, &pb.SatSegmentID{})
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
 
 	var encryptedKeyNonce storj.Nonce
 	var encryptedKey []byte
