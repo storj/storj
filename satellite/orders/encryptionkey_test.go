@@ -1,0 +1,137 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package orders_test
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"storj.io/common/storj"
+	"storj.io/storj/satellite/orders"
+)
+
+func TestEncryptionKey_Set_Valid(t *testing.T) {
+	type Test struct {
+		Hex string
+		Key orders.EncryptionKey
+	}
+
+	tests := []Test{
+		{
+			Hex: `0100000000000000=0100000000000000000000000000000000000000000000000000000000000000`,
+			Key: orders.EncryptionKey{
+				ID:  orders.EncryptionKeyID{0x01},
+				Key: storj.Key{0x01},
+			},
+		},
+		{
+			Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF`,
+			Key: orders.EncryptionKey{
+				ID: orders.EncryptionKeyID{0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0xFF},
+				Key: storj.Key{
+					0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+					0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+					0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+					0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0xFF,
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		var got orders.EncryptionKey
+
+		err := got.Set(test.Hex)
+		assert.NoError(t, err, test.Hex)
+		assert.Equal(t, test.Key, got, test.Hex)
+	}
+}
+
+func TestEncryptionKey_Set_Invalid(t *testing.T) {
+	type Test struct {
+		Hex string
+	}
+
+	tests := []Test{
+		{Hex: ``},
+		{Hex: `=`},
+		{Hex: `01=`},
+		{Hex: `=01`},
+		{Hex: `1=1`},
+
+		{Hex: `=1122334455667788112233445566778811223344556677881122334455667788`},
+		{Hex: `112233445566778=1122334455667788112233445566778811223344556677881122334455667788`},
+
+		{Hex: `1122334455667788=`},
+		{Hex: `1122334455667788=112233445566778811223344556677881122334455667788112233445566778`},
+
+		{Hex: `11223344556677QQ=11223344556677881122334455667788112233445566778811223344556677QQ`},
+	}
+
+	for _, test := range tests {
+		var got orders.EncryptionKey
+
+		err := got.Set(test.Hex)
+		assert.Error(t, err, test.Hex)
+	}
+}
+
+func TestEncryptionKeys_Set_Valid(t *testing.T) {
+	var keys orders.EncryptionKeys
+
+	err := keys.Set(`11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,0100000000000000=0100000000000000000000000000000000000000000000000000000000000000`)
+	require.NoError(t, err)
+
+	first := orders.EncryptionKey{
+		ID: orders.EncryptionKeyID{0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0xFF},
+		Key: storj.Key{
+			0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+			0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+			0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+			0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0xFF,
+		},
+	}
+	second := orders.EncryptionKey{
+		ID:  orders.EncryptionKeyID{0x01},
+		Key: storj.Key{0x01},
+	}
+
+	assert.Equal(t, first, keys.Default)
+	assert.EqualValues(t, []orders.EncryptionKey{first, second}, keys.List)
+
+	assert.Equal(t, first.Key, keys.KeyByID[first.ID])
+	assert.Equal(t, second.Key, keys.KeyByID[second.ID])
+}
+
+func TestEncryptionKeys_Set_Invalid(t *testing.T) {
+	type Test struct {
+		Hex string
+	}
+
+	tests := []Test{
+		{Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF`},
+		{Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,`},
+		{Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,=`},
+		{Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,01=`},
+		{Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,=01`},
+		{Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,1=1`},
+
+		{Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,=1122334455667788112233445566778811223344556677881122334455667788`},
+		{Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,112233445566778=1122334455667788112233445566778811223344556677881122334455667788`},
+
+		{Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,1122334455667788=`},
+		{Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,1122334455667788=112233445566778811223344556677881122334455667788112233445566778`},
+
+		{Hex: `11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF,11223344556677QQ=11223344556677881122334455667788112233445566778811223344556677QQ`},
+	}
+
+	for _, test := range tests {
+		var got orders.EncryptionKeys
+
+		err := got.Set(test.Hex)
+		assert.Error(t, err, test.Hex)
+	}
+}
