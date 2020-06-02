@@ -82,7 +82,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { validatePassword } from '@/utils/validation';
+import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
@@ -142,7 +142,7 @@ export default class ChangePasswordPopup extends Vue {
             hasError = true;
         }
 
-        if (!validatePassword(this.newPassword)) {
+        if (!Validator.password(this.newPassword)) {
             this.newPasswordError = 'Invalid password. Use 6 or more characters';
             hasError = true;
         }

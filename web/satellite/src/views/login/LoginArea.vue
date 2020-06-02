@@ -16,7 +16,7 @@ import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AppState } from '@/utils/constants/appStateEnum';
-import { validateEmail, validatePassword } from '@/utils/validation';
+import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
@@ -133,12 +133,12 @@ export default class Login extends Vue {
     private validateFields(): boolean {
         let isNoErrors = true;
 
-        if (!validateEmail(this.email.trim())) {
+        if (!Validator.email(this.email.trim())) {
             this.emailError = 'Invalid Email';
             isNoErrors = false;
         }
 
-        if (!validatePassword(this.password)) {
+        if (!Validator.password(this.password)) {
             this.passwordError = 'Invalid Password';
             isNoErrors = false;
         }

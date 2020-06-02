@@ -86,7 +86,7 @@ import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
-import { validateEmail } from '@/utils/validation';
+import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
@@ -125,7 +125,7 @@ export default class AddUserPopup extends Vue {
 
         for (let i = 0; i < length; i++) {
             const element = this.inputs[i];
-            const isEmail = validateEmail(element.value);
+            const isEmail = Validator.email(element.value);
 
             if (isEmail) {
                 emailArray.push(element.value);

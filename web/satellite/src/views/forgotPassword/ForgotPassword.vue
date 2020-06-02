@@ -13,7 +13,7 @@ import LogoIcon from '@/../static/images/Logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { validateEmail } from '@/utils/validation';
+import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
@@ -90,7 +90,7 @@ export default class ForgotPassword extends Vue {
     }
 
     private validateFields(): boolean {
-        const isEmailValid = validateEmail(this.email.trim());
+        const isEmailValid = Validator.email(this.email.trim());
 
         if (!isEmailValid) {
             this.emailError = 'Invalid Email';

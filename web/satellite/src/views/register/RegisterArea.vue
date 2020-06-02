@@ -20,7 +20,7 @@ import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
-import { validateEmail, validatePassword } from '@/utils/validation';
+import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
@@ -212,12 +212,12 @@ export default class RegisterArea extends Vue {
             isNoErrors = false;
         }
 
-        if (!validateEmail(this.user.email.trim())) {
+        if (!Validator.email(this.user.email.trim())) {
             this.emailError = 'Invalid Email';
             isNoErrors = false;
         }
 
-        if (!validatePassword(this.password)) {
+        if (!Validator.password(this.password)) {
             this.passwordError = 'Invalid Password';
             isNoErrors = false;
         }
