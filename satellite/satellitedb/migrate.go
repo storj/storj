@@ -1143,6 +1143,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						AND period < '2020-03'
 				`},
 			},
+			{
+				DB:          db.DB,
+				Description: "drop project_id column from coupon table",
+				Version:     113,
+				Action: migrate.SQL{
+					`ALTER TABLE coupons DROP COLUMN project_id;`,
+				},
+			},
 		},
 	}
 }

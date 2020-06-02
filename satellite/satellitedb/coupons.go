@@ -43,7 +43,6 @@ func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (_ p
 	cpx, err := coupons.db.Create_Coupon(
 		ctx,
 		dbx.Coupon_Id(id[:]),
-		dbx.Coupon_ProjectId([]byte{}),
 		dbx.Coupon_UserId(coupon.UserID[:]),
 		dbx.Coupon_Amount(coupon.Amount),
 		dbx.Coupon_Description(coupon.Description),
