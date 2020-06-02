@@ -3,7 +3,11 @@
 
 package filestore
 
-import "testing"
+import (
+	"fmt"
+	"os"
+	"testing"
+)
 
 func TestDiskInfoFromPath(t *testing.T) {
 	info, err := diskInfoFromPath(".")
@@ -18,4 +22,19 @@ func TestDiskInfoFromPath(t *testing.T) {
 	}
 
 	t.Logf("Got: %v %v", info.ID, info.AvailableSpace)
+}
+
+func BenchmarkDiskInfoFromPath(b *testing.B) {
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Run(fmt.Sprintf("dir=%q", homedir), func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_, err = diskInfoFromPath(homedir)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 }
