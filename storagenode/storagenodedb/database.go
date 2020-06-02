@@ -7,6 +7,7 @@ package storagenodedb
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/sqliteutil"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
@@ -316,8 +318,30 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 			schema.Indexes = nil
 		}
 
-		// get expected schema and expect it to match actual schema
+		// get expected schema
 		expectedSchema := Schema()[dbName]
+
+		// find extra indexes
+		var extraIdxs []*dbschema.Index
+		for _, idx := range schema.Indexes {
+			if _, exists := expectedSchema.FindIndex(idx.Name); exists {
+				continue
+			}
+
+			extraIdxs = append(extraIdxs, idx)
+		}
+		// drop index from schema if it is not unique to not fail preflight
+		for _, idx := range extraIdxs {
+			if !idx.Unique {
+				schema.DropIndex(idx.Name)
+			}
+		}
+		// warn that schema contains unexpected indexes
+		if len(extraIdxs) > 0 {
+			db.log.Warn(fmt.Sprintf("%s: schema contains unexpected indices %v", dbName, extraIdxs))
+		}
+
+		// expect expected schema to match actual schema
 		if diff := cmp.Diff(expectedSchema, schema); diff != "" {
 			return ErrPreflight.New("%s: expected schema does not match actual: %s", dbName, diff)
 		}

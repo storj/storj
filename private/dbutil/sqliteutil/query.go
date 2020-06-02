@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -15,8 +16,9 @@ import (
 )
 
 type definition struct {
-	name string
-	sql  string
+	name  string
+	table string
+	sql   string
 }
 
 // QuerySchema loads the schema from sqlite database.
@@ -29,7 +31,7 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 	// find tables and indexes
 	err := func() error {
 		rows, err := db.QueryContext(ctx, `
-			SELECT name, type, sql FROM sqlite_master WHERE sql NOT NULL AND name NOT LIKE 'sqlite_%'
+			SELECT name, tbl_name, type, sql FROM sqlite_master WHERE sql NOT NULL AND name NOT LIKE 'sqlite_%'
 		`)
 		if err != nil {
 			return errs.Wrap(err)
@@ -37,15 +39,15 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 		defer func() { err = errs.Combine(err, rows.Close()) }()
 
 		for rows.Next() {
-			var defName, defType, defSQL string
-			err := rows.Scan(&defName, &defType, &defSQL)
+			var defName, defTblName, defType, defSQL string
+			err := rows.Scan(&defName, &defTblName, &defType, &defSQL)
 			if err != nil {
 				return errs.Wrap(err)
 			}
 			if defType == "table" {
 				tableDefinitions = append(tableDefinitions, &definition{name: defName, sql: defSQL})
 			} else if defType == "index" {
-				indexDefinitions = append(indexDefinitions, &definition{name: defName, sql: defSQL})
+				indexDefinitions = append(indexDefinitions, &definition{name: defName, sql: defSQL, table: defTblName})
 			}
 		}
 
@@ -153,8 +155,10 @@ func discoverIndexes(ctx context.Context, db dbschema.Queryer, schema *dbschema.
 	// TODO improve indexes discovery
 	for _, definition := range indexDefinitions {
 		index := &dbschema.Index{
-			Name: definition.name,
+			Name:  definition.name,
+			Table: definition.table,
 		}
+
 		schema.Indexes = append(schema.Indexes, index)
 
 		indexRows, err := db.QueryContext(ctx, `PRAGMA index_info(`+definition.name+`)`)
@@ -163,24 +167,61 @@ func discoverIndexes(ctx context.Context, db dbschema.Queryer, schema *dbschema.
 		}
 		defer func() { err = errs.Combine(err, indexRows.Close()) }()
 
+		type indexInfo struct {
+			name  *string
+			seqno int
+			cid   int
+		}
+
+		var indexInfos []indexInfo
 		for indexRows.Next() {
-			var name *string
-			var seqno, cid int
-			err := indexRows.Scan(&seqno, &cid, &name)
+			var info indexInfo
+			err := indexRows.Scan(&info.seqno, &info.cid, &info.name)
 			if err != nil {
 				return errs.Wrap(err)
 			}
-			if name != nil {
-				index.Columns = append(index.Columns, *name)
-			} else {
-				matches := rxIndexExpr.FindStringSubmatch(definition.sql)
-				index.Columns = append(index.Columns, matches[1])
+			indexInfos = append(indexInfos, info)
+		}
+
+		sort.SliceStable(indexInfos, func(i, j int) bool {
+			return indexInfos[i].seqno < indexInfos[j].seqno
+		})
+
+		sqlDef := definition.sql
+
+		var parsedColumns []string
+		parseColumns := func() []string {
+			if parsedColumns != nil {
+				return parsedColumns
+			}
+
+			var base string
+			if matches := rxIndexExpr.FindStringSubmatchIndex(strings.ToUpper(sqlDef)); len(matches) > 0 {
+				base = sqlDef[matches[2]:matches[3]]
+			}
+
+			parsedColumns = strings.Split(base, ",")
+			return parsedColumns
+		}
+
+		for _, info := range indexInfos {
+			if info.name != nil {
+				index.Columns = append(index.Columns, *info.name)
+				continue
+			}
+
+			if info.cid == -1 {
+				index.Columns = append(index.Columns, "rowid")
+			} else if info.cid == -2 {
+				index.Columns = append(index.Columns, parseColumns()[info.seqno])
 			}
 		}
 
-		matches := rxIndexTable.FindStringSubmatch(definition.sql)
-		index.Table = strings.TrimSpace(matches[1])
-
+		// unique
+		if strings.Contains(definition.sql, "CREATE UNIQUE INDEX") {
+			index.Unique = true
+		}
+		// partial
 		if matches := rxIndexPartial.FindStringSubmatch(definition.sql); len(matches) > 0 {
 			index.Partial = strings.TrimSpace(matches[1])
 		}
@@ -191,9 +232,6 @@ func discoverIndexes(ctx context.Context, db dbschema.Queryer, schema *dbschema.
 var (
 	// matches UNIQUE (a,b)
 	rxUnique = regexp.MustCompile(`UNIQUE\s*\((.*?)\)`)
-
-	// matches ON (a,b)
-	rxIndexTable = regexp.MustCompile(`ON\s*([^(]*)\(`)
 
 	// matches ON table(expr)
 	rxIndexExpr = regexp.MustCompile(`ON\s*[^(]*\((.*)\)`)

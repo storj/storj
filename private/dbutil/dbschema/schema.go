@@ -136,7 +136,7 @@ func (schema *Schema) EnsureTable(tableName string) *Table {
 	return table
 }
 
-// DropTable removes the specified table
+// DropTable removes the specified table.
 func (schema *Schema) DropTable(tableName string) {
 	for i, table := range schema.Tables {
 		if table.Name == tableName {
@@ -156,12 +156,33 @@ func (schema *Schema) DropTable(tableName string) {
 	schema.Indexes = schema.Indexes[:j:j]
 }
 
+// FindIndex finds index in the schema.
+func (schema *Schema) FindIndex(name string) (*Index, bool) {
+	for _, idx := range schema.Indexes {
+		if idx.Name == name {
+			return idx, true
+		}
+	}
+
+	return nil, false
+}
+
+// DropIndex removes the specified index.
+func (schema *Schema) DropIndex(name string) {
+	for i, idx := range schema.Indexes {
+		if idx.Name == name {
+			schema.Indexes = append(schema.Indexes[:i], schema.Indexes[i+1:]...)
+			return
+		}
+	}
+}
+
 // AddColumn adds the column to the table.
 func (table *Table) AddColumn(column *Column) {
 	table.Columns = append(table.Columns, column)
 }
 
-// FindColumn finds a column in the table
+// FindColumn finds a column in the table.
 func (table *Table) FindColumn(columnName string) (*Column, bool) {
 	for _, column := range table.Columns {
 		if column.Name == columnName {
@@ -171,7 +192,7 @@ func (table *Table) FindColumn(columnName string) (*Column, bool) {
 	return nil, false
 }
 
-// ColumnNames returns column names
+// ColumnNames returns column names.
 func (table *Table) ColumnNames() []string {
 	columns := make([]string, len(table.Columns))
 	for i, column := range table.Columns {
@@ -180,7 +201,7 @@ func (table *Table) ColumnNames() []string {
 	return columns
 }
 
-// Sort sorts tables and indexes
+// Sort sorts tables and indexes.
 func (schema *Schema) Sort() {
 	sort.Slice(schema.Tables, func(i, k int) bool {
 		return schema.Tables[i].Name < schema.Tables[k].Name
@@ -200,7 +221,7 @@ func (schema *Schema) Sort() {
 	})
 }
 
-// Sort sorts columns, primary keys and unique
+// Sort sorts columns, primary keys and unique.
 func (table *Table) Sort() {
 	sort.Slice(table.Columns, func(i, k int) bool {
 		return table.Columns[i].Name < table.Columns[k].Name

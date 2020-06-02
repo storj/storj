@@ -310,7 +310,7 @@ func Schema() map[string]*dbschema.Schema {
 			},
 			Indexes: []*dbschema.Index{
 				&dbschema.Index{Name: "idx_order_archived_at", Table: "order_archive_", Columns: []string{"archived_at"}, Unique: false, Partial: ""},
-				&dbschema.Index{Name: "idx_orders", Table: "unsent_order", Columns: []string{"satellite_id", "serial_number"}, Unique: false, Partial: ""},
+				&dbschema.Index{Name: "idx_orders", Table: "unsent_order", Columns: []string{"satellite_id", "serial_number"}, Unique: true, Partial: ""},
 			},
 		},
 		"piece_expiration": &dbschema.Schema{
@@ -377,7 +377,7 @@ func Schema() map[string]*dbschema.Schema {
 				},
 			},
 			Indexes: []*dbschema.Index{
-				&dbschema.Index{Name: "idx_piece_space_used_satellite_id", Table: "piece_space_used", Columns: []string{"satellite_id"}, Unique: false, Partial: ""},
+				&dbschema.Index{Name: "idx_piece_space_used_satellite_id", Table: "piece_space_used", Columns: []string{"satellite_id"}, Unique: true, Partial: ""},
 			},
 		},
 		"pieceinfo": &dbschema.Schema{
@@ -436,7 +436,7 @@ func Schema() map[string]*dbschema.Schema {
 			},
 			Indexes: []*dbschema.Index{
 				&dbschema.Index{Name: "idx_pieceinfo__expiration", Table: "pieceinfo_", Columns: []string{"piece_expiration"}, Unique: false, Partial: "piece_expiration IS NOT NULL"},
-				&dbschema.Index{Name: "pk_pieceinfo_", Table: "pieceinfo_", Columns: []string{"satellite_id", "piece_id"}, Unique: false, Partial: ""},
+				&dbschema.Index{Name: "pk_pieceinfo_", Table: "pieceinfo_", Columns: []string{"satellite_id", "piece_id"}, Unique: true, Partial: ""},
 			},
 		},
 		"pricing": &dbschema.Schema{
