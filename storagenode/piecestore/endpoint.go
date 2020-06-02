@@ -219,17 +219,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	}
 	limit := message.Limit
 
-	status, err := endpoint.store.StorageStatus(ctx)
-	if err != nil {
-		return err
-	}
-
-	if status.DiskFree < limit.Limit {
-		return rpcstatus.Errorf(rpcstatus.Aborted, "not enough available disk space, have: %v, need: %v", status.DiskFree, limit.Limit)
-	}
-
-	// TODO: verify that we have have expected amount of storage before continuing
-
 	if limit.Action != pb.PieceAction_PUT && limit.Action != pb.PieceAction_PUT_REPAIR {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "expected put or put repair action got %v", limit.Action)
 	}
@@ -242,13 +231,21 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
-
 	// if availableSpace has fallen below ReportCapacityThreshold, report capacity to satellites
 	defer func() {
 		if availableSpace < endpoint.config.ReportCapacityThreshold.Int64() {
 			endpoint.monitor.NotifyLowDisk()
 		}
 	}()
+
+	// double verify that disk actually has sufficient capacity
+	status, err := endpoint.store.StorageStatus(ctx)
+	if err != nil {
+		return err
+	}
+	if status.DiskFree < limit.Limit {
+		return rpcstatus.Errorf(rpcstatus.Aborted, "not enough available disk space, have: %v, need: %v", status.DiskFree, limit.Limit)
+	}
 
 	var pieceWriter *pieces.Writer
 	defer func() {
