@@ -60,7 +60,7 @@ type Service struct {
 	trust  *trust.Pool
 }
 
-// NewService creates new instance of service
+// NewService creates new instance of service.
 func NewService(log *zap.Logger, db DB, reputationDB reputation.DB, dialer rpc.Dialer, trust *trust.Pool) *Service {
 	return &Service{
 		log:          log,
