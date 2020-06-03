@@ -60,6 +60,7 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment, numHea
 	if err != nil {
 		return false, err
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	if !rows.Next() {
 		// cockroach query does not return anything if the segment is already in the queue
@@ -70,7 +71,7 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment, numHea
 			return false, err
 		}
 	}
-	return alreadyInserted, err
+	return alreadyInserted, rows.Err()
 }
 
 func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err error) {
