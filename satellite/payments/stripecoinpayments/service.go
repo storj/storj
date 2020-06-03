@@ -451,7 +451,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 	var usages []CouponUsage
 	var creditsSpendings []CreditsSpending
 	for _, customer := range customers {
-		projects, err := service.projectsDB.GetByUserID(ctx, customer.UserID)
+		projects, err := service.projectsDB.GetOwn(ctx, customer.UserID)
 		if err != nil {
 			return err
 		}

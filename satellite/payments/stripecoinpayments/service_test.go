@@ -520,3 +520,55 @@ func TestService_CouponStatus(t *testing.T) {
 		}
 	})
 }
+
+func TestService_ProjectsWithMembers(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// pick a specific date so that it doesn't fail if it's the last day of the month
+		// keep month + 1 because user needs to be created before calculation
+		period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
+		numberOfUsers := 5
+		users := make([]*console.User, numberOfUsers)
+		projects := make([]*console.Project, numberOfUsers)
+		for i := 0; i < numberOfUsers; i++ {
+			var err error
+			users[i], err = satellite.AddUser(ctx, "testuser"+strconv.Itoa(i), "user@test"+strconv.Itoa(i), 1)
+			require.NoError(t, err)
+
+			projects[i], err = satellite.AddProject(ctx, users[i].ID, "testproject-"+strconv.Itoa(i))
+			require.NoError(t, err)
+		}
+
+		// all users are members in all projects
+		for _, project := range projects {
+			for _, user := range users {
+				if project.OwnerID != user.ID {
+					_, err := satellite.DB.Console().ProjectMembers().Insert(ctx, user.ID, project.ID)
+					require.NoError(t, err)
+				}
+			}
+		}
+
+		satellite.API.Payments.Service.SetNow(func() time.Time {
+			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+		err := satellite.API.Payments.Service.PrepareInvoiceProjectRecords(ctx, period)
+		require.NoError(t, err)
+
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 0, 0, 0, 0, 0, time.UTC)
+
+		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
+		require.NoError(t, err)
+		require.Equal(t, len(projects), len(recordsPage.Records))
+	})
+}
