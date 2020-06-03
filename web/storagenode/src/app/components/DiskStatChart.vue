@@ -54,13 +54,14 @@ export default class DiskStatChart extends Vue {
      */
     public get chartData(): DiskStatChartData {
         const diskSpace = this.$store.state.node.utilization.diskSpace;
+        const free = diskSpace.available - diskSpace.used - diskSpace.trash;
 
         return new DiskStatChartData([
             new DiskStatDataSet(
             '',
                 ['#D6D6D6', '#0059D0', '#8FA7C6'],
                 [
-                    diskSpace.available,
+                    free,
                     diskSpace.used,
                     diskSpace.trash,
                 ],
