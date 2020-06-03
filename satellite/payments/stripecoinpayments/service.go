@@ -418,14 +418,19 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 		return Error.New("allowed for past periods only")
 	}
 
+	var numberOfCustomers, numberOfRecords, numberOfCouponsUsages int
 	customersPage, err := service.db.Customers().List(ctx, 0, service.listingLimit, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	numberOfCustomers += len(customersPage.Customers)
 
-	if err = service.processCustomers(ctx, customersPage.Customers, start, end); err != nil {
+	records, usages, err := service.processCustomers(ctx, customersPage.Customers, start, end)
+	if err != nil {
 		return Error.Wrap(err)
 	}
+	numberOfRecords += records
+	numberOfCouponsUsages += usages
 
 	for customersPage.Next {
 		if err = ctx.Err(); err != nil {
@@ -437,34 +442,38 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 			return Error.Wrap(err)
 		}
 
-		if err = service.processCustomers(ctx, customersPage.Customers, start, end); err != nil {
+		records, usages, err := service.processCustomers(ctx, customersPage.Customers, start, end)
+		if err != nil {
 			return Error.Wrap(err)
 		}
+		numberOfRecords += records
+		numberOfCouponsUsages += usages
 	}
 
+	service.log.Info("Number of processed entries.", zap.Int("Customers", numberOfCustomers), zap.Int("Projects", numberOfRecords), zap.Int("Coupons Usages", numberOfCouponsUsages))
 	return nil
 }
 
-func (service *Service) processCustomers(ctx context.Context, customers []Customer, start, end time.Time) error {
+func (service *Service) processCustomers(ctx context.Context, customers []Customer, start, end time.Time) (int, int, error) {
 	var allRecords []CreateProjectRecord
 	var usages []CouponUsage
 	var creditsSpendings []CreditsSpending
 	for _, customer := range customers {
 		projects, err := service.projectsDB.GetOwn(ctx, customer.UserID)
 		if err != nil {
-			return err
+			return 0, 0, err
 		}
 
 		leftToCharge, records, err := service.createProjectRecords(ctx, customer.ID, projects, start, end)
 		if err != nil {
-			return err
+			return 0, 0, err
 		}
 
 		allRecords = append(allRecords, records...)
 
 		coupons, err := service.db.Coupons().ListByUserIDAndStatus(ctx, customer.UserID, payments.CouponActive)
 		if err != nil {
-			return err
+			return 0, 0, err
 		}
 
 		// Apply any promotional credits (a.k.a. coupons) on the remainder.
@@ -477,14 +486,14 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 			if end.After(coupon.ExpirationDate()) {
 				// this coupon is identified as expired for first time, mark it in the database
 				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
-					return err
+					return 0, 0, err
 				}
 				continue
 			}
 
 			alreadyChargedAmount, err := service.db.Coupons().TotalUsage(ctx, coupon.ID)
 			if err != nil {
-				return err
+				return 0, 0, err
 			}
 			remaining := coupon.Amount - alreadyChargedAmount
 
@@ -508,7 +517,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 				// the coupon was not fully spent, but this is the last month
 				// it is valid for, so mark it as expired in database
 				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
-					return err
+					return 0, 0, err
 				}
 			}
 		}
@@ -520,7 +529,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 		// Last, apply any credits from STORJ deposit bonuses on the remainder.
 		userBonuses, err := service.db.Credits().Balance(ctx, customer.UserID)
 		if err != nil {
-			return err
+			return 0, 0, err
 		}
 
 		if userBonuses > 0 {
@@ -531,7 +540,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 
 			creditSpendingID, err := uuid.New()
 			if err != nil {
-				return err
+				return 0, 0, err
 			}
 
 			if amountChargedFromBonuses > 0 {
@@ -546,7 +555,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 		}
 	}
 
-	return service.db.ProjectRecords().Create(ctx, allRecords, usages, creditsSpendings, start, end)
+	return len(allRecords), len(usages), service.db.ProjectRecords().Create(ctx, allRecords, usages, creditsSpendings, start, end)
 }
 
 // createProjectRecords creates invoice project record if none exists.
@@ -562,6 +571,7 @@ func (service *Service) createProjectRecords(ctx context.Context, customerID str
 
 		if err = service.db.ProjectRecords().Check(ctx, project.ID, start, end); err != nil {
 			if err == ErrProjectRecordExists {
+				service.log.Warn("Record for this project already exists.", zap.String("Customer ID", customerID), zap.String("Project ID", project.ID.String()))
 				continue
 			}
 
@@ -591,7 +601,7 @@ func (service *Service) createProjectRecords(ctx context.Context, customerID str
 		// If there is a Stripe coupon applied for the project owner, apply its
 		// discount first before applying other credits of this user. This
 		// avoids the issue with negative totals in invoices.
-		leftToCharge, err = service.discountedProjectUsagePrice(ctx, customerID, project, leftToCharge)
+		leftToCharge, err = service.discountedProjectUsagePrice(ctx, customerID, leftToCharge)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -662,6 +672,7 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
 		if err != nil {
 			if err == ErrNoCustomer {
+				service.log.Warn("Stripe customer does not exist for project owner.", zap.Stringer("Owner ID", proj.OwnerID), zap.Stringer("Project ID", proj.ID))
 				continue
 			}
 
@@ -776,6 +787,7 @@ func (service *Service) applyCoupons(ctx context.Context, usages []CouponUsage) 
 		customerID, err := service.db.Customers().GetCustomerID(ctx, coupon.UserID)
 		if err != nil {
 			if err == ErrNoCustomer {
+				service.log.Warn("Stripe customer does not exist for coupon owner.", zap.Stringer("User ID", coupon.UserID), zap.Stringer("Coupon ID", coupon.ID))
 				continue
 			}
 
@@ -1019,7 +1031,7 @@ func (service *Service) calculateProjectUsagePrice(egress int64, storage, object
 
 // discountedProjectUsagePrice reduces the project usage price with the discount applied for the Stripe customer.
 // The promotional coupons and bonus credits are not applied yet.
-func (service *Service) discountedProjectUsagePrice(ctx context.Context, customerID string, project console.Project, projectUsagePrice int64) (int64, error) {
+func (service *Service) discountedProjectUsagePrice(ctx context.Context, customerID string, projectUsagePrice int64) (int64, error) {
 	customer, err := service.stripeClient.Customers().Get(customerID, nil)
 	if err != nil {
 		return 0, Error.Wrap(err)
@@ -1040,6 +1052,8 @@ func (service *Service) discountedProjectUsagePrice(ctx context.Context, custome
 	}
 
 	if coupon.AmountOff > 0 {
+		service.log.Info("Applying Stripe discount.", zap.String("Customer ID", customerID), zap.Int64("AmountOff", coupon.AmountOff))
+
 		discounted := projectUsagePrice - coupon.AmountOff
 		if discounted < 0 {
 			return 0, nil
@@ -1048,6 +1062,8 @@ func (service *Service) discountedProjectUsagePrice(ctx context.Context, custome
 	}
 
 	if coupon.PercentOff > 0 {
+		service.log.Info("Applying Stripe discount.", zap.String("Customer ID", customerID), zap.Float64("PercentOff", coupon.PercentOff))
+
 		discount := int64(math.Round(float64(projectUsagePrice) * coupon.PercentOff / 100))
 		return projectUsagePrice - discount, nil
 	}
