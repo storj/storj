@@ -29,7 +29,7 @@ if [ ! -d ${main_cfg_dir}/uplink-old-api ]; then
     access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
     new_access=$(go run $update_access_script_path $(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_DIR) $access)
     old_sat_api_addr="127.0.0.1:30000"
-    uplink import --satellite-addr="$old_sat_api_addr" --config-dir="${main_cfg_dir}/uplink-old-api" "$new_access"
+    uplink import --satellite-address="$old_sat_api_addr" --config-dir="${main_cfg_dir}/uplink-old-api" "$new_access"
 fi
 
 echo -e "\nConfig directory for uplink:"

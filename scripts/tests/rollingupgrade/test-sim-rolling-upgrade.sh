@@ -110,7 +110,7 @@ install_sim(){
         rm -rf .build/gateway-tmp
         mkdir -p .build/gateway-tmp
         pushd .build/gateway-tmp
-            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@v1.0.0-rc.8
+            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest
         popd
     fi
 }

@@ -5,20 +5,24 @@ package cmd
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/pb"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 )
 
 var importCfg struct {
-	Overwrite bool `default:"false" help:"if true, allows an access to be overwritten" source:"flag"`
+	Overwrite        bool   `default:"false" help:"if true, allows an access to be overwritten" source:"flag"`
+	SatelliteAddress string `default:"" help:"updates satellite address in imported Access" hidden:"true"`
 
 	UplinkFlags
 }
@@ -77,12 +81,20 @@ func importMain(cmd *cobra.Command, args []string) (err error) {
 			overwritten = true
 		}
 
-		access, err := findAccess(args[0])
+		accessData, err := findAccess(args[0])
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
-		if err := saveConfig(process.SaveConfigWithOverride("access", access)); err != nil {
+		if importCfg.SatelliteAddress != "" {
+			newAccessData, err := updateSatelliteAddress(importCfg.SatelliteAddress, accessData)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			accessData = newAccessData
+		}
+
+		if err := saveConfig(process.SaveConfigWithOverride("access", accessData)); err != nil {
 			return err
 		}
 
@@ -111,6 +123,13 @@ func importMain(cmd *cobra.Command, args []string) (err error) {
 			return Error.Wrap(err)
 		}
 
+		if importCfg.SatelliteAddress != "" {
+			newAccessData, err := updateSatelliteAddress(importCfg.SatelliteAddress, accessData)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			accessData = newAccessData
+		}
 		accesses[name] = accessData
 		// There is no easy way currently to save off a "hidden" configurable into
 		// the config file without a larger refactoring. For now, just do a manual
@@ -203,4 +222,23 @@ func fileExists(path string) (bool, error) {
 		return false, err
 	}
 	return !stat.IsDir(), nil
+}
+
+func updateSatelliteAddress(satelliteAddr string, serializedAccess string) (string, error) {
+	data, version, err := base58.CheckDecode(serializedAccess)
+	if err != nil || version != 0 {
+		return "", errors.New("invalid access grant format")
+	}
+	p := new(pb.Scope)
+	if err := pb.Unmarshal(data, p); err != nil {
+		return "", err
+
+	}
+
+	p.SatelliteAddr = satelliteAddr
+	accessData, err := pb.Marshal(p)
+	if err != nil {
+		return "", err
+	}
+	return base58.CheckEncode(accessData, 0), nil
 }
