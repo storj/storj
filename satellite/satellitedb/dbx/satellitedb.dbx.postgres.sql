@@ -60,7 +60,6 @@ CREATE TABLE consumed_serials (
 );
 CREATE TABLE coupons (
 	id bytea NOT NULL,
-	project_id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	amount bigint NOT NULL,
 	description text NOT NULL,

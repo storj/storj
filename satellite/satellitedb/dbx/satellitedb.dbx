@@ -1166,7 +1166,6 @@ model coupon (
     key id
 
     field id               blob
-    field project_id       blob
     field user_id          blob
     field amount           int64
     field description      text
@@ -1187,12 +1186,6 @@ delete coupon (
 read one (
     select coupon
     where coupon.id = ?
-)
-read all (
-    select coupon
-    where coupon.project_id = ?
-    where coupon.status = 0
-    orderby desc coupon.created_at
 )
 read all (
     select coupon
