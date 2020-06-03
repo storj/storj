@@ -538,6 +538,11 @@ CREATE TABLE reset_password_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE revocations (
+	revoked bytea NOT NULL,
+	api_key_id bytea NOT NULL,
+	PRIMARY KEY ( revoked )
+);
 CREATE TABLE serial_numbers (
 	id serial NOT NULL,
 	serial_number bytea NOT NULL,
@@ -1051,6 +1056,11 @@ CREATE TABLE reset_password_tokens (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
+);
+CREATE TABLE revocations (
+	revoked bytea NOT NULL,
+	api_key_id bytea NOT NULL,
+	PRIMARY KEY ( revoked )
 );
 CREATE TABLE serial_numbers (
 	id serial NOT NULL,
@@ -5752,6 +5762,54 @@ func (f ResetPasswordToken_CreatedAt_Field) value() interface{} {
 
 func (ResetPasswordToken_CreatedAt_Field) _Column() string { return "created_at" }
 
+type Revocation struct {
+	Revoked  []byte
+	ApiKeyId []byte
+}
+
+func (Revocation) _Table() string { return "revocations" }
+
+type Revocation_Update_Fields struct {
+}
+
+type Revocation_Revoked_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Revocation_Revoked(v []byte) Revocation_Revoked_Field {
+	return Revocation_Revoked_Field{_set: true, _value: v}
+}
+
+func (f Revocation_Revoked_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Revocation_Revoked_Field) _Column() string { return "revoked" }
+
+type Revocation_ApiKeyId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Revocation_ApiKeyId(v []byte) Revocation_ApiKeyId_Field {
+	return Revocation_ApiKeyId_Field{_set: true, _value: v}
+}
+
+func (f Revocation_ApiKeyId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Revocation_ApiKeyId_Field) _Column() string { return "api_key_id" }
+
 type SerialNumber struct {
 	Id           int
 	SerialNumber []byte
@@ -9321,6 +9379,30 @@ func (obj *postgresImpl) CreateNoReturn_ConsumedSerial(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, __storage_node_id_val, __serial_number_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *postgresImpl) CreateNoReturn_Revocation(ctx context.Context,
+	revocation_revoked Revocation_Revoked_Field,
+	revocation_api_key_id Revocation_ApiKeyId_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__revoked_val := revocation_revoked.value()
+	__api_key_id_val := revocation_api_key_id.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO revocations ( revoked, api_key_id ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __revoked_val, __api_key_id_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -14567,6 +14649,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM revocations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -15464,6 +15556,30 @@ func (obj *cockroachImpl) CreateNoReturn_ConsumedSerial(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, __storage_node_id_val, __serial_number_val, __expires_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *cockroachImpl) CreateNoReturn_Revocation(ctx context.Context,
+	revocation_revoked Revocation_Revoked_Field,
+	revocation_api_key_id Revocation_ApiKeyId_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__revoked_val := revocation_revoked.value()
+	__api_key_id_val := revocation_api_key_id.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO revocations ( revoked, api_key_id ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __revoked_val, __api_key_id_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -20710,6 +20826,16 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM revocations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -21399,6 +21525,18 @@ func (rx *Rx) CreateNoReturn_PeerIdentity(ctx context.Context,
 		return
 	}
 	return tx.CreateNoReturn_PeerIdentity(ctx, peer_identity_node_id, peer_identity_leaf_serial_number, peer_identity_chain)
+
+}
+
+func (rx *Rx) CreateNoReturn_Revocation(ctx context.Context,
+	revocation_revoked Revocation_Revoked_Field,
+	revocation_api_key_id Revocation_ApiKeyId_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_Revocation(ctx, revocation_revoked, revocation_api_key_id)
 
 }
 
@@ -22971,6 +23109,11 @@ type Methods interface {
 		peer_identity_node_id PeerIdentity_NodeId_Field,
 		peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
 		peer_identity_chain PeerIdentity_Chain_Field) (
+		err error)
+
+	CreateNoReturn_Revocation(ctx context.Context,
+		revocation_revoked Revocation_Revoked_Field,
+		revocation_api_key_id Revocation_ApiKeyId_Field) (
 		err error)
 
 	CreateNoReturn_SerialNumber(ctx context.Context,

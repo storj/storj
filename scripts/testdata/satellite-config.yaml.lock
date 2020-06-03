@@ -136,6 +136,12 @@ contact.external-address: ""
 # satellite database api key expiration
 # database-options.api-keys-cache.expiration: 1m0s
 
+# macaroon revocation cache capacity
+# database-options.revocations-cache.capacity: 10000
+
+# macaroon revocation cache expiration
+# database-options.revocations-cache.expiration: 5m0s
+
 # how often to delete expired serial numbers
 # db-cleanup.serials-interval: 4h0m0s
 

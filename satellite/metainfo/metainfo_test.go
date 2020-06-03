@@ -35,6 +35,114 @@ import (
 	"storj.io/uplink/private/testuplink"
 )
 
+func TestRevokedMacaroon(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		// I want the api key for the single satellite in this test
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(client.Close)
+
+		// Sanity check: it should work before revoke
+		_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{
+			ListOpts: storj.BucketListOptions{
+				Cursor:    "",
+				Direction: storj.Forward,
+				Limit:     10,
+			},
+		})
+		require.NoError(t, err)
+
+		err = planet.Satellites[0].API.DB.Revocation().Revoke(ctx, apiKey.Tail(), []byte("apikey"))
+		require.NoError(t, err)
+
+		_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, _, err = client.ListObjects(ctx, metainfo.ListObjectsParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.CreateBucket(ctx, metainfo.CreateBucketParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.GetObject(ctx, metainfo.GetObjectParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, err = client.GetProjectInfo(ctx)
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+		satStreamID := &pb.SatStreamID{
+			CreationDate: time.Now(),
+		}
+		signedStreamID, err := signing.SignStreamID(ctx, signer, satStreamID)
+		require.NoError(t, err)
+
+		encodedStreamID, err := pb.Marshal(signedStreamID)
+		require.NoError(t, err)
+
+		err = client.CommitObject(ctx, metainfo.CommitObjectParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		err = client.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, _, _, err = client.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		err = client.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, _, err = client.ListSegments(ctx, metainfo.ListSegmentsParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		_, _, err = client.DownloadSegment(ctx, metainfo.DownloadSegmentParams{StreamID: encodedStreamID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		// these methods needs SegmentID
+
+		signedSegmentID, err := signing.SignSegmentID(ctx, signer, &pb.SatSegmentID{
+			StreamId:     satStreamID,
+			CreationDate: time.Now(),
+		})
+		require.NoError(t, err)
+
+		encodedSegmentID, err := pb.Marshal(signedSegmentID)
+		require.NoError(t, err)
+
+		segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+		require.NoError(t, err)
+
+		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{SegmentID: segmentID})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+	})
+}
+
 func TestInvalidAPIKey(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
@@ -61,9 +169,6 @@ func TestInvalidAPIKey(t *testing.T) {
 			_, _, err = client.ListObjects(ctx, metainfo.ListObjectsParams{})
 			assertInvalidArgument(t, err, false)
 
-			err = client.CommitObject(ctx, metainfo.CommitObjectParams{})
-			assertInvalidArgument(t, err, false)
-
 			_, err = client.CreateBucket(ctx, metainfo.CreateBucketParams{})
 			assertInvalidArgument(t, err, false)
 
@@ -71,9 +176,6 @@ func TestInvalidAPIKey(t *testing.T) {
 			assertInvalidArgument(t, err, false)
 
 			_, _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-			assertInvalidArgument(t, err, false)
-
-			err = client.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{})
 			assertInvalidArgument(t, err, false)
 
 			_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
@@ -99,6 +201,12 @@ func TestInvalidAPIKey(t *testing.T) {
 
 			streamID, err := storj.StreamIDFromBytes(encodedStreamID)
 			require.NoError(t, err)
+
+			err = client.CommitObject(ctx, metainfo.CommitObjectParams{StreamID: streamID})
+			assertInvalidArgument(t, err, false)
+
+			err = client.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{StreamID: streamID})
+			assertInvalidArgument(t, err, false)
 
 			_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: streamID})
 			assertInvalidArgument(t, err, false)

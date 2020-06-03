@@ -266,6 +266,11 @@ CREATE TABLE reset_password_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE revocations (
+	revoked bytea NOT NULL,
+	api_key_id bytea NOT NULL,
+	PRIMARY KEY ( revoked )
+);
 CREATE TABLE serial_numbers (
 	id serial NOT NULL,
 	serial_number bytea NOT NULL,

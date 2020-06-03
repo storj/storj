@@ -569,12 +569,20 @@ read scalar (
 	where  bucket_bandwidth_rollup.action = ?
 )
 
+model revocation (
+    key revoked
+    field revoked blob
+    field api_key_id blob
+)
+
+create revocation ( noreturn )
+
 model project_bandwidth_rollup (
 	key    project_id interval_month
 
 	field project_id       blob
 	field interval_month   date
-	field egress_allocated uint64 ( updatable )	
+	field egress_allocated uint64 ( updatable )
 )
 
 read scalar (

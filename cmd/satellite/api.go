@@ -31,7 +31,8 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
-		APIKeysLRUOptions: runCfg.APIKeysLRUOptions(),
+		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
+		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
 	})
 	if err != nil {
 		return errs.New("Error starting master database on satellite api: %+v", err)

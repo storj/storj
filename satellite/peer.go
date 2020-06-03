@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -96,6 +97,8 @@ type DB interface {
 	HeldAmount() heldamount.DB
 	// Compoensation tracks storage node compensation
 	Compensation() compensation.DB
+	// Revocation tracks revoked macaroons
+	Revocation() revocation.DB
 }
 
 // Config is the global config satellite

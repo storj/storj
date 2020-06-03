@@ -1161,6 +1161,18 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN under_review TIMESTAMP WITH TIME ZONE;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "add revocations database",
+				Version:     115,
+				Action: migrate.SQL{`
+					CREATE TABLE revocations (
+						revoked bytea NOT NULL,
+						api_key_id bytea NOT NULL,
+						PRIMARY KEY ( revoked )
+					);
+				`},
+			},
 		},
 	}
 }

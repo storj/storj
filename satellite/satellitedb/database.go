@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -48,11 +49,15 @@ type satelliteDB struct {
 
 	consoleDBOnce sync.Once
 	consoleDB     *ConsoleDB
+
+	revocationDBOnce sync.Once
+	revocationDB     *revocationDB
 }
 
 // Options includes options for how a satelliteDB runs
 type Options struct {
-	APIKeysLRUOptions cache.Options
+	APIKeysLRUOptions    cache.Options
+	RevocationLRUOptions cache.Options
 
 	// How many records to read in a single transaction when asked for all of the
 	// billable bandwidth from the reported serials table.
@@ -131,6 +136,18 @@ func (db *satelliteDB) ProjectAccounting() accounting.ProjectAccounting {
 // Irreparable returns database for storing segments that failed repair
 func (db *satelliteDB) Irreparable() irreparable.DB {
 	return &irreparableDB{db: db}
+}
+
+// Revocation returns the database to deal with macaroon revocation
+func (db *satelliteDB) Revocation() revocation.DB {
+	db.revocationDBOnce.Do(func() {
+		db.revocationDB = &revocationDB{
+			db:      db,
+			lru:     cache.New(db.opts.RevocationLRUOptions),
+			methods: db,
+		}
+	})
+	return db.revocationDB
 }
 
 // Console returns database for storing users, projects and api keys

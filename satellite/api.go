@@ -418,6 +418,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Accounting.ProjectUsage,
 			peer.DB.Console().Projects(),
 			signing.SignerFromFullIdentity(peer.Identity),
+			peer.DB.Revocation(),
 			config.Metainfo,
 		)
 		if err != nil {

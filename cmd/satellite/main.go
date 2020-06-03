@@ -46,6 +46,10 @@ type Satellite struct {
 			Expiration time.Duration `help:"satellite database api key expiration" default:"60s"`
 			Capacity   int           `help:"satellite database api key lru capacity" default:"1000"`
 		}
+		RevocationsCache struct {
+			Expiration time.Duration `help:"macaroon revocation cache expiration" default:"5m"`
+			Capacity   int           `help:"macaroon revocation cache capacity" default:"10000"`
+		}
 	}
 
 	satellite.Config
@@ -56,6 +60,14 @@ func (s *Satellite) APIKeysLRUOptions() cache.Options {
 	return cache.Options{
 		Expiration: s.DatabaseOptions.APIKeysCache.Expiration,
 		Capacity:   s.DatabaseOptions.APIKeysCache.Capacity,
+	}
+}
+
+// RevocationLRUOptions returns a cache.Options based on the Revocations LRU config
+func (s *Satellite) RevocationLRUOptions() cache.Options {
+	return cache.Options{
+		Expiration: s.DatabaseOptions.RevocationsCache.Expiration,
+		Capacity:   s.DatabaseOptions.RevocationsCache.Capacity,
 	}
 }
 
