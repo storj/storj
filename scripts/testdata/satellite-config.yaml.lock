@@ -611,7 +611,7 @@ server.private-address: 127.0.0.1:7778
 # tally.interval: 1h0m0s
 
 # address for jaeger agent
-# tracing.agent-addr: agent.tracing.datasci.storj.io
+# tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 
 # application name for tracing identification
 # tracing.app: satellite

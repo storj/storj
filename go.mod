@@ -42,7 +42,7 @@ require (
 	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
 	storj.io/common v0.0.0-20200519171747-3ff8acf78c46
 	storj.io/drpc v0.0.12
-	storj.io/monkit-jaeger v0.0.0-20200424180155-d5f5530ea079
-	storj.io/private v0.0.0-20200504130741-565a173f6d33
+	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
+	storj.io/private v0.0.0-20200527091855-082647005cf3
 	storj.io/uplink v1.0.6
 )
