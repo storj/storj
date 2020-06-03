@@ -105,7 +105,7 @@ func (s *sqlDB) Begin(ctx context.Context) (Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &sqlTx{tx: tx, useContext: s.useContext && s.useTxContext}, err
+	return &sqlTx{tx: leakCheckTx(tx), useContext: s.useContext && s.useTxContext}, err
 }
 
 func (s *sqlDB) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error) {
@@ -126,7 +126,7 @@ func (s *sqlDB) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, erro
 		return nil, err
 	}
 
-	return &sqlTx{tx: tx, useContext: s.useContext && s.useTxContext}, err
+	return &sqlTx{tx: leakCheckTx(tx), useContext: s.useContext && s.useTxContext}, err
 }
 
 func (s *sqlDB) Close() error {
@@ -146,7 +146,7 @@ func (s *sqlDB) Conn(ctx context.Context) (Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &sqlConn{conn: conn, useContext: s.useContext, useTxContext: s.useTxContext}, nil
+	return &sqlConn{conn: leakCheckConn(conn), useContext: s.useContext, useTxContext: s.useTxContext}, nil
 }
 
 func (s *sqlDB) Driver() driver.Driver {
@@ -185,7 +185,7 @@ func (s *sqlDB) Prepare(ctx context.Context, query string) (Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &sqlStmt{stmt: stmt, useContext: s.useContext}, nil
+	return &sqlStmt{stmt: leakCheckStmt(stmt), useContext: s.useContext}, nil
 }
 
 func (s *sqlDB) PrepareContext(ctx context.Context, query string) (Stmt, error) {
@@ -203,33 +203,38 @@ func (s *sqlDB) PrepareContext(ctx context.Context, query string) (Stmt, error) 
 			return nil, err
 		}
 	}
-	return &sqlStmt{stmt: stmt, useContext: s.useContext}, nil
+	return &sqlStmt{stmt: leakCheckStmt(stmt), useContext: s.useContext}, nil
 }
 
-func (s *sqlDB) Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+func (s *sqlDB) Query(ctx context.Context, query string, args ...interface{}) (rows *sql.Rows, err error) {
 	traces.Tag(ctx, traces.TagDB)
-	return s.db.Query(query, args...)
+	rows, err = s.db.Query(query, args...)
+	return leakCheckRows(rows), err
 }
 
-func (s *sqlDB) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	traces.Tag(ctx, traces.TagDB)
-	if !s.useContext {
-		return s.db.Query(query, args...)
-	}
-	return s.db.QueryContext(ctx, query, args...)
-}
-
-func (s *sqlDB) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	traces.Tag(ctx, traces.TagDB)
-	return s.db.QueryRow(query, args...)
-}
-
-func (s *sqlDB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+func (s *sqlDB) QueryContext(ctx context.Context, query string, args ...interface{}) (rows *sql.Rows, err error) {
 	traces.Tag(ctx, traces.TagDB)
 	if !s.useContext {
-		return s.db.QueryRow(query, args...)
+		rows, err = s.db.Query(query, args...)
+	} else {
+		rows, err = s.db.QueryContext(ctx, query, args...)
 	}
-	return s.db.QueryRowContext(ctx, query, args...)
+	return leakCheckRows(rows), err
+}
+
+func (s *sqlDB) QueryRow(ctx context.Context, query string, args ...interface{}) (row *sql.Row) {
+	traces.Tag(ctx, traces.TagDB)
+	return leakCheckRow(s.db.QueryRow(query, args...))
+}
+
+func (s *sqlDB) QueryRowContext(ctx context.Context, query string, args ...interface{}) (row *sql.Row) {
+	traces.Tag(ctx, traces.TagDB)
+	if !s.useContext {
+		row = s.db.QueryRow(query, args...)
+	} else {
+		row = s.db.QueryRowContext(ctx, query, args...)
+	}
+	return leakCheckRow(row)
 }
 
 func (s *sqlDB) SetConnMaxLifetime(d time.Duration) {
