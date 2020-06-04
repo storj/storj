@@ -18,7 +18,6 @@ require (
 	github.com/graphql-go/graphql v0.7.9
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
-	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
@@ -40,9 +39,9 @@ require (
 	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
-	storj.io/common v0.0.0-20200519171747-3ff8acf78c46
+	storj.io/common v0.0.0-20200601223809-7af8b7ee5d6c
 	storj.io/drpc v0.0.12
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
 	storj.io/private v0.0.0-20200527091855-082647005cf3
-	storj.io/uplink v1.0.6
+	storj.io/uplink v1.0.7
 )
