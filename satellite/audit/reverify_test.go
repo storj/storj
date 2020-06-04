@@ -1085,7 +1085,7 @@ func TestReverifySlowDownload(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
 				config.Audit.MinBytesPerSecond = 100 * memory.KiB
-				config.Audit.MinDownloadTimeout = 500 * time.Millisecond
+				config.Audit.MinDownloadTimeout = 1 * time.Second
 
 				config.Metainfo.RS.MinThreshold = 2
 				config.Metainfo.RS.RepairThreshold = 2
