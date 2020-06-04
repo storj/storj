@@ -268,6 +268,10 @@ old_api_pid=$!
 
 # Downloading every file uploaded in stage 1 from the network using the latest commit from master branch for each uplink version
 for ul_version in ${stage2_uplink_versions}; do
+    if [ "$ul_version" = "v1.6.3" ]; then
+        # TODO: skip v1.6.3 uplink since it doesn't support changing imported access satellite address
+        continue
+    fi
     echo "Stage 2 uplink version: ${ul_version}"
     src_ul_version_dir=$(version_dir ${ul_version})
     ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
