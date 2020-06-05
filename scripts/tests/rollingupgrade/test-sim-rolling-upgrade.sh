@@ -135,7 +135,9 @@ setup_stage(){
     then
         mv $dest_sat_cfg_dir/satellite $dest_sat_cfg_dir/old_satellite
     fi
+
     # ln binary and copy config.yaml for desired version
+    ln -f $(version_dir ${sat_version})/bin/storj-sim $test_dir/bin/storj-sim
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
@@ -221,6 +223,7 @@ for version in ${unique_versions}; do
         PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
         echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
         echo "Binary shasums:"
+        shasum ${bin_dir}/storj-sim
         shasum ${bin_dir}/satellite
         shasum ${bin_dir}/storagenode
         shasum ${bin_dir}/uplink
