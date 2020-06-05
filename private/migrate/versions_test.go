@@ -62,6 +62,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 	dbName := strings.ToLower(`versions_` + strings.Replace(t.Name(), "/", "_", -1))
 	defer func() { assert.NoError(t, dropTables(ctx, db, dbName, "users")) }()
 
+	/* #nosec G306 */ // This is a test besides the file contains just test data.
 	err := ioutil.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0644)
 	require.NoError(t, err)
 	m := migrate.Migration{
@@ -112,6 +113,8 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 	assert.Equal(t, dbVersion, 2)
 
 	var version int
+	/* #nosec G202 */ // This is a test besides the dbName value is generated in
+	// a controlled way
 	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, version)
@@ -200,6 +203,8 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 	assert.NoError(t, err)
 
 	var version int
+	/* #nosec G202 */ // This is a test besides the dbName value is generated in
+	// a controlled way
 	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, version)
@@ -250,6 +255,8 @@ func failedMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 	require.Error(t, err, "migration failed")
 
 	var version sql.NullInt64
+	/* #nosec G202 */ // This is a test besides the dbName value is generated in
+	// a controlled way
 	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, false, version.Valid)

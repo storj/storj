@@ -6,6 +6,7 @@ package dbschema
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -107,20 +108,27 @@ func QueryData(ctx context.Context, db Queryer, schema *Schema, quoteColumn func
 	data := &Data{}
 
 	for _, tableSchema := range schema.Tables {
+		if err := ValidateTableName(tableSchema.Name); err != nil {
+			return nil, err
+		}
+
 		columnNames := tableSchema.ColumnNames()
+		// quote column names
+		quotedColumns := make([]string, len(columnNames))
+		for i, columnName := range columnNames {
+			if err := ValidateColumnName(columnName); err != nil {
+				return nil, err
+			}
+			quotedColumns[i] = quoteColumn(columnName)
+		}
+
 		table := &TableData{
 			Name:    tableSchema.Name,
 			Columns: columnNames,
 		}
 		data.AddTable(table)
 
-		// quote column names
-		quotedColumns := make([]string, len(columnNames))
-		for i, columnName := range columnNames {
-			quotedColumns[i] = quoteColumn(columnName)
-		}
-
-		// build query for selecting all values
+		/* #nosec G202 */ // The columns names and table name are validated above
 		query := `SELECT ` + strings.Join(quotedColumns, ", ") + ` FROM ` + table.Name
 
 		err := func() (err error) {
@@ -157,4 +165,37 @@ func QueryData(ctx context.Context, db Queryer, schema *Schema, quoteColumn func
 
 	data.Sort()
 	return data, nil
+}
+
+var columnNameWhiteList = regexp.MustCompile(`^(?:[a-zA-Z0-9_](?:-[a-zA-Z0-9_]|[a-zA-Z0-9_])?)+$`)
+
+// ValidateColumnName checks column has at least 1 character and it's only
+// formed by lower and upper case letters, numbers, underscores or dashes where
+// dashes cannot be at the beginning of the end and not in a row.
+func ValidateColumnName(column string) error {
+	if !columnNameWhiteList.MatchString(column) {
+		return errs.New(
+			"forbidden column name, it can only contains letters, numbers, underscores and dashes not in a row. Got: %s",
+			column,
+		)
+	}
+
+	return nil
+}
+
+var tableNameWhiteList = regexp.MustCompile(`^(?:[a-zA-Z0-9_](?:-[a-zA-Z0-9_]|[a-zA-Z0-9_])?)+(?:\.(?:[a-zA-Z0-9_](?:-[a-zA-Z0-9_]|[a-zA-Z0-9_])?)+)?$`)
+
+// ValidateTableName checks table has at least 1 character and it's only
+// formed by lower and upper case letters, numbers, underscores or dashes where
+// dashes cannot be at the beginning of the end and not in a row.
+// One dot is allowed for scoping tables in a schema (e.g. public.my_table).
+func ValidateTableName(table string) error {
+	if !tableNameWhiteList.MatchString(table) {
+		return errs.New(
+			"forbidden table name, it can only contains letters, numbers, underscores and dashes not in a row. Got: %s",
+			table,
+		)
+	}
+
+	return nil
 }
