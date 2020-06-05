@@ -64,12 +64,12 @@ func restartService(ctx context.Context, service, binaryLocation, newVersionPath
 
 	// stop service if it's not stopped
 	if status.State != svc.Stopped && status.State != svc.StopPending {
-		if err = serviceControl(srvc, ctx, svc.Stop, svc.Stopped, 10*time.Second); err != nil {
+		if err = serviceControl(ctx, srvc, svc.Stop, svc.Stopped, 10*time.Second); err != nil {
 			return errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
 		}
 		// if it is stopping wait for it to complete
 	} else if status.State == svc.StopPending {
-		if err = serviceWaitForState(srvc, ctx, svc.Stopped, 10*time.Second); err != nil {
+		if err = serviceWaitForState(ctx, srvc, svc.Stopped, 10*time.Second); err != nil {
 			return errs.Combine(errs.Wrap(err), os.Remove(newVersionPath))
 		}
 	}
@@ -130,7 +130,7 @@ func openService(name string) (_ *mgr.Service, err error) {
 	return service, nil
 }
 
-func serviceControl(service *mgr.Service, ctx context.Context, cmd svc.Cmd, state svc.State, delay time.Duration) error {
+func serviceControl(ctx context.Context, service *mgr.Service, cmd svc.Cmd, state svc.State, delay time.Duration) error {
 	status, err := service.Control(cmd)
 	if err != nil {
 		return err
@@ -155,7 +155,7 @@ func serviceControl(service *mgr.Service, ctx context.Context, cmd svc.Cmd, stat
 	return nil
 }
 
-func serviceWaitForState(service *mgr.Service, ctx context.Context, state svc.State, delay time.Duration) error {
+func serviceWaitForState(ctx context.Context, service *mgr.Service, state svc.State, delay time.Duration) error {
 	status, err := service.Query()
 	if err != nil {
 		return err

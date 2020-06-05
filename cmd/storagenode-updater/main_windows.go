@@ -74,11 +74,11 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 			cancel()
 			_ = group.Wait() // process.Exec does not return an error
 			// After returning the Windows Service is stopped and the process terminates
-			return
+			return false, 0
 		default:
 			zap.L().Info("Unexpected control request.", zap.Uint32("Event Type", c.EventType))
 		}
 	}
 
-	return
+	return false, 0
 }
