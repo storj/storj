@@ -374,3 +374,8 @@ update-satellite-config-lock: ## Update the satellite config lock file
 		-u root:root \
 		golang:${GO_VERSION} \
 		/bin/bash -c "cd /storj/scripts; ./update-satellite-config-lock.sh"
+
+.PHONY: bump-dependencies
+bump-dependencies:
+	go get storj.io/common@master storj.io/private@master storj.io/uplink@master
+	go mod tidy
