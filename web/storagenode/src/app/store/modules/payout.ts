@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import {
+    HeldHistory,
     HeldInfo,
     PaymentInfoParameters,
     PayoutApi,
@@ -17,12 +18,14 @@ export const PAYOUT_MUTATIONS = {
     SET_RANGE: 'SET_RANGE',
     SET_TOTAL: 'SET_TOTAL',
     SET_HELD_PERCENT: 'SET_HELD_PERCENT',
+    SET_HELD_HISTORY: 'SET_HELD_HISTORY',
 };
 
 export const PAYOUT_ACTIONS = {
     GET_HELD_INFO: 'GET_HELD_INFO',
     SET_PERIODS_RANGE: 'SET_PERIODS_RANGE',
     GET_TOTAL: 'GET_TOTAL',
+    GET_HELD_HISTORY: 'GET_HELD_HISTORY',
 };
 
 export const BANDWIDTH_DOWNLOAD_PRICE_PER_TB = 2000;
@@ -51,6 +54,9 @@ export function makePayoutModule(api: PayoutApi) {
             },
             [PAYOUT_MUTATIONS.SET_HELD_PERCENT](state: PayoutState, heldPercentage: number): void {
                 state.heldPercentage = heldPercentage;
+            },
+            [PAYOUT_MUTATIONS.SET_HELD_HISTORY](state: PayoutState, heldHistory: HeldHistory): void {
+                state.heldHistory = heldHistory;
             },
         },
         actions: {
@@ -98,6 +104,11 @@ export function makePayoutModule(api: PayoutApi) {
             },
             [PAYOUT_ACTIONS.SET_PERIODS_RANGE]: function ({commit}: any, periodRange: PayoutInfoRange): void {
                 commit(PAYOUT_MUTATIONS.SET_RANGE, periodRange);
+            },
+            [PAYOUT_ACTIONS.GET_HELD_HISTORY]: async function ({commit}: any): Promise<void> {
+                const heldHistory = await api.getHeldHistory();
+
+                commit(PAYOUT_MUTATIONS.SET_HELD_HISTORY, heldHistory);
             },
         },
     };

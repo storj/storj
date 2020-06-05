@@ -23,7 +23,7 @@
     --page-number-color: #354049;
     --refresh-button-background-color: white;
     --refresh-button-border-color: #e8e8e8;
-    --estimation-table-header-color: #f9fafc;
+    --table-header-color: #f9fafc;
     --estimation-table-total-container-color: rgba(0, 117, 255, 0.05);
     --month-label-color: #535f77;
     --month-active-background-color: #f1f4f9;
@@ -42,6 +42,7 @@
     --egress-font-color: #2e5f46;
     --egress-tooltip-info-background-color: rgba(211, 242, 204, 0.3);
     --disk-stat-chart-text-color: #657284;
+    --expand-button-background-color: rgba(226, 236, 247, 0.45);
     --tooltip-background-path: url('../../static/images/tooltipBack.png');
     --tooltip-arrow-path: url('../../static/images/tooltipArrow.png');
     --info-image-arrow-middle-path: url('../../static/images/Message.png');
@@ -71,7 +72,7 @@
     --page-number-color: #354049;
     --refresh-button-background-color: #494c57;
     --refresh-button-border-color: #212329;
-    --estimation-table-header-color: #3e414d;
+    --table-header-color: #3e414d;
     --estimation-table-total-container-color: #5e6c80;
     --month-label-color: #4f97f7;
     --month-active-background-color: #3f4352;
@@ -90,6 +91,7 @@
     --egress-font-color: white;
     --egress-tooltip-info-background-color: #212329;
     --disk-stat-chart-text-color: white;
+    --expand-button-background-color: #31343d;
     --tooltip-background-path: url('../../static/images/tooltipBackDark.png');
     --tooltip-arrow-path: url('../../static/images/tooltipArrowDark.png');
     --info-image-arrow-middle-path: url('../../static/images/MessageDark.png');

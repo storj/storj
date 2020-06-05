@@ -464,7 +464,7 @@ export default class EstimationArea extends Vue {
             padding: 0 16px;
             width: calc(100% - 32px);
             height: 36px;
-            background: var(--estimation-table-header-color);
+            background: var(--table-header-color);
 
             &__text {
                 font-weight: 500;

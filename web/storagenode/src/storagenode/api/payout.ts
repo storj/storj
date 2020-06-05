@@ -1,7 +1,14 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { HeldInfo, PaymentInfoParameters, PayoutApi, TotalPayoutInfo } from '@/app/types/payout';
+import {
+    HeldHistory,
+    HeldHistoryMonthlyBreakdownItem,
+    HeldInfo,
+    PaymentInfoParameters,
+    PayoutApi,
+    TotalPayoutInfo,
+} from '@/app/types/payout';
 import { HttpClient } from '@/storagenode/utils/httpClient';
 
 /**
@@ -97,6 +104,39 @@ export class PayoutHttpApi implements PayoutApi {
             paid,
             0,
         );
+    }
+
+    /**
+     * Fetch total payout information.
+     *
+     * @returns total payout information
+     * @throws Error
+     */
+    public async getHeldHistory(): Promise<HeldHistory> {
+        const path = `${this.ROOT_PATH}/heldhistory/`;
+
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('can not get held history information');
+        }
+
+        const data: any = await response.json() || [];
+
+        // TODO: this will be changed with adding 'all stats' held history.
+        const monthlyBreakdown = data.map((historyItem: any) => {
+            return new HeldHistoryMonthlyBreakdownItem(
+                historyItem.satelliteID,
+                historyItem.satelliteName,
+                historyItem.age,
+                historyItem.firstPeriod / this.PRICE_DIVIDER,
+                historyItem.secondPeriod / this.PRICE_DIVIDER,
+                historyItem.thirdPeriod / this.PRICE_DIVIDER,
+                historyItem.fourthPeriod / this.PRICE_DIVIDER,
+            );
+        });
+
+        return new HeldHistory(monthlyBreakdown);
     }
 
     /**

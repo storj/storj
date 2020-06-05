@@ -5,7 +5,14 @@ import Vuex from 'vuex';
 
 import { makeNodeModule } from '@/app/store/modules/node';
 import { makePayoutModule, PAYOUT_ACTIONS, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
-import { HeldInfo, PayoutInfoRange, PayoutPeriod, TotalPayoutInfo } from '@/app/types/payout';
+import {
+    HeldHistory,
+    HeldHistoryMonthlyBreakdownItem,
+    HeldInfo,
+    PayoutInfoRange,
+    PayoutPeriod,
+    TotalPayoutInfo,
+} from '@/app/types/payout';
 import { getHeldPercentage, getMonthsBeforeNow } from '@/app/utils/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
 import { SNOApi } from '@/storagenode/api/storagenode';
@@ -68,6 +75,19 @@ describe('mutations', (): void => {
         store.commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, expectedHeldPercentage);
 
         expect(state.payoutModule.heldPercentage).toBe(expectedHeldPercentage);
+    });
+
+    it('sets held history', (): void => {
+        const testHeldHistory = new HeldHistory([
+            new HeldHistoryMonthlyBreakdownItem('1', 'name1', 1, 50000, 0, 0, 0),
+            new HeldHistoryMonthlyBreakdownItem('2', 'name2', 5, 50000, 422280, 0, 0),
+            new HeldHistoryMonthlyBreakdownItem('3', 'name3', 6, 50000, 7333880, 7852235, 0),
+        ]);
+
+        store.commit(PAYOUT_MUTATIONS.SET_HELD_HISTORY, testHeldHistory);
+
+        expect(state.payoutModule.heldHistory.monthlyBreakdown.length).toBe(testHeldHistory.monthlyBreakdown.length);
+        expect(state.payoutModule.heldHistory.monthlyBreakdown[1].satelliteName).toBe(testHeldHistory.monthlyBreakdown[1].satelliteName);
     });
 });
 
@@ -167,6 +187,33 @@ describe('actions', () => {
 
         expect(state.payoutModule.periodRange.start.period).toBe('2020-02');
         expect(state.payoutModule.periodRange.end.period).toBe('2020-03');
+    });
+
+    it('success get held history', async (): Promise<void> => {
+        jest.spyOn(payoutApi, 'getHeldHistory').mockReturnValue(
+            Promise.resolve(new HeldHistory([
+                new HeldHistoryMonthlyBreakdownItem('1', 'name1', 1, 50000, 0, 0, 0),
+                new HeldHistoryMonthlyBreakdownItem('2', 'name2', 5, 50000, 422280, 0, 0),
+                new HeldHistoryMonthlyBreakdownItem('3', 'name3', 6, 50000, 7333880, 7852235, 0),
+            ])),
+        );
+
+        await store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
+
+        expect(state.payoutModule.heldHistory.monthlyBreakdown.length).toBe(3);
+        expect(state.payoutModule.heldHistory.monthlyBreakdown[1].satelliteName).toBe('name2');
+    });
+
+    it('get total throws an error when api call fails', async (): Promise<void> => {
+        jest.spyOn(payoutApi, 'getHeldHistory').mockImplementation(() => { throw new Error(); });
+
+        try {
+            await store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
+            expect(true).toBe(false);
+        } catch (error) {
+            expect(state.payoutModule.heldHistory.monthlyBreakdown.length).toBe(3);
+            expect(state.payoutModule.heldHistory.monthlyBreakdown[1].satelliteName).toBe('name2');
+        }
     });
 });
 

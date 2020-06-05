@@ -83,6 +83,7 @@ export class PayoutState {
         public totalEarnings: number = 0,
         public currentMonthEarnings: number = 0,
         public heldPercentage: number = 0,
+        public heldHistory: HeldHistory = new HeldHistory(),
     ) {}
 }
 
@@ -107,4 +108,34 @@ export interface PayoutApi {
      * @throws Error
      */
     getTotal(paymentInfoParameters: PaymentInfoParameters): Promise<TotalPayoutInfo>;
+
+    /**
+     * Fetches held history for all satellites.
+     * @throws Error
+     */
+    getHeldHistory(): Promise<HeldHistory>;
+}
+
+/**
+ * Holds held history information for all satellites.
+ */
+export class HeldHistory {
+    public constructor(
+        public monthlyBreakdown: HeldHistoryMonthlyBreakdownItem[] = [],
+    ) {}
+}
+
+/**
+ * Contains held amounts of satellite grouped by periods.
+ */
+export class HeldHistoryMonthlyBreakdownItem {
+    public constructor(
+        public satelliteID: string = '',
+        public satelliteName: string = '',
+        public age: number = 1,
+        public firstPeriod: number = 0,
+        public secondPeriod: number = 0,
+        public thirdPeriod: number = 0,
+        public fourthPeriod: number = 0,
+    ) {}
 }

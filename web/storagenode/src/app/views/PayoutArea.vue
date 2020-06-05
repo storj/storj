@@ -29,13 +29,7 @@
                 <SingleInfo width="48%" label="Total Held Amount" :value="totalHeld | centsToDollars" />
             </section>
             <HeldProgress v-if="selectedSatellite" class="payout-area-container__process-area" />
-            <!--        <section class="payout-area-container__held-history-container">-->
-            <!--            <div class="payout-area-container__held-history-container__header">-->
-            <!--                <p class="payout-area-container__held-history-container__header__title">Held Amount history</p>-->
-            <!--            </div>-->
-            <!--            <div class="payout-area-container__held-history-container__divider"></div>-->
-            <!--            <HeldHistoryTable />-->
-            <!--        </section>-->
+            <HeldHistoryArea />
         </div>
     </div>
 </template>
@@ -44,7 +38,8 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
-import HeldHistoryTable from '@/app/components/payments/HeldHistoryTable.vue';
+import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
+import HeldHistoryTable from '@/app/components/payments/HeldHistoryMonthlyBreakdownTable.vue';
 import HeldProgress from '@/app/components/payments/HeldProgress.vue';
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
@@ -59,6 +54,7 @@ import { SatelliteInfo } from '@/storagenode/dashboard';
 
 @Component ({
     components: {
+        HeldHistoryArea,
         HeldProgress,
         HeldHistoryTable,
         SingleInfo,
@@ -180,37 +176,6 @@ export default class PayoutArea extends Vue {
 
         &__process-area {
             margin-top: 12px;
-        }
-
-        &__held-history-container {
-            display: flex;
-            flex-direction: column;
-            padding: 28px 40px 10px 40px;
-            background: #fff;
-            border: 1px solid #eaeaea;
-            box-sizing: border-box;
-            border-radius: 12px;
-            margin: 12px 0 50px;
-
-            &__header {
-                display: flex;
-                flex-direction: row;
-                align-items: center;
-                justify-content: space-between;
-
-                &__title {
-                    font-family: 'font_medium', sans-serif;
-                    font-size: 18px;
-                    color: #535f77;
-                }
-            }
-
-            &__divider {
-                width: 100%;
-                height: 1px;
-                margin-top: 18px;
-                background-color: #eaeaea;
-            }
         }
     }
 

@@ -1,8 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue, { VNode } from 'vue';
-import { DirectiveBinding } from 'vue/types/options';
+import Vue from 'vue';
 import Vuex from 'vuex';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
