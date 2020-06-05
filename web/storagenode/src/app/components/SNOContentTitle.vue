@@ -16,11 +16,6 @@
             </div>
             <div class="title-area-divider"></div>
             <div class="title-area__info-container__info-item">
-                <p class="title-area__info-container__info-item__title">UPTIME</p>
-                <p class="title-area__info-container__info-item__content">{{ uptime }}</p>
-            </div>
-            <div class="title-area-divider"></div>
-            <div class="title-area__info-container__info-item">
                 <p class="title-area__info-container__info-item__title">LAST CONTACT</p>
                 <p class="title-area__info-container__info-item__content">{{ lastPinged }} ago</p>
             </div>
@@ -118,10 +113,6 @@ export default class SNOContentTitle extends Vue {
 
     public get lastPinged(): string {
         return this.timePassed(this.$store.state.node.info.lastPinged);
-    }
-
-    public get uptime(): string {
-        return this.timePassed(this.$store.state.node.info.startedAt);
     }
 
     public get currentMonth(): string {
