@@ -21,11 +21,17 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/private/process"
+	"storj.io/storj/private/date"
 	"storj.io/storj/private/prompt"
 )
 
 type gracefulExitClient struct {
 	conn *rpc.Conn
+}
+
+type unavailableSatellite struct {
+	id         storj.NodeID
+	monthsLeft int
 }
 
 func dialGracefulExitClient(ctx context.Context, address string) (*gracefulExitClient, error) {
@@ -46,6 +52,10 @@ func (client *gracefulExitClient) initGracefulExit(ctx context.Context, req *pb.
 
 func (client *gracefulExitClient) getExitProgress(ctx context.Context) (*pb.GetExitProgressResponse, error) {
 	return pb.NewDRPCNodeGracefulExitClient(client.conn).GetExitProgress(ctx, &pb.GetExitProgressRequest{})
+}
+
+func (client *gracefulExitClient) gracefulExitFeasibility(ctx context.Context, id storj.NodeID) (*pb.GracefulExitFeasibilityResponse, error) {
+	return pb.NewDRPCNodeGracefulExitClient(client.conn).GracefulExitFeasibility(ctx, &pb.GracefulExitFeasibilityNodeRequest{NodeId: id})
 }
 
 func (client *gracefulExitClient) close() error {
@@ -126,40 +136,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if len(satelliteIDs) < 1 {
-		fmt.Println("Invalid input. Please use valid satellite domian names.")
-		return errs.New("Invalid satellite domain names")
-	}
-
-	// save satellites for graceful exit into the db
-	progresses := make([]*pb.ExitProgress, 0, len(satelliteIDs))
-	var errgroup errs.Group
-	for _, id := range satelliteIDs {
-		req := &pb.InitiateGracefulExitRequest{
-			NodeId: id,
-		}
-		resp, err := client.initGracefulExit(ctx, req)
-		if err != nil {
-			zap.L().Debug("Initializing graceful exit failed.", zap.Stringer("Satellite ID", id), zap.Error(err))
-			errgroup.Add(err)
-			continue
-		}
-		progresses = append(progresses, resp)
-	}
-
-	if len(progresses) < 1 {
-		fmt.Println("Failed to initialize graceful exit. Please try again later.")
-		return errgroup.Err()
-	}
-
-	displayExitProgress(w, progresses)
-
-	err = w.Flush()
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	return nil
+	return gracefulExitInit(ctx, satelliteIDs, w, client)
 }
 
 func cmdGracefulExitStatus(cmd *cobra.Command, args []string) (err error) {
@@ -223,4 +200,61 @@ func displayExitProgress(w io.Writer, progresses []*pb.ExitProgress) {
 
 		fmt.Fprintf(w, "%s\t%s\t%.2f%%\t%s\t%s\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete(), isSuccessful, receipt)
 	}
+}
+
+func gracefulExitInit(ctx context.Context, satelliteIDs []storj.NodeID, w *tabwriter.Writer, client *gracefulExitClient) (err error) {
+	if len(satelliteIDs) < 1 {
+		fmt.Println("Invalid input. Please use valid satellite domian names.")
+		return errs.New("Invalid satellite domain names")
+	}
+
+	var satellites []unavailableSatellite
+	for i := 0; i < len(satelliteIDs); i++ {
+		response, err := client.gracefulExitFeasibility(ctx, satelliteIDs[i])
+		if err != nil {
+			return err
+		}
+		if !response.IsAllowed {
+			left := int(response.MonthsRequired) - date.MonthsCountSince(response.JoinedAt)
+			satellites = append(satellites, unavailableSatellite{id: satelliteIDs[i], monthsLeft: left})
+		}
+	}
+
+	if satellites != nil {
+		fmt.Println("You are not allowed to initiate graceful exit on satellite for next amount of months:")
+		for _, satellite := range satellites {
+			fmt.Fprintf(w, "%s\t%d\n", satellite.id.String(), satellite.monthsLeft)
+		}
+		return errs.New("You are not allowed to graceful exit on some of provided satellites")
+	}
+
+	// save satellites for graceful exit into the db
+	progresses := make([]*pb.ExitProgress, 0, len(satelliteIDs))
+	var errgroup errs.Group
+	for _, id := range satelliteIDs {
+		req := &pb.InitiateGracefulExitRequest{
+			NodeId: id,
+		}
+		resp, err := client.initGracefulExit(ctx, req)
+		if err != nil {
+			zap.L().Debug("Initializing graceful exit failed.", zap.Stringer("Satellite ID", id), zap.Error(err))
+			errgroup.Add(err)
+			continue
+		}
+		progresses = append(progresses, resp)
+	}
+
+	if len(progresses) < 1 {
+		fmt.Println("Failed to initialize graceful exit. Please try again later.")
+		return errgroup.Err()
+	}
+
+	displayExitProgress(w, progresses)
+
+	err = w.Flush()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
 }

@@ -908,3 +908,34 @@ func (endpoint *Endpoint) getNodePiece(ctx context.Context, pointer *pb.Pointer,
 
 	return nodePiece, nil
 }
+
+// GracefulExitFeasibility returns node's joined at date, nodeMinAge and if graceful exit available.
+func (endpoint *Endpoint) GracefulExitFeasibility(ctx context.Context, req *pb.GracefulExitFeasibilityRequest) (_ *pb.GracefulExitFeasibilityResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
+	}
+
+	endpoint.log.Debug("graceful exit process", zap.Stringer("Node ID", peer.ID))
+
+	var response pb.GracefulExitFeasibilityResponse
+
+	nodeDossier, err := endpoint.overlaydb.Get(ctx, peer.ID)
+	if err != nil {
+		endpoint.log.Error("unable to retrieve node dossier for attempted exiting node", zap.Stringer("node ID", peer.ID))
+		return nil, Error.Wrap(err)
+	}
+
+	eligibilityDate := nodeDossier.CreatedAt.AddDate(0, endpoint.config.NodeMinAgeInMonths, 0)
+	if time.Now().Before(eligibilityDate) {
+		response.IsAllowed = false
+	} else {
+		response.IsAllowed = true
+	}
+
+	response.JoinedAt = nodeDossier.CreatedAt
+	response.MonthsRequired = int32(endpoint.config.NodeMinAgeInMonths)
+	return &response, nil
+}

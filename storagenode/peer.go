@@ -635,6 +635,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Named("gracefulexit:endpoint"),
 			peer.Storage2.Trust,
 			peer.DB.Satellites(),
+			peer.Dialer,
 			peer.Storage2.BlobsCache,
 		)
 		if err := pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint); err != nil {
