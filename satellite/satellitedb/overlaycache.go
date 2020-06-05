@@ -1043,7 +1043,7 @@ func buildUpdateStatement(update updateNodeStats) string {
 		}
 		atLeastOne = true
 		if update.Suspended.isNil {
-			sql += fmt.Sprintf("suspended = NULL")
+			sql += "suspended = NULL"
 		} else {
 			sql += fmt.Sprintf("suspended = '%v'", update.Suspended.value.Format(time.RFC3339Nano))
 		}

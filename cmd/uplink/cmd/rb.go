@@ -80,7 +80,7 @@ func deleteBucket(cmd *cobra.Command, args []string) (err error) {
 			path := object.Key
 			_, err := project.DeleteObject(ctx, dst.Bucket(), path)
 			if err != nil {
-				fmt.Println(fmt.Sprintf("failed to delete encrypted object, cannot empty bucket %q: %+v", dst.Bucket(), err))
+				fmt.Printf("failed to delete encrypted object, cannot empty bucket %q: %+v\n", dst.Bucket(), err)
 				failures++
 				continue
 			}

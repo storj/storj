@@ -245,7 +245,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(buckets.Items) > 0 {
-		http.Error(w, fmt.Sprintf("buckets still exist"), http.StatusConflict)
+		http.Error(w, fmt.Sprintf("buckets still exist: %v", bucketNames(buckets.Items)), http.StatusConflict)
 		return
 	}
 
@@ -255,7 +255,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if keys.TotalCount > 0 {
-		http.Error(w, fmt.Sprintf("api-keys still exist"), http.StatusConflict)
+		http.Error(w, fmt.Sprintf("api-keys still exist: count %v", keys.TotalCount), http.StatusConflict)
 		return
 	}
 
@@ -264,4 +264,12 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("unable to delete project: %v", err), http.StatusInternalServerError)
 		return
 	}
+}
+
+func bucketNames(buckets []storj.Bucket) []string {
+	var xs []string
+	for _, b := range buckets {
+		xs = append(xs, b.Name)
+	}
+	return xs
 }
