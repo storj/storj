@@ -356,7 +356,16 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			)
 		}
 		apiProcess.ExecBefore["run"] = func(process *Process) error {
-			return readConfigString(&process.Address, process.Directory, "server.address")
+			if err := readConfigString(&process.Address, process.Directory, "server.address"); err != nil {
+				return err
+			}
+
+			satNodeID, err := identity.NodeIDFromCertPath(filepath.Join(apiProcess.Directory, "identity.cert"))
+			if err != nil {
+				return err
+			}
+			process.AddExtra("ID", satNodeID.String())
+			return nil
 		}
 
 		migrationProcess := processes.New(Info{
