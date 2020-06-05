@@ -102,7 +102,7 @@ func TestNotEnoughShares(t *testing.T) {
 	}
 	_, _, err = auditShares(ctx, 20, 40, auditPkgShares)
 	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "infectious: must specify at least the number of required shares")
+	require.Contains(t, err.Error(), "must specify at least the number of required shares")
 }
 
 func TestCreatePendingAudits(t *testing.T) {
