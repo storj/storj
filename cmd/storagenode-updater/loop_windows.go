@@ -50,12 +50,12 @@ func updateSelf(ctx context.Context, binaryLocation string, ver version.Process)
 	currentVersion := version.Build.Version
 
 	// should update
-	if currentVersion.Compare(suggestedVersion) >= 0 {
-		zap.L().Info("Version is up to date.", zap.String("Service", updaterServiceName))
-		return nil
+	shouldUpdate, reason, err := version.ShouldUpdateVersion(currentVersion, nodeID, ver)
+	if err != nil {
+		return errs.Wrap(err)
 	}
-	if !version.ShouldUpdate(ver.Rollout, nodeID) {
-		zap.L().Info("New version available but not rolled out to this nodeID yet", zap.String("Service", updaterServiceName))
+	if !shouldUpdate {
+		zap.L().Info(reason, zap.String("Service", updaterServiceName))
 		return nil
 	}
 

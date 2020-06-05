@@ -221,6 +221,10 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 		},
 		Binary: versioncontrol.ProcessesConfig{
 			Storagenode: versioncontrol.ProcessConfig{
+				Minimum: versioncontrol.VersionConfig{
+					Version: oldVersion,
+					URL:     ts.URL + "/storagenode-old",
+				},
 				Suggested: versioncontrol.VersionConfig{
 					Version: newVersion,
 					URL:     ts.URL + "/storagenode",
@@ -231,6 +235,10 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 				},
 			},
 			StoragenodeUpdater: versioncontrol.ProcessConfig{
+				Minimum: versioncontrol.VersionConfig{
+					Version: oldVersion,
+					URL:     ts.URL + "/storagenode-old",
+				},
 				Suggested: versioncontrol.VersionConfig{
 					Version: newVersion,
 					URL:     ts.URL + "/storagenode-updater",
