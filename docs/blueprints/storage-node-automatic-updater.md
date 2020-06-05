@@ -42,6 +42,8 @@ Update check will regularly, with jitter, contact Version Server, which responds
 }
 ```
 
+Independent of an active rollout, a process will confirm that it at least meets the allowed version minimum. if it does not, it will proceed to upgrade to at least the suggested_version if it is not part of a rollout.
+
 When there is a newer version is available it needs to calculate whether it needs to update. To check whether rollout has reached this node it needs to calculate `hash(rollout_seed, node_id) < rollout_cursor`. This exact behavior may differ for canary nodes, which always get the latest version.
 
 * The update check must verify that it is a trusted server.
@@ -72,7 +74,7 @@ Possible problems:
 
 ### Updating the binaries
 
-To update the binaries we can take two approaches. 
+To update the binaries we can take two approaches.
 
 1. Rename `storagenode.exe` into `storagenode.old.<release>.exe`.
 1. Rename `storagenode.<release>.exe` into `storagenode.exe`.
