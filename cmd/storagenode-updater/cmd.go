@@ -15,13 +15,12 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/fpath"
-	"storj.io/common/identity"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
-	"storj.io/storj/private/version/checker"
+	"storj.io/storj/storagenode"
 )
 
 const (
@@ -51,8 +50,7 @@ var (
 	}
 
 	runCfg struct {
-		checker.Config
-		Identity identity.Config
+		storagenode.Config
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
@@ -101,17 +99,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	switch {
-	case runCfg.CheckInterval <= 0:
+	case runCfg.Version.CheckInterval <= 0:
 		err = loopFunc(ctx)
-	case runCfg.CheckInterval < minCheckInterval:
+	case runCfg.Version.CheckInterval < minCheckInterval:
 		zap.L().Error("Check interval below minimum. Overriding it minimum.",
-			zap.Stringer("Check Interval", runCfg.CheckInterval),
+			zap.Stringer("Check Interval", runCfg.Version.CheckInterval),
 			zap.Stringer("Minimum Check Interval", minCheckInterval),
 		)
-		runCfg.CheckInterval = minCheckInterval
+		runCfg.Version.CheckInterval = minCheckInterval
 		fallthrough
 	default:
-		loop := sync2.NewCycle(runCfg.CheckInterval)
+		loop := sync2.NewCycle(runCfg.Version.CheckInterval)
 		err = loop.Run(ctx, loopFunc)
 	}
 	if err != nil && !errs2.IsCanceled(err) {

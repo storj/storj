@@ -89,9 +89,9 @@ func TestAutoUpdater(t *testing.T) {
 	// run updater (update)
 	args := []string{"run",
 		"--config-dir", ctx.Dir(),
-		"--server-address", "http://" + versionControlPeer.Addr(),
+		"--version.server-address", "http://" + versionControlPeer.Addr(),
 		"--binary-location", storagenodePath,
-		"--check-interval", "0s",
+		"--version.check-interval", "0s",
 		"--identity.cert-path", identConfig.CertPath,
 		"--identity.key-path", identConfig.KeyPath,
 		"--log", logPath,

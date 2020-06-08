@@ -16,9 +16,9 @@ import (
 
 // loopFunc is func that is run by the update cycle.
 func loopFunc(ctx context.Context) error {
-	zap.L().Info("Downloading versions.", zap.String("Server Address", runCfg.ServerAddress))
+	zap.L().Info("Downloading versions.", zap.String("Server Address", runCfg.Version.ServerAddress))
 
-	all, err := checker.New(runCfg.ClientConfig).All(ctx)
+	all, err := checker.New(runCfg.Version.ClientConfig).All(ctx)
 	if err != nil {
 		zap.L().Error("Error retrieving version info.", zap.Error(err))
 		return nil
