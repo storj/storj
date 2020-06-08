@@ -344,6 +344,10 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 
 		doAppendAll := true
 		err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
+			_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+			if err != nil {
+				return err
+			}
 			var allSQL string
 			for _, updateReq := range updateSlice {
 				dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(updateReq.NodeID.Bytes()))
@@ -416,6 +420,10 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 
 	var dbNode *dbx.Node
 	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
+		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+		if err != nil {
+			return err
+		}
 		dbNode, err = tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 		if err != nil {
 			return err

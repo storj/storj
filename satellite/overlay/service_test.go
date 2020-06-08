@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -805,6 +806,54 @@ func TestSuspendedSelection(t *testing.T) {
 		for _, node := range nodes {
 			require.False(t, suspendedIDs[node.ID])
 		}
+	})
+}
+
+func TestConcurrentAudit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Audit.Chore.Loop.Stop()
+		data := testrand.Bytes(10 * memory.MB)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "testpath", data)
+		require.NoError(t, err)
+		var group errgroup.Group
+		n := 5
+		for i := 0; i < n; i++ {
+			group.Go(func() error {
+				_, err := planet.Satellites[0].Overlay.Service.UpdateStats(ctx, &overlay.UpdateRequest{
+					NodeID:       planet.StorageNodes[0].ID(),
+					AuditOutcome: overlay.AuditSuccess,
+					IsUp:         true,
+				})
+				return err
+			})
+		}
+		err = group.Wait()
+		require.NoError(t, err)
+
+		node, err := planet.Satellites[0].DB.OverlayCache().Get(ctx, planet.StorageNodes[0].ID())
+		require.NoError(t, err)
+		require.Equal(t, int64(n), node.Reputation.AuditCount)
+
+		for i := 0; i < n; i++ {
+			group.Go(func() error {
+				_, err := planet.Satellites[0].Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{
+					{
+						NodeID:       planet.StorageNodes[0].ID(),
+						AuditOutcome: overlay.AuditSuccess,
+						IsUp:         true,
+					},
+				})
+				return err
+			})
+		}
+		err = group.Wait()
+		require.NoError(t, err)
+
+		node, err = planet.Satellites[0].DB.OverlayCache().Get(ctx, planet.StorageNodes[0].ID())
+		require.NoError(t, err)
+		require.Equal(t, int64(n*2), node.Reputation.AuditCount)
 	})
 }
 
