@@ -206,6 +206,12 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdCreateCustomerInvoices,
 	}
+	finalizeCustomerInvoicesCmd = &cobra.Command{
+		Use:   "finalize-invoices",
+		Short: "Finalizes all draft stripe invoices",
+		Long:  "Finalizes all draft stripe invoices known to satellite's stripe account",
+		RunE:  cmdFinalizeCustomerInvoices,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -275,6 +281,7 @@ func init() {
 	billingCmd.AddCommand(createCustomerInvoiceCouponsCmd)
 	billingCmd.AddCommand(createCustomerInvoiceCreditsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
+	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -296,6 +303,7 @@ func init() {
 	process.Bind(createCustomerInvoiceCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoiceCreditsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -649,6 +657,12 @@ func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	return billing.CreateCustomerInvoices(ctx, args[0], runCfg.Database, runCfg.Payments)
+}
+
+func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return billing.FinalizeCustomerInvoices(ctx, runCfg.Database, runCfg.Payments)
 }
 
 func main() {

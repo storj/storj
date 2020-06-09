@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// setup creates necessary services and connections for billing sub commands
+// setup creates necessary services and connections for billing sub commands.
 func setup(dbConnection string, pc paymentsconfig.Config) (*stripecoinpayments.Service, *dbx.DB, error) {
 	// Open SatelliteDB for the Payment Service
 	logger := zap.L()
@@ -74,7 +74,7 @@ func setup(dbConnection string, pc paymentsconfig.Config) (*stripecoinpayments.S
 	return service, dbxDB, nil
 }
 
-// PrepareCustomerInvoiceItems creates usage reports for customer projects for the specified month in the database
+// PrepareCustomerInvoiceItems creates usage reports for customer projects for the specified month in the database.
 func PrepareCustomerInvoiceItems(ctx context.Context, period, dbConnection string, pc paymentsconfig.Config) error {
 	payments, _, err := setup(dbConnection, pc)
 	if err != nil {
@@ -89,7 +89,7 @@ func PrepareCustomerInvoiceItems(ctx context.Context, period, dbConnection strin
 	return payments.InvoiceApplyProjectRecords(ctx, periodT)
 }
 
-// CreateCustomerInvoiceItems creates customer invoice items for the specified month on Stripe
+// CreateCustomerInvoiceItems creates customer invoice items for the specified month on Stripe.
 func CreateCustomerInvoiceItems(ctx context.Context, period, dbConnection string, pc paymentsconfig.Config) error {
 	payments, _, err := setup(dbConnection, pc)
 	if err != nil {
@@ -104,7 +104,7 @@ func CreateCustomerInvoiceItems(ctx context.Context, period, dbConnection string
 	return payments.InvoiceApplyProjectRecords(ctx, periodT)
 }
 
-// CreateCustomerInvoiceCoupons applies customer coupons for the specified month on Stripe
+// CreateCustomerInvoiceCoupons applies customer coupons for the specified month on Stripe.
 func CreateCustomerInvoiceCoupons(ctx context.Context, period, dbConnection string, pc paymentsconfig.Config) error {
 	payments, _, err := setup(dbConnection, pc)
 	if err != nil {
@@ -119,7 +119,7 @@ func CreateCustomerInvoiceCoupons(ctx context.Context, period, dbConnection stri
 	return payments.InvoiceApplyCoupons(ctx, periodT)
 }
 
-// CreateCustomerInvoiceCredits applies customer credits for the specified month on Stripe
+// CreateCustomerInvoiceCredits applies customer credits for the specified month on Stripe.
 func CreateCustomerInvoiceCredits(ctx context.Context, period, dbConnection string, pc paymentsconfig.Config) error {
 	payments, _, err := setup(dbConnection, pc)
 	if err != nil {
@@ -134,7 +134,7 @@ func CreateCustomerInvoiceCredits(ctx context.Context, period, dbConnection stri
 	return payments.InvoiceApplyCredits(ctx, periodT)
 }
 
-// CreateCustomerInvoices creates customer invoices for the specified month on Stripe
+// CreateCustomerInvoices creates customer invoices for the specified month on Stripe.
 func CreateCustomerInvoices(ctx context.Context, period, dbConnection string, pc paymentsconfig.Config) error {
 	payments, _, err := setup(dbConnection, pc)
 	if err != nil {
@@ -147,6 +147,16 @@ func CreateCustomerInvoices(ctx context.Context, period, dbConnection string, pc
 	}
 
 	return payments.CreateInvoices(ctx, periodT)
+}
+
+// FinalizeCustomerInvoices sets the auto-advance flag on all draft invoices currently available on Stripe.
+func FinalizeCustomerInvoices(ctx context.Context, dbConnection string, pc paymentsconfig.Config) error {
+	payments, _, err := setup(dbConnection, pc)
+	if err != nil {
+		return err
+	}
+
+	return payments.FinalizeInvoices(ctx)
 }
 
 // parseBillingPeriodFromString parses provided date string and returns corresponding time.Time.
