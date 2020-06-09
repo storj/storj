@@ -1151,6 +1151,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE coupons DROP COLUMN project_id;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "add new columns for suspension to node tables",
+				Version:     114,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN unknown_audit_suspended TIMESTAMP WITH TIME ZONE;`,
+					`ALTER TABLE nodes ADD COLUMN offline_suspended TIMESTAMP WITH TIME ZONE;`,
+					`ALTER TABLE nodes ADD COLUMN under_review TIMESTAMP WITH TIME ZONE;`,
+				},
+			},
 		},
 	}
 }

@@ -170,6 +170,12 @@ model node (
 	field disqualified timestamp ( updatable, nullable )
     // node is placed under inspection when it has too many unknown-error audits
 	field suspended timestamp ( updatable, nullable )
+	// renamed column from suspended
+	field unknown_audit_suspended timestamp ( updatable, nullable )
+	// node is considered unhealthy if it is offline for too many audits
+	field offline_suspended timestamp ( updatable, nullable )
+	// once a node becomes offline_suspended, mark it as under review so we check it again later
+	field under_review timestamp ( updatable, nullable )
 
 	// audit_reputation_fields track information related to successful vs. failed error audits
 	field audit_reputation_alpha  float64 ( updatable, default 1 )
