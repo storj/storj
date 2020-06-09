@@ -98,3 +98,4 @@ storj.io/storj/satellite/satellitedb."unknown_audit_reputation_beta" FloatVal
 storj.io/storj/storage/filestore."open_file_in_trash" Meter
 storj.io/storj/storagenode/contact."satellite_contact_request" Meter
 storj.io/storj/storagenode/gracefulexit."satellite_gracefulexit_request" Meter
+storj.io/storj/storagenode/piecestore/usedserials."delete_random_serial" Meter
