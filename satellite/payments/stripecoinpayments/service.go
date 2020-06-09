@@ -627,6 +627,7 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 		return Error.New("allowed for past periods only")
 	}
 
+	projectRecords := 0
 	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, service.listingLimit, start, end)
 	if err != nil {
 		return Error.Wrap(err)
@@ -635,6 +636,8 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 	if err = service.applyProjectRecords(ctx, recordsPage.Records); err != nil {
 		return Error.Wrap(err)
 	}
+
+	projectRecords += len(recordsPage.Records)
 
 	for recordsPage.Next {
 		if err = ctx.Err(); err != nil {
@@ -650,8 +653,11 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 		if err = service.applyProjectRecords(ctx, recordsPage.Records); err != nil {
 			return Error.Wrap(err)
 		}
+
+		projectRecords += len(recordsPage.Records)
 	}
 
+	service.log.Info("Number of processed project records.", zap.Int("Project Records", projectRecords))
 	return nil
 }
 
@@ -742,6 +748,7 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 		return Error.New("allowed for past periods only")
 	}
 
+	couponsUsages := 0
 	usagePage, err := service.db.Coupons().ListUnapplied(ctx, 0, service.listingLimit, start)
 	if err != nil {
 		return Error.Wrap(err)
@@ -750,6 +757,8 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 	if err = service.applyCoupons(ctx, usagePage.Usages); err != nil {
 		return Error.Wrap(err)
 	}
+
+	couponsUsages += len(usagePage.Usages)
 
 	for usagePage.Next {
 		if err = ctx.Err(); err != nil {
@@ -765,8 +774,11 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 		if err = service.applyCoupons(ctx, usagePage.Usages); err != nil {
 			return Error.Wrap(err)
 		}
+
+		couponsUsages += len(usagePage.Usages)
 	}
 
+	service.log.Info("Number of processed coupons usages.", zap.Int("Coupons Usages", couponsUsages))
 	return nil
 }
 
@@ -935,6 +947,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 		return Error.New("allowed for past periods only")
 	}
 
+	invoices := 0
 	cusPage, err := service.db.Customers().List(ctx, 0, service.listingLimit, end)
 	if err != nil {
 		return Error.Wrap(err)
@@ -949,6 +962,8 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 			return Error.Wrap(err)
 		}
 	}
+
+	invoices += len(cusPage.Customers)
 
 	for cusPage.Next {
 		if err = ctx.Err(); err != nil {
@@ -969,8 +984,11 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 				return Error.Wrap(err)
 			}
 		}
+
+		invoices += len(cusPage.Customers)
 	}
 
+	service.log.Info("Number of created draft invoices.", zap.Int("Invoices", invoices))
 	return nil
 }
 
