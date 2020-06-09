@@ -20,7 +20,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 	databases := satellitedbtest.Databases()
 	hasDatabase := false
 	for _, db := range databases {
-		hasDatabase = hasDatabase || db.MasterDB.URL != ""
+		hasDatabase = hasDatabase || (db.MasterDB.URL != "" && db.MasterDB.URL != "omit")
 	}
 	if !hasDatabase {
 		t.Fatal("Databases flag missing, set at least one:\n" +
@@ -30,6 +30,9 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
+		if satelliteDB.MasterDB.URL == "omit" {
+			continue
+		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			parallel := !config.NonParallel
 			if parallel {

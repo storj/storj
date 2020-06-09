@@ -16,10 +16,10 @@ import (
 // We need to define this in a separate package due to https://golang.org/issue/23910.
 
 // postgres is the test database connection string.
-var postgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string (semicolon delimited for multiple)")
+var postgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
 
 // cockroach is the test database connection string for CockroachDB
-var cockroach = flag.String("cockroach-test-db", os.Getenv("STORJ_COCKROACH_TEST"), "CockroachDB test database connection string (semicolon delimited for multiple)")
+var cockroach = flag.String("cockroach-test-db", os.Getenv("STORJ_COCKROACH_TEST"), "CockroachDB test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
 
 // DefaultPostgres is expected to work under the storj-test docker-compose instance
 const DefaultPostgres = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
@@ -66,7 +66,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, connstr
 
 // PickPostgres picks a random postgres database from flag.
 func PickPostgres(t TB) string {
-	if *postgres == "" {
+	if *postgres == "" || strings.EqualFold(*cockroach, "omit") {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + DefaultPostgres)
 	}
 	return pickRandom(*postgres)
@@ -74,7 +74,7 @@ func PickPostgres(t TB) string {
 
 // PickCockroach picks a random cockroach database from flag.
 func PickCockroach(t TB) string {
-	if *cockroach == "" {
+	if *cockroach == "" || strings.EqualFold(*cockroach, "omit") {
 		t.Skip("Cockroach flag missing, example: -cockroach-test-db=" + DefaultCockroach)
 	}
 	return pickRandom(*cockroach)
