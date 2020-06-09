@@ -157,6 +157,10 @@ func (m *mockInvoices) List(listParams *stripe.InvoiceListParams) *invoice.Iter 
 	return &invoice.Iter{Iter: &stripe.Iter{}}
 }
 
+func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error) {
+	return nil, nil
+}
+
 type mockInvoiceItems struct {
 }
 

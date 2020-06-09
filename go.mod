@@ -28,7 +28,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.5.1
-	github.com/stripe/stripe-go v63.1.1+incompatible
+	github.com/stripe/stripe-go v70.15.0+incompatible
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/zeebo/errs v1.2.2
 	go.etcd.io/bbolt v1.3.4

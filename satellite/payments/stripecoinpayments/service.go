@@ -1003,6 +1003,35 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 	return nil
 }
 
+// FinalizeInvoices sets autoadvance flag on all draft invoices currently available in stripe.
+func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	params := &stripe.InvoiceListParams{
+		Status: stripe.String("draft"),
+	}
+
+	invoicesIterator := service.stripeClient.Invoices().List(params)
+	for invoicesIterator.Next() {
+		stripeInvoice := invoicesIterator.Invoice()
+
+		err := service.finalizeInvoice(ctx, stripeInvoice.ID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return Error.Wrap(invoicesIterator.Err())
+}
+
+func (service *Service) finalizeInvoice(ctx context.Context, invoiceID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	params := &stripe.InvoiceFinalizeParams{AutoAdvance: stripe.Bool(true)}
+	_, err = service.stripeClient.Invoices().FinalizeInvoice(invoiceID, params)
+	return err
+}
+
 // projectUsagePrice represents pricing for project usage.
 type projectUsagePrice struct {
 	Storage decimal.Decimal
