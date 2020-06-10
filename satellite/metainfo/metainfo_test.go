@@ -35,7 +35,61 @@ import (
 	"storj.io/uplink/private/testuplink"
 )
 
-func TestRevokedMacaroon(t *testing.T) {
+func TestRevokeAccess(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		accessIssuer := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+		accessUser1, err := accessIssuer.Share(uplink.Permission{
+			AllowDownload: true,
+			AllowUpload:   true,
+			AllowList:     true,
+			AllowDelete:   true,
+		})
+		require.NoError(t, err)
+		accessUser2, err := accessUser1.Share(uplink.Permission{
+			AllowDownload: true,
+			AllowUpload:   true,
+			AllowList:     true,
+			AllowDelete:   true,
+		})
+		require.NoError(t, err)
+
+		projectUser2, err := uplink.OpenProject(ctx, accessUser2)
+		require.NoError(t, err)
+		defer ctx.Check(projectUser2.Close)
+
+		// confirm that we can create a bucket
+		_, err = projectUser2.CreateBucket(ctx, "bob")
+		require.NoError(t, err)
+
+		// we shouldn't be allowed to revoke ourselves or our parent
+		err = projectUser2.RevokeAccess(ctx, accessUser2)
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		err = projectUser2.RevokeAccess(ctx, accessUser1)
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		projectIssuer, err := uplink.OpenProject(ctx, accessIssuer)
+		require.NoError(t, err)
+		defer ctx.Check(projectIssuer.Close)
+
+		projectUser1, err := uplink.OpenProject(ctx, accessUser1)
+		require.NoError(t, err)
+		defer ctx.Check(projectUser1.Close)
+
+		// I should be able to revoke with accessIssuer
+		err = projectIssuer.RevokeAccess(ctx, accessUser1)
+		require.NoError(t, err)
+
+		// should no longer be able to create bucket with access 2 or 3
+		_, err = projectUser2.CreateBucket(ctx, "bob1")
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		_, err = projectUser1.CreateBucket(ctx, "bob1")
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+	})
+}
+
+func TestRevokeMacaroon(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

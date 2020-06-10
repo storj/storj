@@ -2089,7 +2089,23 @@ func (endpoint *Endpoint) redundancyScheme() *pb.RedundancyScheme {
 	}
 }
 
-// RevokeAPIKey revokes an api key
-func (endpoint *Endpoint) RevokeAPIKey(context.Context, *pb.RevokeAPIKeyRequest) (*pb.RevokeAPIKeyResponse, error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
+// RevokeAPIKey handles requests to revoke an api key.
+func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKeyRequest) (resp *pb.RevokeAPIKeyResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	macToRevoke, err := macaroon.ParseMacaroon(req.GetApiKey())
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "API key to revoke is not a macaroon")
+	}
+	keyInfo, err := endpoint.validateRevoke(ctx, req.Header, macToRevoke)
+	if err != nil {
+		return nil, err
+	}
+
+	err = endpoint.revocations.Revoke(ctx, macToRevoke.Tail(), keyInfo.ID[:])
+	if err != nil {
+		endpoint.log.Error("Failed to revoke API key", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "Failed to revoke API key")
+	}
+
+	return &pb.RevokeAPIKeyResponse{}, nil
 }

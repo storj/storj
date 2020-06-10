@@ -6,6 +6,7 @@ package metainfo
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"regexp"
 	"sync"
 	"time"
@@ -138,20 +139,8 @@ func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.API
 func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	key, err := getAPIKey(ctx, header)
+	key, keyInfo, err := endpoint.validateBasic(ctx, header)
 	if err != nil {
-		endpoint.log.Debug("invalid request", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid API credentials")
-	}
-
-	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
-	if err != nil {
-		endpoint.log.Debug("unauthorized request", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
-	}
-
-	if err = endpoint.checkRate(ctx, keyInfo.ProjectID); err != nil {
-		endpoint.log.Debug("rate check failed", zap.Error(err))
 		return nil, err
 	}
 
@@ -162,6 +151,55 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	}
 
 	return keyInfo, nil
+}
+
+func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestHeader) (_ *macaroon.APIKey, _ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	key, err := getAPIKey(ctx, header)
+	if err != nil {
+		endpoint.log.Debug("invalid request", zap.Error(err))
+		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid API credentials")
+	}
+
+	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
+	if err != nil {
+		endpoint.log.Debug("unauthorized request", zap.Error(err))
+		return nil, nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+	}
+
+	if err = endpoint.checkRate(ctx, keyInfo.ProjectID); err != nil {
+		endpoint.log.Debug("rate check failed", zap.Error(err))
+		return nil, nil, err
+	}
+
+	return key, keyInfo, nil
+}
+
+func (endpoint *Endpoint) validateRevoke(ctx context.Context, header *pb.RequestHeader, macToRevoke *macaroon.Macaroon) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+	key, keyInfo, err := endpoint.validateBasic(ctx, header)
+	if err != nil {
+		return nil, err
+	}
+
+	// The macaroon to revoke must be valid with the same secret as the key.
+	if !macToRevoke.Validate(keyInfo.Secret) {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Macaroon to revoke invalid")
+	}
+
+	keyTail := key.Tail()
+	tails := macToRevoke.Tails(keyInfo.Secret)
+
+	// A macaroon cannot revoke itself. So we only check len(tails-1), skipping
+	// the final tail.  To be valid, the final tail of the auth key must be
+	// contained within the checked tails of the macaroon we want to revoke.
+	for i := 0; i < len(tails)-1; i++ {
+		if subtle.ConstantTimeCompare(tails[i], keyTail) == 1 {
+			return keyInfo, nil
+		}
+	}
+	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized attempt to revoke macaroon")
 }
 
 // getKeyInfo returns key info based on the header.
