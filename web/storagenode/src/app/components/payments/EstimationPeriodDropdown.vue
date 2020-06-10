@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="period-container" @click.stop="openPeriodDropdown">
+    <div class="period-container" :class="{ disabled: isCalendarDisabled }" @click.stop="openPeriodDropdown">
         <p class="period-container__label long-text">Custom Date Range</p>
         <p class="period-container__label short-text">Custom Range</p>
         <BlackArrowHide v-if="isCalendarShown" />
@@ -41,9 +41,24 @@ export default class EstimationPeriodDropdown extends Vue {
     }
 
     /**
+     * Indicates if period selection calendar should be disabled.
+     */
+    public get isCalendarDisabled(): boolean {
+        // TODO: change to available periods check after #1929 merge.
+        const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
+        const now = new Date();
+
+        return nodeStartedAt.getUTCMonth() === now.getUTCMonth() && nodeStartedAt.getUTCFullYear() === now.getUTCFullYear();
+    }
+
+    /**
      * Opens payout period selection dropdown.
      */
     public openPeriodDropdown(): void {
+        if (this.isCalendarDisabled) {
+            return;
+        }
+
         this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, true);
     }
 
@@ -97,6 +112,23 @@ export default class EstimationPeriodDropdown extends Vue {
 
     .short-text {
         display: none;
+    }
+
+    .disabled {
+
+        .period-container {
+
+            &__label {
+                color: #909bad;
+            }
+        }
+
+        .arrow {
+
+            path {
+                fill: #909bad !important;
+            }
+        }
     }
 
     @media screen and (max-width: 505px) {

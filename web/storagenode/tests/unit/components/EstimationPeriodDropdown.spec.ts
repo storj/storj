@@ -6,8 +6,15 @@ import Vuex from 'vuex';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 
-import { APPSTATE_ACTIONS, appStateModule } from '@/app/store/modules/appState';
+import { appStateModule } from '@/app/store/modules/appState';
+import { makeNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
+import { SNOApi } from '@/storagenode/api/storagenode';
+import { BandwidthInfo, Dashboard, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
+import { Metric, Satellite, Stamp } from '@/storagenode/satellite';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+const nodeApi = new SNOApi();
+const nodeModule = makeNodeModule(nodeApi);
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -17,7 +24,7 @@ Vue.directive('click-outside', {
     unbind: (): void => { return; },
 });
 
-const store = new Vuex.Store({ modules: { appStateModule }});
+const store = new Vuex.Store({ modules: { appStateModule, node: nodeModule }});
 
 describe('DiskStatChart', (): void => {
     it('renders correctly', (): void => {
@@ -29,18 +36,41 @@ describe('DiskStatChart', (): void => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('renders correctly with calendar', async (): Promise<void> => {
-        const wrapper = shallowMount(EstimationPeriodDropdown, {
-            store,
-            localVue,
-        });
+    it('opens calendar on click only when historical data exists',   async (): Promise<void> => {
+        const satelliteInfo = new Satellite(
+            '3',
+            [new Stamp()],
+            [],
+            [],
+            [],
+            111,
+            222,
+            50,
+            70,
+            new Metric(1, 1, 1, 0, 1),
+            new Metric(2, 1, 1, 0, 1),
+            new Date(),
+        );
 
-        await store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, true);
+        const dashboardInfo = new Dashboard(
+            '1',
+            '2',
+            [
+                new SatelliteInfo('3', 'url1', null, null),
+                new SatelliteInfo('4', 'url2', new Date(), new Date(2020, 0, 1)),
+            ],
+            new DiskSpaceInfo(99, 100, 4),
+            new BandwidthInfo(50),
+            new Date(),
+            new Date(),
+            '0.1.1',
+            '0.2.2',
+            false,
+        );
 
-        expect(wrapper).toMatchSnapshot();
-    });
+        store.commit(NODE_MUTATIONS.POPULATE_STORE, dashboardInfo);
+        store.commit(NODE_MUTATIONS.SELECT_SATELLITE, satelliteInfo);
 
-    it('opens calendar on click',  (): void => {
         const wrapper = shallowMount(EstimationPeriodDropdown, {
             store,
             localVue,
@@ -48,6 +78,16 @@ describe('DiskStatChart', (): void => {
 
         wrapper.find('.period-container').trigger('click');
 
+        await localVue.nextTick();
+        expect(wrapper.find('.period-container__calendar').exists()).toBe(false);
+
+        satelliteInfo.joinDate = new Date(Date.UTC(2019, 10, 29));
+
+        store.commit(NODE_MUTATIONS.SELECT_SATELLITE, satelliteInfo);
+
+        wrapper.find('.period-container').trigger('click');
+
+        await localVue.nextTick();
         expect(wrapper.find('.period-container__calendar').exists()).toBe(true);
     });
 });
