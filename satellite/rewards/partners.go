@@ -36,6 +36,10 @@ func DefaultPartners() PartnerList {
 			ID:   "53688ea5-8695-4060-a2c6-b56969217909",
 			UUID: parseUUID("53688ea5-8695-4060-a2c6-b56969217909"),
 		}, {
+			Name: "CloudBloq",
+			ID:   "ba1feac3-5457-4fd0-bba3-9c7e673902ca",
+			UUID: parseUUID("ba1feac3-5457-4fd0-bba3-9c7e673902ca"),
+		}, {
 			Name: "Confluent",
 			ID:   "2fb801c6-a6d7-4d82-a838-32fef98cc398",
 			UUID: parseUUID("2fb801c6-a6d7-4d82-a838-32fef98cc398"),
