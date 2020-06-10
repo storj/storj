@@ -62,7 +62,7 @@ import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { toUnixTimestamp } from '@/utils/time';
+import { Time } from '@/utils/time';
 
 @Component({
     components: {
@@ -149,8 +149,8 @@ export default class UsageAndChargesItem extends Vue {
 
         url.pathname = 'usage-report';
         url.searchParams.append('projectID', projectID);
-        url.searchParams.append('since', toUnixTimestamp(startDate).toString());
-        url.searchParams.append('before', toUnixTimestamp(endDate).toString());
+        url.searchParams.append('since', Time.toUnixTimestamp(startDate).toString());
+        url.searchParams.append('before', Time.toUnixTimestamp(endDate).toString());
 
         this.$segment.track(SegmentEvent.REPORT_DOWNLOADED, {
             start_date: startDate,

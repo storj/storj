@@ -11,7 +11,7 @@ import {
     TokenDeposit,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
-import { toUnixTimestamp } from '@/utils/time';
+import { Time } from '@/utils/time';
 
 /**
  * PaymentsHttpApi is a http implementation of Payments API.
@@ -71,8 +71,8 @@ export class PaymentsHttpApi implements PaymentsApi {
      * projectsUsageAndCharges returns usage and how much money current user will be charged for each project which he owns.
      */
     public async projectsUsageAndCharges(start: Date, end: Date): Promise<ProjectUsageAndCharges[]> {
-        const since = toUnixTimestamp(start).toString();
-        const before = toUnixTimestamp(end).toString();
+        const since = Time.toUnixTimestamp(start).toString();
+        const before = Time.toUnixTimestamp(end).toString();
         const path = `${this.ROOT_PATH}/account/charges?from=${since}&to=${before}`;
         const response = await this.client.get(path);
 
@@ -211,7 +211,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         const paymentsHistoryItems = await response.json();
-
         if (paymentsHistoryItems) {
             return paymentsHistoryItems.map(item =>
                 new PaymentsHistoryItem(
@@ -223,7 +222,9 @@ export class PaymentsHttpApi implements PaymentsApi {
                     item.link,
                     new Date(item.start),
                     new Date(item.end),
-                    item.type),
+                    item.type,
+                    item.remaining,
+                ),
             );
         }
 

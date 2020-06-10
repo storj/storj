@@ -8,7 +8,14 @@ exports[`PeriodSelection renders correctly 1`] = `
     </div>
     <expandicon-stub></expandicon-stub>
   </div>
-  <!---->
+  <div class="period-selection__dropdown" style="display: none;">
+    <div class="period-selection__dropdown__item">
+      <selectedicon-stub class="selected-image"></selectedicon-stub> <span class="period-selection__dropdown__item__label">Current Billing Period</span>
+    </div>
+    <div class="period-selection__dropdown__item">
+      <!----> <span class="period-selection__dropdown__item__label">Previous Billing Period</span></div>
+    <div class="period-selection__dropdown__link-container"><span class="period-selection__dropdown__link-container__link">Billing History</span></div>
+  </div>
 </div>
 `;
 
@@ -21,7 +28,7 @@ exports[`PeriodSelection renders correctly with dropdown 1`] = `
       <path fill-rule="evenodd" clip-rule="evenodd" d="M13.6272 7.66111C13.1302 8.11296 12.3243 8.11296 11.8273 7.66111L7 3.27259L2.17268 7.66111C1.67565 8.11296 0.869804 8.11296 0.372774 7.66111C-0.124258 7.20926 -0.124258 6.47666 0.372774 6.02481L7 -6.11959e-07L13.6272 6.02481C14.1243 6.47667 14.1243 7.20926 13.6272 7.66111Z" fill="#2683FF"></path>
     </svg>
   </div>
-  <div class="period-selection__dropdown">
+  <div class="period-selection__dropdown" style="">
     <div class="period-selection__dropdown__item"><svg width="15" height="10" viewBox="0 0 15 10" fill="none" xmlns="http://www.w3.org/2000/svg" class="selected-image">
         <path d="M0.495399 5.75514C-0.165133 5.12956 -0.165133 4.1153 0.495399 3.48973C1.15593 2.86415 2.22687 2.86415 2.8874 3.48973L6.87406 7.26541C7.53459 7.89098 7.53459 8.90524 6.87406 9.53082C6.21353 10.1564 5.14259 10.1564 4.48206 9.53082L0.495399 5.75514Z" fill="#2683FF"></path>
         <path d="M6.87406 9.53082C6.21353 10.1564 5.14259 10.1564 4.48206 9.53082C3.82153 8.90524 3.82153 7.89098 4.48206 7.26541L11.6581 0.469182C12.3186 -0.156394 13.3895 -0.156394 14.0501 0.469182C14.7106 1.09476 14.7106 2.10902 14.0501 2.73459L6.87406 9.53082Z" fill="#2683FF"></path>

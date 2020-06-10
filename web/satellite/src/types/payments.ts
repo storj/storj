@@ -114,6 +114,7 @@ export class PaymentsHistoryItem {
         public readonly start: Date = new Date(),
         public readonly end: Date = new Date(),
         public readonly type: PaymentsHistoryItemType = PaymentsHistoryItemType.Invoice,
+        public readonly remaining: number = 0,
     ) {}
 
     public get quantity(): Amount {
@@ -155,6 +156,8 @@ export enum PaymentsHistoryItemType {
     Charge = 2,
     // Coupon is a promotional coupon item.
     Coupon = 3,
+    // DepositBonus is a 10% bonus for using Coinpayments transactions.
+    DepositBonus = 4,
 }
 
 /**

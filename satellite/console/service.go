@@ -309,15 +309,27 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 			remaining = 0
 		}
 
+		var couponStatus string
+
+		switch coupon.Status {
+		case 0:
+			couponStatus = "Active"
+		case 1:
+			couponStatus = "Used"
+		default:
+			couponStatus = "Expired"
+		}
+
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
 				ID:          coupon.ID.String(),
 				Description: coupon.Description,
 				Amount:      coupon.Amount,
 				Remaining:   remaining,
-				Status:      "Added as Free Credits",
+				Status:      couponStatus,
 				Link:        "",
 				Start:       coupon.Created,
+				End:         coupon.ExpirationDate(),
 				Type:        Coupon,
 			},
 		)

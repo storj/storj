@@ -2,30 +2,31 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="history-area">
-        <div class="history-area__back-area" @click="onBackToBillingClick">
+    <div class="credit-history">
+        <div class="credit-history__back-area" @click="onBackToBillingClick">
             <BackImage/>
-            <p class="history-area__back-area__title">Back to Billing</p>
+            <p class="credit-history__back-area__title">Back to Billing</p>
         </div>
-        <h1 class="history-area__title" v-if="isBillingHistory">Billing History</h1>
-        <h1 class="history-area__title" v-else>Deposit History</h1>
-        <div class="history-area__content" v-if="historyItems.length > 0">
+        <h1 class="credit-history__title">Free Credits</h1>
+        <div class="credit-history__content">
+            <h1 class="credit-history__content__sum">{{ remainingSum | centsToDollars }}</h1>
+            <span class="credit-history__content__info">Available credits since last bill</span>
+            <span class="credit-history__content__details">DETAILS</span>
             <SortingHeader/>
-            <PaymentsItem
-                v-for="item in historyItems"
-                :billing-item="item"
-                :key="item.id"
+            <CreditsItem
+                v-for="(item, index) in historyItems"
+                :key="index"
+                :credits-item="item"
             />
         </div>
-        <h2 class="history-area__empty-state" v-else>No Items Yet</h2>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
-import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
+import CreditsItem from '@/components/account/billing/freeCredits/CreditsItem.vue';
+import SortingHeader from '@/components/account/billing/freeCredits/SortingHeader.vue';
 
 import BackImage from '@/../static/images/account/billing/back.svg';
 
@@ -34,32 +35,28 @@ import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
 @Component({
     components: {
-        PaymentsItem,
-        SortingHeader,
+        CreditsItem,
         BackImage,
+        SortingHeader,
     },
 })
-export default class DetailedHistory extends Vue {
+export default class CreditsHistory extends Vue {
     /**
-     * Returns list of history items depending on route name.
+     * Returns list of free credit history items.
      */
     public get historyItems(): PaymentsHistoryItem[] {
-        if (this.isBillingHistory) {
-            return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-                return item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge;
-            });
-        }
-
         return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
+            return item.type === PaymentsHistoryItemType.Coupon;
         });
     }
 
     /**
-     * Indicates if current route is billing history page.
+     * Returns remaining sum of items.
      */
-    public get isBillingHistory(): boolean {
-        return this.$route.name === RouteConfig.BillingHistory.name;
+    public get remainingSum(): number {
+        const remainingAmounts: number[] = this.historyItems.map((item: PaymentsHistoryItem) => item.remaining);
+
+        return remainingAmounts.reduce((accumulator, current) => accumulator + current);
     }
 
     /**
@@ -77,7 +74,7 @@ export default class DetailedHistory extends Vue {
         margin: 0;
     }
 
-    .history-area {
+    .credit-history {
         margin-top: 27px;
         padding: 0 0 80px 0;
         background-color: #f5f6fa;
@@ -102,7 +99,7 @@ export default class DetailedHistory extends Vue {
 
             &:hover {
 
-                .history-area__back-area__title {
+                .credit-history__back-area__title {
                     color: #2683ff;
                 }
 
@@ -122,15 +119,38 @@ export default class DetailedHistory extends Vue {
 
         &__content {
             background-color: #fff;
-            padding: 30px 40px 0 40px;
+            padding: 40px 40px 30px 40px;
             border-radius: 8px;
-        }
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
 
-        &__empty-state {
-            font-size: 40px;
-            line-height: 46px;
-            text-align: center;
-            margin-top: 200px;
+            &__sum {
+                font-family: 'font_bold', sans-serif;
+                font-size: 36px;
+                line-height: 53px;
+                color: #384b65;
+            }
+
+            &__info {
+                font-size: 16px;
+                line-height: 24px;
+                color: #909090;
+                margin-bottom: 35px;
+            }
+
+            &__details {
+                width: 100%;
+                text-align: left;
+                font-weight: 500;
+                font-size: 16px;
+                line-height: 23px;
+                letter-spacing: 0.04em;
+                color: #919191;
+                padding-bottom: 22px;
+                border-bottom: 1px solid #c7cdd2;
+                margin-bottom: 75px;
+            }
         }
     }
 
@@ -142,7 +162,7 @@ export default class DetailedHistory extends Vue {
 
     @media (max-height: 1000px) and (max-width: 1230px) {
 
-        .history-area {
+        .credit-history {
             overflow-y: scroll;
             height: 65vh;
         }

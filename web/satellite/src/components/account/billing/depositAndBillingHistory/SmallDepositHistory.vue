@@ -44,7 +44,7 @@ export default class SmallDepositHistory extends Vue {
      */
     public get depositHistoryItems(): PaymentsHistoryItem[] {
         return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.Coupon;
+            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
         }).slice(0, 3);
     }
 }

@@ -20,9 +20,17 @@
         </div>
         <div class="account-billing-area__title-area" v-if="userHasOwnProject" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
             <div class="account-billing-area__title-area__balance-area">
-                <span class="account-billing-area__title-area__balance-area__free-credits">
-                    Free Credits: {{ balance.freeCredits | centsToDollars }}
-                </span>
+                <div @click.stop="toggleDropdown" class="account-billing-area__title-area__balance-area__free-credits">
+                    <span class="account-billing-area__title-area__balance-area__free-credits__amount">
+                        Free Credits: {{ balance.freeCredits | centsToDollars }}
+                    </span>
+                    <HideIcon v-if="isCreditsDropdownShown"/>
+                    <ExpandIcon v-else/>
+                    <CreditsDropdown
+                        v-show="isCreditsDropdownShown"
+                        @close="closeDropdown"
+                    />
+                </div>
                 <span class="account-billing-area__title-area__balance-area__tokens" :style="{ color: balanceColor }">
                     STORJ Balance: {{ balance.coins | centsToDollars }}
                 </span>
@@ -41,10 +49,13 @@ import { Component, Vue } from 'vue-property-decorator';
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
 import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
+import CreditsDropdown from '@/components/account/billing/freeCredits/CreditsDropdown.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 import VDatepicker from '@/components/common/VDatePicker.vue';
 
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
+import ExpandIcon from '@/../static/images/account/billing/expand.svg';
+import HideIcon from '@/../static/images/account/billing/hide.svg';
 import LowBalanceIcon from '@/../static/images/account/billing/lowBalance.svg';
 import NegativeBalanceIcon from '@/../static/images/account/billing/negativeBalance.svg';
 
@@ -64,9 +75,14 @@ import { ProjectOwning } from '@/utils/projectOwning';
         DatePickerIcon,
         LowBalanceIcon,
         NegativeBalanceIcon,
+        CreditsDropdown,
+        ExpandIcon,
+        HideIcon,
     },
 })
 export default class BillingArea extends Vue {
+    public isCreditsDropdownShown: boolean = false;
+
     /**
      * Mounted lifecycle hook before initial render.
      * Fetches billing history and project limits.
@@ -145,6 +161,20 @@ export default class BillingArea extends Vue {
     public get userHasOwnProject(): boolean {
         return new ProjectOwning(this.$store).userHasOwnProject();
     }
+
+    /**
+     * Toggles free credits dropdown visibility.
+     */
+    public toggleDropdown(): void {
+        this.isCreditsDropdownShown = !this.isCreditsDropdownShown;
+    }
+
+    /**
+     * Closes free credits dropdown.
+     */
+    public closeDropdown(): void {
+        this.isCreditsDropdownShown = false;
+    }
 }
 </script>
 
@@ -164,15 +194,24 @@ export default class BillingArea extends Vue {
                 justify-content: space-between;
                 font-family: 'font_regular', sans-serif;
 
-                &__free-credits,
                 &__tokens {
                     font-size: 16px;
                     line-height: 19px;
                 }
 
                 &__free-credits {
+                    display: flex;
+                    align-items: center;
+                    position: relative;
+                    cursor: pointer;
                     margin-right: 50px;
                     color: #768394;
+
+                    &__amount {
+                        margin-right: 10px;
+                        font-size: 16px;
+                        line-height: 19px;
+                    }
                 }
             }
         }

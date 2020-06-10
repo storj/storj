@@ -11,7 +11,7 @@
             <ExpandIcon v-if="!isDropdownShown"/>
             <HideIcon v-else/>
         </div>
-        <div class="period-selection__dropdown" v-if="isDropdownShown" v-click-outside="close">
+        <div class="period-selection__dropdown" v-show="isDropdownShown" v-click-outside="close">
             <div
                 class="period-selection__dropdown__item"
                 v-for="(option, index) in periodOptions"
