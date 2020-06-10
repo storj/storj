@@ -82,7 +82,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 			UnknownReputationScore: unknownScore,
 		},
 		Disqualified: node.Disqualified,
-		Suspended:    node.Suspended,
+		Suspended:    node.UnknownAuditSuspended,
 		JoinedAt:     node.CreatedAt,
 	}, nil
 }

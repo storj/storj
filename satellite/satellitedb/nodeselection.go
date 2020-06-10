@@ -174,7 +174,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
 	var conds conditions
 	conds.add(`disqualified IS NULL`)
-	conds.add(`suspended IS NULL`)
+	conds.add(`unknown_audit_suspended IS NULL`)
 	conds.add(`exit_initiated_at IS NULL`)
 
 	conds.add(`type = ?`, int(pb.NodeType_STORAGE))

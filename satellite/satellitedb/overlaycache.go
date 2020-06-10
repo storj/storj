@@ -42,7 +42,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 		SELECT id, address, last_net, last_ip_port, (total_audit_count < $1 OR total_uptime_count < $2) as isnew
 			FROM nodes
 			WHERE disqualified IS NULL
-			AND suspended IS NULL
+			AND unknown_audit_suspended IS NULL
 			AND exit_initiated_at IS NULL
 			AND type = $3
 			AND free_disk >= $4
@@ -230,7 +230,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
-			AND suspended IS NULL
+			AND unknown_audit_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
 		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
@@ -271,7 +271,7 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 			FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
-			AND suspended IS NULL
+			AND unknown_audit_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
 		`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow),
@@ -302,7 +302,7 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE disqualified IS NULL
-		AND suspended IS NULL
+		AND unknown_audit_suspended IS NULL
 		AND exit_finished_at IS NULL
 		AND last_contact_success > ?
 	`), time.Now().Add(-criteria.OnlineWindow))
@@ -587,11 +587,11 @@ func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.Node
 	return nil
 }
 
-// SuspendNode suspends a storage node.
-func (cache *overlaycache) SuspendNode(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
+func (cache *overlaycache) SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
-	updateFields.Suspended = dbx.Node_Suspended(suspendedAt.UTC())
+	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended(suspendedAt.UTC())
 
 	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
@@ -603,11 +603,11 @@ func (cache *overlaycache) SuspendNode(ctx context.Context, nodeID storj.NodeID,
 	return nil
 }
 
-// UnsuspendNode unsuspends a storage node.
-func (cache *overlaycache) UnsuspendNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
+func (cache *overlaycache) UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
-	updateFields.Suspended = dbx.Node_Suspended_Null()
+	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Null()
 
 	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
@@ -939,13 +939,13 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			Timestamp:  info.Timestamp,
 			Release:    info.Release,
 		},
-		Contained:    info.Contained,
-		Disqualified: info.Disqualified,
-		Suspended:    info.Suspended,
-		PieceCount:   info.PieceCount,
-		ExitStatus:   exitStatus,
-		CreatedAt:    info.CreatedAt,
-		LastNet:      info.LastNet,
+		Contained:             info.Contained,
+		Disqualified:          info.Disqualified,
+		UnknownAuditSuspended: info.UnknownAuditSuspended,
+		PieceCount:            info.PieceCount,
+		ExitStatus:            exitStatus,
+		CreatedAt:             info.CreatedAt,
+		LastNet:               info.LastNet,
 	}
 	if info.LastIpPort != nil {
 		node.LastIPPort = *info.LastIpPort
@@ -969,7 +969,7 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 		Disqualified:                dbNode.Disqualified,
 		UnknownAuditReputationAlpha: dbNode.UnknownAuditReputationAlpha,
 		UnknownAuditReputationBeta:  dbNode.UnknownAuditReputationBeta,
-		Suspended:                   dbNode.Suspended,
+		UnknownAuditSuspended:       dbNode.UnknownAuditSuspended,
 	}
 	return nodeStats
 }
@@ -1047,15 +1047,15 @@ func buildUpdateStatement(update updateNodeStats) string {
 		atLeastOne = true
 		sql += fmt.Sprintf("disqualified = '%v'", update.Disqualified.value.Format(time.RFC3339Nano))
 	}
-	if update.Suspended.set {
+	if update.UnknownAuditSuspended.set {
 		if atLeastOne {
 			sql += ","
 		}
 		atLeastOne = true
-		if update.Suspended.isNil {
-			sql += "suspended = NULL"
+		if update.UnknownAuditSuspended.isNil {
+			sql += "unknown_audit_suspended = NULL"
 		} else {
-			sql += fmt.Sprintf("suspended = '%v'", update.Suspended.value.Format(time.RFC3339Nano))
+			sql += fmt.Sprintf("unknown_audit_suspended = '%v'", update.UnknownAuditSuspended.value.Format(time.RFC3339Nano))
 		}
 	}
 	if update.UptimeSuccessCount.set {
@@ -1136,7 +1136,7 @@ type updateNodeStats struct {
 	Disqualified                timeField
 	UnknownAuditReputationAlpha float64Field
 	UnknownAuditReputationBeta  float64Field
-	Suspended                   timeField
+	UnknownAuditSuspended       timeField
 	UptimeSuccessCount          int64Field
 	LastContactSuccess          timeField
 	LastContactFailure          timeField
@@ -1236,9 +1236,9 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	// if unknown audit rep goes below threshold, suspend node. Otherwise unsuspend node.
 	unknownAuditRep := unknownAuditAlpha / (unknownAuditAlpha + unknownAuditBeta)
 	if unknownAuditRep <= updateReq.AuditDQ {
-		if dbNode.Suspended == nil {
+		if dbNode.UnknownAuditSuspended == nil {
 			cache.db.log.Info("Suspended", zap.String("Node ID", updateFields.NodeID.String()), zap.String("Category", "Unknown Audits"))
-			updateFields.Suspended = timeField{set: true, value: time.Now().UTC()}
+			updateFields.UnknownAuditSuspended = timeField{set: true, value: time.Now().UTC()}
 		}
 
 		// disqualification case b
@@ -1250,17 +1250,17 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 		// disqualify node. Set suspended to nil if node is disqualified
 		// NOTE: if updateFields.Suspended is set, we just suspended the node so it will not be disqualified
 		if updateReq.AuditOutcome != overlay.AuditSuccess {
-			if dbNode.Suspended != nil && !updateFields.Suspended.set &&
-				time.Since(*dbNode.Suspended) > updateReq.SuspensionGracePeriod &&
+			if dbNode.UnknownAuditSuspended != nil && !updateFields.UnknownAuditSuspended.set &&
+				time.Since(*dbNode.UnknownAuditSuspended) > updateReq.SuspensionGracePeriod &&
 				updateReq.SuspensionDQEnabled {
-				cache.db.log.Info("Disqualified", zap.String("DQ type", "suspension grace period expired"), zap.String("Node ID", updateReq.NodeID.String()))
+				cache.db.log.Info("Disqualified", zap.String("DQ type", "suspension grace period expired for unknown audits"), zap.String("Node ID", updateReq.NodeID.String()))
 				updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
-				updateFields.Suspended = timeField{set: true, isNil: true}
+				updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 			}
 		}
-	} else if dbNode.Suspended != nil {
+	} else if dbNode.UnknownAuditSuspended != nil {
 		cache.db.log.Info("Suspension lifted", zap.String("Category", "Unknown Audits"), zap.String("Node ID", updateFields.NodeID.String()))
-		updateFields.Suspended = timeField{set: true, isNil: true}
+		updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 	}
 
 	if updateReq.IsUp {
@@ -1308,11 +1308,11 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 	if update.UnknownAuditReputationBeta.set {
 		updateFields.UnknownAuditReputationBeta = dbx.Node_UnknownAuditReputationBeta(update.UnknownAuditReputationBeta.value)
 	}
-	if update.Suspended.set {
-		if update.Suspended.isNil {
-			updateFields.Suspended = dbx.Node_Suspended_Null()
+	if update.UnknownAuditSuspended.set {
+		if update.UnknownAuditSuspended.isNil {
+			updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Null()
 		} else {
-			updateFields.Suspended = dbx.Node_Suspended(update.Suspended.value)
+			updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended(update.UnknownAuditSuspended.value)
 		}
 	}
 	if update.UptimeSuccessCount.set {

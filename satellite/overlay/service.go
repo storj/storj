@@ -91,10 +91,10 @@ type DB interface {
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
 
-	// SuspendNode suspends a storage node.
-	SuspendNode(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
-	// UnsuspendNode unsuspends a storage node.
-	UnsuspendNode(ctx context.Context, nodeID storj.NodeID) (err error)
+	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
+	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
+	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
+	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins
@@ -186,19 +186,19 @@ type ExitStatusRequest struct {
 // NodeDossier is the complete info that the satellite tracks for a storage node
 type NodeDossier struct {
 	pb.Node
-	Type         pb.NodeType
-	Operator     pb.NodeOperator
-	Capacity     pb.NodeCapacity
-	Reputation   NodeStats
-	Version      pb.NodeVersion
-	Contained    bool
-	Disqualified *time.Time
-	Suspended    *time.Time
-	PieceCount   int64
-	ExitStatus   ExitStatus
-	CreatedAt    time.Time
-	LastNet      string
-	LastIPPort   string
+	Type                  pb.NodeType
+	Operator              pb.NodeOperator
+	Capacity              pb.NodeCapacity
+	Reputation            NodeStats
+	Version               pb.NodeVersion
+	Contained             bool
+	Disqualified          *time.Time
+	UnknownAuditSuspended *time.Time
+	PieceCount            int64
+	ExitStatus            ExitStatus
+	CreatedAt             time.Time
+	LastNet               string
+	LastIPPort            string
 }
 
 // NodeStats contains statistics about a node.
@@ -216,7 +216,7 @@ type NodeStats struct {
 	Disqualified                *time.Time
 	UnknownAuditReputationAlpha float64
 	UnknownAuditReputationBeta  float64
-	Suspended                   *time.Time
+	UnknownAuditSuspended       *time.Time
 }
 
 // NodeLastContact contains the ID, address, and timestamp

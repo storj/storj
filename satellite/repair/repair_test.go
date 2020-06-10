@@ -858,7 +858,7 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 		}
 		for i := toDisqualify; i < toDisqualify+toSuspend; i++ {
 			nodesToSuspend[remotePieces[i].NodeId] = true
-			err := satellite.DB.OverlayCache().SuspendNode(ctx, remotePieces[i].NodeId, time.Now())
+			err := satellite.DB.OverlayCache().SuspendNodeUnknownAudit(ctx, remotePieces[i].NodeId, time.Now())
 			require.NoError(t, err)
 		}
 		for i := toDisqualify + toSuspend; i < len(remotePieces); i++ {

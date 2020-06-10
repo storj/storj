@@ -121,27 +121,27 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 		node, err := overlay.Get(ctx, goodNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 
 		node, err = overlay.Get(ctx, dqNode)
 		require.NoError(t, err)
 		require.NotNil(t, node.Disqualified)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 
 		node, err = overlay.Get(ctx, suspendedNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
-		require.NotNil(t, node.Suspended)
+		require.NotNil(t, node.UnknownAuditSuspended)
 
 		node, err = overlay.Get(ctx, pendingNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 
 		node, err = overlay.Get(ctx, offlineNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 	})
 }
 
@@ -164,9 +164,9 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 		node, err := overlay.Get(ctx, suspendedNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
-		require.NotNil(t, node.Suspended)
+		require.NotNil(t, node.UnknownAuditSuspended)
 
-		suspendedAt := node.Suspended
+		suspendedAt := node.UnknownAuditSuspended
 
 		failed, err = audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}}, "")
 		require.NoError(t, err)
@@ -175,8 +175,8 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 		node, err = overlay.Get(ctx, suspendedNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
-		require.NotNil(t, node.Suspended)
-		require.Equal(t, suspendedAt, node.Suspended)
+		require.NotNil(t, node.UnknownAuditSuspended)
+		require.Equal(t, suspendedAt, node.UnknownAuditSuspended)
 	})
 }
 
@@ -237,7 +237,7 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 			require.EqualValues(t, 0, nodeCacheInfo.Reputation.AuditReputationBeta)
 			require.EqualValues(t, 1, nodeCacheInfo.Reputation.UnknownAuditReputationAlpha)
 			require.EqualValues(t, 0, nodeCacheInfo.Reputation.UnknownAuditReputationBeta)
-			require.Nil(t, nodeCacheInfo.Suspended)
+			require.Nil(t, nodeCacheInfo.UnknownAuditSuspended)
 			require.Nil(t, nodeCacheInfo.Disqualified)
 		}
 	})

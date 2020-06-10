@@ -28,23 +28,23 @@ func TestSuspendBasic(t *testing.T) {
 
 		node, err := oc.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 
 		timeToSuspend := time.Now().UTC().Truncate(time.Second)
-		err = oc.SuspendNode(ctx, nodeID, timeToSuspend)
+		err = oc.SuspendNodeUnknownAudit(ctx, nodeID, timeToSuspend)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.NotNil(t, node.Suspended)
-		require.True(t, node.Suspended.Equal(timeToSuspend))
+		require.NotNil(t, node.UnknownAuditSuspended)
+		require.True(t, node.UnknownAuditSuspended.Equal(timeToSuspend))
 
-		err = oc.UnsuspendNode(ctx, nodeID)
+		err = oc.UnsuspendNodeUnknownAudit(ctx, nodeID)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 	})
 }
 
@@ -58,7 +58,7 @@ func TestSuspendWithUpdateStats(t *testing.T) {
 
 		node, err := oc.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 		testStartTime := time.Now()
 
 		// give node one unknown audit - bringing unknown audit rep to 0.5, and suspending node
@@ -77,8 +77,8 @@ func TestSuspendWithUpdateStats(t *testing.T) {
 		// expect unknown audit alpha/beta to change and suspended to be set
 		require.True(t, node.Reputation.UnknownAuditReputationAlpha < 1)
 		require.True(t, node.Reputation.UnknownAuditReputationBeta > 0)
-		require.NotNil(t, node.Suspended)
-		require.True(t, node.Suspended.After(testStartTime))
+		require.NotNil(t, node.UnknownAuditSuspended)
+		require.True(t, node.UnknownAuditSuspended.After(testStartTime))
 		// expect node is not disqualified and that normal audit alpha/beta remain unchanged
 		require.Nil(t, node.Disqualified)
 		require.EqualValues(t, node.Reputation.AuditReputationAlpha, 1)
@@ -98,7 +98,7 @@ func TestSuspendWithUpdateStats(t *testing.T) {
 		}
 		node, err = oc.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 	})
 }
 
@@ -113,7 +113,7 @@ func TestSuspendFailedAudit(t *testing.T) {
 		node, err := oc.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 
 		// give node one failed audit - bringing audit rep to 0.5, and disqualifying node
 		// expect that suspended field and unknown audit reputation remain unchanged
@@ -130,7 +130,7 @@ func TestSuspendFailedAudit(t *testing.T) {
 		node, err = oc.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.NotNil(t, node.Disqualified)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 		require.EqualValues(t, node.Reputation.UnknownAuditReputationAlpha, 1)
 		require.EqualValues(t, node.Reputation.UnknownAuditReputationBeta, 0)
 	})
@@ -154,7 +154,7 @@ func TestSuspendExceedGracePeriod(t *testing.T) {
 		// suspend each node two hours ago (more than grace period)
 		oc := planet.Satellites[0].DB.OverlayCache()
 		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
-			err := oc.SuspendNode(ctx, node, time.Now().Add(-2*time.Hour))
+			err := oc.SuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
 			require.NoError(t, err)
 		}
 
@@ -210,7 +210,7 @@ func TestSuspendDQDisabled(t *testing.T) {
 		// suspend each node two hours ago (more than grace period)
 		oc := planet.Satellites[0].DB.OverlayCache()
 		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
-			err := oc.SuspendNode(ctx, node, time.Now().Add(-2*time.Hour))
+			err := oc.SuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
 			require.NoError(t, err)
 		}
 
@@ -235,26 +235,26 @@ func TestSuspendDQDisabled(t *testing.T) {
 		// successful node should not be suspended or disqualified
 		n, err := oc.Get(ctx, successNodeID)
 		require.NoError(t, err)
-		require.Nil(t, n.Suspended)
+		require.Nil(t, n.UnknownAuditSuspended)
 		require.Nil(t, n.Disqualified)
 
 		// failed node should not be suspended but should be disqualified
 		// (disqualified because of a failed audit, not because of exceeding suspension grace period)
 		n, err = oc.Get(ctx, failNodeID)
 		require.NoError(t, err)
-		require.Nil(t, n.Suspended)
+		require.Nil(t, n.UnknownAuditSuspended)
 		require.NotNil(t, n.Disqualified)
 
 		// offline node should still be suspended but not disqualified
 		n, err = oc.Get(ctx, offlineNodeID)
 		require.NoError(t, err)
-		require.NotNil(t, n.Suspended)
+		require.NotNil(t, n.UnknownAuditSuspended)
 		require.Nil(t, n.Disqualified)
 
 		// unknown node should still be suspended but not disqualified
 		n, err = oc.Get(ctx, unknownNodeID)
 		require.NoError(t, err)
-		require.NotNil(t, n.Suspended)
+		require.NotNil(t, n.UnknownAuditSuspended)
 		require.Nil(t, n.Disqualified)
 	})
 }
@@ -269,7 +269,7 @@ func TestSuspendBatchUpdateStats(t *testing.T) {
 
 		node, err := oc.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 		testStartTime := time.Now()
 
 		nodeUpdateReq := &overlay.UpdateRequest{
@@ -290,7 +290,7 @@ func TestSuspendBatchUpdateStats(t *testing.T) {
 		// expect unknown audit alpha/beta to change and suspended to be nil
 		require.True(t, node.Reputation.UnknownAuditReputationAlpha > 1)
 		require.True(t, node.Reputation.UnknownAuditReputationBeta == 0)
-		require.Nil(t, node.Suspended)
+		require.Nil(t, node.UnknownAuditSuspended)
 		// expect audit alpha/beta to change and disqualified to be nil
 		require.True(t, node.Reputation.AuditReputationAlpha > 1)
 		require.True(t, node.Reputation.AuditReputationBeta == 0)
@@ -311,8 +311,8 @@ func TestSuspendBatchUpdateStats(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, node.Reputation.UnknownAuditReputationAlpha < oldReputation.UnknownAuditReputationAlpha)
 		require.True(t, node.Reputation.UnknownAuditReputationBeta > oldReputation.UnknownAuditReputationBeta)
-		require.NotNil(t, node.Suspended)
-		require.True(t, node.Reputation.Suspended.After(testStartTime))
+		require.NotNil(t, node.UnknownAuditSuspended)
+		require.True(t, node.Reputation.UnknownAuditSuspended.After(testStartTime))
 		// node should not be disqualified and normal audit reputation should not change
 		require.EqualValues(t, node.Reputation.AuditReputationAlpha, oldReputation.AuditReputationAlpha)
 		require.EqualValues(t, node.Reputation.AuditReputationBeta, oldReputation.AuditReputationBeta)
