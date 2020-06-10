@@ -137,7 +137,7 @@ contact.external-address: ""
 # database-options.api-keys-cache.expiration: 1m0s
 
 # how often to delete expired serial numbers
-# db-cleanup.serials-interval: 24h0m0s
+# db-cleanup.serials-interval: 4h0m0s
 
 # Maximum Database Connection Lifetime, -1ns means the stdlib default
 # db.conn_max_lifetime: -1ns

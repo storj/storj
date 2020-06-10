@@ -24,7 +24,7 @@ var (
 
 // Config defines configuration struct for dbcleanup chore.
 type Config struct {
-	SerialsInterval time.Duration `help:"how often to delete expired serial numbers" default:"24h"`
+	SerialsInterval time.Duration `help:"how often to delete expired serial numbers" default:"4h"`
 }
 
 // Chore for deleting DB entries that are no longer needed.
