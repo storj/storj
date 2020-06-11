@@ -61,7 +61,7 @@ type Service struct {
 	db  DB
 }
 
-// NewService returns a new Service
+// NewService returns a new Service.
 func NewService(log *zap.Logger, db DB) *Service {
 	return &Service{
 		log: log,
