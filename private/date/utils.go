@@ -46,3 +46,8 @@ func MonthsBetweenDates(from time.Time, to time.Time) int {
 	//note that according to the tests, we ignore days of the month
 	return months
 }
+
+// TruncateToHourInNano returns the time truncated to the hour in nanoseconds
+func TruncateToHourInNano(t time.Time) int64 {
+	return t.Truncate(1 * time.Hour).UnixNano()
+}

@@ -8972,6 +8972,10 @@ type BandwidthLimit_Row struct {
 	BandwidthLimit int64
 }
 
+type BucketId_Row struct {
+	BucketId []byte
+}
+
 type CustomerId_Row struct {
 	CustomerId string
 }
@@ -9750,6 +9754,59 @@ func (obj *pgxImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
+	storagenode_bandwidth_rollup_interval_seconds StoragenodeBandwidthRollup_IntervalSeconds_Field,
+	storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field,
+	storagenode_bandwidth_rollup_settled StoragenodeBandwidthRollup_Settled_Field,
+	optional StoragenodeBandwidthRollup_Create_Fields) (
+	storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__storagenode_id_val := storagenode_bandwidth_rollup_storagenode_id.value()
+	__interval_start_val := storagenode_bandwidth_rollup_interval_start.value()
+	__interval_seconds_val := storagenode_bandwidth_rollup_interval_seconds.value()
+	__action_val := storagenode_bandwidth_rollup_action.value()
+	__settled_val := storagenode_bandwidth_rollup_settled.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("storagenode_id, interval_start, interval_seconds, action, settled")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storagenode_bandwidth_rollups "), __clause, __sqlbundle_Literal(" RETURNING storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled")}}
+
+	var __values []interface{}
+	__values = append(__values, __storagenode_id_val, __interval_start_val, __interval_seconds_val, __action_val, __settled_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Allocated._set {
+		__values = append(__values, optional.Allocated.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allocated"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storagenode_bandwidth_rollup, nil
 
 }
 
@@ -11484,6 +11541,50 @@ func (obj *pgxImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Context
 
 }
 
+func (obj *pgxImpl) Get_SerialNumber_BucketId_By_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field) (
+	row *BucketId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.bucket_id FROM serial_numbers WHERE serial_numbers.serial_number = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, serial_number_serial_number.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	row = &BucketId_Row{}
+	err = __rows.Scan(&row.BucketId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("SerialNumber_BucketId_By_SerialNumber")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return row, nil
+
+}
+
 func (obj *pgxImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field) (
 	serial_number *SerialNumber, err error) {
@@ -11792,6 +11893,41 @@ func (obj *pgxImpl) All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqu
 
 	var __values []interface{}
 	__values = append(__values, storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
+		err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, storagenode_bandwidth_rollup)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *pgxImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field) (
+	rows []*StoragenodeBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -16127,6 +16263,59 @@ func (obj *pgxcockroachImpl) CreateNoReturn_BucketStorageTally(ctx context.Conte
 
 }
 
+func (obj *pgxcockroachImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
+	storagenode_bandwidth_rollup_interval_seconds StoragenodeBandwidthRollup_IntervalSeconds_Field,
+	storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field,
+	storagenode_bandwidth_rollup_settled StoragenodeBandwidthRollup_Settled_Field,
+	optional StoragenodeBandwidthRollup_Create_Fields) (
+	storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__storagenode_id_val := storagenode_bandwidth_rollup_storagenode_id.value()
+	__interval_start_val := storagenode_bandwidth_rollup_interval_start.value()
+	__interval_seconds_val := storagenode_bandwidth_rollup_interval_seconds.value()
+	__action_val := storagenode_bandwidth_rollup_action.value()
+	__settled_val := storagenode_bandwidth_rollup_settled.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("storagenode_id, interval_start, interval_seconds, action, settled")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storagenode_bandwidth_rollups "), __clause, __sqlbundle_Literal(" RETURNING storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled")}}
+
+	var __values []interface{}
+	__values = append(__values, __storagenode_id_val, __interval_start_val, __interval_seconds_val, __action_val, __settled_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Allocated._set {
+		__values = append(__values, optional.Allocated.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allocated"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storagenode_bandwidth_rollup, nil
+
+}
+
 func (obj *pgxcockroachImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 	storagenode_paystub_period StoragenodePaystub_Period_Field,
 	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
@@ -17858,6 +18047,50 @@ func (obj *pgxcockroachImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx contex
 
 }
 
+func (obj *pgxcockroachImpl) Get_SerialNumber_BucketId_By_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field) (
+	row *BucketId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT serial_numbers.bucket_id FROM serial_numbers WHERE serial_numbers.serial_number = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, serial_number_serial_number.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	row = &BucketId_Row{}
+	err = __rows.Scan(&row.BucketId)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("SerialNumber_BucketId_By_SerialNumber")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field) (
 	serial_number *SerialNumber, err error) {
@@ -18166,6 +18399,41 @@ func (obj *pgxcockroachImpl) All_StoragenodeBandwidthRollup_By_IntervalStart_Gre
 
 	var __values []interface{}
 	__values = append(__values, storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
+		err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, storagenode_bandwidth_rollup)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field) (
+	rows []*StoragenodeBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -22023,6 +22291,17 @@ func (rx *Rx) All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx
 	return tx.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, storagenode_bandwidth_rollup_interval_start_greater_or_equal)
 }
 
+func (rx *Rx) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field) (
+	rows []*StoragenodeBandwidthRollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx, storagenode_bandwidth_rollup_storagenode_id, storagenode_bandwidth_rollup_interval_start)
+}
+
 func (rx *Rx) All_StoragenodeStorageTally(ctx context.Context) (
 	rows []*StoragenodeStorageTally, err error) {
 	var tx *Tx
@@ -22518,6 +22797,22 @@ func (rx *Rx) Create_ResetPasswordToken(ctx context.Context,
 		return
 	}
 	return tx.Create_ResetPasswordToken(ctx, reset_password_token_secret, reset_password_token_owner_id)
+
+}
+
+func (rx *Rx) Create_StoragenodeBandwidthRollup(ctx context.Context,
+	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
+	storagenode_bandwidth_rollup_interval_seconds StoragenodeBandwidthRollup_IntervalSeconds_Field,
+	storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field,
+	storagenode_bandwidth_rollup_settled StoragenodeBandwidthRollup_Settled_Field,
+	optional StoragenodeBandwidthRollup_Create_Fields) (
+	storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_StoragenodeBandwidthRollup(ctx, storagenode_bandwidth_rollup_storagenode_id, storagenode_bandwidth_rollup_interval_start, storagenode_bandwidth_rollup_interval_seconds, storagenode_bandwidth_rollup_action, storagenode_bandwidth_rollup_settled, optional)
 
 }
 
@@ -23138,6 +23433,16 @@ func (rx *Rx) Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Get_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
+}
+
+func (rx *Rx) Get_SerialNumber_BucketId_By_SerialNumber(ctx context.Context,
+	serial_number_serial_number SerialNumber_SerialNumber_Field) (
+	row *BucketId_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_SerialNumber_BucketId_By_SerialNumber(ctx, serial_number_serial_number)
 }
 
 func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
@@ -23761,6 +24066,11 @@ type Methods interface {
 		storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field) (
 		rows []*StoragenodeBandwidthRollup, err error)
 
+	All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx context.Context,
+		storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+		storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field) (
+		rows []*StoragenodeBandwidthRollup, err error)
+
 	All_StoragenodeStorageTally(ctx context.Context) (
 		rows []*StoragenodeStorageTally, err error)
 
@@ -24024,6 +24334,15 @@ type Methods interface {
 		reset_password_token_secret ResetPasswordToken_Secret_Field,
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
 		reset_password_token *ResetPasswordToken, err error)
+
+	Create_StoragenodeBandwidthRollup(ctx context.Context,
+		storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
+		storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
+		storagenode_bandwidth_rollup_interval_seconds StoragenodeBandwidthRollup_IntervalSeconds_Field,
+		storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field,
+		storagenode_bandwidth_rollup_settled StoragenodeBandwidthRollup_Settled_Field,
+		optional StoragenodeBandwidthRollup_Create_Fields) (
+		storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error)
 
 	Create_StripeCustomer(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field,
@@ -24290,6 +24609,10 @@ type Methods interface {
 	Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		reset_password_token *ResetPasswordToken, err error)
+
+	Get_SerialNumber_BucketId_By_SerialNumber(ctx context.Context,
+		serial_number_serial_number SerialNumber_SerialNumber_Field) (
+		row *BucketId_Row, err error)
 
 	Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field) (

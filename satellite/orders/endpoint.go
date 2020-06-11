@@ -20,6 +20,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/date"
 )
 
 // DB implements saving order after receiving from storage node
@@ -38,6 +39,8 @@ type DB interface {
 	DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error)
 	// DeleteExpiredConsumedSerials deletes all expired serials in the consumed_serials table.
 	DeleteExpiredConsumedSerials(ctx context.Context, now time.Time) (_ int, err error)
+	// GetBucketIDFromSerialNumber returns the bucket ID associated with the serial number
+	GetBucketIDFromSerialNumber(ctx context.Context, serialNumber storj.SerialNumber) ([]byte, error)
 
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
@@ -48,6 +51,8 @@ type DB interface {
 
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	// UpdateStoragenodeBandwidthSettleWithWindow updates 'settled' bandwidth for given storage node
+	UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storj.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error)
 
 	// GetBucketBandwidth gets total bucket bandwidth from period of time
 	GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, error)
@@ -360,5 +365,172 @@ func (endpoint *Endpoint) processOrders(ctx context.Context, stream pb.DRPCOrder
 			return err
 		}
 	}
+
 	return nil
+}
+
+type bucketIDAction struct {
+	bucketname string
+	projectID  uuid.UUID
+	action     pb.PieceAction
+}
+
+// SettlementWithWindow processes all orders that were created in a 1 hour window.
+// Only one window is processed at a time.
+// Batches are atomic, all orders are settled successfully or they all fail.
+func (endpoint *Endpoint) SettlementWithWindow(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
+	ctx := stream.Context()
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		endpoint.log.Debug("err peer identity from context", zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+
+	log := endpoint.log.Named(peer.ID.String())
+	log.Debug("SettlementWithWindow")
+
+	var storagenodeSettled = map[int32]int64{}
+	var bucketSettled = map[bucketIDAction]int64{}
+	var seenSerials = map[storj.SerialNumber]struct{}{}
+
+	var window int64
+	var request *pb.SettlementRequest
+	var receivedCount int
+	for {
+		request, err = stream.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			log.Debug("err streaming order request", zap.Error(err))
+			return rpcstatus.Error(rpcstatus.Unknown, err.Error())
+		}
+		receivedCount++
+
+		orderLimit := request.Limit
+		if orderLimit == nil {
+			log.Debug("request.OrderLimit is nil")
+			continue
+		}
+		if window == 0 {
+			window = date.TruncateToHourInNano(orderLimit.OrderCreation)
+		}
+		order := request.Order
+		if order == nil {
+			log.Debug("request.Order is nil")
+			continue
+		}
+		serialNum := order.SerialNumber
+
+		// don't process orders that aren't valid
+		if !endpoint.isValid(ctx, log, order, orderLimit, peer.ID, window) {
+			continue
+		}
+
+		// don't process orders with serial numbers we've already seen
+		if _, ok := seenSerials[serialNum]; ok {
+			log.Debug("seen serial", zap.String("serial number", serialNum.String()))
+			continue
+		}
+		seenSerials[serialNum] = struct{}{}
+
+		storagenodeSettled[int32(orderLimit.Action)] += order.Amount
+
+		bucketID, err := endpoint.DB.GetBucketIDFromSerialNumber(ctx, serialNum)
+		if err != nil {
+			log.Info("get bucketID from serial number table err", zap.Error(err))
+			continue
+		}
+		projectID, bucketname, err := SplitBucketID([]byte(bucketID))
+		if err != nil {
+			log.Info("split bucket err", zap.Error(err), zap.String("bucketID", string(bucketID)))
+			continue
+		}
+		bucketSettled[bucketIDAction{
+			bucketname: string(bucketname),
+			projectID:  projectID,
+			action:     orderLimit.Action,
+		}] += order.Amount
+	}
+	if len(storagenodeSettled) == 0 {
+		log.Debug("no orders were successfully processed", zap.Int("received count", receivedCount))
+		return stream.SendAndClose(&pb.SettlementWithWindowResponse{
+			Status:        pb.SettlementWithWindowResponse_REJECTED,
+			ActionSettled: storagenodeSettled,
+		})
+	}
+	status, alreadyProcessed, err := endpoint.DB.UpdateStoragenodeBandwidthSettleWithWindow(
+		ctx, peer.ID, storagenodeSettled, time.Unix(0, window),
+	)
+	if err != nil {
+		log.Debug("err updating storagenode bandwidth settle", zap.Error(err))
+		return err
+	}
+	log.Debug("orders processed",
+		zap.Int("total orders received", receivedCount),
+		zap.Time("window", time.Unix(0, window)),
+		zap.String("status", status.String()),
+	)
+
+	if !alreadyProcessed {
+		for bucketIDAction, amount := range bucketSettled {
+			err = endpoint.DB.UpdateBucketBandwidthSettle(ctx,
+				bucketIDAction.projectID, []byte(bucketIDAction.bucketname), bucketIDAction.action, amount, time.Unix(0, window),
+			)
+			if err != nil {
+				log.Info("err updating bucket bandwidth settle", zap.Error(err))
+			}
+		}
+	} else {
+		mon.Event("orders_already_processed")
+	}
+
+	if status == pb.SettlementWithWindowResponse_REJECTED {
+		storagenodeSettled = map[int32]int64{}
+	}
+	return stream.SendAndClose(&pb.SettlementWithWindowResponse{
+		Status:        status,
+		ActionSettled: storagenodeSettled,
+	})
+}
+
+func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *pb.Order, orderLimit *pb.OrderLimit, peerID storj.NodeID, window int64) bool {
+	if orderLimit.StorageNodeId != peerID {
+		log.Debug("storage node id mismatch")
+		mon.Event("order_not_valid_storagenodeid")
+		return false
+	}
+	// check expiration first before the signatures so that we can throw out the large amount
+	// of expired orders being sent to us before doing expensive signature verification.
+	if orderLimit.OrderExpiration.Before(time.Now().UTC()) {
+		log.Debug("invalid settlement: order limit expired")
+		mon.Event("order_not_valid_expired")
+		return false
+	}
+	// satellite verifies that it signed the order limit
+	if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
+		log.Debug("invalid settlement: unable to verify order limit")
+		mon.Event("order_not_valid_satellite_signature")
+		return false
+	}
+	// satellite verifies that the order signature matches pub key in order limit
+	if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
+		log.Debug("invalid settlement: unable to verify order")
+		mon.Event("order_not_valid_uplink_signature")
+		return false
+	}
+	if orderLimit.SerialNumber != order.SerialNumber {
+		log.Debug("invalid settlement: invalid serial number")
+		mon.Event("order_not_valid_serialnum_mismatch")
+		return false
+	}
+	// verify the 1 hr windows match
+	if window != date.TruncateToHourInNano(orderLimit.OrderCreation) {
+		log.Debug("invalid settlement: window mismatch")
+		mon.Event("order_not_valid_window_mismatch")
+		return false
+	}
+	return true
 }

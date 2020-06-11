@@ -470,6 +470,11 @@ model serial_number (
 	)
 )
 
+read one (
+	select serial_number.bucket_id
+	where serial_number.serial_number = ?
+)
+
 model used_serial (
 	key    serial_number_id storage_node_id
 
@@ -657,6 +662,8 @@ model storagenode_bandwidth_rollup (
 	field settled   uint64 ( updatable )
 )
 
+create storagenode_bandwidth_rollup()
+
 read scalar (
 	select storagenode_bandwidth_rollup
 	where  storagenode_bandwidth_rollup.storagenode_id = ?
@@ -667,6 +674,12 @@ read scalar (
 read all (
 	select storagenode_bandwidth_rollup
 	where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
+read all (
+	select storagenode_bandwidth_rollup
+	where storagenode_bandwidth_rollup.storagenode_id = ?
+	where storagenode_bandwidth_rollup.interval_start = ?
 )
 
 model storagenode_storage_tally (
