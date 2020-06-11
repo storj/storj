@@ -76,6 +76,7 @@ type Config struct {
 	AccountActivationRedirectURL string `help:"url link for account activation redirect" default:""`
 	VerificationPageURL          string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
 	PartneredSatelliteNames      string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
+	GoogleTagManagerID           string `help:"id for google tag manager" default:""`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -253,11 +254,11 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"connect-src 'self' api.segment.io",
+		"connect-src 'self' api.segment.io *.google-analytics.com",
 		"frame-ancestors " + server.config.FrameAncestors,
-		"frame-src 'self' *.stripe.com",
-		"img-src 'self' data: *.customer.io",
-		"script-src 'self' *.stripe.com cdn.segment.com *.customer.io",
+		"frame-src 'self' *.stripe.com *.googletagmanager.com",
+		"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
+		"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io *.google-analytics.com *.googletagmanager.com",
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
@@ -271,6 +272,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		StripePublicKey         string
 		VerificationPageURL     string
 		PartneredSatelliteNames string
+		GoogleTagManagerID      string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
@@ -278,6 +280,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.StripePublicKey = server.stripePublicKey
 	data.VerificationPageURL = server.config.VerificationPageURL
 	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
+	data.GoogleTagManagerID = server.config.GoogleTagManagerID
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
 		server.log.Error("index template could not be executed")

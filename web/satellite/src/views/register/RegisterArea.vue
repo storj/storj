@@ -16,6 +16,7 @@ import LogoIcon from '@/../static/images/Logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
+import { GoogleTagManager } from '@/types/gtm';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
@@ -39,6 +40,10 @@ export default class RegisterArea extends Vue {
     private secret: string = '';
     private referralToken: string = '';
     private refUserId: string = '';
+    private gtm: GoogleTagManager;
+    private satellitesString: string;
+    private partneredSatellites: string[];
+    private satelliteName: string;
 
     private userId: string = '';
     private isTermsAccepted: boolean = false;
@@ -58,6 +63,35 @@ export default class RegisterArea extends Vue {
 
     // tardigrade logic
     public isDropdownShown: boolean = false;
+
+    /**
+     * Lifecycle hook before vue instance is created.
+     * Initializes google tag manager (Tardigrade).
+     */
+    public async beforeCreate(): Promise<void> {
+        this.satellitesString = MetaUtils.getMetaContent('partnered-satellite-names');
+        this.partneredSatellites = this.satellitesString.split(',');
+        this.satelliteName = MetaUtils.getMetaContent('satellite-name');
+
+        if (this.partneredSatellites.includes(this.satelliteName)) {
+            this.gtm = new GoogleTagManager();
+            await this.gtm.init();
+        }
+    }
+
+    /**
+     * Lifecycle hook on component destroy.
+     * Sets view to default state and removed GTM.
+     */
+    public beforeDestroy(): void {
+        if (this.partneredSatellites.includes(this.satelliteName)) {
+            this.gtm.remove();
+        }
+
+        if (this.isRegistrationSuccessful) {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
+        }
+    }
 
     /**
      * Lifecycle hook after initial render.
@@ -85,16 +119,6 @@ export default class RegisterArea extends Vue {
         if (referralIds) {
             this.user.partnerId = referralIds.partnerId;
             this.refUserId = referralIds.userId;
-        }
-    }
-
-    /**
-     * Lifecycle hook on component destroy.
-     * Sets view to default state.
-     */
-    public beforeDestroy(): void {
-        if (this.isRegistrationSuccessful) {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         }
     }
 
@@ -251,15 +275,11 @@ export default class RegisterArea extends Vue {
                 referralToken: this.referralToken,
             });
 
-            const satellitesString: string = MetaUtils.getMetaContent('partnered-satellite-names');
-            const partneredSatellites: string[] = satellitesString.split(',');
-            const satelliteName: string = MetaUtils.getMetaContent('satellite-name');
-
-            if (partneredSatellites.includes(satelliteName)) {
+            if (this.partneredSatellites.includes(this.satelliteName)) {
                 const verificationPageURL: string = MetaUtils.getMetaContent('verification-page-url');
                 const url = new URL(verificationPageURL);
 
-                url.searchParams.append('name', satelliteName);
+                url.searchParams.append('name', this.satelliteName);
 
                 window.top.location.href = url.href;
 
