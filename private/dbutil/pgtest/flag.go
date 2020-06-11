@@ -51,9 +51,11 @@ func Databases() []Database {
 func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, connstr string)) {
 	for _, db := range Databases() {
 		db := db
+		connstr := db.Pick(t)
+		if strings.EqualFold(connstr, "omit") {
+			continue
+		}
 		t.Run(db.Name, func(t *testing.T) {
-			connstr := db.Pick(t)
-
 			t.Parallel()
 
 			ctx := testcontext.New(t)
@@ -66,7 +68,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, connstr
 
 // PickPostgres picks a random postgres database from flag.
 func PickPostgres(t TB) string {
-	if *postgres == "" || strings.EqualFold(*cockroach, "omit") {
+	if *postgres == "" || strings.EqualFold(*postgres, "omit") {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + DefaultPostgres)
 	}
 	return pickRandom(*postgres)

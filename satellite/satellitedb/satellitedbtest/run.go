@@ -175,6 +175,10 @@ func CreatePointerDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil
 func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB)) {
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
+		if strings.EqualFold(dbInfo.MasterDB.URL, "omit") {
+			continue
+		}
+
 		t.Run(dbInfo.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -211,6 +215,10 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
+		if strings.EqualFold(dbInfo.MasterDB.URL, "omit") {
+			continue
+		}
+
 		b.Run(dbInfo.Name, func(b *testing.B) {
 			if dbInfo.MasterDB.URL == "" {
 				b.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)

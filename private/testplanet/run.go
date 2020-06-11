@@ -5,6 +5,7 @@ package testplanet
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap/zaptest"
@@ -30,7 +31,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
-		if satelliteDB.MasterDB.URL == "omit" {
+		if strings.EqualFold(satelliteDB.MasterDB.URL, "omit") {
 			continue
 		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
