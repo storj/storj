@@ -23,6 +23,11 @@ const (
 	// StripeDepositBonusTransactionDescription is the description for Stripe
 	// balance transactions representing bonuses received for STORJ deposits.
 	StripeDepositBonusTransactionDescription = "STORJ deposit bonus"
+
+	// StripeMigratedDepositBonusTransactionDescription is the description for
+	// Stripe balance transactions representing bonuses migrated from the
+	// 'credits' table of the satellite DB.
+	StripeMigratedDepositBonusTransactionDescription = "Migrated STORJ deposit bonus"
 )
 
 // ensure that storjTokens implements payments.StorjTokens.

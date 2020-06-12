@@ -149,12 +149,6 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdVerifyGracefulExitReceipt,
 	}
-	stripeCustomerCmd = &cobra.Command{
-		Use:   "ensure-stripe-customer",
-		Short: "Ensures that we have a stripe customer for every user",
-		Long:  "Ensures that we have a stripe customer for every satellite user",
-		RunE:  cmdStripeCustomer,
-	}
 	compensationCmd = &cobra.Command{
 		Use:   "compensation",
 		Short: "Storage Node Compensation commands",
@@ -222,8 +216,20 @@ var (
 	finalizeCustomerInvoicesCmd = &cobra.Command{
 		Use:   "finalize-invoices",
 		Short: "Finalizes all draft stripe invoices",
-		Long:  "Finalizes all draft stripe invoices known to satellite's stripe account",
+		Long:  "Finalizes all draft stripe invoices known to satellite's stripe account.",
 		RunE:  cmdFinalizeCustomerInvoices,
+	}
+	stripeCustomerCmd = &cobra.Command{
+		Use:   "ensure-stripe-customer",
+		Short: "Ensures that we have a stripe customer for every user",
+		Long:  "Ensures that we have a stripe customer for every satellite user.",
+		RunE:  cmdStripeCustomer,
+	}
+	migrateCreditsCmd = &cobra.Command{
+		Use:   "migrate-credits",
+		Short: "Migrates credits to Stripe",
+		Long:  "Migrates credits received for STORJ token deposits from Satellite DB to Stripe balance.",
+		RunE:  cmdMigrateCredits,
 	}
 
 	runCfg   Satellite
@@ -288,13 +294,14 @@ func init() {
 	compensationCmd.AddCommand(generateInvoicesCmd)
 	compensationCmd.AddCommand(recordPeriodCmd)
 	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
-	billingCmd.AddCommand(stripeCustomerCmd)
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
 	billingCmd.AddCommand(createCustomerInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoiceCouponsCmd)
 	billingCmd.AddCommand(createCustomerInvoiceCreditsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
+	billingCmd.AddCommand(stripeCustomerCmd)
+	billingCmd.AddCommand(migrateCreditsCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -310,13 +317,14 @@ func init() {
 	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(verifyGracefulExitReceiptCmd, &verifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoiceCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoiceCreditsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(migrateCreditsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -555,12 +563,6 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	return generateNodeUsageCSV(ctx, start, end, file)
 }
 
-func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-
-	return generateStripeCustomers(ctx)
-}
-
 func cmdGenerateInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
@@ -712,6 +714,20 @@ func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 
 	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
 		return payments.FinalizeInvoices(ctx)
+	})
+}
+
+func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return generateStripeCustomers(ctx)
+}
+
+func cmdMigrateCredits(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.MigrateCredits(ctx)
 	})
 }
 

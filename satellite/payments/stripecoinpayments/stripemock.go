@@ -106,7 +106,16 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 		return nil, err
 	}
 
-	// TODO add customer updating according to params
+	if params == nil {
+		return customer, nil
+	}
+
+	if params.Metadata != nil {
+		customer.Metadata = params.Metadata
+	}
+
+	// TODO update customer with more params as necessary
+
 	return customer, nil
 }
 
