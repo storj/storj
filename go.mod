@@ -29,7 +29,7 @@ require (
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.5.1
 	github.com/stripe/stripe-go v70.15.0+incompatible
-	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
+	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/zeebo/errs v1.2.2
 	go.etcd.io/bbolt v1.3.4
 	go.uber.org/zap v1.15.0
@@ -43,5 +43,5 @@ require (
 	storj.io/drpc v0.0.12
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
 	storj.io/private v0.0.0-20200605221229-3236fe879ab3
-	storj.io/uplink v1.0.7
+	storj.io/uplink v1.1.1
 )
