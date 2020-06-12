@@ -91,6 +91,7 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 			Score:        audit.GetReputationScore(),
 			UnknownAlpha: audit.GetUnknownReputationAlpha(),
 			UnknownBeta:  audit.GetUnknownReputationBeta(),
+			UnknownScore: audit.GetUnknownReputationScore(),
 		},
 		Disqualified: resp.GetDisqualified(),
 		Suspended:    resp.GetSuspended(),
