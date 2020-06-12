@@ -6,6 +6,7 @@ package metainfo_test
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -58,7 +59,7 @@ func TestLoop(t *testing.T) {
 		// upload 5 remote files with 1 segment
 		for i := 0; i < 5; i++ {
 			testData := testrand.Bytes(segmentSize)
-			path := "/some/remote/path/" + string(i)
+			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
 		}
@@ -66,7 +67,7 @@ func TestLoop(t *testing.T) {
 		// (TODO) upload 3 remote files with 2 segments
 		// for i := 0; i < 3; i++ {
 		// 	testData := testrand.Bytes(2 * segmentSize)
-		// 	path := "/some/other/remote/path/" + string(i)
+		// 	path := "/some/other/remote/path/" + strconv.Itoa(i)
 		// 	err := ul.Upload(ctx, satellite, "bucket", path, testData)
 		// 	require.NoError(t, err)
 		// }
@@ -74,7 +75,7 @@ func TestLoop(t *testing.T) {
 		// upload 2 inline files
 		for i := 0; i < 2; i++ {
 			testData := testrand.Bytes(segmentSize / 8)
-			path := "/some/inline/path/" + string(i)
+			path := "/some/inline/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
 		}
@@ -136,7 +137,7 @@ func TestLoopObserverCancel(t *testing.T) {
 		// upload 3 remote files with 1 segment
 		for i := 0; i < 3; i++ {
 			testData := testrand.Bytes(segmentSize)
-			path := "/some/remote/path/" + string(i)
+			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
 		}
@@ -216,7 +217,7 @@ func TestLoopCancel(t *testing.T) {
 		// upload 3 remote files with 1 segment
 		for i := 0; i < 3; i++ {
 			testData := testrand.Bytes(segmentSize)
-			path := "/some/remote/path/" + string(i)
+			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
 		}

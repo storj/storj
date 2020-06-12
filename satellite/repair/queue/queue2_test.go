@@ -6,6 +6,7 @@ package queue_test
 import (
 	"context"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ func TestUntilEmpty(t *testing.T) {
 		// insert a bunch of segments
 		pathsMap := make(map[string]int)
 		for i := 0; i < 20; i++ {
-			path := "/path/" + string(i)
+			path := "/path/" + strconv.Itoa(i)
 			injuredSeg := &pb.InjuredSegment{Path: []byte(path)}
 			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
 			require.NoError(t, err)
@@ -254,7 +255,7 @@ func TestCount(t *testing.T) {
 		pathsMap := make(map[string]int)
 		numSegments := 20
 		for i := 0; i < numSegments; i++ {
-			path := "/path/" + string(i)
+			path := "/path/" + strconv.Itoa(i)
 			injuredSeg := &pb.InjuredSegment{Path: []byte(path)}
 			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
 			require.NoError(t, err)

@@ -4,6 +4,7 @@
 package metrics_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,7 @@ func TestCounterInlineAndRemote(t *testing.T) {
 		// upload 2 inline files
 		for i := 0; i < 2; i++ {
 			testData := testrand.Bytes(segmentSize / 8)
-			path := "/some/inline/path/" + string(i)
+			path := "/some/inline/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
 		}
@@ -39,7 +40,7 @@ func TestCounterInlineAndRemote(t *testing.T) {
 		// upload 2 remote files with 1 segment
 		for i := 0; i < 2; i++ {
 			testData := testrand.Bytes(segmentSize)
-			path := "/some/remote/path/" + string(i)
+			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "testbucket", path, testData)
 			require.NoError(t, err)
 		}
@@ -63,7 +64,7 @@ func TestCounterInlineOnly(t *testing.T) {
 		// upload 2 inline files
 		for i := 0; i < 2; i++ {
 			testData := testrand.Bytes(memory.KiB)
-			path := "/some/inline/path/" + string(i)
+			path := "/some/inline/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
 		}
@@ -90,7 +91,7 @@ func TestCounterRemoteOnly(t *testing.T) {
 		// upload 2 remote files with 1 segment
 		for i := 0; i < 2; i++ {
 			testData := testrand.Bytes(8 * memory.KiB)
-			path := "/some/remote/path/" + string(i)
+			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "testbucket", path, testData)
 			require.NoError(t, err)
 		}
