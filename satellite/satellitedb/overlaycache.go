@@ -156,6 +156,7 @@ func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeI
 		FROM nodes
 		WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
+			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
 	`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow))
 	if err != nil {
