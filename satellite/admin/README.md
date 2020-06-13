@@ -8,7 +8,7 @@ Requires setting `Authorization` header for requests.
 
 Adds a new user.
 
-A successful request:
+An example of a required request body:
 
 ```json
 {
@@ -18,7 +18,7 @@ A successful request:
 }
 ```
 
-A successful response:
+A successful response body:
 
 ```json
 {
@@ -34,7 +34,7 @@ A successful response:
 
 Updates the details of existing user found by its email.
 
-A successful update request:
+A successful response body:
 
 ```json
 {
@@ -48,7 +48,7 @@ A successful update request:
 
 This endpoint returns information about user and their projects.
 
-A successful response:
+A successful response body:
 
 ```json
 {
@@ -72,7 +72,7 @@ A successful response:
             "duration":    2,
             "amount":      3000,
             "description": "promotional coupon (valid for 2 billing cycles)",
-            "type":        0, 
+            "type":        0,
             "status":      0,
             "created":     "2020-05-19T00:34:13.265761+02:00"
         }
@@ -84,7 +84,7 @@ A successful response:
 
 Adds a coupon for specific user.
 
-A successful request:
+An example of a required request body:
 
 ```json
 {
@@ -95,7 +95,8 @@ A successful request:
 }
 ```
 
-A successful response:
+A successful response body:
+
 ```json
 {
     "id": "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89"
@@ -106,14 +107,8 @@ A successful response:
 
 Gets a coupon with the specified id.
 
-A successful request:
-```json
-{
-    "id": "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89"
-}
-```
+A successful response body:
 
-A successful response:
 ```json
 {
     "id":          "2fcdbb8f-8d4d-4e6d-b6a7-8aaa1eba4c89",
@@ -121,7 +116,7 @@ A successful response:
     "duration":    2,
     "amount":      3000,
     "description": "promotional coupon (valid for 2 billing cycles)",
-    "type":        0, 
+    "type":        0,
     "status":      0,
     "created":     "2020-05-19T00:34:13.265761+02:00"
 }
@@ -135,7 +130,7 @@ Deletes the specified coupon.
 
 This endpoint returns information about project limits.
 
-A successful response:
+A successful response body:
 
 ```json
 {
@@ -173,7 +168,7 @@ Deletes the project.
 
 Adds a project for specific user.
 
-A successful request:
+An example of a required request body:
 
 ```json
 {
@@ -182,7 +177,7 @@ A successful request:
 }
 ```
 
-A successful response:
+A successful response body:
 
 ```json
 {
