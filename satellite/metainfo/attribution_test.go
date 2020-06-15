@@ -28,53 +28,42 @@ func TestResolvePartnerID(t *testing.T) {
 		require.NoError(t, err)
 
 		// no header
-		_, err = endpoint.ResolvePartnerID(ctx, nil, []byte{1, 2, 3})
+		_, err = endpoint.ResolvePartnerID(ctx, nil)
 		require.Error(t, err)
-
-		// bad uuid
-		_, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{}, []byte{1, 2, 3})
-		require.Error(t, err)
-
-		randomUUID := testrand.UUID()
-
-		// good uuid
-		result, err := endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{}, randomUUID[:])
-		require.NoError(t, err)
-		require.Equal(t, randomUUID, result)
 
 		partnerID, err := endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("not-a-partner"),
-		}, nil)
+		})
 		require.NoError(t, err)
 		require.Equal(t, uuid.UUID{}, partnerID)
 
 		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("Zenko"),
-		}, nil)
+		})
 		require.NoError(t, err)
 		require.Equal(t, zenkoPartnerID, partnerID)
 
 		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("Zenko uplink/v1.0.0"),
-		}, nil)
+		})
 		require.NoError(t, err)
 		require.Equal(t, zenkoPartnerID, partnerID)
 
 		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("Zenko uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"),
-		}, nil)
+		})
 		require.NoError(t, err)
 		require.Equal(t, zenkoPartnerID, partnerID)
 
 		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("Zenko uplink/v1.0.0 (drpc/v0.10.0) (common/v0.0.0-00010101000000-000000000000)"),
-		}, nil)
+		})
 		require.NoError(t, err)
 		require.Equal(t, zenkoPartnerID, partnerID)
 
 		partnerID, err = endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("uplink/v1.0.0 (drpc/v0.10.0 common/v0.0.0-00010101000000-000000000000)"),
-		}, nil)
+		})
 		require.NoError(t, err)
 		require.Equal(t, uuid.UUID{}, partnerID)
 	})

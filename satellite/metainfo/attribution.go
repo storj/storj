@@ -41,7 +41,7 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 		}
 	}
 
-	partnerID, err := endpoint.ResolvePartnerID(ctx, header, nil)
+	partnerID, err := endpoint.ResolvePartnerID(ctx, header)
 	if err != nil {
 		return err
 	}
@@ -63,17 +63,9 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 
 // ResolvePartnerID returns partnerIDBytes as parsed or UUID corresponding to header.UserAgent.
 // returns empty uuid when neither is defined.
-func (endpoint *Endpoint) ResolvePartnerID(ctx context.Context, header *pb.RequestHeader, partnerIDBytes []byte) (uuid.UUID, error) {
+func (endpoint *Endpoint) ResolvePartnerID(ctx context.Context, header *pb.RequestHeader) (uuid.UUID, error) {
 	if header == nil {
 		return uuid.UUID{}, rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
-	}
-
-	if len(partnerIDBytes) > 0 {
-		partnerID, err := uuid.FromBytes(partnerIDBytes)
-		if err != nil {
-			return uuid.UUID{}, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to parse partner ID: %v", err)
-		}
-		return partnerID, nil
 	}
 
 	if len(header.UserAgent) == 0 {
