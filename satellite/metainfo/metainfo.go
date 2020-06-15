@@ -1168,14 +1168,14 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 	return object, nil
 }
 
-// GetObjectLocation
+// GetObjectLocation gets an object location // TODO(isaac): make this better
 func (endpoint *Endpoint) GetObjectLocation(ctx context.Context, req *pb.ObjectLocationRequest) (resp *pb.ObjectLocationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedPrefix,
+		EncryptedPath: req.EncryptedPath,
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -1186,6 +1186,67 @@ func (endpoint *Endpoint) GetObjectLocation(ctx context.Context, req *pb.ObjectL
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
+
+	// TODO(isaac): Make this work with known number of segments for better efficiency
+	// TODO(isaac): fix all status codes
+	var nodeIDs []storj.NodeID
+	lastPointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, lastSegment, req.Bucket, req.EncryptedPath)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unknown, "unknown")
+	}
+	pointers := []*pb.Pointer{lastPointer}
+	for i := 0; ; i++ {
+		pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, int64(i), req.Bucket, req.EncryptedPath)
+		if err != nil {
+			if storj.ErrObjectNotFound.Has(err) {
+				break
+			}
+			return nil, rpcstatus.Error(rpcstatus.Unknown, "unknown")
+		}
+		pointers = append(pointers, pointer)
+	}
+
+	// TODO(isaac): Currently we do not deal with inline segments. In the case
+	// where a final segment is inline, do we want to send a different
+	// location, or just ignore it?
+	for _, pointer := range pointers {
+		if pointer.Remote != nil {
+			for _, piece := range pointer.Remote.RemotePieces {
+				nodeIDs = append(nodeIDs, piece.NodeId)
+			}
+		}
+	}
+
+	// TODO(isaac): This function only includes online nodes. Do we want to
+	// include a node if it is offline?
+	nodes, err := endpoint.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unknown, "unknown")
+	}
+
+	locations := make([]*pb.LocationCoordinates, 0, len(nodes))
+	for _, node := range nodes {
+		address := node.Address.GetAddress()
+		if address == "" {
+			continue
+		}
+		loc, err := convertAddressToLocation(address)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.Unknown, "unknown")
+		}
+		locations = append(locations, loc)
+	}
+
+	return &pb.ObjectLocationResponse{
+		LocationCoordinates: locations,
+	}, nil
+}
+
+func convertAddressToLocation(address string) (*pb.LocationCoordinates, error) {
+	return &pb.LocationCoordinates{
+		Latitude:  28.385233,
+		Longitude: -81.563874,
+	}, nil
 }
 
 // ListObjects list objects according to specific parameters
@@ -2069,6 +2130,11 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	return &pb.SegmentDownloadResponse{}, rpcstatus.Error(rpcstatus.Internal, "invalid type of pointer")
+}
+
+// RevokeAPIKey revokes an api key
+func (endpoint *Endpoint) RevokeAPIKey(context.Context, *pb.RevokeAPIKeyRequest) (*pb.RevokeAPIKeyResponse, error) {
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
 }
 
 // getPointer returns the pointer and the segment path projectID, bucket and
