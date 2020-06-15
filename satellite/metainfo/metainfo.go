@@ -1168,6 +1168,26 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 	return object, nil
 }
 
+// GetObjectLocation
+func (endpoint *Endpoint) GetObjectLocation(ctx context.Context, req *pb.ObjectLocationRequest) (resp *pb.ObjectLocationResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionRead,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedPrefix,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = endpoint.validateBucket(ctx, req.Bucket)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+}
+
 // ListObjects list objects according to specific parameters
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
