@@ -219,35 +219,6 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 	return nil
 }
 
-func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequestOld) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = endpoint.validateBucket(ctx, req.Bucket)
-	if err != nil {
-		return err
-	}
-
-	err = endpoint.validatePointer(ctx, req.Pointer, req.OriginalLimits)
-	if err != nil {
-		return err
-	}
-
-	if len(req.OriginalLimits) > 0 {
-		createRequest, found := endpoint.createRequests.Load(req.OriginalLimits[0].SerialNumber)
-
-		switch {
-		case !found:
-			return Error.New("missing create request or request expired")
-		case !createRequest.Expiration.Equal(req.Pointer.ExpirationDate):
-			return Error.New("pointer expiration date does not match requested one")
-		case !pb.Equal(createRequest.Redundancy, req.Pointer.Remote.Redundancy):
-			return Error.New("pointer redundancy scheme date does not match requested one")
-		}
-	}
-
-	return nil
-}
-
 func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -389,36 +360,6 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 
 			pieceNums[piece.PieceNum] = struct{}{}
 			nodeIds[piece.NodeId] = struct{}{}
-		}
-	}
-
-	return nil
-}
-
-func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb.RedundancyScheme) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if endpoint.config.RS.Validate {
-		if endpoint.config.RS.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
-			endpoint.config.RS.MinTotalThreshold > int(redundancy.Total) ||
-			endpoint.config.RS.MaxTotalThreshold < int(redundancy.Total) ||
-			endpoint.config.RS.MinThreshold != int(redundancy.MinReq) ||
-			endpoint.config.RS.RepairThreshold != int(redundancy.RepairThreshold) ||
-			endpoint.config.RS.SuccessThreshold != int(redundancy.SuccessThreshold) {
-			return Error.New("provided redundancy scheme parameters not allowed: want [%d, %d, %d, %d-%d, %d] got [%d, %d, %d, %d, %d]",
-				endpoint.config.RS.MinThreshold,
-				endpoint.config.RS.RepairThreshold,
-				endpoint.config.RS.SuccessThreshold,
-				endpoint.config.RS.MinTotalThreshold,
-				endpoint.config.RS.MaxTotalThreshold,
-				endpoint.config.RS.ErasureShareSize.Int32(),
-
-				redundancy.MinReq,
-				redundancy.RepairThreshold,
-				redundancy.SuccessThreshold,
-				redundancy.Total,
-				redundancy.ErasureShareSize,
-			)
 		}
 	}
 

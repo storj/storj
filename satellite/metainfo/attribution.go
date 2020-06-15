@@ -7,12 +7,10 @@ import (
 	"context"
 	"strings"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
-	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
@@ -127,46 +125,12 @@ func removeUplinkUserAgent(entries []useragent.Entry) []useragent.Entry {
 
 // SetAttributionOld tries to add attribution to the bucket.
 func (endpoint *Endpoint) SetAttributionOld(ctx context.Context, req *pb.SetAttributionRequestOld) (_ *pb.SetAttributionResponseOld, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = endpoint.setBucketAttribution(ctx, req.Header, req.BucketName, req.PartnerId)
-
-	return &pb.SetAttributionResponseOld{}, err
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "unimplemented")
 }
 
 // SetBucketAttribution sets the bucket attribution.
 func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = endpoint.setBucketAttribution(ctx, req.Header, req.Name, req.PartnerId)
-
-	return &pb.BucketSetAttributionResponse{}, err
-}
-
-func (endpoint *Endpoint) setBucketAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte, partnerIDBytes []byte) error {
-	if header == nil {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
-	}
-
-	keyInfo, err := endpoint.validateAuth(ctx, header, macaroon.Action{
-		Op:            macaroon.ActionList,
-		Bucket:        bucketName,
-		EncryptedPath: []byte(""),
-		Time:          time.Now(),
-	})
-	if err != nil {
-		return err
-	}
-
-	partnerID, err := endpoint.ResolvePartnerID(ctx, header, partnerIDBytes)
-	if err != nil {
-		return err
-	}
-	if partnerID.IsZero() {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, "unknown user agent or partner id")
-	}
-
-	return endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, partnerID)
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "unimplemented")
 }
 
 func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, partnerID uuid.UUID) error {

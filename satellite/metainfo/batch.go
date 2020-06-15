@@ -71,17 +71,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					BucketList: response,
 				},
 			})
-		case *pb.BatchRequestItem_BucketSetAttribution:
-			singleRequest.BucketSetAttribution.Header = req.Header
-			response, err := endpoint.SetBucketAttribution(ctx, singleRequest.BucketSetAttribution)
-			if err != nil {
-				return resp, err
-			}
-			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
-				Response: &pb.BatchResponseItem_BucketSetAttribution{
-					BucketSetAttribution: response,
-				},
-			})
+
 		//OBJECT
 		case *pb.BatchRequestItem_ObjectBegin:
 			singleRequest.ObjectBegin.Header = req.Header

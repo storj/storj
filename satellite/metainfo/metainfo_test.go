@@ -82,9 +82,6 @@ func TestInvalidAPIKey(t *testing.T) {
 			_, err = client.GetObject(ctx, metainfo.GetObjectParams{})
 			assertInvalidArgument(t, err, false)
 
-			err = client.SetBucketAttribution(ctx, metainfo.SetBucketAttributionParams{})
-			assertInvalidArgument(t, err, false)
-
 			_, err = client.GetProjectInfo(ctx)
 			assertInvalidArgument(t, err, false)
 
@@ -403,15 +400,6 @@ func TestBucketNameValidation(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		rs := &pb.RedundancyScheme{
-			MinReq:           1,
-			RepairThreshold:  1,
-			SuccessThreshold: 3,
-			Total:            4,
-			ErasureShareSize: 1024,
-			Type:             pb.RedundancyScheme_RS,
-		}
-
 		validNames := []string{
 			"tes", "testbucket",
 			"test-bucket", "testbucket9",
@@ -421,11 +409,16 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-63-0123456789012345678901234567890123456789012345abc",
 		}
 		for _, name := range validNames {
-			_, _, _, err = metainfoClient.CreateSegmentOld(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
-			require.NoError(t, err, "bucket name: %v", name)
-
 			_, err = metainfoClient.CreateBucket(ctx, metainfo.CreateBucketParams{
 				Name: []byte(name),
+			})
+			require.NoError(t, err, "bucket name: %v", name)
+
+			_, err = metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+				Bucket:        []byte(name),
+				EncryptedPath: []byte("123"),
+				Version:       0,
+				ExpiresAt:     time.Now().Add(16 * 24 * time.Hour),
 			})
 			require.NoError(t, err, "bucket name: %v", name)
 		}
@@ -440,7 +433,12 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
 		}
 		for _, name := range invalidNames {
-			_, _, _, err = metainfoClient.CreateSegmentOld(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
+			_, err = metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+				Bucket:        []byte(name),
+				EncryptedPath: []byte("123"),
+				Version:       0,
+				ExpiresAt:     time.Now().Add(16 * 24 * time.Hour),
+			})
 			require.Error(t, err, "bucket name: %v", name)
 
 			_, err = metainfoClient.CreateBucket(ctx, metainfo.CreateBucketParams{
