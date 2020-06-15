@@ -60,7 +60,13 @@ func runBillingCmd(cmdFunc func(*stripecoinpayments.Service, *dbx.DB) error) err
 func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Service, error) {
 	pc := runCfg.Payments
 
-	stripeClient := stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+	var stripeClient stripecoinpayments.StripeClient
+	switch pc.Provider {
+	default:
+		stripeClient = stripecoinpayments.NewStripeMock()
+	case "stripecoinpayments":
+		stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+	}
 
 	return stripecoinpayments.NewService(
 		log.Named("payments.stripe:service"),

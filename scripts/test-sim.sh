@@ -36,6 +36,7 @@ fi
 # run aws-cli tests
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink.sh
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink-share.sh
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-billing.sh
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
 
 # setup the network with ipv6
