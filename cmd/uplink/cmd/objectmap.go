@@ -13,13 +13,12 @@ import (
 )
 
 func init() {
-	objmapCmd := &cobra.Command{
+	addCmd(&cobra.Command{
 		Use:   "objmap [sj://BUCKET/PATH]",
 		Short: "Generate a map of geolocations of nodes holding object pieces",
 		RunE:  objectMap,
-		Args:  cobra.MaximumNArgs(1),
-	}
-	RootCmd.AddCommand(objmapCmd)
+		Args:  cobra.ExactArgs(1),
+	}, RootCmd)
 }
 
 func objectMap(cmd *cobra.Command, args []string) (err error) {
