@@ -336,8 +336,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 
 				"--admin.address", net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
-
-				"--metainfo.ip-mapper.geo-city-db-path", "/Users/cameron/Downloads/GeoLite2-City_20200609.mmdb",
 			},
 			"run": {"api"},
 		})

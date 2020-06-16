@@ -38,12 +38,12 @@ func objectMap(cmd *cobra.Command, args []string) (err error) {
 	}
 	defer closeProject(project)
 
-	loc, err := project.GetObjectLocation(ctx, path.Bucket(), path.String())
+	loc, err := project.GetObjectLocation(ctx, path.Bucket(), path.Path())
 	if err != nil {
 		return err
 	}
 
-	locations := make([]storjmap.Location, len(loc))
+	locations := make([]storjmap.Location, 0, len(loc))
 	for _, l := range loc {
 		if l == nil {
 			continue

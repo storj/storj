@@ -107,14 +107,9 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	if err != nil {
 		return nil, err
 	}
-	var ipMapper *objectmap.IPMapper
-	if config.IPMapper.GeoCityDBPath != "" {
-		ipMapper, err = objectmap.NewIPMapper(config.IPMapper.GeoCityDBPath)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		ipMapper = nil
+	ipMapper, err := objectmap.NewIPMapper(config.IPMapper.GeoCityDBPath)
+	if err != nil {
+		return nil, err
 	}
 	return &Endpoint{
 		log:                 log,
@@ -1204,16 +1199,20 @@ func (endpoint *Endpoint) GetObjectLocation(ctx context.Context, req *pb.ObjectL
 	var nodeIDs []storj.NodeID
 	lastPointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, lastSegment, req.Bucket, req.EncryptedPath)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unknown, "unknown")
+		return nil, rpcstatus.Error(rpcstatus.Unknown, err.Error())
 	}
 	pointers := []*pb.Pointer{lastPointer}
 	for i := 0; ; i++ {
-		pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, int64(i), req.Bucket, req.EncryptedPath)
+		path, err := CreatePath(ctx, keyInfo.ProjectID, int64(i), req.Bucket, req.EncryptedPath)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+
+		pointer, err := endpoint.metainfo.Get(ctx, path)
 		if err != nil {
 			if storj.ErrObjectNotFound.Has(err) {
 				break
 			}
-			return nil, rpcstatus.Error(rpcstatus.Unknown, "unknown")
 		}
 		pointers = append(pointers, pointer)
 	}
@@ -1233,7 +1232,7 @@ func (endpoint *Endpoint) GetObjectLocation(ctx context.Context, req *pb.ObjectL
 	// include a node if it is offline?
 	nodes, err := endpoint.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unknown, "unknown")
+		return nil, rpcstatus.Error(rpcstatus.Unknown, err.Error())
 	}
 
 	locations := make([]*pb.LocationCoordinates, 0, len(nodes))
@@ -1244,7 +1243,10 @@ func (endpoint *Endpoint) GetObjectLocation(ctx context.Context, req *pb.ObjectL
 		}
 		loc, err := endpoint.convertAddressToLocation(address)
 		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.Unknown, "unknown")
+			return nil, rpcstatus.Error(rpcstatus.Unknown, err.Error())
+		}
+		if loc.Latitude == 0 && loc.Longitude == 0 {
+			continue
 		}
 		locations = append(locations, loc)
 	}
