@@ -71,8 +71,11 @@ var (
 		Annotations: map[string]string{"type": "helper"},
 	}
 	gracefulExitInitCmd = &cobra.Command{
-		Use:         "exit-satellite",
-		Short:       "Initiate graceful exit",
+		Use:   "exit-satellite",
+		Short: "Initiate graceful exit",
+		Long: "Initiate gracefule exit.\n" +
+			"The command shows the list of the available satellites that can be exited " +
+			"and ask for choosing one.",
 		RunE:        cmdGracefulExitInit,
 		Annotations: map[string]string{"type": "helper"},
 	}
