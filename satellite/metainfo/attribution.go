@@ -115,16 +115,6 @@ func removeUplinkUserAgent(entries []useragent.Entry) []useragent.Entry {
 	return xs
 }
 
-// SetAttributionOld tries to add attribution to the bucket.
-func (endpoint *Endpoint) SetAttributionOld(ctx context.Context, req *pb.SetAttributionRequestOld) (_ *pb.SetAttributionResponseOld, err error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "unimplemented")
-}
-
-// SetBucketAttribution sets the bucket attribution.
-func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "unimplemented")
-}
-
 func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, partnerID uuid.UUID) error {
 	if header == nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")

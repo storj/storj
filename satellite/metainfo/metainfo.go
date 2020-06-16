@@ -131,16 +131,6 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 // Close closes resources
 func (endpoint *Endpoint) Close() error { return nil }
 
-// SegmentInfoOld returns segment metadata info
-func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInfoRequestOld) (resp *pb.SegmentInfoResponseOld, err error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "unimplemented")
-}
-
-// CreateSegmentOld will generate requested number of OrderLimit with coresponding node addresses for them
-func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentWriteRequestOld) (resp *pb.SegmentWriteResponseOld, err error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "unimplemented")
-}
-
 func calculateSpaceUsed(ptr *pb.Pointer) (segmentSize, totalStored int64) {
 	inline := ptr.GetInlineSegment()
 	if inline != nil {
@@ -156,26 +146,6 @@ func calculateSpaceUsed(ptr *pb.Pointer) (segmentSize, totalStored int64) {
 	pieceSize := segmentSize / int64(minReq)
 	pieces := remote.GetRemotePieces()
 	return segmentSize, pieceSize * int64(len(pieces))
-}
-
-// CommitSegmentOld commits segment metadata
-func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentCommitRequestOld) (resp *pb.SegmentCommitResponseOld, err error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "unimplemented")
-}
-
-// DownloadSegmentOld gets Pointer incase of INLINE data or list of OrderLimit necessary to download remote data
-func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.SegmentDownloadRequestOld) (resp *pb.SegmentDownloadResponseOld, err error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "unimplemented")
-}
-
-// DeleteSegmentOld deletes segment metadata from satellite and returns OrderLimit array to remove them from storage node
-func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentDeleteRequestOld) (resp *pb.SegmentDeleteResponseOld, err error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "unimplemented")
-}
-
-// ListSegmentsOld returns all Path keys in the Pointers bucket
-func (endpoint *Endpoint) ListSegmentsOld(ctx context.Context, req *pb.ListSegmentsRequestOld) (resp *pb.ListSegmentsResponseOld, err error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "unimplemented")
 }
 
 func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
