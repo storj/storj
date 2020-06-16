@@ -9,8 +9,11 @@ import (
 )
 
 func Test_Lookup(t *testing.T) {
-	mapper := objectmap.NewIPMapper("/home/fadila/dev/GeoLite2-City_20200609/GeoLite2-City.mmdb")
-	mapper.Init()
+	mapper, err := objectmap.NewIPMapper("/home/fadila/dev/GeoLite2-City_20200609/GeoLite2-City.mmdb")
+
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer mapper.Close()
 
 	record, err := mapper.GetIPInfos("8.8.8.8")

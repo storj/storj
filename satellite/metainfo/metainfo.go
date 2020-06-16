@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metainfo/pointerverification"
+	"storj.io/storj/satellite/objectmap"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/rewards"
@@ -87,6 +88,7 @@ type Endpoint struct {
 	satellite            signing.Signer
 	limiterCache         *lrucache.ExpiringLRU
 	encInlineSegmentSize int64 // max inline segment size + encryption overhead
+	ipMapper             *objectmap.IPMapper
 	config               Config
 }
 
@@ -104,6 +106,15 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	})
 	if err != nil {
 		return nil, err
+	}
+	var ipMapper *objectmap.IPMapper
+	if config.IPMapper.GeoCityDBPath != "" {
+		ipMapper, err = objectmap.NewIPMapper(config.IPMapper.GeoCityDBPath)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		ipMapper = nil
 	}
 	return &Endpoint{
 		log:                 log,
@@ -124,12 +135,13 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 			Expiration: config.RateLimiter.CacheExpiration,
 		}),
 		encInlineSegmentSize: encInlineSegmentSize,
+		ipMapper:             ipMapper,
 		config:               config,
 	}, nil
 }
 
 // Close closes resources
-func (endpoint *Endpoint) Close() error { return nil }
+func (endpoint *Endpoint) Close() error { return endpoint.ipMapper.Close() }
 
 // SegmentInfoOld returns segment metadata info
 func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInfoRequestOld) (resp *pb.SegmentInfoResponseOld, err error) {
@@ -1230,7 +1242,7 @@ func (endpoint *Endpoint) GetObjectLocation(ctx context.Context, req *pb.ObjectL
 		if address == "" {
 			continue
 		}
-		loc, err := convertAddressToLocation(address)
+		loc, err := endpoint.convertAddressToLocation(address)
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.Unknown, "unknown")
 		}
@@ -1242,10 +1254,14 @@ func (endpoint *Endpoint) GetObjectLocation(ctx context.Context, req *pb.ObjectL
 	}, nil
 }
 
-func convertAddressToLocation(address string) (*pb.LocationCoordinates, error) {
+func (endpoint *Endpoint) convertAddressToLocation(address string) (*pb.LocationCoordinates, error) {
+	record, err := endpoint.ipMapper.GetIPInfos(address)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.LocationCoordinates{
-		Latitude:  28.385233,
-		Longitude: -81.563874,
+		Latitude:  float32(record.Location.Latitude),
+		Longitude: float32(record.Location.Longitude),
 	}, nil
 }
 
