@@ -24,10 +24,15 @@ type IPMapper struct {
 	reader    *maxminddb.Reader
 }
 
-func NewIPMapper(dbPath string) (mapper *IPMapper, err error) {
-	mapper.mmddbPath = dbPath
-	mapper.reader, err = maxminddb.Open(mapper.mmddbPath)
-	return mapper, err
+func NewIPMapper(dbPath string) (*IPMapper, error) {
+	reader, err := maxminddb.Open(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	return &IPMapper{
+		mmddbPath: dbPath,
+		reader:    reader,
+	}, nil
 }
 
 func (mapper *IPMapper) Close() (err error) {

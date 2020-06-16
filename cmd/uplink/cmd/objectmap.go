@@ -56,4 +56,5 @@ func objectMap(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	storjmap.GenMap(locations, "/tmp/out.html")
+	return nil
 }
