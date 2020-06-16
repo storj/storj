@@ -4,6 +4,7 @@ import (
 	"net"
 
 	"github.com/oschwald/maxminddb-golang"
+	"github.com/zeebo/errs"
 )
 
 type IPInfos struct {
@@ -42,8 +43,11 @@ func (mapper *IPMapper) Close() (err error) {
 	return nil
 }
 
-func (mapper *IPMapper) GetIPInfos(ipAddress string) (record IPInfos, err error) {
+func (mapper *IPMapper) GetIPInfos(ipAddress string) (record *IPInfos, err error) {
 	ip := net.ParseIP(ipAddress)
+	if ip == nil {
+		return nil, errs.New("invalid IP address: %s", ipAddress)
+	}
 	err = mapper.reader.Lookup(ip, &record)
 	return
 }
