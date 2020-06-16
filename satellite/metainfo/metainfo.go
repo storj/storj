@@ -2122,3 +2122,8 @@ func (endpoint *Endpoint) redundancyScheme() *pb.RedundancyScheme {
 		ErasureShareSize: endpoint.config.RS.ErasureShareSize.Int32(),
 	}
 }
+
+// RevokeAPIKey revokes an api key
+func (endpoint *Endpoint) RevokeAPIKey(context.Context, *pb.RevokeAPIKeyRequest) (*pb.RevokeAPIKeyResponse, error) {
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
+}
