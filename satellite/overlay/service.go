@@ -58,7 +58,7 @@ type DB interface {
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
-	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
+	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
@@ -107,6 +107,14 @@ type NodeCheckInInfo struct {
 	Operator   *pb.NodeOperator
 	Capacity   *pb.NodeCapacity
 	Version    *pb.NodeVersion
+}
+
+// InfoResponse contains node dossier info requested from the storage node.
+type InfoResponse struct {
+	Type     pb.NodeType
+	Operator *pb.NodeOperator
+	Capacity *pb.NodeCapacity
+	Version  *pb.NodeVersion
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -444,7 +452,7 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
-func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error) {
+func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }

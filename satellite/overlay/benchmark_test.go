@@ -130,7 +130,7 @@ func BenchmarkOverlay(b *testing.B) {
 			now := time.Now()
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				_, err := overlaydb.UpdateNodeInfo(ctx, id, &pb.InfoResponse{
+				_, err := overlaydb.UpdateNodeInfo(ctx, id, &overlay.InfoResponse{
 					Type: pb.NodeType_STORAGE,
 					Operator: &pb.NodeOperator{
 						Wallet: "0x0123456789012345678901234567890123456789",
@@ -249,7 +249,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 				err := overlaydb.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 				require.NoError(b, err)
 
-				_, err = overlaydb.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
+				_, err = overlaydb.UpdateNodeInfo(ctx, nodeID, &overlay.InfoResponse{
 					Type: pb.NodeType_STORAGE,
 					Capacity: &pb.NodeCapacity{
 						FreeDisk: 1_000_000_000,

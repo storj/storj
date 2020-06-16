@@ -116,7 +116,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
-		update, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
+		update, err := cache.UpdateNodeInfo(ctx, nodeID, &overlay.InfoResponse{
 			Operator: &pb.NodeOperator{
 				Wallet: "0x1111111111111111111111111111111111111111",
 				Email:  "abc123@mail.test",
@@ -133,7 +133,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		require.Equal(t, "0x1111111111111111111111111111111111111111", found.Operator.Wallet)
 		require.Equal(t, "abc123@mail.test", found.Operator.Email)
 
-		updateEmail, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
+		updateEmail, err := cache.UpdateNodeInfo(ctx, nodeID, &overlay.InfoResponse{
 			Operator: &pb.NodeOperator{
 				Wallet: update.Operator.Wallet,
 				Email:  "def456@mail.test",
@@ -145,7 +145,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.Equal(t, "0x1111111111111111111111111111111111111111", updateEmail.Operator.Wallet)
 		assert.Equal(t, "def456@mail.test", updateEmail.Operator.Email)
 
-		updateWallet, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
+		updateWallet, err := cache.UpdateNodeInfo(ctx, nodeID, &overlay.InfoResponse{
 			Operator: &pb.NodeOperator{
 				Wallet: "0x2222222222222222222222222222222222222222",
 				Email:  updateEmail.Operator.Email,

@@ -463,32 +463,32 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 
 // UpdateNodeInfo updates the following fields for a given node ID:
 // wallet, email for node operator, free disk, and version
-func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *pb.InfoResponse) (stats *overlay.NodeDossier, err error) {
+func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *overlay.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var updateFields dbx.Node_Update_Fields
 	if nodeInfo != nil {
-		if nodeInfo.GetType() != pb.NodeType_INVALID {
-			updateFields.Type = dbx.Node_Type(int(nodeInfo.GetType()))
+		if nodeInfo.Type != pb.NodeType_INVALID {
+			updateFields.Type = dbx.Node_Type(int(nodeInfo.Type))
 		}
-		if nodeInfo.GetOperator() != nil {
-			updateFields.Wallet = dbx.Node_Wallet(nodeInfo.GetOperator().GetWallet())
-			updateFields.Email = dbx.Node_Email(nodeInfo.GetOperator().GetEmail())
+		if nodeInfo.Operator != nil {
+			updateFields.Wallet = dbx.Node_Wallet(nodeInfo.Operator.GetWallet())
+			updateFields.Email = dbx.Node_Email(nodeInfo.Operator.GetEmail())
 		}
-		if nodeInfo.GetCapacity() != nil {
-			updateFields.FreeDisk = dbx.Node_FreeDisk(nodeInfo.GetCapacity().GetFreeDisk())
+		if nodeInfo.Capacity != nil {
+			updateFields.FreeDisk = dbx.Node_FreeDisk(nodeInfo.Capacity.GetFreeDisk())
 		}
-		if nodeInfo.GetVersion() != nil {
-			semVer, err := version.NewSemVer(nodeInfo.GetVersion().GetVersion())
+		if nodeInfo.Version != nil {
+			semVer, err := version.NewSemVer(nodeInfo.Version.GetVersion())
 			if err != nil {
 				return nil, errs.New("unable to convert version to semVer")
 			}
 			updateFields.Major = dbx.Node_Major(int64(semVer.Major))
 			updateFields.Minor = dbx.Node_Minor(int64(semVer.Minor))
 			updateFields.Patch = dbx.Node_Patch(int64(semVer.Patch))
-			updateFields.Hash = dbx.Node_Hash(nodeInfo.GetVersion().GetCommitHash())
-			updateFields.Timestamp = dbx.Node_Timestamp(nodeInfo.GetVersion().Timestamp)
-			updateFields.Release = dbx.Node_Release(nodeInfo.GetVersion().GetRelease())
+			updateFields.Hash = dbx.Node_Hash(nodeInfo.Version.GetCommitHash())
+			updateFields.Timestamp = dbx.Node_Timestamp(nodeInfo.Version.Timestamp)
+			updateFields.Release = dbx.Node_Release(nodeInfo.Version.GetRelease())
 		}
 	}
 
