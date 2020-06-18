@@ -88,7 +88,7 @@ install-sim: ## install storj-sim
 	## install exact version of storj/gateway
 	mkdir -p .build/gateway-tmp
 	-cd .build/gateway-tmp && go mod init gatewaybuild
-	cd .build/gateway-tmp && GO111MODULE=on go get storj.io/gateway@v1.1.2
+	cd .build/gateway-tmp && GO111MODULE=on go get storj.io/gateway@latest
 
 ##@ Test
 
