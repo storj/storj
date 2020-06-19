@@ -701,12 +701,17 @@ func walkNamespaceWithPrefix(ctx context.Context, log *zap.Logger, namespace []b
 		for _, name := range names {
 			info, err := os.Lstat(keyDir + "/" + name)
 			if err != nil {
-				if pErr, ok := err.(*os.PathError); ok {
-					if pErr.Err.Error() == "lstat" {
-						log.Error("Unable to read the disk, please verify the disk is not corrupt")
-					}
+				if os.IsNotExist(err) {
+					continue
 				}
-				return err
+
+				// convert to lowercase the perr.Op because Go reports inconsistently
+				// "lstat" in Linux and "Lstat" in Windows
+				if perr, ok := err.(*os.PathError); ok && strings.ToLower(perr.Op) == "lstat" {
+					log.Error("Unable to read the disk, please verify the disk is not corrupt")
+				}
+
+				return errs.Wrap(err)
 			}
 			if info.Mode().IsDir() {
 				continue
