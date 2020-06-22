@@ -15,8 +15,7 @@ FROM ${DOCKER_ARCH:-amd64}/alpine
 ARG TAG
 ARG GOARCH
 ENV GOARCH ${GOARCH}
-ENV API_KEY= \
-    CONF_PATH=/root/.local/share/storj/satellite \
+ENV CONF_PATH=/root/.local/share/storj/satellite \
     STORJ_CONSOLE_STATIC_DIR=/app \
     STORJ_CONSOLE_ADDRESS=0.0.0.0:10100
 EXPOSE 7777
