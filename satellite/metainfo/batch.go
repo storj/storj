@@ -324,6 +324,19 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentFinishDelete: response,
 				},
 			})
+
+			// Revoke API key.
+		case *pb.BatchRequestItem_RevokeApiKey:
+			singleRequest.RevokeApiKey.Header = req.Header
+			response, err := endpoint.RevokeAPIKey(ctx, singleRequest.RevokeApiKey)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_RevokeApiKey{
+					RevokeApiKey: response,
+				},
+			})
 		default:
 			return nil, errs.New("unsupported request type")
 		}
