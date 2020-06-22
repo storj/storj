@@ -56,7 +56,10 @@ export class Metric {
         public successCount: number = 0,
         public alpha: number = 0,
         public beta: number = 0,
+        public unknownAlpha: number = 0,
+        public unknownBeta: number = 0,
         public score: number = 0,
+        public unknownScore: number = 0,
     ) {}
 }
 

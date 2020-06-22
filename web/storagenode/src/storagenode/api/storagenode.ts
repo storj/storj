@@ -67,11 +67,27 @@ export class SNOApi {
 
         const satelliteByDayInfo = new SatelliteByDayInfo(json);
 
-        const audit: Metric = new Metric(json.audit.totalCount, json.audit.successCount, json.audit.alpha,
-            json.audit.beta, json.audit.score);
+        const audit: Metric = new Metric(
+            json.audit.totalCount,
+            json.audit.successCount,
+            json.audit.alpha,
+            json.audit.beta,
+            json.audit.unknownAlpha,
+            json.audit.unknownBeta,
+            json.audit.score,
+            json.audit.unknownScore,
+        );
 
-        const uptime: Metric = new Metric(json.uptime.totalCount, json.uptime.successCount, json.uptime.alpha,
-            json.uptime.beta, json.uptime.score);
+        const uptime: Metric = new Metric(
+            json.uptime.totalCount,
+            json.uptime.successCount,
+            json.uptime.alpha,
+            json.uptime.beta,
+            json.uptime.unknownAlpha,
+            json.uptime.unknownBeta,
+            json.uptime.score,
+            json.uptime.unknownScore,
+        );
 
         return new Satellite(
             json.id,

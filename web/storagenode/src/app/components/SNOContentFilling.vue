@@ -119,15 +119,15 @@
             <p class="info-area__blurred-checks__title">Select a Specific Satellite to View Audit and Uptime Percentages</p>
         </div>
         <div v-if="selectedSatellite.id">
-            <p class="info-area__title">Uptime & Audit Checks by Satellite</p>
+            <p class="info-area__title">Suspension & Audit</p>
             <div class="info-area__checks-area">
                 <ChecksArea
-                    label="Uptime Checks"
-                    :amount="checks.uptime"
-                    info-text="Uptime checks occur to make sure  your node is still online. This is the percentage of uptime checks you’ve passed."
+                    label="Suspension Score"
+                    :amount="checks.suspension"
+                    info-text="Uptime checks occur to make sure your node is still online. This is the percentage of uptime checks you’ve passed."
                 />
                 <ChecksArea
-                    label="Audit Checks"
+                    label="Audit Score"
                     :amount="checks.audit"
                     info-text="Percentage of successful pings/communication between the node & satellite."
                 />

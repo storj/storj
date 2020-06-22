@@ -80,7 +80,7 @@ describe('mutations', () => {
             222,
             50,
             70,
-            new Metric(1, 1, 1, 0, 1),
+            new Metric(1, 1, 1, 0, 1, 0, 0, 1),
             new Metric(2, 1, 1, 0, 1),
             new Date(2019, 3, 1),
         );
@@ -88,8 +88,9 @@ describe('mutations', () => {
         store.commit(NODE_MUTATIONS.SELECT_SATELLITE, satelliteInfo);
 
         expect(state.node.selectedSatellite.id).toBe(satelliteInfo.id);
-        expect(state.node.checks.audit).toBe(100);
+        expect(state.node.checks.audit).toBe(0);
         expect(state.node.checks.uptime).toBe(50);
+        expect(state.node.checks.suspension).toBe(100);
     });
 
     it('don`t selects wrong satellite', () => {

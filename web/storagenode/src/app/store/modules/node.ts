@@ -73,6 +73,7 @@ export function makeNodeModule(api: SNOApi) {
             checks: {
                 uptime: 0,
                 audit: 0,
+                suspension: 0,
             },
         },
         mutations: {
@@ -116,6 +117,7 @@ export function makeNodeModule(api: SNOApi) {
 
                 state.checks.audit = parseFloat(parseFloat(`${satelliteInfo.audit.score * 100}`).toFixed(1));
                 state.checks.uptime = satelliteInfo.uptime.totalCount === 0 ? 100 : satelliteInfo.uptime.successCount / satelliteInfo.uptime.totalCount * 100;
+                state.checks.suspension = satelliteInfo.audit.unknownScore * 100;
             },
             [SELECT_ALL_SATELLITES](state: any, satelliteInfo: Satellites): void {
                 state.selectedSatellite = {
