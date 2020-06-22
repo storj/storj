@@ -31,6 +31,10 @@ func (db *revocationDB) Check(ctx context.Context, tails [][]byte) (bool, error)
 		return false, errs.New("Empty list of tails")
 	}
 
+	// The finalTail is the last tail provided in the macaroon. We cache the
+	// revocation status of this final tail so that, if this macaroon is used
+	// again before the cache key expires, we do not have to check the database
+	// again.
 	finalTail := tails[numTails-1]
 
 	val, err := db.lru.Get(string(finalTail), func() (interface{}, error) {
