@@ -44,7 +44,7 @@ func NewService(log *zap.Logger, pieces *pieces.Store, usedSerials *usedserials.
 	}
 }
 
-// Run runs monitor service
+// Run runs collector service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
