@@ -14,6 +14,7 @@
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
+                    rel="noopener noreferrer"
                     target="_blank"
                 >
                     thread
@@ -30,6 +31,7 @@
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
+                    rel="noopener noreferrer"
                     target="_blank"
                 >
                     thread
@@ -46,6 +48,7 @@
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
+                    rel="noopener noreferrer"
                     target="_blank"
                 >
                     thread
@@ -62,6 +65,7 @@
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
+                    rel="noopener noreferrer"
                     target="_blank"
                 >
                     thread

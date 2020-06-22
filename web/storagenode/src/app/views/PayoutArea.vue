@@ -17,9 +17,10 @@
             <p class="additional-text">
                 Learn more about held back
                 <a
-                        class="additional-text__link"
-                        href="https://documentation.storj.io/resources/faq/held-back-amount"
-                        target="_blank"
+                    class="additional-text__link"
+                    href="https://documentation.storj.io/resources/faq/held-back-amount"
+                    target="_blank"
+                    rel="noopener noreferrer"
                 >
                     here
                 </a>

@@ -15,7 +15,7 @@
             class="payout-container__button"
             :href="'https://etherscan.io/address/' + walletAddress + '#tokentxns'"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
         >
             <b class="payout-container-button-label">View on Etherscan</b>
         </a>
