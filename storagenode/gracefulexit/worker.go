@@ -234,8 +234,8 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 	}
 
 	if worker.minBytesPerSecond == 0 {
-		// set minBytesPerSecond to default 128B if set to 0
-		worker.minBytesPerSecond = 128 * memory.B
+		// set minBytesPerSecond to default 5KiB if set to 0
+		worker.minBytesPerSecond = 5 * memory.KiB
 	}
 	maxTransferTime := time.Duration(int64(time.Second) * originalHash.PieceSize / worker.minBytesPerSecond.Int64())
 	if maxTransferTime < worker.minDownloadTimeout {
