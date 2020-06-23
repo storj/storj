@@ -47,6 +47,7 @@ import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
@@ -70,6 +71,8 @@ export default class PayoutArea extends Vue {
      * Fetches payout information.
      */
     public async mounted(): Promise<any> {
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
         try {
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
         } catch (error) {
@@ -87,6 +90,8 @@ export default class PayoutArea extends Vue {
         } catch (error) {
             console.error(error);
         }
+
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
     }
 
     public get totalHeld(): number {

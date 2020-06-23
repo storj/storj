@@ -78,6 +78,8 @@ export default class SatelliteSelectionDropdown extends Vue {
      * Fires on satellite click and selects it.
      */
     public async onSatelliteClick(id: string): Promise<void> {
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
         try {
             await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
@@ -85,12 +87,16 @@ export default class SatelliteSelectionDropdown extends Vue {
         } catch (error) {
             console.error(error.message);
         }
+
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
     }
 
     /**
      * Fires on all satellites click and sets selected satellite id to null.
      */
     public async onAllSatellitesClick(): Promise<void> {
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
         try {
             await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
@@ -98,6 +104,8 @@ export default class SatelliteSelectionDropdown extends Vue {
         } catch (error) {
             console.error(error.message);
         }
+
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
     }
 
     /**
