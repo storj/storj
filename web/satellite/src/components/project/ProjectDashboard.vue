@@ -9,6 +9,7 @@
                 class="dashboard-area__title-area__link"
                 href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
                 target="_blank"
+                rel="noopener noreferrer"
             >
                 Request Limit Increase ->
             </a>

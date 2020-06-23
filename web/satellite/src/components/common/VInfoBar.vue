@@ -10,7 +10,14 @@
             <span class="info-bar__info-area__second-description">{{ secondDescription }}</span>
             <router-link class="info-bar__info-area__button" :to="path">Details</router-link>
         </div>
-        <a class="info-bar__link" :href="link" target="_blank">{{ linkLabel }}</a>
+        <a
+            class="info-bar__link"
+            :href="link"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            {{ linkLabel }}
+        </a>
     </div>
 </template>
 

@@ -9,16 +9,23 @@
             class="no-buckets-area__first-button"
             href="https://documentation.tardigrade.io/api-reference/uplink-cli"
             target="_blank"
+            rel="noopener noreferrer"
         >
             Get Started
         </a>
-        <a class="no-buckets-area__second-button" href="https://documentation.tardigrade.io/" target="_blank">
+        <a
+            class="no-buckets-area__second-button"
+            href="https://documentation.tardigrade.io/"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
             Visit the Docs
         </a>
         <a
             class="no-buckets-area__help"
             href="https://support.tardigrade.io/hc/en-us/articles/360035332472-Why-can-t-I-upload-from-the-browser-"
             target="_blank"
+            rel="noopener noreferrer"
         >
             Why can't I upload from the browser?
         </a>

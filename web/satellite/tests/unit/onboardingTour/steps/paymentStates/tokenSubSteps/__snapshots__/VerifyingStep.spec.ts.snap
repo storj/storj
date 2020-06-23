@@ -7,9 +7,9 @@ exports[`VerifyingStep.vue renders correctly 1`] = `
         Verification may take up to an hour. In the meantime, see how easy it is to get started visiting documentation
         page, or check coin payment status.
     </span>
-  <div class="verifying-step__buttons-area"><a href="https://documentation.storj.io" target="_blank" class="verifying-step__buttons-area__how-to-button">
+  <div class="verifying-step__buttons-area"><a href="https://documentation.storj.io" target="_blank" rel="noopener noreferrer" class="verifying-step__buttons-area__how-to-button">
       Documentation
-    </a> <a href="test" target="_blank" class="verifying-step__buttons-area__community-button">
+    </a> <a href="test" target="_blank" rel="noopener noreferrer" class="verifying-step__buttons-area__community-button">
       Coin Payment Status
     </a></div>
   <div class="verifying-step__back-button">
