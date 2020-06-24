@@ -24,6 +24,8 @@ type DB interface {
 	AllPayStubs(ctx context.Context, period string) ([]PayStub, error)
 	// SatellitesHeldbackHistory retrieves heldback history for specific satellite from DB.
 	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]AmountPeriod, error)
+	// SatellitesDisposedHistory returns all disposed amount for specific satellite from DB.
+	SatellitesDisposedHistory(ctx context.Context, satelliteID storj.NodeID) (int64, error)
 	// SatellitePeriods retrieves all periods for concrete satellite in which we have some heldamount data.
 	SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) ([]string, error)
 	// AllPeriods retrieves all periods in which we have some heldamount data.

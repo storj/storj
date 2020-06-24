@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -264,7 +265,9 @@ type HeldHistory struct {
 	FirstPeriod   int64        `json:"firstPeriod"`
 	SecondPeriod  int64        `json:"secondPeriod"`
 	ThirdPeriod   int64        `json:"thirdPeriod"`
-	FourthPeriod  int64        `json:"fourthPeriod"`
+	TotalHeld     int64        `json:"totalHeld"`
+	TotalDisposed int64        `json:"totalDisposed"`
+	JoinedAt      time.Time    `json:"joinedAt"`
 }
 
 // AllHeldbackHistory retrieves heldback history for all satellites from storagenode database.
@@ -280,19 +283,27 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []HeldHi
 			return nil, ErrHeldAmountService.Wrap(err)
 		}
 
+		disposed, err := service.db.SatellitesDisposedHistory(ctx, satellites[i])
+		if err != nil {
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
+
 		for i, t := range heldback {
 			switch i {
 			case 0, 1, 2:
 				history.FirstPeriod += t.Held
+				history.TotalHeld += t.Held
 			case 3, 4, 5:
 				history.SecondPeriod += t.Held
+				history.TotalHeld += t.Held
 			case 6, 7, 8:
 				history.ThirdPeriod += t.Held
+				history.TotalHeld += t.Held
 			default:
-				history.FourthPeriod += t.Held
 			}
 		}
 
+		history.TotalDisposed = disposed
 		history.SatelliteID = satellites[i]
 		url, err := service.trust.GetNodeURL(ctx, satellites[i])
 		if err != nil {
@@ -306,6 +317,7 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []HeldHi
 
 		history.Age = int64(date.MonthsCountSince(stats.JoinedAt))
 		history.SatelliteName = url.String()
+		history.JoinedAt = stats.JoinedAt
 
 		result = append(result, history)
 	}

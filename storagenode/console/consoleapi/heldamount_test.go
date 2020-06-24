@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	date2 "storj.io/storj/private/date"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/reputation"
@@ -345,9 +346,10 @@ func TestHeldAmountApi(t *testing.T) {
 			})
 
 			t.Run("test HeldbackHistory", func(t *testing.T) {
+				date := time.Now().UTC().AddDate(0, -2, 0)
 				err = reputationDB.Store(context.Background(), reputation.Stats{
 					SatelliteID: satellite.ID(),
-					JoinedAt:    time.Now().UTC().AddDate(0, -2, 0),
+					JoinedAt:    date,
 				})
 				require.NoError(t, err)
 
@@ -358,14 +360,18 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
 
+				age := date2.MonthsCountSince(date)
+
 				held := heldamount.HeldHistory{
 					SatelliteID:   satellite.ID(),
 					SatelliteName: satellite.URL(),
-					Age:           2,
+					Age:           int64(age),
 					FirstPeriod:   28,
 					SecondPeriod:  0,
 					ThirdPeriod:   0,
-					FourthPeriod:  0,
+					TotalHeld:     28,
+					TotalDisposed: 32,
+					JoinedAt:      date,
 				}
 
 				var periods []heldamount.HeldHistory

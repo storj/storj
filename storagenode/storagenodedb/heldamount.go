@@ -312,3 +312,36 @@ func (db *heldamountDB) AllPeriods(ctx context.Context) (_ []string, err error) 
 
 	return periodList, nil
 }
+
+// SatellitesDisposedHistory returns all disposed amount for specific satellite from DB.
+func (db *heldamountDB) SatellitesDisposedHistory(ctx context.Context, satelliteID storj.NodeID) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT 
+				disposed
+			  FROM paystubs WHERE satellite_id = ? ORDER BY period ASC`
+
+	rows, err := db.QueryContext(ctx, query, satelliteID)
+	if err != nil {
+		return 0, err
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var totalDisposed int64
+	for rows.Next() {
+		var disposed int64
+
+		err := rows.Scan(&disposed)
+		if err != nil {
+			return 0, ErrHeldAmount.Wrap(err)
+		}
+
+		totalDisposed += disposed
+	}
+	if err = rows.Err(); err != nil {
+		return 0, ErrHeldAmount.Wrap(err)
+	}
+
+	return totalDisposed, nil
+}
