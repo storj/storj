@@ -1482,6 +1482,23 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				DB:          db.heldamountDB,
+				Description: "Add table payments",
+				Version:     43,
+				Action: migrate.SQL{
+					`CREATE TABLE payments (
+						id bigserial NOT NULL,
+						created_at timestamp NOT NULL,
+						satellite_id bytea NOT NULL,
+						period text,
+						amount bigint NOT NULL,
+						receipt text,
+						notes text,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 		},
 	}
 }

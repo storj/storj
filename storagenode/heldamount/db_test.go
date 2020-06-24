@@ -123,6 +123,60 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.NoError(t, err)
 		})
 
+		payment := heldamount.Payment{
+			ID:          1,
+			Created:     time.Now().UTC(),
+			SatelliteID: satelliteID,
+			Period:      period,
+			Amount:      228,
+			Receipt:     "receipt",
+			Notes:       "notes",
+		}
+
+		t.Run("Test StorePayment", func(t *testing.T) {
+			err := heldAmount.StorePayment(ctx, payment)
+			assert.NoError(t, err)
+		})
+
+		t.Run("Test GetPayment", func(t *testing.T) {
+			paym, err := heldAmount.GetPayment(ctx, satelliteID, period)
+			assert.NoError(t, err)
+			assert.Equal(t, paym.Created, payment.Created)
+			assert.Equal(t, paym.SatelliteID, payment.SatelliteID)
+			assert.Equal(t, paym.Period, payment.Period)
+			assert.Equal(t, paym.ID, payment.ID)
+			assert.Equal(t, paym.Amount, payment.Amount)
+			assert.Equal(t, paym.Notes, payment.Notes)
+			assert.Equal(t, paym.Receipt, payment.Receipt)
+
+			paym, err = heldAmount.GetPayment(ctx, satelliteID, "")
+			assert.Error(t, err)
+			assert.Equal(t, true, heldamount.ErrNoPayStubForPeriod.Has(err))
+			assert.Nil(t, paym)
+
+			paym, err = heldAmount.GetPayment(ctx, storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, period)
+			assert.Error(t, err)
+			assert.Equal(t, true, heldamount.ErrNoPayStubForPeriod.Has(err))
+			assert.Nil(t, paym)
+		})
+
+		t.Run("Test StorePayment", func(t *testing.T) {
+			payments, err := heldAmount.AllPayments(ctx, period)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, len(payments))
+			assert.Equal(t, payments[0].Created, payment.Created)
+			assert.Equal(t, payments[0].SatelliteID, payment.SatelliteID)
+			assert.Equal(t, payments[0].Period, payment.Period)
+			assert.Equal(t, payments[0].ID, payment.ID)
+			assert.Equal(t, payments[0].Amount, payment.Amount)
+			assert.Equal(t, payments[0].Notes, payment.Notes)
+			assert.Equal(t, payments[0].Receipt, payment.Receipt)
+
+			payments, err = heldAmount.AllPayments(ctx, "")
+			assert.NoError(t, err)
+			assert.Equal(t, len(payments), 0)
+		})
+
 		t.Run("Test SatellitesHeldbackHistory", func(t *testing.T) {
 			heldback, err := heldAmount.SatellitesHeldbackHistory(ctx, satelliteID)
 			assert.NoError(t, err)
