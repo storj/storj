@@ -191,6 +191,9 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
 	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
+	//
+	// If the segment is suddenly entirely healthy again, we don't need to repair and we don't need to
+	// keep it in the irreparabledb queue either.
 	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
 		_, err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
 			Path:         []byte(path),
@@ -221,6 +224,11 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 		err := checker.irrdb.IncrementRepairAttempts(ctx, segmentInfo)
 		if err != nil {
 			return errs.Combine(Error.New("error handling irreparable segment to queue"), err)
+		}
+	} else if numHealthy > repairThreshold || numHealthy >= redundancy.SuccessThreshold {
+		err = checker.irrdb.Delete(ctx, []byte(path))
+		if err != nil {
+			return Error.New("error removing segment from irreparable queue: %v", err)
 		}
 	}
 	return nil
