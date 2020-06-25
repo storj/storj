@@ -57,7 +57,8 @@ Depending on what your migration is doing, you should then do one of these:
     2. Have an `UPDATE "nodes" SET vetted_at = 'fixed date' where id = 'expected id'` in the `-- NEW DATA --` section (so that it runs in both the snapshot, and after the migration has run) and update the main section's `INSERT` for that node. Future snapshot files do not need to retain the `UPDATE` in that case, and the `INSERT` statements can just use the fixed date for the future.
 
     See migration 99 for the specifics, where it chose option 2.
-3. Cockroach does schema changes asynchronously with regards to a transaction. This means if you need to add a column and fill it with some data, then these need to have them in separate migrations steps:
+
+3. Cockroach does schema changes asynchronously with regards to a transaction. This means if you need to add a column and fill it with some data, then these need to have them in separate migrations steps with using `SeparateTx`:
     ```
     {
     	DB:          db.DB,
@@ -83,12 +84,10 @@ Depending on what your migration is doing, you should then do one of these:
     	DB:          db.DB,
     	Description: "backfill bandwidth column with previous limits",
     	Version:     108,
-    	Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-    		_, err := tx.Exec(ctx,
+    	SeparateTx:  true,
+    	Action: migrate.SQL{
     			`UPDATE projects SET bandwidth_limit = usage_limit;`,
-    		)
-    		return ErrMigrate.Wrap(err)
-    	}),
+    	},
     },
     ```
 
