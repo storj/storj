@@ -67,6 +67,10 @@ type Step struct {
 	Description string
 	Version     int // Versions should start at 0
 	Action      Action
+
+	// SeparateTx marks a step as it should not be merged together for optimization.
+	// Cockroach cannot add a column and update the value in the same transaction.
+	SeparateTx bool
 }
 
 // Action is something that needs to be done

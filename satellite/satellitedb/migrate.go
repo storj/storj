@@ -145,13 +145,32 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	}
 }
 
-// flattenMigration joins the migration sql queries from each migration step
-// to speed up the database setup
+// flattenMigration joins the migration sql queries from
+// each migration step to speed up the database setup.
+//
+// Steps with "SeparateTx" end up as separate migration transactions.
+// Cockroach requires schema changes and updates to the values of that
+// schema change to be in a different transaction.
 func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
 	var db tagsql.DB
 	var version int
 	var statements migrate.SQL
 	var steps = []*migrate.Step{}
+
+	pushMerged := func() {
+		if len(statements) == 0 {
+			return
+		}
+
+		steps = append(steps, &migrate.Step{
+			DB:          db,
+			Description: "Setup",
+			Version:     version,
+			Action:      migrate.SQL{strings.Join(statements, ";\n")},
+		})
+
+		statements = nil
+	}
 
 	for _, step := range m.Steps {
 		if db == nil {
@@ -160,40 +179,21 @@ func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
 			return nil, errs.New("multiple databases not supported")
 		}
 
-		version = step.Version
-
-		switch action := step.Action.(type) {
-		case migrate.SQL:
-			statements = append(statements, action...)
-		case migrate.Func:
-			// if a migrate.Func is encountered then create a step with all
-			// the sql in the previous migration versions
-			if len(statements) > 0 {
-				newSQLStep := migrate.Step{
-					DB:          db,
-					Description: "Setup",
-					Version:     version - 1,
-					Action:      migrate.SQL{strings.Join(statements, ";\n")},
-				}
-				steps = append(steps, &newSQLStep)
-				statements = migrate.SQL{}
+		if sql, ok := step.Action.(migrate.SQL); ok {
+			if step.SeparateTx {
+				pushMerged()
 			}
-			// then add the migrate.Func step
+
+			version = step.Version
+			statements = append(statements, sql...)
+		} else {
+			pushMerged()
 			steps = append(steps, step)
-		default:
-			return nil, errs.New("unexpected action type %T", step.Action)
 		}
 	}
 
-	if len(statements) > 0 {
-		newSQLStep := migrate.Step{
-			DB:          db,
-			Description: "Setup",
-			Version:     version,
-			Action:      migrate.SQL{strings.Join(statements, ";\n")},
-		}
-		steps = append(steps, &newSQLStep)
-	}
+	pushMerged()
+
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: steps,
@@ -868,22 +868,34 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for bucket_bandwidth_rollups", Version: 86, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for bucket_bandwidth_rollups",
+				Version:     86,
+				Action: migrate.SQL{
 					`ALTER TABLE bucket_bandwidth_rollups ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for bucket_storage_tallies", Version: 87, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for bucket_storage_tallies",
+				Version:     87,
+				Action: migrate.SQL{
 					`ALTER TABLE bucket_storage_tallies ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for graceful_exit_progress", Version: 88, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for graceful_exit_progress",
+				Version:     88,
+				Action: migrate.SQL{
 					`ALTER TABLE graceful_exit_progress ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE USING updated_at AT TIME ZONE 'UTC';`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for graceful_exit_transfer_queue", Version: 89, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for graceful_exit_transfer_queue",
+				Version:     89,
+				Action: migrate.SQL{
 					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN queued_at TYPE TIMESTAMP WITH TIME ZONE USING queued_at AT TIME ZONE 'UTC';`,
 					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN requested_at TYPE TIMESTAMP WITH TIME ZONE USING requested_at AT TIME ZONE 'UTC';`,
 					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN last_failed_at TYPE TIMESTAMP WITH TIME ZONE USING last_failed_at AT TIME ZONE 'UTC';`,
@@ -891,29 +903,44 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for injuredsegments", Version: 90, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for injuredsegments",
+				Version:     90,
+				Action: migrate.SQL{
 					`ALTER TABLE injuredsegments ALTER COLUMN attempted TYPE TIMESTAMP WITH TIME ZONE USING attempted AT TIME ZONE 'UTC';`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for nodes", Version: 91, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for nodes",
+				Version:     91,
+				Action: migrate.SQL{
 					`ALTER TABLE nodes ALTER COLUMN exit_initiated_at TYPE TIMESTAMP WITH TIME ZONE USING exit_initiated_at AT TIME ZONE 'UTC';`,
 					`ALTER TABLE nodes ALTER COLUMN exit_loop_completed_at TYPE TIMESTAMP WITH TIME ZONE USING exit_loop_completed_at AT TIME ZONE 'UTC';`,
 					`ALTER TABLE nodes ALTER COLUMN exit_finished_at TYPE TIMESTAMP WITH TIME ZONE USING exit_finished_at AT TIME ZONE 'UTC';`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for serial_numbers", Version: 92, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for serial_numbers",
+				Version:     92,
+				Action: migrate.SQL{
 					`ALTER TABLE serial_numbers ALTER COLUMN expires_at TYPE TIMESTAMP WITH TIME ZONE USING expires_at AT TIME ZONE 'UTC';`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for storagenode_bandwidth_rollups", Version: 93, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for storagenode_bandwidth_rollups",
+				Version:     93,
+				Action: migrate.SQL{
 					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for value_attributions", Version: 94, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for value_attributions",
+				Version:     94,
+				Action: migrate.SQL{
 					`ALTER TABLE value_attributions ALTER COLUMN last_updated TYPE TIMESTAMP WITH TIME ZONE USING last_updated AT TIME ZONE 'UTC';`,
 				},
 			},
@@ -927,7 +954,10 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB: db.DB, Description: "Add column last_ip_port to nodes table", Version: 96, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Add column last_ip_port to nodes table",
+				Version:     96,
+				Action: migrate.SQL{
 					`ALTER TABLE nodes ADD COLUMN last_ip_port text`,
 				},
 			},
@@ -1079,46 +1109,35 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				DB:          db.DB,
 				Description: "backfill bandwidth column with previous limits",
 				Version:     108,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					// This is in a separate migrate step to prevent TestingMigrateToLatest running it in the same transaction as the previous call.
-					_, err := tx.Exec(ctx,
-						`UPDATE projects SET bandwidth_limit = usage_limit;`,
-					)
-					return ErrMigrate.Wrap(err)
-				}),
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE projects SET bandwidth_limit = usage_limit;`,
+				},
 			},
 			{
 				DB:          db.DB,
 				Description: "add period column to the credits_spendings table (step 1)",
 				Version:     109,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					_, err := tx.Exec(ctx,
-						`ALTER TABLE credits_spendings ADD COLUMN period timestamp with time zone;`,
-					)
-					return ErrMigrate.Wrap(err)
-				}),
+				Action: migrate.SQL{
+					`ALTER TABLE credits_spendings ADD COLUMN period timestamp with time zone;`,
+				},
 			},
 			{
 				DB:          db.DB,
 				Description: "add period column to the credits_spendings table (step 2)",
 				Version:     110,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					_, err := tx.Exec(ctx,
-						`UPDATE credits_spendings SET period = 'epoch';`,
-					)
-					return ErrMigrate.Wrap(err)
-				}),
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE credits_spendings SET period = 'epoch';`,
+				},
 			},
 			{
 				DB:          db.DB,
 				Description: "add period column to the credits_spendings table (step 3)",
 				Version:     111,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					_, err := tx.Exec(ctx,
-						`ALTER TABLE credits_spendings ALTER COLUMN period SET NOT NULL;`,
-					)
-					return ErrMigrate.Wrap(err)
-				}),
+				Action: migrate.SQL{
+					`ALTER TABLE credits_spendings ALTER COLUMN period SET NOT NULL;`,
+				},
 			},
 			{
 				DB:          db.DB,
