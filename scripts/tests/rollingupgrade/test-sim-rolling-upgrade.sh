@@ -274,7 +274,7 @@ for ul_version in ${stage2_uplink_versions}; do
     if [ "$ul_version" = "v1.6.3" ]; then
         # TODO: skip v1.6.3 uplink since it doesn't support changing imported access satellite address
         continue
-    else if [ "$ul_version" = "v1.6.4" ]; then
+    elif [ "$ul_version" = "v1.6.4" ]; then
         # TODO: skip v1.6.4 uplink since it doesn't support changing imported access satellite address
         continue
     fi
