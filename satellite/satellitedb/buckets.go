@@ -78,6 +78,27 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 	return convertDBXtoBucket(dbxBucket)
 }
 
+// GetBucketID returns an existing bucket id.
+func (db *bucketsDB) GetBucketID(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxID, err := db.db.Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return uuid.UUID{}, storj.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return uuid.UUID{}, storj.ErrBucket.Wrap(err)
+	}
+
+	id, err := uuid.FromBytes(dbxID.Id)
+	if err != nil {
+		return id, storj.ErrBucket.Wrap(err)
+	}
+	return id, err
+}
+
 // UpdateBucket updates a bucket.
 func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)

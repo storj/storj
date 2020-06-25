@@ -12425,6 +12425,29 @@ func (obj *pgxImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context
 
 }
 
+func (obj *pgxImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Id_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Id_Row{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
+	if err != nil {
+		return (*Id_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
@@ -19039,6 +19062,29 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx contex
 
 }
 
+func (obj *pgxcockroachImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Id_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Id_Row{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
+	if err != nil {
+		return (*Id_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
@@ -23537,6 +23583,17 @@ func (rx *Rx) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	return tx.Get_BucketMetainfo_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name)
 }
 
+func (rx *Rx) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Id_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name)
+}
+
 func (rx *Rx) Get_Coupon_By_Id(ctx context.Context,
 	coupon_id Coupon_Id_Field) (
 	coupon *Coupon, err error) {
@@ -24843,6 +24900,11 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		bucket_metainfo *BucketMetainfo, err error)
+
+	Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
+		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+		bucket_metainfo_name BucketMetainfo_Name_Field) (
+		row *Id_Row, err error)
 
 	Get_Coupon_By_Id(ctx context.Context,
 		coupon_id Coupon_Id_Field) (

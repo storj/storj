@@ -37,6 +37,12 @@ type Config struct {
 	NodeStatusLogging            bool          `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false"`
 }
 
+// BucketsDB returns information about buckets.
+type BucketsDB interface {
+	// GetBucketID returns an existing bucket id.
+	GetBucketID(ctx context.Context, bucketName []byte, projectID uuid.UUID) (id uuid.UUID, err error)
+}
+
 // Service for creating order limits.
 //
 // architecture: Service
@@ -45,6 +51,7 @@ type Service struct {
 	satellite        signing.Signer
 	overlay          *overlay.Service
 	orders           DB
+	buckets          BucketsDB
 	satelliteAddress *pb.NodeAddress
 	orderExpiration  time.Duration
 	rngMu            sync.Mutex
@@ -54,13 +61,15 @@ type Service struct {
 // NewService creates new service for creating order limits.
 func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
-	orders DB, orderExpiration time.Duration, satelliteAddress *pb.NodeAddress,
+	orders DB, buckets BucketsDB,
+	orderExpiration time.Duration, satelliteAddress *pb.NodeAddress,
 ) *Service {
 	return &Service{
 		log:              log,
 		satellite:        satellite,
 		overlay:          overlay,
 		orders:           orders,
+		buckets:          buckets,
 		satelliteAddress: satelliteAddress,
 		orderExpiration:  orderExpiration,
 

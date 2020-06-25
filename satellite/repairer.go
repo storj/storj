@@ -155,6 +155,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay,
 			peer.Orders.DB,
+			bucketsDB,
 			config.Orders.Expiration,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,

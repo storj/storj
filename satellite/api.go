@@ -327,6 +327,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
+			peer.DB.Buckets(),
 			config.Orders.Expiration,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,

@@ -975,6 +975,12 @@ read one (
 	where bucket_metainfo.name = ?
 )
 
+read one (
+	select bucket_metainfo.id
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
 delete bucket_metainfo (
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
