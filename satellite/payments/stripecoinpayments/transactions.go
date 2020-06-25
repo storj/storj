@@ -77,6 +77,15 @@ func (page *TransactionsPage) IDList() TransactionAndUserList {
 	return ids
 }
 
+// CreationTimes returns a map of creation times of page's transactions.
+func (page *TransactionsPage) CreationTimes() map[coinpayments.TransactionID]time.Time {
+	var creationTimes map[coinpayments.TransactionID]time.Time
+	for _, tx := range page.Transactions {
+		creationTimes[tx.ID] = tx.CreatedAt
+	}
+	return creationTimes
+}
+
 // TransactionAndUserList is a composite type for storing userID and txID
 type TransactionAndUserList map[coinpayments.TransactionID]uuid.UUID
 

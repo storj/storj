@@ -150,7 +150,7 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 		return err
 	}
 
-	if err := service.updateTransactions(ctx, txsPage.IDList()); err != nil {
+	if err := service.updateTransactions(ctx, txsPage.IDList(), txsPage.CreationTimes()); err != nil {
 		return err
 	}
 
@@ -164,7 +164,7 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 			return err
 		}
 
-		if err := service.updateTransactions(ctx, txsPage.IDList()); err != nil {
+		if err := service.updateTransactions(ctx, txsPage.IDList(), txsPage.CreationTimes()); err != nil {
 			return err
 		}
 	}
@@ -173,7 +173,7 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 }
 
 // updateTransactions updates statuses and received amount for given transactions.
-func (service *Service) updateTransactions(ctx context.Context, ids TransactionAndUserList) (err error) {
+func (service *Service) updateTransactions(ctx context.Context, ids TransactionAndUserList, creationTimes map[coinpayments.TransactionID]time.Time) (err error) {
 	defer mon.Task()(&ctx, ids)(&err)
 
 	if len(ids) == 0 {
@@ -190,6 +190,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 	var applies coinpayments.TransactionIDList
 
 	for id, info := range infos {
+		service.log.Debug("Coinpayments results: ", zap.String("status", info.Status.String()), zap.String("id", id.String()))
 		updates = append(updates,
 			TransactionUpdate{
 				TransactionID: id,
@@ -203,6 +204,8 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 		// account, so we can apply this amount to customer balance.
 		// Therefore, create intent to update customer balance in the future.
 		if info.Status == coinpayments.StatusCompleted {
+			//monkit currently does not have a DurationVal
+			mon.IntVal("coinpayment_duration").Observe(int64(time.Since(creationTimes[id])))
 			applies = append(applies, id)
 		}
 
