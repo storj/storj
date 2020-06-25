@@ -121,7 +121,7 @@ func constraintViolation(err error, constraint string) error {
 
 type driver interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (tagsql.Rows, error)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
@@ -332,7 +332,6 @@ CREATE TABLE consumed_serials (
 );
 CREATE TABLE coupons (
 	id bytea NOT NULL,
-	project_id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	amount bigint NOT NULL,
 	description text NOT NULL,
@@ -362,14 +361,15 @@ CREATE TABLE credits_spendings (
 	project_id bytea NOT NULL,
 	amount bigint NOT NULL,
 	status integer NOT NULL,
+	period timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint DEFAULT 0 NOT NULL,
-	pieces_failed bigint DEFAULT 0 NOT NULL,
+	pieces_transferred bigint NOT NULL DEFAULT 0,
+	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -385,14 +385,14 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp with time zone,
-	order_limit_send_count integer DEFAULT 0 NOT NULL,
+	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp with time zone,
-	num_healthy_pieces integer DEFAULT 52 NOT NULL,
+	num_healthy_pieces integer NOT NULL DEFAULT 52,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -405,45 +405,47 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
-	address text DEFAULT '' NOT NULL,
+	address text NOT NULL DEFAULT '',
 	last_net text NOT NULL,
 	last_ip_port text,
-	protocol integer DEFAULT 0 NOT NULL,
-	type integer DEFAULT 0 NOT NULL,
+	protocol integer NOT NULL DEFAULT 0,
+	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
 	wallet text NOT NULL,
-	free_bandwidth bigint DEFAULT -1 NOT NULL,
-	free_disk bigint DEFAULT -1 NOT NULL,
-	piece_count bigint DEFAULT 0 NOT NULL,
-	major bigint DEFAULT 0 NOT NULL,
-	minor bigint DEFAULT 0 NOT NULL,
-	patch bigint DEFAULT 0 NOT NULL,
-	hash text DEFAULT '' NOT NULL,
-	timestamp timestamp with time zone DEFAULT '0001-01-01 00:00:00+00' NOT NULL,
-	release boolean DEFAULT false NOT NULL,
-	latency_90 bigint DEFAULT 0 NOT NULL,
-	audit_success_count bigint DEFAULT 0 NOT NULL,
-	total_audit_count bigint DEFAULT 0 NOT NULL,
+	free_disk bigint NOT NULL DEFAULT -1,
+	piece_count bigint NOT NULL DEFAULT 0,
+	major bigint NOT NULL DEFAULT 0,
+	minor bigint NOT NULL DEFAULT 0,
+	patch bigint NOT NULL DEFAULT 0,
+	hash text NOT NULL DEFAULT '',
+	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+	release boolean NOT NULL DEFAULT false,
+	latency_90 bigint NOT NULL DEFAULT 0,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
-	created_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	updated_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	last_contact_success timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	last_contact_failure timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	contained boolean DEFAULT false NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
+	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
+	contained boolean NOT NULL DEFAULT false,
 	disqualified timestamp with time zone,
 	suspended timestamp with time zone,
-	audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	unknown_audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	uptime_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	uptime_reputation_beta double precision DEFAULT 0 NOT NULL,
+	unknown_audit_suspended timestamp with time zone,
+	offline_suspended timestamp with time zone,
+	under_review timestamp with time zone,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
+	uptime_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
-	exit_success boolean DEFAULT false NOT NULL,
+	exit_success boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE nodes_offline_times (
@@ -456,8 +458,8 @@ CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	award_credit_in_cents integer DEFAULT 0 NOT NULL,
-	invitee_credit_in_cents integer DEFAULT 0 NOT NULL,
+	award_credit_in_cents integer NOT NULL DEFAULT 0,
+	invitee_credit_in_cents integer NOT NULL DEFAULT 0,
 	award_credit_duration_days integer,
 	invitee_credit_duration_days integer,
 	redeemable_cap integer,
@@ -497,12 +499,19 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint DEFAULT 0 NOT NULL,
+	usage_limit bigint NOT NULL DEFAULT 0,
+	bandwidth_limit bigint NOT NULL DEFAULT 0,
 	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE project_bandwidth_rollups (
+	project_id bytea NOT NULL,
+	interval_month date NOT NULL,
+	egress_allocated bigint NOT NULL,
+	PRIMARY KEY ( project_id, interval_month )
 );
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
@@ -529,6 +538,11 @@ CREATE TABLE reset_password_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE revocations (
+	revoked bytea NOT NULL,
+	api_key_id bytea NOT NULL,
+	PRIMARY KEY ( revoked )
+);
 CREATE TABLE serial_numbers (
 	id serial NOT NULL,
 	serial_number bytea NOT NULL,
@@ -549,7 +563,7 @@ CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	node_id bytea NOT NULL,
-	period text,
+	period text NOT NULL,
 	amount bigint NOT NULL,
 	receipt text,
 	notes text,
@@ -702,6 +716,7 @@ CREATE TABLE user_credits (
 );
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
@@ -836,7 +851,6 @@ CREATE TABLE consumed_serials (
 );
 CREATE TABLE coupons (
 	id bytea NOT NULL,
-	project_id bytea NOT NULL,
 	user_id bytea NOT NULL,
 	amount bigint NOT NULL,
 	description text NOT NULL,
@@ -866,14 +880,15 @@ CREATE TABLE credits_spendings (
 	project_id bytea NOT NULL,
 	amount bigint NOT NULL,
 	status integer NOT NULL,
+	period timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint DEFAULT 0 NOT NULL,
-	pieces_failed bigint DEFAULT 0 NOT NULL,
+	pieces_transferred bigint NOT NULL DEFAULT 0,
+	pieces_failed bigint NOT NULL DEFAULT 0,
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( node_id )
 );
@@ -889,14 +904,14 @@ CREATE TABLE graceful_exit_transfer_queue (
 	last_failed_code integer,
 	failed_count integer,
 	finished_at timestamp with time zone,
-	order_limit_send_count integer DEFAULT 0 NOT NULL,
+	order_limit_send_count integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( node_id, path, piece_num )
 );
 CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp with time zone,
-	num_healthy_pieces integer DEFAULT 52 NOT NULL,
+	num_healthy_pieces integer NOT NULL DEFAULT 52,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -909,45 +924,47 @@ CREATE TABLE irreparabledbs (
 );
 CREATE TABLE nodes (
 	id bytea NOT NULL,
-	address text DEFAULT '' NOT NULL,
+	address text NOT NULL DEFAULT '',
 	last_net text NOT NULL,
 	last_ip_port text,
-	protocol integer DEFAULT 0 NOT NULL,
-	type integer DEFAULT 0 NOT NULL,
+	protocol integer NOT NULL DEFAULT 0,
+	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
 	wallet text NOT NULL,
-	free_bandwidth bigint DEFAULT -1 NOT NULL,
-	free_disk bigint DEFAULT -1 NOT NULL,
-	piece_count bigint DEFAULT 0 NOT NULL,
-	major bigint DEFAULT 0 NOT NULL,
-	minor bigint DEFAULT 0 NOT NULL,
-	patch bigint DEFAULT 0 NOT NULL,
-	hash text DEFAULT '' NOT NULL,
-	timestamp timestamp with time zone DEFAULT '0001-01-01 00:00:00+00' NOT NULL,
-	release boolean DEFAULT false NOT NULL,
-	latency_90 bigint DEFAULT 0 NOT NULL,
-	audit_success_count bigint DEFAULT 0 NOT NULL,
-	total_audit_count bigint DEFAULT 0 NOT NULL,
+	free_disk bigint NOT NULL DEFAULT -1,
+	piece_count bigint NOT NULL DEFAULT 0,
+	major bigint NOT NULL DEFAULT 0,
+	minor bigint NOT NULL DEFAULT 0,
+	patch bigint NOT NULL DEFAULT 0,
+	hash text NOT NULL DEFAULT '',
+	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+	release boolean NOT NULL DEFAULT false,
+	latency_90 bigint NOT NULL DEFAULT 0,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
-	created_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	updated_at timestamp with time zone DEFAULT current_timestamp NOT NULL,
-	last_contact_success timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	last_contact_failure timestamp with time zone DEFAULT 'epoch' NOT NULL,
-	contained boolean DEFAULT false NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
+	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
+	contained boolean NOT NULL DEFAULT false,
 	disqualified timestamp with time zone,
 	suspended timestamp with time zone,
-	audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	unknown_audit_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	unknown_audit_reputation_beta double precision DEFAULT 0 NOT NULL,
-	uptime_reputation_alpha double precision DEFAULT 1 NOT NULL,
-	uptime_reputation_beta double precision DEFAULT 0 NOT NULL,
+	unknown_audit_suspended timestamp with time zone,
+	offline_suspended timestamp with time zone,
+	under_review timestamp with time zone,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
+	uptime_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
-	exit_success boolean DEFAULT false NOT NULL,
+	exit_success boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE nodes_offline_times (
@@ -960,8 +977,8 @@ CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	award_credit_in_cents integer DEFAULT 0 NOT NULL,
-	invitee_credit_in_cents integer DEFAULT 0 NOT NULL,
+	award_credit_in_cents integer NOT NULL DEFAULT 0,
+	invitee_credit_in_cents integer NOT NULL DEFAULT 0,
 	award_credit_duration_days integer,
 	invitee_credit_duration_days integer,
 	redeemable_cap integer,
@@ -1001,12 +1018,19 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint DEFAULT 0 NOT NULL,
+	usage_limit bigint NOT NULL DEFAULT 0,
+	bandwidth_limit bigint NOT NULL DEFAULT 0,
 	rate_limit integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE project_bandwidth_rollups (
+	project_id bytea NOT NULL,
+	interval_month date NOT NULL,
+	egress_allocated bigint NOT NULL,
+	PRIMARY KEY ( project_id, interval_month )
 );
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
@@ -1033,6 +1057,11 @@ CREATE TABLE reset_password_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE revocations (
+	revoked bytea NOT NULL,
+	api_key_id bytea NOT NULL,
+	PRIMARY KEY ( revoked )
+);
 CREATE TABLE serial_numbers (
 	id serial NOT NULL,
 	serial_number bytea NOT NULL,
@@ -1053,7 +1082,7 @@ CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	node_id bytea NOT NULL,
-	period text,
+	period text NOT NULL,
 	amount bigint NOT NULL,
 	receipt text,
 	notes text,
@@ -1206,6 +1235,7 @@ CREATE TABLE user_credits (
 );
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
@@ -2135,7 +2165,6 @@ func (ConsumedSerial_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type Coupon struct {
 	Id          []byte
-	ProjectId   []byte
 	UserId      []byte
 	Amount      int64
 	Description string
@@ -2169,25 +2198,6 @@ func (f Coupon_Id_Field) value() interface{} {
 }
 
 func (Coupon_Id_Field) _Column() string { return "id" }
-
-type Coupon_ProjectId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Coupon_ProjectId(v []byte) Coupon_ProjectId_Field {
-	return Coupon_ProjectId_Field{_set: true, _value: v}
-}
-
-func (f Coupon_ProjectId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Coupon_ProjectId_Field) _Column() string { return "project_id" }
 
 type Coupon_UserId_Field struct {
 	_set   bool
@@ -2505,6 +2515,7 @@ type CreditsSpending struct {
 	ProjectId []byte
 	Amount    int64
 	Status    int
+	Period    time.Time
 	CreatedAt time.Time
 }
 
@@ -2608,6 +2619,25 @@ func (f CreditsSpending_Status_Field) value() interface{} {
 }
 
 func (CreditsSpending_Status_Field) _Column() string { return "status" }
+
+type CreditsSpending_Period_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func CreditsSpending_Period(v time.Time) CreditsSpending_Period_Field {
+	return CreditsSpending_Period_Field{_set: true, _value: v}
+}
+
+func (f CreditsSpending_Period_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CreditsSpending_Period_Field) _Column() string { return "period" }
 
 type CreditsSpending_CreatedAt_Field struct {
 	_set   bool
@@ -3324,7 +3354,6 @@ type Node struct {
 	Type                        int
 	Email                       string
 	Wallet                      string
-	FreeBandwidth               int64
 	FreeDisk                    int64
 	PieceCount                  int64
 	Major                       int64
@@ -3346,6 +3375,9 @@ type Node struct {
 	Contained                   bool
 	Disqualified                *time.Time
 	Suspended                   *time.Time
+	UnknownAuditSuspended       *time.Time
+	OfflineSuspended            *time.Time
+	UnderReview                 *time.Time
 	AuditReputationAlpha        float64
 	AuditReputationBeta         float64
 	UnknownAuditReputationAlpha float64
@@ -3365,7 +3397,6 @@ type Node_Create_Fields struct {
 	LastIpPort                  Node_LastIpPort_Field
 	Protocol                    Node_Protocol_Field
 	Type                        Node_Type_Field
-	FreeBandwidth               Node_FreeBandwidth_Field
 	FreeDisk                    Node_FreeDisk_Field
 	Major                       Node_Major_Field
 	Minor                       Node_Minor_Field
@@ -3382,6 +3413,9 @@ type Node_Create_Fields struct {
 	Contained                   Node_Contained_Field
 	Disqualified                Node_Disqualified_Field
 	Suspended                   Node_Suspended_Field
+	UnknownAuditSuspended       Node_UnknownAuditSuspended_Field
+	OfflineSuspended            Node_OfflineSuspended_Field
+	UnderReview                 Node_UnderReview_Field
 	AuditReputationAlpha        Node_AuditReputationAlpha_Field
 	AuditReputationBeta         Node_AuditReputationBeta_Field
 	UnknownAuditReputationAlpha Node_UnknownAuditReputationAlpha_Field
@@ -3402,7 +3436,6 @@ type Node_Update_Fields struct {
 	Type                        Node_Type_Field
 	Email                       Node_Email_Field
 	Wallet                      Node_Wallet_Field
-	FreeBandwidth               Node_FreeBandwidth_Field
 	FreeDisk                    Node_FreeDisk_Field
 	PieceCount                  Node_PieceCount_Field
 	Major                       Node_Major_Field
@@ -3422,6 +3455,9 @@ type Node_Update_Fields struct {
 	Contained                   Node_Contained_Field
 	Disqualified                Node_Disqualified_Field
 	Suspended                   Node_Suspended_Field
+	UnknownAuditSuspended       Node_UnknownAuditSuspended_Field
+	OfflineSuspended            Node_OfflineSuspended_Field
+	UnderReview                 Node_UnderReview_Field
 	AuditReputationAlpha        Node_AuditReputationAlpha_Field
 	AuditReputationBeta         Node_AuditReputationBeta_Field
 	UnknownAuditReputationAlpha Node_UnknownAuditReputationAlpha_Field
@@ -3598,25 +3634,6 @@ func (f Node_Wallet_Field) value() interface{} {
 }
 
 func (Node_Wallet_Field) _Column() string { return "wallet" }
-
-type Node_FreeBandwidth_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Node_FreeBandwidth(v int64) Node_FreeBandwidth_Field {
-	return Node_FreeBandwidth_Field{_set: true, _value: v}
-}
-
-func (f Node_FreeBandwidth_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_FreeBandwidth_Field) _Column() string { return "free_bandwidth" }
 
 type Node_FreeDisk_Field struct {
 	_set   bool
@@ -4055,6 +4072,102 @@ func (f Node_Suspended_Field) value() interface{} {
 }
 
 func (Node_Suspended_Field) _Column() string { return "suspended" }
+
+type Node_UnknownAuditSuspended_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Node_UnknownAuditSuspended(v time.Time) Node_UnknownAuditSuspended_Field {
+	return Node_UnknownAuditSuspended_Field{_set: true, _value: &v}
+}
+
+func Node_UnknownAuditSuspended_Raw(v *time.Time) Node_UnknownAuditSuspended_Field {
+	if v == nil {
+		return Node_UnknownAuditSuspended_Null()
+	}
+	return Node_UnknownAuditSuspended(*v)
+}
+
+func Node_UnknownAuditSuspended_Null() Node_UnknownAuditSuspended_Field {
+	return Node_UnknownAuditSuspended_Field{_set: true, _null: true}
+}
+
+func (f Node_UnknownAuditSuspended_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Node_UnknownAuditSuspended_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_UnknownAuditSuspended_Field) _Column() string { return "unknown_audit_suspended" }
+
+type Node_OfflineSuspended_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Node_OfflineSuspended(v time.Time) Node_OfflineSuspended_Field {
+	return Node_OfflineSuspended_Field{_set: true, _value: &v}
+}
+
+func Node_OfflineSuspended_Raw(v *time.Time) Node_OfflineSuspended_Field {
+	if v == nil {
+		return Node_OfflineSuspended_Null()
+	}
+	return Node_OfflineSuspended(*v)
+}
+
+func Node_OfflineSuspended_Null() Node_OfflineSuspended_Field {
+	return Node_OfflineSuspended_Field{_set: true, _null: true}
+}
+
+func (f Node_OfflineSuspended_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Node_OfflineSuspended_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_OfflineSuspended_Field) _Column() string { return "offline_suspended" }
+
+type Node_UnderReview_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Node_UnderReview(v time.Time) Node_UnderReview_Field {
+	return Node_UnderReview_Field{_set: true, _value: &v}
+}
+
+func Node_UnderReview_Raw(v *time.Time) Node_UnderReview_Field {
+	if v == nil {
+		return Node_UnderReview_Null()
+	}
+	return Node_UnderReview(*v)
+}
+
+func Node_UnderReview_Null() Node_UnderReview_Field {
+	return Node_UnderReview_Field{_set: true, _null: true}
+}
+
+func (f Node_UnderReview_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Node_UnderReview_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_UnderReview_Field) _Column() string { return "under_review" }
 
 type Node_AuditReputationAlpha_Field struct {
 	_set   bool
@@ -5032,28 +5145,31 @@ func (f PendingSerialQueue_ExpiresAt_Field) value() interface{} {
 func (PendingSerialQueue_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type Project struct {
-	Id          []byte
-	Name        string
-	Description string
-	UsageLimit  int64
-	RateLimit   *int
-	PartnerId   []byte
-	OwnerId     []byte
-	CreatedAt   time.Time
+	Id             []byte
+	Name           string
+	Description    string
+	UsageLimit     int64
+	BandwidthLimit int64
+	RateLimit      *int
+	PartnerId      []byte
+	OwnerId        []byte
+	CreatedAt      time.Time
 }
 
 func (Project) _Table() string { return "projects" }
 
 type Project_Create_Fields struct {
-	UsageLimit Project_UsageLimit_Field
-	RateLimit  Project_RateLimit_Field
-	PartnerId  Project_PartnerId_Field
+	UsageLimit     Project_UsageLimit_Field
+	BandwidthLimit Project_BandwidthLimit_Field
+	RateLimit      Project_RateLimit_Field
+	PartnerId      Project_PartnerId_Field
 }
 
 type Project_Update_Fields struct {
-	Description Project_Description_Field
-	UsageLimit  Project_UsageLimit_Field
-	RateLimit   Project_RateLimit_Field
+	Description    Project_Description_Field
+	UsageLimit     Project_UsageLimit_Field
+	BandwidthLimit Project_BandwidthLimit_Field
+	RateLimit      Project_RateLimit_Field
 }
 
 type Project_Id_Field struct {
@@ -5131,6 +5247,25 @@ func (f Project_UsageLimit_Field) value() interface{} {
 }
 
 func (Project_UsageLimit_Field) _Column() string { return "usage_limit" }
+
+type Project_BandwidthLimit_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Project_BandwidthLimit(v int64) Project_BandwidthLimit_Field {
+	return Project_BandwidthLimit_Field{_set: true, _value: v}
+}
+
+func (f Project_BandwidthLimit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_BandwidthLimit_Field) _Column() string { return "bandwidth_limit" }
 
 type Project_RateLimit_Field struct {
 	_set   bool
@@ -5233,6 +5368,76 @@ func (f Project_CreatedAt_Field) value() interface{} {
 }
 
 func (Project_CreatedAt_Field) _Column() string { return "created_at" }
+
+type ProjectBandwidthRollup struct {
+	ProjectId       []byte
+	IntervalMonth   time.Time
+	EgressAllocated uint64
+}
+
+func (ProjectBandwidthRollup) _Table() string { return "project_bandwidth_rollups" }
+
+type ProjectBandwidthRollup_Update_Fields struct {
+	EgressAllocated ProjectBandwidthRollup_EgressAllocated_Field
+}
+
+type ProjectBandwidthRollup_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ProjectBandwidthRollup_ProjectId(v []byte) ProjectBandwidthRollup_ProjectId_Field {
+	return ProjectBandwidthRollup_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f ProjectBandwidthRollup_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectBandwidthRollup_ProjectId_Field) _Column() string { return "project_id" }
+
+type ProjectBandwidthRollup_IntervalMonth_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ProjectBandwidthRollup_IntervalMonth(v time.Time) ProjectBandwidthRollup_IntervalMonth_Field {
+	v = toDate(v)
+	return ProjectBandwidthRollup_IntervalMonth_Field{_set: true, _value: v}
+}
+
+func (f ProjectBandwidthRollup_IntervalMonth_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectBandwidthRollup_IntervalMonth_Field) _Column() string { return "interval_month" }
+
+type ProjectBandwidthRollup_EgressAllocated_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func ProjectBandwidthRollup_EgressAllocated(v uint64) ProjectBandwidthRollup_EgressAllocated_Field {
+	return ProjectBandwidthRollup_EgressAllocated_Field{_set: true, _value: v}
+}
+
+func (f ProjectBandwidthRollup_EgressAllocated_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectBandwidthRollup_EgressAllocated_Field) _Column() string { return "egress_allocated" }
 
 type RegistrationToken struct {
 	Secret       []byte
@@ -5557,6 +5762,54 @@ func (f ResetPasswordToken_CreatedAt_Field) value() interface{} {
 
 func (ResetPasswordToken_CreatedAt_Field) _Column() string { return "created_at" }
 
+type Revocation struct {
+	Revoked  []byte
+	ApiKeyId []byte
+}
+
+func (Revocation) _Table() string { return "revocations" }
+
+type Revocation_Update_Fields struct {
+}
+
+type Revocation_Revoked_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Revocation_Revoked(v []byte) Revocation_Revoked_Field {
+	return Revocation_Revoked_Field{_set: true, _value: v}
+}
+
+func (f Revocation_Revoked_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Revocation_Revoked_Field) _Column() string { return "revoked" }
+
+type Revocation_ApiKeyId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Revocation_ApiKeyId(v []byte) Revocation_ApiKeyId_Field {
+	return Revocation_ApiKeyId_Field{_set: true, _value: v}
+}
+
+func (f Revocation_ApiKeyId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Revocation_ApiKeyId_Field) _Column() string { return "api_key_id" }
+
 type SerialNumber struct {
 	Id           int
 	SerialNumber []byte
@@ -5798,7 +6051,7 @@ type StoragenodePayment struct {
 	Id        int64
 	CreatedAt time.Time
 	NodeId    []byte
-	Period    *string
+	Period    string
 	Amount    int64
 	Receipt   *string
 	Notes     *string
@@ -5807,7 +6060,6 @@ type StoragenodePayment struct {
 func (StoragenodePayment) _Table() string { return "storagenode_payments" }
 
 type StoragenodePayment_Create_Fields struct {
-	Period  StoragenodePayment_Period_Field
 	Receipt StoragenodePayment_Receipt_Field
 	Notes   StoragenodePayment_Notes_Field
 }
@@ -5875,25 +6127,12 @@ func (StoragenodePayment_NodeId_Field) _Column() string { return "node_id" }
 type StoragenodePayment_Period_Field struct {
 	_set   bool
 	_null  bool
-	_value *string
+	_value string
 }
 
 func StoragenodePayment_Period(v string) StoragenodePayment_Period_Field {
-	return StoragenodePayment_Period_Field{_set: true, _value: &v}
+	return StoragenodePayment_Period_Field{_set: true, _value: v}
 }
-
-func StoragenodePayment_Period_Raw(v *string) StoragenodePayment_Period_Field {
-	if v == nil {
-		return StoragenodePayment_Period_Null()
-	}
-	return StoragenodePayment_Period(*v)
-}
-
-func StoragenodePayment_Period_Null() StoragenodePayment_Period_Field {
-	return StoragenodePayment_Period_Field{_set: true, _null: true}
-}
-
-func (f StoragenodePayment_Period_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f StoragenodePayment_Period_Field) value() interface{} {
 	if !f._set || f._null {
@@ -8454,6 +8693,10 @@ func (h *__sqlbundle_Hole) Render() string {
 // end runtime support for building sql statements
 //
 
+type BandwidthLimit_Row struct {
+	BandwidthLimit int64
+}
+
 type CustomerId_Row struct {
 	CustomerId string
 }
@@ -8669,18 +8912,21 @@ func (obj *postgresImpl) CreateNoReturn_Node(ctx context.Context,
 	__total_uptime_count_val := node_total_uptime_count.value()
 	__disqualified_val := optional.Disqualified.value()
 	__suspended_val := optional.Suspended.value()
+	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
+	__offline_suspended_val := optional.OfflineSuspended.value()
+	__under_review_val := optional.UnderReview.value()
 	__exit_initiated_at_val := optional.ExitInitiatedAt.value()
 	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
 	__exit_finished_at_val := optional.ExitFinishedAt.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, email, wallet, vetted_at, uptime_success_count, total_uptime_count, disqualified, suspended, exit_initiated_at, exit_loop_completed_at, exit_finished_at")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, email, wallet, vetted_at, uptime_success_count, total_uptime_count, disqualified, suspended, unknown_audit_suspended, offline_suspended, under_review, exit_initiated_at, exit_loop_completed_at, exit_finished_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO nodes "), __clause}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __email_val, __wallet_val, __vetted_at_val, __uptime_success_count_val, __total_uptime_count_val, __disqualified_val, __suspended_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
+	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __email_val, __wallet_val, __vetted_at_val, __uptime_success_count_val, __total_uptime_count_val, __disqualified_val, __suspended_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -8700,12 +8946,6 @@ func (obj *postgresImpl) CreateNoReturn_Node(ctx context.Context,
 	if optional.Type._set {
 		__values = append(__values, optional.Type.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("type"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.FreeBandwidth._set {
-		__values = append(__values, optional.FreeBandwidth.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_bandwidth"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -8908,7 +9148,7 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")}}
 
 	var __values []interface{}
 	__values = append(__values, __id_val, __name_val, __description_val, __rate_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
@@ -8919,6 +9159,12 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 	if optional.UsageLimit._set {
 		__values = append(__values, optional.UsageLimit.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("usage_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.BandwidthLimit._set {
+		__values = append(__values, optional.BandwidthLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("bandwidth_limit"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -8934,7 +9180,7 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9145,6 +9391,30 @@ func (obj *postgresImpl) CreateNoReturn_ConsumedSerial(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) CreateNoReturn_Revocation(ctx context.Context,
+	revocation_revoked Revocation_Revoked_Field,
+	revocation_api_key_id Revocation_ApiKeyId_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__revoked_val := revocation_revoked.value()
+	__api_key_id_val := revocation_api_key_id.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO revocations ( revoked, api_key_id ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __revoked_val, __api_key_id_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *postgresImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
 	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
 	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
@@ -9248,6 +9518,7 @@ func (obj *postgresImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 
 func (obj *postgresImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
 	storagenode_payment_amount StoragenodePayment_Amount_Field,
 	optional StoragenodePayment_Create_Fields) (
 	err error) {
@@ -9256,7 +9527,7 @@ func (obj *postgresImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__created_at_val := __now
 	__node_id_val := storagenode_payment_node_id.value()
-	__period_val := optional.Period.value()
+	__period_val := storagenode_payment_period.value()
 	__amount_val := storagenode_payment_amount.value()
 	__receipt_val := optional.Receipt.value()
 	__notes_val := optional.Notes.value()
@@ -9801,7 +10072,6 @@ func (obj *postgresImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.C
 
 func (obj *postgresImpl) Create_Coupon(ctx context.Context,
 	coupon_id Coupon_Id_Field,
-	coupon_project_id Coupon_ProjectId_Field,
 	coupon_user_id Coupon_UserId_Field,
 	coupon_amount Coupon_Amount_Field,
 	coupon_description Coupon_Description_Field,
@@ -9813,7 +10083,6 @@ func (obj *postgresImpl) Create_Coupon(ctx context.Context,
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := coupon_id.value()
-	__project_id_val := coupon_project_id.value()
 	__user_id_val := coupon_user_id.value()
 	__amount_val := coupon_amount.value()
 	__description_val := coupon_description.value()
@@ -9822,16 +10091,16 @@ func (obj *postgresImpl) Create_Coupon(ctx context.Context,
 	__duration_val := coupon_duration.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( id, project_id, user_id, amount, description, type, status, duration, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( id, user_id, amount, description, type, status, duration, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __project_id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val)
+	__values = append(__values, __id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9903,7 +10172,8 @@ func (obj *postgresImpl) Create_CreditsSpending(ctx context.Context,
 	credits_spending_user_id CreditsSpending_UserId_Field,
 	credits_spending_project_id CreditsSpending_ProjectId_Field,
 	credits_spending_amount CreditsSpending_Amount_Field,
-	credits_spending_status CreditsSpending_Status_Field) (
+	credits_spending_status CreditsSpending_Status_Field,
+	credits_spending_period CreditsSpending_Period_Field) (
 	credits_spending *CreditsSpending, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -9913,18 +10183,19 @@ func (obj *postgresImpl) Create_CreditsSpending(ctx context.Context,
 	__project_id_val := credits_spending_project_id.value()
 	__amount_val := credits_spending_amount.value()
 	__status_val := credits_spending_status.value()
+	__period_val := credits_spending_period.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO credits_spendings ( id, user_id, project_id, amount, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO credits_spendings ( id, user_id, project_id, amount, status, period, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __project_id_val, __amount_val, __status_val, __created_at_val)
+	__values = append(__values, __id_val, __user_id_val, __project_id_val, __amount_val, __status_val, __period_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	credits_spending = &CreditsSpending{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10122,7 +10393,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -10131,7 +10402,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -10177,7 +10448,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 	rows []*Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id_greater_or_equal.value())
@@ -10195,7 +10466,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 
 	for __rows.Next() {
 		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -10380,7 +10651,7 @@ func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 	project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -10389,7 +10660,7 @@ func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -10419,11 +10690,33 @@ func (obj *postgresImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *BandwidthLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &BandwidthLimit_Row{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit)
+	if err != nil {
+		return (*BandwidthLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *postgresImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
 
 	var __values []interface{}
 
@@ -10438,7 +10731,7 @@ func (obj *postgresImpl) All_Project(ctx context.Context) (
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -10456,7 +10749,7 @@ func (obj *postgresImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -10472,7 +10765,7 @@ func (obj *postgresImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -10490,7 +10783,7 @@ func (obj *postgresImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx contex
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_owner_id.value())
@@ -10506,7 +10799,7 @@ func (obj *postgresImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx contex
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -10524,7 +10817,7 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -10540,7 +10833,7 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -10559,7 +10852,7 @@ func (obj *postgresImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -10577,7 +10870,7 @@ func (obj *postgresImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -10979,6 +11272,32 @@ func (obj *postgresImpl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_
 		return (*BucketBandwidthRollup)(nil), obj.makeErr(err)
 	}
 	return bucket_bandwidth_rollup, nil
+
+}
+
+func (obj *postgresImpl) Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx context.Context,
+	project_bandwidth_rollup_project_id ProjectBandwidthRollup_ProjectId_Field,
+	project_bandwidth_rollup_interval_month ProjectBandwidthRollup_IntervalMonth_Field) (
+	project_bandwidth_rollup *ProjectBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_bandwidth_rollups.project_id, project_bandwidth_rollups.interval_month, project_bandwidth_rollups.egress_allocated FROM project_bandwidth_rollups WHERE project_bandwidth_rollups.project_id = ? AND project_bandwidth_rollups.interval_month = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_bandwidth_rollup_project_id.value(), project_bandwidth_rollup_interval_month.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_bandwidth_rollup = &ProjectBandwidthRollup{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_bandwidth_rollup.ProjectId, &project_bandwidth_rollup.IntervalMonth, &project_bandwidth_rollup.EgressAllocated)
+	if err == sql.ErrNoRows {
+		return (*ProjectBandwidthRollup)(nil), nil
+	}
+	if err != nil {
+		return (*ProjectBandwidthRollup)(nil), obj.makeErr(err)
+	}
+	return project_bandwidth_rollup, nil
 
 }
 
@@ -11803,17 +12122,18 @@ func (obj *postgresImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId
 
 }
 
-func (obj *postgresImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOrEqual_And_State_OrderBy_Desc_CreatedAt(ctx context.Context,
-	stripecoinpayments_invoice_project_record_created_at_less_or_equal StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field,
+func (obj *postgresImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
+	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
 	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
 	limit int, offset int64) (
 	rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.created_at <= ? AND stripecoinpayments_invoice_project_records.state = ? ORDER BY stripecoinpayments_invoice_project_records.created_at DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ? AND stripecoinpayments_invoice_project_records.state = ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, stripecoinpayments_invoice_project_record_created_at_less_or_equal.value(), stripecoinpayments_invoice_project_record_state.value())
+	__values = append(__values, stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value(), stripecoinpayments_invoice_project_record_state.value())
 
 	__values = append(__values, limit, offset)
 
@@ -11868,7 +12188,7 @@ func (obj *postgresImpl) Get_Coupon_By_Id(ctx context.Context,
 	coupon *Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, coupon_id.value())
@@ -11877,45 +12197,11 @@ func (obj *postgresImpl) Get_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return (*Coupon)(nil), obj.makeErr(err)
 	}
 	return coupon, nil
-
-}
-
-func (obj *postgresImpl) All_Coupon_By_ProjectId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(ctx context.Context,
-	coupon_project_id Coupon_ProjectId_Field) (
-	rows []*Coupon, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.project_id = ? AND coupons.status = 0 ORDER BY coupons.created_at DESC")
-
-	var __values []interface{}
-	__values = append(__values, coupon_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, coupon)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
 
 }
 
@@ -11924,7 +12210,7 @@ func (obj *postgresImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_user_id.value())
@@ -11940,7 +12226,7 @@ func (obj *postgresImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context
 
 	for __rows.Next() {
 		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -11959,7 +12245,7 @@ func (obj *postgresImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_CreatedAt(
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? AND coupons.status = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? AND coupons.status = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_user_id.value(), coupon_status.value())
@@ -11975,7 +12261,7 @@ func (obj *postgresImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_CreatedAt(
 
 	for __rows.Next() {
 		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -11993,7 +12279,7 @@ func (obj *postgresImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx context
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.status = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.status = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_status.value())
@@ -12009,7 +12295,7 @@ func (obj *postgresImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx context
 
 	for __rows.Next() {
 		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -12029,7 +12315,7 @@ func (obj *postgresImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_Orde
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.created_at <= ? AND coupons.status = ? ORDER BY coupons.created_at DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.created_at <= ? AND coupons.status = ? ORDER BY coupons.created_at DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, coupon_created_at_less_or_equal.value(), coupon_status.value())
@@ -12047,7 +12333,7 @@ func (obj *postgresImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_Orde
 
 	for __rows.Next() {
 		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -12060,16 +12346,16 @@ func (obj *postgresImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_Orde
 
 }
 
-func (obj *postgresImpl) Limited_CouponUsage_By_Period_LessOrEqual_And_Status_Equal_Number_OrderBy_Desc_Period(ctx context.Context,
-	coupon_usage_period_less_or_equal CouponUsage_Period_Field,
+func (obj *postgresImpl) Limited_CouponUsage_By_Period_And_Status_Equal_Number(ctx context.Context,
+	coupon_usage_period CouponUsage_Period_Field,
 	limit int, offset int64) (
 	rows []*CouponUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupon_usages.coupon_id, coupon_usages.amount, coupon_usages.status, coupon_usages.period FROM coupon_usages WHERE coupon_usages.period <= ? AND coupon_usages.status = 0 ORDER BY coupon_usages.period DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupon_usages.coupon_id, coupon_usages.amount, coupon_usages.status, coupon_usages.period FROM coupon_usages WHERE coupon_usages.period = ? AND coupon_usages.status = 0 LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, coupon_usage_period_less_or_equal.value())
+	__values = append(__values, coupon_usage_period.value())
 
 	__values = append(__values, limit, offset)
 
@@ -12196,7 +12482,7 @@ func (obj *postgresImpl) All_CreditsSpending_By_UserId_OrderBy_Desc_CreatedAt(ct
 	rows []*CreditsSpending, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.user_id = ? ORDER BY credits_spendings.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.user_id = ? ORDER BY credits_spendings.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, credits_spending_user_id.value())
@@ -12212,7 +12498,7 @@ func (obj *postgresImpl) All_CreditsSpending_By_UserId_OrderBy_Desc_CreatedAt(ct
 
 	for __rows.Next() {
 		credits_spending := &CreditsSpending{}
-		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.CreatedAt)
+		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -12225,17 +12511,17 @@ func (obj *postgresImpl) All_CreditsSpending_By_UserId_OrderBy_Desc_CreatedAt(ct
 
 }
 
-func (obj *postgresImpl) Limited_CreditsSpending_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credits_spending_created_at_less_or_equal CreditsSpending_CreatedAt_Field,
+func (obj *postgresImpl) Limited_CreditsSpending_By_Period_And_Status(ctx context.Context,
+	credits_spending_period CreditsSpending_Period_Field,
 	credits_spending_status CreditsSpending_Status_Field,
 	limit int, offset int64) (
 	rows []*CreditsSpending, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.created_at <= ? AND credits_spendings.status = ? ORDER BY credits_spendings.created_at DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.period = ? AND credits_spendings.status = ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, credits_spending_created_at_less_or_equal.value(), credits_spending_status.value())
+	__values = append(__values, credits_spending_period.value(), credits_spending_status.value())
 
 	__values = append(__values, limit, offset)
 
@@ -12250,7 +12536,7 @@ func (obj *postgresImpl) Limited_CreditsSpending_By_CreatedAt_LessOrEqual_And_St
 
 	for __rows.Next() {
 		credits_spending := &CreditsSpending{}
-		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.CreatedAt)
+		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -12400,7 +12686,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -12439,11 +12725,6 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	if update.Wallet._set {
 		__values = append(__values, update.Wallet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
-	}
-
-	if update.FreeBandwidth._set {
-		__values = append(__values, update.FreeBandwidth.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
 	}
 
 	if update.FreeDisk._set {
@@ -12539,6 +12820,21 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	if update.Suspended._set {
 		__values = append(__values, update.Suspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
 	if update.AuditReputationAlpha._set {
@@ -12605,7 +12901,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -12661,11 +12957,6 @@ func (obj *postgresImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.Wallet._set {
 		__values = append(__values, update.Wallet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
-	}
-
-	if update.FreeBandwidth._set {
-		__values = append(__values, update.FreeBandwidth.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
 	}
 
 	if update.FreeDisk._set {
@@ -12761,6 +13052,21 @@ func (obj *postgresImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.Suspended._set {
 		__values = append(__values, update.Suspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
 	if update.AuditReputationAlpha._set {
@@ -12906,7 +13212,7 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -12920,6 +13226,11 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	if update.UsageLimit._set {
 		__values = append(__values, update.UsageLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
+	}
+
+	if update.BandwidthLimit._set {
+		__values = append(__values, update.BandwidthLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bandwidth_limit = ?"))
 	}
 
 	if update.RateLimit._set {
@@ -12940,7 +13251,7 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13492,7 +13803,7 @@ func (obj *postgresImpl) Update_Coupon_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coupons SET "), __sets, __sqlbundle_Literal(" WHERE coupons.id = ? RETURNING coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coupons SET "), __sets, __sqlbundle_Literal(" WHERE coupons.id = ? RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -13516,7 +13827,7 @@ func (obj *postgresImpl) Update_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13575,7 +13886,7 @@ func (obj *postgresImpl) Update_CreditsSpending_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE credits_spendings SET "), __sets, __sqlbundle_Literal(" WHERE credits_spendings.id = ? RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE credits_spendings SET "), __sets, __sqlbundle_Literal(" WHERE credits_spendings.id = ? RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -13599,7 +13910,7 @@ func (obj *postgresImpl) Update_CreditsSpending_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	credits_spending = &CreditsSpending{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -14338,6 +14649,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM revocations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -14359,6 +14680,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM registration_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -14758,18 +15089,21 @@ func (obj *cockroachImpl) CreateNoReturn_Node(ctx context.Context,
 	__total_uptime_count_val := node_total_uptime_count.value()
 	__disqualified_val := optional.Disqualified.value()
 	__suspended_val := optional.Suspended.value()
+	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
+	__offline_suspended_val := optional.OfflineSuspended.value()
+	__under_review_val := optional.UnderReview.value()
 	__exit_initiated_at_val := optional.ExitInitiatedAt.value()
 	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
 	__exit_finished_at_val := optional.ExitFinishedAt.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, email, wallet, vetted_at, uptime_success_count, total_uptime_count, disqualified, suspended, exit_initiated_at, exit_loop_completed_at, exit_finished_at")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, email, wallet, vetted_at, uptime_success_count, total_uptime_count, disqualified, suspended, unknown_audit_suspended, offline_suspended, under_review, exit_initiated_at, exit_loop_completed_at, exit_finished_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO nodes "), __clause}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __email_val, __wallet_val, __vetted_at_val, __uptime_success_count_val, __total_uptime_count_val, __disqualified_val, __suspended_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
+	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __email_val, __wallet_val, __vetted_at_val, __uptime_success_count_val, __total_uptime_count_val, __disqualified_val, __suspended_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -14789,12 +15123,6 @@ func (obj *cockroachImpl) CreateNoReturn_Node(ctx context.Context,
 	if optional.Type._set {
 		__values = append(__values, optional.Type.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("type"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.FreeBandwidth._set {
-		__values = append(__values, optional.FreeBandwidth.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_bandwidth"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -14997,7 +15325,7 @@ func (obj *cockroachImpl) Create_Project(ctx context.Context,
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")}}
 
 	var __values []interface{}
 	__values = append(__values, __id_val, __name_val, __description_val, __rate_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
@@ -15008,6 +15336,12 @@ func (obj *cockroachImpl) Create_Project(ctx context.Context,
 	if optional.UsageLimit._set {
 		__values = append(__values, optional.UsageLimit.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("usage_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.BandwidthLimit._set {
+		__values = append(__values, optional.BandwidthLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("bandwidth_limit"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -15023,7 +15357,7 @@ func (obj *cockroachImpl) Create_Project(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15234,6 +15568,30 @@ func (obj *cockroachImpl) CreateNoReturn_ConsumedSerial(ctx context.Context,
 
 }
 
+func (obj *cockroachImpl) CreateNoReturn_Revocation(ctx context.Context,
+	revocation_revoked Revocation_Revoked_Field,
+	revocation_api_key_id Revocation_ApiKeyId_Field) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__revoked_val := revocation_revoked.value()
+	__api_key_id_val := revocation_api_key_id.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO revocations ( revoked, api_key_id ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __revoked_val, __api_key_id_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *cockroachImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
 	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
 	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
@@ -15337,6 +15695,7 @@ func (obj *cockroachImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 
 func (obj *cockroachImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
 	storagenode_payment_amount StoragenodePayment_Amount_Field,
 	optional StoragenodePayment_Create_Fields) (
 	err error) {
@@ -15345,7 +15704,7 @@ func (obj *cockroachImpl) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	__now := obj.db.Hooks.Now().UTC()
 	__created_at_val := __now
 	__node_id_val := storagenode_payment_node_id.value()
-	__period_val := optional.Period.value()
+	__period_val := storagenode_payment_period.value()
 	__amount_val := storagenode_payment_amount.value()
 	__receipt_val := optional.Receipt.value()
 	__notes_val := optional.Notes.value()
@@ -15890,7 +16249,6 @@ func (obj *cockroachImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.
 
 func (obj *cockroachImpl) Create_Coupon(ctx context.Context,
 	coupon_id Coupon_Id_Field,
-	coupon_project_id Coupon_ProjectId_Field,
 	coupon_user_id Coupon_UserId_Field,
 	coupon_amount Coupon_Amount_Field,
 	coupon_description Coupon_Description_Field,
@@ -15902,7 +16260,6 @@ func (obj *cockroachImpl) Create_Coupon(ctx context.Context,
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := coupon_id.value()
-	__project_id_val := coupon_project_id.value()
 	__user_id_val := coupon_user_id.value()
 	__amount_val := coupon_amount.value()
 	__description_val := coupon_description.value()
@@ -15911,16 +16268,16 @@ func (obj *cockroachImpl) Create_Coupon(ctx context.Context,
 	__duration_val := coupon_duration.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( id, project_id, user_id, amount, description, type, status, duration, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( id, user_id, amount, description, type, status, duration, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __project_id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val)
+	__values = append(__values, __id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15992,7 +16349,8 @@ func (obj *cockroachImpl) Create_CreditsSpending(ctx context.Context,
 	credits_spending_user_id CreditsSpending_UserId_Field,
 	credits_spending_project_id CreditsSpending_ProjectId_Field,
 	credits_spending_amount CreditsSpending_Amount_Field,
-	credits_spending_status CreditsSpending_Status_Field) (
+	credits_spending_status CreditsSpending_Status_Field,
+	credits_spending_period CreditsSpending_Period_Field) (
 	credits_spending *CreditsSpending, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -16002,18 +16360,19 @@ func (obj *cockroachImpl) Create_CreditsSpending(ctx context.Context,
 	__project_id_val := credits_spending_project_id.value()
 	__amount_val := credits_spending_amount.value()
 	__status_val := credits_spending_status.value()
+	__period_val := credits_spending_period.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO credits_spendings ( id, user_id, project_id, amount, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO credits_spendings ( id, user_id, project_id, amount, status, period, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __project_id_val, __amount_val, __status_val, __created_at_val)
+	__values = append(__values, __id_val, __user_id_val, __project_id_val, __amount_val, __status_val, __period_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	credits_spending = &CreditsSpending{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16211,7 +16570,7 @@ func (obj *cockroachImpl) Get_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -16220,7 +16579,7 @@ func (obj *cockroachImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -16266,7 +16625,7 @@ func (obj *cockroachImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx c
 	rows []*Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id_greater_or_equal.value())
@@ -16284,7 +16643,7 @@ func (obj *cockroachImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx c
 
 	for __rows.Next() {
 		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -16469,7 +16828,7 @@ func (obj *cockroachImpl) Get_Project_By_Id(ctx context.Context,
 	project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -16478,7 +16837,7 @@ func (obj *cockroachImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -16508,11 +16867,33 @@ func (obj *cockroachImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
 
 }
 
+func (obj *cockroachImpl) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *BandwidthLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &BandwidthLimit_Row{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit)
+	if err != nil {
+		return (*BandwidthLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *cockroachImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects")
 
 	var __values []interface{}
 
@@ -16527,7 +16908,7 @@ func (obj *cockroachImpl) All_Project(ctx context.Context) (
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -16545,7 +16926,7 @@ func (obj *cockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ct
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -16561,7 +16942,7 @@ func (obj *cockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ct
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -16579,7 +16960,7 @@ func (obj *cockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx conte
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.owner_id = ? ORDER BY projects.created_at")
 
 	var __values []interface{}
 	__values = append(__values, project_owner_id.value())
@@ -16595,7 +16976,7 @@ func (obj *cockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx conte
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -16613,7 +16994,7 @@ func (obj *cockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proj
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -16629,7 +17010,7 @@ func (obj *cockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proj
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -16648,7 +17029,7 @@ func (obj *cockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedA
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, project_created_at_less.value())
@@ -16666,7 +17047,7 @@ func (obj *cockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedA
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -17068,6 +17449,32 @@ func (obj *cockroachImpl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId
 		return (*BucketBandwidthRollup)(nil), obj.makeErr(err)
 	}
 	return bucket_bandwidth_rollup, nil
+
+}
+
+func (obj *cockroachImpl) Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx context.Context,
+	project_bandwidth_rollup_project_id ProjectBandwidthRollup_ProjectId_Field,
+	project_bandwidth_rollup_interval_month ProjectBandwidthRollup_IntervalMonth_Field) (
+	project_bandwidth_rollup *ProjectBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_bandwidth_rollups.project_id, project_bandwidth_rollups.interval_month, project_bandwidth_rollups.egress_allocated FROM project_bandwidth_rollups WHERE project_bandwidth_rollups.project_id = ? AND project_bandwidth_rollups.interval_month = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_bandwidth_rollup_project_id.value(), project_bandwidth_rollup_interval_month.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_bandwidth_rollup = &ProjectBandwidthRollup{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_bandwidth_rollup.ProjectId, &project_bandwidth_rollup.IntervalMonth, &project_bandwidth_rollup.EgressAllocated)
+	if err == sql.ErrNoRows {
+		return (*ProjectBandwidthRollup)(nil), nil
+	}
+	if err != nil {
+		return (*ProjectBandwidthRollup)(nil), obj.makeErr(err)
+	}
+	return project_bandwidth_rollup, nil
 
 }
 
@@ -17892,17 +18299,18 @@ func (obj *cockroachImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectI
 
 }
 
-func (obj *cockroachImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOrEqual_And_State_OrderBy_Desc_CreatedAt(ctx context.Context,
-	stripecoinpayments_invoice_project_record_created_at_less_or_equal StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field,
+func (obj *cockroachImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
+	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
 	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
 	limit int, offset int64) (
 	rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.created_at <= ? AND stripecoinpayments_invoice_project_records.state = ? ORDER BY stripecoinpayments_invoice_project_records.created_at DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ? AND stripecoinpayments_invoice_project_records.state = ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, stripecoinpayments_invoice_project_record_created_at_less_or_equal.value(), stripecoinpayments_invoice_project_record_state.value())
+	__values = append(__values, stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value(), stripecoinpayments_invoice_project_record_state.value())
 
 	__values = append(__values, limit, offset)
 
@@ -17957,7 +18365,7 @@ func (obj *cockroachImpl) Get_Coupon_By_Id(ctx context.Context,
 	coupon *Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, coupon_id.value())
@@ -17966,45 +18374,11 @@ func (obj *cockroachImpl) Get_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return (*Coupon)(nil), obj.makeErr(err)
 	}
 	return coupon, nil
-
-}
-
-func (obj *cockroachImpl) All_Coupon_By_ProjectId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(ctx context.Context,
-	coupon_project_id Coupon_ProjectId_Field) (
-	rows []*Coupon, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.project_id = ? AND coupons.status = 0 ORDER BY coupons.created_at DESC")
-
-	var __values []interface{}
-	__values = append(__values, coupon_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, coupon)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
 
 }
 
@@ -18013,7 +18387,7 @@ func (obj *cockroachImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx contex
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_user_id.value())
@@ -18029,7 +18403,7 @@ func (obj *cockroachImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx contex
 
 	for __rows.Next() {
 		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -18048,7 +18422,7 @@ func (obj *cockroachImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_CreatedAt
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? AND coupons.status = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? AND coupons.status = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_user_id.value(), coupon_status.value())
@@ -18064,7 +18438,7 @@ func (obj *cockroachImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_CreatedAt
 
 	for __rows.Next() {
 		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -18082,7 +18456,7 @@ func (obj *cockroachImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx contex
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.status = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.status = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_status.value())
@@ -18098,7 +18472,7 @@ func (obj *cockroachImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx contex
 
 	for __rows.Next() {
 		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -18118,7 +18492,7 @@ func (obj *cockroachImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_Ord
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.created_at <= ? AND coupons.status = ? ORDER BY coupons.created_at DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.created_at <= ? AND coupons.status = ? ORDER BY coupons.created_at DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, coupon_created_at_less_or_equal.value(), coupon_status.value())
@@ -18136,7 +18510,7 @@ func (obj *cockroachImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_Ord
 
 	for __rows.Next() {
 		coupon := &Coupon{}
-		err = __rows.Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+		err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -18149,16 +18523,16 @@ func (obj *cockroachImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_Ord
 
 }
 
-func (obj *cockroachImpl) Limited_CouponUsage_By_Period_LessOrEqual_And_Status_Equal_Number_OrderBy_Desc_Period(ctx context.Context,
-	coupon_usage_period_less_or_equal CouponUsage_Period_Field,
+func (obj *cockroachImpl) Limited_CouponUsage_By_Period_And_Status_Equal_Number(ctx context.Context,
+	coupon_usage_period CouponUsage_Period_Field,
 	limit int, offset int64) (
 	rows []*CouponUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupon_usages.coupon_id, coupon_usages.amount, coupon_usages.status, coupon_usages.period FROM coupon_usages WHERE coupon_usages.period <= ? AND coupon_usages.status = 0 ORDER BY coupon_usages.period DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupon_usages.coupon_id, coupon_usages.amount, coupon_usages.status, coupon_usages.period FROM coupon_usages WHERE coupon_usages.period = ? AND coupon_usages.status = 0 LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, coupon_usage_period_less_or_equal.value())
+	__values = append(__values, coupon_usage_period.value())
 
 	__values = append(__values, limit, offset)
 
@@ -18285,7 +18659,7 @@ func (obj *cockroachImpl) All_CreditsSpending_By_UserId_OrderBy_Desc_CreatedAt(c
 	rows []*CreditsSpending, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.user_id = ? ORDER BY credits_spendings.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.user_id = ? ORDER BY credits_spendings.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, credits_spending_user_id.value())
@@ -18301,7 +18675,7 @@ func (obj *cockroachImpl) All_CreditsSpending_By_UserId_OrderBy_Desc_CreatedAt(c
 
 	for __rows.Next() {
 		credits_spending := &CreditsSpending{}
-		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.CreatedAt)
+		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -18314,17 +18688,17 @@ func (obj *cockroachImpl) All_CreditsSpending_By_UserId_OrderBy_Desc_CreatedAt(c
 
 }
 
-func (obj *cockroachImpl) Limited_CreditsSpending_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credits_spending_created_at_less_or_equal CreditsSpending_CreatedAt_Field,
+func (obj *cockroachImpl) Limited_CreditsSpending_By_Period_And_Status(ctx context.Context,
+	credits_spending_period CreditsSpending_Period_Field,
 	credits_spending_status CreditsSpending_Status_Field,
 	limit int, offset int64) (
 	rows []*CreditsSpending, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.created_at <= ? AND credits_spendings.status = ? ORDER BY credits_spendings.created_at DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.period = ? AND credits_spendings.status = ? LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values, credits_spending_created_at_less_or_equal.value(), credits_spending_status.value())
+	__values = append(__values, credits_spending_period.value(), credits_spending_status.value())
 
 	__values = append(__values, limit, offset)
 
@@ -18339,7 +18713,7 @@ func (obj *cockroachImpl) Limited_CreditsSpending_By_CreatedAt_LessOrEqual_And_S
 
 	for __rows.Next() {
 		credits_spending := &CreditsSpending{}
-		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.CreatedAt)
+		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -18489,7 +18863,7 @@ func (obj *cockroachImpl) Update_Node_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.uptime_success_count, nodes.total_uptime_count, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.uptime_reputation_alpha, nodes.uptime_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -18528,11 +18902,6 @@ func (obj *cockroachImpl) Update_Node_By_Id(ctx context.Context,
 	if update.Wallet._set {
 		__values = append(__values, update.Wallet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
-	}
-
-	if update.FreeBandwidth._set {
-		__values = append(__values, update.FreeBandwidth.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
 	}
 
 	if update.FreeDisk._set {
@@ -18628,6 +18997,21 @@ func (obj *cockroachImpl) Update_Node_By_Id(ctx context.Context,
 	if update.Suspended._set {
 		__values = append(__values, update.Suspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
 	if update.AuditReputationAlpha._set {
@@ -18694,7 +19078,7 @@ func (obj *cockroachImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -18750,11 +19134,6 @@ func (obj *cockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.Wallet._set {
 		__values = append(__values, update.Wallet.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("wallet = ?"))
-	}
-
-	if update.FreeBandwidth._set {
-		__values = append(__values, update.FreeBandwidth.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("free_bandwidth = ?"))
 	}
 
 	if update.FreeDisk._set {
@@ -18850,6 +19229,21 @@ func (obj *cockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.Suspended._set {
 		__values = append(__values, update.Suspended.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
 	if update.AuditReputationAlpha._set {
@@ -18995,7 +19389,7 @@ func (obj *cockroachImpl) Update_Project_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.partner_id, projects.owner_id, projects.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -19009,6 +19403,11 @@ func (obj *cockroachImpl) Update_Project_By_Id(ctx context.Context,
 	if update.UsageLimit._set {
 		__values = append(__values, update.UsageLimit.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
+	}
+
+	if update.BandwidthLimit._set {
+		__values = append(__values, update.BandwidthLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bandwidth_limit = ?"))
 	}
 
 	if update.RateLimit._set {
@@ -19029,7 +19428,7 @@ func (obj *cockroachImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -19581,7 +19980,7 @@ func (obj *cockroachImpl) Update_Coupon_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coupons SET "), __sets, __sqlbundle_Literal(" WHERE coupons.id = ? RETURNING coupons.id, coupons.project_id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coupons SET "), __sets, __sqlbundle_Literal(" WHERE coupons.id = ? RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -19605,7 +20004,7 @@ func (obj *cockroachImpl) Update_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.ProjectId, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -19664,7 +20063,7 @@ func (obj *cockroachImpl) Update_CreditsSpending_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE credits_spendings SET "), __sets, __sqlbundle_Literal(" WHERE credits_spendings.id = ? RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE credits_spendings SET "), __sets, __sqlbundle_Literal(" WHERE credits_spendings.id = ? RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -19688,7 +20087,7 @@ func (obj *cockroachImpl) Update_CreditsSpending_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	credits_spending = &CreditsSpending{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20427,6 +20826,16 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM revocations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -20448,6 +20857,16 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM registration_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -20764,16 +21183,6 @@ func (rx *Rx) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx c
 		return
 	}
 	return tx.All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx, coinpayments_transaction_user_id)
-}
-
-func (rx *Rx) All_Coupon_By_ProjectId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(ctx context.Context,
-	coupon_project_id Coupon_ProjectId_Field) (
-	rows []*Coupon, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_Coupon_By_ProjectId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(ctx, coupon_project_id)
 }
 
 func (rx *Rx) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
@@ -21119,6 +21528,18 @@ func (rx *Rx) CreateNoReturn_PeerIdentity(ctx context.Context,
 
 }
 
+func (rx *Rx) CreateNoReturn_Revocation(ctx context.Context,
+	revocation_revoked Revocation_Revoked_Field,
+	revocation_api_key_id Revocation_ApiKeyId_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_Revocation(ctx, revocation_revoked, revocation_api_key_id)
+
+}
+
 func (rx *Rx) CreateNoReturn_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field,
 	serial_number_bucket_id SerialNumber_BucketId_Field,
@@ -21134,6 +21555,7 @@ func (rx *Rx) CreateNoReturn_SerialNumber(ctx context.Context,
 
 func (rx *Rx) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
 	storagenode_payment_amount StoragenodePayment_Amount_Field,
 	optional StoragenodePayment_Create_Fields) (
 	err error) {
@@ -21141,7 +21563,7 @@ func (rx *Rx) CreateNoReturn_StoragenodePayment(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.CreateNoReturn_StoragenodePayment(ctx, storagenode_payment_node_id, storagenode_payment_amount, optional)
+	return tx.CreateNoReturn_StoragenodePayment(ctx, storagenode_payment_node_id, storagenode_payment_period, storagenode_payment_amount, optional)
 
 }
 
@@ -21247,7 +21669,6 @@ func (rx *Rx) Create_CoinpaymentsTransaction(ctx context.Context,
 
 func (rx *Rx) Create_Coupon(ctx context.Context,
 	coupon_id Coupon_Id_Field,
-	coupon_project_id Coupon_ProjectId_Field,
 	coupon_user_id Coupon_UserId_Field,
 	coupon_amount Coupon_Amount_Field,
 	coupon_description Coupon_Description_Field,
@@ -21259,7 +21680,7 @@ func (rx *Rx) Create_Coupon(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Coupon(ctx, coupon_id, coupon_project_id, coupon_user_id, coupon_amount, coupon_description, coupon_type, coupon_status, coupon_duration)
+	return tx.Create_Coupon(ctx, coupon_id, coupon_user_id, coupon_amount, coupon_description, coupon_type, coupon_status, coupon_duration)
 
 }
 
@@ -21295,13 +21716,14 @@ func (rx *Rx) Create_CreditsSpending(ctx context.Context,
 	credits_spending_user_id CreditsSpending_UserId_Field,
 	credits_spending_project_id CreditsSpending_ProjectId_Field,
 	credits_spending_amount CreditsSpending_Amount_Field,
-	credits_spending_status CreditsSpending_Status_Field) (
+	credits_spending_status CreditsSpending_Status_Field,
+	credits_spending_period CreditsSpending_Period_Field) (
 	credits_spending *CreditsSpending, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_CreditsSpending(ctx, credits_spending_id, credits_spending_user_id, credits_spending_project_id, credits_spending_amount, credits_spending_status)
+	return tx.Create_CreditsSpending(ctx, credits_spending_id, credits_spending_user_id, credits_spending_project_id, credits_spending_amount, credits_spending_status, credits_spending_period)
 
 }
 
@@ -21749,6 +22171,17 @@ func (rx *Rx) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_Interva
 	return tx.Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_IntervalStart_And_Action(ctx, bucket_bandwidth_rollup_bucket_name, bucket_bandwidth_rollup_project_id, bucket_bandwidth_rollup_interval_start, bucket_bandwidth_rollup_action)
 }
 
+func (rx *Rx) Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx context.Context,
+	project_bandwidth_rollup_project_id ProjectBandwidthRollup_ProjectId_Field,
+	project_bandwidth_rollup_interval_month ProjectBandwidthRollup_IntervalMonth_Field) (
+	project_bandwidth_rollup *ProjectBandwidthRollup, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx, project_bandwidth_rollup_project_id, project_bandwidth_rollup_interval_month)
+}
+
 func (rx *Rx) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 	serial_number_serial_number SerialNumber_SerialNumber_Field) (
 	serial_number *SerialNumber, err error) {
@@ -21946,6 +22379,16 @@ func (rx *Rx) Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx context.Con
 	return tx.Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx, project_invoice_stamp_project_id, project_invoice_stamp_start_date)
 }
 
+func (rx *Rx) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *BandwidthLimit_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Project_BandwidthLimit_By_Id(ctx, project_id)
+}
+
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -22116,15 +22559,15 @@ func (rx *Rx) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Statu
 	return tx.Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx, coinpayments_transaction_created_at_less_or_equal, coinpayments_transaction_status, limit, offset)
 }
 
-func (rx *Rx) Limited_CouponUsage_By_Period_LessOrEqual_And_Status_Equal_Number_OrderBy_Desc_Period(ctx context.Context,
-	coupon_usage_period_less_or_equal CouponUsage_Period_Field,
+func (rx *Rx) Limited_CouponUsage_By_Period_And_Status_Equal_Number(ctx context.Context,
+	coupon_usage_period CouponUsage_Period_Field,
 	limit int, offset int64) (
 	rows []*CouponUsage, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_CouponUsage_By_Period_LessOrEqual_And_Status_Equal_Number_OrderBy_Desc_Period(ctx, coupon_usage_period_less_or_equal, limit, offset)
+	return tx.Limited_CouponUsage_By_Period_And_Status_Equal_Number(ctx, coupon_usage_period, limit, offset)
 }
 
 func (rx *Rx) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
@@ -22151,8 +22594,8 @@ func (rx *Rx) Limited_Credit_By_UserId_And_CreatedAt_LessOrEqual_OrderBy_Desc_Cr
 	return tx.Limited_Credit_By_UserId_And_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx, credit_user_id, credit_created_at_less_or_equal, limit, offset)
 }
 
-func (rx *Rx) Limited_CreditsSpending_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credits_spending_created_at_less_or_equal CreditsSpending_CreatedAt_Field,
+func (rx *Rx) Limited_CreditsSpending_By_Period_And_Status(ctx context.Context,
+	credits_spending_period CreditsSpending_Period_Field,
 	credits_spending_status CreditsSpending_Status_Field,
 	limit int, offset int64) (
 	rows []*CreditsSpending, err error) {
@@ -22160,7 +22603,7 @@ func (rx *Rx) Limited_CreditsSpending_By_CreatedAt_LessOrEqual_And_Status_OrderB
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_CreditsSpending_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx, credits_spending_created_at_less_or_equal, credits_spending_status, limit, offset)
+	return tx.Limited_CreditsSpending_By_Period_And_Status(ctx, credits_spending_period, credits_spending_status, limit, offset)
 }
 
 func (rx *Rx) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
@@ -22228,8 +22671,9 @@ func (rx *Rx) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_Creat
 	return tx.Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx, stripe_customer_created_at_less_or_equal, limit, offset)
 }
 
-func (rx *Rx) Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOrEqual_And_State_OrderBy_Desc_CreatedAt(ctx context.Context,
-	stripecoinpayments_invoice_project_record_created_at_less_or_equal StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field,
+func (rx *Rx) Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
+	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
 	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
 	limit int, offset int64) (
 	rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
@@ -22237,7 +22681,7 @@ func (rx *Rx) Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOr
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOrEqual_And_State_OrderBy_Desc_CreatedAt(ctx, stripecoinpayments_invoice_project_record_created_at_less_or_equal, stripecoinpayments_invoice_project_record_state, limit, offset)
+	return tx.Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx, stripecoinpayments_invoice_project_record_period_start, stripecoinpayments_invoice_project_record_period_end, stripecoinpayments_invoice_project_record_state, limit, offset)
 }
 
 func (rx *Rx) Paged_PendingSerialQueue(ctx context.Context,
@@ -22513,10 +22957,6 @@ type Methods interface {
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 		rows []*CoinpaymentsTransaction, err error)
 
-	All_Coupon_By_ProjectId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(ctx context.Context,
-		coupon_project_id Coupon_ProjectId_Field) (
-		rows []*Coupon, err error)
-
 	All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coupon_status Coupon_Status_Field) (
 		rows []*Coupon, err error)
@@ -22671,6 +23111,11 @@ type Methods interface {
 		peer_identity_chain PeerIdentity_Chain_Field) (
 		err error)
 
+	CreateNoReturn_Revocation(ctx context.Context,
+		revocation_revoked Revocation_Revoked_Field,
+		revocation_api_key_id Revocation_ApiKeyId_Field) (
+		err error)
+
 	CreateNoReturn_SerialNumber(ctx context.Context,
 		serial_number_serial_number SerialNumber_SerialNumber_Field,
 		serial_number_bucket_id SerialNumber_BucketId_Field,
@@ -22679,6 +23124,7 @@ type Methods interface {
 
 	CreateNoReturn_StoragenodePayment(ctx context.Context,
 		storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+		storagenode_payment_period StoragenodePayment_Period_Field,
 		storagenode_payment_amount StoragenodePayment_Amount_Field,
 		optional StoragenodePayment_Create_Fields) (
 		err error)
@@ -22750,7 +23196,6 @@ type Methods interface {
 
 	Create_Coupon(ctx context.Context,
 		coupon_id Coupon_Id_Field,
-		coupon_project_id Coupon_ProjectId_Field,
 		coupon_user_id Coupon_UserId_Field,
 		coupon_amount Coupon_Amount_Field,
 		coupon_description Coupon_Description_Field,
@@ -22777,7 +23222,8 @@ type Methods interface {
 		credits_spending_user_id CreditsSpending_UserId_Field,
 		credits_spending_project_id CreditsSpending_ProjectId_Field,
 		credits_spending_amount CreditsSpending_Amount_Field,
-		credits_spending_status CreditsSpending_Status_Field) (
+		credits_spending_status CreditsSpending_Status_Field,
+		credits_spending_period CreditsSpending_Period_Field) (
 		credits_spending *CreditsSpending, err error)
 
 	Create_NodesOfflineTime(ctx context.Context,
@@ -22983,6 +23429,11 @@ type Methods interface {
 		bucket_bandwidth_rollup_action BucketBandwidthRollup_Action_Field) (
 		bucket_bandwidth_rollup *BucketBandwidthRollup, err error)
 
+	Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx context.Context,
+		project_bandwidth_rollup_project_id ProjectBandwidthRollup_ProjectId_Field,
+		project_bandwidth_rollup_interval_month ProjectBandwidthRollup_IntervalMonth_Field) (
+		project_bandwidth_rollup *ProjectBandwidthRollup, err error)
+
 	Find_SerialNumber_By_SerialNumber(ctx context.Context,
 		serial_number_serial_number SerialNumber_SerialNumber_Field) (
 		serial_number *SerialNumber, err error)
@@ -23066,6 +23517,10 @@ type Methods interface {
 		project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field) (
 		project_invoice_stamp *ProjectInvoiceStamp, err error)
 
+	Get_Project_BandwidthLimit_By_Id(ctx context.Context,
+		project_id Project_Id_Field) (
+		row *BandwidthLimit_Row, err error)
+
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		project *Project, err error)
@@ -23140,8 +23595,8 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*CoinpaymentsTransaction, err error)
 
-	Limited_CouponUsage_By_Period_LessOrEqual_And_Status_Equal_Number_OrderBy_Desc_Period(ctx context.Context,
-		coupon_usage_period_less_or_equal CouponUsage_Period_Field,
+	Limited_CouponUsage_By_Period_And_Status_Equal_Number(ctx context.Context,
+		coupon_usage_period CouponUsage_Period_Field,
 		limit int, offset int64) (
 		rows []*CouponUsage, err error)
 
@@ -23157,8 +23612,8 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Credit, err error)
 
-	Limited_CreditsSpending_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
-		credits_spending_created_at_less_or_equal CreditsSpending_CreatedAt_Field,
+	Limited_CreditsSpending_By_Period_And_Status(ctx context.Context,
+		credits_spending_period CreditsSpending_Period_Field,
 		credits_spending_status CreditsSpending_Status_Field,
 		limit int, offset int64) (
 		rows []*CreditsSpending, err error)
@@ -23192,8 +23647,9 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*StripeCustomer, err error)
 
-	Limited_StripecoinpaymentsInvoiceProjectRecord_By_CreatedAt_LessOrEqual_And_State_OrderBy_Desc_CreatedAt(ctx context.Context,
-		stripecoinpayments_invoice_project_record_created_at_less_or_equal StripecoinpaymentsInvoiceProjectRecord_CreatedAt_Field,
+	Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
+		stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+		stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
 		stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
 		limit int, offset int64) (
 		rows []*StripecoinpaymentsInvoiceProjectRecord, err error)

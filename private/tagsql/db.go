@@ -14,6 +14,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/context2"
 	"storj.io/private/traces"
 )
@@ -21,6 +23,10 @@ import (
 // Open opens *sql.DB and wraps the implementation with tagging.
 func Open(driverName, dataSourceName string) (DB, error) {
 	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Ping()
 	if err != nil {
 		return nil, err
 	}
@@ -40,17 +46,28 @@ func Wrap(db *sql.DB) DB {
 		db:           db,
 		useContext:   support.Basic(),
 		useTxContext: support.Transactions(),
+		tracker:      rootTracker(1),
 	}
 }
 
 // WithoutContext turns a *sql.DB into a DB-matching that redirects context calls to regular calls.
 func WithoutContext(db *sql.DB) DB {
-	return &sqlDB{db: db, useContext: false, useTxContext: false}
+	return &sqlDB{
+		db:           db,
+		useContext:   false,
+		useTxContext: false,
+		tracker:      rootTracker(1),
+	}
 }
 
 // AllowContext turns a *sql.DB into a DB which uses context calls.
 func AllowContext(db *sql.DB) DB {
-	return &sqlDB{db: db, useContext: true, useTxContext: true}
+	return &sqlDB{
+		db:           db,
+		useContext:   true,
+		useTxContext: true,
+		tracker:      rootTracker(1),
+	}
 }
 
 // DB implements a wrapper for *sql.DB-like database.
@@ -65,7 +82,7 @@ type DB interface {
 	Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	Ping(ctx context.Context) error
 	Prepare(ctx context.Context, query string) (Stmt, error)
-	Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	Query(ctx context.Context, query string, args ...interface{}) (Rows, error)
 	QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row
 
 	BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error)
@@ -73,7 +90,7 @@ type DB interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	PingContext(ctx context.Context) error
 	PrepareContext(ctx context.Context, query string) (Stmt, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 
 	Close() error
@@ -91,6 +108,7 @@ type sqlDB struct {
 	db           *sql.DB
 	useContext   bool
 	useTxContext bool
+	tracker      *tracker
 }
 
 func (s *sqlDB) Internal() *sql.DB { return s.db }
@@ -101,7 +119,11 @@ func (s *sqlDB) Begin(ctx context.Context) (Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &sqlTx{tx: tx, useContext: s.useContext && s.useTxContext}, err
+	return &sqlTx{
+		tx:         tx,
+		useContext: s.useContext && s.useTxContext,
+		tracker:    s.tracker.child(1),
+	}, err
 }
 
 func (s *sqlDB) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error) {
@@ -122,11 +144,15 @@ func (s *sqlDB) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, erro
 		return nil, err
 	}
 
-	return &sqlTx{tx: tx, useContext: s.useContext && s.useTxContext}, err
+	return &sqlTx{
+		tx:         tx,
+		useContext: s.useContext && s.useTxContext,
+		tracker:    s.tracker.child(1),
+	}, err
 }
 
 func (s *sqlDB) Close() error {
-	return s.db.Close()
+	return errs.Combine(s.tracker.close(), s.db.Close())
 }
 
 func (s *sqlDB) Conn(ctx context.Context) (Conn, error) {
@@ -142,7 +168,12 @@ func (s *sqlDB) Conn(ctx context.Context) (Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &sqlConn{conn: conn, useContext: s.useContext, useTxContext: s.useTxContext}, nil
+	return &sqlConn{
+		conn:         conn,
+		useContext:   s.useContext,
+		useTxContext: s.useTxContext,
+		tracker:      s.tracker.child(1),
+	}, nil
 }
 
 func (s *sqlDB) Driver() driver.Driver {
@@ -199,20 +230,24 @@ func (s *sqlDB) PrepareContext(ctx context.Context, query string) (Stmt, error) 
 			return nil, err
 		}
 	}
-	return &sqlStmt{stmt: stmt, useContext: s.useContext}, nil
+	return &sqlStmt{
+		stmt:       stmt,
+		useContext: s.useContext,
+		tracker:    s.tracker.child(1),
+	}, nil
 }
 
-func (s *sqlDB) Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+func (s *sqlDB) Query(ctx context.Context, query string, args ...interface{}) (Rows, error) {
 	traces.Tag(ctx, traces.TagDB)
-	return s.db.Query(query, args...)
+	return s.tracker.wrapRows(s.db.Query(query, args...))
 }
 
-func (s *sqlDB) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+func (s *sqlDB) QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error) {
 	traces.Tag(ctx, traces.TagDB)
 	if !s.useContext {
-		return s.db.Query(query, args...)
+		return s.tracker.wrapRows(s.db.Query(query, args...))
 	}
-	return s.db.QueryContext(ctx, query, args...)
+	return s.tracker.wrapRows(s.db.QueryContext(ctx, query, args...))
 }
 
 func (s *sqlDB) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {

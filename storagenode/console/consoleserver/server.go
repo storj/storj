@@ -5,6 +5,7 @@ package consoleserver
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleapi"
 	"storj.io/storj/storagenode/heldamount"
@@ -66,6 +68,7 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	storageNodeRouter.HandleFunc("/", storageNodeController.StorageNode).Methods(http.MethodGet)
 	storageNodeRouter.HandleFunc("/satellites", storageNodeController.Satellites).Methods(http.MethodGet)
 	storageNodeRouter.HandleFunc("/satellite/{id}", storageNodeController.Satellite).Methods(http.MethodGet)
+	storageNodeRouter.HandleFunc("/estimatedPayout", storageNodeController.EstimatedPayout).Methods(http.MethodGet)
 
 	notificationController := consoleapi.NewNotifications(server.log, server.notifications)
 	notificationRouter := router.PathPrefix("/api/notifications").Subrouter()
@@ -79,15 +82,8 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	heldAmountRouter.StrictSlash(true)
 	heldAmountRouter.HandleFunc("/paystubs/{period}", heldAmountController.PayStubMonthly).Methods(http.MethodGet)
 	heldAmountRouter.HandleFunc("/paystubs/{start}/{end}", heldAmountController.PayStubPeriod).Methods(http.MethodGet)
-	//heldAmountRouter.HandleFunc("/paystubs/{satelliteID}", heldAmountController.SatellitePayStubMonthly).Methods(http.MethodGet)
-	//heldAmountRouter.HandleFunc("/paystubs", heldAmountController.AllPayStubsMonthly).Methods(http.MethodGet)
-	//heldAmountRouter.HandleFunc("/paystubs/{start}/{end}/{satelliteID}", heldAmountController.SatellitePayStubPeriod).Methods(http.MethodGet)
-	//heldAmountRouter.HandleFunc("/paystubs/{start}/{end}", heldAmountController.AllPayStubsPeriod).Methods(http.MethodGet)
-
-	heldAmountRouter.HandleFunc("/payments/{period}/{satelliteID}", heldAmountController.SatellitePaymentMonthly).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/payments/{period}", heldAmountController.AllPaymentsMonthly).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/payments/{start}/{end}/{satelliteID}", heldAmountController.SatellitePaymentPeriod).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/payments/{start}/{end}", heldAmountController.AllPaymentsPeriod).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/heldhistory", heldAmountController.HeldHistory).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/periods", heldAmountController.HeldAmountPeriods).Methods(http.MethodGet)
 
 	if assets != nil {
 		fs := http.FileServer(assets)
@@ -118,7 +114,11 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return server.server.Serve(server.listener)
+		err := server.server.Serve(server.listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return err
 	})
 
 	return group.Wait()

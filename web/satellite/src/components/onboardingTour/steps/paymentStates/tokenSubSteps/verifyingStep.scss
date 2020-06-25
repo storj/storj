@@ -1,0 +1,89 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+.verifying-step {
+    width: 60%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    font-family: 'font_regular', sans-serif;
+    position: relative;
+
+    &__title {
+        font-size: 18px;
+        line-height: 22px;
+        color: #354049;
+    }
+
+    &__sub-title {
+        font-size: 12px;
+        line-height: 17px;
+        text-align: center;
+        color: #354049;
+    }
+
+    &__buttons-area {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        margin-top: 25px;
+
+        &__how-to-button,
+        &__community-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50%;
+            height: 44px;
+            font-size: 14px;
+            line-height: 20px;
+            border-radius: 8px;
+            border: 2px solid #2683ff;
+        }
+
+        &__how-to-button {
+            color: #2683ff;
+            background-color: #fff;
+            margin-right: 10px;
+
+            &:hover {
+                color: #fff;
+                background-color: #2683ff;
+            }
+        }
+
+        &__community-button {
+            color: #fff;
+            background-color: #2683ff;
+
+            &:hover {
+                background-color: #0059d0;
+                border: 2px solid #0059d0;
+            }
+        }
+    }
+
+    &__back-button {
+        position: absolute;
+        top: 0;
+        left: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #fff;
+        width: 30px;
+        height: 30px;
+        border-radius: 15px;
+        cursor: pointer;
+
+        &:hover {
+            background-color: #2683ff;
+
+            .back-button-svg-path {
+                fill: #fff;
+            }
+        }
+    }
+}

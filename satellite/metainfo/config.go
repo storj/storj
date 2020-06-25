@@ -4,6 +4,7 @@
 package metainfo
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/zap"
@@ -51,6 +52,7 @@ type Config struct {
 	MinRemoteSegmentSize memory.Size          `default:"1240" help:"minimum remote segment size"`
 	MaxInlineSegmentSize memory.Size          `default:"4KiB" help:"maximum inline segment size"`
 	MaxSegmentSize       memory.Size          `default:"64MiB" help:"maximum segment size"`
+	MaxMetadataSize      memory.Size          `default:"2KiB" help:"maximum segment metadata size"`
 	MaxCommitInterval    time.Duration        `default:"48h" help:"maximum time allowed to pass between creating and committing a segment"`
 	Overlay              bool                 `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                   RSConfig             `help:"redundancy scheme configuration"`
@@ -63,10 +65,13 @@ type Config struct {
 //
 // architecture: Database
 type PointerDB interface {
+	// MigrateToLatest migrates to latest schema version.
+	MigrateToLatest(ctx context.Context) error
+
 	storage.KeyValueStore
 }
 
-// NewStore returns database for storing pointer data
+// NewStore returns database for storing pointer data.
 func NewStore(logger *zap.Logger, dbURLString string) (db PointerDB, err error) {
 	_, source, implementation, err := dbutil.SplitConnStr(dbURLString)
 	if err != nil {

@@ -11,9 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/common/encryption"
 	"storj.io/common/memory"
-	"storj.io/common/paths"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -22,6 +20,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/uplink/private/storage/meta"
 )
 
 // TestDisqualificationTooManyFailedAudits does the following:
@@ -30,16 +29,12 @@ import (
 //	 disqualified until the audit reputation reaches the cut-off value.
 func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	var (
-		auditDQCutOff         = 0.4
-		alpha0        float64 = 1
-		beta0         float64
+		auditDQCutOff = 0.4
 	)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.AuditReputationAlpha0 = alpha0
-				config.Overlay.Node.AuditReputationBeta0 = beta0
 				config.Overlay.Node.AuditReputationLambda = 1
 				config.Overlay.Node.AuditReputationWeight = 1
 				config.Overlay.Node.AuditReputationDQ = auditDQCutOff
@@ -58,8 +53,8 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		require.Equal(t, alpha0, dossier.Reputation.AuditReputationAlpha)
-		require.Equal(t, beta0, dossier.Reputation.AuditReputationBeta)
+		require.Equal(t, float64(1), dossier.Reputation.AuditReputationAlpha)
+		require.Equal(t, float64(0), dossier.Reputation.AuditReputationBeta)
 
 		prevReputation := calcReputation(dossier)
 
@@ -132,14 +127,11 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
-		encParameters := uplinkPeer.GetConfig(satellitePeer).GetEncryptionParameters()
-		cipherSuite := encParameters.CipherSuite
-		store := encryption.NewStore()
-		store.SetDefaultKey(new(storj.Key))
-		encryptedPath, err := encryption.EncryptPath("testbucket", paths.NewUnencrypted("test/path"), cipherSuite, store)
+		items, _, err := satellitePeer.Metainfo.Service.List(ctx, "", "", true, 10, meta.All)
 		require.NoError(t, err)
-		lastSegPath := storj.JoinPaths(projects[0].ID.String(), "l", "testbucket", encryptedPath.Raw())
-		pointer, err := satellitePeer.Metainfo.Service.Get(ctx, lastSegPath)
+		require.Equal(t, 1, len(items))
+
+		pointer, err := satellitePeer.Metainfo.Service.Get(ctx, items[0].Path)
 		require.NoError(t, err)
 
 		disqualifiedNode := pointer.GetRemote().GetRemotePieces()[0].NodeId
@@ -173,12 +165,11 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		require.NoError(t, err)
 
 		request := overlay.FindStorageNodesRequest{
-			MinimumRequiredNodes: 4,
-			RequestedCount:       0,
-			ExcludedIDs:          nil,
-			MinimumVersion:       "", // semver or empty
+			RequestedCount: 4,
+			ExcludedIDs:    nil,
+			MinimumVersion: "", // semver or empty
 		}
-		nodes, err := satellitePeer.Overlay.Service.FindStorageNodes(ctx, request)
+		nodes, err := satellitePeer.Overlay.Service.FindStorageNodesForUpload(ctx, request)
 		assert.True(t, overlay.ErrNotEnoughNodes.Has(err))
 
 		assert.Len(t, nodes, 3)
@@ -224,16 +215,17 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
 
-		_, err = satellitePeer.DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
-			NodeID:       disqualifiedNode.ID(),
-			IsUp:         true,
-			AuditOutcome: overlay.AuditSuccess,
-			AuditLambda:  0, // forget about history
-			AuditWeight:  1,
-			AuditDQ:      0, // make sure new reputation scores are larger than the DQ thresholds
-		}}, 100)
+		_, err = satellitePeer.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
+			NodeID:                disqualifiedNode.ID(),
+			IsUp:                  true,
+			AuditOutcome:          overlay.AuditSuccess,
+			AuditLambda:           0, // forget about history
+			AuditWeight:           1,
+			AuditDQ:               0, // make sure new reputation scores are larger than the DQ thresholds
+			SuspensionGracePeriod: time.Hour,
+			SuspensionDQEnabled:   true,
+		}})
 		require.NoError(t, err)
-
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
 	})
 }

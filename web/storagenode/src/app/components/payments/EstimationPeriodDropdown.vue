@@ -2,8 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="period-container" @click.stop="openPeriodDropdown">
-        <p class="period-container__label">{{ currentPeriod }}</p>
+    <div class="period-container" :class="{ disabled: isCalendarDisabled }" @click.stop="openPeriodDropdown">
+        <p class="period-container__label long-text">Custom Date Range</p>
+        <p class="period-container__label short-text">Custom Range</p>
         <BlackArrowHide v-if="isCalendarShown" />
         <BlackArrowExpand v-else />
         <PayoutPeriodCalendar
@@ -23,37 +24,15 @@ import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { PayoutPeriod } from '@/app/types/payout';
-
-/**
- * Holds all months names.
- */
-const monthNames = [
-    'January', 'February', 'March', 'April',
-    'May', 'June', 'July',	'August',
-    'September', 'October', 'November',	'December',
-];
 
 @Component({
     components: {
         PayoutPeriodCalendar,
         BlackArrowExpand,
         BlackArrowHide,
-    }
+    },
 })
 export default class EstimationPeriodDropdown extends Vue {
-    /**
-     * Returns formatted selected payout period.
-     */
-    public get currentPeriod(): string {
-        const start: PayoutPeriod = this.$store.state.payoutModule.periodRange.start;
-        const end: PayoutPeriod = this.$store.state.payoutModule.periodRange.end;
-
-        return start ?
-            `${monthNames[start.month]}, ${start.year} - ${monthNames[end.month]}, ${end.year}`
-            : `${monthNames[end.month]}, ${end.year}`;
-    }
-
     /**
      * Indicates if period selection calendar should appear.
      */
@@ -62,9 +41,24 @@ export default class EstimationPeriodDropdown extends Vue {
     }
 
     /**
+     * Indicates if period selection calendar should be disabled.
+     */
+    public get isCalendarDisabled(): boolean {
+        // TODO: change to available periods check after #1929 merge.
+        const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
+        const now = new Date();
+
+        return nodeStartedAt.getUTCMonth() === now.getUTCMonth() && nodeStartedAt.getUTCFullYear() === now.getUTCFullYear();
+    }
+
+    /**
      * Opens payout period selection dropdown.
      */
     public openPeriodDropdown(): void {
+        if (this.isCalendarDisabled) {
+            return;
+        }
+
         this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, true);
     }
 
@@ -92,13 +86,64 @@ export default class EstimationPeriodDropdown extends Vue {
             font-family: 'font_regular', sans-serif;
             font-weight: 500;
             font-size: 16px;
-            color: #535f77;
+            color: var(--regular-text-color);
         }
 
         &__calendar {
             position: absolute;
             top: 30px;
             right: 0;
+        }
+    }
+
+    .active {
+
+        .period-container__label {
+            color: var(--navigation-link-color);
+        }
+    }
+
+    .arrow {
+
+        path {
+            fill: var(--period-selection-arrow-color);
+        }
+    }
+
+    .short-text {
+        display: none;
+    }
+
+    .disabled {
+
+        .period-container {
+
+            &__label {
+                color: #909bad;
+            }
+        }
+
+        .arrow {
+
+            path {
+                fill: #909bad !important;
+            }
+        }
+    }
+
+    @media screen and (max-width: 505px) {
+
+        .period-container__label {
+            margin-right: 4px;
+        }
+
+        .short-text {
+            display: inline-block;
+            font-size: 14px;
+        }
+
+        .long-text {
+            display: none;
         }
     }
 </style>

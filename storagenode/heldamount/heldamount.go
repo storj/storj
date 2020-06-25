@@ -22,12 +22,12 @@ type DB interface {
 	GetPayStub(ctx context.Context, satelliteID storj.NodeID, period string) (*PayStub, error)
 	// AllPayStubs retrieves paystub data from all satellites in specific period from DB.
 	AllPayStubs(ctx context.Context, period string) ([]PayStub, error)
-	// StorePayment inserts or updates payment into the DB
-	StorePayment(ctx context.Context, payment Payment) error
-	// GetPayment retrieves payment stats for specific satellite in specific period.
-	GetPayment(ctx context.Context, satelliteID storj.NodeID, period string) (*Payment, error)
-	// AllPayments retrieves payment stats from all satellites in specific period from DB.
-	AllPayments(ctx context.Context, period string) ([]Payment, error)
+	// SatellitesHeldbackHistory retrieves heldback history for specific satellite from DB.
+	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]AmountPeriod, error)
+	// SatellitePeriods retrieves all periods for concrete satellite in which we have some heldamount data.
+	SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) ([]string, error)
+	// AllPeriods retrieves all periods in which we have some heldamount data.
+	AllPeriods(ctx context.Context) ([]string, error)
 }
 
 // ErrNoPayStubForPeriod represents errors from the heldamount database.
@@ -58,13 +58,26 @@ type PayStub struct {
 	Paid           int64        `json:"paid"`
 }
 
-// Payment is node payment data for specific period.
-type Payment struct {
-	ID          int64        `json:"id"`
-	Created     time.Time    `json:"created"`
-	SatelliteID storj.NodeID `json:"satelliteId"`
-	Period      string       `json:"period"`
-	Amount      int64        `json:"amount"`
-	Receipt     string       `json:"receipt"`
-	Notes       string       `json:"notes"`
+// AmountPeriod is node's held amount for period.
+type AmountPeriod struct {
+	Period string `json:"period"`
+	Held   int64  `json:"held"`
+}
+
+// EstimatedPayout contains amount in cents of estimated payout for current and previous months.
+type EstimatedPayout struct {
+	CurrentMonthEstimatedAmount int64         `json:"currentAmount"`
+	CurrentMonthHeld            int64         `json:"currentHeld"`
+	PreviousMonthPayout         PayoutMonthly `json:"previousPayout"`
+}
+
+// PayoutMonthly contains bandwidth and payout amount for month.
+type PayoutMonthly struct {
+	EgressBandwidth   int64   `json:"egressBandwidth"`
+	EgressPayout      int64   `json:"egressPayout"`
+	EgressRepairAudit int64   `json:"egressRepairAudit"`
+	RepairAuditPayout int64   `json:"repairAuditPayout"`
+	DiskSpace         float64 `json:"diskSpace"`
+	DiskSpaceAmount   int64   `json:"diskSpaceAmount"`
+	HeldPercentRate   int64   `json:"heldRate"`
 }

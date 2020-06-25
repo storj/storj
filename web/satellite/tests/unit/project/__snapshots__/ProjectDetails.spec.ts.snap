@@ -2,71 +2,35 @@
 
 exports[`ProjectDetails.vue editing works correctly 1`] = `
 <div class="project-details">
-  <h1 class="project-details__title">Project Details</h1>
-  <div class="project-details__name-container">
-    <p class="project-details__name-container__title">Project Name</p>
-    <p class="project-details__name-container__project-name">test</p>
+  <div class="project-details__title-area">
+    <h1 class="project-details__title-area__title">test</h1>
+    <!---->
   </div>
-  <!---->
-  <div class="project-details__description-container__editing">
-    <div class="input-container">
-      <div class="label-container">
-        <!---->
-        <h3 class="label-container__label">Description</h3>
-        <h3 class="label-container__label add-label"></h3>
-        <!---->
-      </div>
-      <!----> <textarea id="Description" placeholder="Enter Description" rows="5" cols="40" wrap="hard" class="headered-textarea" style="width: 205%; height: 10vh;"></textarea>
-      <!---->
-    </div>
-    <div class="project-details__description-container__editing__buttons-area">
-      <div class="container white" style="width: 180px; height: 48px;">
-        <h1 class="label">Cancel</h1>
-      </div>
-      <div class="save-button container" style="width: 180px; height: 48px;">
-        <h1 class="label">Save</h1>
-      </div>
-    </div>
+  <div class="project-details__editing"><input placeholder="Enter a description for your project. Descriptions are limited to 100 characters." class="project-details__editing__input"> <span class="project-details__editing__limit">4/100</span>
+    <div class="project-details__editing__cancel-button container white" style="width: 73px; height: 33px;"><span class="label">Cancel</span></div>
+    <div class="project-details__editing__save-button container" style="width: 75px; height: 35px;"><span class="label">Save</span></div>
   </div>
 </div>
 `;
 
 exports[`ProjectDetails.vue editing works correctly 2`] = `
 <div class="project-details">
-  <h1 class="project-details__title">Project Details</h1>
-  <div class="project-details__name-container">
-    <p class="project-details__name-container__title">Project Name</p>
-    <p class="project-details__name-container__project-name">test</p>
+  <div class="project-details__title-area">
+    <h1 class="project-details__title-area__title">test</h1> <span class="project-details__title-area__edit">
+            Edit Description
+        </span>
   </div>
-  <div class="project-details__description-container">
-    <div class="project-details__description-container__text-area">
-      <p class="project-details__description-container__text-area__title">Description</p>
-      <p class="project-details__description-container__text-area__project-description">new description</p>
-    </div> <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" class="project-details-svg">
-      <rect width="40" height="40" rx="4" fill="#E2ECF7" class="project-details-svg__rect"></rect>
-      <path d="M19.0901 21.4605C19.3416 21.7259 19.6695 21.8576 19.9995 21.8576C20.3295 21.8576 20.6574 21.7259 20.9089 21.4605L28.6228 13.3181C29.1257 12.7871 29.1257 11.9291 28.6228 11.3982C28.1198 10.8673 27.3069 10.8673 26.8039 11.3982L19.0901 19.5406C18.5891 20.0715 18.5891 20.9295 19.0901 21.4605ZM27.7134 19.1435C27.0031 19.1435 26.4277 19.7509 26.4277 20.5005V27.2859H13.5713V13.7152H19.9995C20.7097 13.7152 21.2851 13.1078 21.2851 12.3581C21.2851 11.6085 20.7097 11.0011 19.9995 11.0011H13.5713C12.1508 11.0011 11 12.2158 11 13.7152V27.2859C11 28.7852 12.1508 30 13.5713 30H26.4277C27.8482 30 28.999 28.7852 28.999 27.2859V20.5005C28.999 19.7509 28.4236 19.1435 27.7134 19.1435Z" fill="#2683FF" class="project-details-svg__path"></path>
-    </svg>
-  </div>
-  <!---->
+  <p class="project-details__description">new description</p>
 </div>
 `;
 
 exports[`ProjectDetails.vue renders correctly 1`] = `
 <div class="project-details">
-  <h1 class="project-details__title">Project Details</h1>
-  <div class="project-details__name-container">
-    <p class="project-details__name-container__title">Project Name</p>
-    <p class="project-details__name-container__project-name">test</p>
+  <div class="project-details__title-area">
+    <h1 class="project-details__title-area__title">test</h1> <span class="project-details__title-area__edit">
+            Edit Description
+        </span>
   </div>
-  <div class="project-details__description-container">
-    <div class="project-details__description-container__text-area">
-      <p class="project-details__description-container__text-area__title">Description</p>
-      <p class="project-details__description-container__text-area__project-description">test</p>
-    </div> <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" class="project-details-svg">
-      <rect width="40" height="40" rx="4" fill="#E2ECF7" class="project-details-svg__rect"></rect>
-      <path d="M19.0901 21.4605C19.3416 21.7259 19.6695 21.8576 19.9995 21.8576C20.3295 21.8576 20.6574 21.7259 20.9089 21.4605L28.6228 13.3181C29.1257 12.7871 29.1257 11.9291 28.6228 11.3982C28.1198 10.8673 27.3069 10.8673 26.8039 11.3982L19.0901 19.5406C18.5891 20.0715 18.5891 20.9295 19.0901 21.4605ZM27.7134 19.1435C27.0031 19.1435 26.4277 19.7509 26.4277 20.5005V27.2859H13.5713V13.7152H19.9995C20.7097 13.7152 21.2851 13.1078 21.2851 12.3581C21.2851 11.6085 20.7097 11.0011 19.9995 11.0011H13.5713C12.1508 11.0011 11 12.2158 11 13.7152V27.2859C11 28.7852 12.1508 30 13.5713 30H26.4277C27.8482 30 28.999 28.7852 28.999 27.2859V20.5005C28.999 19.7509 28.4236 19.1435 27.7134 19.1435Z" fill="#2683FF" class="project-details-svg__path"></path>
-    </svg>
-  </div>
-  <!---->
+  <p class="project-details__description">test</p>
 </div>
 `;

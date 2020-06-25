@@ -6,6 +6,7 @@ package metainfo_test
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -58,7 +59,7 @@ func TestLoop(t *testing.T) {
 		// upload 5 remote files with 1 segment
 		for i := 0; i < 5; i++ {
 			testData := testrand.Bytes(segmentSize)
-			path := "/some/remote/path/" + string(i)
+			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
 		}
@@ -66,7 +67,7 @@ func TestLoop(t *testing.T) {
 		// (TODO) upload 3 remote files with 2 segments
 		// for i := 0; i < 3; i++ {
 		// 	testData := testrand.Bytes(2 * segmentSize)
-		// 	path := "/some/other/remote/path/" + string(i)
+		// 	path := "/some/other/remote/path/" + strconv.Itoa(i)
 		// 	err := ul.Upload(ctx, satellite, "bucket", path, testData)
 		// 	require.NoError(t, err)
 		// }
@@ -74,7 +75,7 @@ func TestLoop(t *testing.T) {
 		// upload 2 inline files
 		for i := 0; i < 2; i++ {
 			testData := testrand.Bytes(segmentSize / 8)
-			path := "/some/inline/path/" + string(i)
+			path := "/some/inline/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
 		}
@@ -94,7 +95,7 @@ func TestLoop(t *testing.T) {
 		err := group.Wait()
 		require.NoError(t, err)
 
-		projectID := ul.ProjectID[satellite.ID()]
+		projectID := ul.Projects[0].ID
 		for _, obs := range []*testObserver{obs1, obs2} {
 			assert.EqualValues(t, 7, obs.objectCount)
 			assert.EqualValues(t, 5, obs.remoteSegCount)
@@ -136,13 +137,14 @@ func TestLoopObserverCancel(t *testing.T) {
 		// upload 3 remote files with 1 segment
 		for i := 0; i < 3; i++ {
 			testData := testrand.Bytes(segmentSize)
-			path := "/some/remote/path/" + string(i)
+			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
 		}
 
 		// create 1 "good" observer
 		obs1 := newTestObserver(nil)
+		obs1x := newTestObserver(nil)
 
 		// create observer that will return an error from RemoteSegment
 		obs2 := newTestObserver(func(ctx context.Context) error {
@@ -164,7 +166,7 @@ func TestLoopObserverCancel(t *testing.T) {
 
 		var group errgroup.Group
 		group.Go(func() error {
-			return metaLoop.Join(ctx, obs1)
+			return metaLoop.Join(ctx, obs1, obs1x)
 		})
 		group.Go(func() error {
 			err := metaLoop.Join(ctx, obs2)
@@ -189,6 +191,7 @@ func TestLoopObserverCancel(t *testing.T) {
 
 		// expect that obs1 saw all three segments, but obs2 and obs3 only saw the first one
 		assert.EqualValues(t, 3, obs1.remoteSegCount)
+		assert.EqualValues(t, 3, obs1x.remoteSegCount)
 		assert.EqualValues(t, 1, obs2.remoteSegCount)
 		assert.EqualValues(t, 1, obs3.remoteSegCount)
 	})
@@ -214,7 +217,7 @@ func TestLoopCancel(t *testing.T) {
 		// upload 3 remote files with 1 segment
 		for i := 0; i < 3; i++ {
 			testData := testrand.Bytes(segmentSize)
-			path := "/some/remote/path/" + string(i)
+			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
 		}
@@ -222,6 +225,7 @@ func TestLoopCancel(t *testing.T) {
 		// create a new metainfo loop
 		metaLoop := metainfo.NewLoop(metainfo.LoopConfig{
 			CoalesceDuration: 1 * time.Second,
+			ListLimit:        10000,
 		}, satellite.Metainfo.Database)
 
 		// create a cancelable context to pass into metaLoop.Run

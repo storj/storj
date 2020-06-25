@@ -16,7 +16,7 @@ export class Dashboard {
         public version: string,
         public allowedVersion: string,
         public isUpToDate: boolean,
-    ) {}
+    ) { }
 }
 
 /**
@@ -27,21 +27,19 @@ export class SatelliteInfo {
         public id: string,
         public url: string,
         public disqualified: Date | null,
-    ) {}
+        public suspended: Date | null,
+    ) { }
 }
 
 /**
  * DiskSpaceInfo stores all info about storage node disk space usage
  */
 export class DiskSpaceInfo {
-    public remaining: number;
-
     public constructor(
-        public used: number,
-        public available: number,
-    ) {
-        this.remaining = available - used;
-    }
+        public used: number = 0,
+        public available: number = 0,
+        public trash: number = 0,
+    ) {}
 }
 
 /**
@@ -50,5 +48,5 @@ export class DiskSpaceInfo {
 export class BandwidthInfo {
     public constructor(
         public used: number,
-    ) {}
+    ) { }
 }

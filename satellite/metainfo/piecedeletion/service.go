@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -128,6 +127,10 @@ func (service *Service) Close() error {
 func (service *Service) Delete(ctx context.Context, requests []Request, successThreshold float64) (err error) {
 	defer mon.Task()(&ctx, len(requests), requestsPieceCount(requests), successThreshold)(&err)
 
+	if len(requests) == 0 {
+		return nil
+	}
+
 	// wait for combiner and dialer to set themselves up.
 	if !service.running.Wait(ctx) {
 		return Error.Wrap(ctx.Err())
@@ -158,15 +161,13 @@ func (service *Service) Delete(ctx context.Context, requests []Request, successT
 
 // Request defines a deletion requests for a node.
 type Request struct {
-	Node   *pb.Node
+	Node   storj.NodeURL
 	Pieces []storj.PieceID
 }
 
 // IsValid returns whether the request is valid.
 func (req *Request) IsValid() bool {
-	return req.Node != nil &&
-		!req.Node.Id.IsZero() &&
-		len(req.Pieces) > 0
+	return !req.Node.ID.IsZero() && len(req.Pieces) > 0
 }
 
 func requestsPieceCount(requests []Request) int {

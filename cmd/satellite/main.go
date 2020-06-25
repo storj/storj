@@ -32,7 +32,9 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // Satellite defines satellite configuration
@@ -44,6 +46,10 @@ type Satellite struct {
 			Expiration time.Duration `help:"satellite database api key expiration" default:"60s"`
 			Capacity   int           `help:"satellite database api key lru capacity" default:"1000"`
 		}
+		RevocationsCache struct {
+			Expiration time.Duration `help:"macaroon revocation cache expiration" default:"5m"`
+			Capacity   int           `help:"macaroon revocation cache capacity" default:"10000"`
+		}
 	}
 
 	satellite.Config
@@ -54,6 +60,14 @@ func (s *Satellite) APIKeysLRUOptions() cache.Options {
 	return cache.Options{
 		Expiration: s.DatabaseOptions.APIKeysCache.Expiration,
 		Capacity:   s.DatabaseOptions.APIKeysCache.Capacity,
+	}
+}
+
+// RevocationLRUOptions returns a cache.Options based on the Revocations LRU config
+func (s *Satellite) RevocationLRUOptions() cache.Options {
+	return cache.Options{
+		Expiration: s.DatabaseOptions.RevocationsCache.Expiration,
+		Capacity:   s.DatabaseOptions.RevocationsCache.Capacity,
 	}
 }
 
@@ -135,12 +149,6 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdVerifyGracefulExitReceipt,
 	}
-	stripeCustomerCmd = &cobra.Command{
-		Use:   "ensure-stripe-customer",
-		Short: "Ensures that we have a stripe customer for every user",
-		Long:  "Ensures that we have a stripe customer for every satellite user",
-		RunE:  cmdStripeCustomer,
-	}
 	compensationCmd = &cobra.Command{
 		Use:   "compensation",
 		Short: "Storage Node Compensation commands",
@@ -165,6 +173,63 @@ var (
 		Long:  "Record one-off storage node payments outside of a pay period",
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdRecordOneOffPayments,
+	}
+	billingCmd = &cobra.Command{
+		Use:   "billing",
+		Short: "Customer billing commands",
+	}
+	prepareCustomerInvoiceRecordsCmd = &cobra.Command{
+		Use:   "prepare-invoice-records [period]",
+		Short: "Prepares invoice project records",
+		Long:  "Prepares invoice project records that will be used during invoice line items creation.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdPrepareCustomerInvoiceRecords,
+	}
+	createCustomerInvoiceItemsCmd = &cobra.Command{
+		Use:   "create-invoice-items [period]",
+		Short: "Creates stripe invoice line items",
+		Long:  "Creates stripe invoice line items for not consumed project records.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCreateCustomerInvoiceItems,
+	}
+	createCustomerInvoiceCouponsCmd = &cobra.Command{
+		Use:   "create-invoice-coupons [period]",
+		Short: "Adds coupons to stripe invoices",
+		Long:  "Creates stripe invoice line items for not consumed coupons.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCreateCustomerInvoiceCoupons,
+	}
+	createCustomerInvoiceCreditsCmd = &cobra.Command{
+		Use:   "create-invoice-credits [period]",
+		Short: "Adds credits to stripe invoices",
+		Long:  "Creates stripe invoice line items for not consumed credits.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCreateCustomerInvoiceCredits,
+	}
+	createCustomerInvoicesCmd = &cobra.Command{
+		Use:   "create-invoices [period]",
+		Short: "Creates stripe invoices from pending invoice items",
+		Long:  "Creates stripe invoices for all stripe customers known to satellite",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCreateCustomerInvoices,
+	}
+	finalizeCustomerInvoicesCmd = &cobra.Command{
+		Use:   "finalize-invoices",
+		Short: "Finalizes all draft stripe invoices",
+		Long:  "Finalizes all draft stripe invoices known to satellite's stripe account.",
+		RunE:  cmdFinalizeCustomerInvoices,
+	}
+	stripeCustomerCmd = &cobra.Command{
+		Use:   "ensure-stripe-customer",
+		Short: "Ensures that we have a stripe customer for every user",
+		Long:  "Ensures that we have a stripe customer for every satellite user.",
+		RunE:  cmdStripeCustomer,
+	}
+	migrateCreditsCmd = &cobra.Command{
+		Use:   "migrate-credits",
+		Short: "Migrates credits to Stripe",
+		Long:  "Migrates credits received for STORJ token deposits from Satellite DB to Stripe balance.",
+		RunE:  cmdMigrateCredits,
 	}
 
 	runCfg   Satellite
@@ -221,14 +286,22 @@ func init() {
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
 	rootCmd.AddCommand(compensationCmd)
+	rootCmd.AddCommand(billingCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(gracefulExitCmd)
 	reportsCmd.AddCommand(verifyGracefulExitReceiptCmd)
-	reportsCmd.AddCommand(stripeCustomerCmd)
 	compensationCmd.AddCommand(generateInvoicesCmd)
 	compensationCmd.AddCommand(recordPeriodCmd)
 	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
+	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
+	billingCmd.AddCommand(createCustomerInvoiceItemsCmd)
+	billingCmd.AddCommand(createCustomerInvoiceCouponsCmd)
+	billingCmd.AddCommand(createCustomerInvoiceCreditsCmd)
+	billingCmd.AddCommand(createCustomerInvoicesCmd)
+	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
+	billingCmd.AddCommand(stripeCustomerCmd)
+	billingCmd.AddCommand(migrateCreditsCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -243,8 +316,15 @@ func init() {
 	process.Bind(recordOneOffPaymentsCmd, &recordOneOffPaymentsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(verifyGracefulExitReceiptCmd, &verifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerInvoiceCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerInvoiceCreditsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(migrateCreditsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -257,7 +337,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		log.Fatal("Failed to load identity.", zap.Error(err))
 	}
 
 	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
@@ -272,7 +352,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
-		return errs.New("Error creating revocation database: %+v", err)
+		return errs.New("Error creating metainfodb connection: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, pointerDB.Close())
@@ -299,7 +379,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, rollupsWriteCache.CloseAndFlush(context2.WithoutCancellation(ctx)))
 	}()
 
-	peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, version.Build, &runCfg.Config)
+	peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
@@ -311,12 +391,17 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
+		log.Warn("Failed to initialize telemetry batcher", zap.Error(err))
+	}
+
+	err = pointerDB.MigrateToLatest(ctx)
+	if err != nil {
+		return errs.New("Error creating metainfodb tables: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)
 	if err != nil {
-		zap.S().Fatal("failed satellite database version check: ", err)
+		log.Fatal("Failed satellite database version check.", zap.Error(err))
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
@@ -337,20 +422,22 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	err = db.CreateTables(ctx)
+	err = db.MigrateToLatest(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	// There should be an explicit CreateTables call for the pointerdb as well.
-	// This is tracked in jira ticket #3337.
 	pdb, err := metainfo.NewStore(log.Named("migration"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
-		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
+		return errs.New("Error creating pointer database connection on satellite: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, pdb.Close())
 	}()
+	err = pdb.MigrateToLatest(ctx)
+	if err != nil {
+		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
+	}
 
 	return nil
 }
@@ -412,7 +499,7 @@ func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error)
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	}
 
 	// Check the node ID is valid
@@ -474,12 +561,6 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	return generateNodeUsageCSV(ctx, start, end, file)
-}
-
-func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-
-	return generateStripeCustomers(ctx)
 }
 
 func cmdGenerateInvoices(cmd *cobra.Command, args []string) (err error) {
@@ -553,11 +634,101 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	defer func() {
 		err = errs.Combine(err, file.Close())
 		if err != nil {
-			log.Sugar().Errorf("error closing the file %v after retrieving partner value attribution data: %+v", partnerAttribtionCfg.Output, err)
+			log.Error("Error closing the output file after retrieving partner value attribution data.",
+				zap.String("Output File", partnerAttribtionCfg.Output),
+				zap.Error(err),
+			)
 		}
 	}()
 
 	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, partnerID, start, end, file)
+}
+
+func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := parseBillingPeriod(args[0])
+	if err != nil {
+		return errs.New("invalid period specified: %v", err)
+	}
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.PrepareInvoiceProjectRecords(ctx, period)
+	})
+}
+
+func cmdCreateCustomerInvoiceItems(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := parseBillingPeriod(args[0])
+	if err != nil {
+		return errs.New("invalid period specified: %v", err)
+	}
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.InvoiceApplyProjectRecords(ctx, period)
+	})
+}
+
+func cmdCreateCustomerInvoiceCoupons(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := parseBillingPeriod(args[0])
+	if err != nil {
+		return errs.New("invalid period specified: %v", err)
+	}
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.InvoiceApplyCoupons(ctx, period)
+	})
+}
+
+func cmdCreateCustomerInvoiceCredits(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := parseBillingPeriod(args[0])
+	if err != nil {
+		return errs.New("invalid period specified: %v", err)
+	}
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.InvoiceApplyCredits(ctx, period)
+	})
+}
+
+func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := parseBillingPeriod(args[0])
+	if err != nil {
+		return errs.New("invalid period specified: %v", err)
+	}
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.CreateInvoices(ctx, period)
+	})
+}
+
+func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.FinalizeInvoices(ctx)
+	})
+}
+
+func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return generateStripeCustomers(ctx)
+}
+
+func cmdMigrateCredits(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+		return payments.MigrateCredits(ctx)
+	})
 }
 
 func main() {

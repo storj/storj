@@ -8,7 +8,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -78,7 +77,7 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	defer mon.Task()(&ctx)(&err)
 
 	// Space Usage
-	_, piecesContentSize, err := inspector.pieceStore.SpaceUsedForPieces(ctx)
+	piecesContentSize, err := inspector.pieceStore.SpaceUsedForPiecesAndTrash(ctx)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -115,14 +114,14 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 	}
 
 	lastPingedAt := inspector.pingStats.WhenLastPinged()
-
+	self := inspector.contact.Local()
 	return &pb.DashboardResponse{
-		NodeId:           inspector.contact.Local().Id,
+		NodeId:           self.ID,
 		InternalAddress:  "",
-		ExternalAddress:  inspector.contact.Local().Address.Address,
+		ExternalAddress:  self.Address,
 		LastPinged:       lastPingedAt,
 		DashboardAddress: inspector.dashboardAddress.String(),
-		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
+		Uptime:           time.Since(inspector.startTime).String(),
 		Stats:            statsSummary,
 	}, nil
 }

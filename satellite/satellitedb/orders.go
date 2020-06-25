@@ -17,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -103,18 +104,35 @@ func (db *ordersDB) UseSerialNumber(ctx context.Context, serialNumber storj.Seri
 func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	statement := db.db.Rebind(
-		`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(bucket_name, project_id, interval_start, action)
-		DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + ?`,
-	)
-	_, err = db.db.ExecContext(ctx, statement,
-		bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount),
-	)
-	if err != nil {
-		return err
-	}
+	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		statement := tx.Rebind(
+			`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(bucket_name, project_id, interval_start, action)
+			DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + ?`,
+		)
+		_, err = tx.Tx.ExecContext(ctx, statement,
+			bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount),
+		)
+		if err != nil {
+			return err
+		}
+
+		if action == pb.PieceAction_GET {
+			projectInterval := time.Date(intervalStart.Year(), intervalStart.Month(), 1, 0, 0, 0, 0, time.UTC)
+			statement = tx.Rebind(
+				`INSERT INTO project_bandwidth_rollups (project_id, interval_month, egress_allocated)
+				VALUES (?, ?, ?)
+				ON CONFLICT(project_id, interval_month)
+				DO UPDATE SET egress_allocated = project_bandwidth_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint`,
+			)
+			_, err = tx.Tx.ExecContext(ctx, statement, projectID[:], projectInterval, uint64(amount))
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 
 	return nil
 }
@@ -410,6 +428,7 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 	var inlineSlice []int64
 	var allocatedSlice []int64
 	var settledSlice []int64
+	var projectRUMap map[string]int64 = make(map[string]int64)
 
 	for _, rollup := range rollups {
 		rollup := rollup
@@ -419,6 +438,10 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 		inlineSlice = append(inlineSlice, rollup.Inline)
 		allocatedSlice = append(allocatedSlice, rollup.Allocated)
 		settledSlice = append(settledSlice, rollup.Settled)
+
+		if rollup.Action == pb.PieceAction_GET {
+			projectRUMap[rollup.ProjectID.String()] += rollup.Allocated
+		}
 	}
 
 	_, err = tx.tx.Tx.ExecContext(ctx, `
@@ -440,6 +463,33 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 		pq.Array(actionSlice), pq.Array(inlineSlice), pq.Array(allocatedSlice), pq.Array(settledSlice))
 	if err != nil {
 		tx.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
+	}
+
+	var projectRUIDs [][]byte
+	var projectRUAllocated []int64
+	projectInterval := time.Date(intervalStart.Year(), intervalStart.Month(), 1, intervalStart.Hour(), 0, 0, 0, time.UTC)
+
+	for k, v := range projectRUMap {
+		projectID, err := uuid.FromString(k)
+		if err != nil {
+			tx.log.Error("Could not parse project UUID.", zap.Error(err))
+			continue
+		}
+		projectRUIDs = append(projectRUIDs, projectID[:])
+		projectRUAllocated = append(projectRUAllocated, v)
+	}
+
+	if len(projectRUIDs) > 0 {
+		_, err = tx.tx.Tx.ExecContext(ctx, `
+		INSERT INTO project_bandwidth_rollups(project_id, interval_month, egress_allocated)
+			SELECT unnest($1::bytea[]), $2, unnest($3::bigint[])
+		ON CONFLICT(project_id, interval_month)
+		DO UPDATE SET egress_allocated = project_bandwidth_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint;
+		`,
+			pq.ByteaArray(projectRUIDs), projectInterval, pq.Array(projectRUAllocated))
+		if err != nil {
+			tx.log.Error("Project bandwidth rollup batch flush failed.", zap.Error(err))
+		}
 	}
 	return err
 }
@@ -560,78 +610,74 @@ type rawPendingSerial struct {
 }
 
 type ordersDBQueue struct {
-	db       *satelliteDB
-	log      *zap.Logger
-	produced []rawPendingSerial
+	impl dbutil.Implementation
+	log  *zap.Logger
+	tx   tagsql.Tx
 }
 
 func (db *ordersDB) WithQueue(ctx context.Context, cb func(ctx context.Context, queue orders.Queue) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	queue := &ordersDBQueue{
-		db:  db.db,
-		log: db.db.log,
-	}
-
-	err = cb(ctx, queue)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	var nodeIDs, bucketIDs, serialNumbers [][]byte
-	for _, pending := range queue.produced {
-		nodeIDs = append(nodeIDs, pending.nodeID)
-		bucketIDs = append(bucketIDs, pending.bucketID)
-		serialNumbers = append(serialNumbers, pending.serialNumber)
-	}
-
-	_, err = db.db.ExecContext(ctx, `
-			DELETE FROM pending_serial_queue WHERE (
-				storage_node_id, bucket_id, serial_number
-			) IN (
-				SELECT
-					unnest($1::bytea[]),
-					unnest($2::bytea[]),
-					unnest($3::bytea[])
-			)
-		`,
-		pq.ByteaArray(nodeIDs),
-		pq.ByteaArray(bucketIDs),
-		pq.ByteaArray(serialNumbers))
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
+	return Error.Wrap(db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		return cb(ctx, &ordersDBQueue{
+			impl: db.db.implementation,
+			log:  db.db.log,
+			tx:   tx.Tx,
+		})
+	}))
 }
 
 func (queue *ordersDBQueue) GetPendingSerialsBatch(ctx context.Context, size int) (pendingSerials []orders.PendingSerial, done bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var cont rawPendingSerial
-	if len(queue.produced) > 0 {
-		cont = queue.produced[len(queue.produced)-1]
-	}
+	// TODO: no idea of this query makes sense on cockroach. it may do a terrible job with it.
+	// but it's blazing fast on postgres and that's where we have the problem! :D :D :D
 
-	// TODO: this might end up being WORSE on cockroach because it does a hash-join after a
-	// full scan of the consumed_serials table, but it's massively better on postgres because
-	// it does an indexed anti-join. hopefully we can get rid of the entire serials system
-	// before it matters.
-
-	rows, err := queue.db.Query(ctx, `
-		SELECT storage_node_id, bucket_id, serial_number, action, settled, expires_at,
-			coalesce((
-				SELECT 1
-				FROM consumed_serials
+	var rows tagsql.Rows
+	switch queue.impl {
+	case dbutil.Postgres:
+		rows, err = queue.tx.Query(ctx, `
+			DELETE
+				FROM pending_serial_queue
 				WHERE
-					consumed_serials.storage_node_id = pending_serial_queue.storage_node_id
-					AND consumed_serials.serial_number = pending_serial_queue.serial_number
-			), 0) as consumed
-		FROM pending_serial_queue
-		WHERE (storage_node_id, bucket_id, serial_number) > ($1, $2, $3)
-		ORDER BY storage_node_id, bucket_id, serial_number
-		LIMIT $4
-	`, cont.nodeID, cont.bucketID, cont.serialNumber, size)
+					ctid = any (array(
+						SELECT
+							ctid
+						FROM pending_serial_queue
+						LIMIT $1
+					))
+				RETURNING storage_node_id, bucket_id, serial_number, action, settled, expires_at, (
+					coalesce((
+						SELECT 1
+						FROM consumed_serials
+						WHERE
+							consumed_serials.storage_node_id = pending_serial_queue.storage_node_id
+							AND consumed_serials.serial_number = pending_serial_queue.serial_number
+					), 0))
+		`, size)
+	case dbutil.Cockroach:
+		rows, err = queue.tx.Query(ctx, `
+			DELETE
+				FROM pending_serial_queue
+				WHERE
+					(storage_node_id, bucket_id, serial_number) = any (array(
+						SELECT
+							(storage_node_id, bucket_id, serial_number)
+						FROM pending_serial_queue
+						LIMIT $1
+					))
+				RETURNING storage_node_id, bucket_id, serial_number, action, settled, expires_at, (
+					coalesce((
+						SELECT 1
+						FROM consumed_serials
+						WHERE
+							consumed_serials.storage_node_id = pending_serial_queue.storage_node_id
+							AND consumed_serials.serial_number = pending_serial_queue.serial_number
+					), 0))
+		`, size)
+	default:
+		return nil, false, Error.New("unhandled implementation")
+	}
 	if err != nil {
 		return nil, false, Error.Wrap(err)
 	}
@@ -655,7 +701,6 @@ func (queue *ordersDBQueue) GetPendingSerialsBatch(ctx context.Context, size int
 			return nil, false, Error.Wrap(err)
 		}
 
-		queue.produced = append(queue.produced, rawPending)
 		size--
 
 		if consumed != 0 {

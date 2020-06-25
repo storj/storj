@@ -6,7 +6,6 @@ package metainfo
 import (
 	"context"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -72,17 +71,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					BucketList: response,
 				},
 			})
-		case *pb.BatchRequestItem_BucketSetAttribution:
-			singleRequest.BucketSetAttribution.Header = req.Header
-			response, err := endpoint.SetBucketAttribution(ctx, singleRequest.BucketSetAttribution)
-			if err != nil {
-				return resp, err
-			}
-			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
-				Response: &pb.BatchResponseItem_BucketSetAttribution{
-					BucketSetAttribution: response,
-				},
-			})
+
 		//OBJECT
 		case *pb.BatchRequestItem_ObjectBegin:
 			singleRequest.ObjectBegin.Header = req.Header
@@ -335,6 +324,19 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentFinishDelete: response,
 				},
 			})
+
+			// Revoke API key.
+		case *pb.BatchRequestItem_RevokeApiKey:
+			singleRequest.RevokeApiKey.Header = req.Header
+			response, err := endpoint.RevokeAPIKey(ctx, singleRequest.RevokeApiKey)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_RevokeApiKey{
+					RevokeApiKey: response,
+				},
+			})
 		default:
 			return nil, errs.New("unsupported request type")
 		}
@@ -354,7 +356,7 @@ func (endpoint *Endpoint) shouldCombine(segmentIndex int32, reqIndex int, reques
 		objCommitReq := requests[reqIndex+1].GetObjectCommit()
 
 		streamMeta := pb.StreamMeta{}
-		err := proto.Unmarshal(objCommitReq.EncryptedMetadata, &streamMeta)
+		err := pb.Unmarshal(objCommitReq.EncryptedMetadata, &streamMeta)
 		if err != nil {
 			endpoint.log.Error("unable to unmarshal stream meta", zap.Error(err))
 			return false

@@ -22,7 +22,7 @@ func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 0, StorageNodeCount: 2, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		target := planet.StorageNodes[1].Local()
+		sn := planet.StorageNodes[1]
 		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, version storj.IDVersion, ident *identity.FullIdentity) {
 			tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{
 				PeerIDVersions: "*",
@@ -31,7 +31,7 @@ func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 
 			dialer := rpc.NewDefaultDialer(tlsOptions)
 
-			conn, err := dialer.DialNode(ctx, &target.Node)
+			conn, err := dialer.DialNodeURL(ctx, sn.NodeURL())
 			assert.NotNil(t, conn)
 			assert.NoError(t, err)
 

@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -411,7 +410,7 @@ func TestReverifyOffline(t *testing.T) {
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
-		err = stopStorageNode(ctx, planet, pieces[0].NodeId)
+		err = planet.StopNodeAndUpdate(ctx, planet.FindNode(pieces[0].NodeId))
 		require.NoError(t, err)
 
 		report, err := audits.Verifier.Reverify(ctx, path)
@@ -924,13 +923,13 @@ func TestReverifyExpired1(t *testing.T) {
 		// set pointer's expiration date to be already expired
 		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
 		require.NoError(t, err)
-		oldPointerBytes, err := proto.Marshal(pointer)
+		oldPointerBytes, err := pb.Marshal(pointer)
 		require.NoError(t, err)
 		newPointer := &pb.Pointer{}
-		err = proto.Unmarshal(oldPointerBytes, newPointer)
+		err = pb.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
 		newPointer.ExpirationDate = time.Now().Add(-1 * time.Hour)
-		newPointerBytes, err := proto.Marshal(newPointer)
+		newPointerBytes, err := pb.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
@@ -1040,13 +1039,13 @@ func TestReverifyExpired2(t *testing.T) {
 		require.NoError(t, err)
 
 		// update pointer1 to be expired
-		oldPointerBytes, err := proto.Marshal(pointer1)
+		oldPointerBytes, err := pb.Marshal(pointer1)
 		require.NoError(t, err)
 		newPointer := &pb.Pointer{}
-		err = proto.Unmarshal(oldPointerBytes, newPointer)
+		err = pb.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
 		newPointer.ExpirationDate = time.Now().Add(-1 * time.Hour)
-		newPointerBytes, err := proto.Marshal(newPointer)
+		newPointerBytes, err := pb.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path1), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
@@ -1086,7 +1085,7 @@ func TestReverifySlowDownload(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
 				config.Audit.MinBytesPerSecond = 100 * memory.KiB
-				config.Audit.MinDownloadTimeout = 500 * time.Millisecond
+				config.Audit.MinDownloadTimeout = 1 * time.Second
 
 				config.Metainfo.RS.MinThreshold = 2
 				config.Metainfo.RS.RepairThreshold = 2
@@ -1149,15 +1148,11 @@ func TestReverifySlowDownload(t *testing.T) {
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
-		for _, node := range planet.StorageNodes {
-			if node.ID() == slowNode {
-				slowNodeDB := node.DB.(*testblobs.SlowDB)
-				// make downloads on storage node slower than the timeout on the satellite for downloading shares
-				delay := 1 * time.Second
-				slowNodeDB.SetLatency(delay)
-				break
-			}
-		}
+		node := planet.FindNode(slowNode)
+		slowNodeDB := node.DB.(*testblobs.SlowDB)
+		// make downloads on storage node slower than the timeout on the satellite for downloading shares
+		delay := 1 * time.Second
+		slowNodeDB.SetLatency(delay)
 
 		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
@@ -1239,14 +1234,10 @@ func TestReverifyUnknownError(t *testing.T) {
 		err = containment.IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
-		for _, node := range planet.StorageNodes {
-			if node.ID() == badNode {
-				badNodeDB := node.DB.(*testblobs.BadDB)
-				// return an error when the satellite requests a share
-				badNodeDB.SetError(errs.New("unknown error"))
-				break
-			}
-		}
+		node := planet.FindNode(badNode)
+		badNodeDB := node.DB.(*testblobs.BadDB)
+		// return an error when the satellite requests a share
+		badNodeDB.SetError(errs.New("unknown error"))
 
 		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)

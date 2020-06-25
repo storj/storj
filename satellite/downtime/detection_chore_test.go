@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/overlay"
@@ -19,19 +20,21 @@ func TestDetectionChore(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
-		nodeDossier := planet.StorageNodes[0].Local()
 		satellite := planet.Satellites[0]
 
 		node.Contact.Chore.Pause(ctx)
 		satellite.DowntimeTracking.DetectionChore.Loop.Pause()
 
 		// setup
+		nodeInfo := planet.StorageNodes[0].Contact.Service.Local()
 		info := overlay.NodeCheckInInfo{
-			NodeID:   nodeDossier.Id,
-			IsUp:     true,
-			Address:  nodeDossier.Address,
-			Operator: &nodeDossier.Operator,
-			Version:  &nodeDossier.Version,
+			NodeID: nodeInfo.ID,
+			IsUp:   true,
+			Address: &pb.NodeAddress{
+				Address: nodeInfo.Address,
+			},
+			Operator: &nodeInfo.Operator,
+			Version:  &nodeInfo.Version,
 		}
 
 		sixtyOneMinutes := 61 * time.Minute

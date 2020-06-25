@@ -28,10 +28,11 @@ export default class SortBucketsHeader extends Vue {}
 <style scoped lang="scss">
     .sort-header-container {
         display: flex;
-        background: #fff;
-        opacity: 0.5;
-        max-height: 40px;
+        background-color: #fff;
+        padding: 35px 40px;
         align-items: center;
+        border-bottom: 1px solid #c7cdd2;
+        border-radius: 6px 6px 0 0;
 
         &__item {
             width: 20%;
@@ -39,6 +40,7 @@ export default class SortBucketsHeader extends Vue {}
             text-align: left;
 
             &__name {
+                margin: 0;
                 font-family: 'font_medium', sans-serif;
                 font-size: 14px;
                 line-height: 20px;

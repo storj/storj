@@ -54,6 +54,9 @@ Scenarios it doesn't handle properly.
 
 // Migration describes a migration steps
 type Migration struct {
+	// Table is the table name to register the applied migration version.
+	// NOTE: Always validates its value with the ValidTableName method before it's
+	// concatenated in a query string for avoiding SQL injection attacks.
 	Table string
 	Steps []*Step
 }
@@ -64,6 +67,10 @@ type Step struct {
 	Description string
 	Version     int // Versions should start at 0
 	Action      Action
+
+	// SeparateTx marks a step as it should not be merged together for optimization.
+	// Cockroach cannot add a column and update the value in the same transaction.
+	SeparateTx bool
 }
 
 // Action is something that needs to be done
@@ -83,7 +90,12 @@ func (migration *Migration) TargetVersion(version int) *Migration {
 	return &m
 }
 
-// ValidTableName checks whether the specified table name is valid
+// ValidTableName checks whether the specified table name is only formed by at
+// least one character and its only formed by lowercase letters and underscores.
+//
+// NOTE: if you change this function to accept a wider range of characters, make
+// sure that they cannot open to SQL injections because Table field is used
+// concatenated in some queries performed by Mitration methods.
 func (migration *Migration) ValidTableName() error {
 	matched, err := regexp.MatchString(`^[a-z_]+$`, migration.Table)
 	if !matched || err != nil {
@@ -128,12 +140,7 @@ func (migration *Migration) ValidateVersions(ctx context.Context, log *zap.Logge
 
 // Run runs the migration steps
 func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
-	err := migration.ValidTableName()
-	if err != nil {
-		return err
-	}
-
-	err = migration.ValidateSteps()
+	err := migration.ValidateSteps()
 	if err != nil {
 		return err
 	}
@@ -198,7 +205,7 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 	return nil
 }
 
-// createVersionTable creates a new version table
+// ensureVersionTable creates migration.Table table if not exists.
 func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db tagsql.DB) error {
 	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		_, err := tx.Exec(ctx, rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
@@ -207,10 +214,18 @@ func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Log
 	return Error.Wrap(err)
 }
 
-// getLatestVersion finds the latest version table
+// getLatestVersion finds the latest version in migration.Table.
+// It returns -1 if there aren't rows or version is null.
 func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logger, db tagsql.DB) (int, error) {
+	err := migration.ValidTableName()
+	if err != nil {
+		return 0, err
+	}
+
 	var version sql.NullInt64
-	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		/* #nosec G202 */ // Table name is white listed by the ValidTableName method
+		// executed at the beginning of the function
 		err := tx.QueryRow(ctx, rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
 		if err == sql.ErrNoRows || !version.Valid {
 			version.Int64 = -1
@@ -224,7 +239,14 @@ func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logge
 
 // addVersion adds information about a new migration
 func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db tagsql.DB, version int) error {
-	_, err := tx.Exec(ctx, rebind(db, `
+	err := migration.ValidTableName()
+	if err != nil {
+		return err
+	}
+
+	/* #nosec G202 */ // Table name is white listed by the ValidTableName method
+	// executed at the beginning of the function
+	_, err = tx.Exec(ctx, rebind(db, `
 		INSERT INTO `+migration.Table+` (version, commited_at) VALUES (?, ?)`), //nolint:misspell
 		version, time.Now().String(),
 	)

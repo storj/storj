@@ -21,6 +21,7 @@ import (
 
 	"storj.io/common/encryption"
 	"storj.io/common/ranger"
+	"storj.io/common/ranger/httpranger"
 	"storj.io/common/storj"
 	"storj.io/uplink/private/eestream"
 )
@@ -91,6 +92,6 @@ func Main() error {
 
 	return http.ListenAndServe(*addr, http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			ranger.ServeContent(ctx, w, r, flag.Arg(0), time.Time{}, rr)
+			httpranger.ServeContent(ctx, w, r, flag.Arg(0), time.Time{}, rr)
 		}))
 }

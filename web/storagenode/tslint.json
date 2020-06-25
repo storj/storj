@@ -35,7 +35,9 @@
     "no-eval": true,
     "no-invalid-template-strings": true,
     "no-invalid-this": true,
+    "no-misused-new": true,
     "no-static-this": true,
+    "no-trailing-whitespace": true,
     "no-var-keyword": true,
     "newline-before-return": true,
     "object-literal-sort-keys": false,
@@ -64,11 +66,14 @@
         }]
       }],
     "prefer-const": true,
+    "prefer-method-signature": true,
     "prefer-switch": [true, {"min-cases": 2}],
     "prefer-while": true,
     "quotemark": [true, "single", "avoid-escape"],
     "semicolon": [true, "always"],
+    "space-within-parens": 0,
     "static-this": true,
+    "trailing-comma": [true, {"multiline": "always", "singleline": "never"}],
     "triple-equals": true,
     "typedef": [
       true,
@@ -80,11 +85,13 @@
       true,
       "check-branch",
       "check-decl",
-      "check-operator",
       "check-module",
+      "check-operator",
+      "check-preblock",
+      "check-rest-spread",
       "check-separator",
-      "check-type-operator",
-      "check-preblock"
+      "check-type",
+      "check-type-operator"
     ]
   }
 }

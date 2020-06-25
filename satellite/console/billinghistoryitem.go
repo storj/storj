@@ -12,6 +12,7 @@ type BillingHistoryItem struct {
 	ID          string                 `json:"id"`
 	Description string                 `json:"description"`
 	Amount      int64                  `json:"amount"`
+	Remaining   int64                  `json:"remaining"`
 	Received    int64                  `json:"received"`
 	Status      string                 `json:"status"`
 	Link        string                 `json:"link"`
@@ -32,6 +33,6 @@ const (
 	Charge BillingHistoryItemType = 2
 	// Coupon is an entity that adds some funds to Accounts balance for some fixed period.
 	Coupon BillingHistoryItemType = 3
-	// Credits is an entity that adds some funds to Accounts balance after deposit with storj coins.
-	Credits BillingHistoryItemType = 4
+	// DepositBonus is an entity that adds some funds to Accounts balance after deposit with storj coins.
+	DepositBonus BillingHistoryItemType = 4
 )

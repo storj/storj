@@ -26,13 +26,13 @@ var (
 	ErrMigrateMinVersion = errs.Class("migrate min version")
 )
 
-// CreateTables is a method for creating all tables for database
-func (db *satelliteDB) CreateTables(ctx context.Context) error {
+// MigrateToLatest migrates the database to the latest version.
+func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
 	// will need to create any schemas specified in the search path, and cockroach
 	// will need to create the database it was told to connect to. These things should
 	// not really be here, and instead should be assumed to exist.
-	// This is tracked in jira ticket #3338.
+	// This is tracked in jira ticket SM-200
 	switch db.implementation {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
@@ -82,8 +82,8 @@ func (db *satelliteDB) CreateTables(ctx context.Context) error {
 	}
 }
 
-// TestingCreateTables is a method for creating all tables for database for testing.
-func (db *satelliteDB) TestingCreateTables(ctx context.Context) error {
+// TestingMigrateToLatest is a method for creating all tables for database for testing.
+func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 	switch db.implementation {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
@@ -145,13 +145,32 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	}
 }
 
-// flattenMigration joins the migration sql queries from each migration step
-// to speed up the database setup
+// flattenMigration joins the migration sql queries from
+// each migration step to speed up the database setup.
+//
+// Steps with "SeparateTx" end up as separate migration transactions.
+// Cockroach requires schema changes and updates to the values of that
+// schema change to be in a different transaction.
 func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
 	var db tagsql.DB
 	var version int
 	var statements migrate.SQL
 	var steps = []*migrate.Step{}
+
+	pushMerged := func() {
+		if len(statements) == 0 {
+			return
+		}
+
+		steps = append(steps, &migrate.Step{
+			DB:          db,
+			Description: "Setup",
+			Version:     version,
+			Action:      migrate.SQL{strings.Join(statements, ";\n")},
+		})
+
+		statements = nil
+	}
 
 	for _, step := range m.Steps {
 		if db == nil {
@@ -160,40 +179,21 @@ func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
 			return nil, errs.New("multiple databases not supported")
 		}
 
-		version = step.Version
-
-		switch action := step.Action.(type) {
-		case migrate.SQL:
-			statements = append(statements, action...)
-		case migrate.Func:
-			// if a migrate.Func is encountered then create a step with all
-			// the sql in the previous migration versions
-			if len(statements) > 0 {
-				newSQLStep := migrate.Step{
-					DB:          db,
-					Description: "Setup",
-					Version:     version - 1,
-					Action:      migrate.SQL{strings.Join(statements, ";\n")},
-				}
-				steps = append(steps, &newSQLStep)
-				statements = migrate.SQL{}
+		if sql, ok := step.Action.(migrate.SQL); ok {
+			if step.SeparateTx {
+				pushMerged()
 			}
-			// then add the migrate.Func step
+
+			version = step.Version
+			statements = append(statements, sql...)
+		} else {
+			pushMerged()
 			steps = append(steps, step)
-		default:
-			return nil, errs.New("unexpected action type %T", step.Action)
 		}
 	}
 
-	if len(statements) > 0 {
-		newSQLStep := migrate.Step{
-			DB:          db,
-			Description: "Setup",
-			Version:     version,
-			Action:      migrate.SQL{strings.Join(statements, ";\n")},
-		}
-		steps = append(steps, &newSQLStep)
-	}
+	pushMerged()
+
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: steps,
@@ -868,22 +868,34 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for bucket_bandwidth_rollups", Version: 86, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for bucket_bandwidth_rollups",
+				Version:     86,
+				Action: migrate.SQL{
 					`ALTER TABLE bucket_bandwidth_rollups ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for bucket_storage_tallies", Version: 87, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for bucket_storage_tallies",
+				Version:     87,
+				Action: migrate.SQL{
 					`ALTER TABLE bucket_storage_tallies ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for graceful_exit_progress", Version: 88, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for graceful_exit_progress",
+				Version:     88,
+				Action: migrate.SQL{
 					`ALTER TABLE graceful_exit_progress ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE USING updated_at AT TIME ZONE 'UTC';`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for graceful_exit_transfer_queue", Version: 89, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for graceful_exit_transfer_queue",
+				Version:     89,
+				Action: migrate.SQL{
 					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN queued_at TYPE TIMESTAMP WITH TIME ZONE USING queued_at AT TIME ZONE 'UTC';`,
 					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN requested_at TYPE TIMESTAMP WITH TIME ZONE USING requested_at AT TIME ZONE 'UTC';`,
 					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN last_failed_at TYPE TIMESTAMP WITH TIME ZONE USING last_failed_at AT TIME ZONE 'UTC';`,
@@ -891,29 +903,44 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for injuredsegments", Version: 90, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for injuredsegments",
+				Version:     90,
+				Action: migrate.SQL{
 					`ALTER TABLE injuredsegments ALTER COLUMN attempted TYPE TIMESTAMP WITH TIME ZONE USING attempted AT TIME ZONE 'UTC';`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for nodes", Version: 91, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for nodes",
+				Version:     91,
+				Action: migrate.SQL{
 					`ALTER TABLE nodes ALTER COLUMN exit_initiated_at TYPE TIMESTAMP WITH TIME ZONE USING exit_initiated_at AT TIME ZONE 'UTC';`,
 					`ALTER TABLE nodes ALTER COLUMN exit_loop_completed_at TYPE TIMESTAMP WITH TIME ZONE USING exit_loop_completed_at AT TIME ZONE 'UTC';`,
 					`ALTER TABLE nodes ALTER COLUMN exit_finished_at TYPE TIMESTAMP WITH TIME ZONE USING exit_finished_at AT TIME ZONE 'UTC';`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for serial_numbers", Version: 92, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for serial_numbers",
+				Version:     92,
+				Action: migrate.SQL{
 					`ALTER TABLE serial_numbers ALTER COLUMN expires_at TYPE TIMESTAMP WITH TIME ZONE USING expires_at AT TIME ZONE 'UTC';`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for storagenode_bandwidth_rollups", Version: 93, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for storagenode_bandwidth_rollups",
+				Version:     93,
+				Action: migrate.SQL{
 					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
 				},
 			},
 			{
-				DB: db.DB, Description: "Use time zones for value_attributions", Version: 94, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Use time zones for value_attributions",
+				Version:     94,
+				Action: migrate.SQL{
 					`ALTER TABLE value_attributions ALTER COLUMN last_updated TYPE TIMESTAMP WITH TIME ZONE USING last_updated AT TIME ZONE 'UTC';`,
 				},
 			},
@@ -927,7 +954,10 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB: db.DB, Description: "Add column last_ip_port to nodes table", Version: 96, Action: migrate.SQL{
+				DB:          db.DB,
+				Description: "Add column last_ip_port to nodes table",
+				Version:     96,
+				Action: migrate.SQL{
 					`ALTER TABLE nodes ADD COLUMN last_ip_port text`,
 				},
 			},
@@ -1017,6 +1047,150 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );`,
 				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Remove free_bandwidth column from nodes table",
+				Version:     102,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN free_bandwidth;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Set NOT NULL on storagenode_payments period.",
+				Version:     103,
+				Action: migrate.SQL{
+					`ALTER TABLE storagenode_payments ALTER COLUMN period SET NOT NULL;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Add missing bucket_bandwidth_rollups_action_interval_project_id_index index",
+				Version:     104,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups(action, interval_start, project_id );`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Remove all nodes from suspension mode.",
+				Version:     105,
+				Action: migrate.SQL{
+					`UPDATE nodes SET suspended=NULL;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "Add project_bandwidth_rollup table and populate with current months data",
+				Version:     106,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS project_bandwidth_rollups (
+						project_id bytea NOT NULL,
+						interval_month date NOT NULL,
+						egress_allocated bigint NOT NULL,
+						PRIMARY KEY ( project_id, interval_month )
+					);
+					INSERT INTO project_bandwidth_rollups(project_id, interval_month, egress_allocated)  (
+						SELECT project_id, date_trunc('MONTH',now())::DATE, sum(allocated)::bigint FROM bucket_bandwidth_rollups
+						WHERE action = 2 AND interval_start >= date_trunc('MONTH',now())::timestamp group by project_id)
+					ON CONFLICT(project_id, interval_month) DO UPDATE SET egress_allocated = EXCLUDED.egress_allocated::bigint;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "add separate bandwidth column",
+				Version:     107,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN bandwidth_limit bigint NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "backfill bandwidth column with previous limits",
+				Version:     108,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE projects SET bandwidth_limit = usage_limit;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "add period column to the credits_spendings table (step 1)",
+				Version:     109,
+				Action: migrate.SQL{
+					`ALTER TABLE credits_spendings ADD COLUMN period timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "add period column to the credits_spendings table (step 2)",
+				Version:     110,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE credits_spendings SET period = 'epoch';`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "add period column to the credits_spendings table (step 3)",
+				Version:     111,
+				Action: migrate.SQL{
+					`ALTER TABLE credits_spendings ALTER COLUMN period SET NOT NULL;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "fix incorrect calculations on backported paystub data",
+				Version:     112,
+				Action: migrate.SQL{`
+					UPDATE storagenode_paystubs SET
+						comp_at_rest = (
+							((owed + held - disposed)::float / GREATEST(surge_percent::float / 100, 1))::int
+							- comp_get - comp_get_repair - comp_get_audit
+						)
+					WHERE
+						(
+							abs(
+								((owed + held - disposed)::float / GREATEST(surge_percent::float / 100, 1))::int
+								- comp_get - comp_get_repair - comp_get_audit
+							) >= 10
+							OR comp_at_rest < 0
+						)
+						AND codes not like '%O%'
+						AND codes not like '%D%'
+						AND period < '2020-03'
+				`},
+			},
+			{
+				DB:          db.DB,
+				Description: "drop project_id column from coupon table",
+				Version:     113,
+				Action: migrate.SQL{
+					`ALTER TABLE coupons DROP COLUMN project_id;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "add new columns for suspension to node tables",
+				Version:     114,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN unknown_audit_suspended TIMESTAMP WITH TIME ZONE;`,
+					`ALTER TABLE nodes ADD COLUMN offline_suspended TIMESTAMP WITH TIME ZONE;`,
+					`ALTER TABLE nodes ADD COLUMN under_review TIMESTAMP WITH TIME ZONE;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "add revocations database",
+				Version:     115,
+				Action: migrate.SQL{`
+					CREATE TABLE revocations (
+						revoked bytea NOT NULL,
+						api_key_id bytea NOT NULL,
+						PRIMARY KEY ( revoked )
+					);
+				`},
 			},
 		},
 	}

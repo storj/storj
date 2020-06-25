@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -42,6 +43,7 @@ import (
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -51,15 +53,15 @@ var mon = monkit.Package()
 //
 // architecture: Master Database
 type DB interface {
-	// CreateTables initializes the database
-	CreateTables(ctx context.Context) error
+	// MigrateToLatest initializes the database
+	MigrateToLatest(ctx context.Context) error
 	// CheckVersion checks the database is the correct version
 	CheckVersion(ctx context.Context) error
 	// Close closes the database
 	Close() error
 
-	// TestingCreateTables initializes the database for testplanet.
-	TestingCreateTables(ctx context.Context) error
+	// TestingMigrateToLatest initializes the database for testplanet.
+	TestingMigrateToLatest(ctx context.Context) error
 
 	// PeerIdentities returns a storage for peer identities
 	PeerIdentities() overlay.PeerIdentities
@@ -95,6 +97,8 @@ type DB interface {
 	HeldAmount() heldamount.DB
 	// Compoensation tracks storage node compensation
 	Compensation() compensation.DB
+	// Revocation tracks revoked macaroons
+	Revocation() revocation.DB
 }
 
 // Config is the global config satellite
@@ -116,6 +120,8 @@ type Config struct {
 	Audit    audit.Config
 
 	GarbageCollection gc.Config
+
+	ExpiredDeletion expireddeletion.Config
 
 	DBCleanup dbcleanup.Config
 

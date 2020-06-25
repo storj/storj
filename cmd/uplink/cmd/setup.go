@@ -5,10 +5,8 @@ package cmd
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -39,8 +37,6 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := withTelemetry(cmd)
-
 	if cmd.Flag("access").Changed {
 		return ErrAccessFlag
 	}
@@ -51,17 +47,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	// apply helpful default host and port to the address
-	vip, err := process.Viper(cmd)
-	if err != nil {
-		return err
-	}
-	satelliteAddress, err = ApplyDefaultHostAndPortToAddr(
-		satelliteAddress, vip.GetString("satellite-addr"))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -98,8 +83,23 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	uplinkConfig := uplink.Config{
+		UserAgent:   setupCfg.Client.UserAgent,
 		DialTimeout: setupCfg.Client.DialTimeout,
 	}
+
+	overrides := make(map[string]interface{})
+	analyticEnabled, err := wizard.PromptForTracing()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if analyticEnabled {
+		enableTracing(overrides)
+	} else {
+		// set metrics address to empty string so we can disable it on each operation
+		overrides["metrics.addr"] = ""
+	}
+
+	ctx, _ := withTelemetry(cmd)
 
 	var access *uplink.Access
 	if setupCfg.PBKDFConcurrency == 0 {
@@ -119,9 +119,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	// config serialization/flattening.
 	accesses := toStringMapE(setupCfg.Accesses)
 	accesses[accessName] = accessData
+	overrides["accesses"] = accesses
 
 	saveCfgOpts := []process.SaveConfigOption{
-		process.SaveConfigWithOverride("accesses", accesses),
+		process.SaveConfigWithOverrides(overrides),
 		process.SaveConfigRemovingDeprecated(),
 	}
 
@@ -148,41 +149,4 @@ Your Uplink CLI is configured and ready to use!
 * See http://documentation.tardigrade.io/api-reference/uplink-cli for some example commands`)
 
 	return nil
-}
-
-// ApplyDefaultHostAndPortToAddr applies the default host and/or port if either is missing in the specified address.
-func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, error) {
-	defaultHost, defaultPort, err := net.SplitHostPort(defaultAddress)
-	if err != nil {
-		return "", Error.Wrap(err)
-	}
-
-	addressParts := strings.Split(address, ":")
-	numberOfParts := len(addressParts)
-
-	if numberOfParts > 1 && len(addressParts[0]) > 0 && len(addressParts[1]) > 0 {
-		// address is host:port so skip applying any defaults.
-		return address, nil
-	}
-
-	// We are missing a host:port part. Figure out which part we are missing.
-	indexOfPortSeparator := strings.Index(address, ":")
-	lengthOfFirstPart := len(addressParts[0])
-
-	if indexOfPortSeparator < 0 {
-		if lengthOfFirstPart == 0 {
-			// address is blank.
-			return defaultAddress, nil
-		}
-		// address is host
-		return net.JoinHostPort(addressParts[0], defaultPort), nil
-	}
-
-	if indexOfPortSeparator == 0 {
-		// address is :1234
-		return net.JoinHostPort(defaultHost, addressParts[1]), nil
-	}
-
-	// address is host:
-	return net.JoinHostPort(addressParts[0], defaultPort), nil
 }

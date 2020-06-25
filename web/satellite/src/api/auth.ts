@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorEmailUsed } from '@/api/errors/ErrorEmailUsed';
+import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { UpdatedUser, User } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
@@ -49,11 +50,14 @@ export class AuthHttpApi {
             return await response.json();
         }
 
-        if (response.status === 401) {
-            throw new Error('your email or password was incorrect, please try again');
+        switch (response.status) {
+            case 401:
+                throw new ErrorUnauthorized('Your email or password was incorrect, please try again');
+            case 429:
+                throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
+            default:
+                throw new Error('Can not receive authentication token');
         }
-
-        throw new Error('can not receive authentication token');
     }
 
     /**
@@ -84,7 +88,12 @@ export class AuthHttpApi {
      */
     public async forgotPassword(email: string): Promise<void> {
         const path = `${this.ROOT_PATH}/forgot-password/${email}`;
-        await this.http.post(path, email);
+        const response = await this.http.post(path, email);
+        if (response.ok) {
+            return;
+        }
+
+        throw new Error('There is no such email');
     }
 
     /**
@@ -206,6 +215,8 @@ export class AuthHttpApi {
                     throw new ErrorUnauthorized('We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
                 case 409:
                     throw new ErrorEmailUsed('This email is already in use, try another');
+                case 429:
+                    throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
                 default:
                     throw new Error('Can not register user');
             }

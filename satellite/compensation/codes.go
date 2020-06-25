@@ -26,13 +26,17 @@ const (
 
 	// GracefulExit is included if the node has gracefully exited.
 	GracefulExit Code = "X"
+
+	// Offline is included if the node's last contact success is before the starting
+	// period.
+	Offline Code = "O"
 )
 
 // CodeFromString parses the string into a Code.
 func CodeFromString(s string) (Code, error) {
 	code := Code(s)
 	switch code {
-	case Disqualified, Sanctioned, No1099, InWithholding, GracefulExit:
+	case Disqualified, Sanctioned, No1099, InWithholding, GracefulExit, Offline:
 		return code, nil
 	default:
 		return "", Error.New("no such code %q", code)

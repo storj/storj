@@ -44,11 +44,12 @@ export class SNOApi {
 
         const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => {
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
+            const suspended: Date | null = satellite.suspended ? new Date(satellite.suspended) : null;
 
-            return new SatelliteInfo(satellite.id, satellite.url, disqualified);
+            return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended);
         });
 
-        const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available);
+        const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available, json.diskSpace.trash);
         const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used);
 
         return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
@@ -66,11 +67,27 @@ export class SNOApi {
 
         const satelliteByDayInfo = new SatelliteByDayInfo(json);
 
-        const audit: Metric = new Metric(json.audit.totalCount, json.audit.successCount, json.audit.alpha,
-            json.audit.beta, json.audit.score);
+        const audit: Metric = new Metric(
+            json.audit.totalCount,
+            json.audit.successCount,
+            json.audit.alpha,
+            json.audit.beta,
+            json.audit.unknownAlpha,
+            json.audit.unknownBeta,
+            json.audit.score,
+            json.audit.unknownScore,
+        );
 
-        const uptime: Metric = new Metric(json.uptime.totalCount, json.uptime.successCount, json.uptime.alpha,
-            json.uptime.beta, json.uptime.score);
+        const uptime: Metric = new Metric(
+            json.uptime.totalCount,
+            json.uptime.successCount,
+            json.uptime.alpha,
+            json.uptime.beta,
+            json.uptime.unknownAlpha,
+            json.uptime.unknownBeta,
+            json.uptime.score,
+            json.uptime.unknownScore,
+        );
 
         return new Satellite(
             json.id,
@@ -83,7 +100,8 @@ export class SNOApi {
             json.egressSummary,
             json.ingressSummary,
             audit,
-            uptime
+            uptime,
+            new Date(json.nodeJoinedAt),
         );
     }
 
@@ -104,7 +122,8 @@ export class SNOApi {
             json.storageSummary,
             json.bandwidthSummary,
             json.egressSummary,
-            json.ingressSummary
+            json.ingressSummary,
+            new Date(json.earliestJoinedAt),
         );
     }
 }

@@ -2,20 +2,24 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="account-dropdown-choice-container" id="accountDropdown">
-        <div class="account-dropdown-overflow-container">
-            <div class="account-dropdown-item-container settings" @click="onAccountSettingsClick">
-                <div class="account-dropdown-item-container__image-container">
-                    <AccountSettingsIcon class="account-dropdown-item-container__image-container__image"/>
-                </div>
-                <h2 class="account-dropdown-item-container__title">Account Settings</h2>
+    <div class="account-dropdown" id="accountDropdown">
+        <div class="account-dropdown__link-container" v-if="!isOnboardingTour">
+            <a
+                class="account-dropdown__link-container__link"
+                href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                target="_blank"
+            >
+                Request Limit Increase
+            </a>
+        </div>
+        <div class="account-dropdown__item-container settings" v-if="!isOnboardingTour" @click="onAccountSettingsClick">
+            <div class="account-dropdown__item-container__image-container">
+                <AccountSettingsIcon class="account-dropdown__item-container__image-container__image"/>
             </div>
-            <div class="account-dropdown-item-container logout" @click="onLogoutClick">
-                <div class="account-dropdown-item-container__image-container">
-                    <LogoutIcon class="account-dropdown-item-container__image-container__image"/>
-                </div>
-                <h2 class="account-dropdown-item-container__title">Log Out</h2>
-            </div>
+            <p class="account-dropdown__item-container__title">Account Settings</p>
+        </div>
+        <div class="account-dropdown__item-container logout" @click="onLogoutClick">
+            <p class="account-dropdown__item-container__title">Log Out</p>
         </div>
     </div>
 </template>
@@ -24,7 +28,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import AccountSettingsIcon from '@/../static/images/header/accountSettings.svg';
-import LogoutIcon from '@/../static/images/header/logout.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
@@ -42,17 +45,16 @@ import { LocalData } from '@/utils/localData';
 @Component({
     components: {
         AccountSettingsIcon,
-        LogoutIcon,
     },
 })
 export default class AccountDropdown extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     /**
-     * Closes account dropdown.
+     * Indicates if current route is onboarding tour.
      */
-    public onCloseClick(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
+    public get isOnboardingTour(): boolean {
+        return this.$route.name === RouteConfig.OnboardingTour.name;
     }
 
     /**
@@ -75,14 +77,14 @@ export default class AccountDropdown extends Vue {
             return;
         }
 
-        this.$router.push(RouteConfig.Login.path);
-        this.$store.dispatch(PM_ACTIONS.CLEAR);
-        this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);
-        this.$store.dispatch(USER_ACTIONS.CLEAR);
-        this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
-        this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
-        this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        await this.$router.push(RouteConfig.Login.path);
+        await this.$store.dispatch(PM_ACTIONS.CLEAR);
+        await this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);
+        await this.$store.dispatch(USER_ACTIONS.CLEAR);
+        await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+        await this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
+        await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+        await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
 
         LocalData.removeUserId();
     }
@@ -90,55 +92,70 @@ export default class AccountDropdown extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .account-dropdown-choice-container {
+    .account-dropdown {
         position: absolute;
-        top: 75px;
+        top: 65px;
         right: 0;
-        border-radius: 4px;
-        padding: 10px 0;
-        box-shadow: 0 4px rgba(231, 232, 238, 0.6);
+        padding: 15px 0;
         background-color: #fff;
         z-index: 1120;
-        border-top: 1px solid rgba(169, 181, 193, 0.3);
-    }
+        font-family: 'font_regular', sans-serif;
+        min-width: 210px;
+        border: 1px solid #c5cbdb;
+        box-shadow: 0 8px 34px rgba(161, 173, 185, 0.41);
+        border-radius: 6px;
 
-    .account-dropdown-overflow-container {
-        position: relative;
-        width: 210px;
-        height: auto;
-        background-color: #fff;
-    }
-
-    .account-dropdown-item-container {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-start;
-        padding-left: 20px;
-        padding-right: 20px;
-
-        &__title {
-            font-family: 'font_regular', sans-serif;
+        &__link-container {
+            width: calc(100% - 20px);
             margin-left: 20px;
-            font-size: 14px;
-            line-height: 20px;
-            color: #354049;
-        }
+            border-bottom: 1px solid #c7cdd2;
+            padding-bottom: 15px;
 
-        &:hover {
-            background-color: #f2f2f6;
-
-            .account-dropdown-svg-path {
-                fill: #2683ff !important;
+            &__link {
+                font-size: 14px;
+                line-height: 19px;
+                color: #7e8b9c;
             }
         }
 
-        &__image-container {
-            width: 20px;
+        &__item-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 0 20px;
 
-            &__image {
-                object-fit: cover;
+            &__title {
+                margin-left: 13px;
+                font-size: 14px;
+                line-height: 20px;
+                color: #354049;
+            }
+
+            &:hover {
+                background-color: #f2f2f6;
+
+                .account-dropdown-svg-path {
+                    fill: #2683ff !important;
+                }
+            }
+
+            &__image-container {
+                width: 20px;
+                max-height: 20px;
+
+                &__image {
+                    object-fit: cover;
+                }
             }
         }
+    }
+
+    .settings {
+        margin-top: 15px;
+    }
+
+    .logout {
+        padding: 0 20px 0 40px;
     }
 </style>

@@ -71,7 +71,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
 	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB,
 	rollupsWriteCache *orders.RollupsWriteCache, irrDB irreparable.DB,
-	versionInfo version.Info, config *Config) (*Repairer, error) {
+	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Repairer, error) {
 	peer := &Repairer{
 		Log:      log,
 		Identity: full,
@@ -92,7 +92,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "Repair"
-		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig)
+		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
@@ -101,10 +101,12 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{
-		if !versionInfo.IsZero() {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
-		}
+		peer.Log.Info("Version info",
+			zap.Stringer("Version", versionInfo.Version.Version),
+			zap.String("Commit Hash", versionInfo.CommitHash),
+			zap.Stringer("Build Timestamp", versionInfo.Timestamp),
+			zap.Bool("Release Build", versionInfo.Release),
+		)
 		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 

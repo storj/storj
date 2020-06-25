@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
 )
 
@@ -20,7 +21,7 @@ type orderedPostgresIterator struct {
 	delimiter      byte
 	batchSize      int
 	curIndex       int
-	curRows        *sql.Rows
+	curRows        tagsql.Rows
 	skipPrefix     bool
 	lastKeySeen    storage.Key
 	largestKey     storage.Key
@@ -63,7 +64,7 @@ func newOrderedPostgresIterator(ctx context.Context, cli *Client, opts storage.I
 func (opi *orderedPostgresIterator) Close() error {
 	defer mon.Task()(nil)(nil)
 
-	return errs.Combine(opi.errEncountered, opi.curRows.Close())
+	return errs.Combine(opi.curRows.Err(), opi.errEncountered, opi.curRows.Close())
 }
 
 // Next fills in info for the next item in an ongoing listing.
@@ -71,7 +72,14 @@ func (opi *orderedPostgresIterator) Next(ctx context.Context, item *storage.List
 	defer mon.Task()(&ctx)(nil)
 
 	for {
-		for !opi.curRows.Next() {
+		for {
+			nextTask := mon.TaskNamed("check_next_row")(nil)
+			next := opi.curRows.Next()
+			nextTask(nil)
+			if next {
+				break
+			}
+
 			result := func() bool {
 				defer mon.TaskNamed("acquire_new_query")(nil)(nil)
 
@@ -135,7 +143,7 @@ func (opi *orderedPostgresIterator) Next(ctx context.Context, item *storage.List
 	}
 }
 
-func (opi *orderedPostgresIterator) doNextQuery(ctx context.Context) (_ *sql.Rows, err error) {
+func (opi *orderedPostgresIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	gt := ">"

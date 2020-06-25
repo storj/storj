@@ -110,7 +110,7 @@ install_sim(){
         rm -rf .build/gateway-tmp
         mkdir -p .build/gateway-tmp
         pushd .build/gateway-tmp
-            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@v1.0.0-rc.8
+            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest
         popd
     fi
 }
@@ -135,7 +135,9 @@ setup_stage(){
     then
         mv $dest_sat_cfg_dir/satellite $dest_sat_cfg_dir/old_satellite
     fi
+
     # ln binary and copy config.yaml for desired version
+    ln -f $(version_dir ${sat_version})/bin/storj-sim $test_dir/bin/storj-sim
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
@@ -202,11 +204,12 @@ for version in ${unique_versions}; do
     rm -f ${dir}/private/version/release.go
     rm -f ${dir}/internal/version/release.go
     # clear out release information
-    cat > ${dir}/private/version/release.go <<EOF
-    // Copyright (C) 2020 Storj Labs, Inc.
-    // See LICENSE for copying information.
-    package version 
-EOF
+    cat > ${dir}/private/version/release.go <<-EOF
+	// Copyright (C) 2020 Storj Labs, Inc.
+	// See LICENSE for copying information.
+	package version
+	EOF
+
     if [[ $version = $previous_release_version || $version = $current_commit ]]
     then
         echo "Installing storj-sim for ${version} in ${dir}."
@@ -220,6 +223,7 @@ EOF
         PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
         echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
         echo "Binary shasums:"
+        shasum ${bin_dir}/storj-sim
         shasum ${bin_dir}/satellite
         shasum ${bin_dir}/storagenode
         shasum ${bin_dir}/uplink
@@ -267,6 +271,13 @@ old_api_pid=$!
 
 # Downloading every file uploaded in stage 1 from the network using the latest commit from master branch for each uplink version
 for ul_version in ${stage2_uplink_versions}; do
+    if [ "$ul_version" = "v1.6.3" ]; then
+        # TODO: skip v1.6.3 uplink since it doesn't support changing imported access satellite address
+        continue
+    elif [ "$ul_version" = "v1.6.4" ]; then
+        # TODO: skip v1.6.4 uplink since it doesn't support changing imported access satellite address
+        continue
+    fi
     echo "Stage 2 uplink version: ${ul_version}"
     src_ul_version_dir=$(version_dir ${ul_version})
     ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink

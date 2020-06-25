@@ -7,6 +7,7 @@ package admin
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"net"
 	"net/http"
 
@@ -14,8 +15,11 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
 // Config defines configuration for debug server.
@@ -31,6 +35,10 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// Console returns database for satellite console
 	Console() console.DB
+	// StripeCoinPayments returns database for satellite stripe coin payments
+	StripeCoinPayments() stripecoinpayments.DB
+	// Buckets returns database for satellite buckets
+	Buckets() metainfo.BucketsDB
 }
 
 // Server provides endpoints for debugging.
@@ -58,8 +66,17 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, config Config) *Se
 		next:                 server.mux,
 	}
 
-	server.mux.HandleFunc("/project/{project}/limit", server.getProjectLimit).Methods("GET")
-	server.mux.HandleFunc("/project/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
+	// When adding new options, also update README.md
+	server.mux.HandleFunc("/api/user", server.addUser).Methods("POST")
+	server.mux.HandleFunc("/api/user/{useremail}", server.updateUser).Methods("PUT")
+	server.mux.HandleFunc("/api/user/{useremail}", server.userInfo).Methods("GET")
+	server.mux.HandleFunc("/api/coupon", server.addCoupon).Methods("POST")
+	server.mux.HandleFunc("/api/coupon/{couponid}", server.couponInfo).Methods("GET")
+	server.mux.HandleFunc("/api/coupon/{couponid}", server.deleteCoupon).Methods("DELETE")
+	server.mux.HandleFunc("/api/project/{project}/limit", server.getProjectLimit).Methods("GET")
+	server.mux.HandleFunc("/api/project/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
+	server.mux.HandleFunc("/api/project/{project}", server.deleteProject).Methods("DELETE")
+	server.mux.HandleFunc("/api/project", server.addProject).Methods("POST")
 
 	return server
 }
@@ -104,7 +121,11 @@ func (server *Server) Run(ctx context.Context) error {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return Error.Wrap(server.server.Serve(server.listener))
+		err := server.server.Serve(server.listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return Error.Wrap(err)
 	})
 	return group.Wait()
 }

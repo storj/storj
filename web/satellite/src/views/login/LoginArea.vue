@@ -16,7 +16,7 @@ import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AppState } from '@/utils/constants/appStateEnum';
-import { validateEmail, validatePassword } from '@/utils/validation';
+import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
@@ -37,6 +37,9 @@ export default class Login extends Vue {
 
     public readonly forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
     public isActivatedBannerShown: boolean = false;
+
+    // Tardigrade logic
+    public isDropdownShown: boolean = false;
 
     public mounted(): void {
         if (this.$route.query.activated === 'true') {
@@ -76,8 +79,22 @@ export default class Login extends Vue {
     }
 
     /**
+     * Toggles satellite selection dropdown visibility (Tardigrade).
+     */
+    public toggleDropdown(): void {
+        this.isDropdownShown = !this.isDropdownShown;
+    }
+
+    /**
+     * Closes satellite selection dropdown (Tardigrade).
+     */
+    public closeDropdown(): void {
+        this.isDropdownShown = false;
+    }
+
+    /**
      * Performs login action.
-     * Than change location to project overview.
+     * Then changes location to project dashboard page.
      */
     public async onLogin(): Promise<void> {
         if (this.isLoading) {
@@ -104,24 +121,24 @@ export default class Login extends Vue {
             return;
         }
 
-        if (window.self !== window.top) {
-            top.location.href = window.self.location.origin + '/account/billing';
+        if (this.isInsideIframe) {
+            window.top.location.href = window.self.location.origin + '/account/billing';
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
         this.isLoading = false;
-        await this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
+        await this.$router.push(RouteConfig.ProjectDashboard.path);
     }
 
     private validateFields(): boolean {
         let isNoErrors = true;
 
-        if (!validateEmail(this.email.trim())) {
+        if (!Validator.email(this.email.trim())) {
             this.emailError = 'Invalid Email';
             isNoErrors = false;
         }
 
-        if (!validatePassword(this.password)) {
+        if (!Validator.password(this.password)) {
             this.passwordError = 'Invalid Password';
             isNoErrors = false;
         }

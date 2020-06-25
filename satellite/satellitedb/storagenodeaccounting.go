@@ -176,7 +176,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 	var sqlStmt = `SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total,
 		r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
 		FROM (
-			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
+			SELECT node_id, SUM(at_rest_total::decimal) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
 			SUM(put_repair_total) AS put_repair_total, SUM(get_audit_total) AS get_audit_total,
 			SUM(put_total) AS put_total, SUM(get_total) AS get_total
 			FROM accounting_rollups
@@ -224,7 +224,7 @@ func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context
 	stmt := db.db.Rebind(`
 		SELECT
 			node_id,
-			SUM(at_rest_total) AS at_rest_total,
+			SUM(at_rest_total::decimal) AS at_rest_total,
 			SUM(get_total) AS get_total,
 			SUM(put_total) AS put_total,
 			SUM(get_repair_total) AS get_repair_total,
@@ -286,22 +286,22 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	start, end = start.UTC(), end.UTC()
 
 	query := `
-		SELECT at_rest_total, start_time::date
+		SELECT at_rest_total, (start_time at time zone 'UTC')::date as start_time
 		FROM accounting_rollups
 		WHERE node_id = $1
 		AND $2 <= start_time AND start_time <= $3
 		UNION
-		SELECT SUM(data_total) AS at_rest_total, interval_end_time::date AS start_time
+		SELECT SUM(data_total) AS at_rest_total, (interval_end_time at time zone 'UTC')::date AS start_time
 				FROM storagenode_storage_tallies
 				WHERE node_id = $1
 				AND NOT EXISTS (
 					SELECT 1 FROM accounting_rollups
 					WHERE node_id = $1
 					AND $2 <= start_time AND start_time <= $3
-					AND start_time::date = interval_end_time::date
+					AND (start_time at time zone 'UTC')::date = (interval_end_time at time zone 'UTC')::date
 				)
 				AND (SELECT value FROM accounting_timestamps WHERE name = $4) < interval_end_time AND interval_end_time <= $3
-				GROUP BY interval_end_time::date
+				GROUP BY (interval_end_time at time zone 'UTC')::date
 		ORDER BY start_time;
 	`
 

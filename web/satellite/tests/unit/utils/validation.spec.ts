@@ -1,13 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import {
-    validateEmail,
-    validatePassword,
-} from '@/utils/validation';
+import { Validator } from '@/utils/validation';
 
-describe('validation', () => {
-    it('validatePassword regex works correctly', () => {
+describe('validation', (): void => {
+    it('password regex works correctly', (): void => {
         const testString1 = 'test';
         const testString2 = '        '.trim();
         const testString3 = 'test %%%';
@@ -16,16 +13,16 @@ describe('validation', () => {
         const testString6 = 'test1';
         const testString7 = 'teSTt1123';
 
-        expect(validatePassword(testString1)).toBe(false);
-        expect(validatePassword(testString2)).toBe(false);
-        expect(validatePassword(testString3)).toBe(true);
-        expect(validatePassword(testString4)).toBe(true);
-        expect(validatePassword(testString5)).toBe(true);
-        expect(validatePassword(testString6)).toBe(false);
-        expect(validatePassword(testString7)).toBe(true);
+        expect(Validator.password(testString1)).toBe(false);
+        expect(Validator.password(testString2)).toBe(false);
+        expect(Validator.password(testString3)).toBe(true);
+        expect(Validator.password(testString4)).toBe(true);
+        expect(Validator.password(testString5)).toBe(true);
+        expect(Validator.password(testString6)).toBe(false);
+        expect(Validator.password(testString7)).toBe(true);
     });
 
-    it('validateEmail regex works correctly', () => {
+    it('email regex works correctly', () => {
         const testString1 = 'test';
         const testString2 = '        ';
         const testString3 = 'test@';
@@ -34,12 +31,30 @@ describe('validation', () => {
         const testString6 = '';
         const testString7 = '@teSTt.1123';
 
-        expect(validateEmail(testString1)).toBe(false);
-        expect(validateEmail(testString2)).toBe(false);
-        expect(validateEmail(testString3)).toBe(false);
-        expect(validateEmail(testString4)).toBe(false);
-        expect(validateEmail(testString5)).toBe(true);
-        expect(validateEmail(testString6)).toBe(false);
-        expect(validateEmail(testString7)).toBe(true);
+        expect(Validator.email(testString1)).toBe(false);
+        expect(Validator.email(testString2)).toBe(false);
+        expect(Validator.email(testString3)).toBe(false);
+        expect(Validator.email(testString4)).toBe(false);
+        expect(Validator.email(testString5)).toBe(true);
+        expect(Validator.email(testString6)).toBe(false);
+        expect(Validator.email(testString7)).toBe(true);
+    });
+
+    it('anyCharactersButSlash regex works correctly', () => {
+        const testString1 = 'tGDFst/';
+        const testString2 = '/        ';
+        const testString3 = 'tes/t@';
+        const testString4 = 'test./test';
+        const testString5 = '3gGD!@#$%^&*()-=+.,';
+        const testString6 = '      /';
+        const testString7 = '/teSTt1123';
+
+        expect(Validator.anyCharactersButSlash(testString1)).toBe(false);
+        expect(Validator.anyCharactersButSlash(testString2)).toBe(false);
+        expect(Validator.anyCharactersButSlash(testString3)).toBe(false);
+        expect(Validator.anyCharactersButSlash(testString4)).toBe(false);
+        expect(Validator.anyCharactersButSlash(testString5)).toBe(true);
+        expect(Validator.anyCharactersButSlash(testString6)).toBe(false);
+        expect(Validator.anyCharactersButSlash(testString7)).toBe(false);
     });
 });

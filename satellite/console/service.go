@@ -149,12 +149,12 @@ func (paymentService PaymentsService) SetupAccount(ctx context.Context) (err err
 }
 
 // AccountBalance return account balance.
-func (paymentService PaymentsService) AccountBalance(ctx context.Context) (balance int64, err error) {
+func (paymentService PaymentsService) AccountBalance(ctx context.Context) (balance payments.Balance, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
 	if err != nil {
-		return 0, err
+		return payments.Balance{}, err
 	}
 
 	return paymentService.service.accounts.Balance(ctx, auth.User.ID)
@@ -174,7 +174,7 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		return Error.Wrap(err)
 	}
 
-	err = paymentService.AddPromotionalCoupon(ctx, auth.User.ID, 2, 5500, memory.TB)
+	err = paymentService.AddPromotionalCoupon(ctx, auth.User.ID)
 	if err != nil {
 		paymentService.service.log.Debug(fmt.Sprintf("could not add promotional coupon sof user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 	}
@@ -299,14 +299,37 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 	}
 
 	for _, coupon := range coupons {
+		alreadyUsed, err := paymentService.service.accounts.Coupons().TotalUsage(ctx, coupon.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		remaining := coupon.Amount - alreadyUsed
+		if coupon.Status == payments.CouponExpired {
+			remaining = 0
+		}
+
+		var couponStatus string
+
+		switch coupon.Status {
+		case 0:
+			couponStatus = "Active"
+		case 1:
+			couponStatus = "Used"
+		default:
+			couponStatus = "Expired"
+		}
+
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
 				ID:          coupon.ID.String(),
 				Description: coupon.Description,
 				Amount:      coupon.Amount,
-				Status:      "Added to balance",
+				Remaining:   remaining,
+				Status:      couponStatus,
 				Link:        "",
 				Start:       coupon.Created,
+				End:         coupon.ExpirationDate(),
 				Type:        Coupon,
 			},
 		)
@@ -320,11 +343,28 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 	for _, credit := range credits {
 		billingHistory = append(billingHistory,
 			&BillingHistoryItem{
-				Description: "10% bonus for deposit made in STORJ",
+				Description: "10% Bonus for STORJ Token Deposit",
 				Amount:      credit.Amount,
 				Status:      "Added to balance",
 				Start:       credit.Created,
-				Type:        Credits,
+				Type:        DepositBonus,
+			},
+		)
+	}
+
+	bonuses, err := paymentService.service.accounts.StorjTokens().ListDepositBonuses(ctx, auth.User.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, bonus := range bonuses {
+		billingHistory = append(billingHistory,
+			&BillingHistoryItem{
+				Description: fmt.Sprintf("%d%% Bonus for STORJ Token Deposit", bonus.Percentage),
+				Amount:      bonus.AmountCents,
+				Status:      "Added to balance",
+				Start:       bonus.CreatedAt,
+				Type:        DepositBonus,
 			},
 		)
 	}
@@ -361,7 +401,7 @@ func (paymentService PaymentsService) PopulatePromotionalCoupons(ctx context.Con
 }
 
 // AddPromotionalCoupon creates new coupon for specified user.
-func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID, duration int, amount int64, limit memory.Size) (err error) {
+func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
 	cards, err := paymentService.ListCreditCards(ctx)
@@ -654,11 +694,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
 	if err != nil {
-		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return "", ErrUnauthorized.New(credentialsErrMsg)
-		}
-
-		return "", Error.Wrap(err)
+		return "", ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	claims := consoleauth.Claims{
@@ -737,11 +773,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(pass))
 	if err != nil {
-		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return ErrUnauthorized.Wrap(err)
-		}
-
-		return Error.Wrap(err)
+		return ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	if err := ValidatePassword(newPass); err != nil {
@@ -772,11 +804,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) (err error
 
 	err = bcrypt.CompareHashAndPassword(auth.User.PasswordHash, []byte(password))
 	if err != nil {
-		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return ErrUnauthorized.Wrap(err)
-		}
-
-		return Error.Wrap(err)
+		return ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	err = s.store.Users().Delete(ctx, auth.User.ID)
@@ -878,7 +906,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, Error.Wrap(err)
 	}
 
-	if len(cards) == 0 && balance < s.minCoinPayment {
+	if len(cards) == 0 && balance.Coins < s.minCoinPayment {
 		err = errs.New("no valid payment methods found")
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
 		return nil, Error.Wrap(err)

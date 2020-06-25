@@ -1,7 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
+import {
+    AccountBalance,
+    CreditCard,
+    PaymentsApi,
+    PaymentsHistoryItem,
+    ProjectUsageAndCharges,
+    TokenDeposit,
+} from '@/types/payments';
 
 /**
  * Mock for PaymentsApi
@@ -11,11 +18,11 @@ export class PaymentsMock implements PaymentsApi {
         throw new Error('Method not implemented');
     }
 
-    getBalance(): Promise<number> {
-        return Promise.resolve(0);
+    getBalance(): Promise<AccountBalance> {
+        return Promise.resolve(new AccountBalance());
     }
 
-    projectsCharges(): Promise<ProjectCharge[]> {
+    projectsUsageAndCharges(): Promise<ProjectUsageAndCharges[]> {
         return Promise.resolve([]);
     }
 
@@ -35,7 +42,7 @@ export class PaymentsMock implements PaymentsApi {
         throw new Error('Method not implemented');
     }
 
-    billingHistory(): Promise<BillingHistoryItem[]> {
+    paymentsHistory(): Promise<PaymentsHistoryItem[]> {
         return Promise.resolve([]);
     }
 

@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
+	"storj.io/storj/storage"
 )
 
 var mon = monkit.Package()
@@ -28,15 +29,21 @@ var (
 type Service struct {
 	projectAccountingDB ProjectAccounting
 	liveAccounting      Cache
-	maxAlphaUsage       memory.Size
+	defaultMaxUsage     memory.Size
+	defaultMaxBandwidth memory.Size
+	bandwidthCacheTTL   time.Duration
+	nowFn               func() time.Time
 }
 
 // NewService created new instance of project usage service.
-func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, maxAlphaUsage memory.Size) *Service {
+func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, defaultMaxUsage, defaultMaxBandwidth memory.Size, bandwidthCacheTTL time.Duration) *Service {
 	return &Service{
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,
-		maxAlphaUsage:       maxAlphaUsage,
+		defaultMaxUsage:     defaultMaxUsage,
+		defaultMaxBandwidth: defaultMaxBandwidth,
+		bandwidthCacheTTL:   bandwidthCacheTTL,
+		nowFn:               time.Now,
 	}
 }
 
@@ -49,6 +56,7 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 
 	var group errgroup.Group
 	var bandwidthGetTotal int64
+	var bandwidthUsage int64
 
 	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
@@ -58,7 +66,30 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 	})
 	group.Go(func() error {
 		var err error
-		bandwidthGetTotal, err = usage.GetProjectBandwidthTotals(ctx, projectID)
+
+		// Get the current bandwidth usage from cache.
+		bandwidthUsage, err = usage.liveAccounting.GetProjectBandwidthUsage(ctx, projectID, usage.nowFn())
+
+		if err != nil {
+			// Verify If the cache key was not found
+			if storage.ErrKeyNotFound.Has(err) {
+
+				// Get current bandwidth value from database.
+				now := usage.nowFn()
+				bandwidthGetTotal, err = usage.GetProjectAllocatedBandwidth(ctx, projectID, now.Year(), now.Month())
+				if err != nil {
+					return err
+				}
+
+				// Create cache key with database value.
+				err = usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, bandwidthGetTotal, usage.bandwidthCacheTTL, usage.nowFn())
+				if err != nil {
+					return err
+				}
+
+				bandwidthUsage = bandwidthGetTotal
+			}
+		}
 		return err
 	})
 
@@ -67,7 +98,8 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 		return false, 0, ErrProjectUsage.Wrap(err)
 	}
 
-	if bandwidthGetTotal >= limit.Int64() {
+	// Verify the bandwidth usage cache.
+	if bandwidthUsage >= limit.Int64() {
 		return true, limit, nil
 	}
 
@@ -119,10 +151,18 @@ func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID u
 	defer mon.Task()(&ctx, projectID)(&err)
 
 	// from the beginning of the current month
-	year, month, _ := time.Now().Date()
+	year, month, _ := usage.nowFn().Date()
 	from := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
 	total, err := usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, projectID, from)
+	return total, ErrProjectUsage.Wrap(err)
+}
+
+// GetProjectAllocatedBandwidth returns project allocated bandwidth for the specified year and month.
+func (usage *Service) GetProjectAllocatedBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month) (_ int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	total, err := usage.projectAccountingDB.GetProjectAllocatedBandwidth(ctx, projectID, year, month)
 	return total, ErrProjectUsage.Wrap(err)
 }
 
@@ -135,7 +175,7 @@ func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid
 		return 0, ErrProjectUsage.Wrap(err)
 	}
 	if limit == 0 {
-		return usage.maxAlphaUsage, nil
+		return usage.defaultMaxUsage, nil
 	}
 
 	return limit, nil
@@ -150,7 +190,7 @@ func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uu
 		return 0, ErrProjectUsage.Wrap(err)
 	}
 	if limit == 0 {
-		return usage.maxAlphaUsage, nil
+		return usage.defaultMaxBandwidth, nil
 	}
 
 	return limit, nil
@@ -163,10 +203,25 @@ func (usage *Service) UpdateProjectLimits(ctx context.Context, projectID uuid.UU
 	return ErrProjectUsage.Wrap(usage.projectAccountingDB.UpdateProjectUsageLimit(ctx, projectID, limit))
 }
 
+// GetProjectBandwidthUsage get the current bandwidth usage from cache.
+func (usage *Service) GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
+	return usage.liveAccounting.GetProjectBandwidthUsage(ctx, projectID, usage.nowFn())
+}
+
+// UpdateProjectBandwidthUsage increments the bandwidth cache key for a specific project.
+func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
+	return usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, increment, usage.bandwidthCacheTTL, usage.nowFn())
+}
+
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added spaceUsed bytes of storage (from the user's
 // perspective; i.e. segment size).
 func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, spaceUsed)
+}
+
+// SetNow allows tests to have the Service act as if the current time is whatever they want.
+func (usage *Service) SetNow(now func() time.Time) {
+	usage.nowFn = now
 }

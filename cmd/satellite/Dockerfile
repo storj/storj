@@ -15,8 +15,7 @@ FROM ${DOCKER_ARCH:-amd64}/alpine
 ARG TAG
 ARG GOARCH
 ENV GOARCH ${GOARCH}
-ENV API_KEY= \
-    CONF_PATH=/root/.local/share/storj/satellite \
+ENV CONF_PATH=/root/.local/share/storj/satellite \
     STORJ_CONSOLE_STATIC_DIR=/app \
     STORJ_CONSOLE_ADDRESS=0.0.0.0:10100
 EXPOSE 7777
@@ -29,4 +28,5 @@ COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY release/${TAG}/satellite_linux_${GOARCH:-amd64} /app/satellite
 COPY release/${TAG}/inspector_linux_${GOARCH:-amd64} /app/inspector
 COPY cmd/satellite/entrypoint /entrypoint
+RUN apk add --no-cache curl
 ENTRYPOINT ["/entrypoint"]

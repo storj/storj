@@ -6,11 +6,11 @@ package metainfo
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"regexp"
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -139,27 +139,80 @@ func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.API
 func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	key, err := getAPIKey(ctx, header)
+	key, keyInfo, err := endpoint.validateBasic(ctx, header)
 	if err != nil {
-		endpoint.log.Debug("invalid request", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid API credentials")
+		return nil, err
 	}
 
-	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
+	err = key.Check(ctx, keyInfo.Secret, action, endpoint.revocations)
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
 
+	return keyInfo, nil
+}
+
+func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestHeader) (_ *macaroon.APIKey, _ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	key, err := getAPIKey(ctx, header)
+	if err != nil {
+		endpoint.log.Debug("invalid request", zap.Error(err))
+		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid API credentials")
+	}
+
+	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
+	if err != nil {
+		endpoint.log.Debug("unauthorized request", zap.Error(err))
+		return nil, nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+	}
+
 	if err = endpoint.checkRate(ctx, keyInfo.ProjectID); err != nil {
 		endpoint.log.Debug("rate check failed", zap.Error(err))
+		return nil, nil, err
+	}
+
+	return key, keyInfo, nil
+}
+
+func (endpoint *Endpoint) validateRevoke(ctx context.Context, header *pb.RequestHeader, macToRevoke *macaroon.Macaroon) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+	key, keyInfo, err := endpoint.validateBasic(ctx, header)
+	if err != nil {
 		return nil, err
 	}
 
-	// Revocations are currently handled by just deleting the key.
-	err = key.Check(ctx, keyInfo.Secret, action, nil)
+	// The macaroon to revoke must be valid with the same secret as the key.
+	if !macToRevoke.Validate(keyInfo.Secret) {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Macaroon to revoke invalid")
+	}
+
+	keyTail := key.Tail()
+	tails := macToRevoke.Tails(keyInfo.Secret)
+
+	// A macaroon cannot revoke itself. So we only check len(tails-1), skipping
+	// the final tail.  To be valid, the final tail of the auth key must be
+	// contained within the checked tails of the macaroon we want to revoke.
+	for i := 0; i < len(tails)-1; i++ {
+		if subtle.ConstantTimeCompare(tails[i], keyTail) == 1 {
+			return keyInfo, nil
+		}
+	}
+	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized attempt to revoke macaroon")
+}
+
+// getKeyInfo returns key info based on the header.
+func (endpoint *Endpoint) getKeyInfo(ctx context.Context, header *pb.RequestHeader) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	key, err := getAPIKey(ctx, header)
 	if err != nil {
-		endpoint.log.Debug("unauthorized request", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid API credentials")
+	}
+
+	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
+	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
 
@@ -198,35 +251,6 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 		mon.Event("metainfo_rate_limit_exceeded") //locked
 
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
-	}
-
-	return nil
-}
-
-func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequestOld) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = endpoint.validateBucket(ctx, req.Bucket)
-	if err != nil {
-		return err
-	}
-
-	err = endpoint.validatePointer(ctx, req.Pointer, req.OriginalLimits)
-	if err != nil {
-		return err
-	}
-
-	if len(req.OriginalLimits) > 0 {
-		createRequest, found := endpoint.createRequests.Load(req.OriginalLimits[0].SerialNumber)
-
-		switch {
-		case !found:
-			return Error.New("missing create request or request expired")
-		case !createRequest.Expiration.Equal(req.Pointer.ExpirationDate):
-			return Error.New("pointer expiration date does not match requested one")
-		case !proto.Equal(createRequest.Redundancy, req.Pointer.Remote.Redundancy):
-			return Error.New("pointer redundancy scheme date does not match requested one")
-		}
 	}
 
 	return nil
@@ -373,36 +397,6 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 
 			pieceNums[piece.PieceNum] = struct{}{}
 			nodeIds[piece.NodeId] = struct{}{}
-		}
-	}
-
-	return nil
-}
-
-func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb.RedundancyScheme) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if endpoint.config.RS.Validate {
-		if endpoint.config.RS.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
-			endpoint.config.RS.MinTotalThreshold > int(redundancy.Total) ||
-			endpoint.config.RS.MaxTotalThreshold < int(redundancy.Total) ||
-			endpoint.config.RS.MinThreshold != int(redundancy.MinReq) ||
-			endpoint.config.RS.RepairThreshold != int(redundancy.RepairThreshold) ||
-			endpoint.config.RS.SuccessThreshold != int(redundancy.SuccessThreshold) {
-			return Error.New("provided redundancy scheme parameters not allowed: want [%d, %d, %d, %d-%d, %d] got [%d, %d, %d, %d, %d]",
-				endpoint.config.RS.MinThreshold,
-				endpoint.config.RS.RepairThreshold,
-				endpoint.config.RS.SuccessThreshold,
-				endpoint.config.RS.MinTotalThreshold,
-				endpoint.config.RS.MaxTotalThreshold,
-				endpoint.config.RS.ErasureShareSize.Int32(),
-
-				redundancy.MinReq,
-				redundancy.RepairThreshold,
-				redundancy.SuccessThreshold,
-				redundancy.Total,
-				redundancy.ErasureShareSize,
-			)
 		}
 	}
 

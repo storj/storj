@@ -24,12 +24,12 @@ export default class BucketItem extends Vue {
 
 <style scoped lang="scss">
     .container {
-        padding: 15px 0;
+        padding: 20px 40px;
         outline: none;
         display: flex;
         background: #fff;
         margin-bottom: 1px;
-        border-top: 1px solid #d7d7d7;
+        width: calc(100% - 80px);
 
         &__item {
             width: 20%;

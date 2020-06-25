@@ -64,7 +64,7 @@ export default class SNOFooter extends Vue {
         min-height: 89px;
         display: flex;
         justify-content: center;
-        background-color: #fff;
+        background-color: var(--block-background-color);
         align-items: center;
 
         &__content-holder {
@@ -88,7 +88,7 @@ export default class SNOFooter extends Vue {
                 &__support-link {
                     font-size: 14px;
                     text-decoration: none;
-                    color: #224ca5;
+                    color: var(--link-color);
                 }
 
                 &__community-link {
@@ -98,19 +98,27 @@ export default class SNOFooter extends Vue {
         }
     }
 
+    .storj-logo {
+
+        path {
+            fill: var(--icon-color) !important;
+        }
+    }
+
     @media screen and (max-width: 600px) {
 
         .footer {
             height: auto;
-            padding: 25px 36px;
+            padding: 10px 36px;
+            min-height: 29px;
 
             &__content-holder {
                 flex-direction: column;
                 justify-content: flex-start;
                 align-items: flex-start;
 
-                &__links-area {
-                    margin-top: 25px;
+                &__icon {
+                    display: none;
                 }
             }
         }

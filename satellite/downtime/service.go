@@ -33,10 +33,10 @@ func NewService(log *zap.Logger, overlay *overlay.Service, contact *contact.Serv
 }
 
 // CheckAndUpdateNodeAvailability tries to ping the supplied address and updates the uptime based on ping success or failure. Returns true if the ping and uptime updates are successful.
-func (service *Service) CheckAndUpdateNodeAvailability(ctx context.Context, nodeID storj.NodeID, address string) (success bool, err error) {
+func (service *Service) CheckAndUpdateNodeAvailability(ctx context.Context, nodeurl storj.NodeURL) (success bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pingNodeSuccess, pingErrorMessage, err := service.contact.PingBack(ctx, address, nodeID)
+	pingNodeSuccess, pingErrorMessage, err := service.contact.PingBack(ctx, nodeurl)
 	if err != nil {
 		service.log.Error("error during downtime detection ping back.",
 			zap.String("ping error", pingErrorMessage),
@@ -46,10 +46,10 @@ func (service *Service) CheckAndUpdateNodeAvailability(ctx context.Context, node
 	}
 
 	if pingNodeSuccess {
-		_, err = service.overlay.UpdateUptime(ctx, nodeID, true)
+		_, err = service.overlay.UpdateUptime(ctx, nodeurl.ID, true)
 		if err != nil {
 			service.log.Error("error updating node contact success information.",
-				zap.Stringer("node ID", nodeID),
+				zap.Stringer("node ID", nodeurl.ID),
 				zap.Error(err))
 
 			return false, errs.Wrap(err)
@@ -58,10 +58,10 @@ func (service *Service) CheckAndUpdateNodeAvailability(ctx context.Context, node
 		return true, nil
 	}
 
-	_, err = service.overlay.UpdateUptime(ctx, nodeID, false)
+	_, err = service.overlay.UpdateUptime(ctx, nodeurl.ID, false)
 	if err != nil {
 		service.log.Error("error updating node contact failure information.",
-			zap.Stringer("node ID", nodeID),
+			zap.Stringer("node ID", nodeurl.ID),
 			zap.Error(err))
 
 		return false, errs.Wrap(err)

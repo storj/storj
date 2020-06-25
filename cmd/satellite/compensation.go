@@ -39,7 +39,7 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	if err := db.CheckVersion(ctx); err != nil {
-		zap.S().Fatal("failed satellite database version check: ", err)
+		zap.L().Fatal("Failed satellite database version check.", zap.Error(err))
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
@@ -67,9 +67,12 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 		if err != nil {
 			return errs.New("unable to split node %q address %q", usage.NodeID, node.Address.Address)
 		}
-		nodeLastIP, _, err := net.SplitHostPort(node.LastIPPort)
-		if err != nil {
-			return errs.New("unable to split node %q last ip:port %q", usage.NodeID, node.LastIPPort)
+		var nodeLastIP string
+		if node.LastIPPort != "" {
+			nodeLastIP, _, err = net.SplitHostPort(node.LastIPPort)
+			if err != nil {
+				return errs.New("unable to split node %q last ip:port %q", usage.NodeID, node.LastIPPort)
+			}
 		}
 
 		paidYTD, err := db.Compensation().QueryPaidInYear(ctx, usage.NodeID, period.Year)
@@ -78,18 +81,19 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 		}
 
 		nodeInfo := compensation.NodeInfo{
-			ID:             usage.NodeID,
-			CreatedAt:      node.CreatedAt,
-			Disqualified:   node.Disqualified,
-			GracefulExit:   gracefulExit,
-			UsageAtRest:    usage.AtRestTotal,
-			UsageGet:       usage.GetTotal,
-			UsagePut:       usage.PutTotal,
-			UsageGetRepair: usage.GetRepairTotal,
-			UsagePutRepair: usage.PutRepairTotal,
-			UsageGetAudit:  usage.GetAuditTotal,
-			TotalHeld:      withheldAmounts.TotalHeld,
-			TotalDisposed:  withheldAmounts.TotalDisposed,
+			ID:                 usage.NodeID,
+			CreatedAt:          node.CreatedAt,
+			LastContactSuccess: node.Reputation.LastContactSuccess,
+			Disqualified:       node.Disqualified,
+			GracefulExit:       gracefulExit,
+			UsageAtRest:        usage.AtRestTotal,
+			UsageGet:           usage.GetTotal,
+			UsagePut:           usage.PutTotal,
+			UsageGetRepair:     usage.GetRepairTotal,
+			UsagePutRepair:     usage.PutRepairTotal,
+			UsageGetAudit:      usage.GetAuditTotal,
+			TotalHeld:          withheldAmounts.TotalHeld,
+			TotalDisposed:      withheldAmounts.TotalDisposed,
 		}
 
 		invoice := compensation.Invoice{
@@ -144,7 +148,7 @@ func recordPeriod(ctx context.Context, paystubsCSV, paymentsCSV string) (int, in
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	if err := db.CheckVersion(ctx); err != nil {
-		zap.S().Fatal("failed satellite database version check: ", err)
+		zap.L().Fatal("Failed satellite database version check.", zap.Error(err))
 		return 0, 0, errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
@@ -168,7 +172,7 @@ func recordOneOffPayments(ctx context.Context, paymentsCSV string) (int, error) 
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	if err := db.CheckVersion(ctx); err != nil {
-		zap.S().Fatal("failed satellite database version check: ", err)
+		zap.L().Fatal("Failed satellite database version check.", zap.Error(err))
 		return 0, errs.New("Error checking version for satellitedb: %+v", err)
 	}
 

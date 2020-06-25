@@ -3,13 +3,6 @@ set -euo pipefail
 
 SETUP_PARAMS=""
 
-if [[ -n "${API_KEY:-}" ]]; then
-	export STORJ_POINTER_DB_AUTH_API_KEY="${API_KEY}"
-  export STORJ_AUDIT_API_KEY="${API_KEY}"
-  export STORJ_POINTER_DB_AUTH_API_KEY="${API_KEY}"
-  export STORJ_REPAIRER_API_KEY="${API_KEY}"
-fi
-
 if [[ -n "${STORJ_DATABASE:-}" ]]; then
   export STORJ_POINTER_DB_DATABASE_URL="${STORJ_DATABASE}"
 fi
@@ -25,20 +18,24 @@ fi
 
 RUN_PARAMS="${RUN_PARAMS:-} --config-dir ${CONF_PATH}"
 
-if [ "${SATELLITE_MIGRATE:-}" = "true" ]; then
-  exec ./satellite run migration $RUN_PARAMS "$@"
+if [ "${SATELLITE_ADMIN:-}" = "true" ]; then
+  exec ./satellite run admin $RUN_PARAMS "$@"
 fi
 
 if [ "${SATELLITE_API:-}" = "true" ]; then
   exec ./satellite run api $RUN_PARAMS "$@"
 fi
 
-if [ "${SATELLITE_REPAIR:-}" = "true" ]; then
-  exec ./satellite run repair $RUN_PARAMS "$@"
-fi
-
 if [ "${SATELLITE_GC:-}" = "true" ]; then
   exec ./satellite run garbage-collection $RUN_PARAMS "$@"
+fi
+
+if [ "${SATELLITE_MIGRATE:-}" = "true" ]; then
+  exec ./satellite run migration $RUN_PARAMS "$@"
+fi
+
+if [ "${SATELLITE_REPAIR:-}" = "true" ]; then
+  exec ./satellite run repair $RUN_PARAMS "$@"
 fi
 
 exec ./satellite run $RUN_PARAMS "$@"

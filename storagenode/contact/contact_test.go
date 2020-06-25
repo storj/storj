@@ -19,10 +19,9 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		nodeDossier := planet.StorageNodes[0].Local()
 		pingStats := planet.StorageNodes[0].Contact.PingStats
 
-		conn, err := planet.Satellites[0].Dialer.DialNode(ctx, &nodeDossier.Node)
+		conn, err := planet.Satellites[0].Dialer.DialNodeURL(ctx, planet.StorageNodes[0].NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 

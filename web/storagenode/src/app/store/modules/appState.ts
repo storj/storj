@@ -9,6 +9,8 @@ export const APPSTATE_MUTATIONS = {
     TOGGLE_PAYOUT_CALENDAR: 'TOGGLE_PAYOUT_CALENDAR',
     CLOSE_ADDITIONAL_CHARTS: 'CLOSE_ADDITIONAL_CHARTS',
     CLOSE_ALL_POPUPS: 'CLOSE_ALL_POPUPS',
+    SET_DARK: 'SET_DARK',
+    SET_NO_PAYOUT_INFO: 'SET_NO_PAYOUT_INFO',
 };
 
 export const APPSTATE_ACTIONS = {
@@ -19,6 +21,8 @@ export const APPSTATE_ACTIONS = {
     CLOSE_ADDITIONAL_CHARTS: 'CLOSE_ADDITIONAL_CHARTS',
     TOGGLE_PAYOUT_CALENDAR: 'TOGGLE_PAYOUT_CALENDAR',
     CLOSE_ALL_POPUPS: 'CLOSE_ALL_POPUPS',
+    SET_DARK_MODE: 'SET_DARK_MODE',
+    SET_NO_PAYOUT_DATA: 'SET_NO_PAYOUT_DATA',
 };
 
 const {
@@ -38,6 +42,8 @@ export const appStateModule = {
         isEgressChartShown: false,
         isIngressChartShown: false,
         isPayoutCalendarShown: false,
+        isDarkMode: false,
+        isNoPayoutData: false,
     },
     mutations: {
         [TOGGLE_SATELLITE_SELECTION](state: any): void {
@@ -59,6 +65,12 @@ export const appStateModule = {
             state.isBandwidthChartShown = true;
             state.isIngressChartShown = false;
             state.isEgressChartShown = false;
+        },
+        [APPSTATE_MUTATIONS.SET_DARK](state: any, value): void {
+            state.isDarkMode = value;
+        },
+        [APPSTATE_MUTATIONS.SET_NO_PAYOUT_INFO](state: any, value): void {
+            state.isNoPayoutData = value;
         },
         [CLOSE_ALL_POPUPS](state: any): void {
             state.isSatelliteSelectionShown = false;
@@ -99,12 +111,17 @@ export const appStateModule = {
             commit(APPSTATE_MUTATIONS.TOGGLE_BANDWIDTH_CHART);
             commit(APPSTATE_MUTATIONS.TOGGLE_INGRESS_CHART);
         },
-
+        [APPSTATE_ACTIONS.SET_DARK_MODE]: function ({commit}: any, value: boolean): void {
+            commit(APPSTATE_MUTATIONS.SET_DARK, value);
+        },
+        [APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA]: function ({commit}: any, value: boolean): void {
+            commit(APPSTATE_MUTATIONS.SET_NO_PAYOUT_INFO, value);
+        },
         [APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS]: function ({commit}: any): void {
             commit(APPSTATE_MUTATIONS.CLOSE_ADDITIONAL_CHARTS);
         },
         [APPSTATE_ACTIONS.CLOSE_ALL_POPUPS]: function ({commit}: any): void {
             commit(APPSTATE_MUTATIONS.CLOSE_ALL_POPUPS);
-        }
+        },
     },
 };

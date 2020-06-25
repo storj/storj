@@ -8,24 +8,24 @@
             <div class="save-api-popup__copy-area__key-area">
                 <p class="save-api-popup__copy-area__key-area__key">{{ apiKeySecret }}</p>
             </div>
-            <div class="copy-button" @click="onCopyClick">
-                <CopyButtonLabelIcon/>
-                <p class="copy-button__label">Copy</p>
-            </div>
+            <p class="save-api-popup__copy-area__copy-button" @click="onCopyClick">Copy</p>
         </div>
-        <div class="save-api-popup__link-container">
+        <div class="save-api-popup__next-step-area">
+            <span class="save-api-popup__next-step-area__label">Next Step:</span>
             <a
-                class="save-api-popup__link-container__link"
+                class="save-api-popup__next-step-area__link"
                 href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli"
                 target="_blank"
-                v-if="isLinkVisible"
                 @click.self.stop="segmentTrack"
             >
-                Create a Bucket & Upload an Object ->
+                Set Up Uplink CLI
             </a>
-        </div>
-        <div class="save-api-popup__close-cross-container" @click="onCloseClick">
-            <CloseCrossIcon/>
+            <VButton
+                label="Done"
+                width="156px"
+                height="40px"
+                :on-press="onCloseClick"
+            />
         </div>
         <div class="blur-content"></div>
     </div>
@@ -35,17 +35,14 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-
-import CopyButtonLabelIcon from '@/../static/images/apiKeys/copyButtonLabel.svg';
-import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import VButton from '@/components/common/VButton.vue';
 
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
+        VButton,
         HeaderlessInput,
-        CopyButtonLabelIcon,
-        CloseCrossIcon,
     },
 })
 export default class ApiKeysCopyPopup extends Vue {
@@ -58,24 +55,23 @@ export default class ApiKeysCopyPopup extends Vue {
     private readonly apiKeySecret: string;
 
     /**
-     * Indicates if link to doc should appear after api key secret copy.
+     * Closes popup.
      */
-    public isLinkVisible: boolean = false;
-
     public onCloseClick(): void {
         this.$emit('closePopup');
-        this.isLinkVisible = false;
     }
 
     /**
      * Copies api key secret to buffer.
      */
     public onCopyClick(): void {
-        this.isLinkVisible = true;
         this.$copyText(this.apiKeySecret);
         this.$notify.success('Key saved to clipboard');
     }
 
+    /**
+     * Tracks if user checked uplink CLI docs.
+     */
     public segmentTrack(): void {
         this.$segment.track(SegmentEvent.CLI_DOCS_VIEWED, {
             email: this.$store.getters.user.email,
@@ -121,36 +117,54 @@ export default class ApiKeysCopyPopup extends Vue {
                     word-break: break-all;
                 }
             }
+
+            &__copy-button {
+                padding: 11px 22px;
+                margin: 0 0 0 20px;
+                background: #fff;
+                border-radius: 6px;
+                font-size: 15px;
+                cursor: pointer;
+                color: #2683ff;
+
+                &:hover {
+                    color: #fff;
+                    background-color: #2683ff;
+                }
+            }
         }
 
-        &__link-container {
+        &__next-step-area {
             display: flex;
             justify-content: flex-end;
             align-items: center;
             width: 100%;
-            height: 21px;
+
+            &__label {
+                font-size: 15px;
+                line-height: 49px;
+                letter-spacing: -0.100741px;
+                color: #a0a0a0;
+                margin-right: 15px;
+            }
 
             &__link {
-                font-size: 16px;
-                line-height: 21px;
-                text-decoration: underline;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid #2683ff;
+                border-radius: 6px;
+                width: 154px;
+                height: 38px;
+                font-size: 15px;
+                line-height: 22px;
                 color: #2683ff;
-            }
-        }
+                margin-right: 15px;
 
-        &__close-cross-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: absolute;
-            right: 29px;
-            top: 29px;
-            height: 24px;
-            width: 24px;
-            cursor: pointer;
-
-            &:hover .close-cross-svg-path {
-                fill: #2683ff;
+                &:hover {
+                    color: #fff;
+                    background-color: #2683ff;
+                }
             }
         }
 
@@ -163,31 +177,6 @@ export default class ApiKeysCopyPopup extends Vue {
             height: 70.5vh;
             z-index: 100;
             opacity: 0.3;
-        }
-    }
-
-    .copy-button {
-        display: flex;
-        background-color: #2683ff;
-        padding: 13px 36px;
-        cursor: pointer;
-        align-items: center;
-        justify-content: space-between;
-        color: #fff;
-        border: 1px solid #2683ff;
-        box-sizing: border-box;
-        border-radius: 8px;
-        font-size: 14px;
-        font-family: 'font_bold', sans-serif;
-        margin-left: 10px;
-
-        &__label {
-            margin: 0 0 0 5px;
-            user-select: none;
-        }
-
-        &:hover {
-            background-color: #196cda;
         }
     }
 </style>

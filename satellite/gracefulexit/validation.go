@@ -57,31 +57,31 @@ func (endpoint *Endpoint) verifyPieceTransferred(ctx context.Context, message *p
 	// verify that the satellite signed the original order limit
 	err := signing.VerifyOrderLimitSignature(ctx, endpoint.signer, originalOrderLimit)
 	if err != nil {
-		return ErrInvalidArgument.Wrap(err)
+		return ErrInvalidArgument.New("Could not validate signature from satellite on claimed original order limit: %v", err)
 	}
 
 	// verify that the public key on the order limit signed the original piece hash
 	err = signing.VerifyUplinkPieceHashSignature(ctx, originalOrderLimit.UplinkPublicKey, originalPieceHash)
 	if err != nil {
-		return ErrInvalidArgument.Wrap(err)
+		return ErrInvalidArgument.New("Could not validate signature from original order limit's public key on original piece hash: %v", err)
 	}
 
 	if originalOrderLimit.PieceId != message.Succeeded.OriginalPieceId {
-		return ErrInvalidArgument.New("Invalid original piece ID")
+		return ErrInvalidArgument.New("Original piece ID in piece-transfer success message does not match piece ID in original order limit")
 	}
 
 	receivingNodeID := transfer.SatelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
 	calculatedNewPieceID := transfer.OriginalPointer.GetRemote().RootPieceId.Derive(receivingNodeID, transfer.PieceNum)
 	if calculatedNewPieceID != replacementPieceHash.PieceId {
-		return ErrInvalidArgument.New("Invalid replacement piece ID")
+		return ErrInvalidArgument.New("Replacement piece ID does not match derived piece ID for receivingNodeID %s, PieceNum %d: %q != %q", receivingNodeID.String(), transfer.PieceNum, calculatedNewPieceID.String(), replacementPieceHash.PieceId.String())
 	}
 
-	signee := signing.SigneeFromPeerIdentity(receivingNodePeerID)
+	signer := signing.SigneeFromPeerIdentity(receivingNodePeerID)
 
 	// verify that the new node signed the replacement piece hash
-	err = signing.VerifyPieceHashSignature(ctx, signee, replacementPieceHash)
+	err = signing.VerifyPieceHashSignature(ctx, signer, replacementPieceHash)
 	if err != nil {
-		return ErrInvalidArgument.Wrap(err)
+		return ErrInvalidArgument.New("Could not validate signature from receiving node on replacement piece hash: %v", err)
 	}
 	return nil
 }

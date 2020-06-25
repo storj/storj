@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -21,10 +22,10 @@ import (
 
 var shareCfg struct {
 	DisallowReads     bool     `default:"false" help:"if true, disallow reads" basic-help:"true"`
-	DisallowWrites    bool     `default:"false" help:"if true, disallow writes" basic-help:"true"`
+	DisallowWrites    bool     `default:"false" help:"if true, disallow writes. see also readonly" basic-help:"true"`
 	DisallowLists     bool     `default:"false" help:"if true, disallow lists" basic-help:"true"`
-	DisallowDeletes   bool     `default:"false" help:"if true, disallow deletes" basic-help:"true"`
-	Readonly          bool     `default:"false" help:"implies disallow_writes and disallow_deletes" basic-help:"true"`
+	DisallowDeletes   bool     `default:"false" help:"if true, disallow deletes. see also readonly" basic-help:"true"`
+	Readonly          bool     `default:"true" help:"implies disallow_writes and disallow_deletes. you must specify --readonly=false if you don't want this" basic-help:"true"`
 	Writeonly         bool     `default:"false" help:"implies disallow_reads and disallow_lists" basic-help:"true"`
 	NotBefore         string   `help:"disallow access before this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
 	NotAfter          string   `help:"disallow access after this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
@@ -106,7 +107,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		})
 	}
 
-	access, err := shareCfg.GetNewAccess()
+	access, err := shareCfg.GetAccess()
 	if err != nil {
 		return err
 	}
@@ -129,9 +130,11 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// TODO extend libuplink to give this value
-	// fmt.Println("Sharing access to satellite", access.SatelliteAddr)
-
+	satelliteAddr, _, _, err := parseAccess(newAccessData)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Sharing access to satellite", satelliteAddr)
 	fmt.Println("=========== ACCESS RESTRICTIONS ==========================================================")
 	fmt.Println("Download  :", formatPermission(permission.AllowDownload))
 	fmt.Println("Upload    :", formatPermission(permission.AllowUpload))
@@ -143,16 +146,16 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println("=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========")
 	fmt.Println("Access    :", newAccessData)
 
-	if len(shareCfg.AllowedPathPrefix) == 1 {
+	if len(shareCfg.AllowedPathPrefix) == 1 && !permission.AllowUpload && !permission.AllowDelete {
 		fmt.Println("=========== BROWSER URL ==================================================================")
 		p, err := fpath.New(shareCfg.AllowedPathPrefix[0])
 		if err != nil {
 			return err
 		}
-		fmt.Println("URL       :", fmt.Sprintf("%s/%s/%s/%s", shareCfg.BaseURL, newAccessData, p.Bucket(), p.Path()))
-	} else {
-		fmt.Println("=========== BROWSER URL PREFIX ===========================================================")
-		fmt.Println("URL       :", fmt.Sprintf("%s/%s", shareCfg.BaseURL, newAccessData))
+		fmt.Println("URL       :", fmt.Sprintf("%s/%s/%s/%s", shareCfg.BaseURL,
+			url.PathEscape(newAccessData),
+			url.PathEscape(p.Bucket()),
+			url.PathEscape(p.Path())))
 	}
 
 	if shareCfg.ExportTo != "" {

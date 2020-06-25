@@ -1,0 +1,38 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`OverviewStep.vue renders correctly 1`] = `
+<div class="overview-area">
+  <h1 class="overview-area__title">Welcome to Storj</h1>
+  <p class="overview-area__sub-title">
+    You’re just a few steps away from uploading your first object to the 100% secure, decentralized cloud. After
+    adding payment, you’ll create a project, API key, get set up with Storj, and start uploading objects.
+  </p>
+  <div class="overview-area__steps-area">
+    <div class="overview-area__steps-area__step"><svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" class="overview-area__steps-area__step__icon">
+        <circle cx="15" cy="15" r="15" fill="#519CFF"></circle>
+        <path d="M17.0916 9.36364H14.7791L11.8984 11.1875V13.3693L14.5632 11.6989H14.6314V21H17.0916V9.36364Z" fill="white"></path>
+      </svg> <img src="@/../static/images/onboardingTour/project.jpg" alt="project image" class="overview-step-image">
+      <h2 class="overview-area__steps-area__step__title">Name Your Project</h2> <span class="overview-area__steps-area__step__subtitle">
+                Projects are where buckets are created for storing data.
+            </span>
+    </div>
+    <div class="overview-area__steps-area__step second-step"><svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" class="overview-area__steps-area__step__icon">
+        <circle cx="15" cy="15" r="15" fill="#519CFF"></circle>
+        <path d="M11.4041 21H19.6996V18.9886H14.8132V18.9091L16.5121 17.2443C18.9041 15.0625 19.5462 13.9716 19.5462 12.6477C19.5462 10.6307 17.8984 9.20455 15.4041 9.20455C12.9609 9.20455 11.2848 10.6648 11.2905 12.9489H13.6257C13.62 11.8352 14.3246 11.1534 15.3871 11.1534C16.4098 11.1534 17.1712 11.7898 17.1712 12.8125C17.1712 13.7386 16.603 14.375 15.5462 15.392L11.4041 19.2273V21Z" fill="white"></path>
+      </svg> <img src="@/../static/images/onboardingTour/api-key.jpg" alt="api keys image" class="overview-step-image">
+      <h2 class="overview-area__steps-area__step__title">Create an API Key</h2> <span class="overview-area__steps-area__step__subtitle">
+                Generate access to your project to upload data.
+            </span>
+    </div>
+    <div class="overview-area__steps-area__step"><svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" class="overview-area__steps-area__step__icon">
+        <circle cx="15" cy="15" r="15" fill="#519CFF"></circle>
+        <path d="M15.4709 21.1591C18.0845 21.1591 19.9538 19.7216 19.9482 17.733C19.9538 16.2841 19.0334 15.25 17.3232 15.0341V14.9432C18.6243 14.7102 19.522 13.7898 19.5163 12.483C19.522 10.6477 17.9141 9.20455 15.505 9.20455C13.1186 9.20455 11.3232 10.6023 11.2891 12.6136H13.647C13.6754 11.7273 14.4879 11.1534 15.4936 11.1534C16.4879 11.1534 17.1527 11.7557 17.147 12.6307C17.1527 13.5455 16.3743 14.1648 15.255 14.1648H14.1697V15.9716H15.255C16.5732 15.9716 17.397 16.6307 17.3913 17.5682C17.397 18.4943 16.6016 19.1307 15.4766 19.1307C14.3913 19.1307 13.5788 18.5625 13.5334 17.7102H11.0561C11.0959 19.7443 12.9141 21.1591 15.4709 21.1591Z" fill="white"></path>
+      </svg> <img src="@/../static/images/onboardingTour/uplink.jpg" alt="uplink image" class="overview-step-image">
+      <h2 class="overview-area__steps-area__step__title">Upload Data</h2> <span class="overview-area__steps-area__step__subtitle">
+                Store your data on the secure, decentralized cloud.
+            </span>
+    </div>
+  </div>
+  <div class="get-started-button container" style="width: 251px; height: 56px;"><span class="label">Get Started</span></div>
+</div>
+`;

@@ -1,0 +1,28 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`CreditsItem renders correctly if expired 1`] = `
+<div class="container">
+  <p class="container__item">Trial Credit</p>
+  <p class="container__item">Expired</p>
+  <p class="container__item">50 GB ($2.75)</p>
+  <p class="container__item available">$0.00</p>
+</div>
+`;
+
+exports[`CreditsItem renders correctly if not expired 1`] = `
+<div class="container">
+  <p class="container__item">Trial Credit</p>
+  <p class="container__item">Active</p>
+  <p class="container__item">50 GB ($2.75)</p>
+  <p class="container__item available">$2.75</p>
+</div>
+`;
+
+exports[`CreditsItem renders correctly if used 1`] = `
+<div class="container">
+  <p class="container__item">Trial Credit</p>
+  <p class="container__item">Used</p>
+  <p class="container__item">90 GB ($5.00)</p>
+  <p class="container__item available">$0.00</p>
+</div>
+`;

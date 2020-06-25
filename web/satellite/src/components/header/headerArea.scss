@@ -9,7 +9,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 65px;
+    padding: 0 30px;
     position: relative;
 
     &__left-area,
@@ -48,6 +48,7 @@
     position: absolute;
     top: 100px;
     left: 0;
+    height: calc(100vh - 240px);
 }
 
 .navigation-blur {
@@ -92,5 +93,13 @@
         cursor: pointer;
         position: absolute;
         left: calc(50% - 41px);
+    }
+}
+
+@media screen and (max-height: 950px) {
+
+    .adapted-navigation {
+        padding: 20px 0 50px 0;
+        height: calc(100vh - 170px);
     }
 }

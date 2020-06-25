@@ -27,10 +27,10 @@ type CreditsDB interface {
 
 	// InsertCreditsSpending inserts spending to user's spending list into the database.
 	InsertCreditsSpending(ctx context.Context, spending CreditsSpending) error
-	// ListCreditsSpendings returns spending received for concrete deposit.
+	// ListCreditsSpendings returns spendings received for concrete deposit.
 	ListCreditsSpendings(ctx context.Context, userID uuid.UUID) ([]CreditsSpending, error)
-	// ListCreditsSpendingsPaged returns all spending of specific user.
-	ListCreditsSpendingsPaged(ctx context.Context, status int, offset int64, limit int, before time.Time) (CreditsSpendingsPage, error)
+	// ListCreditsSpendingsPaged returns all spendings for specific period.
+	ListCreditsSpendingsPaged(ctx context.Context, status int, offset int64, limit int, period time.Time) (CreditsSpendingsPage, error)
 	// ApplyCreditsSpending updated spending's status.
 	ApplyCreditsSpending(ctx context.Context, spendingID uuid.UUID) (err error)
 
@@ -56,6 +56,7 @@ type CreditsSpending struct {
 	UserID    uuid.UUID             `json:"userId"`
 	Amount    int64                 `json:"amount"`
 	Status    CreditsSpendingStatus `json:"status"`
+	Period    time.Time             `json:"period"`
 	Created   time.Time             `json:"created"`
 }
 

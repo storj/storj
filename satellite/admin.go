@@ -56,7 +56,7 @@ type Admin struct {
 func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB,
 	revocationDB extensions.RevocationDB,
-	versionInfo version.Info, config *Config) (*Admin, error) {
+	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Admin, error) {
 	peer := &Admin{
 		Log:      log,
 		Identity: full,
@@ -78,7 +78,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "Admin"
-		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig)
+		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
@@ -88,8 +88,12 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{
 		if !versionInfo.IsZero() {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
+			peer.Log.Debug("Version info",
+				zap.Stringer("Version", versionInfo.Version.Version),
+				zap.String("Commit Hash", versionInfo.CommitHash),
+				zap.Stringer("Build Timestamp", versionInfo.Timestamp),
+				zap.Bool("Release Build", versionInfo.Release),
+			)
 		}
 		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = checker.NewChore(peer.Version.Service, config.Version.CheckInterval)

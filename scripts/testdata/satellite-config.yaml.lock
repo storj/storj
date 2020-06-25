@@ -23,7 +23,7 @@
 # audit.slots: 3
 
 # number of workers to run audits on paths
-# audit.worker-concurrency: 1
+# audit.worker-concurrency: 2
 
 # how frequently checker should check for bad segments
 # checker.interval: 30s
@@ -61,6 +61,9 @@ compensation.rates.put-tb: "0"
 # comma separated monthly withheld percentage rates
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
+# url link for account activation redirect
+# console.account-activation-redirect-url: ""
+
 # server address of the graphql api gateway and frontend app
 # console.address: :10100
 
@@ -79,11 +82,26 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io
 
+# id for google tag manager
+# console.google-tag-manager-id: ""
+
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
 # enable open registration
 # console.open-registration-enabled: false
+
+# names of partnered satellites
+# console.partnered-satellite-names: US-Central-1,Europe-West-1,Asia-East-1
+
+# number of events before the limit kicks in
+# console.rate-limit.burst: 5
+
+# the rate at which request are allowed
+# console.rate-limit.duration: 5m0s
+
+# number of IPs whose rate limits we store
+# console.rate-limit.num-limits: 1000
 
 # used to display at web satellite console
 # console.satellite-name: Storj
@@ -103,8 +121,14 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
 
+# url link to sign up verification page
+# console.verification-page-url: https://tardigrade.io/verify
+
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
+
+# timeout for pinging storage nodes
+# contact.timeout: 10m0s
 
 # satellite database connection string
 # database: postgres://
@@ -115,8 +139,14 @@ contact.external-address: ""
 # satellite database api key expiration
 # database-options.api-keys-cache.expiration: 1m0s
 
+# macaroon revocation cache capacity
+# database-options.revocations-cache.capacity: 10000
+
+# macaroon revocation cache expiration
+# database-options.revocations-cache.expiration: 5m0s
+
 # how often to delete expired serial numbers
-# db-cleanup.serials-interval: 24h0m0s
+# db-cleanup.serials-interval: 4h0m0s
 
 # Maximum Database Connection Lifetime, -1ns means the stdlib default
 # db.conn_max_lifetime: -1ns
@@ -143,10 +173,19 @@ contact.external-address: ""
 # downtime.detection-interval: 1h0m0s
 
 # the downtime estimation chore should check this many offline nodes
-# downtime.estimation-batch-size: 100
+# downtime.estimation-batch-size: 1000
+
+# max number of concurrent connections in estimation chore
+# downtime.estimation-concurrency-limit: 10
 
 # how often to run the downtime estimation chore
 # downtime.estimation-interval: 1h0m0s
+
+# set if expired segment cleanup is enabled or not
+# expired-deletion.enabled: true
+
+# the time between each attempt to go through the db and clean up expired segments
+# expired-deletion.interval: 120h0m0s
 
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
@@ -207,6 +246,9 @@ identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 
 # path to the private key for this identity
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
+
+# bandwidth cache key time to live
+# live-accounting.bandwidth-cache-ttl: 5m0s
 
 # what to use for storing real-time accounting data
 # live-accounting.storage-backend: ""
@@ -274,7 +316,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how long to wait for new observers before starting iteration
 # metainfo.loop.coalesce-duration: 5s
 
-# metainfo loop rate limit (default is 0 which is unlimited segments per second)
+# how many items to query in a batch
+# metainfo.loop.list-limit: 10000
+
+# rate limit (default is 0 which is unlimited segments per second)
 # metainfo.loop.rate-limit: 0
 
 # maximum time allowed to pass between creating and committing a segment
@@ -282,6 +327,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 4.0 KiB
+
+# maximum segment metadata size
+# metainfo.max-metadata-size: 2.0 KiB
 
 # maximum segment size
 # metainfo.max-segment-size: 64.0 MiB
@@ -388,14 +436,14 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many orders to batch per transaction
 # orders.settlement-batch-size: 250
 
+# disable node cache
+# overlay.node-selection-cache.disabled: false
+
+# how stale the node selection cache can be
+# overlay.node-selection-cache.staleness: 3m0s
+
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 100
-
-# the initial shape 'alpha' used to calculate audit SNs reputation
-# overlay.node.audit-reputation-alpha0: 1
-
-# the initial shape 'beta' value used to calculate audit SNs reputation
-# overlay.node.audit-reputation-beta0: 0
 
 # the reputation cut-off for disqualifying SNs based on audit history
 # overlay.node.audit-reputation-dq: 0.6
@@ -416,7 +464,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.node.distinct-ip: true
 
 # how much disk space a node at minimum must have to be selected for upload
-# overlay.node.minimum-disk-space: 100.0 MB
+# overlay.node.minimum-disk-space: 500.0 MB
 
 # the minimum node software version for node selection queries
 # overlay.node.minimum-version: ""
@@ -426,6 +474,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 4h0m0s
+
+# whether nodes will be disqualified if they have been suspended for longer than the suspended grace period
+# overlay.node.suspension-dq-enabled: false
+
+# the time period that must pass before suspended nodes will be disqualified
+# overlay.node.suspension-grace-period: 168h0m0s
 
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 100
@@ -443,13 +497,25 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.coupon-project-limit: 0 B
 
 # coupon value in cents
-# payments.coupon-value: 30
+# payments.coupon-value: 275
 
 # price user should pay for each TB of egress
 # payments.egress-tb-price: "45"
 
 # minimum value of coin payments in cents before coupon is applied
-# payments.min-coin-payment: 5000
+# payments.min-coin-payment: 1000
+
+# price node receive for storing TB of audit in cents
+# payments.node-audit-bandwidth-price: 1000
+
+# price node receive for storing disk space in cents/TB
+# payments.node-disk-space-price: 150
+
+# price node receive for storing TB of egress in cents
+# payments.node-egress-bandwidth-price: 2000
+
+# price node receive for storing TB of repair in cents
+# payments.node-repair-bandwidth-price: 1000
 
 # price user should pay for each object stored in network per month
 # payments.object-price: "0.0000022"
@@ -461,7 +527,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.storage-tb-price: "10"
 
 # amount of time we wait before running next account balance update loop
-# payments.stripe-coin-payments.account-balance-update-interval: 1h30m0s
+# payments.stripe-coin-payments.account-balance-update-interval: 2m0s
 
 # toogle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
@@ -482,8 +548,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.stripe-coin-payments.stripe-secret-key: ""
 
 # amount of time we wait before running next transaction update loop
-# payments.stripe-coin-payments.transaction-update-interval: 30m0s
+# payments.stripe-coin-payments.transaction-update-interval: 2m0s
 
+# the URL for referral manager
 # referrals.referral-manager-url: ""
 
 # time limit for downloading pieces from a node for repair
@@ -513,20 +580,23 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to flush the reported serial rollups to the database
 # reported-rollup.interval: 5m0s
 
+# default queue batch size
+# reported-rollup.queue-batch-size: 10000
+
+# the default bandwidth usage limit
+# rollup.default-max-bandwidth: 50.0 GB
+
+# the default storage usage limit
+# rollup.default-max-usage: 50.0 GB
+
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true
 
 # how frequently rollup should run
 # rollup.interval: 24h0m0s
 
-# the bandwidth and storage usage limit for the alpha release
-# rollup.max-alpha-usage: 5.0 GB
-
 # public address to listen on
 server.address: :7777
-
-# log all GRPC traffic to zap logger
-server.debug-log-traffic: false
 
 # if true, client leaves may contain the most recent certificate revocation for the current certificate
 # server.extensions.revocation: true
@@ -551,6 +621,30 @@ server.private-address: 127.0.0.1:7778
 
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
+
+# address for jaeger agent
+# tracing.agent-addr: agent.tracing.datasci.storj.io:5775
+
+# application name for tracing identification
+# tracing.app: satellite
+
+# application suffix
+# tracing.app-suffix: -release
+
+# buffer size for collector batch packet size
+# tracing.buffer-size: 0
+
+# whether tracing collector is enabled
+# tracing.enabled: false
+
+# how frequently to flush traces to tracing agent
+# tracing.interval: 0s
+
+# buffer size for collector queue size
+# tracing.queue-size: 0
+
+# how frequent to sample traces
+# tracing.sample: 0
 
 # Interval to check the version
 # version.check-interval: 15m0s

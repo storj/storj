@@ -30,7 +30,7 @@ func main() {
 
 	err := runSchemaGen(ctx, log)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+w", err)
+		fmt.Fprintf(os.Stderr, "%v", err)
 		os.Exit(1)
 	}
 }
@@ -63,7 +63,7 @@ func runSchemaGen(ctx context.Context, log *zap.Logger) (err error) {
 		}
 	}()
 
-	err = db.CreateTables(ctx)
+	err = db.MigrateToLatest(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for storagenode db: %+w", err)
 	}

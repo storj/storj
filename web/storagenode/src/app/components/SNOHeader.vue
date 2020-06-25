@@ -10,11 +10,10 @@
                     alt="storj logo"
                     @click="onHeaderLogoClick"
                 />
-                <img
-                    src="@/../static/images/LogoWithoutText.png"
+                <StorjIconWithoutText
                     alt="storj logo"
                     class="header__content-holder__logo--small"
-                >
+                />
                 <div class="header__content-holder__logo-area__refresh-button" @click="onRefresh">
                     <RefreshIcon alt="refresh image"/>
                 </div>
@@ -24,6 +23,14 @@
                     <b class="header__content-holder__right-area__node-id-container__title">Node ID:</b>
                     <p class="header__content-holder__right-area__node-id-container__id">{{this.nodeId}}</p>
                 </div>
+                <div class="options-button" @click="openOptionsDropdown" >
+                    <SettingsIcon  />
+                </div>
+                <OptionsDropdown
+                    class="options-dropdown"
+                    v-show="isOptionsShown"
+                    @closeDropdown="closeOptionsDropdown"
+                />
                 <div class="header__content-holder__right-area__bell-area" @click.stop="toggleNotificationsPopup">
                     <BellIcon />
                     <span
@@ -45,12 +52,16 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import NotificationsPopup from '@/app/components/notifications/NotificationsPopup.vue';
+import OptionsDropdown from '@/app/components/OptionsDropdown.vue';
 
+import StorjIconWithoutText from '@/../static/images/LogoWithoutText.svg';
 import BellIcon from '@/../static/images/notifications/bell.svg';
 import RefreshIcon from '@/../static/images/refresh.svg';
+import SettingsIcon from '@/../static/images/SettingsDots.svg';
 import StorjIcon from '@/../static/images/storjIcon.svg';
 
 import { RouteConfig } from '@/app/router';
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
@@ -63,14 +74,18 @@ const {
 
 @Component({
     components: {
+        OptionsDropdown,
         NotificationsPopup,
+        SettingsIcon,
         StorjIcon,
         RefreshIcon,
         BellIcon,
+        StorjIconWithoutText,
     },
 })
 export default class SNOHeader extends Vue {
     public isNotificationPopupShown: boolean = false;
+    public isOptionsShown: boolean = false;
 
     /**
      * Lifecycle hook before render.
@@ -91,6 +106,14 @@ export default class SNOHeader extends Vue {
 
     public get hasNewNotifications(): boolean {
         return this.$store.state.notificationsModule.unreadCount > 0;
+    }
+
+    public openOptionsDropdown(): void {
+        setTimeout(() => this.isOptionsShown = true, 0);
+    }
+
+    public closeOptionsDropdown(): void {
+        this.isOptionsShown = false;
     }
 
     /**
@@ -129,11 +152,11 @@ export default class SNOHeader extends Vue {
 
     public async onRefresh(): Promise<void> {
         const selectedSatellite = this.$store.state.node.selectedSatellite.id;
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
 
         try {
             await this.$store.dispatch(GET_NODE_INFO);
             await this.$store.dispatch(SELECT_SATELLITE, selectedSatellite);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, selectedSatellite);
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {
             console.error(`${error.message} satellite data.`);
@@ -149,7 +172,7 @@ export default class SNOHeader extends Vue {
         height: 89px;
         display: flex;
         justify-content: center;
-        background-color: #fff;
+        background-color: var(--block-background-color);
         position: fixed;
         top: 0;
         z-index: 9999;
@@ -170,14 +193,23 @@ export default class SNOHeader extends Vue {
                     max-height: 42px;
                     cursor: pointer;
 
+                    .refresh-button-svg-rect {
+                        fill: var(--refresh-button-background-color);
+                        stroke: var(--refresh-button-border-color);
+                    }
+
+                    .refresh-button-svg-path {
+                        fill: var(--icon-color);
+                    }
+
                     &:hover {
 
                         .refresh-button-svg-rect {
-                            fill: #133e9c;
+                            fill: var(--icon-color);
                         }
 
                         .refresh-button-svg-path {
-                            fill: #fff;
+                            fill: var(--block-background-color);
                         }
                     }
                 }
@@ -225,6 +257,7 @@ export default class SNOHeader extends Vue {
                     width: 26px;
                     height: 32px;
                     cursor: pointer;
+                    margin-left: 35px;
 
                     &__new-circle {
                         position: absolute;
@@ -245,6 +278,42 @@ export default class SNOHeader extends Vue {
                 }
             }
         }
+    }
+
+    .storj-logo {
+
+        path {
+            fill: var(--icon-color) !important;
+        }
+    }
+
+    .settings-icon {
+
+        circle {
+            fill: var(--regular-icon-color) !important;
+        }
+    }
+
+    .notifications-bell-icon {
+
+        path {
+            fill: var(--regular-icon-color) !important;
+        }
+    }
+
+    .options-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 30px;
+        width: 30px;
+        cursor: pointer;
+    }
+
+    .options-dropdown {
+        position: absolute;
+        top: 89px;
+        right: 55px;
     }
 
     @media screen and (max-width: 780px) {

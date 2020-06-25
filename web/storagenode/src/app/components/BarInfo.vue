@@ -3,14 +3,13 @@
 
 <template>
     <div class="bar-info-container">
-        <p class="bar-info-container__title">{{label}}</p>
-        <p class="bar-info-container__amount"><b>{{remaining}}</b></p>
+        <p class="bar-info-container__title">{{ label }}</p>
+        <p class="bar-info-container__amount"><b>{{ remaining }}</b></p>
         <div class="bar-info-container__bar">
             <VInfo :text="infoMessage">
                 <VBar
                     :current="currentBarAmount"
                     :max="maxBarAmount"
-                    color="#224CA5"
                 />
             </VInfo>
         </div>
@@ -61,8 +60,8 @@ export default class BarInfo extends Vue {
     .bar-info-container {
         width: calc(100% - 60px);
         height: 99px;
-        background-color: #fff;
-        border: 1px solid #e9eff4;
+        background-color: var(--block-background-color);
+        border: 1px solid var(--block-border-color);
         border-radius: 11px;
         padding: 32px 30px;
         margin-bottom: 13px;
@@ -71,13 +70,13 @@ export default class BarInfo extends Vue {
         &__title {
             font-size: 14px;
             line-height: 21px;
-            color: #586c86;
+            color: var(--title-text-color);
         }
 
         &__amount {
             font-size: 32px;
             line-height: 57px;
-            color: #535f77;
+            color: var(--regular-text-color);
         }
     }
 </style>

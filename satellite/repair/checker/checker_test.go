@@ -42,26 +42,30 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 
 		// add some valid pointers
 		for x := 0; x < 10; x++ {
-			insertPointer(ctx, t, planet, rs, pointerPathPrefix+fmt.Sprintf("a-%d", x), false)
+			insertPointer(ctx, t, planet, rs, pointerPathPrefix+fmt.Sprintf("a-%d", x), false, time.Time{})
 		}
 
 		// add pointer that needs repair
-		insertPointer(ctx, t, planet, rs, pointerPathPrefix+"b", true)
+		insertPointer(ctx, t, planet, rs, pointerPathPrefix+"b-0", true, time.Time{})
+
+		// add pointer that is unhealthy, but is expired
+		insertPointer(ctx, t, planet, rs, pointerPathPrefix+"b-1", true, time.Now().Add(-time.Hour))
 
 		// add some valid pointers
 		for x := 0; x < 10; x++ {
-			insertPointer(ctx, t, planet, rs, pointerPathPrefix+fmt.Sprintf("c-%d", x), false)
+			insertPointer(ctx, t, planet, rs, pointerPathPrefix+fmt.Sprintf("c-%d", x), false, time.Time{})
 		}
 
 		checker.Loop.TriggerWait()
 
-		//check if the expected segments were added to the queue
+		// check that the unhealthy, non-expired segment was added to the queue
+		// and that the expired segment was ignored
 		injuredSegment, err := repairQueue.Select(ctx)
 		require.NoError(t, err)
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 
-		require.Equal(t, []byte(pointerPathPrefix+"b"), injuredSegment.Path)
+		require.Equal(t, []byte(pointerPathPrefix+"b-0"), injuredSegment.Path)
 		require.Equal(t, int(rs.SuccessThreshold-rs.MinReq), len(injuredSegment.LostPieces))
 		for _, lostPiece := range injuredSegment.LostPieces {
 			require.True(t, rs.MinReq <= lostPiece && lostPiece < rs.SuccessThreshold, fmt.Sprintf("%v", lostPiece))
@@ -126,6 +130,10 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		metainfo := planet.Satellites[0].Metainfo.Service
 		err := metainfo.Put(ctx, pointerPath, pointer)
 		require.NoError(t, err)
+		// modify pointer to make it expired and put to db
+		pointer.ExpirationDate = time.Now().Add(-time.Hour)
+		err = metainfo.Put(ctx, pointerPath+"-expired", pointer)
+		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
@@ -139,6 +147,9 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		irreparable := planet.Satellites[0].DB.Irreparable()
 		remoteSegmentInfo, err := irreparable.Get(ctx, []byte(pointerPath))
 		require.NoError(t, err)
+		// check that the expired segment was not added to the irreparable DB
+		_, err = irreparable.Get(ctx, []byte(pointerPath+"-expired"))
+		require.Error(t, err)
 
 		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
 		require.Equal(t, 1, int(remoteSegmentInfo.RepairAttemptCount))
@@ -187,7 +198,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 	})
 }
 
-func insertPointer(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs *pb.RedundancyScheme, pointerPath string, createLost bool) {
+func insertPointer(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs *pb.RedundancyScheme, pointerPath string, createLost bool, expire time.Time) {
 	pieces := make([]*pb.RemotePiece, rs.SuccessThreshold)
 	if !createLost {
 		for i := range pieces {
@@ -219,6 +230,9 @@ func insertPointer(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 			RootPieceId:  testrand.PieceID(),
 			RemotePieces: pieces,
 		},
+	}
+	if !expire.IsZero() {
+		pointer.ExpirationDate = expire
 	}
 
 	// put test pointer to db

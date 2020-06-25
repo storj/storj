@@ -2,7 +2,6 @@
 
 exports[`NewProjectArea renders correctly without projects and with credit card 1`] = `
 <div class="new-project-container">
-  <!---->
   <div id="newProjectButton" class="new-project-button-container">
     <h1 class="new-project-button-container__label">+ Create Project</h1>
   </div>
@@ -12,7 +11,6 @@ exports[`NewProjectArea renders correctly without projects and with credit card 
 
 exports[`NewProjectArea renders correctly without projects and with credit card 2`] = `
 <div class="new-project-container">
-  <!---->
   <div id="newProjectButton" class="new-project-button-container">
     <h1 class="new-project-button-container__label">+ Create Project</h1>
   </div>
@@ -28,31 +26,33 @@ exports[`NewProjectArea renders correctly without projects and with credit card 
         <h2 class="new-project-popup__form-container__main-title">Next, let’s create a project.</h2>
         <div class="input-container full-input">
           <div class="label-container">
-            <!---->
-            <h3 class="label-container__label">Project Name</h3>
-            <h3 class="label-container__label add-label">Up To 20 Characters</h3>
-            <!---->
+            <div class="label-container__main">
+              <!---->
+              <h3 class="label-container__main__label">Project Name</h3>
+              <h3 class="label-container__main__label add-label">Up To 20 Characters</h3>
+              <!---->
+            </div>
+            <h3 class="label-container__limit">0/20</h3>
           </div>
           <!---->
           <!----> <input id="Project Name" placeholder="Enter Project Name" type="text" class="headered-input" style="width: 100%; height: 48px;">
         </div>
         <div class="input-container full-input">
           <div class="label-container">
-            <!---->
-            <h3 class="label-container__label">Description</h3>
-            <h3 class="label-container__label add-label">Optional</h3>
-            <!---->
+            <div class="label-container__main">
+              <!---->
+              <h3 class="label-container__main__label">Description</h3>
+              <h3 class="label-container__main__label add-label">Optional</h3>
+              <!---->
+            </div>
+            <h3 class="label-container__limit">0/100</h3>
           </div>
-          <!----> <textarea id="Description" placeholder="Enter Project Description" rows="5" cols="40" wrap="hard" class="headered-textarea" style="width: 100%; height: 100px;"></textarea>
+          <!----> <textarea id="Description" placeholder="Enter Project Description" rows="5" cols="40" wrap="hard" class="headered-textarea" style="height: 60px;"></textarea>
           <!---->
         </div>
         <div class="new-project-popup__form-container__button-container">
-          <div class="container white" style="width: 205px; height: 48px;">
-            <h1 class="label">Back to Billing</h1>
-          </div>
-          <div class="container" style="width: 205px; height: 48px;">
-            <h1 class="label">Next</h1>
-          </div>
+          <div class="container white" style="width: 205px; height: 48px;"><span class="label">Back to Billing</span></div>
+          <div class="container" style="width: 205px; height: 48px;"><span class="label">Next</span></div>
         </div>
       </div>
       <div class="new-project-popup__close-cross-container"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -65,30 +65,6 @@ exports[`NewProjectArea renders correctly without projects and with credit card 
 
 exports[`NewProjectArea renders correctly without projects and without payment methods 1`] = `
 <div class="new-project-container">
-  <div class="info">
-    <div class="new-project-button-mock">
-      <h1 class="new-project-button-mock__label">+ Create Project</h1>
-    </div>
-    <!---->
-  </div>
-  <!---->
-  <!---->
-</div>
-`;
-
-exports[`NewProjectArea renders correctly without projects and without payment methods with info tooltip 1`] = `
-<div class="new-project-container">
-  <div class="info">
-    <div class="new-project-button-mock">
-      <h1 class="new-project-button-mock__label">+ Create Project</h1>
-    </div>
-    <div class="info__message-box">
-      <div class="info__message-box__text">
-        <p class="info__message-box__text__regular-text">Please add a payment method</p>
-        <p class="info__message-box__text__bold-text"></p>
-      </div>
-    </div>
-  </div>
   <!---->
   <!---->
 </div>

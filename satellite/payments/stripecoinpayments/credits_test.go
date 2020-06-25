@@ -82,6 +82,9 @@ func TestCreditsRepository(t *testing.T) {
 
 func TestCreditsRepositoryList(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		utc := time.Now().UTC()
+		period := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+
 		creditsDB := db.StripeCoinPayments().Credits()
 
 		const spendLen = 5
@@ -100,27 +103,28 @@ func TestCreditsRepositoryList(t *testing.T) {
 				UserID:    userID,
 				Amount:    int64(5 + i),
 				Status:    0,
+				Period:    period,
 			}
 
 			err = creditsDB.InsertCreditsSpending(ctx, spending)
 			require.NoError(t, err)
 		}
 
-		page, err := creditsDB.ListCreditsSpendingsPaged(ctx, 0, 0, spendLen, time.Now())
+		page, err := creditsDB.ListCreditsSpendingsPaged(ctx, 0, 0, spendLen, period)
 		require.NoError(t, err)
 		require.Equal(t, spendLen, len(page.Spendings))
 
 		assert.True(t, page.Next)
 		assert.Equal(t, int64(5), page.NextOffset)
 
-		page, err = creditsDB.ListCreditsSpendingsPaged(ctx, 0, page.NextOffset, spendLen, time.Now())
+		page, err = creditsDB.ListCreditsSpendingsPaged(ctx, 0, page.NextOffset, spendLen, period)
 		require.NoError(t, err)
 		require.Equal(t, spendLen, len(page.Spendings))
 
 		assert.True(t, page.Next)
 		assert.Equal(t, int64(10), page.NextOffset)
 
-		page, err = creditsDB.ListCreditsSpendingsPaged(ctx, 0, page.NextOffset, spendLen, time.Now())
+		page, err = creditsDB.ListCreditsSpendingsPaged(ctx, 0, page.NextOffset, spendLen, period)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(page.Spendings))
 

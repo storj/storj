@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -178,7 +177,7 @@ func TestConcurrentConnections(t *testing.T) {
 		for i := 0; i < concurrentCalls; i++ {
 			group.Go(func() (err error) {
 				// connect to satellite so we initiate the exit.
-				conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+				conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 				require.NoError(t, err)
 				defer func() {
 					err = errs.Combine(err, conn.Close())
@@ -200,7 +199,7 @@ func TestConcurrentConnections(t *testing.T) {
 		}
 
 		// connect to satellite so we initiate the exit ("main" call)
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -293,10 +292,10 @@ func TestRecvTimeout(t *testing.T) {
 		// make uploads on storage node slower than the timeout for transferring bytes to another node
 		delay := 200 * time.Millisecond
 		storageNodeDB.SetLatency(delay)
-		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB())
+		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB(), pieces.DefaultConfig)
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.ID(), satellite.Addr(),
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.Storage2.Trust, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
 			gracefulexit.Config{
 				ChoreInterval:          0,
 				NumWorkers:             2,
@@ -401,7 +400,7 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 		err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID())
 		require.NoError(t, err)
 
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -948,7 +947,7 @@ func TestExitDisabled(t *testing.T) {
 		require.Nil(t, satellite.GracefulExit.Chore)
 		require.Nil(t, satellite.GracefulExit.Endpoint)
 
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -959,9 +958,8 @@ func TestExitDisabled(t *testing.T) {
 		// Process endpoint should return immediately if GE is disabled
 		response, err := processClient.Recv()
 		require.Error(t, err)
-		// grpc will return "Unimplemented", drpc will return "Unknown"
-		unimplementedOrUnknown := errs2.IsRPC(err, rpcstatus.Unimplemented) || errs2.IsRPC(err, rpcstatus.Unknown)
-		require.True(t, unimplementedOrUnknown)
+		// drpc will return "Unknown"
+		require.True(t, errs2.IsRPC(err, rpcstatus.Unknown))
 		require.Nil(t, response)
 	})
 }
@@ -1025,7 +1023,7 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 		require.NoError(t, err)
 
 		// reconnect to the satellite.
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -1148,13 +1146,13 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 
 		// replace pointer with non-piece-hash-verified pointer
 		require.NotNil(t, oldPointer)
-		oldPointerBytes, err := proto.Marshal(oldPointer)
+		oldPointerBytes, err := pb.Marshal(oldPointer)
 		require.NoError(t, err)
 		newPointer := &pb.Pointer{}
-		err = proto.Unmarshal(oldPointerBytes, newPointer)
+		err = pb.Unmarshal(oldPointerBytes, newPointer)
 		require.NoError(t, err)
 		newPointer.PieceHashesVerified = false
-		newPointerBytes, err := proto.Marshal(newPointer)
+		newPointerBytes, err := pb.Marshal(newPointer)
 		require.NoError(t, err)
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
@@ -1262,7 +1260,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		require.NoError(t, err)
 
 		// connect to satellite so we initiate the exit.
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -1390,7 +1388,7 @@ func TestIneligibleNodeAge(t *testing.T) {
 		require.NoError(t, err)
 
 		// connect to satellite so we initiate the exit.
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -1448,7 +1446,7 @@ func testTransfers(t *testing.T, objects int, verifier func(t *testing.T, ctx *t
 		require.NoError(t, err)
 
 		// connect to satellite so we initiate the exit.
-		conn, err := exitingNode.Dialer.DialAddressID(ctx, satellite.Addr(), satellite.Identity.ID)
+		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
@@ -1499,8 +1497,8 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	pieceCountMap := make(map[storj.NodeID]int, len(planet.StorageNodes))
-	for _, sn := range planet.StorageNodes {
-		pieceCountMap[sn.ID()] = 0
+	for _, node := range planet.StorageNodes {
+		pieceCountMap[node.ID()] = 0
 	}
 
 	for _, key := range keys {

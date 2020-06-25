@@ -169,10 +169,14 @@ type ProjectAccounting interface {
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
 	// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
 	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
+	// GetProjectAllocatedBandwidth returns project allocated bandwidth for the specified year and month.
+	GetProjectAllocatedBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month) (int64, error)
 	// GetStorageTotals returns the current inline and remote storage usage for a projectID
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	// UpdateProjectUsageLimit updates project usage limit.
 	UpdateProjectUsageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
+	// UpdateProjectBandwidthLimit updates project bandwidth limit.
+	UpdateProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
 	// GetProjectStorageLimit returns project storage usage limit.
 	GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
 	// GetProjectBandwidthLimit returns project bandwidth usage limit.
@@ -190,6 +194,8 @@ type ProjectAccounting interface {
 // architecture: Database
 type Cache interface {
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error)
+	GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error)
+	UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration, now time.Time) error
 	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) error
 	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]int64, error)
 	Close() error

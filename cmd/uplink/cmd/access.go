@@ -4,13 +4,17 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
+	"storj.io/common/pb"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
-	libuplink "storj.io/storj/lib/uplink"
+	"storj.io/uplink"
 )
 
 var (
@@ -52,18 +56,18 @@ func accessList(cmd *cobra.Command, args []string) (err error) {
 	accesses := listCfg.Accesses
 	fmt.Println("=========== ACCESSES LIST: name / satellite ================================")
 	for name, data := range accesses {
-		access, err := libuplink.ParseScope(data)
+		satelliteAddr, _, _, err := parseAccess(data)
 		if err != nil {
 			return err
 		}
 
-		fmt.Println(name, "/", access.SatelliteAddr)
+		fmt.Println(name, "/", satelliteAddr)
 	}
 	return nil
 }
 
 func accessInspect(cmd *cobra.Command, args []string) (err error) {
-	var access *libuplink.Scope
+	var access *uplink.Access
 	if len(args) == 0 {
 		access, err = inspectCfg.GetAccess()
 		if err != nil {
@@ -78,21 +82,46 @@ func accessInspect(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		if access == nil {
-			if access, err = libuplink.ParseScope(firstArg); err != nil {
+			if access, err = uplink.ParseAccess(firstArg); err != nil {
 				return err
 			}
 		}
 	}
 
-	serializedAPIKey := access.APIKey.Serialize()
-	serializedEncAccess, err := access.EncryptionAccess.Serialize()
+	serializedAccesss, err := access.Serialize()
+	if err != nil {
+		return err
+	}
+
+	satAddr, apiKey, ea, err := parseAccess(serializedAccesss)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("=========== ACCESS INFO ==================================================================")
-	fmt.Println("Satellite        :", access.SatelliteAddr)
-	fmt.Println("API Key          :", serializedAPIKey)
-	fmt.Println("Encryption Access:", serializedEncAccess)
+	fmt.Println("Satellite        :", satAddr)
+	fmt.Println("API Key          :", apiKey)
+	fmt.Println("Encryption Access:", ea)
 	return nil
+}
+
+func parseAccess(access string) (sa string, apiKey string, ea string, err error) {
+	data, version, err := base58.CheckDecode(access)
+	if err != nil || version != 0 {
+		return "", "", "", errors.New("invalid access grant format")
+	}
+
+	p := new(pb.Scope)
+	if err := pb.Unmarshal(data, p); err != nil {
+		return "", "", "", err
+	}
+
+	eaData, err := pb.Marshal(p.EncryptionAccess)
+	if err != nil {
+		return "", "", "", errs.New("unable to marshal encryption access: %v", err)
+	}
+
+	apiKey = base58.CheckEncode(p.ApiKey, 0)
+	ea = base58.CheckEncode(eaData, 0)
+	return p.SatelliteAddr, apiKey, ea, nil
 }

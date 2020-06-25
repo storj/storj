@@ -70,47 +70,6 @@ func Schema() map[string]*dbschema.Schema {
 		"heldamount": &dbschema.Schema{
 			Tables: []*dbschema.Table{
 				&dbschema.Table{
-					Name:       "payments",
-					PrimaryKey: []string{"id"},
-					Columns: []*dbschema.Column{
-						&dbschema.Column{
-							Name:       "amount",
-							Type:       "bigint",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "created_at",
-							Type:       "timestamp",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "id",
-							Type:       "bigserial",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "notes",
-							Type:       "text",
-							IsNullable: true,
-						},
-						&dbschema.Column{
-							Name:       "period",
-							Type:       "text",
-							IsNullable: true,
-						},
-						&dbschema.Column{
-							Name:       "receipt",
-							Type:       "text",
-							IsNullable: true,
-						},
-						&dbschema.Column{
-							Name:       "satellite_id",
-							Type:       "bytea",
-							IsNullable: false,
-						},
-					},
-				},
-				&dbschema.Table{
 					Name:       "paystubs",
 					PrimaryKey: []string{"period", "satellite_id"},
 					Columns: []*dbschema.Column{
@@ -351,7 +310,7 @@ func Schema() map[string]*dbschema.Schema {
 			},
 			Indexes: []*dbschema.Index{
 				&dbschema.Index{Name: "idx_order_archived_at", Table: "order_archive_", Columns: []string{"archived_at"}, Unique: false, Partial: ""},
-				&dbschema.Index{Name: "idx_orders", Table: "unsent_order", Columns: []string{"satellite_id", "serial_number"}, Unique: false, Partial: ""},
+				&dbschema.Index{Name: "idx_orders", Table: "unsent_order", Columns: []string{"satellite_id", "serial_number"}, Unique: true, Partial: ""},
 			},
 		},
 		"piece_expiration": &dbschema.Schema{
@@ -418,7 +377,7 @@ func Schema() map[string]*dbschema.Schema {
 				},
 			},
 			Indexes: []*dbschema.Index{
-				&dbschema.Index{Name: "idx_piece_space_used_satellite_id", Table: "piece_space_used", Columns: []string{"satellite_id"}, Unique: false, Partial: ""},
+				&dbschema.Index{Name: "idx_piece_space_used_satellite_id", Table: "piece_space_used", Columns: []string{"satellite_id"}, Unique: true, Partial: ""},
 			},
 		},
 		"pieceinfo": &dbschema.Schema{
@@ -477,7 +436,42 @@ func Schema() map[string]*dbschema.Schema {
 			},
 			Indexes: []*dbschema.Index{
 				&dbschema.Index{Name: "idx_pieceinfo__expiration", Table: "pieceinfo_", Columns: []string{"piece_expiration"}, Unique: false, Partial: "piece_expiration IS NOT NULL"},
-				&dbschema.Index{Name: "pk_pieceinfo_", Table: "pieceinfo_", Columns: []string{"satellite_id", "piece_id"}, Unique: false, Partial: ""},
+				&dbschema.Index{Name: "pk_pieceinfo_", Table: "pieceinfo_", Columns: []string{"satellite_id", "piece_id"}, Unique: true, Partial: ""},
+			},
+		},
+		"pricing": &dbschema.Schema{
+			Tables: []*dbschema.Table{
+				&dbschema.Table{
+					Name:       "pricing",
+					PrimaryKey: []string{"satellite_id"},
+					Columns: []*dbschema.Column{
+						&dbschema.Column{
+							Name:       "audit_bandwidth_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "disk_space_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "egress_bandwidth_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "repair_bandwidth_price",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "satellite_id",
+							Type:       "BLOB",
+							IsNullable: false,
+						},
+					},
+				},
 			},
 		},
 		"reputation": &dbschema.Schema{
@@ -512,14 +506,39 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
+							Name:       "audit_unknown_reputation_alpha",
+							Type:       "REAL",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "audit_unknown_reputation_beta",
+							Type:       "REAL",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "audit_unknown_reputation_score",
+							Type:       "REAL",
+							IsNullable: false,
+						},
+						&dbschema.Column{
 							Name:       "disqualified",
 							Type:       "TIMESTAMP",
 							IsNullable: true,
 						},
 						&dbschema.Column{
+							Name:       "joined_at",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+						&dbschema.Column{
 							Name:       "satellite_id",
 							Type:       "BLOB",
 							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "suspended",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
 						},
 						&dbschema.Column{
 							Name:       "updated_at",
@@ -558,8 +577,7 @@ func Schema() map[string]*dbschema.Schema {
 		"satellites": &dbschema.Schema{
 			Tables: []*dbschema.Table{
 				&dbschema.Table{
-					Name:       "satellite_exit_progress",
-					PrimaryKey: []string{"satellite_id"},
+					Name: "satellite_exit_progress",
 					Columns: []*dbschema.Column{
 						&dbschema.Column{
 							Name:       "bytes_deleted",
@@ -585,6 +603,7 @@ func Schema() map[string]*dbschema.Schema {
 							Name:       "satellite_id",
 							Type:       "BLOB",
 							IsNullable: false,
+							Reference:  &dbschema.Reference{Table: "satellites", Column: "node_id", OnDelete: "", OnUpdate: ""},
 						},
 						&dbschema.Column{
 							Name:       "starting_disk_usage",
@@ -641,33 +660,6 @@ func Schema() map[string]*dbschema.Schema {
 				},
 			},
 		},
-		"used_serial": &dbschema.Schema{
-			Tables: []*dbschema.Table{
-				&dbschema.Table{
-					Name: "used_serial_",
-					Columns: []*dbschema.Column{
-						&dbschema.Column{
-							Name:       "expiration",
-							Type:       "TIMESTAMP",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "satellite_id",
-							Type:       "BLOB",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "serial_number",
-							Type:       "BLOB",
-							IsNullable: false,
-						},
-					},
-				},
-			},
-			Indexes: []*dbschema.Index{
-				&dbschema.Index{Name: "idx_used_serial_", Table: "used_serial_", Columns: []string{"expiration"}, Unique: false, Partial: ""},
-				&dbschema.Index{Name: "pk_used_serial_", Table: "used_serial_", Columns: []string{"satellite_id", "serial_number"}, Unique: false, Partial: ""},
-			},
-		},
+		"used_serial": &dbschema.Schema{},
 	}
 }

@@ -6,7 +6,7 @@
         <div v-if="isLoading" class="loading-overlay active">
             <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Company logo loading gif">
         </div>
-        <div v-if="!isLoading" class="dashboard-container__wrap">
+        <div v-else class="dashboard-container__wrap">
             <NavigationArea class="regular-navigation"/>
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader/>
@@ -28,23 +28,6 @@
                     </div>
                 </div>
             </div>
-            <div
-                v-if="isBlurShown"
-                class="dashboard-container__blur-area"
-            >
-                <div class="dashboard-container__blur-area__button" @click="onCreateButtonClick">
-                    <span class="dashboard-container__blur-area__button__label">+ Create Project</span>
-                </div>
-                <div class="dashboard-container__blur-area__message-box">
-                    <div class="dashboard-container__blur-area__message-box__left-area">
-                        <AddImage/>
-                        <span class="dashboard-container__blur-area__message-box__left-area__message">
-                            Create your first project
-                        </span>
-                    </div>
-                    <CloseCrossIcon class="dashboard-container__blur-area__message-box__close-cross-container" @click="onCloseClick"/>
-                </div>
-            </div>
         </div>
     </div>
 </template>
@@ -56,17 +39,15 @@ import VInfoBar from '@/components/common/VInfoBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
-import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-import AddImage from '@/../static/images/dashboard/Add.svg';
-
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
-import { CreditCard } from '@/types/payments';
+import { ApiKeysPage } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
+import { User } from '@/types/users';
 import { Size } from '@/utils/bytesSize';
 import {
     API_KEYS_ACTIONS,
@@ -80,8 +61,9 @@ const {
     SETUP_ACCOUNT,
     GET_BALANCE,
     GET_CREDIT_CARDS,
-    GET_BILLING_HISTORY,
-    GET_PROJECT_CHARGES_CURRENT_ROLLUP,
+    GET_PAYMENTS_HISTORY,
+    GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
+    GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -89,13 +71,11 @@ const {
         NavigationArea,
         DashboardHeader,
         VInfoBar,
-        AddImage,
-        CloseCrossIcon,
     },
 })
 export default class DashboardArea extends Vue {
     /**
-     * Holds router link to project details page.
+     * Holds router link to project dashboard page.
      */
     public readonly projectDashboardPath: string = RouteConfig.ProjectDashboard.path;
 
@@ -104,9 +84,11 @@ export default class DashboardArea extends Vue {
      * Pre fetches user`s and project information.
      */
     public async mounted(): Promise<void> {
+        let user: User;
+
         // TODO: combine all project related requests in one
         try {
-            await this.$store.dispatch(USER_ACTIONS.GET);
+            user = await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
@@ -118,17 +100,34 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        let balance: number = 0;
-        let creditCards: CreditCard[] = [];
-
         try {
             await this.$store.dispatch(SETUP_ACCOUNT);
-            balance = await this.$store.dispatch(GET_BALANCE);
-            creditCards = await this.$store.dispatch(GET_CREDIT_CARDS);
-            await this.$store.dispatch(GET_BILLING_HISTORY);
-            await this.$store.dispatch(GET_PROJECT_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(`Unable to setup account. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(GET_BALANCE);
+        } catch (error) {
+            await this.$notify.error(`Unable to get account balance. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$notify.error(`Unable to get credit cards. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(GET_PAYMENTS_HISTORY);
+        } catch (error) {
+            await this.$notify.error(`Unable to get account payments history. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+        } catch (error) {
+            await this.$notify.error(`Unable to get usage and charges for current billing period. ${error.message}`);
         }
 
         let projects: Project[] = [];
@@ -141,11 +140,11 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        if (!projects.length && !creditCards.length && balance === 0) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+        if (!projects.length) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
 
             try {
-                await this.$router.push(RouteConfig.Overview.path);
+                await this.$router.push(RouteConfig.OnboardingTour.path);
             } catch (error) {
                 return;
             }
@@ -153,25 +152,27 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        if (!projects.length) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
 
-            if (this.$store.getters.canUserCreateFirstProject) {
-                await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CONTENT_BLUR);
-            }
+        let apiKeysPage: ApiKeysPage = new ApiKeysPage();
 
-            if (!this.isRouteAccessibleWithoutProject()) {
-                try {
-                    await this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
-                } catch (error) {
-                    return;
-                }
+        try {
+            apiKeysPage = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
+        }
+
+        if (projects.length === 1 && projects[0].ownerId === user.id && apiKeysPage.apiKeys.length === 0) {
+            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+
+            try {
+                await this.$router.push(RouteConfig.OnboardingTour.path);
+            } catch (error) {
+                return;
             }
 
             return;
         }
-
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
 
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         try {
@@ -187,19 +188,9 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
         } catch (error) {
             await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
-        }
-
-        if (this.$store.getters.canUserCreateFirstProject && !new ProjectOwning(this.$store).userHasOwnProject()) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CONTENT_BLUR);
         }
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
@@ -254,41 +245,6 @@ export default class DashboardArea extends Vue {
     public get isLoading(): boolean {
         return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
     }
-
-    /**
-     * Indicates if content blur shown.
-     */
-    public get isBlurShown(): boolean {
-        return this.$store.state.appStateModule.appState.isContentBlurShown;
-    }
-
-    /**
-     * Toggles create project popup showing.
-     */
-    public onCreateButtonClick(): void {
-        this.onCloseClick();
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-    }
-
-    /**
-     * Hides blur.
-     */
-    public onCloseClick(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CONTENT_BLUR);
-    }
-
-    /**
-     * This method checks if current route is available when user has no created projects.
-     */
-    private isRouteAccessibleWithoutProject(): boolean {
-        const availableRoutes = [
-            RouteConfig.Account.with(RouteConfig.Billing).path,
-            RouteConfig.Account.with(RouteConfig.Settings).path,
-            RouteConfig.Overview.path,
-        ];
-
-        return availableRoutes.includes(this.$router.currentRoute.path.toLowerCase());
-    }
 }
 </script>
 
@@ -329,114 +285,12 @@ export default class DashboardArea extends Vue {
                 flex: 1 1 auto;
             }
         }
-
-        &__blur-area {
-            position: fixed;
-            max-width: 100%;
-            width: 100%;
-            height: 100%;
-            left: 0;
-            top: 0;
-            background-color: rgba(12, 37, 70, 0.5);
-            backdrop-filter: blur(4px);
-            z-index: 20;
-
-            &__button {
-                position: fixed;
-                top: 30px;
-                right: 148px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 156px;
-                height: 40px;
-                background-color: #fff;
-                border: 1px solid #2683ff;
-                border-radius: 6px;
-                cursor: pointer;
-                z-index: 21;
-
-                &__label {
-                    font-family: 'font_medium', sans-serif;
-                    font-size: 15px;
-                    line-height: 22px;
-                    color: #2683ff;
-                }
-            }
-
-            &__message-box {
-                background-image: url('../../static/images/dashboard/message.png');
-                background-size: 100% 100%;
-                height: auto;
-                width: auto;
-                position: fixed;
-                top: 80px;
-                right: 100px;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                z-index: 21;
-                padding: 30px 30px 20px 20px;
-
-                &__left-area {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-
-                    &__message {
-                        font-family: 'font_regular', sans-serif;
-                        font-size: 14px;
-                        line-height: 19px;
-                        color: #373737;
-                        margin-left: 15px;
-                    }
-                }
-
-                &__close-cross-container {
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 17px;
-                    width: 17px;
-                    cursor: pointer;
-                    margin-left: 50px;
-
-                    &:hover .close-cross-svg-path {
-                        fill: #2683ff;
-                    }
-                }
-            }
-        }
     }
 
     @media screen and (max-width: 1280px) {
 
         .regular-navigation {
             display: none;
-        }
-
-        .dashboard-container {
-
-            &__blur-area {
-
-                &__button {
-                    right: 123px;
-                }
-
-                &__message-box {
-                    right: 76px;
-                }
-            }
-        }
-    }
-
-    @media screen and (max-width: 720px) {
-
-        .dashboard-container {
-
-            &__main-area {
-                left: 60px;
-            }
         }
     }
 

@@ -12,36 +12,35 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpctracing"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
+	jaeger "storj.io/monkit-jaeger"
 	"storj.io/storj/pkg/listenmux"
-	"storj.io/storj/private/grpctlsopts"
 )
 
 // Config holds server specific configuration parameters
 type Config struct {
 	tlsopts.Config
-	Address         string `user:"true" help:"public address to listen on" default:":7777"`
-	PrivateAddress  string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
-	DebugLogTraffic bool   `user:"true" help:"log all GRPC traffic to zap logger" default:"false"`
+	Address        string `user:"true" help:"public address to listen on" default:":7777"`
+	PrivateAddress string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
+
+	DebugLogTraffic bool `hidden:"true" default:"false"` // Deprecated
 }
 
 type public struct {
 	listener net.Listener
 	drpc     *drpcserver.Server
-	grpc     *grpc.Server
 	mux      *drpcmux.Mux
 }
 
 type private struct {
 	listener net.Listener
 	drpc     *drpcserver.Server
-	grpc     *grpc.Server
 	mux      *drpcmux.Mux
 }
 
@@ -61,7 +60,7 @@ type Server struct {
 
 // New creates a Server out of an Identity, a net.Listener,
 // and interceptors.
-func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr string, interceptors ...grpc.UnaryServerInterceptor) (*Server, error) {
+func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr string) (*Server, error) {
 	server := &Server{
 		log:        log,
 		tlsOptions: tlsOptions,
@@ -72,35 +71,17 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		Manager: rpc.NewDefaultManagerOptions(),
 	}
 
-	unaryInterceptors := []grpc.UnaryServerInterceptor{
-		server.monkitUnaryInterceptor,
-		server.logOnErrorUnaryInterceptor,
-	}
-	for _, interceptor := range interceptors {
-		if interceptor == nil {
-			continue
-		}
-		unaryInterceptors = append(unaryInterceptors, interceptor)
-	}
-
 	publicListener, err := net.Listen("tcp", publicAddr)
 	if err != nil {
 		return nil, err
 	}
 
 	publicMux := drpcmux.New()
+	publicTracingHandler := rpctracing.NewHandler(publicMux, jaeger.RemoteTraceHandler)
 	server.public = public{
 		listener: wrapListener(publicListener),
-		drpc:     drpcserver.NewWithOptions(publicMux, serverOptions),
-		grpc: grpc.NewServer(
-			grpc.ChainStreamInterceptor(
-				server.logOnErrorStreamInterceptor,
-				server.monkitStreamInterceptor,
-			),
-			grpc.ChainUnaryInterceptor(unaryInterceptors...),
-			grpctlsopts.ServerOption(tlsOptions),
-		),
-		mux: publicMux,
+		drpc:     drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
+		mux:      publicMux,
 	}
 
 	privateListener, err := net.Listen("tcp", privateAddr)
@@ -108,10 +89,10 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		return nil, errs.Combine(err, publicListener.Close())
 	}
 	privateMux := drpcmux.New()
+	privateTracingHandler := rpctracing.NewHandler(privateMux, jaeger.RemoteTraceHandler)
 	server.private = private{
 		listener: wrapListener(privateListener),
-		drpc:     drpcserver.NewWithOptions(privateMux, serverOptions),
-		grpc:     grpc.NewServer(),
+		drpc:     drpcserver.NewWithOptions(privateTracingHandler, serverOptions),
 		mux:      privateMux,
 	}
 
@@ -127,14 +108,8 @@ func (p *Server) Addr() net.Addr { return p.public.listener.Addr() }
 // PrivateAddr returns the server's private listener address
 func (p *Server) PrivateAddr() net.Addr { return p.private.listener.Addr() }
 
-// GRPC returns the server's gRPC handle for registration purposes
-func (p *Server) GRPC() *grpc.Server { return p.public.grpc }
-
 // DRPC returns the server's dRPC mux for registration purposes
 func (p *Server) DRPC() *drpcmux.Mux { return p.public.mux }
-
-// PrivateGRPC returns the server's gRPC handle for registration purposes
-func (p *Server) PrivateGRPC() *grpc.Server { return p.private.grpc }
 
 // PrivateDRPC returns the server's dRPC mux for registration purposes
 func (p *Server) PrivateDRPC() *drpcmux.Mux { return p.private.mux }
@@ -188,7 +163,7 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	privateDRPCListener := privateMux.Route(drpcHeader)
 
 	// We need a new context chain because we require this context to be
-	// canceled only after all of the upcoming grpc/drpc servers have
+	// canceled only after all of the upcoming drpc servers have
 	// fully exited. The reason why is because Run closes listener for
 	// the mux when it exits, and we can only do that after all of the
 	// Servers are no longer accepting.
@@ -215,23 +190,12 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		case <-ctx.Done():
 		}
 
-		p.public.grpc.GracefulStop()
-		p.private.grpc.GracefulStop()
-
 		return nil
 	})
 
 	group.Go(func() error {
 		defer cancel()
-		return p.public.grpc.Serve(publicMux.Default())
-	})
-	group.Go(func() error {
-		defer cancel()
 		return p.public.drpc.Serve(ctx, publicDRPCListener)
-	})
-	group.Go(func() error {
-		defer cancel()
-		return p.private.grpc.Serve(privateMux.Default())
 	})
 	group.Go(func() error {
 		defer cancel()

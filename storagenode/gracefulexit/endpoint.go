@@ -7,9 +7,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
+	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/satellites"
@@ -22,15 +24,17 @@ type Endpoint struct {
 	usageCache *pieces.BlobsUsageCache
 	trust      *trust.Pool
 	satellites satellites.DB
+	dialer     rpc.Dialer
 }
 
 // NewEndpoint creates a new graceful exit endpoint.
-func NewEndpoint(log *zap.Logger, trust *trust.Pool, satellites satellites.DB, usageCache *pieces.BlobsUsageCache) *Endpoint {
+func NewEndpoint(log *zap.Logger, trust *trust.Pool, satellites satellites.DB, dialer rpc.Dialer, usageCache *pieces.BlobsUsageCache) *Endpoint {
 	return &Endpoint{
 		log:        log,
 		usageCache: usageCache,
 		trust:      trust,
 		satellites: satellites,
+		dialer:     dialer,
 	}
 }
 
@@ -62,7 +66,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 		}
 
 		// get domain name
-		domain, err := e.trust.GetAddress(ctx, trusted)
+		nodeurl, err := e.trust.GetNodeURL(ctx, trusted)
 		if err != nil {
 			e.log.Debug("graceful exit: get satellite domian name", zap.Stringer("Satellite ID", trusted), zap.Error(err))
 			continue
@@ -74,7 +78,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 			continue
 		}
 		availableSatellites = append(availableSatellites, &pb.NonExitingSatellite{
-			DomainName: domain,
+			DomainName: nodeurl.Address,
 			NodeId:     trusted,
 			SpaceUsed:  float64(piecesContentSize),
 		})
@@ -89,7 +93,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *pb.GetNonEx
 func (e *Endpoint) InitiateGracefulExit(ctx context.Context, req *pb.InitiateGracefulExitRequest) (*pb.ExitProgress, error) {
 	e.log.Debug("initialize graceful exit: start", zap.Stringer("Satellite ID", req.NodeId))
 
-	domain, err := e.trust.GetAddress(ctx, req.NodeId)
+	nodeurl, err := e.trust.GetNodeURL(ctx, req.NodeId)
 	if err != nil {
 		e.log.Debug("initialize graceful exit: retrieve satellite address", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -109,7 +113,7 @@ func (e *Endpoint) InitiateGracefulExit(ctx context.Context, req *pb.InitiateGra
 	}
 
 	return &pb.ExitProgress{
-		DomainName:      domain,
+		DomainName:      nodeurl.Address,
 		NodeId:          req.NodeId,
 		PercentComplete: float32(0),
 	}, nil
@@ -126,7 +130,7 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 		Progress: make([]*pb.ExitProgress, 0, len(exitProgress)),
 	}
 	for _, progress := range exitProgress {
-		domain, err := e.trust.GetAddress(ctx, progress.SatelliteID)
+		nodeurl, err := e.trust.GetNodeURL(ctx, progress.SatelliteID)
 		if err != nil {
 			e.log.Debug("graceful exit: get satellite domain name", zap.Stringer("Satellite ID", progress.SatelliteID), zap.Error(err))
 			continue
@@ -145,7 +149,7 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 
 		resp.Progress = append(resp.Progress,
 			&pb.ExitProgress{
-				DomainName:        domain,
+				DomainName:        nodeurl.Address,
 				NodeId:            progress.SatelliteID,
 				PercentComplete:   percentCompleted,
 				Successful:        exitSucceeded,
@@ -154,4 +158,28 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *pb.GetExitProgressR
 		)
 	}
 	return resp, nil
+}
+
+// GracefulExitFeasibility returns graceful exit feasibility by node's age on chosen satellite.
+func (e *Endpoint) GracefulExitFeasibility(ctx context.Context, request *pb.GracefulExitFeasibilityNodeRequest) (*pb.GracefulExitFeasibilityResponse, error) {
+	nodeurl, err := e.trust.GetNodeURL(ctx, request.NodeId)
+	if err != nil {
+		return nil, errs.New("unable to find satellite %s: %w", request.NodeId, err)
+	}
+
+	conn, err := e.dialer.DialNodeURL(ctx, nodeurl)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	client := pb.NewDRPCSatelliteGracefulExitClient(conn)
+
+	feasibility, err := client.GracefulExitFeasibility(ctx, &pb.GracefulExitFeasibilityRequest{})
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	return feasibility, nil
 }

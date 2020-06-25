@@ -10,20 +10,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/pgutil/pgtest"
+	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/private/tagsql"
 )
 
 func TestTempPostgresDB(t *testing.T) {
+	connstr := pgtest.PickPostgres(t)
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	if *pgtest.ConnStr == "" {
-		t.Skip("PostgreSQL flag missing")
-	}
 	prefix := "name#spaced/Test/DB"
-	testDB, err := tempdb.OpenUnique(ctx, *pgtest.ConnStr, prefix)
+	testDB, err := tempdb.OpenUnique(ctx, connstr, prefix)
 	require.NoError(t, err)
 
 	// assert new test db exists and can be connected to again

@@ -2,9 +2,16 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { BillingHistoryItem, CreditCard, PaymentsApi, ProjectCharge, TokenDeposit } from '@/types/payments';
+import {
+    AccountBalance,
+    CreditCard,
+    PaymentsApi,
+    PaymentsHistoryItem,
+    ProjectUsageAndCharges,
+    TokenDeposit,
+} from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
-import { toUnixTimestamp } from '@/utils/time';
+import { Time } from '@/utils/time';
 
 /**
  * PaymentsHttpApi is a http implementation of Payments API.
@@ -20,19 +27,24 @@ export class PaymentsHttpApi implements PaymentsApi {
      * @returns balance in cents
      * @throws Error
      */
-    public async getBalance(): Promise<number> {
+    public async getBalance(): Promise<AccountBalance> {
         const path = `${this.ROOT_PATH}/account/balance`;
         const response = await this.client.get(path);
 
-        if (response.ok) {
-            return await response.json();
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('Can not get account balance');
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
+        const balance = await response.json();
+        if (balance) {
+            return new AccountBalance(balance.freeCredits, balance.coins);
         }
 
-        throw new Error('can not get balance');
+        return new AccountBalance();
     }
 
     /**
@@ -56,11 +68,11 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * projectsCharges returns how much money current user will be charged for each project which he owns.
+     * projectsUsageAndCharges returns usage and how much money current user will be charged for each project which he owns.
      */
-    public async projectsCharges(start: Date, end: Date): Promise<ProjectCharge[]> {
-        const since = toUnixTimestamp(start).toString();
-        const before = toUnixTimestamp(end).toString();
+    public async projectsUsageAndCharges(start: Date, end: Date): Promise<ProjectUsageAndCharges[]> {
+        const since = Time.toUnixTimestamp(start).toString();
+        const before = Time.toUnixTimestamp(end).toString();
         const path = `${this.ROOT_PATH}/account/charges?from=${since}&to=${before}`;
         const response = await this.client.get(path);
 
@@ -75,7 +87,7 @@ export class PaymentsHttpApi implements PaymentsApi {
         const charges = await response.json();
         if (charges) {
             return charges.map(charge =>
-                new ProjectCharge(
+                new ProjectUsageAndCharges(
                     new Date(charge.since),
                     new Date(charge.before),
                     charge.egress,
@@ -84,7 +96,8 @@ export class PaymentsHttpApi implements PaymentsApi {
                     charge.projectId,
                     charge.storagePrice,
                     charge.egressPrice,
-                    charge.objectPrice),
+                    charge.objectPrice,
+                ),
             );
         }
 
@@ -181,12 +194,12 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * Returns a list of invoices, transactions and all others billing history items for payment account.
+     * Returns a list of invoices, transactions and all others payments history items for payment account.
      *
-     * @returns list of billing history items
+     * @returns list of payments history items
      * @throws Error
      */
-    public async billingHistory(): Promise<BillingHistoryItem[]> {
+    public async paymentsHistory(): Promise<PaymentsHistoryItem[]> {
         const path = `${this.ROOT_PATH}/billing-history`;
         const response = await this.client.get(path);
 
@@ -197,11 +210,10 @@ export class PaymentsHttpApi implements PaymentsApi {
             throw new Error('can not list billing history');
         }
 
-        const billingHistoryItems = await response.json();
-
-        if (billingHistoryItems) {
-            return billingHistoryItems.map(item =>
-                new BillingHistoryItem(
+        const paymentsHistoryItems = await response.json();
+        if (paymentsHistoryItems) {
+            return paymentsHistoryItems.map(item =>
+                new PaymentsHistoryItem(
                     item.id,
                     item.description,
                     item.amount,
@@ -210,7 +222,9 @@ export class PaymentsHttpApi implements PaymentsApi {
                     item.link,
                     new Date(item.start),
                     new Date(item.end),
-                    item.type),
+                    item.type,
+                    item.remaining,
+                ),
             );
         }
 

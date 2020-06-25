@@ -16,10 +16,12 @@ import LogoIcon from '@/../static/images/Logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
+import { GoogleTagManager } from '@/types/gtm';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
-import { validateEmail, validatePassword } from '@/utils/validation';
+import { MetaUtils } from '@/utils/meta';
+import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
@@ -38,6 +40,10 @@ export default class RegisterArea extends Vue {
     private secret: string = '';
     private referralToken: string = '';
     private refUserId: string = '';
+    private gtm: GoogleTagManager;
+    private satellitesString: string;
+    private partneredSatellites: string[];
+    private satelliteName: string;
 
     private userId: string = '';
     private isTermsAccepted: boolean = false;
@@ -55,11 +61,43 @@ export default class RegisterArea extends Vue {
 
     public isPasswordStrengthShown: boolean = false;
 
+    // tardigrade logic
+    public isDropdownShown: boolean = false;
+
+    /**
+     * Lifecycle hook before vue instance is created.
+     * Initializes google tag manager (Tardigrade).
+     */
+    public async beforeCreate(): Promise<void> {
+        this.satellitesString = MetaUtils.getMetaContent('partnered-satellite-names');
+        this.partneredSatellites = this.satellitesString.split(',');
+        this.satelliteName = MetaUtils.getMetaContent('satellite-name');
+
+        if (this.partneredSatellites.includes(this.satelliteName)) {
+            this.gtm = new GoogleTagManager();
+            await this.gtm.init();
+        }
+    }
+
+    /**
+     * Lifecycle hook on component destroy.
+     * Sets view to default state and removed GTM.
+     */
+    public beforeDestroy(): void {
+        if (this.partneredSatellites.includes(this.satelliteName)) {
+            this.gtm.remove();
+        }
+
+        if (this.isRegistrationSuccessful) {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
+        }
+    }
+
     /**
      * Lifecycle hook after initial render.
      * Sets up variables from route params.
      */
-    async mounted(): Promise<void> {
+    public async mounted(): Promise<void> {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
         }
@@ -92,10 +130,17 @@ export default class RegisterArea extends Vue {
     }
 
     /**
-     * Checks if page is inside iframe.
+     * Toggles satellite selection dropdown visibility (Tardigrade).
      */
-    public get isInsideIframe(): boolean {
-        return window.self !== window.top;
+    public toggleDropdown(): void {
+        this.isDropdownShown = !this.isDropdownShown;
+    }
+
+    /**
+     * Closes satellite selection dropdown (Tardigrade).
+     */
+    public closeDropdown(): void {
+        this.isDropdownShown = false;
     }
 
     /**
@@ -191,12 +236,12 @@ export default class RegisterArea extends Vue {
             isNoErrors = false;
         }
 
-        if (!validateEmail(this.user.email.trim())) {
+        if (!Validator.email(this.user.email.trim())) {
             this.emailError = 'Invalid Email';
             isNoErrors = false;
         }
 
-        if (!validatePassword(this.password)) {
+        if (!Validator.password(this.password)) {
             this.passwordError = 'Invalid Password';
             isNoErrors = false;
         }
@@ -229,6 +274,17 @@ export default class RegisterArea extends Vue {
                 email: this.$store.getters.user.email,
                 referralToken: this.referralToken,
             });
+
+            if (this.partneredSatellites.includes(this.satelliteName)) {
+                const verificationPageURL: string = MetaUtils.getMetaContent('verification-page-url');
+                const url = new URL(verificationPageURL);
+
+                url.searchParams.append('name', this.satelliteName);
+
+                window.top.location.href = url.href;
+
+                return;
+            }
 
             await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         } catch (error) {

@@ -205,8 +205,7 @@ export default class HeaderArea extends Vue {
     private async setProjectState(): Promise<void> {
         const projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         if (!projects.length) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
-            await this.$router.push(RouteConfig.ProjectDashboard.path);
+            await this.$router.push(RouteConfig.OnboardingTour.path);
 
             return;
         }

@@ -116,17 +116,17 @@ export default class SNOContentTitle extends Vue {
         return this.$store.state.node.info.status === StatusOnline;
     }
 
-    public get lastPinged(): string {
-        return this.timePassed(this.$store.state.node.info.lastPinged);
-    }
-
     public get uptime(): string {
         return this.timePassed(this.$store.state.node.info.startedAt);
     }
 
+    public get lastPinged(): string {
+        return this.timePassed(this.$store.state.node.info.lastPinged);
+    }
+
     public get currentMonth(): string {
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
+            'July', 'August', 'September', 'October', 'November', 'December',
         ];
         const date = new Date();
 
@@ -154,9 +154,9 @@ export default class SNOContentTitle extends Vue {
         margin-bottom: 9px;
 
         &__node-id-container {
-            color: #535f77;
+            color: var(--regular-text-color);
             height: 44px;
-            padding: 0 14px 0 14px;
+            padding: 14px;
             border: 1px solid #e8e8e8;
             border-radius: 12px;
             font-size: 14px;
@@ -178,7 +178,7 @@ export default class SNOContentTitle extends Vue {
             margin: 0 0 21px 0;
             font-size: 32px;
             line-height: 57px;
-            color: #535f77;
+            color: var(--regular-text-color);
         }
 
         &__info-container {
@@ -201,7 +201,7 @@ export default class SNOContentTitle extends Vue {
                     font-size: 18px;
                     line-height: 20px;
                     font-family: 'font_medium', sans-serif;
-                    color: #535f77;
+                    color: var(--regular-text-color);
                     margin: 0;
                 }
             }
@@ -223,7 +223,7 @@ export default class SNOContentTitle extends Vue {
     }
 
     /deep/ .info__message-box {
-        background-image: url('../../../static/images/MessageTitle.png');
+        background-image: var(--info-image-arrow-left-path);
         bottom: 100%;
         left: 220%;
         padding: 20px 20px 25px 20px;
@@ -263,7 +263,6 @@ export default class SNOContentTitle extends Vue {
             }
 
             &__info-container {
-                justify-content: flex-start;
 
                 &__info-item {
                     padding: 12px 8px;
@@ -273,6 +272,16 @@ export default class SNOContentTitle extends Vue {
 
         .title-area-divider {
             display: none;
+        }
+    }
+
+    @media screen and (max-width: 600px) {
+
+        .title-area {
+
+            &__info-container {
+                justify-content: flex-start;
+            }
         }
     }
 </style>

@@ -68,6 +68,7 @@ export class TotalPayoutInfo {
     public constructor(
         public totalHeldAmount: number = 0,
         public totalEarnings: number = 0,
+        public currentMonthEarnings: number = 0,
     ) {}
 }
 
@@ -80,6 +81,9 @@ export class PayoutState {
         public periodRange: PayoutInfoRange = new PayoutInfoRange(),
         public totalHeldAmount: number = 0,
         public totalEarnings: number = 0,
+        public currentMonthEarnings: number = 0,
+        public heldPercentage: number = 0,
+        public heldHistory: HeldHistory = new HeldHistory(),
     ) {}
 }
 
@@ -88,14 +92,50 @@ export class PayoutState {
  */
 export interface PayoutApi {
     /**
-     * Fetches held amount information.
+     * Fetches held amount information by selected period.
      * @throws Error
      */
-    getHeldInfo(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo>;
+    getHeldInfoByPeriod(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo>;
+
+    /**
+     * Fetches held amount information by selected month.
+     * @throws Error
+     */
+    getHeldInfoByMonth(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo>;
 
     /**
      * Fetches total payout information.
      * @throws Error
      */
     getTotal(paymentInfoParameters: PaymentInfoParameters): Promise<TotalPayoutInfo>;
+
+    /**
+     * Fetches held history for all satellites.
+     * @throws Error
+     */
+    getHeldHistory(): Promise<HeldHistory>;
+}
+
+/**
+ * Holds held history information for all satellites.
+ */
+export class HeldHistory {
+    public constructor(
+        public monthlyBreakdown: HeldHistoryMonthlyBreakdownItem[] = [],
+    ) {}
+}
+
+/**
+ * Contains held amounts of satellite grouped by periods.
+ */
+export class HeldHistoryMonthlyBreakdownItem {
+    public constructor(
+        public satelliteID: string = '',
+        public satelliteName: string = '',
+        public age: number = 1,
+        public firstPeriod: number = 0,
+        public secondPeriod: number = 0,
+        public thirdPeriod: number = 0,
+        public fourthPeriod: number = 0,
+    ) {}
 }

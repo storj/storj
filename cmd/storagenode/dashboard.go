@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -52,9 +51,9 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 
 	ident, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
-		zap.S().Info("Node ID: ", ident.ID)
+		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
 	}
 
 	client, err := dialDashboardClient(ctx, dashboardCfg.Address)
@@ -63,7 +62,7 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 	}
 	defer func() {
 		if err := client.close(); err != nil {
-			zap.S().Debug("closing dashboard client failed", err)
+			zap.L().Debug("Closing dashboard client failed.", zap.Error(err))
 		}
 	}()
 
@@ -100,8 +99,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 		fmt.Fprintf(w, "Last Contact\t%s\n", color.GreenString("ONLINE"))
 	}
 
-	// TODO: use stdtime in protobuf
-	uptime, err := ptypes.Duration(data.GetUptime())
+	uptime, err := time.ParseDuration(data.GetUptime())
 	if err == nil {
 		fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.Truncate(time.Second).String()))
 	}
@@ -120,7 +118,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 
 		w = tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
 		fmt.Fprintf(w, "\n\t%s\t%s\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"), color.GreenString("Egress"), color.GreenString("Ingress"))
-		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t (since %s 1)\n", "N/A", usedBandwidth, usedEgress, usedIngress, time.Now().Format("Jan"))
+		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t (since %s 1)\n", color.WhiteString("N/A"), usedBandwidth, usedEgress, usedIngress, time.Now().Format("Jan"))
 		fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
 		if err = w.Flush(); err != nil {
 			return err

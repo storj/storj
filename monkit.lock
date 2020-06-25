@@ -57,6 +57,7 @@ storj.io/storj/satellite/repair/checker."checker_segment_age" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_healthy_count" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_time_until_irreparable" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_total_count" IntVal
+storj.io/storj/satellite/repair/checker."new_remote_segments_needing_repair" IntVal
 storj.io/storj/satellite/repair/checker."remote_files_checked" IntVal
 storj.io/storj/satellite/repair/checker."remote_files_lost" IntVal
 storj.io/storj/satellite/repair/checker."remote_segments_checked" IntVal
@@ -73,6 +74,7 @@ storj.io/storj/satellite/repair/repairer."download_failed_not_enough_pieces_repa
 storj.io/storj/satellite/repair/repairer."healthy_ratio_after_repair" FloatVal
 storj.io/storj/satellite/repair/repairer."healthy_ratio_before_repair" FloatVal
 storj.io/storj/satellite/repair/repairer."repair_attempts" Meter
+storj.io/storj/satellite/repair/repairer."repair_expired" Meter
 storj.io/storj/satellite/repair/repairer."repair_failed" Meter
 storj.io/storj/satellite/repair/repairer."repair_nodes_unavailable" Meter
 storj.io/storj/satellite/repair/repairer."repair_partial" Meter
@@ -96,3 +98,4 @@ storj.io/storj/satellite/satellitedb."unknown_audit_reputation_beta" FloatVal
 storj.io/storj/storage/filestore."open_file_in_trash" Meter
 storj.io/storj/storagenode/contact."satellite_contact_request" Meter
 storj.io/storj/storagenode/gracefulexit."satellite_gracefulexit_request" Meter
+storj.io/storj/storagenode/piecestore/usedserials."delete_random_serial" Meter

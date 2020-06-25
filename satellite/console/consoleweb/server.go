@@ -7,6 +7,8 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"html/template"
 	"mime"
 	"net"
@@ -27,8 +29,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/common/uuid"
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -61,14 +65,20 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	ContactInfoURL        string `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors        string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
-	LetUsKnowURL          string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                   string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName         string `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator     string `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SegmentIOPublicKey    string `help:"used to initialize segment.io at web satellite console" default:""`
+	ContactInfoURL               string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors               string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
+	LetUsKnowURL                 string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                          string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName                string `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator            string `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL        string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
+	SegmentIOPublicKey           string `help:"used to initialize segment.io at web satellite console" default:""`
+	AccountActivationRedirectURL string `help:"url link for account activation redirect" default:""`
+	VerificationPageURL          string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
+	PartneredSatelliteNames      string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
+	GoogleTagManagerID           string `help:"id for google tag manager" default:""`
+
+	RateLimit web.IPRateLimiterConfig
 
 	console.Config
 }
@@ -84,9 +94,10 @@ type Server struct {
 	mailService      *mailservice.Service
 	referralsService *referrals.Service
 
-	listener   net.Listener
-	server     http.Server
-	cookieAuth *consolewebauth.CookieAuth
+	listener    net.Listener
+	server      http.Server
+	cookieAuth  *consolewebauth.CookieAuth
+	rateLimiter *web.IPRateLimiter
 
 	stripePublicKey string
 
@@ -112,9 +123,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		mailService:      mailService,
 		referralsService: referralsService,
 		stripePublicKey:  stripePublicKey,
+		rateLimiter:      web.NewIPRateLimiter(config.RateLimit),
 	}
 
-	logger.Sugar().Debugf("Starting Satellite UI on %s...", server.listener.Addr().String())
+	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
 
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_tokenKey",
@@ -127,6 +139,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		}
 	} else {
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"
+	}
+
+	if server.config.AccountActivationRedirectURL == "" {
+		server.config.AccountActivationRedirectURL = server.config.ExternalAddress + "login?activated=true"
 	}
 
 	router := mux.NewRouter()
@@ -155,10 +171,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
 	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
 	authRouter.HandleFunc("/logout", authController.Logout).Methods(http.MethodPost)
-	authRouter.HandleFunc("/token", authController.Token).Methods(http.MethodPost)
-	authRouter.HandleFunc("/register", authController.Register).Methods(http.MethodPost)
-	authRouter.HandleFunc("/forgot-password/{email}", authController.ForgotPassword).Methods(http.MethodPost)
-	authRouter.HandleFunc("/resend-email/{id}", authController.ResendEmail).Methods(http.MethodPost)
+	authRouter.Handle("/token", server.rateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
+	authRouter.Handle("/register", server.rateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost)
+	authRouter.Handle("/forgot-password/{email}", server.rateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
+	authRouter.Handle("/resend-email/{id}", server.rateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
 
 	paymentController := consoleapi.NewPayments(logger, service)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
@@ -212,8 +228,16 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		return server.server.Shutdown(context.Background())
 	})
 	group.Go(func() error {
+		server.rateLimiter.Run(ctx)
+		return nil
+	})
+	group.Go(func() error {
 		defer cancel()
-		return server.server.Serve(server.listener)
+		err := server.server.Serve(server.listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return err
 	})
 
 	return group.Wait()
@@ -230,11 +254,11 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"connect-src 'self' api.segment.io",
+		"connect-src 'self' api.segment.io *.google-analytics.com",
 		"frame-ancestors " + server.config.FrameAncestors,
-		"frame-src 'self' *.stripe.com",
-		"img-src 'self' data: *.customer.io",
-		"script-src 'self' *.stripe.com cdn.segment.com *.customer.io",
+		"frame-src 'self' *.stripe.com *.googletagmanager.com",
+		"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
+		"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io *.google-analytics.com *.googletagmanager.com",
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
@@ -243,14 +267,20 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		SatelliteName      string
-		SegmentIOPublicKey string
-		StripePublicKey    string
+		SatelliteName           string
+		SegmentIOPublicKey      string
+		StripePublicKey         string
+		VerificationPageURL     string
+		PartneredSatelliteNames string
+		GoogleTagManagerID      string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
 	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
+	data.VerificationPageURL = server.config.VerificationPageURL
+	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
+	data.GoogleTagManagerID = server.config.GoogleTagManagerID
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
 		server.log.Error("index template could not be executed")
@@ -455,7 +485,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	http.Redirect(w, r, server.config.ExternalAddress+"login?activated=true", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, server.config.AccountActivationRedirectURL, http.StatusTemporaryRedirect)
 }
 
 func (server *Server) passwordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
@@ -690,7 +720,7 @@ func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server.log.Sugar().Debug(result)
+	server.log.Debug(fmt.Sprintf("%s", result))
 }
 
 // serveError serves error static pages.

@@ -48,7 +48,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db stor
 		}
 		defer ctx.Check(db.Close)
 
-		err = db.CreateTables(ctx)
+		err = db.MigrateToLatest(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

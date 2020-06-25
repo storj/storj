@@ -28,14 +28,13 @@ func TestCouponRepository(t *testing.T) {
 			Amount:      10,
 			Status:      payments.CouponActive,
 			Description: "description",
-			ProjectID:   testrand.UUID(),
 			UserID:      testrand.UUID(),
 		}
 
 		now := time.Now().UTC()
 
 		t.Run("insert", func(t *testing.T) {
-			err := couponsRepo.Insert(ctx, coupon)
+			_, err := couponsRepo.Insert(ctx, coupon)
 			require.NoError(t, err)
 
 			coupons, err := couponsRepo.List(ctx, payments.CouponActive)
@@ -45,7 +44,7 @@ func TestCouponRepository(t *testing.T) {
 		})
 
 		t.Run("update", func(t *testing.T) {
-			err := couponsRepo.Update(ctx, coupon.ID, payments.CouponUsed)
+			_, err := couponsRepo.Update(ctx, coupon.ID, payments.CouponUsed)
 			require.NoError(t, err)
 
 			coupons, err := couponsRepo.List(ctx, payments.CouponUsed)
@@ -206,19 +205,10 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		proj4, err := projectsRepo.Insert(ctx, &console.Project{
-			ID:          testrand.UUID(),
-			Name:        "proj 1 of user 5",
-			Description: "descr 4",
-			OwnerID:     user5.ID,
-		})
-		require.NoError(t, err)
-
 		couponID := testrand.UUID()
-		err = couponsRepo.Insert(ctx, payments.Coupon{
+		_, err = couponsRepo.Insert(ctx, payments.Coupon{
 			ID:          couponID,
 			UserID:      user5.ID,
-			ProjectID:   proj4.ID,
 			Amount:      5500,
 			Duration:    2,
 			Description: "qw",
@@ -266,7 +256,6 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 			user1Coupons, err := couponsRepo.ListByUserID(ctx, user1.ID)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(user1Coupons))
-			require.Equal(t, proj1.ID, user1Coupons[0].ProjectID)
 
 			proj1Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj1.ID)
 			require.NoError(t, err)
@@ -313,7 +302,6 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 			user1Coupons, err := couponsRepo.ListByUserID(ctx, user1.ID)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(user1Coupons))
-			require.Equal(t, proj1.ID, user1Coupons[0].ProjectID)
 
 			proj1Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj1.ID)
 			require.NoError(t, err)

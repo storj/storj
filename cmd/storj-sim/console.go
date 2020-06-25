@@ -47,6 +47,10 @@ func (ce *consoleEndpoints) Register() string {
 	return ce.appendPath("/api/v0/auth/register")
 }
 
+func (ce *consoleEndpoints) SetupAccount() string {
+	return ce.appendPath("/api/v0/payments/account")
+}
+
 func (ce *consoleEndpoints) Activation(token string) string {
 	return ce.appendPath("/activation/?token=" + token)
 }
@@ -99,6 +103,11 @@ func (ce *consoleEndpoints) createOrGetAPIKey() (string, error) {
 		if err != nil {
 			return "", errs.Wrap(err)
 		}
+	}
+
+	err = ce.setupAccount(authToken)
+	if err != nil {
+		return "", errs.Wrap(err)
 	}
 
 	projectID, err := ce.getOrCreateProject(authToken)
@@ -178,7 +187,6 @@ func (ce *consoleEndpoints) createRegistrationToken() (string, error) {
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
-	request.Header.Set("Authorization", "secure_token")
 
 	resp, err := ce.client.Do(request)
 	if err != nil {
@@ -271,6 +279,34 @@ func (ce *consoleEndpoints) activateUser(userID string) error {
 	if err != nil {
 		return err
 	}
+
+	resp, err := ce.client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+
+	if resp.StatusCode != http.StatusOK {
+		return errs.New("unexpected status code: %d (%q)",
+			resp.StatusCode, tryReadLine(resp.Body))
+	}
+
+	return nil
+}
+
+func (ce *consoleEndpoints) setupAccount(token string) error {
+	request, err := http.NewRequest(
+		http.MethodPost,
+		ce.SetupAccount(),
+		nil)
+	if err != nil {
+		return err
+	}
+
+	request.AddCookie(&http.Cookie{
+		Name:  ce.cookieName,
+		Value: token,
+	})
 
 	resp, err := ce.client.Do(request)
 	if err != nil {

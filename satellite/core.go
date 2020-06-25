@@ -35,11 +35,11 @@ import (
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/mockpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 )
@@ -105,6 +105,10 @@ type Core struct {
 		Service *gc.Service
 	}
 
+	ExpiredDeletion struct {
+		Chore *expireddeletion.Chore
+	}
+
 	DBCleanup struct {
 		Chore *dbcleanup.Chore
 	}
@@ -144,7 +148,7 @@ type Core struct {
 func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache,
 	rollupsWriteCache *orders.RollupsWriteCache,
-	versionInfo version.Info, config *Config) (*Core, error) {
+	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Core, error) {
 	peer := &Core{
 		Log:      log,
 		Identity: full,
@@ -166,7 +170,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "Core"
-		peer.Debug.Server = debug.NewServer(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig)
+		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
@@ -177,10 +181,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	var err error
 
 	{ // setup version control
-		if !versionInfo.IsZero() {
-			peer.Log.Sugar().Debugf("Binary Version: %s with CommitHash %s, built at %s as Release %v",
-				versionInfo.Version.String(), versionInfo.CommitHash, versionInfo.Timestamp.String(), versionInfo.Release)
-		}
+		peer.Log.Info("Version info",
+			zap.Stringer("Version", versionInfo.Version.Version),
+			zap.String("Commit Hash", versionInfo.CommitHash),
+			zap.Stringer("Build Timestamp", versionInfo.Timestamp),
+			zap.Bool("Release Build", versionInfo.Release),
+		)
 		peer.Version.Service = version_checker.NewService(log.Named("version"), config.Version, versionInfo, "Satellite")
 		peer.Version.Chore = version_checker.NewChore(peer.Version.Service, config.Version.CheckInterval)
 
@@ -191,7 +197,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup listener and server
-		log.Debug("Starting listener and server")
 		sc := config.Server
 
 		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
@@ -218,7 +223,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Type:    pb.NodeType_SATELLITE,
 			Version: *pbVersion,
 		}
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, config.Contact.Timeout)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "contact:service",
 			Close: peer.Contact.Service.Close,
@@ -242,7 +247,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
-			config.Rollup.MaxAlphaUsage,
+			config.Rollup.DefaultMaxUsage,
+			config.Rollup.DefaultMaxBandwidth,
+			config.LiveAccounting.BandwidthCacheTTL,
 		)
 	}
 
@@ -377,6 +384,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
+	{ // setup expired segment cleanup
+		peer.ExpiredDeletion.Chore = expireddeletion.NewChore(
+			peer.Log.Named("core-expired-deletion"),
+			config.ExpiredDeletion,
+			peer.Metainfo.Service,
+			peer.Metainfo.Loop,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name: "expireddeletion:chore",
+			Run:  peer.ExpiredDeletion.Chore.Run,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Expired Segments Chore", peer.ExpiredDeletion.Chore.Loop))
+	}
+
 	{ // setup db cleanup
 		peer.DBCleanup.Chore = dbcleanup.NewChore(peer.Log.Named("dbcleanup"), peer.DB.Orders(), config.DBCleanup)
 		peer.Services.Add(lifecycle.Item{
@@ -421,46 +443,50 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup payments
 		pc := config.Payments
 
+		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
 		default:
-			peer.Payments.Accounts = mockpayments.Accounts()
+			stripeClient = stripecoinpayments.NewStripeMock()
 		case "stripecoinpayments":
-			service, err := stripecoinpayments.NewService(
-				peer.Log.Named("payments.stripe:service"),
-				pc.StripeCoinPayments,
-				peer.DB.StripeCoinPayments(),
-				peer.DB.Console().Projects(),
-				peer.DB.ProjectAccounting(),
-				pc.StorageTBPrice,
-				pc.EgressTBPrice,
-				pc.ObjectPrice,
-				pc.BonusRate,
-				pc.CouponValue,
-				pc.CouponDuration,
-				pc.CouponProjectLimit,
-				pc.MinCoinPayment)
-
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			peer.Payments.Accounts = service.Accounts()
-
-			peer.Payments.Chore = stripecoinpayments.NewChore(
-				peer.Log.Named("payments.stripe:clearing"),
-				service,
-				pc.StripeCoinPayments.TransactionUpdateInterval,
-				pc.StripeCoinPayments.AccountBalanceUpdateInterval,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name: "payments.stripe:service",
-				Run:  peer.Payments.Chore.Run,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Payments Stripe Transactions", peer.Payments.Chore.TransactionCycle),
-				debug.Cycle("Payments Stripe Account Balance", peer.Payments.Chore.AccountBalanceCycle),
-			)
+			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
+
+		service, err := stripecoinpayments.NewService(
+			peer.Log.Named("payments.stripe:service"),
+			stripeClient,
+			pc.StripeCoinPayments,
+			peer.DB.StripeCoinPayments(),
+			peer.DB.Console().Projects(),
+			peer.DB.ProjectAccounting(),
+			pc.StorageTBPrice,
+			pc.EgressTBPrice,
+			pc.ObjectPrice,
+			pc.BonusRate,
+			pc.CouponValue,
+			pc.CouponDuration,
+			pc.CouponProjectLimit,
+			pc.MinCoinPayment)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Payments.Accounts = service.Accounts()
+
+		peer.Payments.Chore = stripecoinpayments.NewChore(
+			peer.Log.Named("payments.stripe:clearing"),
+			service,
+			pc.StripeCoinPayments.TransactionUpdateInterval,
+			pc.StripeCoinPayments.AccountBalanceUpdateInterval,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name: "payments.stripe:service",
+			Run:  peer.Payments.Chore.Run,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Payments Stripe Transactions", peer.Payments.Chore.TransactionCycle),
+			debug.Cycle("Payments Stripe Account Balance", peer.Payments.Chore.AccountBalanceCycle),
+		)
 	}
 
 	{ // setup graceful exit

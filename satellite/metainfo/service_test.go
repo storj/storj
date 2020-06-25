@@ -60,9 +60,9 @@ func TestIterate(t *testing.T) {
 
 func TestUpdatePiecesCheckDuplicates(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(1, 1, 2, 2),
+			Satellite: testplanet.ReconfigureRS(1, 1, 3, 3),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -89,16 +89,25 @@ func TestUpdatePiecesCheckDuplicates(t *testing.T) {
 		pieces := pointer.GetRemote().GetRemotePieces()
 		require.False(t, hasDuplicates(pointer.GetRemote().GetRemotePieces()))
 
-		piece := pieces[0]
-		piece.PieceNum = 3
+		// Remove second piece in the list and replace it with
+		// a piece on the first node.
+		// This way we can ensure that we use a valid piece num.
+		removePiece := &pb.RemotePiece{
+			PieceNum: pieces[1].PieceNum,
+			NodeId:   pieces[1].NodeId,
+		}
+		addPiece := &pb.RemotePiece{
+			PieceNum: pieces[1].PieceNum,
+			NodeId:   pieces[0].NodeId,
+		}
 
 		// test no duplicates
-		updPointer, err := satellite.Metainfo.Service.UpdatePiecesCheckDuplicates(ctx, encPath, pointer, []*pb.RemotePiece{piece}, nil, true)
+		updPointer, err := satellite.Metainfo.Service.UpdatePiecesCheckDuplicates(ctx, encPath, pointer, []*pb.RemotePiece{addPiece}, []*pb.RemotePiece{removePiece}, true)
 		require.True(t, metainfo.ErrNodeAlreadyExists.Has(err))
 		require.False(t, hasDuplicates(updPointer.GetRemote().GetRemotePieces()))
 
 		// test allow duplicates
-		updPointer, err = satellite.Metainfo.Service.UpdatePieces(ctx, encPath, pointer, []*pb.RemotePiece{piece}, nil)
+		updPointer, err = satellite.Metainfo.Service.UpdatePieces(ctx, encPath, pointer, []*pb.RemotePiece{addPiece}, []*pb.RemotePiece{removePiece})
 		require.NoError(t, err)
 		require.True(t, hasDuplicates(updPointer.GetRemote().GetRemotePieces()))
 	})

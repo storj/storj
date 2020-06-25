@@ -5,6 +5,7 @@ package piecestore
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"sync/atomic"
@@ -21,7 +22,6 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/rpc/rpctimeout"
 	"storj.io/common/signing"
@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/trust"
 )
@@ -38,8 +39,6 @@ import (
 var (
 	mon = monkit.Package()
 )
-
-var _ pbgrpc.PiecestoreServer = (*Endpoint)(nil)
 
 // OldConfig contains everything necessary for a server
 type OldConfig struct {
@@ -52,13 +51,17 @@ type OldConfig struct {
 
 // Config defines parameters for piecestore endpoint.
 type Config struct {
+	DatabaseDir             string        `help:"directory to store databases. if empty, uses data path" default:""`
 	ExpirationGracePeriod   time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
-	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"24h0m0s"`
+	DeleteWorkers           int           `help:"how many piece delete workers" default:"1"`
+	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"10000"`
+	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
 	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
 	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
-	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"100MB" hidden:"true"`
+	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
+	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
 
 	Trust trust.Config
 
@@ -74,9 +77,8 @@ type pingStatsSource interface {
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log          *zap.Logger
-	config       Config
-	grpcReqLimit int
+	log    *zap.Logger
+	config Config
 
 	signer    signing.Signer
 	trust     *trust.Pool
@@ -84,37 +86,20 @@ type Endpoint struct {
 	retain    *retain.Service
 	pingStats pingStatsSource
 
-	store       *pieces.Store
-	orders      orders.DB
-	usage       bandwidth.DB
-	usedSerials UsedSerials
+	store        *pieces.Store
+	orders       orders.DB
+	usage        bandwidth.DB
+	usedSerials  *usedserials.Table
+	pieceDeleter *pieces.Deleter
 
-	// liveRequests tracks the total number of incoming rpc requests. For gRPC
-	// requests only, this number is compared to config.MaxConcurrentRequests
-	// and limits the number of gRPC requests. dRPC requests are tracked but
-	// not limited.
 	liveRequests int32
 }
 
-// drpcEndpoint wraps streaming methods so that they can be used with drpc
-type drpcEndpoint struct{ *Endpoint }
-
-// DRPC returns a DRPC form of the endpoint.
-func (endpoint *Endpoint) DRPC() pb.DRPCPiecestoreServer { return &drpcEndpoint{Endpoint: endpoint} }
-
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
-	// If config.MaxConcurrentRequests is set we want to repsect it for grpc.
-	// However, if it is 0 (unlimited) we force a limit.
-	grpcReqLimit := config.MaxConcurrentRequests
-	if grpcReqLimit <= 0 {
-		grpcReqLimit = 7
-	}
-
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, orders orders.DB, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
-		log:          log,
-		config:       config,
-		grpcReqLimit: grpcReqLimit,
+		log:    log,
+		config: config,
 
 		signer:    signer,
 		trust:     trust,
@@ -122,10 +107,11 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		retain:    retain,
 		pingStats: pingStats,
 
-		store:       store,
-		orders:      orders,
-		usage:       usage,
-		usedSerials: usedSerials,
+		store:        store,
+		orders:       orders,
+		usage:        usage,
+		usedSerials:  usedSerials,
+		pieceDeleter: pieceDeleter,
 
 		liveRequests: 0,
 	}, nil
@@ -185,45 +171,15 @@ func (endpoint *Endpoint) DeletePieces(
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "delete pieces called with untrusted ID")
 	}
 
-	for _, pieceID := range req.PieceIds {
-		err = endpoint.store.Delete(ctx, peer.ID, pieceID)
-		if err != nil {
-			// If a piece cannot be deleted, we just log the error.
-			// No error is returned to the caller.
-			endpoint.log.Error("delete failed",
-				zap.Stringer("Satellite ID", peer.ID),
-				zap.Stringer("Piece ID", pieceID),
-				zap.Error(err),
-			)
-		} else {
-			endpoint.log.Info("deleted",
-				zap.Stringer("Satellite ID", peer.ID),
-				zap.Stringer("Piece ID", pieceID),
-			)
-		}
-	}
-	return &pb.DeletePiecesResponse{}, nil
+	unhandled := endpoint.pieceDeleter.Enqueue(ctx, peer.ID, req.PieceIds)
+
+	return &pb.DeletePiecesResponse{
+		UnhandledCount: int64(unhandled),
+	}, nil
 }
 
 // Upload handles uploading a piece on piece store.
-func (endpoint *Endpoint) Upload(stream pbgrpc.Piecestore_UploadServer) (err error) {
-	return endpoint.doUpload(stream, endpoint.grpcReqLimit)
-}
-
-// Upload handles uploading a piece on piece store.
-func (endpoint *drpcEndpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err error) {
-	return endpoint.doUpload(stream, endpoint.config.MaxConcurrentRequests)
-}
-
-// uploadStream is the minimum interface required to perform settlements.
-type uploadStream interface {
-	Context() context.Context
-	Recv() (*pb.PieceUploadRequest, error)
-	SendAndClose(*pb.PieceUploadResponse) error
-}
-
-// doUpload handles uploading a piece on piece store.
-func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err error) {
+func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -233,9 +189,13 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 
 	endpoint.pingStats.WasPinged(time.Now())
 
-	if requestLimit > 0 && int(liveRequests) > requestLimit {
-		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveRequests))
-		return rpcstatus.Error(rpcstatus.Unavailable, "storage node overloaded")
+	if endpoint.config.MaxConcurrentRequests > 0 && int(liveRequests) > endpoint.config.MaxConcurrentRequests {
+		endpoint.log.Error("upload rejected, too many requests",
+			zap.Int32("live requests", liveRequests),
+			zap.Int("requestLimit", endpoint.config.MaxConcurrentRequests),
+		)
+		errMsg := fmt.Sprintf("storage node overloaded, request limit: %d", endpoint.config.MaxConcurrentRequests)
+		return rpcstatus.Error(rpcstatus.Unavailable, errMsg)
 	}
 
 	startTime := time.Now().UTC()
@@ -259,8 +219,6 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 	}
 	limit := message.Limit
 
-	// TODO: verify that we have have expected amount of storage before continuing
-
 	if limit.Action != pb.PieceAction_PUT && limit.Action != pb.PieceAction_PUT_REPAIR {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "expected put or put repair action got %v", limit.Action)
 	}
@@ -273,13 +231,21 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
-
 	// if availableSpace has fallen below ReportCapacityThreshold, report capacity to satellites
 	defer func() {
 		if availableSpace < endpoint.config.ReportCapacityThreshold.Int64() {
 			endpoint.monitor.NotifyLowDisk()
 		}
 	}()
+
+	// double verify that disk actually has sufficient capacity
+	status, err := endpoint.store.StorageStatus(ctx)
+	if err != nil {
+		return err
+	}
+	if status.DiskFree < limit.Limit {
+		return rpcstatus.Errorf(rpcstatus.Aborted, "not enough available disk space, have: %v, need: %v", status.DiskFree, limit.Limit)
+	}
 
 	var pieceWriter *pieces.Writer
 	defer func() {
@@ -300,7 +266,7 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_cancel_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_cancel_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		} else if err != nil {
 			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
@@ -456,25 +422,8 @@ func (endpoint *Endpoint) doUpload(stream uploadStream, requestLimit int) (err e
 	}
 }
 
-// Download handles Downloading a piece on piece store.
-func (endpoint *Endpoint) Download(stream pbgrpc.Piecestore_DownloadServer) (err error) {
-	return endpoint.doDownload(stream)
-}
-
-// Download handles Downloading a piece on piece store.
-func (endpoint *drpcEndpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err error) {
-	return endpoint.doDownload(stream)
-}
-
-// downloadStream is the minimum interface required to perform settlements.
-type downloadStream interface {
-	Context() context.Context
-	Recv() (*pb.PieceDownloadRequest, error)
-	Send(*pb.PieceDownloadResponse) error
-}
-
-// Download implements downloading a piece from piece store.
-func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
+// Download handles Downloading a piece on piecestore.
+func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -503,8 +452,6 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 	}
 	limit, chunk := message.Limit, message.Chunk
 
-	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
-
 	if limit.Action != pb.PieceAction_GET && limit.Action != pb.PieceAction_GET_REPAIR && limit.Action != pb.PieceAction_GET_AUDIT {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"expected get or get repair or audit action got %v", limit.Action)
@@ -515,7 +462,11 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			"requested more that order limit allows, limit=%v requested=%v", limit.Limit, chunk.ChunkSize)
 	}
 
+	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
+		mon.Meter("download_verify_orderlimit_failed").Mark(1)
+		endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		return err
 	}
 
@@ -537,7 +488,7 @@ func (endpoint *Endpoint) doDownload(stream downloadStream) (err error) {
 			mon.IntVal("download_cancel_size_bytes").Observe(downloadSize)
 			mon.IntVal("download_cancel_duration_ns").Observe(downloadDuration)
 			mon.FloatVal("download_cancel_rate_bytes_per_sec").Observe(downloadRate)
-			endpoint.log.Info("download canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+			endpoint.log.Info("download canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		} else if err != nil {
 			mon.Meter("download_failure_byte_meter").Mark64(downloadSize)
 			mon.IntVal("download_failure_size_bytes").Observe(downloadSize)

@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -253,7 +254,7 @@ func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, node
 	return Error.Wrap(err)
 }
 
-func scanRows(rows *sql.Rows) (transferQueueItemRows []*gracefulexit.TransferQueueItem, err error) {
+func scanRows(rows tagsql.Rows) (transferQueueItemRows []*gracefulexit.TransferQueueItem, err error) {
 	for rows.Next() {
 		transferQueueItem := &gracefulexit.TransferQueueItem{}
 		var pieceIDBytes []byte

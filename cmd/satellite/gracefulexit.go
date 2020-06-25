@@ -14,7 +14,6 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -115,11 +114,11 @@ func verifyGracefulExitReceipt(ctx context.Context, identity *identity.FullIdent
 
 	// try to unmarshal as an ExitCompleted first
 	completed := &pb.ExitCompleted{}
-	err = proto.Unmarshal(bytes, completed)
+	err = pb.Unmarshal(bytes, completed)
 	if err != nil {
 		// if it is not a ExitCompleted, try ExitFailed
 		failed := &pb.ExitFailed{}
-		err = proto.Unmarshal(bytes, failed)
+		err = pb.Unmarshal(bytes, failed)
 		if err != nil {
 			return errs.Wrap(err)
 		}

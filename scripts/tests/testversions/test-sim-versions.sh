@@ -27,7 +27,13 @@ RUN_TYPE=${RUN_TYPE:-"jenkins"}
 # in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are split into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
 git fetch --tags
-major_release_tags=$(git tag -l --sort -version:refname | grep -v "rc" | sort -n -k2,2 -t'.' --unique | awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 || $2 >= 1 {print $0}')
+major_release_tags=$(
+    git tag -l --sort -version:refname |                             # get the tag list
+    grep -v rc |                                                     # remove release candidates
+    sort -n -k2,2 -t'.' --unique |                                   # only keep the largest patch version
+    sort -V |                                                        # resort based using "version sort"
+    awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 || $2 >= 1 {print $0}' # keep only >= v0.15.x and v1.0.0
+)
 current_release_version=$(echo $major_release_tags | xargs -n 1 | tail -1)
 stage1_sat_version=$current_release_version
 stage1_uplink_versions=$major_release_tags
@@ -109,6 +115,7 @@ setup_stage(){
     PATH=$test_dir/bin:$PATH dest_sat_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ SATELLITE_0_DIR)
 
     # ln binary and copy config.yaml for desired version
+    ln -f $(version_dir ${sat_version})/bin/storj-sim $test_dir/bin/storj-sim
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
@@ -175,18 +182,17 @@ for version in ${unique_versions}; do
         fi
         rm -f ${dir}/private/version/release.go
         rm -f ${dir}/internal/version/release.go
-        # clear out release information
-        cat > ${dir}/private/version/release.go <<EOF
-        // Copyright (C) 2020 Storj Labs, Inc.
-        // See LICENSE for copying information.
-        package version
-EOF
         if [[ $version = $current_release_version || $version = "master" ]]
         then
+            # clear out release information
+            cat > ${dir}/private/version/release.go <<-EOF
+		// Copyright (C) 2020 Storj Labs, Inc.
+		// See LICENSE for copying information.
+		package version
+		EOF
+
             echo "Installing storj-sim for ${version} in ${dir}."
-                 
             install_sim ${dir} ${bin_dir}
-    
             echo "finished installing"
 
             echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
@@ -203,7 +209,7 @@ EOF
             mkdir -p ${bin_dir}
 
             go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    
+
             popd
             echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
             echo "Binary shasums:"

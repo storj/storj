@@ -5,7 +5,9 @@ package live
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -44,6 +46,51 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 	}
 	intval, err := strconv.Atoi(string(val))
 	return int64(intval), Error.Wrap(err)
+}
+
+// createBandwidthProjectIDKey creates the bandwidth project key.
+// The current month is combined with projectID to create a prefix.
+func createBandwidthProjectIDKey(projectID uuid.UUID, now time.Time) []byte {
+	// Add current month as prefix
+	_, month, _ := now.Date()
+	key := append(projectID[:], byte(int(month)))
+
+	return append(key, []byte(":bandwidth")...)
+}
+
+// GetProjectBandwidthUsage returns the current bandwidth usage
+// from specific project.
+func (cache *redisLiveAccounting) GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error) {
+	val, err := cache.client.Get(ctx, createBandwidthProjectIDKey(projectID, now))
+	if err != nil {
+		return 0, err
+	}
+	intval, err := strconv.Atoi(string(val))
+	return int64(intval), Error.Wrap(err)
+}
+
+// UpdateProjectBandwidthUsage increment the bandwidth cache key value.
+func (cache *redisLiveAccounting) UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration, now time.Time) (err error) {
+
+	// The following script will increment the cache key
+	// by a specific value. If the key does not exist, it is
+	// set to 0 before performing the operation.
+	// The key expiration will be set only in the first iteration.
+	// To achieve this we compare the increment and key value,
+	// if they are equal its the first iteration.
+	// More details on rate limiter section: https://redis.io/commands/incr
+
+	script := fmt.Sprintf(`local current
+	current = redis.call("incrby", KEYS[1], "%d")
+	if tonumber(current) == "%d" then
+		redis.call("expire",KEYS[1], %d)
+	end
+	return current
+	`, increment, increment, int(ttl.Seconds()))
+
+	key := createBandwidthProjectIDKey(projectID, now)
+
+	return cache.client.Eval(ctx, script, []string{string(key)})
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given

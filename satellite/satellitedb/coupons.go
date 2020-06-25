@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/lib/pq"
@@ -32,18 +33,17 @@ type coupons struct {
 }
 
 // Insert inserts a coupon into the database.
-func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (err error) {
+func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (_ payments.Coupon, err error) {
 	defer mon.Task()(&ctx, coupon)(&err)
 
 	id, err := uuid.New()
 	if err != nil {
-		return err
+		return payments.Coupon{}, err
 	}
 
-	_, err = coupons.db.Create_Coupon(
+	cpx, err := coupons.db.Create_Coupon(
 		ctx,
 		dbx.Coupon_Id(id[:]),
-		dbx.Coupon_ProjectId(coupon.ProjectID[:]),
 		dbx.Coupon_UserId(coupon.UserID[:]),
 		dbx.Coupon_Amount(coupon.Amount),
 		dbx.Coupon_Description(coupon.Description),
@@ -51,23 +51,27 @@ func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (err
 		dbx.Coupon_Status(int(coupon.Status)),
 		dbx.Coupon_Duration(int64(coupon.Duration)),
 	)
-
-	return err
+	if err != nil {
+		return payments.Coupon{}, err
+	}
+	return fromDBXCoupon(cpx)
 }
 
 // Update updates coupon in database.
-func (coupons *coupons) Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) (err error) {
+func (coupons *coupons) Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) (_ payments.Coupon, err error) {
 	defer mon.Task()(&ctx, couponID)(&err)
 
-	_, err = coupons.db.Update_Coupon_By_Id(
+	cpx, err := coupons.db.Update_Coupon_By_Id(
 		ctx,
 		dbx.Coupon_Id(couponID[:]),
 		dbx.Coupon_Update_Fields{
 			Status: dbx.Coupon_Status(int(status)),
 		},
 	)
-
-	return err
+	if err != nil {
+		return payments.Coupon{}, err
+	}
+	return fromDBXCoupon(cpx)
 }
 
 // Get returns coupon by ID.
@@ -80,6 +84,14 @@ func (coupons *coupons) Get(ctx context.Context, couponID uuid.UUID) (_ payments
 	}
 
 	return fromDBXCoupon(dbxCoupon)
+}
+
+// Delete removes a coupon from the database by its ID
+func (coupons *coupons) Delete(ctx context.Context, couponID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx, couponID)(&err)
+
+	_, err = coupons.db.Delete_Coupon_By_Id(ctx, dbx.Coupon_Id(couponID[:]))
+	return err
 }
 
 // List returns all coupons of specified user.
@@ -97,7 +109,7 @@ func (coupons *coupons) ListByUserID(ctx context.Context, userID uuid.UUID) (_ [
 	return couponsFromDbxSlice(dbxCoupons)
 }
 
-// ListByUserIDAndStatus returns all coupons of specified user and status.
+// ListByUserIDAndStatus returns all coupons of specified user and status. Results are ordered (asc) by expiration date.
 func (coupons *coupons) ListByUserIDAndStatus(ctx context.Context, userID uuid.UUID, status payments.CouponStatus) (_ []payments.Coupon, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
@@ -110,7 +122,18 @@ func (coupons *coupons) ListByUserIDAndStatus(ctx context.Context, userID uuid.U
 		return nil, err
 	}
 
-	return couponsFromDbxSlice(dbxCoupons)
+	result, err := couponsFromDbxSlice(dbxCoupons)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(result, func(i, k int) bool {
+		iDate := result[i].ExpirationDate()
+		kDate := result[k].ExpirationDate()
+		return iDate.Before(kDate)
+	})
+
+	return result, nil
 }
 
 // List returns all coupons with specified status.
@@ -160,29 +183,9 @@ func (coupons *coupons) ListPaged(ctx context.Context, offset int64, limit int, 
 	return page, nil
 }
 
-// ListByProjectID returns all active coupons for specified project.
-func (coupons *coupons) ListByProjectID(ctx context.Context, projectID uuid.UUID) (_ []payments.Coupon, err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-
-	dbxCoupons, err := coupons.db.All_Coupon_By_ProjectId_And_Status_Equal_Number_OrderBy_Desc_CreatedAt(
-		ctx,
-		dbx.Coupon_ProjectId(projectID[:]),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return couponsFromDbxSlice(dbxCoupons)
-}
-
 // fromDBXCoupon converts *dbx.Coupon to *payments.Coupon.
 func fromDBXCoupon(dbxCoupon *dbx.Coupon) (coupon payments.Coupon, err error) {
 	coupon.UserID, err = uuid.FromBytes(dbxCoupon.UserId)
-	if err != nil {
-		return payments.Coupon{}, err
-	}
-
-	coupon.ProjectID, err = uuid.FromBytes(dbxCoupon.ProjectId)
 	if err != nil {
 		return payments.Coupon{}, err
 	}
@@ -276,14 +279,14 @@ func (coupons *coupons) GetLatest(ctx context.Context, couponID uuid.UUID) (_ ti
 }
 
 // ListUnapplied returns coupon usage page with unapplied coupon usages.
-func (coupons *coupons) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.CouponUsagePage, err error) {
-	defer mon.Task()(&ctx, offset, limit, before)(&err)
+func (coupons *coupons) ListUnapplied(ctx context.Context, offset int64, limit int, period time.Time) (_ stripecoinpayments.CouponUsagePage, err error) {
+	defer mon.Task()(&ctx, offset, limit, period)(&err)
 
 	var page stripecoinpayments.CouponUsagePage
 
-	dbxRecords, err := coupons.db.Limited_CouponUsage_By_Period_LessOrEqual_And_Status_Equal_Number_OrderBy_Desc_Period(
+	dbxRecords, err := coupons.db.Limited_CouponUsage_By_Period_And_Status_Equal_Number(
 		ctx,
-		dbx.CouponUsage_Period(before),
+		dbx.CouponUsage_Period(period),
 		limit+1,
 		offset,
 	)
@@ -371,9 +374,8 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []
 
 	return coupons.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for _, id := range ids {
-			err = coupons.Insert(ctx, payments.Coupon{
+			_, err = coupons.Insert(ctx, payments.Coupon{
 				UserID:      id.UserID,
-				ProjectID:   id.ProjectID,
 				Amount:      amount,
 				Duration:    duration,
 				Description: fmt.Sprintf("Promotional credits (limited time - %d billing periods)", duration),

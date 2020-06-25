@@ -186,7 +186,7 @@ export default class ProjectMembersArea extends Vue {
 
 <style scoped lang="scss">
     .team-area {
-        padding: 40px 65px 55px 65px;
+        padding: 40px 30px 55px 30px;
         font-family: 'font_regular', sans-serif;
 
         &__header {
@@ -226,15 +226,7 @@ export default class ProjectMembersArea extends Vue {
     }
 
     .pagination-area {
-        margin-top: 50px;
         margin-left: -25px;
-        padding-bottom: 50px;
-    }
-
-    @media screen and (max-width: 1024px) {
-
-        .team-area {
-            padding: 40px 40px 55px 40px;
-        }
+        padding-bottom: 15px;
     }
 </style>

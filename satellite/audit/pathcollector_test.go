@@ -5,6 +5,7 @@ package audit_test
 
 import (
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -44,7 +45,7 @@ func TestAuditPathCollector(t *testing.T) {
 		// upload 5 remote files with 1 segment
 		for i := 0; i < 5; i++ {
 			testData := testrand.Bytes(8 * memory.KiB)
-			path := "/some/remote/path/" + string(i)
+			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "testbucket", path, testData)
 			require.NoError(t, err)
 		}

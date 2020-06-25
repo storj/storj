@@ -3,11 +3,18 @@
 
 <template>
     <div class="dashboard-area">
-        <h1 class="dashboard-area__title">Dashboard</h1>
-        <div class="dashboard-area__top-area">
-            <ProjectDetails/>
-            <ProjectUsage/>
+        <div class="dashboard-area__title-area">
+            <h1 class="dashboard-area__title-area__title">Project Dashboard</h1>
+            <a
+                class="dashboard-area__title-area__link"
+                href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                target="_blank"
+            >
+                Request Limit Increase ->
+            </a>
         </div>
+        <ProjectDetails/>
+        <ProjectUsage/>
         <BucketArea/>
     </div>
 </template>
@@ -19,6 +26,7 @@ import BucketArea from '@/components/project/buckets/BucketArea.vue';
 import ProjectDetails from '@/components/project/ProjectDetails.vue';
 import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 
+import { RouteConfig } from '@/router';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
@@ -34,6 +42,12 @@ export default class ProjectDashboard extends Vue {
      * Segment tracking is processed.
      */
     public mounted(): void {
+        if (!this.$store.getters.selectedProject.id) {
+            this.$router.push(RouteConfig.OnboardingTour.path);
+
+            return;
+        }
+
         this.$segment.track(SegmentEvent.PROJECT_VIEWED, {
             project_id: this.$store.getters.selectedProject.id,
         });
@@ -43,20 +57,28 @@ export default class ProjectDashboard extends Vue {
 
 <style scoped lang="scss">
     .dashboard-area {
-        padding: 40px 65px 80px 65px;
+        padding: 40px 30px 80px 30px;
+        font-family: 'font_regular', sans-serif;
 
-        &__title {
-            font-family: 'font_bold', sans-serif;
-            font-size: 32px;
-            line-height: 39px;
-            color: #263549;
-            margin: 0 0 35px 0;
-        }
-
-        &__top-area {
+        &__title-area {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: space-between;
+            margin-bottom: 20px;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 22px;
+                line-height: 27px;
+                color: #384b65;
+                margin: 0;
+            }
+
+            &__link {
+                font-size: 14px;
+                line-height: 14px;
+                color: #2683ff;
+            }
         }
     }
 </style>

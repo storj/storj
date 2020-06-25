@@ -44,9 +44,10 @@ export default class PagesBlock extends Vue {
             display: block;
             position: relative;
             transition: all 0.2s ease;
+            color: var(--page-number-color);
 
             &:hover {
-                color: #2379ec;
+                color: var(--link-color);
 
                 &:after {
                     content: '';
@@ -56,7 +57,7 @@ export default class PagesBlock extends Vue {
                     left: 0;
                     width: 100%;
                     height: 2px;
-                    background-color: #2379ec;
+                    background-color: var(--link-color);
                 }
             }
 
@@ -67,7 +68,7 @@ export default class PagesBlock extends Vue {
     }
 
     .selected {
-        color: #2379ec;
+        color: var(--link-color);
         font-family: 'font_bold', sans-serif;
 
         &:after {
@@ -78,7 +79,7 @@ export default class PagesBlock extends Vue {
             left: 0;
             width: 10px;
             height: 2px;
-            background-color: #2379ec;
+            background-color: var(--link-color);
         }
     }
 </style>

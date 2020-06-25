@@ -71,8 +71,11 @@ var (
 		Annotations: map[string]string{"type": "helper"},
 	}
 	gracefulExitInitCmd = &cobra.Command{
-		Use:         "exit-satellite",
-		Short:       "Initiate graceful exit",
+		Use:   "exit-satellite",
+		Short: "Initiate graceful exit",
+		Long: "Initiate gracefule exit.\n" +
+			"The command shows the list of the available satellites that can be exited " +
+			"and ask for choosing one.",
 		RunE:        cmdGracefulExitInit,
 		Annotations: map[string]string{"type": "helper"},
 	}
@@ -124,15 +127,6 @@ func init() {
 	process.Bind(gracefulExitStatusCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 }
 
-func databaseConfig(config storagenode.Config) storagenodedb.Config {
-	return storagenodedb.Config{
-		Storage: config.Storage.Path,
-		Info:    filepath.Join(config.Storage.Path, "piecestore.db"),
-		Info2:   filepath.Join(config.Storage.Path, "info.db"),
-		Pieces:  config.Storage.Path,
-	}
-}
-
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	// inert constructors only ====
 
@@ -145,15 +139,15 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		zap.S().Fatal(err)
+		log.Fatal("Failed to load identity.", zap.Error(err))
 	}
 
 	if err := runCfg.Verify(log); err != nil {
-		log.Sugar().Error("Invalid configuration: ", err)
+		log.Error("Invalid configuration.", zap.Error(err))
 		return err
 	}
 
-	db, err := storagenodedb.New(log.Named("db"), databaseConfig(runCfg.Config))
+	db, err := storagenodedb.New(log.Named("db"), runCfg.DatabaseConfig())
 	if err != nil {
 		return errs.New("Error starting master database on storagenode: %+v", err)
 	}
@@ -170,7 +164,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := storagenode.New(log, identity, db, revocationDB, runCfg.Config, version.Build)
+	peer, err := storagenode.New(log, identity, db, revocationDB, runCfg.Config, version.Build, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
@@ -183,10 +177,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
-		zap.S().Warn("Failed to initialize telemetry batcher: ", err)
+		log.Warn("Failed to initialize telemetry batcher.", zap.Error(err))
 	}
 
-	err = db.CreateTables(ctx)
+	err = db.MigrateToLatest(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
@@ -203,7 +197,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if err := peer.Storage2.CacheService.Init(ctx); err != nil {
-		zap.S().Error("Failed to initialize CacheService: ", err)
+		log.Error("Failed to initialize CacheService.", zap.Error(err))
 	}
 
 	runError := peer.Run(ctx)
@@ -283,7 +277,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	db, err := storagenodedb.New(zap.L().Named("db"), databaseConfig(diagCfg))
+	db, err := storagenodedb.New(zap.L().Named("db"), diagCfg.DatabaseConfig())
 	if err != nil {
 		return errs.New("Error starting master database on storage node: %v", err)
 	}

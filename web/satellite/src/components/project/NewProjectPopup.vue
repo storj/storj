@@ -17,7 +17,9 @@
                     placeholder="Enter Project Name"
                     class="full-input"
                     width="100%"
-                    max-symbols="20"
+                    is-limit-shown="true"
+                    :current-limit="projectName.length"
+                    :max-symbols="20"
                     :error="nameError"
                     @setData="setProjectName"
                 />
@@ -27,8 +29,11 @@
                     additional-label="Optional"
                     class="full-input"
                     is-multiline="true"
-                    height="100px"
-                    width="100%"
+                    height="60px"
+                    width="calc(100% - 42px)"
+                    is-limit-shown="true"
+                    :current-limit="description.length"
+                    :max-symbols="100"
                     @setData="setProjectDescription"
                 />
                 <div class="new-project-popup__form-container__button-container">
@@ -85,9 +90,10 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 export default class NewProjectPopup extends Vue {
     private projectName: string = '';
     private description: string = '';
-    private nameError: string = '';
     private createdProjectId: string = '';
     private isLoading: boolean = false;
+
+    public nameError: string = '';
 
     /**
      * Indicates if popup is shown.
@@ -143,7 +149,7 @@ export default class NewProjectPopup extends Vue {
         } catch (error) {
             this.isLoading = false;
             await this.$notify.error(error.message);
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+            await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
 
             return;
         }
@@ -157,9 +163,9 @@ export default class NewProjectPopup extends Vue {
         }
 
         try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BILLING_HISTORY);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.createdProjectId);
         } catch (error) {
             await this.$notify.error(error.message);

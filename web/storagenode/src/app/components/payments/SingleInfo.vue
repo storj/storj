@@ -29,8 +29,8 @@ export default class SingleInfo extends Vue {
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
-        background: #fff;
-        border: 1px solid #e8e8e8;
+        background: var(--block-background-color);
+        border: 1px solid var(--block-border-color);
         box-sizing: border-box;
         border-radius: 10px;
         padding: 20px 30px;
@@ -40,7 +40,7 @@ export default class SingleInfo extends Vue {
             font-family: 'font_regular', sans-serif;
             font-size: 14px;
             line-height: 20px;
-            color: #535f77;
+            color: var(--regular-text-color);
         }
 
         &__value {

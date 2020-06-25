@@ -7,47 +7,13 @@ exports[`ApiKeysCopyPopup renders correctly 1`] = `
     <div class="save-api-popup__copy-area__key-area">
       <p class="save-api-popup__copy-area__key-area__key">test</p>
     </div>
-    <div class="copy-button"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M13.3763 7.7002H3.34383C2.46383 7.7002 1.76001 8.40402 1.76001 9.28402V19.3378C1.76001 20.1954 2.46383 20.9216 3.34383 20.9216H13.3976C14.2553 20.9216 14.9814 20.2178 14.9814 19.3378L14.9823 9.28402C14.96 8.40402 14.2561 7.7002 13.3761 7.7002H13.3763ZM13.6401 19.3164C13.6401 19.4488 13.5301 19.5588 13.3977 19.5588L3.34397 19.5579C3.21162 19.5579 3.10161 19.4479 3.10161 19.3156L3.10247 9.284C3.10247 9.15165 3.21247 9.04164 3.34483 9.04164H13.3986C13.5309 9.04164 13.641 9.15164 13.641 9.284L13.6401 19.3164Z" fill="white"></path>
-        <path d="M18.6563 1.09974H8.62386C7.74386 1.09974 7.04004 1.80356 7.04004 2.68356V6.37978H8.36004V2.68356C8.36004 2.55122 8.47004 2.44121 8.60239 2.44121H18.6562C18.7885 2.44121 18.8985 2.55121 18.8985 2.68356V12.7373C18.8985 12.8697 18.7885 12.9797 18.6562 12.9797H16.2799V14.2997H18.6562C19.5138 14.2997 20.24 13.5959 20.24 12.7159V2.68343C20.24 1.80343 19.5362 1.09961 18.6562 1.09961L18.6563 1.09974Z" fill="#354049"></path>
-        <rect x="2.93335" y="8.7998" width="11.7333" height="11" fill="white"></rect>
-        <rect x="7.1001" y="1.2334" width="12.9333" height="12.9333" rx="1.5" fill="white" stroke="#2683FF"></rect>
-      </svg>
-      <p class="copy-button__label">Copy</p>
-    </div>
+    <p class="save-api-popup__copy-area__copy-button">Copy</p>
   </div>
-  <div class="save-api-popup__link-container">
-    <!---->
+  <div class="save-api-popup__next-step-area"><span class="save-api-popup__next-step-area__label">Next Step:</span> <a href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli" target="_blank" class="save-api-popup__next-step-area__link">
+      Set Up Uplink CLI
+    </a>
+    <div class="container" style="width: 156px; height: 40px;"><span class="label">Done</span></div>
   </div>
-  <div class="save-api-popup__close-cross-container"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65" class="close-cross-svg-path"></path>
-    </svg></div>
-  <div class="blur-content"></div>
-</div>
-`;
-
-exports[`ApiKeysCopyPopup renders correctly 2`] = `
-<div class="save-api-popup">
-  <h2 class="save-api-popup__title">Save Your Secret API Key! It Will Appear Only Once.</h2>
-  <div class="save-api-popup__copy-area">
-    <div class="save-api-popup__copy-area__key-area">
-      <p class="save-api-popup__copy-area__key-area__key">test</p>
-    </div>
-    <div class="copy-button"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M13.3763 7.7002H3.34383C2.46383 7.7002 1.76001 8.40402 1.76001 9.28402V19.3378C1.76001 20.1954 2.46383 20.9216 3.34383 20.9216H13.3976C14.2553 20.9216 14.9814 20.2178 14.9814 19.3378L14.9823 9.28402C14.96 8.40402 14.2561 7.7002 13.3761 7.7002H13.3763ZM13.6401 19.3164C13.6401 19.4488 13.5301 19.5588 13.3977 19.5588L3.34397 19.5579C3.21162 19.5579 3.10161 19.4479 3.10161 19.3156L3.10247 9.284C3.10247 9.15165 3.21247 9.04164 3.34483 9.04164H13.3986C13.5309 9.04164 13.641 9.15164 13.641 9.284L13.6401 19.3164Z" fill="white"></path>
-        <path d="M18.6563 1.09974H8.62386C7.74386 1.09974 7.04004 1.80356 7.04004 2.68356V6.37978H8.36004V2.68356C8.36004 2.55122 8.47004 2.44121 8.60239 2.44121H18.6562C18.7885 2.44121 18.8985 2.55121 18.8985 2.68356V12.7373C18.8985 12.8697 18.7885 12.9797 18.6562 12.9797H16.2799V14.2997H18.6562C19.5138 14.2997 20.24 13.5959 20.24 12.7159V2.68343C20.24 1.80343 19.5362 1.09961 18.6562 1.09961L18.6563 1.09974Z" fill="#354049"></path>
-        <rect x="2.93335" y="8.7998" width="11.7333" height="11" fill="white"></rect>
-        <rect x="7.1001" y="1.2334" width="12.9333" height="12.9333" rx="1.5" fill="white" stroke="#2683FF"></rect>
-      </svg>
-      <p class="copy-button__label">Copy</p>
-    </div>
-  </div>
-  <div class="save-api-popup__link-container"><a href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli" target="_blank" class="save-api-popup__link-container__link">
-      Create a Bucket &amp; Upload an Object -&gt;
-    </a></div>
-  <div class="save-api-popup__close-cross-container"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65" class="close-cross-svg-path"></path>
-    </svg></div>
   <div class="blur-content"></div>
 </div>
 `;

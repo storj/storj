@@ -1,0 +1,89 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+p,
+h1,
+h2 {
+    margin: 0;
+}
+
+.overview-area {
+    width: auto;
+    padding: 75px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'font_regular', sans-serif;
+    background-color: #fff;
+    border-radius: 6px;
+    margin-top: 25px;
+
+    &__title {
+        font-family: 'font_bold', sans-serif;
+        font-size: 32px;
+        line-height: 39px;
+        color: #1b2533;
+        margin-bottom: 25px;
+    }
+
+    &__sub-title {
+        font-size: 16px;
+        line-height: 26px;
+        color: #354049;
+        margin-bottom: 60px;
+        text-align: center;
+        max-width: 815px;
+    }
+
+    &__steps-area {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 50px;
+
+        &__step {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            max-width: 190px;
+            width: 190px;
+
+            &__icon {
+                position: absolute;
+                top: -15px;
+                left: 80px;
+            }
+
+            &__title {
+                font-size: 16px;
+                line-height: 26px;
+                text-align: center;
+                color: #354049;
+                margin: 15px 0 5px 0;
+            }
+
+            &__subtitle {
+                font-family: 'font_regular', sans-serif;
+                font-size: 14px;
+                line-height: 17px;
+                text-align: center;
+                color: #61666b;
+                word-break: break-word;
+            }
+        }
+    }
+}
+
+.second-step {
+    margin: 0 50px;
+}
+
+@media screen and (max-width: 800px) {
+
+    .second-step {
+        margin: 0 10px;
+    }
+}

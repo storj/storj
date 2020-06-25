@@ -143,7 +143,6 @@ model node (
 	field type           int   ( updatable, default 0 )
 	field email          text  ( updatable )
 	field wallet         text  ( updatable ) // TODO: use compressed format
-	field free_bandwidth int64 ( updatable, default -1 )
 	field free_disk      int64 ( updatable, default -1 )
 	field piece_count    int64 ( autoinsert, updatable, default 0 )
 
@@ -171,6 +170,12 @@ model node (
 	field disqualified timestamp ( updatable, nullable )
     // node is placed under inspection when it has too many unknown-error audits
 	field suspended timestamp ( updatable, nullable )
+	// renamed column from suspended
+	field unknown_audit_suspended timestamp ( updatable, nullable )
+	// node is considered unhealthy if it is offline for too many audits
+	field offline_suspended timestamp ( updatable, nullable )
+	// once a node becomes offline_suspended, mark it as under review so we check it again later
+	field under_review timestamp ( updatable, nullable )
 
 	// audit_reputation_fields track information related to successful vs. failed error audits
 	field audit_reputation_alpha  float64 ( updatable, default 1 )
@@ -285,16 +290,17 @@ read one (
 model project (
     key id
 
-    field id             blob
+    field id              blob
 
-    field name           text
-    field description    text      ( updatable )
-    field usage_limit    int64     ( updatable, default 0 )
-    field rate_limit     int       ( nullable, updatable )
-    field partner_id     blob      ( nullable  )
-    field owner_id       blob
+    field name            text
+    field description     text      ( updatable )
+    field usage_limit     int64     ( updatable, default 0 )
+    field bandwidth_limit int64     ( updatable, default 0 )
+    field rate_limit      int       ( nullable, updatable )
+    field partner_id      blob      ( nullable  )
+    field owner_id        blob
 
-    field created_at     timestamp ( autoinsert )
+    field created_at      timestamp ( autoinsert )
 )
 
 create project ( )
@@ -307,6 +313,10 @@ read one (
 )
 read one (
     select project.usage_limit
+    where  project.id = ?
+)
+read one (
+    select project.bandwidth_limit
     where  project.id = ?
 )
 read all (
@@ -534,6 +544,10 @@ model bucket_bandwidth_rollup (
 		name bucket_bandwidth_rollups_project_id_action_interval_index
 		fields project_id action interval_start
 	)
+	index (
+		name bucket_bandwidth_rollups_action_interval_project_id_index
+		fields action interval_start project_id
+	)
 
 	field bucket_name       blob
 	field project_id        blob
@@ -553,6 +567,28 @@ read scalar (
 	where  bucket_bandwidth_rollup.project_id = ?
 	where  bucket_bandwidth_rollup.interval_start = ?
 	where  bucket_bandwidth_rollup.action = ?
+)
+
+model revocation (
+    key revoked
+    field revoked blob
+    field api_key_id blob
+)
+
+create revocation ( noreturn )
+
+model project_bandwidth_rollup (
+	key    project_id interval_month
+
+	field project_id       blob
+	field interval_month   date
+	field egress_allocated uint64 ( updatable )
+)
+
+read scalar (
+	select project_bandwidth_rollup
+	where  project_bandwidth_rollup.project_id = ?
+	where  project_bandwidth_rollup.interval_month = ?
 )
 
 model bucket_storage_tally (
@@ -694,7 +730,7 @@ model storagenode_payment (
 	field id         serial64                 //
 	field created_at timestamp ( autoinsert ) //
 	field node_id    blob                     //
-	field period     text      ( nullable )   // YYYY-MM, e.g. 2020-02
+	field period     text                     // YYYY-MM, e.g. 2020-02
 	field amount     int64                    // in micro-units of currency
 	field receipt    text      ( nullable )   //
 	field notes      text      ( nullable )   //
@@ -1119,9 +1155,9 @@ read one (
 )
 read limitoffset (
     select stripecoinpayments_invoice_project_record
-    where stripecoinpayments_invoice_project_record.created_at <= ?
+    where stripecoinpayments_invoice_project_record.period_start = ?
+    where stripecoinpayments_invoice_project_record.period_end = ?
     where stripecoinpayments_invoice_project_record.state = ?
-    orderby desc stripecoinpayments_invoice_project_record.created_at
 )
 
 model stripecoinpayments_tx_conversion_rate (
@@ -1144,7 +1180,6 @@ model coupon (
     key id
 
     field id               blob
-    field project_id       blob
     field user_id          blob
     field amount           int64
     field description      text
@@ -1165,12 +1200,6 @@ delete coupon (
 read one (
     select coupon
     where coupon.id = ?
-)
-read all (
-    select coupon
-    where coupon.project_id = ?
-    where coupon.status = 0
-    orderby desc coupon.created_at
 )
 read all (
     select coupon
@@ -1205,9 +1234,8 @@ model coupon_usage (
 create coupon_usage ()
 read limitoffset (
     select coupon_usage
-    where coupon_usage.period <= ?
+    where coupon_usage.period = ?
     where coupon_usage.status = 0
-    orderby desc coupon_usage.period
 )
 update coupon_usage (
     where coupon_usage.coupon_id = ?
@@ -1252,6 +1280,7 @@ model credits_spending (
 	field project_id blob
 	field amount     int64
 	field status     int   ( updatable )
+	field period     timestamp
 
 	field created_at timestamp ( autoinsert )
 )
@@ -1270,7 +1299,6 @@ read all (
 
 read limitoffset (
 	select credits_spending
-	where credits_spending.created_at <= ?
-	where credits_spending.status     =  ?
-	orderby desc credits_spending.created_at
+	where credits_spending.period = ?
+	where credits_spending.status = ?
 )

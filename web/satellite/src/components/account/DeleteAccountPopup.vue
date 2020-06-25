@@ -55,7 +55,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
-import { validatePassword } from '@/utils/validation';
+import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
@@ -87,7 +87,7 @@ export default class DeleteAccountPopup extends Vue {
 
         this.isLoading = true;
 
-        if (!validatePassword(this.password)) {
+        if (!Validator.password(this.password)) {
             this.passwordError = 'Invalid password. Must be 6 or more characters';
             this.isLoading = false;
 

@@ -4,8 +4,10 @@
 <template>
     <div class="account-button-container" id="accountDropdownButton">
         <div class="account-button-toggle-container" @click="toggleSelection">
-            <div class="account-button-toggle-container__avatar">
-                <h1 class="account-button-toggle-container__avatar__letter">{{avatarLetter}}</h1>
+            <div class="account-button-toggle-container__avatar" :class="{ 'expanded-background': isDropdownShown }">
+                <h1 class="account-button-toggle-container__avatar__letter" :class="{ 'expanded-font-color': isDropdownShown }">
+                    {{ avatarLetter }}
+                </h1>
             </div>
             <div class="account-button-toggle-container__expander-area">
                 <ExpandIcon
@@ -25,8 +27,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import HideIcon from '@/../static/images/common/ArrowHide.svg';
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
-import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
@@ -72,15 +74,6 @@ export default class AccountButton extends Vue {
         width: max-content;
         height: 50px;
 
-        &__user-name {
-            margin-left: 12px;
-            font-family: 'font_medium', sans-serif;
-            font-size: 16px;
-            line-height: 23px;
-            color: #354049;
-            transition: opacity 0.2s ease-in-out;
-        }
-
         &__avatar {
             width: 40px;
             height: 40px;
@@ -110,20 +103,20 @@ export default class AccountButton extends Vue {
         position: relative;
         background-color: #fff;
         cursor: pointer;
-
-        &:hover {
-
-            .account-button-toggle-container__user-name {
-                opacity: 0.7;
-            }
-        }
     }
 
-    @media screen and (max-width: 1024px) {
+    .expanded-background {
+        background-color: #2582ff;
+    }
+
+    .expanded-font-color {
+        color: #fff;
+    }
+
+    @media screen and (max-width: 1280px) {
 
         .account-button-toggle-container {
 
-            &__user-name,
             &__expander-area {
                 display: none;
             }

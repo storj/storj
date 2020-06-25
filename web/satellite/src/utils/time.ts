@@ -1,10 +1,15 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 /**
- * toUnixTimestamp converts Date to unix timestamp.
- * @param time
+ * Time holds methods to operate over timestamps.
  */
-export function toUnixTimestamp(time: Date): number {
-    return Math.floor(time.getTime() / 1000);
+export class Time {
+    /**
+     * toUnixTimestamp converts Date to unix timestamp.
+     * @param time
+     */
+    public static toUnixTimestamp(time: Date): number {
+        return Math.floor(time.getTime() / 1000);
+    }
 }

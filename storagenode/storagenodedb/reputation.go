@@ -40,14 +40,23 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 			audit_reputation_alpha,
 			audit_reputation_beta,
 			audit_reputation_score,
+			audit_unknown_reputation_alpha,
+			audit_unknown_reputation_beta,
+			audit_unknown_reputation_score,
 			disqualified,
-			updated_at
-		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+			suspended,
+			updated_at,
+			joined_at
+		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	// ensure we insert utc
 	if stats.Disqualified != nil {
 		utc := stats.Disqualified.UTC()
 		stats.Disqualified = &utc
+	}
+	if stats.Suspended != nil {
+		utc := stats.Suspended.UTC()
+		stats.Suspended = &utc
 	}
 
 	_, err = db.ExecContext(ctx, query,
@@ -62,8 +71,13 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 		stats.Audit.Alpha,
 		stats.Audit.Beta,
 		stats.Audit.Score,
+		stats.Audit.UnknownAlpha,
+		stats.Audit.UnknownBeta,
+		stats.Audit.UnknownScore,
 		stats.Disqualified,
+		stats.Suspended,
 		stats.UpdatedAt.UTC(),
+		stats.JoinedAt.UTC(),
 	)
 
 	return ErrReputation.Wrap(err)
@@ -88,8 +102,13 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 			audit_reputation_alpha,
 			audit_reputation_beta,
 			audit_reputation_score,
+			audit_unknown_reputation_alpha,
+			audit_unknown_reputation_beta,
+			audit_unknown_reputation_score,
 			disqualified,
-			updated_at
+			suspended,
+			updated_at,
+			joined_at
 		FROM reputation WHERE satellite_id = ?`,
 		satelliteID,
 	)
@@ -105,8 +124,13 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		&stats.Audit.Alpha,
 		&stats.Audit.Beta,
 		&stats.Audit.Score,
+		&stats.Audit.UnknownAlpha,
+		&stats.Audit.UnknownBeta,
+		&stats.Audit.UnknownScore,
 		&stats.Disqualified,
+		&stats.Suspended,
 		&stats.UpdatedAt,
+		&stats.JoinedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -131,8 +155,13 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			audit_reputation_alpha,
 			audit_reputation_beta,
 			audit_reputation_score,
+			audit_unknown_reputation_alpha,
+			audit_unknown_reputation_beta,
+			audit_unknown_reputation_score,
 			disqualified,
-			updated_at
+			suspended,
+			updated_at,
+			joined_at
 		FROM reputation`
 
 	rows, err := db.QueryContext(ctx, query)
@@ -157,8 +186,13 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			&stats.Audit.Alpha,
 			&stats.Audit.Beta,
 			&stats.Audit.Score,
+			&stats.Audit.UnknownAlpha,
+			&stats.Audit.UnknownBeta,
+			&stats.Audit.UnknownScore,
 			&stats.Disqualified,
+			&stats.Suspended,
 			&stats.UpdatedAt,
+			&stats.JoinedAt,
 		)
 
 		if err != nil {

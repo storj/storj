@@ -5,12 +5,19 @@ import Vuex from 'vuex';
 
 import NewProjectArea from '@/components/header/NewProjectArea.vue';
 
+import { router } from '@/router';
 import { appStateModule } from '@/store/modules/appState';
 import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { makeUsersModule, USER_MUTATIONS } from '@/store/modules/users';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { BillingHistoryItem, BillingHistoryItemStatus, BillingHistoryItemType, CreditCard } from '@/types/payments';
+import {
+    AccountBalance,
+    CreditCard,
+    PaymentsHistoryItem,
+    PaymentsHistoryItemStatus,
+    PaymentsHistoryItemType,
+} from '@/types/payments';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { createLocalVue, mount } from '@vue/test-utils';
@@ -36,21 +43,11 @@ describe('NewProjectArea', () => {
         const wrapper = mount(NewProjectArea, {
             store,
             localVue,
+            router,
         });
 
         expect(wrapper).toMatchSnapshot();
         expect(wrapper.findAll('.new-project-button-container').length).toBe(0); // user is unable to create project.
-    });
-
-    it('renders correctly without projects and without payment methods with info tooltip', async () => {
-        const wrapper = mount(NewProjectArea, {
-            store,
-            localVue,
-        });
-
-        await wrapper.find('.info').trigger('mouseenter');
-
-        expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly without projects and with credit card', async () => {
@@ -61,6 +58,7 @@ describe('NewProjectArea', () => {
         const wrapper = mount(NewProjectArea, {
             store,
             localVue,
+            router,
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -72,14 +70,16 @@ describe('NewProjectArea', () => {
     });
 
     it('renders correctly without projects and with completed 50$ transaction', () => {
-        const billingTransactionItem = new BillingHistoryItem('itemId', 'test', 50, 50,
-            BillingHistoryItemStatus.Completed, 'test', new Date(), new Date(), BillingHistoryItemType.Transaction);
+        const billingTransactionItem = new PaymentsHistoryItem('itemId', 'test', 50, 50,
+            PaymentsHistoryItemStatus.Completed, 'test', new Date(), new Date(), PaymentsHistoryItemType.Transaction);
         store.commit(PAYMENTS_MUTATIONS.CLEAR);
-        store.commit(PAYMENTS_MUTATIONS.SET_BILLING_HISTORY, [billingTransactionItem]);
+        store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [billingTransactionItem]);
+        store.commit(PAYMENTS_MUTATIONS.SET_BALANCE, new AccountBalance(0, 5000));
 
         const wrapper = mount(NewProjectArea, {
             store,
             localVue,
+            router,
         });
 
         expect(wrapper.findAll('.new-project-button-container').length).toBe(1);
@@ -95,6 +95,7 @@ describe('NewProjectArea', () => {
         const wrapper = mount(NewProjectArea, {
             store,
             localVue,
+            router,
         });
 
         expect(wrapper.findAll('.new-project-button-container').length).toBe(0);

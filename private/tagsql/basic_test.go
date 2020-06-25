@@ -5,7 +5,6 @@ package tagsql_test
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -42,10 +41,11 @@ func TestDetect(t *testing.T) {
 		err = row.Scan(&value)
 		verify(t, err)
 
-		var rows *sql.Rows
+		var rows tagsql.Rows
 		rows, err = db.QueryContext(ctx, "select num from example")
 		verify(t, err)
 		if rows != nil {
+			require.NoError(t, rows.Err())
 			require.NoError(t, rows.Close())
 		}
 
@@ -84,10 +84,11 @@ func TestDetect(t *testing.T) {
 			_, err = tx.ExecContext(ctx, "INSERT INTO example (num) values (1)")
 			verifyTx(t, err)
 
-			var rows *sql.Rows
+			var rows tagsql.Rows
 			rows, err = tx.QueryContext(ctx, "select num from example")
 			verifyTx(t, err)
 			if rows != nil {
+				require.NoError(t, rows.Err())
 				require.NoError(t, rows.Close())
 			}
 

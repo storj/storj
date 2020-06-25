@@ -15,15 +15,15 @@ export interface PaymentsApi {
     /**
      * Get account balance
      *
-     * @returns balance in cents
+     * @returns account balance object. Represents free credits and coins in cents.
      * @throws Error
      */
-    getBalance(): Promise<number>;
+    getBalance(): Promise<AccountBalance>;
 
     /**
-     * projectsCharges returns how much money current user will be charged for each project which he owns.
+     * projectsUsagesAndCharges returns usage and how much money current user will be charged for each project which he owns.
      */
-    projectsCharges(since: Date, before: Date): Promise<ProjectCharge[]>;
+    projectsUsageAndCharges(since: Date, before: Date): Promise<ProjectUsageAndCharges[]>;
 
     /**
      * Add credit card
@@ -55,12 +55,12 @@ export interface PaymentsApi {
     makeCreditCardDefault(cardId: string): Promise<void>;
 
     /**
-     * Returns a list of invoices, transactions and all others billing history items for payment account.
+     * Returns a list of invoices, transactions and all others payments history items for payment account.
      *
-     * @returns list of billing history items
+     * @returns list of payments history items
      * @throws Error
      */
-    billingHistory(): Promise<BillingHistoryItem[]>;
+    paymentsHistory(): Promise<PaymentsHistoryItem[]>;
 
     /**
      * Creates token transaction in CoinPayments
@@ -69,6 +69,17 @@ export interface PaymentsApi {
      * @throws Error
      */
     makeTokenDeposit(amount: number): Promise<TokenDeposit>;
+}
+
+export class AccountBalance {
+    constructor(
+        public freeCredits: number = 0,
+        public coins: number = 0,
+    ) {}
+
+    public get sum(): number {
+        return this.freeCredits + this.coins;
+    }
 }
 
 export class CreditCard {
@@ -92,7 +103,7 @@ export class PaymentAmountOption {
 }
 
 // BillingHistoryItem holds all public information about billing history line.
-export class BillingHistoryItem {
+export class PaymentsHistoryItem {
     public constructor(
         public readonly id: string = '',
         public readonly description: string = '',
@@ -102,11 +113,12 @@ export class BillingHistoryItem {
         public readonly link: string = '',
         public readonly start: Date = new Date(),
         public readonly end: Date = new Date(),
-        public readonly type: BillingHistoryItemType = BillingHistoryItemType.Invoice,
+        public readonly type: PaymentsHistoryItemType = PaymentsHistoryItemType.Invoice,
+        public readonly remaining: number = 0,
     ) {}
 
     public get quantity(): Amount {
-        if (this.type === BillingHistoryItemType.Transaction) {
+        if (this.type === PaymentsHistoryItemType.Transaction) {
             return new Amount('USD $', this.amountDollars(this.amount), this.amountDollars(this.received));
         }
 
@@ -126,32 +138,46 @@ export class BillingHistoryItem {
             return '';
         }
 
-        const downloadLabel = this.type === BillingHistoryItemType.Transaction ? 'Checkout' : 'PDF';
+        const downloadLabel = this.type === PaymentsHistoryItemType.Transaction ? 'Checkout' : 'Invoice PDF';
 
         return `<a class="download-link" target="_blank" href="${this.link}">${downloadLabel}</a>`;
     }
 }
 
 /**
- * BillingHistoryItemType indicates type of billing history item.
+ * PaymentsHistoryItemType indicates type of history item.
   */
-export enum BillingHistoryItemType {
+export enum PaymentsHistoryItemType {
     // Invoice is a Stripe invoice billing item.
     Invoice = 0,
     // Transaction is a Coinpayments transaction billing item.
     Transaction = 1,
     // Charge is a credit card charge billing item.
     Charge = 2,
+    // Coupon is a promotional coupon item.
+    Coupon = 3,
+    // DepositBonus is a 10% bonus for using Coinpayments transactions.
+    DepositBonus = 4,
 }
 
 /**
- * BillingHistoryStatusType indicates status of billing history item.
+ * PaymentsHistoryItemStatus indicates status of history item.
  */
-export enum BillingHistoryItemStatus {
+export enum PaymentsHistoryItemStatus {
     /**
      * Status showed if transaction successfully completed.
      */
     Completed = 'completed',
+
+    /**
+     * Status showed if transaction successfully paid.
+     */
+    Paid = 'paid',
+
+    /**
+     * Status showed if transaction is pending.
+     */
+    Pending = 'pending',
 }
 
 /**
@@ -177,9 +203,9 @@ class Amount {
 }
 
 /**
- * ProjectCharge shows how much money current project will charge in the end of the month.
+ * ProjectUsageAndCharges shows usage and how much money current project will charge in the end of the month.
   */
-export class ProjectCharge {
+export class ProjectUsageAndCharges {
     public constructor(
         public since: Date = new Date(),
         public before: Date = new Date(),

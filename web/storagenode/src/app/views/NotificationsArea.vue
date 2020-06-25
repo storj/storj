@@ -148,7 +148,7 @@ export default class NotificationsArea extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 24px;
                 line-height: 57px;
-                color: #535f77;
+                color: var(--regular-text-color);
                 margin-left: 29px;
                 text-align: center;
             }
@@ -159,20 +159,20 @@ export default class NotificationsArea extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border: 1px solid #c3cad8;
+                border: 1px solid var(--read-button-border-color);
                 border-radius: 8px;
                 background-color: transparent;
 
                 &__label {
                     font-family: 'font_regular', sans-serif;
                     font-size: 14px;
-                    color: #535f77;
+                    color: var(--read-button-label-color);
                     text-align: left;
                 }
 
                 &:hover {
                     border: 1px solid white;
-                    background-color: #fff;
+                    background-color: var(--container-color);
                     cursor: pointer;
                 }
             }
@@ -182,7 +182,7 @@ export default class NotificationsArea extends Vue {
             width: 100%;
             height: auto;
             max-height: 65vh;
-            background-color: #f3f4f9;
+            background-color: var(--app-background-color);
             border-radius: 12px;
             margin-top: 20px;
             overflow-y: auto;
@@ -205,7 +205,7 @@ export default class NotificationsArea extends Vue {
                 margin-top: 50px;
                 font-family: 'font_medium', sans-serif;
                 font-size: 24px;
-                color: #1c2a3e;
+                color: var(--regular-text-color);
             }
         }
     }
@@ -216,7 +216,7 @@ export default class NotificationsArea extends Vue {
 
     .disabled {
         border: 1px solid transparent;
-        background-color: #e8eaf2;
+        background-color: var(--disabled-background-color);
         pointer-events: none;
 
         .notifications-container__header__button__svg path {

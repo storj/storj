@@ -6,11 +6,12 @@ import Router, { RouteRecord } from 'vue-router';
 
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
-import BillingHistory from '@/components/account/billing/billingHistory/BillingHistory.vue';
+import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
+import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
-import OverviewArea from '@/components/overview/OverviewArea.vue';
+import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
@@ -30,18 +31,20 @@ export abstract class RouteConfig {
     // root paths
     public static Root = new NavigationLink('/', 'Root');
     public static Login = new NavigationLink('/login', 'Login');
-    public static Register = new NavigationLink('/register', 'Register');
+    public static Register = new NavigationLink('/signup', 'Register');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
-    public static Team = new NavigationLink('/project-members', 'Team');
+    public static Team = new NavigationLink('/project-members', 'Members');
     public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
-    public static Overview = new NavigationLink('/overview', 'Initial Overview');
+    public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
 
     // child paths
     public static Settings = new NavigationLink('settings', 'Settings');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
+    public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
+    public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
     // TODO: disabled until implementation
     // public static Referral = new NavigationLink('referral', 'Referral');
 
@@ -55,6 +58,8 @@ export const notProjectRelatedRoutes = [
     RouteConfig.ForgotPassword.name,
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
+    RouteConfig.DepositHistory.name,
+    RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
     // RouteConfig.Referral.name,
 ];
@@ -102,7 +107,17 @@ export const router = new Router({
                         {
                             path: RouteConfig.BillingHistory.path,
                             name: RouteConfig.BillingHistory.name,
-                            component: BillingHistory,
+                            component: DetailedHistory,
+                        },
+                        {
+                            path: RouteConfig.DepositHistory.path,
+                            name: RouteConfig.DepositHistory.name,
+                            component: DetailedHistory,
+                        },
+                        {
+                            path: RouteConfig.CreditsHistory.path,
+                            name: RouteConfig.CreditsHistory.name,
+                            component: CreditsHistory,
                         },
                         // {
                         //     path: RouteConfig.Referral.path,
@@ -132,9 +147,9 @@ export const router = new Router({
                     component: ApiKeysArea,
                 },
                 {
-                    path: RouteConfig.Overview.path,
-                    name: RouteConfig.Overview.name,
-                    component: OverviewArea,
+                    path: RouteConfig.OnboardingTour.path,
+                    name: RouteConfig.OnboardingTour.name,
+                    component: OnboardingTourArea,
                 },
             ],
         },

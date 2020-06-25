@@ -5,9 +5,9 @@ package metainfo
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -42,10 +42,14 @@ func NewService(logger *zap.Logger, db PointerDB, bucketsDB BucketsDB) *Service 
 func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if err := sanityCheckPointer(path, pointer); err != nil {
+		return Error.Wrap(err)
+	}
+
 	// Update the pointer with the creation date
 	pointer.CreationDate = time.Now()
 
-	pointerBytes, err := proto.Marshal(pointer)
+	pointerBytes, err := pb.Marshal(pointer)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -59,10 +63,14 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 func (s *Service) UnsynchronizedPut(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if err := sanityCheckPointer(path, pointer); err != nil {
+		return Error.Wrap(err)
+	}
+
 	// Update the pointer with the creation date
 	pointer.CreationDate = time.Now()
 
-	pointerBytes, err := proto.Marshal(pointer)
+	pointerBytes, err := pb.Marshal(pointer)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -89,6 +97,16 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece, checkDuplicates bool) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if err := sanityCheckPointer(path, ref); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	defer func() {
+		if err == nil {
+			err = sanityCheckPointer(path, pointer)
+		}
+	}()
+
 	for {
 		// read the pointer
 		oldPointerBytes, err := s.db.Get(ctx, []byte(path))
@@ -101,7 +119,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 
 		// unmarshal the pointer
 		pointer = &pb.Pointer{}
-		err = proto.Unmarshal(oldPointerBytes, pointer)
+		err = pb.Unmarshal(oldPointerBytes, pointer)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -132,7 +150,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 			}
 		}
 		// remove the toRemove pieces from the map
-		// only if all piece number, node id and hash match
+		// only if piece number and node id match
 		for _, piece := range toRemove {
 			if piece == nil {
 				continue
@@ -148,8 +166,15 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 			if piece == nil {
 				continue
 			}
+			piece.Hash = nil
 			_, exists := pieceMap[piece.PieceNum]
 			if exists {
+				// temporary logging to get some insight into this error
+				s.logger.Info("temporary logging around error: 'piece to add already exists'",
+					zap.String("old pointer", fmt.Sprintf("%v", ref.GetRemote().GetRemotePieces())),
+					zap.String("latest pointer", fmt.Sprintf("%v", pointer.GetRemote().GetRemotePieces())),
+					zap.String("nodes to remove", fmt.Sprintf("%v", toRemove)),
+					zap.String("nodes to add", fmt.Sprintf("%v", toAdd)))
 				return nil, Error.New("piece to add already exists (piece no: %d)", piece.PieceNum)
 			}
 			pieceMap[piece.PieceNum] = piece
@@ -168,7 +193,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 		pointer.RepairCount = ref.RepairCount
 
 		// marshal the pointer
-		newPointerBytes, err := proto.Marshal(pointer)
+		newPointerBytes, err := pb.Marshal(pointer)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -212,7 +237,7 @@ func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes [
 	}
 
 	pointer = &pb.Pointer{}
-	err = proto.Unmarshal(pointerBytes, pointer)
+	err = pb.Unmarshal(pointerBytes, pointer)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
@@ -233,20 +258,20 @@ func (s *Service) List(ctx context.Context, prefix string, startAfter string, re
 		}
 	}
 
-	rawItems, more, err := storage.ListV2(ctx, s.db, storage.ListOptions{
+	more, err = storage.ListV2Iterate(ctx, s.db, storage.ListOptions{
 		Prefix:       prefixKey,
 		StartAfter:   storage.Key(startAfter),
 		Recursive:    recursive,
 		Limit:        int(limit),
 		IncludeValue: metaFlags != meta.None,
+	}, func(ctx context.Context, item *storage.ListItem) error {
+		items = append(items, s.createListItem(ctx, *item, metaFlags))
+		return nil
 	})
 	if err != nil {
 		return nil, false, Error.Wrap(err)
 	}
 
-	for _, rawItem := range rawItems {
-		items = append(items, s.createListItem(ctx, rawItem, metaFlags))
-	}
 	return items, more, nil
 }
 
@@ -277,7 +302,7 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 	}
 
 	pr := &pb.Pointer{}
-	err = proto.Unmarshal(data, pr)
+	err = pb.Unmarshal(data, pr)
 	if err != nil {
 		return Error.Wrap(err)
 	}

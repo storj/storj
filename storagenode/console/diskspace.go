@@ -7,4 +7,5 @@ package console
 type DiskSpaceInfo struct {
 	Used      int64 `json:"used"`
 	Available int64 `json:"available"`
+	Trash     int64 `json:"trash"`
 }

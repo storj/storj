@@ -6,6 +6,7 @@ package queue_test
 import (
 	"context"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -26,11 +27,12 @@ func TestUntilEmpty(t *testing.T) {
 
 		// insert a bunch of segments
 		pathsMap := make(map[string]int)
-		for i := 0; i < 100; i++ {
-			path := "/path/" + string(i)
+		for i := 0; i < 20; i++ {
+			path := "/path/" + strconv.Itoa(i)
 			injuredSeg := &pb.InjuredSegment{Path: []byte(path)}
-			err := repairQueue.Insert(ctx, injuredSeg, 10)
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
 			require.NoError(t, err)
+			require.False(t, alreadyInserted)
 			pathsMap[path] = 0
 		}
 
@@ -61,8 +63,9 @@ func TestOrder(t *testing.T) {
 
 		for _, path := range [][]byte{oldRepairPath, recentRepairPath, nullPath, olderRepairPath} {
 			injuredSeg := &pb.InjuredSegment{Path: path}
-			err := repairQueue.Insert(ctx, injuredSeg, 10)
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
 			require.NoError(t, err)
+			require.False(t, alreadyInserted)
 		}
 
 		// TODO: remove dependency on *dbx.DB
@@ -155,8 +158,9 @@ func TestOrderHealthyPieces(t *testing.T) {
 		for _, item := range injuredSegList {
 			// first, insert the injured segment
 			injuredSeg := &pb.InjuredSegment{Path: item.path}
-			err := repairQueue.Insert(ctx, injuredSeg, item.health)
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.health)
 			require.NoError(t, err)
+			require.False(t, alreadyInserted)
 
 			// next, if applicable, update the "attempted at" timestamp
 			if !item.attempted.IsZero() {
@@ -216,10 +220,15 @@ func TestOrderOverwrite(t *testing.T) {
 			{[]byte("path/b"), 9},
 			{[]byte("path/a"), 8},
 		}
-		for _, item := range injuredSegList {
+		for i, item := range injuredSegList {
 			injuredSeg := &pb.InjuredSegment{Path: item.path}
-			err := repairQueue.Insert(ctx, injuredSeg, item.health)
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.health)
 			require.NoError(t, err)
+			if i == 2 {
+				require.True(t, alreadyInserted)
+			} else {
+				require.False(t, alreadyInserted)
+			}
 		}
 
 		for _, nextPath := range []string{
@@ -244,12 +253,13 @@ func TestCount(t *testing.T) {
 
 		// insert a bunch of segments
 		pathsMap := make(map[string]int)
-		numSegments := 100
+		numSegments := 20
 		for i := 0; i < numSegments; i++ {
-			path := "/path/" + string(i)
+			path := "/path/" + strconv.Itoa(i)
 			injuredSeg := &pb.InjuredSegment{Path: []byte(path)}
-			err := repairQueue.Insert(ctx, injuredSeg, 10)
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
 			require.NoError(t, err)
+			require.False(t, alreadyInserted)
 			pathsMap[path] = 0
 		}
 

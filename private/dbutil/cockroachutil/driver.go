@@ -8,10 +8,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"io"
 	"reflect"
 	"strings"
 
-	"github.com/jackc/pgx"
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 )
@@ -89,21 +89,88 @@ func (c *cockroachConn) Close() error {
 // retry semantics for single statements.
 func (c *cockroachConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	result, err := c.underlying.ExecContext(ctx, query, args)
-	for err != nil && !c.isInTransaction() && needsRetry(err) {
+	for err != nil && !c.isInTransaction() && NeedsRetry(err) {
+		mon.Event("needed_retry")
 		result, err = c.underlying.ExecContext(ctx, query, args)
 	}
 	return result, err
 }
 
+type cockroachRows struct {
+	rows         driver.Rows
+	firstResults []driver.Value
+	eof          bool
+}
+
+// Columns returns the names of the columns.
+func (rows *cockroachRows) Columns() []string {
+	return rows.rows.Columns()
+}
+
+// Close closes the rows iterator.
+func (rows *cockroachRows) Close() error {
+	return rows.rows.Close()
+}
+
+// Next implements the Next method on driver.Rows.
+func (rows *cockroachRows) Next(dest []driver.Value) error {
+	if rows.eof {
+		return io.EOF
+	}
+	if rows.firstResults == nil {
+		return rows.rows.Next(dest)
+	}
+	copy(dest, rows.firstResults)
+	rows.firstResults = nil
+	return nil
+}
+
+func wrapRows(rows driver.Rows) (crdbRows *cockroachRows, err error) {
+	columns := rows.Columns()
+	dest := make([]driver.Value, len(columns))
+	err = rows.Next(dest)
+	if err != nil {
+		if err == io.EOF {
+			return &cockroachRows{rows: rows, firstResults: nil, eof: true}, nil
+		}
+		return nil, err
+	}
+	return &cockroachRows{rows: rows, firstResults: dest}, nil
+}
+
 // QueryContext (when implemented by a driver.Conn) provides QueryContext
 // functionality to a sql.DB instance. This implementation provides
 // retry semantics for single statements.
-func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	result, err := c.underlying.QueryContext(ctx, query, args)
-	for err != nil && !c.isInTransaction() && needsRetry(err) {
-		result, err = c.underlying.QueryContext(ctx, query, args)
+func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (_ driver.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
+	for {
+		result, err := c.underlying.QueryContext(ctx, query, args)
+		if err != nil {
+			if NeedsRetry(err) {
+				if c.isInTransaction() {
+					return nil, err
+				}
+				mon.Event("needed_retry")
+				continue
+			}
+			return nil, err
+		}
+		wrappedResult, err := wrapRows(result)
+		if err != nil {
+			// If this returns an error it's probably the same error
+			// we got from calling Next inside wrapRows.
+			_ = result.Close()
+			if NeedsRetry(err) {
+				if c.isInTransaction() {
+					return nil, err
+				}
+				mon.Event("needed_retry")
+				continue
+			}
+			return nil, err
+		}
+		return wrappedResult, nil
 	}
-	return result, err
 }
 
 // Begin starts a new transaction.
@@ -183,7 +250,8 @@ func (stmt *cockroachStmt) Exec(args []driver.Value) (driver.Result, error) {
 		namedArgs[i] = driver.NamedValue{Ordinal: i + 1, Value: arg}
 	}
 	result, err := stmt.underlyingStmt.ExecContext(context.Background(), namedArgs)
-	for err != nil && !stmt.conn.isInTransaction() && needsRetry(err) {
+	for err != nil && !stmt.conn.isInTransaction() && NeedsRetry(err) {
+		mon.Event("needed_retry")
 		result, err = stmt.underlyingStmt.ExecContext(context.Background(), namedArgs)
 	}
 	return result, err
@@ -197,29 +265,50 @@ func (stmt *cockroachStmt) Query(args []driver.Value) (driver.Rows, error) {
 	for i, arg := range args {
 		namedArgs[i] = driver.NamedValue{Ordinal: i + 1, Value: arg}
 	}
-	result, err := stmt.underlyingStmt.QueryContext(context.Background(), namedArgs)
-	for err != nil && !stmt.conn.isInTransaction() && needsRetry(err) {
-		result, err = stmt.underlyingStmt.QueryContext(context.Background(), namedArgs)
-	}
-	return result, err
+	return stmt.QueryContext(context.Background(), namedArgs)
 }
 
 // ExecContext executes SQL statements in the specified context.
 func (stmt *cockroachStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	result, err := stmt.underlyingStmt.ExecContext(ctx, args)
-	for err != nil && !stmt.conn.isInTransaction() && needsRetry(err) {
+	for err != nil && !stmt.conn.isInTransaction() && NeedsRetry(err) {
+		mon.Event("needed_retry")
 		result, err = stmt.underlyingStmt.ExecContext(ctx, args)
 	}
 	return result, err
 }
 
 // QueryContext executes a query in the specified context.
-func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	rows, err := stmt.underlyingStmt.QueryContext(ctx, args)
-	for err != nil && !stmt.conn.isInTransaction() && needsRetry(err) {
-		rows, err = stmt.underlyingStmt.QueryContext(ctx, args)
+func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (_ driver.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
+	for {
+		result, err := stmt.underlyingStmt.QueryContext(ctx, args)
+		if err != nil {
+			if NeedsRetry(err) {
+				if stmt.conn.isInTransaction() {
+					return nil, err
+				}
+				mon.Event("needed_retry")
+				continue
+			}
+			return nil, err
+		}
+		wrappedResult, err := wrapRows(result)
+		if err != nil {
+			// If this returns an error it's probably the same error
+			// we got from calling Next inside wrapRows.
+			_ = result.Close()
+			if NeedsRetry(err) {
+				if stmt.conn.isInTransaction() {
+					return nil, err
+				}
+				mon.Event("needed_retry")
+				continue
+			}
+			return nil, err
+		}
+		return wrappedResult, nil
 	}
-	return rows, err
 }
 
 // translateName changes the scheme name in a `cockroach://` URL to
@@ -231,10 +320,16 @@ func translateName(name string) string {
 	return name
 }
 
-// borrowed from code in crdb
-func needsRetry(err error) bool {
+// NeedsRetry checks if the error code means a retry is needed,
+// borrowed from code in crdb.
+func NeedsRetry(err error) bool {
 	code := errCode(err)
-	return code == "40001" || code == "CR000"
+
+	// 57P01 occurs when a CRDB node rejoins the cluster but is not ready to accept connections
+	// CRDB support recommended a retry at this point
+	// Support ticket: https://support.cockroachlabs.com/hc/en-us/requests/5510
+	// TODO re-evaluate this if support provides a better solution
+	return code == "40001" || code == "CR000" || code == "57P01"
 }
 
 // borrowed from crdb
@@ -242,8 +337,6 @@ func errCode(err error) string {
 	switch t := errorCause(err).(type) {
 	case *pq.Error:
 		return string(t.Code)
-	case *pgx.PgError:
-		return t.Code
 	default:
 		return ""
 	}

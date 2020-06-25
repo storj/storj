@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/heldamount"
 )
 
@@ -80,7 +80,7 @@ func (heldAmount *HeldAmount) PayStubMonthly(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		if err := json.NewEncoder(w).Encode(payStub); err != nil {
+		if err := json.NewEncoder(w).Encode([]*heldamount.PayStub{payStub}); err != nil {
 			heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
 			return
 		}
@@ -152,149 +152,67 @@ func (heldAmount *HeldAmount) PayStubPeriod(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// SatellitePaymentMonthly returns payment data from satellite for specific month.
-func (heldAmount *HeldAmount) SatellitePaymentMonthly(w http.ResponseWriter, r *http.Request) {
+// HeldHistory returns held amount for each % period for all satellites.
+func (heldAmount *HeldAmount) HeldHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	w.Header().Set(contentType, applicationJSON)
 
-	params := mux.Vars(r)
-
-	period, ok := params["period"]
-	if !ok {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
-		return
-	}
-
-	id, ok := params["satelliteID"]
-	if !ok {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
-		return
-	}
-	satelliteID, err := storj.NodeIDFromString(id)
-	if err != nil {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))
-		return
-	}
-
-	paymentData, err := heldAmount.service.SatellitePaymentMonthlyCached(ctx, satelliteID, period)
+	heldbackHistory, err := heldAmount.service.AllHeldbackHistory(ctx)
 	if err != nil {
 		heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(paymentData); err != nil {
+	if err := json.NewEncoder(w).Encode(heldbackHistory); err != nil {
 		heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
 		return
 	}
 }
 
-// AllPaymentsMonthly returns payments for specific month from all satellites.
-func (heldAmount *HeldAmount) AllPaymentsMonthly(w http.ResponseWriter, r *http.Request) {
+// HeldAmountPeriods retrieves all periods in which we have some heldamount data.
+// Have optional parameter - satelliteID.
+// If satelliteID specified - will retrieve periods only for concrete satellite.
+func (heldAmount *HeldAmount) HeldAmountPeriods(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	w.Header().Set(contentType, applicationJSON)
 
-	params := mux.Vars(r)
+	queryParams := r.URL.Query()
 
-	period, ok := params["period"]
-	if !ok {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
-		return
-	}
+	id := queryParams.Get("id")
+	if id == "" {
+		payStubs, err := heldAmount.service.AllPeriods(ctx)
+		if err != nil {
+			heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
+			return
+		}
 
-	payStubs, err := heldAmount.service.AllPaymentsMonthlyCached(ctx, period)
-	if err != nil {
-		heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
-		return
-	}
+		if err := json.NewEncoder(w).Encode(payStubs); err != nil {
+			heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+			return
+		}
+	} else {
+		satelliteID, err := storj.NodeIDFromString(id)
+		if err != nil {
+			heldAmount.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))
+			return
+		}
 
-	if err := json.NewEncoder(w).Encode(payStubs); err != nil {
-		heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
-		return
-	}
-}
+		payStubs, err := heldAmount.service.SatellitePeriods(ctx, satelliteID)
+		if err != nil {
+			heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
+			return
+		}
 
-// SatellitePaymentPeriod retrieves payment for selected satellite for selected period from storagenode database.
-func (heldAmount *HeldAmount) SatellitePaymentPeriod(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set(contentType, applicationJSON)
-
-	params := mux.Vars(r)
-
-	id, ok := params["satelliteID"]
-	if !ok {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
-		return
-	}
-	satelliteID, err := storj.NodeIDFromString(id)
-	if err != nil {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))
-		return
-	}
-
-	start, ok := params["start"]
-	if !ok {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
-		return
-	}
-
-	end, ok := params["end"]
-	if !ok {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
-		return
-	}
-
-	payments, err := heldAmount.service.SatellitePaymentPeriodCached(ctx, satelliteID, start, end)
-	if err != nil {
-		heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
-		return
-	}
-
-	if err := json.NewEncoder(w).Encode(payments); err != nil {
-		heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
-		return
-	}
-}
-
-// AllPaymentsPeriod retrieves payment for all satellites for selected range of months from storagenode database.
-func (heldAmount *HeldAmount) AllPaymentsPeriod(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set(contentType, applicationJSON)
-
-	params := mux.Vars(r)
-
-	start, ok := params["start"]
-	if !ok {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
-		return
-	}
-
-	end, ok := params["end"]
-	if !ok {
-		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
-		return
-	}
-
-	payStubs, err := heldAmount.service.AllPaymentsPeriodCached(ctx, start, end)
-	if err != nil {
-		heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
-		return
-	}
-
-	if err := json.NewEncoder(w).Encode(payStubs); err != nil {
-		heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
-		return
+		if err := json.NewEncoder(w).Encode(payStubs); err != nil {
+			heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+			return
+		}
 	}
 }
 

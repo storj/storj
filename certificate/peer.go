@@ -15,7 +15,6 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
-	"storj.io/common/pb/pbgrpc"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/pkg/revocation"
@@ -70,7 +69,6 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	}
 
 	{ // setup server
-		log.Debug("Starting listener and server")
 		sc := config.Server
 
 		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
@@ -78,7 +76,7 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 			return nil, Error.Wrap(errs.Combine(err, peer.Close()))
 		}
 
-		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress, nil)
+		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -87,7 +85,6 @@ func New(log *zap.Logger, ident *identity.FullIdentity, ca *identity.FullCertifi
 	peer.AuthorizationDB = authorizationDB
 
 	peer.Certificate.Endpoint = NewEndpoint(log.Named("certificate"), ca, authorizationDB, uint16(config.MinDifficulty))
-	pbgrpc.RegisterCertificatesServer(peer.Server.GRPC(), peer.Certificate.Endpoint)
 	if err := pb.DRPCRegisterCertificates(peer.Server.DRPC(), peer.Certificate.Endpoint); err != nil {
 		return nil, Error.Wrap(errs.Combine(err, peer.Close()))
 	}

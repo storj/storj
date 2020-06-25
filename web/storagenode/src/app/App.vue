@@ -47,6 +47,10 @@ const elementsClassesToRemoveOnScroll: string[] = [
     },
 })
 export default class App extends Vue {
+    public async beforeCreate(): Promise<void> {
+        // TODO: place key to server config.
+        await this.$telemetry.init('DTEcoJRlUAN2VylCWMiLrqoknW800GNO');
+    }
     public onScroll(): void {
         elementsIdsToRemoveOnScroll.forEach(id => {
             this.removeElementById(id);
@@ -74,12 +78,7 @@ export default class App extends Vue {
 </script>
 
 <style lang="scss">
-    body {
-        margin: 0 !important;
-        position: relative;
-        font-family: 'font_regular', sans-serif;
-        overflow-y: hidden;
-    }
+    @import 'static/styles/variables';
 
     ::-webkit-scrollbar {
         display: none;
@@ -87,8 +86,15 @@ export default class App extends Vue {
         right: 0;
     }
 
+    body {
+        margin: 0 !important;
+        position: relative;
+        font-family: 'font_regular', sans-serif;
+        overflow-y: hidden;
+    }
+
     .container {
-        background-color: #f4f6f9;
+        background-color: var(--app-background-color);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -105,6 +111,13 @@ export default class App extends Vue {
         height: calc(100vh - 89px);
         width: 100vw;
         overflow-y: scroll;
+    }
+
+    .back-button {
+
+        path {
+            fill: var(--regular-icon-color) !important;
+        }
     }
 
     @font-face {

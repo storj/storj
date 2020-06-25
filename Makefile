@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.13.8
+GO_VERSION ?= 1.14.4
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -88,7 +88,7 @@ install-sim: ## install storj-sim
 	## install exact version of storj/gateway
 	mkdir -p .build/gateway-tmp
 	-cd .build/gateway-tmp && go mod init gatewaybuild
-	cd .build/gateway-tmp && GO111MODULE=on go get storj.io/gateway@v1.0.0-rc.8
+	cd .build/gateway-tmp && GO111MODULE=on go get storj.io/gateway@latest
 
 ##@ Test
 
@@ -111,10 +111,6 @@ test-certificates: ## Test certificate signing service and storagenode setup (je
 test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
-
-.PHONY: test-libuplink-gomobile
-test-libuplink-gomobile: ## Run gomobile tests
-	@./lib/uplink-gomobile/test-sim.sh
 
 .PHONY: check-satellite-config-lock
 check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
@@ -154,7 +150,7 @@ storagenode-console:
 	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
 
 .PHONY: images
-images: satellite-image storagenode-image uplink-image versioncontrol-image ## Build satellite, storagenode, uplink, and versioncontrol Docker images
+images: satellite-image segment-reaper-image storagenode-image uplink-image versioncontrol-image ## Build satellite, segment-reaper, storagenode, uplink, and versioncontrol Docker images
 	echo Built version: ${TAG}
 
 .PHONY: satellite-image
@@ -167,6 +163,18 @@ satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-aarch64 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
 		-f cmd/satellite/Dockerfile .
+
+.PHONY: segment-reaper-image
+segment-reaper-image: segment-reaper_linux_amd64 segment-reaper_linux_arm segment-reaper_linux_arm64 ## Build segment-reaper Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/segment-reaper:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/segment-reaper/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/segment-reaper:${TAG}${CUSTOMTAG}-arm32v6 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		-f cmd/segment-reaper/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/segment-reaper:${TAG}${CUSTOMTAG}-aarch64 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
+		-f cmd/segment-reaper/Dockerfile .
+
 .PHONY: storagenode-image
 storagenode-image: storagenode_linux_arm storagenode_linux_arm64 storagenode_linux_amd64 ## Build storagenode Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
@@ -251,6 +259,9 @@ inspector_%:
 .PHONY: satellite_%
 satellite_%:
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: segment-reaper_%
+segment-reaper_%:
+	$(MAKE) binary-check COMPONENT=segment-reaper GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode_%
 storagenode_%: storagenode-console
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -275,22 +286,13 @@ binaries: ${BINARIES} ## Build certificates, identity, inspector, satellite, sto
 sign-windows-installer:
 	storj-sign release/${TAG}/storagenode_windows_amd64.msi
 
-.PHONY: libuplink
-libuplink:
-	go build -ldflags="-s -w" -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
-	cp lib/uplinkc/uplink_definitions.h uplink_definitions.h
-
-.PHONY: libuplink-gomobile
-libuplink-gomobile:
-	@./lib/uplink-gomobile/build.sh
-
 ##@ Deploy
 
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
 	# satellite
-	for c in satellite storagenode uplink versioncontrol ; do \
+	for c in satellite segment-reaper storagenode uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-aarch64 \
@@ -337,6 +339,7 @@ clean-images:
 	-docker rmi storjlabs/storagenode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/uplink:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/segment-reaper:${TAG}${CUSTOMTAG}
 
 .PHONY: test-docker-clean
 test-docker-clean: ## Clean up Docker environment used in test-docker target
@@ -371,3 +374,8 @@ update-satellite-config-lock: ## Update the satellite config lock file
 		-u root:root \
 		golang:${GO_VERSION} \
 		/bin/bash -c "cd /storj/scripts; ./update-satellite-config-lock.sh"
+
+.PHONY: bump-dependencies
+bump-dependencies:
+	go get storj.io/common@master storj.io/private@master storj.io/uplink@master
+	go mod tidy

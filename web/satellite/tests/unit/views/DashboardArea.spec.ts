@@ -79,22 +79,6 @@ describe('Dashboard', () => {
         expect(wrapper.findAll('.dashboard-container__wrap').length).toBe(0);
     });
 
-    it('renders correctly without project and with payment method', async () => {
-        store.commit(APP_STATE_MUTATIONS.SHOW_CONTENT_BLUR);
-
-        const wrapper = shallowMount(DashboardArea, {
-            store,
-            localVue,
-            router,
-        });
-
-        expect(wrapper).toMatchSnapshot();
-
-        await wrapper.find('.dashboard-container__blur-area__button').trigger('click');
-
-        expect(wrapper).toMatchSnapshot();
-    });
-
     it('renders correctly when data is loaded', () => {
         store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
 

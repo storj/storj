@@ -3,13 +3,14 @@
 
 import { StoreModule } from '@/store';
 import {
-    BillingHistoryItem,
-    BillingHistoryItemStatus,
-    BillingHistoryItemType,
+    AccountBalance,
     CreditCard,
     DateRange,
     PaymentsApi,
-    ProjectCharge,
+    PaymentsHistoryItem,
+    PaymentsHistoryItemStatus,
+    PaymentsHistoryItemType,
+    ProjectUsageAndCharges,
     TokenDeposit,
 } from '@/types/payments';
 
@@ -20,8 +21,11 @@ export const PAYMENTS_MUTATIONS = {
     CLEAR: 'CLEAR_PAYMENT_INFO',
     UPDATE_CARDS_SELECTION: 'UPDATE_CARDS_SELECTION',
     UPDATE_CARDS_DEFAULT: 'UPDATE_CARDS_DEFAULT',
-    SET_BILLING_HISTORY: 'SET_BILLING_HISTORY',
-    SET_PROJECT_CHARGES: 'SET_PROJECT_CHARGES',
+    SET_PAYMENTS_HISTORY: 'SET_PAYMENTS_HISTORY',
+    SET_PROJECT_USAGE_AND_CHARGES: 'SET_PROJECT_USAGE_AND_CHARGES',
+    SET_CURRENT_ROLLUP_PRICE: 'SET_CURRENT_ROLLUP_PRICE',
+    SET_PREVIOUS_ROLLUP_PRICE: 'SET_PREVIOUS_ROLLUP_PRICE',
+    SET_PRICE_SUMMARY: 'SET_PRICE_SUMMARY',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -34,11 +38,11 @@ export const PAYMENTS_ACTIONS = {
     CLEAR_CARDS_SELECTION: 'clearCardsSelection',
     MAKE_CARD_DEFAULT: 'makeCardDefault',
     REMOVE_CARD: 'removeCard',
-    GET_BILLING_HISTORY: 'getBillingHistory',
+    GET_PAYMENTS_HISTORY: 'getPaymentsHistory',
     MAKE_TOKEN_DEPOSIT: 'makeTokenDeposit',
-    GET_PROJECT_CHARGES: 'getProjectCharges',
-    GET_PROJECT_CHARGES_CURRENT_ROLLUP: 'getProjectChargesCurrentRollup',
-    GET_PROJECT_CHARGES_PREVIOUS_ROLLUP: 'getProjectChargesPreviousRollup',
+    GET_PROJECT_USAGE_AND_CHARGES: 'getProjectUsageAndCharges',
+    GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP: 'getProjectUsageAndChargesCurrentRollup',
+    GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP: 'getProjectUsageAndChargesPreviousRollup',
 };
 
 const {
@@ -48,8 +52,9 @@ const {
     CLEAR,
     UPDATE_CARDS_SELECTION,
     UPDATE_CARDS_DEFAULT,
-    SET_BILLING_HISTORY,
-    SET_PROJECT_CHARGES,
+    SET_PAYMENTS_HISTORY,
+    SET_PROJECT_USAGE_AND_CHARGES,
+    SET_PRICE_SUMMARY,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -62,21 +67,21 @@ const {
     CLEAR_PAYMENT_INFO,
     MAKE_CARD_DEFAULT,
     REMOVE_CARD,
-    GET_BILLING_HISTORY,
+    GET_PAYMENTS_HISTORY,
     MAKE_TOKEN_DEPOSIT,
-    GET_PROJECT_CHARGES,
-    GET_PROJECT_CHARGES_CURRENT_ROLLUP,
-    GET_PROJECT_CHARGES_PREVIOUS_ROLLUP,
+    GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
+    GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
 } = PAYMENTS_ACTIONS;
 
 export class PaymentsState {
     /**
      * balance stores in cents
      */
-    public balance: number = 0;
+    public balance: AccountBalance = new AccountBalance();
     public creditCards: CreditCard[] = [];
-    public billingHistory: BillingHistoryItem[] = [];
-    public charges: ProjectCharge[] = [];
+    public paymentsHistory: PaymentsHistoryItem[] = [];
+    public usageAndCharges: ProjectUsageAndCharges[] = [];
+    public priceSummary: number = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
 }
@@ -90,7 +95,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
     return {
         state: new PaymentsState(),
         mutations: {
-            [SET_BALANCE](state: PaymentsState, balance: number): void {
+            [SET_BALANCE](state: PaymentsState, balance: AccountBalance): void {
                 state.balance = balance;
             },
             [SET_CREDIT_CARDS](state: PaymentsState, creditCards: CreditCard[]): void {
@@ -126,20 +131,36 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                     return card;
                 });
             },
-            [SET_BILLING_HISTORY](state: PaymentsState, billingHistory: BillingHistoryItem[]): void {
-                state.billingHistory = billingHistory;
+            [SET_PAYMENTS_HISTORY](state: PaymentsState, paymentsHistory: PaymentsHistoryItem[]): void {
+                state.paymentsHistory = paymentsHistory;
             },
-            [SET_PROJECT_CHARGES](state: PaymentsState, charges: ProjectCharge[]): void {
-                state.charges = charges;
+            [SET_PROJECT_USAGE_AND_CHARGES](state: PaymentsState, usageAndCharges: ProjectUsageAndCharges[]): void {
+                state.usageAndCharges = usageAndCharges;
+            },
+            [SET_PRICE_SUMMARY](state: PaymentsState, charges: ProjectUsageAndCharges[]): void {
+                if (charges.length === 0) {
+                    state.priceSummary = 0;
+
+                    return;
+                }
+
+                const usageItemSummaries = charges.map(item => item.summary());
+
+                state.priceSummary = usageItemSummaries.reduce((accumulator, current) => accumulator + current);
             },
             [CLEAR](state: PaymentsState) {
-                state.balance = 0;
+                state.balance = new AccountBalance();
+                state.paymentsHistory = [];
+                state.usageAndCharges = [];
+                state.priceSummary = 0;
                 state.creditCards = [];
+                state.startDate = new Date();
+                state.endDate = new Date();
             },
         },
         actions: {
-            [GET_BALANCE]: async function({commit}: any): Promise<number> {
-                const balance = await api.getBalance();
+            [GET_BALANCE]: async function({commit}: any): Promise<AccountBalance> {
+                const balance: AccountBalance = await api.getBalance();
 
                 commit(SET_BALANCE, balance);
 
@@ -177,57 +198,57 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             [CLEAR_PAYMENT_INFO]: function({commit}: any): void {
                 commit(CLEAR);
             },
-            [GET_BILLING_HISTORY]: async function({commit}: any): Promise<void> {
-                const billingHistory: BillingHistoryItem[] = await api.billingHistory();
+            [GET_PAYMENTS_HISTORY]: async function({commit}: any): Promise<void> {
+                const paymentsHistory: PaymentsHistoryItem[] = await api.paymentsHistory();
 
-                commit(SET_BILLING_HISTORY, billingHistory);
+                commit(SET_PAYMENTS_HISTORY, paymentsHistory);
             },
             [MAKE_TOKEN_DEPOSIT]: async function({commit}: any, amount: number): Promise<TokenDeposit> {
                 return await api.makeTokenDeposit(amount);
             },
-            [GET_PROJECT_CHARGES]: async function({commit}: any, dateRange: DateRange): Promise<void> {
-                const now = new Date();
-                let beforeUTC = new Date(Date.UTC(dateRange.endDate.getUTCFullYear(), dateRange.endDate.getUTCMonth(), dateRange.endDate.getUTCDate(), 23, 59));
-
-                if (now.getUTCFullYear() === dateRange.endDate.getUTCFullYear() &&
-                    now.getUTCMonth() === dateRange.endDate.getUTCMonth() &&
-                    now.getUTCDate() <= dateRange.endDate.getUTCDate()) {
-                    beforeUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
-                }
-
-                const sinceUTC = new Date(Date.UTC(dateRange.startDate.getUTCFullYear(), dateRange.startDate.getUTCMonth(), dateRange.startDate.getUTCDate(), 0, 0));
-                const charges: ProjectCharge[] = await api.projectsCharges(sinceUTC, beforeUTC);
-
-                commit(SET_DATE, dateRange);
-                commit(SET_PROJECT_CHARGES, charges);
-            },
-            [GET_PROJECT_CHARGES_CURRENT_ROLLUP]: async function({commit}: any): Promise<void> {
+            [GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP]: async function({commit}: any): Promise<void> {
                 const now = new Date();
                 const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
                 const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
 
-                const charges: ProjectCharge[] = await api.projectsCharges(startUTC, endUTC);
+                const usageAndCharges: ProjectUsageAndCharges[] = await api.projectsUsageAndCharges(startUTC, endUTC);
 
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
-                commit(SET_PROJECT_CHARGES, charges);
+                commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
+                commit(SET_PRICE_SUMMARY, usageAndCharges);
             },
-            [GET_PROJECT_CHARGES_PREVIOUS_ROLLUP]: async function({commit}: any): Promise<void> {
+            [GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP]: async function({commit}: any): Promise<void> {
                 const now = new Date();
                 const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0));
                 const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59));
 
-                const charges: ProjectCharge[] = await api.projectsCharges(startUTC, endUTC);
+                const usageAndCharges: ProjectUsageAndCharges[] = await api.projectsUsageAndCharges(startUTC, endUTC);
 
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
-                commit(SET_PROJECT_CHARGES, charges);
+                commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
+                commit(SET_PRICE_SUMMARY, usageAndCharges);
             },
         },
         getters: {
             canUserCreateFirstProject: (state: PaymentsState): boolean => {
-                return state.billingHistory.some((billingItem: BillingHistoryItem) => {
-                    return billingItem.amount >= 50 && billingItem.type === BillingHistoryItemType.Transaction
-                        && billingItem.status === BillingHistoryItemStatus.Completed;
-                }) || state.creditCards.length > 0;
+                return (state.paymentsHistory.some((paymentsItem: PaymentsHistoryItem) => {
+                    return paymentsItem.amount >= 50 && paymentsItem.type === PaymentsHistoryItemType.Transaction
+                        && paymentsItem.status === PaymentsHistoryItemStatus.Completed;
+                }) && state.balance.sum > 0) || state.creditCards.length > 0;
+            },
+            isTransactionProcessing: (state: PaymentsState): boolean => {
+                return state.paymentsHistory.some((paymentsItem: PaymentsHistoryItem) => {
+                    return paymentsItem.amount >= 50 && paymentsItem.type === PaymentsHistoryItemType.Transaction
+                        && (paymentsItem.status === PaymentsHistoryItemStatus.Pending
+                        || paymentsItem.status === PaymentsHistoryItemStatus.Paid
+                        || paymentsItem.status === PaymentsHistoryItemStatus.Completed);
+                }) && state.balance.sum === 0;
+            },
+            isTransactionCompleted: (state: PaymentsState): boolean => {
+                return (state.paymentsHistory.some((paymentsItem: PaymentsHistoryItem) => {
+                    return paymentsItem.amount >= 50 && paymentsItem.type === PaymentsHistoryItemType.Transaction
+                        && paymentsItem.status === PaymentsHistoryItemStatus.Completed;
+                }) && state.balance.sum > 0);
             },
         },
     };
