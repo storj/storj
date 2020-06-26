@@ -52,7 +52,7 @@ func (e *Endpoint) GetPayStub(ctx context.Context, req *pb.GetHeldAmountRequest)
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
 		if overlay.ErrNodeNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -64,7 +64,7 @@ func (e *Endpoint) GetPayStub(ctx context.Context, req *pb.GetHeldAmountRequest)
 		if ErrNoDataForPeriod.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.OutOfRange, err.Error())
 		}
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	periodTime, err := date.PeriodToTime(stub.Period)
@@ -107,7 +107,7 @@ func (e *Endpoint) GetAllPaystubs(ctx context.Context, req *pb.GetAllPaystubsReq
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
 		if overlay.ErrNodeNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -118,7 +118,7 @@ func (e *Endpoint) GetAllPaystubs(ctx context.Context, req *pb.GetAllPaystubsReq
 		if ErrNoDataForPeriod.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.OutOfRange, err.Error())
 		}
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 
 	var paystubs []*pb.GetHeldAmountResponse
@@ -130,7 +130,7 @@ func (e *Endpoint) GetAllPaystubs(ctx context.Context, req *pb.GetAllPaystubsReq
 	for i := 0; i < len(stubs); i++ {
 		period, err := date.PeriodToTime(stubs[i].Period)
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
 
 		heldAmountResponse := pb.GetHeldAmountResponse{
@@ -158,6 +158,100 @@ func (e *Endpoint) GetAllPaystubs(ctx context.Context, req *pb.GetAllPaystubsReq
 		}
 
 		response.Paystub = append(response.Paystub, &heldAmountResponse)
+	}
+
+	return &response, nil
+}
+
+// GetPayment sends node payment data for client node.
+func (e *Endpoint) GetPayment(ctx context.Context, req *pb.GetPaymentRequest) (_ *pb.GetPaymentResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+	node, err := e.overlay.Get(ctx, peer.ID)
+	if err != nil {
+		if overlay.ErrNodeNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	payment, err := e.service.GetPayment(ctx, node.Id, req.Period.String())
+	if err != nil {
+		if ErrNoDataForPeriod.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.OutOfRange, err.Error())
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	timePeriod, err := date.PeriodToTime(payment.Period)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &pb.GetPaymentResponse{
+		NodeId:    payment.NodeID,
+		CreatedAt: payment.Created,
+		Period:    timePeriod,
+		Amount:    payment.Amount,
+		Receipt:   payment.Receipt,
+		Notes:     payment.Notes,
+		Id:        payment.ID,
+	}, nil
+}
+
+// GetAllPayments sends all payments to node.
+func (e *Endpoint) GetAllPayments(ctx context.Context, req *pb.GetAllPaymentsRequest) (_ *pb.GetAllPaymentsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+	node, err := e.overlay.Get(ctx, peer.ID)
+	if err != nil {
+		if overlay.ErrNodeNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	allPayments, err := e.service.GetAllPayments(ctx, node.Id)
+	if err != nil {
+		if ErrNoDataForPeriod.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.OutOfRange, err.Error())
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	var payments []*pb.GetPaymentResponse
+
+	response := pb.GetAllPaymentsResponse{
+		Payment: payments,
+	}
+
+	for i := 0; i < len(allPayments); i++ {
+		period, err := date.PeriodToTime(allPayments[i].Period)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		paymentResponse := pb.GetPaymentResponse{
+			NodeId:    allPayments[i].NodeID,
+			CreatedAt: allPayments[i].Created,
+			Period:    period,
+			Amount:    allPayments[i].Amount,
+			Receipt:   allPayments[i].Receipt,
+			Notes:     allPayments[i].Notes,
+			Id:        allPayments[i].ID,
+		}
+
+		response.Payment = append(response.Payment, &paymentResponse)
 	}
 
 	return &response, nil

@@ -6,7 +6,7 @@ require (
 	github.com/alessio/shellescape v0.0.0-20190409004728-b115ca0f9053
 	github.com/alicebob/miniredis/v2 v2.11.1
 	github.com/btcsuite/btcutil v1.0.1
-	github.com/calebcase/tmpfile v1.0.1
+	github.com/calebcase/tmpfile v1.0.2-0.20200602150926-3af473ef8439
 	github.com/cheggaaa/pb/v3 v3.0.1
 	github.com/fatih/color v1.7.0
 	github.com/go-redis/redis v6.14.1+incompatible
@@ -39,8 +39,8 @@ require (
 	golang.org/x/sys v0.0.0-20200610111108-226ff32320da
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
-	storj.io/common v0.0.0-20200622152042-376f8bec9266
-	storj.io/drpc v0.0.12
+	storj.io/common v0.0.0-20200701134427-63fe7147a3f3
+	storj.io/drpc v0.0.13
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
 	storj.io/private v0.0.0-20200605221229-3236fe879ab3
 	storj.io/uplink v1.1.2-0.20200616134034-15d9aa571aa7

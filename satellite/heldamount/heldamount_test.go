@@ -205,5 +205,36 @@ func TestHeldAmountDB(t *testing.T) {
 				}
 			}
 		})
+
+		payment := heldamount.StoragenodePayment{
+			ID:      1,
+			Created: time.Now().UTC(),
+			NodeID:  NodeID,
+			Period:  "2020-01",
+			Amount:  123,
+			Receipt: "receipt",
+			Notes:   "notes",
+		}
+
+		t.Run("Test StorePayment", func(t *testing.T) {
+			err := heldAmount.CreatePayment(ctx, payment)
+			assert.NoError(t, err)
+		})
+
+		t.Run("Test GetPayment", func(t *testing.T) {
+			paym, err := heldAmount.GetPayment(ctx, NodeID, period)
+			assert.NoError(t, err)
+			assert.Equal(t, paym.NodeID, payment.NodeID)
+			assert.Equal(t, paym.Period, payment.Period)
+			assert.Equal(t, paym.Amount, payment.Amount)
+			assert.Equal(t, paym.Notes, payment.Notes)
+			assert.Equal(t, paym.Receipt, payment.Receipt)
+
+			paym, err = heldAmount.GetPayment(ctx, NodeID, "")
+			assert.Error(t, err)
+
+			paym, err = heldAmount.GetPayment(ctx, storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, period)
+			assert.Error(t, err)
+		})
 	})
 }

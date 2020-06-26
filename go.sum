@@ -62,6 +62,8 @@ github.com/btcsuite/websocket v0.0.0-20150119174127-31079b680792/go.mod h1:ghJtE
 github.com/btcsuite/winsvc v1.0.0/go.mod h1:jsenWakMcC0zFBFurPLEAyrnc/teJEM1O46fmI40EZs=
 github.com/calebcase/tmpfile v1.0.1 h1:vD8FSrbsbexhep39/6mvtbIHS3GzIRqiprDNCF6QqSk=
 github.com/calebcase/tmpfile v1.0.1/go.mod h1:iErLeG/iqJr8LaQ/gYRv4GXdqssi3jg4iSzvrA06/lw=
+github.com/calebcase/tmpfile v1.0.2-0.20200602150926-3af473ef8439 h1:fqGdSbbWVbQqNCQXd/dyZ7Bl+u8R2X7QCiNzwgyUa/M=
+github.com/calebcase/tmpfile v1.0.2-0.20200602150926-3af473ef8439/go.mod h1:iErLeG/iqJr8LaQ/gYRv4GXdqssi3jg4iSzvrA06/lw=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/cheggaaa/pb/v3 v3.0.1 h1:m0BngUk2LuSRYdx4fujDKNRXNDpbNCfptPfVT2m6OJY=
@@ -621,12 +623,16 @@ storj.io/common v0.0.0-20200616122322-79b46deca70e h1:eAq23qVHALvUhH1PrtHnRPUXo7
 storj.io/common v0.0.0-20200616122322-79b46deca70e/go.mod h1:ZSjZI9XJNevOP527K+PL1c68j8w5M4vbHha3V2tYWdQ=
 storj.io/common v0.0.0-20200622152042-376f8bec9266 h1:Pmvy8chvf8NsGw91nlrPq/yym1WMranq0SBLh23rhts=
 storj.io/common v0.0.0-20200622152042-376f8bec9266/go.mod h1:ZSjZI9XJNevOP527K+PL1c68j8w5M4vbHha3V2tYWdQ=
+storj.io/common v0.0.0-20200701134427-63fe7147a3f3 h1:+7dtbWpeBeFrYIesoGfhGAPxTTBThwbwmuIwbaQyFo0=
+storj.io/common v0.0.0-20200701134427-63fe7147a3f3/go.mod h1:vMAnlNbkgW6i+w/OT1h4X8w6TajOHWAT+SvFHUFCpq0=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=
 storj.io/drpc v0.0.12 h1:4ei1M4cnWlYxcQheX0Dg4+c12zCD+oJqfweVQVWarsA=
 storj.io/drpc v0.0.12 h1:4ei1M4cnWlYxcQheX0Dg4+c12zCD+oJqfweVQVWarsA=
 storj.io/drpc v0.0.12/go.mod h1:82nfl+6YwRwF6UG31cEWWUqv/FaKvP5SGqUvoqTxCMA=
 storj.io/drpc v0.0.12/go.mod h1:82nfl+6YwRwF6UG31cEWWUqv/FaKvP5SGqUvoqTxCMA=
+storj.io/drpc v0.0.13 h1:EDR3WiwVcIHtg+8M5vqBFmUAuJvmM2erVHIfqPPSAoc=
+storj.io/drpc v0.0.13/go.mod h1:82nfl+6YwRwF6UG31cEWWUqv/FaKvP5SGqUvoqTxCMA=
 storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b h1:Bbg9JCtY6l3HrDxs3BXzT2UYnYCBLqNi6i84Y8QIPUs=
 storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b/go.mod h1:gj4vuCeyCRjRmH8LIrgoyU9Dc9uR6H+/GcDUXmTbf80=
 storj.io/private v0.0.0-20200605221229-3236fe879ab3 h1:kUn1+iJmBwBTJopuNlN3daKAXLNe1u3F/cGDq0o3sak=

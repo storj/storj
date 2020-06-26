@@ -135,3 +135,78 @@ func (paystubs *paymentStubs) CreatePaystub(ctx context.Context, stub heldamount
 		dbx.StoragenodePaystub_Paid(stub.Paid),
 	)
 }
+
+// GetPayment returns payment by nodeID and period.
+func (paystubs *paymentStubs) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (payment heldamount.StoragenodePayment, err error) {
+	query := `SELECT * FROM storagenode_payments WHERE node_id = $1 AND period = $2;`
+
+	row := paystubs.db.QueryRowContext(ctx, query, nodeID, period)
+	err = row.Scan(
+		&payment.ID,
+		&payment.Created,
+		&payment.NodeID,
+		&payment.Period,
+		&payment.Amount,
+		&payment.Receipt,
+		&payment.Notes,
+	)
+	if err != nil {
+		if sql.ErrNoRows == err {
+			return heldamount.StoragenodePayment{}, heldamount.ErrNoDataForPeriod.Wrap(err)
+		}
+
+		return heldamount.StoragenodePayment{}, Error.Wrap(err)
+	}
+
+	return payment, nil
+}
+
+// CreatePayment inserts storagenode_payment into database.
+func (paystubs *paymentStubs) CreatePayment(ctx context.Context, payment heldamount.StoragenodePayment) (err error) {
+	return paystubs.db.CreateNoReturn_StoragenodePayment(
+		ctx,
+		dbx.StoragenodePayment_NodeId(payment.NodeID[:]),
+		dbx.StoragenodePayment_Period(payment.Period),
+		dbx.StoragenodePayment_Amount(payment.Amount),
+		dbx.StoragenodePayment_Create_Fields{
+			Receipt: dbx.StoragenodePayment_Receipt(payment.Receipt),
+			Notes:   dbx.StoragenodePayment_Notes(payment.Notes),
+		},
+	)
+}
+
+// GetAllPayments return all payments by nodeID.
+func (paystubs *paymentStubs) GetAllPayments(ctx context.Context, nodeID storj.NodeID) (payments []heldamount.StoragenodePayment, err error) {
+	query := `SELECT * FROM storagenode_payments WHERE node_id = $1;`
+
+	rows, err := paystubs.db.QueryContext(ctx, query, nodeID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, Error.Wrap(rows.Close()))
+	}()
+
+	for rows.Next() {
+		payment := heldamount.StoragenodePayment{}
+
+		err = rows.Scan(
+			&payment.ID,
+			&payment.Created,
+			&payment.NodeID,
+			&payment.Period,
+			&payment.Amount,
+			&payment.Receipt,
+			&payment.Notes,
+		)
+
+		if err = rows.Err(); err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		payments = append(payments, payment)
+	}
+
+	return payments, Error.Wrap(rows.Err())
+}

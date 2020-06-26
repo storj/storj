@@ -23,10 +23,19 @@ type DB interface {
 	GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) ([]PayStub, error)
 	// CreatePaystub insert paystub into db.
 	CreatePaystub(ctx context.Context, stub PayStub) (err error)
+	// GetPayment return storagenode payment by nodeID and period.
+	GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (StoragenodePayment, error)
+	// CreatePayment insert payment into db.
+	CreatePayment(ctx context.Context, payment StoragenodePayment) (err error)
+	// GetAllPayments return all payments by nodeID.
+	GetAllPayments(ctx context.Context, nodeID storj.NodeID) ([]StoragenodePayment, error)
 }
 
 // ErrNoDataForPeriod represents errors from the heldamount database.
 var ErrNoDataForPeriod = errs.Class("no payStub/payments for period error")
+
+// Error is the default error class for heldamount package.
+var Error = errs.Class("heldamount")
 
 // PayStub is an entity that holds held amount of cash that will be paid to storagenode operator after some period.
 type PayStub struct {
@@ -53,6 +62,17 @@ type PayStub struct {
 	Paid           int64        `json:"paid"`
 }
 
+// StoragenodePayment is an entity that holds payment to storagenode operator parameters.
+type StoragenodePayment struct {
+	ID      int64        `json:"id"`
+	Created time.Time    `json:"created"`
+	NodeID  storj.NodeID `json:"nodeId"`
+	Period  string       `json:"period"`
+	Amount  int64        `json:"amount"`
+	Receipt string       `json:"receipt"`
+	Notes   string       `json:"notes"`
+}
+
 // Service is used to store and handle node paystub information
 //
 // architecture: Service
@@ -73,7 +93,7 @@ func NewService(log *zap.Logger, db DB) *Service {
 func (service *Service) GetPayStub(ctx context.Context, nodeID storj.NodeID, period string) (PayStub, error) {
 	payStub, err := service.db.GetPaystub(ctx, nodeID, period)
 	if err != nil {
-		return PayStub{}, err
+		return PayStub{}, Error.Wrap(err)
 	}
 
 	return payStub, nil
@@ -83,8 +103,28 @@ func (service *Service) GetPayStub(ctx context.Context, nodeID storj.NodeID, per
 func (service *Service) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) ([]PayStub, error) {
 	payStubs, err := service.db.GetAllPaystubs(ctx, nodeID)
 	if err != nil {
-		return []PayStub{}, err
+		return []PayStub{}, Error.Wrap(err)
 	}
 
 	return payStubs, nil
+}
+
+// GetPayment returns storagenode payment data by nodeID and period.
+func (service *Service) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (StoragenodePayment, error) {
+	payment, err := service.db.GetPayment(ctx, nodeID, period)
+	if err != nil {
+		return StoragenodePayment{}, Error.Wrap(err)
+	}
+
+	return payment, nil
+}
+
+// GetAllPayments returns all payments by nodeID.
+func (service *Service) GetAllPayments(ctx context.Context, nodeID storj.NodeID) ([]StoragenodePayment, error) {
+	payments, err := service.db.GetAllPayments(ctx, nodeID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return payments, nil
 }
