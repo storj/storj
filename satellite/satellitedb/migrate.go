@@ -1118,6 +1118,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				DB:          db.DB,
 				Description: "add period column to the credits_spendings table (step 1)",
 				Version:     109,
+				SeparateTx:  true,
 				Action: migrate.SQL{
 					`ALTER TABLE credits_spendings ADD COLUMN period timestamp with time zone;`,
 				},
@@ -1135,6 +1136,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				DB:          db.DB,
 				Description: "add period column to the credits_spendings table (step 3)",
 				Version:     111,
+				SeparateTx:  true,
 				Action: migrate.SQL{
 					`ALTER TABLE credits_spendings ALTER COLUMN period SET NOT NULL;`,
 				},
