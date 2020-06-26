@@ -8,6 +8,8 @@ import (
 	"context"
 	"database/sql"
 
+	"go.uber.org/zap"
+
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/audit"
@@ -54,7 +56,8 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 			}
 		case nil:
 			if !bytes.Equal(existingAudit.ExpectedShareHash, pendingAudit.ExpectedShareHash) {
-				return audit.ErrAlreadyExists.New("%v", pendingAudit.NodeID)
+				containment.db.log.Info("pending audit already exists", zap.String("node id", pendingAudit.NodeID.String()), zap.Binary("segment", []byte(pendingAudit.Path)))
+				return nil
 			}
 			statement := containment.db.Rebind(
 				`UPDATE pending_audits SET reverify_count = pending_audits.reverify_count + 1

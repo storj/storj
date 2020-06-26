@@ -502,7 +502,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				ChoreInterval:      defaultInterval,
 				QueueInterval:      defaultInterval,
 				Slots:              3,
-				WorkerConcurrency:  1,
+				WorkerConcurrency:  2,
 			},
 			GarbageCollection: gc.Config{
 				Interval:          defaultInterval,
