@@ -21,7 +21,8 @@
             <div class="header__content-holder__right-area">
                 <div class="header__content-holder__right-area__node-id-container">
                     <b class="header__content-holder__right-area__node-id-container__title">Node ID:</b>
-                    <p class="header__content-holder__right-area__node-id-container__id">{{this.nodeId}}</p>
+                    <input type="text" ref="nodeId" readonly v-bind:value=this.nodeId v-bind:size=this.nodeId.length+1 @focus="copyToClipboard" class="header__content-holder__right-area__node-id-container__id">
+
                 </div>
                 <div class="options-button" @click="openOptionsDropdown" >
                     <SettingsIcon  />
@@ -110,6 +111,11 @@ export default class SNOHeader extends Vue {
 
     public openOptionsDropdown(): void {
         setTimeout(() => this.isOptionsShown = true, 0);
+    }
+
+    public copyToClipboard(): void {
+        (this.$refs.nodeId as Vue & { select(): void }).select();
+        navigator.clipboard.writeText(this.nodeId);
     }
 
     public closeOptionsDropdown(): void {
@@ -246,6 +252,13 @@ export default class SNOHeader extends Vue {
 
                     &__id {
                         font-size: 11px;
+                        color: inherit;
+                        border-style: none;
+                    }
+
+                    &__id:focus {
+                        border-style: none;
+                        outline: none;
                     }
                 }
 
