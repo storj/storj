@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgtype"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/dbutil/dbschema"
@@ -97,10 +97,15 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 
 		for rows.Next() {
 			var tableName, constraintName, constraintType string
-			var columns pq.StringArray
+			var columnsArray pgtype.VarcharArray
+			var columns []string
 			var definition string
 
-			err := rows.Scan(&tableName, &constraintName, &constraintType, &columns, &definition)
+			err := rows.Scan(&tableName, &constraintName, &constraintType, &columnsArray, &definition)
+			if err != nil {
+				return err
+			}
+			err = columnsArray.AssignTo(&columns)
 			if err != nil {
 				return err
 			}
@@ -108,7 +113,7 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 			switch constraintType {
 			case "p": // primary key
 				table := schema.EnsureTable(tableName)
-				table.PrimaryKey = ([]string)(columns)
+				table.PrimaryKey = columns
 			case "f": // foreign key
 				if len(columns) != 1 {
 					return fmt.Errorf("expected one column, got: %q", columns)
@@ -183,14 +188,6 @@ var rxPostgresForeignKey = regexp.MustCompile(
 		`(?:\s*ON UPDATE (CASCADE|RESTRICT|SET NULL|SET DEFAULT|NO ACTION))?` +
 		`(?:\s*ON DELETE (CASCADE|RESTRICT|SET NULL|SET DEFAULT|NO ACTION))?$`,
 )
-
-// UnquoteIdentifier is the analog of pq.QuoteIdentifier.
-func UnquoteIdentifier(quotedIdent string) string {
-	if len(quotedIdent) >= 2 && quotedIdent[0] == '"' && quotedIdent[len(quotedIdent)-1] == '"' {
-		quotedIdent = strings.ReplaceAll(quotedIdent[1:len(quotedIdent)-1], "\"\"", "\"")
-	}
-	return quotedIdent
-}
 
 var (
 	rxIndex        = regexp.MustCompile(`^CREATE( UNIQUE)? INDEX (.*) ON .*\.(.*) USING btree \((.*)\)$`)

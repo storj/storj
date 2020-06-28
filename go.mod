@@ -16,12 +16,14 @@ require (
 	github.com/gorilla/mux v1.7.1
 	github.com/gorilla/schema v1.1.0
 	github.com/graphql-go/graphql v0.7.9
+	github.com/jackc/pgconn v1.6.1
+	github.com/jackc/pgtype v1.4.0
+	github.com/jackc/pgx/v4 v4.7.1
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
-	github.com/lib/pq v1.3.0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
-	github.com/shopspring/decimal v0.0.0-20200105231215-408a2507e114
+	github.com/shopspring/decimal v0.0.0-20200227202807-02e2044944cc
 	github.com/sirupsen/logrus v1.5.0 // indirect
 	github.com/spacemonkeygo/monkit/v3 v3.0.7-0.20200515175308-072401d8c752
 	github.com/spf13/cobra v0.0.6
@@ -33,7 +35,7 @@ require (
 	github.com/zeebo/errs v1.2.2
 	go.etcd.io/bbolt v1.3.4
 	go.uber.org/zap v1.15.0
-	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	golang.org/x/sys v0.0.0-20200610111108-226ff32320da

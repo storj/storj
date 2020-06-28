@@ -10,11 +10,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -435,7 +435,7 @@ func (coupons *coupons) activeUserWithProjectAndWithoutCoupon(ctx context.Contex
 		WHERE users_with_projects.id NOT IN (
 			SELECT user_id FROM coupons WHERE type = ?
 		)
-	`), pq.ByteaArray(userIDs), console.Active, payments.CouponTypePromotional)
+	`), pgutil.ByteaArray(userIDs), console.Active, payments.CouponTypePromotional)
 	if err != nil {
 		return nil, err
 	}

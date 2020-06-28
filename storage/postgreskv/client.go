@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"sort"
 
-	"github.com/lib/pq"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
@@ -34,7 +33,7 @@ type Client struct {
 func New(dbURL string) (*Client, error) {
 	dbURL = pgutil.CheckApplicationName(dbURL)
 
-	db, err := tagsql.Open("postgres", dbURL)
+	db, err := tagsql.Open("pgx", dbURL)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +118,7 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 			ON (pd.fullpath = pk.request)
 		ORDER BY pk.ord
 	`
-	rows, err := client.db.Query(ctx, q, pq.ByteaArray(keys.ByteSlices()))
+	rows, err := client.db.Query(ctx, q, pgutil.ByteaArray(keys.ByteSlices()))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -174,7 +173,7 @@ func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_
 		DELETE FROM pathdata
 		WHERE fullpath = any($1::BYTEA[])
 		RETURNING fullpath, metadata`,
-		pq.ByteaArray(storage.Keys(keys).ByteSlices()))
+		pgutil.ByteaArray(storage.Keys(keys).ByteSlices()))
 	if err != nil {
 		return nil, err
 	}

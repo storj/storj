@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/private/version"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -207,14 +207,14 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 	if len(excludedIDs) > 0 {
 		conds.add(
 			`not (id = any(?::bytea[]))`,
-			postgresNodeIDList(excludedIDs),
+			pgutil.NodeIDArray(excludedIDs),
 		)
 	}
 	if criteria.DistinctIP {
 		if len(excludedNetworks) > 0 {
 			conds.add(
 				`not (last_net = any(?::text[]))`,
-				pq.Array(excludedNetworks),
+				pgutil.StringArray(excludedNetworks),
 			)
 		}
 		conds.add(`last_net <> ''`)

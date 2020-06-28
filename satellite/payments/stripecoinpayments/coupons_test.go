@@ -75,7 +75,7 @@ func TestCouponRepository(t *testing.T) {
 			date, err := couponsRepo.GetLatest(ctx, coupon.ID)
 			require.NoError(t, err)
 			// go and postgres has different precision. go - nanoseconds, postgres micro
-			require.Equal(t, date.UTC(), now.Round(time.Microsecond))
+			require.Equal(t, date.UTC(), now.Truncate(time.Microsecond))
 		})
 
 		t.Run("total usage", func(t *testing.T) {

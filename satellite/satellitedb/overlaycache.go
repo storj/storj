@@ -11,7 +11,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -19,6 +18,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/private/version"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -109,7 +109,7 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT last_net FROM nodes
 			WHERE id = any($1::bytea[])
-		`), postgresNodeIDList(nodeIDs),
+		`), pgutil.NodeIDArray(nodeIDs),
 	)
 	if err != nil {
 		return nil, err
@@ -158,7 +158,7 @@ func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeI
 			AND disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
-	`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow))
+	`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow))
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
 			AND last_contact_success < $2
-		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -233,7 +233,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 			AND unknown_audit_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
-		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -274,7 +274,7 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 			AND unknown_audit_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
-		`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow),
+		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -682,7 +682,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 			SELECT unnest($1::bytea[]) as id, unnest($2::bigint[]) as count
 		) as update
 		WHERE nodes.id = update.id
-	`, postgresNodeIDList(nodeIDs), pq.Array(countNumbers))
+	`, pgutil.NodeIDArray(nodeIDs), pgutil.Int8Array(countNumbers))
 
 	return Error.Wrap(err)
 }

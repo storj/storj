@@ -22,7 +22,7 @@ type nodeAPIVersionDB struct {
 func (db *nodeAPIVersionDB) UpdateVersionAtLeast(ctx context.Context, id storj.NodeID, version nodeapiversion.Version) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// try to create a row at the version
-	err = db.db.CreateNoReturn_NodeApiVersion(ctx,
+	err = db.db.ReplaceNoReturn_NodeApiVersion(ctx,
 		dbx.NodeApiVersion_Id(id.Bytes()),
 		dbx.NodeApiVersion_ApiVersion(int(version)))
 	if errs.IsFunc(err, dbx.IsConstraintError) {

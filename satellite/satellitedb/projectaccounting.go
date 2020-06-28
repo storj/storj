@@ -9,13 +9,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -35,17 +35,17 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 		return nil
 	}
 	var bucketNames, projectIDs [][]byte
-	var inlineBytes, remoteBytes, metadataSizes []uint64
-	var remoteSegments, inlineSegments, objectCounts []uint
+	var inlineBytes, remoteBytes, metadataSizes []int64
+	var remoteSegments, inlineSegments, objectCounts []int64
 	for _, info := range bucketTallies {
 		bucketNames = append(bucketNames, info.BucketName)
 		projectIDs = append(projectIDs, info.ProjectID[:])
-		inlineBytes = append(inlineBytes, uint64(info.InlineBytes))
-		remoteBytes = append(remoteBytes, uint64(info.RemoteBytes))
-		remoteSegments = append(remoteSegments, uint(info.RemoteSegments))
-		inlineSegments = append(inlineSegments, uint(info.InlineSegments))
-		objectCounts = append(objectCounts, uint(info.ObjectCount))
-		metadataSizes = append(metadataSizes, uint64(info.MetadataSize))
+		inlineBytes = append(inlineBytes, info.InlineBytes)
+		remoteBytes = append(remoteBytes, info.RemoteBytes)
+		remoteSegments = append(remoteSegments, info.RemoteSegments)
+		inlineSegments = append(inlineSegments, info.InlineSegments)
+		objectCounts = append(objectCounts, info.ObjectCount)
+		metadataSizes = append(metadataSizes, info.MetadataSize)
 	}
 	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(`
 		INSERT INTO bucket_storage_tallies (
@@ -61,10 +61,10 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 			unnest($6::int[]), unnest($7::int[]),
 			unnest($8::int[]), unnest($9::int8[])`),
 		intervalStart,
-		pq.ByteaArray(bucketNames), pq.ByteaArray(projectIDs),
-		pq.Array(inlineBytes), pq.Array(remoteBytes),
-		pq.Array(remoteSegments), pq.Array(inlineSegments),
-		pq.Array(objectCounts), pq.Array(metadataSizes))
+		pgutil.ByteaArray(bucketNames), pgutil.ByteaArray(projectIDs),
+		pgutil.Int8Array(inlineBytes), pgutil.Int8Array(remoteBytes),
+		pgutil.Int8Array(remoteSegments), pgutil.Int8Array(inlineSegments),
+		pgutil.Int8Array(objectCounts), pgutil.Int8Array(metadataSizes))
 
 	return Error.Wrap(err)
 }

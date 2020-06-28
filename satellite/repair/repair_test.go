@@ -1289,6 +1289,7 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 		metainfo := satellite.Metainfo.Service
 		listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
 		require.NoError(t, err)
+		require.NotNil(t, listResponse)
 
 		var path string
 		var pointer *pb.Pointer

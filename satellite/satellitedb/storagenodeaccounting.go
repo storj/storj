@@ -8,11 +8,11 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -45,7 +45,7 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 				$1,
 				unnest($2::bytea[]), unnest($3::float8[])`),
 			latestTally,
-			postgresNodeIDList(nodeIDs), pq.Array(totals))
+			pgutil.NodeIDArray(nodeIDs), pgutil.Float8Array(totals))
 		if err != nil {
 			return err
 		}

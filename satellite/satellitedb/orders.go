@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -270,7 +269,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 				serial_numbers sn,
 				unnest($1::bytea[]) WITH ORDINALITY AS request(serial_number, i)
 			WHERE request.serial_number = sn.serial_number
-		`, pq.ByteaArray(serialNums))
+		`, pgutil.ByteaArray(serialNums))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -378,13 +377,18 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		return nil, Error.New("invalid dbType: %v", db.db.driver)
 	}
 
+	actionNumArray := make([]int32, len(actionArray))
+	for i, num := range actionArray {
+		actionNumArray[i] = int32(num)
+	}
+
 	_, err = db.db.ExecContext(ctx, stmt,
 		storageNodeID.Bytes(),
-		pq.ByteaArray(bucketIDArray),
-		pq.ByteaArray(serialNumArray),
-		pq.Array(actionArray),
-		pq.Array(settledArray),
-		pq.Array(expiresAtArray),
+		pgutil.ByteaArray(bucketIDArray),
+		pgutil.ByteaArray(serialNumArray),
+		pgutil.Int4Array(actionNumArray),
+		pgutil.Int8Array(settledArray),
+		pgutil.TimestampTZArray(expiresAtArray),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -458,9 +462,9 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 			allocated = bucket_bandwidth_rollups.allocated + EXCLUDED.allocated,
 			inline = bucket_bandwidth_rollups.inline + EXCLUDED.inline,
 			settled = bucket_bandwidth_rollups.settled + EXCLUDED.settled`,
-		pq.ByteaArray(bucketNames), pq.ByteaArray(projectIDs),
+		pgutil.ByteaArray(bucketNames), pgutil.ByteaArray(projectIDs),
 		intervalStart, defaultIntervalSeconds,
-		pq.Array(actionSlice), pq.Array(inlineSlice), pq.Array(allocatedSlice), pq.Array(settledSlice))
+		pgutil.Int4Array(actionSlice), pgutil.Int8Array(inlineSlice), pgutil.Int8Array(allocatedSlice), pgutil.Int8Array(settledSlice))
 	if err != nil {
 		tx.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
 	}
@@ -486,7 +490,7 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 		ON CONFLICT(project_id, interval_month)
 		DO UPDATE SET egress_allocated = project_bandwidth_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint;
 		`,
-			pq.ByteaArray(projectRUIDs), projectInterval, pq.Array(projectRUAllocated))
+			pgutil.ByteaArray(projectRUIDs), projectInterval, pgutil.Int8Array(projectRUAllocated))
 		if err != nil {
 			tx.log.Error("Project bandwidth rollup batch flush failed.", zap.Error(err))
 		}
@@ -532,9 +536,9 @@ func (tx *ordersDBTx) UpdateStoragenodeBandwidthBatch(ctx context.Context, inter
 		DO UPDATE SET
 			allocated = storagenode_bandwidth_rollups.allocated + EXCLUDED.allocated,
 			settled = storagenode_bandwidth_rollups.settled + EXCLUDED.settled`,
-		postgresNodeIDList(storageNodeIDs),
+		pgutil.NodeIDArray(storageNodeIDs),
 		intervalStart, defaultIntervalSeconds,
-		pq.Array(actionSlice), pq.Array(allocatedSlice), pq.Array(settledSlice))
+		pgutil.Int4Array(actionSlice), pgutil.Int8Array(allocatedSlice), pgutil.Int8Array(settledSlice))
 	if err != nil {
 		tx.log.Error("Storagenode bandwidth rollup batch flush failed.", zap.Error(err))
 	}
@@ -583,9 +587,9 @@ func (tx *ordersDBTx) CreateConsumedSerialsBatch(ctx context.Context, consumedSe
 	}
 
 	_, err = tx.tx.Tx.ExecContext(ctx, stmt,
-		pq.ByteaArray(storageNodeIDSlice),
-		pq.ByteaArray(serialNumberSlice),
-		pq.Array(expiresAtSlice),
+		pgutil.ByteaArray(storageNodeIDSlice),
+		pgutil.ByteaArray(serialNumberSlice),
+		pgutil.TimestampTZArray(expiresAtSlice),
 	)
 	return Error.Wrap(err)
 }

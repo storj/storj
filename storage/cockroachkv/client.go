@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"sort"
 
-	"github.com/lib/pq"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
@@ -137,7 +136,7 @@ func (client *Client) getAllOnce(ctx context.Context, keys storage.Keys) (values
 				ON (pd.fullpath = pk.request)
 			ORDER BY pk.ord
 		`
-	rows, err := client.db.QueryContext(ctx, q, pq.ByteaArray(keys.ByteSlices()))
+	rows, err := client.db.QueryContext(ctx, q, pgutil.ByteaArray(keys.ByteSlices()))
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +211,7 @@ func (client *Client) deleteMultipleOnce(ctx context.Context, keys storage.Keys)
 		DELETE FROM pathdata
 		WHERE fullpath = any($1::BYTEA[])
 		RETURNING fullpath, metadata`,
-		pq.ByteaArray(keys.ByteSlices()))
+		pgutil.ByteaArray(keys.ByteSlices()))
 	if err != nil {
 		return nil, err
 	}

@@ -156,6 +156,13 @@ func (opi *orderedPostgresIterator) doNextQuery(ctx context.Context) (_ tagsql.R
 		start = storage.AfterPrefix(start)
 		gt = ">="
 	}
+	var endLimitKey = opi.largestKey
+	if endLimitKey == nil {
+		// jackc/pgx will treat nil as a NULL value, while lib/pq treats it as
+		// an empty string. We'll remove the ambiguity by making it a zero-length
+		// byte slice instead
+		endLimitKey = []byte{}
+	}
 
 	return opi.client.db.Query(ctx, fmt.Sprintf(`
 		SELECT pd.fullpath, pd.metadata
@@ -164,5 +171,5 @@ func (opi *orderedPostgresIterator) doNextQuery(ctx context.Context) (_ tagsql.R
 			AND ($2::BYTEA = ''::BYTEA OR pd.fullpath < $2::BYTEA)
 		ORDER BY pd.fullpath
 		LIMIT $3
-	`, gt), start, []byte(opi.largestKey), opi.batchSize)
+	`, gt), start, endLimitKey, opi.batchSize)
 }

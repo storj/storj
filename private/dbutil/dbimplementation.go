@@ -25,7 +25,7 @@ const (
 // the url with the provided scheme.
 func ImplementationForScheme(scheme string) Implementation {
 	switch scheme {
-	case "postgres", "postgresql":
+	case "pgx", "postgres", "postgresql":
 		return Postgres
 	case "cockroach":
 		return Cockroach

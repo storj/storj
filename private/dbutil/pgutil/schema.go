@@ -11,8 +11,6 @@ import (
 	"encoding/hex"
 	"net/url"
 	"strings"
-
-	"github.com/lib/pq"
 )
 
 // CreateRandomTestingSchemaName creates a random schema name string.
@@ -32,7 +30,7 @@ func ConnstrWithSchema(connstr, schema string) string {
 	} else {
 		connstr += "?options="
 	}
-	return connstr + url.QueryEscape("--search_path="+pq.QuoteIdentifier(schema))
+	return connstr + url.QueryEscape("--search_path="+QuoteIdentifier(schema))
 }
 
 // ParseSchemaFromConnstr returns the name of the schema parsed from the
@@ -43,7 +41,7 @@ func ParseSchemaFromConnstr(connstr string) (string, error) {
 		return "", err
 	}
 	queryValues := url.Query()
-	// this is the Proper™ way to encode search_path in a pq connection string
+	// this is the Proper™ way to encode search_path in a pg connection string
 	options := queryValues["options"]
 	for _, option := range options {
 		if strings.HasPrefix(option, "--search_path=") {
@@ -60,7 +58,7 @@ func ParseSchemaFromConnstr(connstr string) (string, error) {
 
 // QuoteSchema quotes schema name for
 func QuoteSchema(schema string) string {
-	return pq.QuoteIdentifier(schema)
+	return QuoteIdentifier(schema)
 }
 
 // Execer is for executing sql

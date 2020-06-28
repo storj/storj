@@ -1,12 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package pgutil
 
 import (
 	"testing"
 
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,11 +19,11 @@ func TestPostgresNodeIDsArray(t *testing.T) {
 		ids[i] = testrand.NodeID()
 	}
 
-	got, err := postgresNodeIDList(ids).Value() // returns a []byte
+	got, err := NodeIDArray(ids).Value() // returns a string
 	require.NoError(t, err)
 
-	expected, err := pq.ByteaArray(ids.Bytes()).Value() // returns a string
+	expected, err := ByteaArray(ids.Bytes()).Value() // returns a string
 	require.NoError(t, err)
 
-	assert.Equal(t, expected.(string), string(got.([]byte)))
+	assert.Equal(t, expected.(string), got.(string))
 }

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -54,7 +53,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 		}
 
 		_, err := db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
-			pq.QuoteIdentifier(dbName)))
+			pgutil.QuoteIdentifier(dbName)))
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -104,7 +103,7 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 			return ErrMigrateMinVersion.New("error querying current database: %+v", err)
 		}
 
-		_, err := db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`, pq.QuoteIdentifier(dbName)))
+		_, err := db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`, pgutil.QuoteIdentifier(dbName)))
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}

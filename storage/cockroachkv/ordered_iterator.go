@@ -164,6 +164,13 @@ func (oci *orderedCockroachIterator) doNextQuery(ctx context.Context) (_ tagsql.
 	gt := ">"
 	start := oci.lastKeySeen
 
+	largestKey := []byte(oci.largestKey)
+	if largestKey == nil {
+		// github.com/lib/pq would treat nil as an empty bytea array, while
+		// github.com/jackc/pgx will treat nil as NULL. Make an explicit empty
+		// byte array so that they'll work the same.
+		largestKey = []byte{}
+	}
 	if len(start) == 0 {
 		start = oci.opts.First
 		gt = ">="
@@ -178,5 +185,5 @@ func (oci *orderedCockroachIterator) doNextQuery(ctx context.Context) (_ tagsql.
 		WHERE pd.fullpath %s $1:::BYTEA
 			AND ($2:::BYTEA = '':::BYTEA OR pd.fullpath < $2:::BYTEA)
 		LIMIT $3
-	`, gt), start, []byte(oci.largestKey), oci.batchSize)
+	`, gt), start, largestKey, oci.batchSize)
 }
