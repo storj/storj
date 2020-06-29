@@ -5,6 +5,7 @@ package piecedeletion
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
@@ -73,7 +74,7 @@ func (dialer *Dialer) Handle(ctx context.Context, node storj.NodeURL, queue Queu
 		jobs, ok := queue.PopAll()
 		// Add metrics on to the span
 		s := monkit.SpanFromCtx(ctx)
-		s.Annotate("delete jobs size", string(len(jobs)))
+		s.Annotate("delete jobs size", strconv.Itoa(len(jobs)))
 
 		if !ok {
 			return
@@ -84,7 +85,7 @@ func (dialer *Dialer) Handle(ctx context.Context, node storj.NodeURL, queue Queu
 			// Aggregation metrics
 			mon.IntVal("delete batch size").Observe(int64(len(batch)))
 			// Tracing metrics
-			s.Annotate("delete batch size", string(len(batch)))
+			s.Annotate("delete batch size", strconv.Itoa(len(batch)))
 
 			jobs = rest
 
