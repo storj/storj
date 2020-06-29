@@ -5,9 +5,12 @@ package metainfo_test
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -18,6 +21,8 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
+
+const lastSegmentIndex = -1
 
 func TestIterate(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
@@ -55,6 +60,81 @@ func TestIterate(t *testing.T) {
 		require.NoError(t, err)
 		// There should only be 1 item in pointerDB, the one object
 		require.Equal(t, 1, itemCount)
+	})
+}
+
+// TestGetItems_ReturnValueOrder ensures the return value
+// of GetItems will always be the same order as the requested paths.
+// The test does following steps:
+// - Uploads test data (multi-segment objects)
+// - Gather all object paths with an extra invalid path at random position
+// - Retrieve pointers using above paths
+// - Ensure the nil pointer and last segment paths are in the same order as their
+// corresponding paths.
+func TestGetItems_ReturnValueOrder(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+				testplanet.MaxSegmentSize(3*memory.KiB),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		satellite := planet.Satellites[0]
+		uplinkPeer := planet.Uplinks[0]
+
+		numItems := 5
+		for i := 0; i < numItems; i++ {
+			path := fmt.Sprintf("test/path_%d", i)
+			err := uplinkPeer.Upload(ctx, satellite, "bucket", path, testrand.Bytes(15*memory.KiB))
+			require.NoError(t, err)
+		}
+
+		keys, err := satellite.Metainfo.Database.List(ctx, nil, numItems)
+		require.NoError(t, err)
+
+		var paths = make([][]byte, 0, numItems+1)
+		var lastSegmentPathIndices []int
+
+		// Random nil pointer
+		nilPointerIndex := testrand.Intn(numItems + 1)
+
+		for i, key := range keys {
+			paths = append(paths, []byte(key.String()))
+			segmentIdx, err := parseSegmentPath([]byte(key.String()))
+			require.NoError(t, err)
+
+			if segmentIdx == lastSegmentIndex {
+				lastSegmentPathIndices = append(lastSegmentPathIndices, i)
+			}
+
+			// set a random path to be nil.
+			if nilPointerIndex == i {
+				paths[nilPointerIndex] = nil
+			}
+		}
+
+		pointers, err := satellite.Metainfo.Service.GetItems(ctx, paths)
+		require.NoError(t, err)
+
+		for i, p := range pointers {
+			if p == nil {
+				require.Equal(t, nilPointerIndex, i)
+				continue
+			}
+
+			meta := pb.StreamMeta{}
+			metaInBytes := p.GetMetadata()
+			err = pb.Unmarshal(metaInBytes, &meta)
+			require.NoError(t, err)
+
+			lastSegmentMeta := meta.GetLastSegmentMeta()
+			if lastSegmentMeta != nil {
+				require.Equal(t, lastSegmentPathIndices[i], i)
+			}
+		}
 	})
 }
 
@@ -151,4 +231,22 @@ func TestCountBuckets(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, count)
 	})
+}
+
+func parseSegmentPath(segmentPath []byte) (segmentIndex int64, err error) {
+	elements := storj.SplitPath(string(segmentPath))
+	if len(elements) < 4 {
+		return -1, errs.New("invalid path %q", string(segmentPath))
+	}
+
+	// var segmentIndex int64
+	if elements[1] == "l" {
+		segmentIndex = lastSegmentIndex
+	} else {
+		segmentIndex, err = strconv.ParseInt(elements[1][1:], 10, 64)
+		if err != nil {
+			return lastSegmentIndex, errs.Wrap(err)
+		}
+	}
+	return segmentIndex, nil
 }

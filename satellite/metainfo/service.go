@@ -224,6 +224,34 @@ func (s *Service) Get(ctx context.Context, path string) (_ *pb.Pointer, err erro
 	return pointer, nil
 }
 
+// GetItems gets decoded pointers from DB.
+// The return value is in the same order as the argument paths.
+func (s *Service) GetItems(ctx context.Context, paths [][]byte) (_ []*pb.Pointer, err error) {
+	defer mon.Task()(&ctx)(&err)
+	keys := make(storage.Keys, len(paths))
+	for i := range paths {
+		keys[i] = paths[i]
+	}
+	pointerBytes, err := s.db.GetAll(ctx, keys)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	pointers := make([]*pb.Pointer, len(pointerBytes))
+	for i, p := range pointerBytes {
+		if p == nil {
+			continue
+		}
+		var pointer pb.Pointer
+		err = pb.Unmarshal([]byte(p), &pointer)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		pointers[i] = &pointer
+	}
+	return pointers, nil
+}
+
 // GetWithBytes gets the protocol buffers encoded and decoded pointer from the DB.
 func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes []byte, pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -337,7 +365,37 @@ func (s *Service) Delete(ctx context.Context, path string, oldPointerBytes []byt
 	return Error.Wrap(err)
 }
 
-// UnsynchronizedDelete deletes from item from db without verifying whether the pointer has changed in the database.
+// UnsynchronizedGetDel deletes items from db without verifying whether the pointers have changed in the database,
+// and it returns deleted items.
+func (s *Service) UnsynchronizedGetDel(ctx context.Context, paths [][]byte) ([][]byte, []*pb.Pointer, error) {
+	keys := make(storage.Keys, len(paths))
+	for i := range paths {
+		keys[i] = paths[i]
+	}
+
+	items, err := s.db.DeleteMultiple(ctx, keys)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	pointerPaths := make([][]byte, 0, len(items))
+	pointers := make([]*pb.Pointer, 0, len(items))
+
+	for _, item := range items {
+		data := &pb.Pointer{}
+		err = pb.Unmarshal(item.Value, data)
+		if err != nil {
+			return nil, nil, Error.Wrap(err)
+		}
+
+		pointerPaths = append(pointerPaths, item.Key)
+		pointers = append(pointers, data)
+	}
+
+	return pointerPaths, pointers, nil
+}
+
+// UnsynchronizedDelete deletes item from db without verifying whether the pointer has changed in the database.
 func (s *Service) UnsynchronizedDelete(ctx context.Context, path string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
