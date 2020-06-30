@@ -364,7 +364,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				held := heldamount.HeldHistory{
 					SatelliteID:   satellite.ID(),
-					SatelliteName: satellite.URL(),
+					SatelliteName: satellite.Addr(),
 					Age:           int64(age),
 					FirstPeriod:   28,
 					SecondPeriod:  0,

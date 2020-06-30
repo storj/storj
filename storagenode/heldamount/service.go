@@ -316,7 +316,7 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []HeldHi
 		}
 
 		history.Age = int64(date.MonthsCountSince(stats.JoinedAt))
-		history.SatelliteName = url.String()
+		history.SatelliteName = url.Address
 		history.JoinedAt = stats.JoinedAt
 
 		result = append(result, history)
