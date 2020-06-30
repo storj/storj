@@ -289,6 +289,11 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE audit_histories (
+	node_id bytea NOT NULL,
+	history bytea NOT NULL,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -807,6 +812,11 @@ CREATE TABLE accounting_timestamps (
 	name text NOT NULL,
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
+);
+CREATE TABLE audit_histories (
+	node_id bytea NOT NULL,
+	history bytea NOT NULL,
+	PRIMARY KEY ( node_id )
 );
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
@@ -1545,6 +1555,55 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 }
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
+
+type AuditHistory struct {
+	NodeId  []byte
+	History []byte
+}
+
+func (AuditHistory) _Table() string { return "audit_histories" }
+
+type AuditHistory_Update_Fields struct {
+	History AuditHistory_History_Field
+}
+
+type AuditHistory_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func AuditHistory_NodeId(v []byte) AuditHistory_NodeId_Field {
+	return AuditHistory_NodeId_Field{_set: true, _value: v}
+}
+
+func (f AuditHistory_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AuditHistory_NodeId_Field) _Column() string { return "node_id" }
+
+type AuditHistory_History_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func AuditHistory_History(v []byte) AuditHistory_History_Field {
+	return AuditHistory_History_Field{_set: true, _value: v}
+}
+
+func (f AuditHistory_History_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AuditHistory_History_Field) _Column() string { return "history" }
 
 type BucketBandwidthRollup struct {
 	BucketName      []byte
@@ -9088,6 +9147,31 @@ func (obj *postgresImpl) CreateNoReturn_Node(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_AuditHistory(ctx context.Context,
+	audit_history_node_id AuditHistory_NodeId_Field,
+	audit_history_history AuditHistory_History_Field) (
+	audit_history *AuditHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__node_id_val := audit_history_node_id.value()
+	__history_val := audit_history_history.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO audit_histories ( node_id, history ) VALUES ( ?, ? ) RETURNING audit_histories.node_id, audit_histories.history")
+
+	var __values []interface{}
+	__values = append(__values, __node_id_val, __history_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	audit_history = &AuditHistory{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return audit_history, nil
+
+}
+
 func (obj *postgresImpl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
@@ -10577,6 +10661,28 @@ func (obj *postgresImpl) All_Node_Id_Node_Address_Node_LastIpPort_Node_LastConta
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_AuditHistory_By_NodeId(ctx context.Context,
+	audit_history_node_id AuditHistory_NodeId_Field) (
+	audit_history *AuditHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT audit_histories.node_id, audit_histories.history FROM audit_histories WHERE audit_histories.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, audit_history_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	audit_history = &AuditHistory{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	if err != nil {
+		return (*AuditHistory)(nil), obj.makeErr(err)
+	}
+	return audit_history, nil
 
 }
 
@@ -13139,6 +13245,47 @@ func (obj *postgresImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	return nil
 }
 
+func (obj *postgresImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
+	audit_history_node_id AuditHistory_NodeId_Field,
+	update AuditHistory_Update_Fields) (
+	audit_history *AuditHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE audit_histories SET "), __sets, __sqlbundle_Literal(" WHERE audit_histories.node_id = ? RETURNING audit_histories.node_id, audit_histories.history")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.History._set {
+		__values = append(__values, update.History.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("history = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, audit_history_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	audit_history = &AuditHistory{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return audit_history, nil
+}
+
 func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -14889,6 +15036,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM audit_histories;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -15262,6 +15419,31 @@ func (obj *cockroachImpl) CreateNoReturn_Node(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *cockroachImpl) Create_AuditHistory(ctx context.Context,
+	audit_history_node_id AuditHistory_NodeId_Field,
+	audit_history_history AuditHistory_History_Field) (
+	audit_history *AuditHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__node_id_val := audit_history_node_id.value()
+	__history_val := audit_history_history.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO audit_histories ( node_id, history ) VALUES ( ?, ? ) RETURNING audit_histories.node_id, audit_histories.history")
+
+	var __values []interface{}
+	__values = append(__values, __node_id_val, __history_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	audit_history = &AuditHistory{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return audit_history, nil
 
 }
 
@@ -16754,6 +16936,28 @@ func (obj *cockroachImpl) All_Node_Id_Node_Address_Node_LastIpPort_Node_LastCont
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
+
+}
+
+func (obj *cockroachImpl) Get_AuditHistory_By_NodeId(ctx context.Context,
+	audit_history_node_id AuditHistory_NodeId_Field) (
+	audit_history *AuditHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT audit_histories.node_id, audit_histories.history FROM audit_histories WHERE audit_histories.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, audit_history_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	audit_history = &AuditHistory{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	if err != nil {
+		return (*AuditHistory)(nil), obj.makeErr(err)
+	}
+	return audit_history, nil
 
 }
 
@@ -19316,6 +19520,47 @@ func (obj *cockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	return nil
 }
 
+func (obj *cockroachImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
+	audit_history_node_id AuditHistory_NodeId_Field,
+	update AuditHistory_Update_Fields) (
+	audit_history *AuditHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE audit_histories SET "), __sets, __sqlbundle_Literal(" WHERE audit_histories.node_id = ? RETURNING audit_histories.node_id, audit_histories.history")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.History._set {
+		__values = append(__values, update.History.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("history = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, audit_history_node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	audit_history = &AuditHistory{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return audit_history, nil
+}
+
 func (obj *cockroachImpl) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -21066,6 +21311,16 @@ func (obj *cockroachImpl) deleteAll(ctx context.Context) (count int64, err error
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM audit_histories;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -21622,6 +21877,18 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 		return
 	}
 	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_head, api_key_name, api_key_secret, optional)
+
+}
+
+func (rx *Rx) Create_AuditHistory(ctx context.Context,
+	audit_history_node_id AuditHistory_NodeId_Field,
+	audit_history_history AuditHistory_History_Field) (
+	audit_history *AuditHistory, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_AuditHistory(ctx, audit_history_node_id, audit_history_history)
 
 }
 
@@ -22255,6 +22522,16 @@ func (rx *Rx) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
 	return tx.Get_ApiKey_By_Name_And_ProjectId(ctx, api_key_name, api_key_project_id)
 }
 
+func (rx *Rx) Get_AuditHistory_By_NodeId(ctx context.Context,
+	audit_history_node_id AuditHistory_NodeId_Field) (
+	audit_history *AuditHistory, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_AuditHistory_By_NodeId(ctx, audit_history_node_id)
+}
+
 func (rx *Rx) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -22800,6 +23077,17 @@ func (rx *Rx) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	return tx.UpdateNoReturn_PeerIdentity_By_NodeId(ctx, peer_identity_node_id, update)
 }
 
+func (rx *Rx) Update_AuditHistory_By_NodeId(ctx context.Context,
+	audit_history_node_id AuditHistory_NodeId_Field,
+	update AuditHistory_Update_Fields) (
+	audit_history *AuditHistory, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_AuditHistory_By_NodeId(ctx, audit_history_node_id, update)
+}
+
 func (rx *Rx) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field,
@@ -23166,6 +23454,11 @@ type Methods interface {
 		optional ApiKey_Create_Fields) (
 		api_key *ApiKey, err error)
 
+	Create_AuditHistory(ctx context.Context,
+		audit_history_node_id AuditHistory_NodeId_Field,
+		audit_history_history AuditHistory_History_Field) (
+		audit_history *AuditHistory, err error)
+
 	Create_BucketMetainfo(ctx context.Context,
 		bucket_metainfo_id BucketMetainfo_Id_Field,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
@@ -23465,6 +23758,10 @@ type Methods interface {
 		api_key_project_id ApiKey_ProjectId_Field) (
 		api_key *ApiKey, err error)
 
+	Get_AuditHistory_By_NodeId(ctx context.Context,
+		audit_history_node_id AuditHistory_NodeId_Field) (
+		audit_history *AuditHistory, err error)
+
 	Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -23708,6 +24005,11 @@ type Methods interface {
 		peer_identity_node_id PeerIdentity_NodeId_Field,
 		update PeerIdentity_Update_Fields) (
 		err error)
+
+	Update_AuditHistory_By_NodeId(ctx context.Context,
+		audit_history_node_id AuditHistory_NodeId_Field,
+		update AuditHistory_Update_Fields) (
+		audit_history *AuditHistory, err error)
 
 	Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,

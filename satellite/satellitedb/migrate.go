@@ -1194,6 +1194,18 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);
 				`},
 			},
+			{
+				DB:          db.DB,
+				Description: "add audit histories database",
+				Version:     116,
+				Action: migrate.SQL{
+					`CREATE TABLE audit_histories (
+                        node_id bytea NOT NULL,
+                        history bytea NOT NULL,
+                        PRIMARY KEY ( node_id )
+					);`,
+				},
+			},
 		},
 	}
 }

@@ -237,6 +237,19 @@ read all (
 	orderby asc node.last_contact_success
 )
 
+//--- audit history ---//
+model audit_history (
+	key node_id
+	field node_id blob
+	field history blob ( updatable )
+)
+create audit_history ()
+update audit_history ( where audit_history.node_id = ? )
+read one (
+	select audit_history
+	where audit_history.node_id = ?
+)
+
 //--- repairqueue ---//
 
 model injuredsegment (

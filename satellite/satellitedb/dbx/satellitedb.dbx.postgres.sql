@@ -17,6 +17,11 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
+CREATE TABLE audit_histories (
+	node_id bytea NOT NULL,
+	history bytea NOT NULL,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
