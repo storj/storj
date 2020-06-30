@@ -242,6 +242,7 @@ CREATE TABLE projects (
 	usage_limit bigint NOT NULL DEFAULT 0,
 	bandwidth_limit bigint NOT NULL DEFAULT 0,
 	rate_limit integer,
+	max_buckets integer NOT NULL DEFAULT 0,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -413,7 +414,8 @@ CREATE TABLE bucket_metainfos (
 	default_redundancy_optimal_shares integer NOT NULL,
 	default_redundancy_total_shares integer NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( name, project_id )
+	UNIQUE ( name, project_id ),
+	UNIQUE ( project_id, name )
 );
 CREATE TABLE project_invoice_stamps (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,

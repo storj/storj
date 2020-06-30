@@ -5,6 +5,7 @@ package metainfo_test
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"sort"
 	"strconv"
@@ -34,6 +35,21 @@ import (
 	"storj.io/uplink/private/storage/meta"
 	"storj.io/uplink/private/testuplink"
 )
+
+func TestMaxOutBuckets(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		limit := planet.Satellites[0].Config.Metainfo.ProjectLimits.MaxBuckets
+		for i := 1; i <= limit; i++ {
+			name := "test" + strconv.Itoa(i)
+			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], name)
+			require.NoError(t, err)
+		}
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], fmt.Sprintf("test%d", limit+1))
+		require.EqualError(t, err, fmt.Sprintf("uplink: bucket: metainfo error: number of allocated buckets (%d) exceeded", limit))
+	})
+}
 
 func TestRevokeAccess(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{

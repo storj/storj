@@ -46,6 +46,13 @@ type RateLimiterConfig struct {
 	CacheExpiration time.Duration `help:"how long to cache the projects limiter." releaseDefault:"10m" devDefault:"10s"`
 }
 
+// ProjectLimitConfig is a configuration struct for default project limits
+type ProjectLimitConfig struct {
+	MaxBuckets          int         `help:"max bucket count for a project." default:"100"`
+	DefaultMaxUsage     memory.Size `help:"the default storage usage limit" releaseDefault:"50GB" devDefault:"200GB"`
+	DefaultMaxBandwidth memory.Size `help:"the default bandwidth usage limit" releaseDefault:"50GB" devDefault:"200GB"`
+}
+
 // Config is a configuration struct that is everything you need to start a metainfo
 type Config struct {
 	DatabaseURL          string               `help:"the database connection string to use" default:"postgres://"`
@@ -58,6 +65,7 @@ type Config struct {
 	RS                   RSConfig             `help:"redundancy scheme configuration"`
 	Loop                 LoopConfig           `help:"loop configuration"`
 	RateLimiter          RateLimiterConfig    `help:"rate limiter configuration"`
+	ProjectLimits        ProjectLimitConfig   `help:"project limit configuration"`
 	PieceDeletion        piecedeletion.Config `help:"piece deletion configuration"`
 }
 

@@ -55,7 +55,7 @@ var (
 	ErrNodeAlreadyExists = errs.Class("metainfo error: node already exists")
 )
 
-// APIKeys is api keys store methods used by endpoint
+// APIKeys is api keys store methods used by endpoint.
 //
 // architecture: Database
 type APIKeys interface {
@@ -124,7 +124,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	}, nil
 }
 
-// Close closes resources
+// Close closes resources.
 func (endpoint *Endpoint) Close() error { return nil }
 
 func calculateSpaceUsed(ptr *pb.Pointer) (segmentSize, totalStored int64) {
@@ -234,7 +234,7 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 	return storj.JoinPaths(entries...), nil
 }
 
-// ProjectInfo returns allowed ProjectInfo for the provided API key
+// ProjectInfo returns allowed ProjectInfo for the provided API key.
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -253,7 +253,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	}, nil
 }
 
-// GetBucket returns a bucket
+// GetBucket returns a bucket.
 func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -275,7 +275,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertBucketToProto(ctx, bucket, endpoint.redundancyScheme())
+	convBucket, err := convertBucketToProto(bucket, endpoint.redundancyScheme())
 	if err != nil {
 		return resp, err
 	}
@@ -285,7 +285,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	}, nil
 }
 
-// CreateBucket creates a new bucket
+// CreateBucket creates a new bucket.
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -316,14 +316,30 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
+	// check if project has exceeded its allocated bucket limit
+	maxBuckets, err := endpoint.projects.GetMaxBuckets(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	if maxBuckets == 0 {
+		maxBuckets = endpoint.config.ProjectLimits.MaxBuckets
+	}
+	bucketCount, err := endpoint.metainfo.CountBuckets(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	if bucketCount >= maxBuckets {
+		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, fmt.Sprintf("number of allocated buckets (%d) exceeded", endpoint.config.ProjectLimits.MaxBuckets))
+	}
+
+	bucketReq, err := convertProtoToBucket(req, keyInfo.ProjectID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
+	bucket, err := endpoint.metainfo.CreateBucket(ctx, bucketReq)
 	if err != nil {
-		endpoint.log.Error("error while creating bucket", zap.String("bucketName", bucket.Name), zap.Error(err))
+		endpoint.log.Error("error while creating bucket", zap.String("bucketName", bucketReq.Name), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
 	}
 
@@ -333,7 +349,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertBucketToProto(ctx, bucket, endpoint.redundancyScheme())
+	convBucket, err := convertBucketToProto(bucket, endpoint.redundancyScheme())
 	if err != nil {
 		endpoint.log.Error("error while converting bucket to proto", zap.String("bucketName", bucket.Name), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
@@ -344,7 +360,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}, nil
 }
 
-// DeleteBucket deletes a bucket
+// DeleteBucket deletes a bucket.
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -404,7 +420,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	convBucket, err := convertBucketToProto(ctx, bucket, endpoint.redundancyScheme())
+	convBucket, err := convertBucketToProto(bucket, endpoint.redundancyScheme())
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +428,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
 }
 
-// ListBuckets returns buckets in a project where the bucket name matches the request cursor
+// ListBuckets returns buckets in a project where the bucket name matches the request cursor.
 func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	action := macaroon.Action{
@@ -453,6 +469,16 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		Items: bucketItems,
 		More:  bucketList.More,
 	}, nil
+}
+
+// CountBuckets returns the number of buckets a project currently has.
+// TODO: add this to the uplink client side.
+func (endpoint *Endpoint) CountBuckets(ctx context.Context, projectID uuid.UUID) (count int, err error) {
+	count, err = endpoint.metainfo.CountBuckets(ctx, projectID)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func getAllowedBuckets(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
@@ -508,7 +534,7 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	}, nil
 }
 
-func convertBucketToProto(ctx context.Context, bucket storj.Bucket, rs *pb.RedundancyScheme) (pbBucket *pb.Bucket, err error) {
+func convertBucketToProto(bucket storj.Bucket, rs *pb.RedundancyScheme) (pbBucket *pb.Bucket, err error) {
 	if bucket == (storj.Bucket{}) {
 		return nil, nil
 	}
@@ -544,7 +570,7 @@ func convertBucketToProto(ctx context.Context, bucket storj.Bucket, rs *pb.Redun
 	return pbBucket, nil
 }
 
-// BeginObject begins object
+// BeginObject begins object.
 func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -614,8 +640,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}, nil
 }
 
-// CommitObject commits an object when all its segments have already been
-// committed.
+// CommitObject commits an object when all its segments have already been committed.
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -707,7 +732,7 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 	return &pb.ObjectCommitResponse{}, nil
 }
 
-// GetObject gets single object
+// GetObject gets single object.
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -816,7 +841,7 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 	return object, nil
 }
 
-// ListObjects list objects according to specific parameters
+// ListObjects list objects according to specific parameters.
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -964,7 +989,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	}, nil
 }
 
-// FinishDeleteObject finishes object deletion
+// FinishDeleteObject finishes object deletion.
 func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.ObjectFinishDeleteRequest) (resp *pb.ObjectFinishDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -998,7 +1023,7 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 	return &pb.ObjectFinishDeleteResponse{}, nil
 }
 
-// BeginSegment begins segment uploading
+// BeginSegment begins segment uploading.
 func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBeginRequest) (resp *pb.SegmentBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1074,7 +1099,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	}, nil
 }
 
-// CommitSegment commits segment after uploading
+// CommitSegment commits segment after uploading.
 func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1224,7 +1249,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 	}, nil
 }
 
-// MakeInlineSegment makes inline segment on satellite
+// MakeInlineSegment makes inline segment on satellite.
 func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.SegmentMakeInlineRequest) (resp *pb.SegmentMakeInlineResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1315,7 +1340,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 	return pointer, &pb.SegmentMakeInlineResponse{}, nil
 }
 
-// BeginDeleteSegment begins segment deletion process
+// BeginDeleteSegment begins segment deletion process.
 func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.SegmentBeginDeleteRequest) (resp *pb.SegmentBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1373,7 +1398,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 	}, nil
 }
 
-// FinishDeleteSegment finishes segment deletion process
+// FinishDeleteSegment finishes segment deletion process.
 func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.SegmentFinishDeleteRequest) (resp *pb.SegmentFinishDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1399,7 +1424,7 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 	return &pb.SegmentFinishDeleteResponse{}, nil
 }
 
-// ListSegments list object segments
+// ListSegments list object segments.
 func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListRequest) (resp *pb.SegmentListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1443,14 +1468,14 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	if streamMeta.NumberOfSegments > 0 {
 		// use unencrypted number of segments
 		// TODO cleanup int32 vs int64
-		return endpoint.listSegmentsFromNumberOfSegments(ctx, int32(streamMeta.NumberOfSegments), req.CursorPosition.Index, limit)
+		return endpoint.listSegmentsFromNumberOfSegments(int32(streamMeta.NumberOfSegments), req.CursorPosition.Index, limit)
 	}
 
 	// list segments by requesting each segment from cursor index to n until n segment is not found
 	return endpoint.listSegmentsManually(ctx, keyInfo.ProjectID, streamID, req.CursorPosition.Index, limit)
 }
 
-func (endpoint *Endpoint) listSegmentsFromNumberOfSegments(ctx context.Context, numberOfSegments, cursorIndex, limit int32) (resp *pb.SegmentListResponse, err error) {
+func (endpoint *Endpoint) listSegmentsFromNumberOfSegments(numberOfSegments, cursorIndex, limit int32) (resp *pb.SegmentListResponse, err error) {
 	if numberOfSegments <= 0 {
 		endpoint.log.Error(
 			"Invalid number of segments; this function requires the value to be greater than 0",
@@ -1566,7 +1591,7 @@ func (endpoint *Endpoint) listSegmentsManually(ctx context.Context, projectID uu
 	}, nil
 }
 
-// DownloadSegment returns data necessary to download segment
+// DownloadSegment returns data necessary to download segment.
 func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.SegmentDownloadResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1734,17 +1759,17 @@ func (endpoint *Endpoint) getObjectNumberOfSegments(ctx context.Context, project
 		return 0, err
 	}
 
-	meta := &pb.StreamMeta{}
-	err = pb.Unmarshal(pointer.Metadata, meta)
+	metaData := &pb.StreamMeta{}
+	err = pb.Unmarshal(pointer.Metadata, metaData)
 	if err != nil {
 		endpoint.log.Error("error unmarshaling pointer metadata", zap.Error(err))
 		return 0, rpcstatus.Error(rpcstatus.Internal, "unable to unmarshal metadata")
 	}
 
-	return meta.NumberOfSegments, nil
+	return metaData.NumberOfSegments, nil
 }
 
-// sortLimits sorts order limits and fill missing ones with nil values
+// sortLimits sorts order limits and fill missing ones with nil values.
 func sortLimits(limits []*pb.AddressedOrderLimit, pointer *pb.Pointer) []*pb.AddressedOrderLimit {
 	sorted := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {

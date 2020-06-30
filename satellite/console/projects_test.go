@@ -234,3 +234,16 @@ func TestProjectsList(t *testing.T) {
 			})))
 	})
 }
+
+func TestGetMaxBuckets(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		maxCount := 100
+		consoleDB := db.Console()
+		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1", MaxBuckets: maxCount})
+		require.NoError(t, err)
+		projectsDB := db.Console().Projects()
+		max, err := projectsDB.GetMaxBuckets(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, maxCount, max)
+	})
+}

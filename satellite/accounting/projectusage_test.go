@@ -40,8 +40,8 @@ func TestProjectUsageStorage(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Rollup.DefaultMaxUsage = 1 * memory.MB
-				config.Rollup.DefaultMaxBandwidth = 1 * memory.MB
+				config.Metainfo.ProjectLimits.DefaultMaxUsage = 1 * memory.MB
+				config.Metainfo.ProjectLimits.DefaultMaxBandwidth = 1 * memory.MB
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

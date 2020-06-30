@@ -154,7 +154,7 @@ func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
 	var db tagsql.DB
 	var version int
 	var statements migrate.SQL
-	var steps = []*migrate.Step{}
+	var steps []*migrate.Step
 
 	pushMerged := func() {
 		if len(statements) == 0 {
@@ -1218,6 +1218,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( id )
 					);
 				`},
+			},
+			{
+				DB:          db.DB,
+				Description: "add max_buckets field to projects and an implicit index on bucket_metainfos project_id,name",
+				SeparateTx:  true,
+				Version:     118,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN max_buckets INTEGER NOT NULL DEFAULT 0;`,
+					`ALTER TABLE bucket_metainfos ADD UNIQUE (project_id, name);`,
+				},
 			},
 		},
 	}

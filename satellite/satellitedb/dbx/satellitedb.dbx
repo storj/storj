@@ -310,6 +310,7 @@ model project (
     field usage_limit     int64     ( updatable, default 0 )
     field bandwidth_limit int64     ( updatable, default 0 )
     field rate_limit      int       ( nullable, updatable )
+    field max_buckets     int       ( updatable, default 0 )
     field partner_id      blob      ( nullable  )
     field owner_id        blob
 
@@ -332,6 +333,11 @@ read one (
     select project.bandwidth_limit
     where  project.id = ?
 )
+read one (
+    select project.max_buckets
+    where project.id = ?
+)
+
 read all (
     select project
 )
@@ -927,7 +933,8 @@ create user_credit ()
 
 model bucket_metainfo (
 	key    id
-	unique name project_id
+	unique name project_id //to remove later
+	unique project_id name
 
 	field id             blob
 	field project_id     project.id restrict
@@ -980,6 +987,11 @@ read limitoffset ( // After
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name > ?
 	orderby asc bucket_metainfo.name
+)
+
+read count (
+	select bucket_metainfo.name
+	where bucket_metainfo.project_id = ?
 )
 
 //--- graceful exit progress ---//

@@ -400,3 +400,9 @@ func (s *Service) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts
 	defer mon.Task()(&ctx)(&err)
 	return s.bucketsDB.ListBuckets(ctx, projectID, listOpts, allowedBuckets)
 }
+
+// CountBuckets returns the number of buckets a project currently has
+func (s *Service) CountBuckets(ctx context.Context, projectID uuid.UUID) (count int, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return s.bucketsDB.CountBuckets(ctx, projectID)
+}

@@ -358,6 +358,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # timeout for a single delete request
 # metainfo.piece-deletion.request-timeout: 1m0s
 
+# the default bandwidth usage limit
+# metainfo.project-limits.default-max-bandwidth: 50.0 GB
+
+# the default storage usage limit
+# metainfo.project-limits.default-max-usage: 50.0 GB
+
+# max bucket count for a project.
+# metainfo.project-limits.max-buckets: 100
+
 # number of projects to cache.
 # metainfo.rate-limiter.cache-capacity: 10000
 
@@ -582,12 +591,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # default queue batch size
 # reported-rollup.queue-batch-size: 10000
-
-# the default bandwidth usage limit
-# rollup.default-max-bandwidth: 50.0 GB
-
-# the default storage usage limit
-# rollup.default-max-usage: 50.0 GB
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true

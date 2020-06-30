@@ -96,7 +96,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		createFields.PartnerId = dbx.Project_PartnerId(project.PartnerID[:])
 	}
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
-	createFields.UsageLimit = dbx.Project_UsageLimit(0)
+	createFields.MaxBuckets = dbx.Project_MaxBuckets(project.MaxBuckets)
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
@@ -221,6 +221,7 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		PartnerID:   partnerID,
 		OwnerID:     ownerID,
 		RateLimit:   project.RateLimit,
+		MaxBuckets:  project.MaxBuckets,
 		CreatedAt:   project.CreatedAt,
 	}, nil
 }
@@ -244,4 +245,15 @@ func projectsFromDbxSlice(ctx context.Context, projectsDbx []*dbx.Project) (_ []
 	}
 
 	return projects, errs.Combine(errors...)
+}
+
+// GetMaxBuckets is a method to get the maximum number of buckets allowed for the project
+func (projects *projects) GetMaxBuckets(ctx context.Context, id uuid.UUID) (maxBuckets int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxRow, err := projects.db.Get_Project_MaxBuckets_By_Id(ctx, dbx.Project_Id(id[:]))
+	if err != nil {
+		return -1, err
+	}
+	return dbxRow.MaxBuckets, nil
 }

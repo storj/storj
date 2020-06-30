@@ -35,6 +35,9 @@ type Projects interface {
 
 	// UpdateRateLimit is a method for updating projects rate limit.
 	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit int) error
+
+	// GetMaxBuckets is a method to get the maximum number of buckets allowed for the project
+	GetMaxBuckets(ctx context.Context, id uuid.UUID) (int, error)
 }
 
 // Project is a database object that describes Project entity
@@ -46,8 +49,8 @@ type Project struct {
 	PartnerID   uuid.UUID `json:"partnerId"`
 	OwnerID     uuid.UUID `json:"ownerId"`
 	RateLimit   *int      `json:"rateLimit"`
-
-	CreatedAt time.Time `json:"createdAt"`
+	MaxBuckets  int       `json:"maxBuckets"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
 // ProjectInfo holds data needed to create/update Project

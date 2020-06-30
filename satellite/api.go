@@ -297,8 +297,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
-			config.Rollup.DefaultMaxUsage,
-			config.Rollup.DefaultMaxBandwidth,
+			config.Metainfo.ProjectLimits.DefaultMaxUsage,
+			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
 			config.LiveAccounting.BandwidthCacheTTL,
 		)
 	}

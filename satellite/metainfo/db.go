@@ -25,4 +25,6 @@ type BucketsDB interface {
 	DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error)
 	// List returns all buckets for a project
 	ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList storj.BucketList, err error)
+	// CountBuckets returns the number of buckets a project currently has
+	CountBuckets(ctx context.Context, projectID uuid.UUID) (int, error)
 }

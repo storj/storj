@@ -443,6 +443,11 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					CacheCapacity:   100,
 					CacheExpiration: 10 * time.Second,
 				},
+				ProjectLimits: metainfo.ProjectLimitConfig{
+					MaxBuckets:          1000,
+					DefaultMaxUsage:     25 * memory.GB,
+					DefaultMaxBandwidth: 25 * memory.GB,
+				},
 				PieceDeletion: piecedeletion.Config{
 					MaxConcurrency: 100,
 
@@ -519,8 +524,6 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 			},
 			Rollup: rollup.Config{
 				Interval:            defaultInterval,
-				DefaultMaxUsage:     25 * memory.GB,
-				DefaultMaxBandwidth: 25 * memory.GB,
 				DeleteTallies:       false,
 			},
 			ReportedRollup: reportedrollup.Config{

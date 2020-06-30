@@ -9,7 +9,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -19,8 +18,6 @@ import (
 // Config contains configurable values for rollup
 type Config struct {
 	Interval            time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s"`
-	DefaultMaxUsage     memory.Size   `help:"the default storage usage limit" releaseDefault:"50GB" devDefault:"200GB"`
-	DefaultMaxBandwidth memory.Size   `help:"the default bandwidth usage limit" releaseDefault:"50GB" devDefault:"200GB"`
 	DeleteTallies       bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
 }
 

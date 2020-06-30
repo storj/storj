@@ -127,3 +127,28 @@ func hasDuplicates(pieces []*pb.RemotePiece) bool {
 
 	return false
 }
+
+func TestCountBuckets(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		saPeer := planet.Satellites[0]
+		uplinkPeer := planet.Uplinks[0]
+		projectID := planet.Uplinks[0].Projects[0].ID
+		count, err := saPeer.Metainfo.Service.CountBuckets(ctx, projectID)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+		// Setup: create 2 test buckets
+		err = uplinkPeer.CreateBucket(ctx, saPeer, "test1")
+		require.NoError(t, err)
+		count, err = saPeer.Metainfo.Service.CountBuckets(ctx, projectID)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+
+		err = uplinkPeer.CreateBucket(ctx, saPeer, "test2")
+		require.NoError(t, err)
+		count, err = saPeer.Metainfo.Service.CountBuckets(ctx, projectID)
+		require.NoError(t, err)
+		require.Equal(t, 2, count)
+	})
+}
