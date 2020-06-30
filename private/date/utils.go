@@ -33,22 +33,16 @@ func PeriodToTime(period string) (_ time.Time, err error) {
 
 // MonthsCountSince calculates the months between now and the createdAtTime time.Time value passed.
 func MonthsCountSince(from time.Time) int {
-	now := time.Now().UTC()
-	return MonthsBetweenDates(from, now)
+	return MonthsBetweenDates(from, time.Now())
 }
 
 // MonthsBetweenDates calculates amount of months between two dates
 func MonthsBetweenDates(from time.Time, to time.Time) int {
-	months := 0
-	month := from.Month()
-	for from.Before(to) {
-		from = from.Add(time.Hour * 24)
-		nextMonth := from.Month()
-		if nextMonth != month {
-			months++
-		}
-		month = nextMonth
-	}
+	// we need UTC here before its the only sensible way to say what day it is
+	y1, M1, _ := from.UTC().Date()
+	y2, M2, _ := to.UTC().Date()
 
+	months := ((y2 - y1) * 12) + int(M2) - int(M1)
+	//note that according to the tests, we ignore days of the month
 	return months
 }
