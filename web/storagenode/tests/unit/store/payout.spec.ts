@@ -6,11 +6,13 @@ import Vuex from 'vuex';
 import { makeNodeModule } from '@/app/store/modules/node';
 import { makePayoutModule, PAYOUT_ACTIONS, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
 import {
+    EstimatedPayout,
     HeldHistory,
     HeldHistoryMonthlyBreakdownItem,
     HeldInfo,
     PayoutInfoRange,
     PayoutPeriod,
+    PreviousMonthEstimatedPayout,
     TotalPayoutInfo,
 } from '@/app/types/payout';
 import { getHeldPercentage, getMonthsBeforeNow } from '@/app/utils/payout';
@@ -88,6 +90,38 @@ describe('mutations', (): void => {
 
         expect(state.payoutModule.heldHistory.monthlyBreakdown.length).toBe(testHeldHistory.monthlyBreakdown.length);
         expect(state.payoutModule.heldHistory.monthlyBreakdown[1].satelliteName).toBe(testHeldHistory.monthlyBreakdown[1].satelliteName);
+    });
+
+    it('sets estimated payout information', (): void => {
+        const estimatedPayout = new EstimatedPayout(
+            new PreviousMonthEstimatedPayout(
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+            ),
+            new PreviousMonthEstimatedPayout(
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+            ),
+        );
+
+        store.commit(PAYOUT_MUTATIONS.SET_ESTIMATION, estimatedPayout);
+
+        expect(state.payoutModule.estimation.currentMonth.payout).toBe(8);
+        expect(state.payoutModule.estimation.previousMonth.heldRate).toBe(16);
     });
 
     it('sets available periods', (): void => {
@@ -242,6 +276,52 @@ describe('actions', () => {
             expect(state.payoutModule.heldHistory.monthlyBreakdown.length).toBe(3);
             expect(state.payoutModule.heldHistory.monthlyBreakdown[1].satelliteName).toBe('name2');
         }
+    });
+
+    it('get estimated payout information throws an error when api call fails', async (): Promise<void> => {
+        jest.spyOn(payoutApi, 'getEstimatedInfo').mockImplementation(() => { throw new Error(); });
+
+        try {
+            await store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION);
+            expect(true).toBe(false);
+        } catch (error) {
+            expect(state.payoutModule.estimation.currentMonth.held).toBe(9);
+            expect(state.payoutModule.estimation.previousMonth.diskSpace).toBe(14);
+        }
+    });
+
+    it('success get estimated payout information', async (): Promise<void> => {
+        jest.spyOn(payoutApi, 'getEstimatedInfo').mockReturnValue(
+            Promise.resolve(new EstimatedPayout(
+                new PreviousMonthEstimatedPayout(
+                    1,
+                    2,
+                    300,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                ),
+                new PreviousMonthEstimatedPayout(
+                    10,
+                    11,
+                    12,
+                    13,
+                    700,
+                    15,
+                    16,
+                    17,
+                    18,
+                ),
+            )),
+        );
+
+        await store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION);
+
+        expect(state.payoutModule.estimation.currentMonth.egressRepairAudit).toBe(300);
+        expect(state.payoutModule.estimation.previousMonth.diskSpace).toBe(700);
     });
 });
 

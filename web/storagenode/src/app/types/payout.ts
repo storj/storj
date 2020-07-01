@@ -95,6 +95,7 @@ export class PayoutState {
         public heldPercentage: number = 0,
         public payoutPeriods: PayoutPeriod[] = [],
         public heldHistory: HeldHistory = new HeldHistory(),
+        public estimation: EstimatedPayout = new EstimatedPayout(),
     ) {}
 }
 
@@ -131,6 +132,12 @@ export interface PayoutApi {
      * @throws Error
      */
     getHeldHistory(): Promise<HeldHistory>;
+
+    /**
+     * Fetch estimated payout information.
+     * @throws Error
+     */
+    getEstimatedInfo(): Promise<EstimatedPayout>;
 }
 
 /**
@@ -154,5 +161,32 @@ export class HeldHistoryMonthlyBreakdownItem {
         public secondPeriod: number = 0,
         public thirdPeriod: number = 0,
         public fourthPeriod: number = 0,
+    ) {}
+}
+
+/**
+ * Contains estimated payout information for current and last periods.
+ */
+export class EstimatedPayout {
+    public constructor(
+        public currentMonth: PreviousMonthEstimatedPayout = new PreviousMonthEstimatedPayout(),
+        public previousMonth: PreviousMonthEstimatedPayout = new PreviousMonthEstimatedPayout(),
+    ) {}
+}
+
+/**
+ * Contains last month estimated payout information.
+ */
+export class PreviousMonthEstimatedPayout {
+    public constructor(
+        public egressBandwidth: number = 0,
+        public egressBandwidthPayout: number = 0,
+        public egressRepairAudit: number = 0,
+        public egressRepairAuditPayout: number = 0,
+        public diskSpace: number = 0,
+        public diskSpacePayout: number = 0,
+        public heldRate: number = 0,
+        public payout: number = 0,
+        public held: number = 0,
     ) {}
 }

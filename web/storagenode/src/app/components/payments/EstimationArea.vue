@@ -80,7 +80,7 @@
                     <p class="estimation-table-container__info-area__text">{{ grossTotal | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__held-area" v-if="!isCurrentPeriod || isSatelliteSelected">
+            <div class="estimation-table-container__held-area">
                 <p class="estimation-table-container__held-area__text">Held back</p>
                 <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
             </div>
@@ -210,7 +210,7 @@ export default class EstimationArea extends Vue {
      */
     public get totalPayout(): number {
         if (this.isCurrentPeriod) {
-            return this.isSatelliteSelected ? this.grossTotal - this.held : this.grossTotal;
+            return this.grossTotal - this.held;
         }
 
         return this.heldInfo.paid;
@@ -333,10 +333,12 @@ export default class EstimationArea extends Vue {
     }
 
     /**
-     * Returns current month held amount based on currend day of month.
+     * Returns current month held amount based on current day of month.
      */
     private currentMonthHeld(): number {
-        return this.grossTotal * this.$store.state.payoutModule.heldPercentage / 100;
+        return this.isSatelliteSelected ?
+            this.grossTotal * this.$store.state.payoutModule.heldPercentage / 100 :
+            this.$store.state.payoutModule.estimation.currentMonth.held;
     }
 }
 </script>

@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import {
+    EstimatedPayout,
     HeldHistory,
     HeldInfo,
     PaymentInfoParameters,
@@ -20,6 +21,7 @@ export const PAYOUT_MUTATIONS = {
     SET_TOTAL: 'SET_TOTAL',
     SET_HELD_PERCENT: 'SET_HELD_PERCENT',
     SET_HELD_HISTORY: 'SET_HELD_HISTORY',
+    SET_ESTIMATION: 'SET_ESTIMATION',
     SET_PERIODS: 'SET_PERIODS',
 };
 
@@ -28,6 +30,7 @@ export const PAYOUT_ACTIONS = {
     SET_PERIODS_RANGE: 'SET_PERIODS_RANGE',
     GET_TOTAL: 'GET_TOTAL',
     GET_HELD_HISTORY: 'GET_HELD_HISTORY',
+    GET_ESTIMATION: 'GET_ESTIMATION',
     GET_PERIODS: 'GET_PERIODS',
 };
 
@@ -60,6 +63,9 @@ export function makePayoutModule(api: PayoutApi) {
             },
             [PAYOUT_MUTATIONS.SET_HELD_HISTORY](state: PayoutState, heldHistory: HeldHistory): void {
                 state.heldHistory = heldHistory;
+            },
+            [PAYOUT_MUTATIONS.SET_ESTIMATION](state: PayoutState, estimatedInfo: EstimatedPayout): void {
+                state.estimation = estimatedInfo;
             },
             [PAYOUT_MUTATIONS.SET_PERIODS](state: PayoutState, periods: PayoutPeriod[]): void {
                 state.payoutPeriods = periods;
@@ -120,6 +126,11 @@ export function makePayoutModule(api: PayoutApi) {
                 const periods = await api.getPayoutPeriods(satelliteId);
 
                 commit(PAYOUT_MUTATIONS.SET_PERIODS, periods);
+            },
+            [PAYOUT_ACTIONS.GET_ESTIMATION]: async function ({commit}: any): Promise<void> {
+                const estimatedInfo = await api.getEstimatedInfo();
+
+                commit(PAYOUT_MUTATIONS.SET_ESTIMATION, estimatedInfo);
             },
         },
     };

@@ -2,11 +2,13 @@
 // See LICENSE for copying information.
 
 import {
+    EstimatedPayout,
     HeldHistory,
     HeldHistoryMonthlyBreakdownItem,
     HeldInfo,
     PaymentInfoParameters,
     PayoutApi,
+    PreviousMonthEstimatedPayout,
     PayoutPeriod,
     TotalPayoutInfo,
 } from '@/app/types/payout';
@@ -164,6 +166,47 @@ export class PayoutHttpApi implements PayoutApi {
         });
 
         return new HeldHistory(monthlyBreakdown);
+    }
+
+    /**
+     * Fetch estimated payout information.
+     *
+     * @returns estimated payout information
+     * @throws Error
+     */
+    public async getEstimatedInfo(): Promise<EstimatedPayout> {
+        const response = await this.client.get('/api/sno/estimated-payout/');
+
+        if (!response.ok) {
+            throw new Error('can not get estimated payout information');
+        }
+
+        const data: any = await response.json() || [];
+
+        return new EstimatedPayout(
+            new PreviousMonthEstimatedPayout(
+                data.currentMonth.egressBandwidth,
+                data.currentMonth.egressBandwidthPayout,
+                data.currentMonth.egressRepairAudit,
+                data.currentMonth.egressRepairAuditPayout,
+                data.currentMonth.diskSpace,
+                data.currentMonth.diskSpacePayout,
+                data.currentMonth.heldRate,
+                data.currentMonth.payout,
+                data.currentMonth.held,
+            ),
+            new PreviousMonthEstimatedPayout(
+                data.previousMonth.egressBandwidth,
+                data.previousMonth.egressBandwidthPayout,
+                data.previousMonth.egressRepairAudit,
+                data.previousMonth.egressRepairAuditPayout,
+                data.previousMonth.diskSpace,
+                data.previousMonth.diskSpacePayout,
+                data.previousMonth.heldRate,
+                data.previousMonth.payout,
+                data.previousMonth.held,
+            ),
+        );
     }
 
     /**
