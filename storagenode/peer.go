@@ -185,6 +185,7 @@ type Peer struct {
 	Identity    *identity.FullIdentity
 	DB          DB
 	UsedSerials *usedserials.Table
+	OrdersStore *orders.FileStore
 
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
@@ -476,6 +477,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.UsedSerials = usedserials.NewTable(config.Storage2.MaxUsedSerialsSize)
 
+		peer.OrdersStore, err = orders.NewFileStore(
+			config.Storage2.Orders.Path,
+			config.Storage2.OrderLimitGracePeriod,
+			config.Storage2.Orders.MaxInFlightTime,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
 			signing.SignerFromFullIdentity(peer.Identity),
@@ -485,6 +495,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.PingStats,
 			peer.Storage2.Store,
 			peer.Storage2.PieceDeleter,
+			peer.OrdersStore,
 			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
 			peer.UsedSerials,
@@ -512,6 +523,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Storage2.Orders = orders.NewService(
 			log.Named("orders"),
 			dialer,
+			peer.OrdersStore,
 			peer.DB.Orders(),
 			peer.Storage2.Trust,
 			config.Storage2.Orders,

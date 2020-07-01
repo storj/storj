@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -90,6 +91,8 @@ type Config struct {
 	SenderDialTimeout time.Duration `help:"timeout for dialing satellite during sending orders" default:"1m0s"`
 	CleanupInterval   time.Duration `help:"duration between archive cleanups" default:"1h0m0s"`
 	ArchiveTTL        time.Duration `help:"length of time to archive orders before deletion" default:"168h0m0s"` // 7 days
+	MaxInFlightTime   time.Duration `help:"the maximum amount of time to wait after the order limit grace period before settling orders" default:"1h"`
+	Path              string        `help:"path to store order limit files in" default:"$CONFDIR/orders"`
 }
 
 // Service sends every interval unsent orders to the satellite.
@@ -99,22 +102,24 @@ type Service struct {
 	log    *zap.Logger
 	config Config
 
-	dialer rpc.Dialer
-	orders DB
-	trust  *trust.Pool
+	dialer      rpc.Dialer
+	ordersStore *FileStore
+	orders      DB
+	trust       *trust.Pool
 
 	Sender  *sync2.Cycle
 	Cleanup *sync2.Cycle
 }
 
 // NewService creates an order service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, orders DB, trust *trust.Pool, config Config) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, ordersStore *FileStore, orders DB, trust *trust.Pool, config Config) *Service {
 	return &Service{
-		log:    log,
-		dialer: dialer,
-		orders: orders,
-		config: config,
-		trust:  trust,
+		log:         log,
+		dialer:      dialer,
+		ordersStore: ordersStore,
+		orders:      orders,
+		config:      config,
+		trust:       trust,
 
 		Sender:  sync2.NewCycle(config.SenderInterval),
 		Cleanup: sync2.NewCycle(config.CleanupInterval),
@@ -132,10 +137,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			return err
 		}
 
-		err := service.sendOrders(ctx)
-		if err != nil {
-			service.log.Error("sending orders failed", zap.Error(err))
-		}
+		service.sendOrders(ctx)
 
 		return nil
 	})
@@ -161,7 +163,13 @@ func (service *Service) cleanArchive(ctx context.Context) (err error) {
 
 	deleted, err := service.orders.CleanArchive(ctx, service.config.ArchiveTTL)
 	if err != nil {
-		service.log.Error("cleaning archive", zap.Error(err))
+		service.log.Error("cleaning DB archive", zap.Error(err))
+		return nil
+	}
+
+	err = service.ordersStore.CleanArchive(time.Now().UTC().Add(-service.config.ArchiveTTL))
+	if err != nil {
+		service.log.Error("cleaning filestore archive", zap.Error(err))
 		return nil
 	}
 
@@ -169,17 +177,32 @@ func (service *Service) cleanArchive(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) sendOrders(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (service *Service) sendOrders(ctx context.Context) {
+	defer mon.Task()(&ctx)
 	service.log.Debug("sending")
 
+	// If there are orders in the database, send from there.
+	// Otherwise, send from the filestore.
+	hasOrders := service.sendOrdersFromDB(ctx)
+	if hasOrders {
+		return
+	}
+
+	service.sendOrdersFromFileStore(ctx)
+}
+
+func (service *Service) sendOrdersFromDB(ctx context.Context) (hasOrders bool) {
+	defer mon.Task()(&ctx)
+
 	const batchSize = 1000
+	hasOrders = true
 
 	ordersBySatellite, err := service.orders.ListUnsentBySatellite(ctx)
 	if err != nil {
 		if ordersBySatellite == nil {
 			service.log.Error("listing orders", zap.Error(err))
-			return nil
+			hasOrders = false
+			return hasOrders
 		}
 
 		service.log.Warn("DB contains invalid marshalled orders", zap.Error(err))
@@ -205,6 +228,7 @@ func (service *Service) sendOrders(ctx context.Context) (err error) {
 		_ = group.Wait() // doesn't return errors
 	} else {
 		service.log.Debug("no orders to send")
+		hasOrders = false
 	}
 
 	close(requests)
@@ -212,7 +236,7 @@ func (service *Service) sendOrders(ctx context.Context) (err error) {
 	if err != nil {
 		service.log.Error("archiving orders", zap.Error(err))
 	}
-	return nil
+	return hasOrders
 }
 
 // Settle uploads orders to the satellite.
@@ -360,6 +384,115 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 	errList.Add(sendErrors...)
 
 	return errList.Err()
+}
+
+func (service *Service) sendOrdersFromFileStore(ctx context.Context) {
+	defer mon.Task()(&ctx)
+
+	errorSatellites := make(map[storj.NodeID]struct{})
+	var errorSatellitesMu sync.Mutex
+
+	// Continue sending until there are no more windows to send, or all relevant satellites are offline.
+	for {
+		ordersBySatellite, err := service.ordersStore.ListUnsentBySatellite()
+		if err != nil {
+			service.log.Error("listing orders", zap.Error(err))
+			return
+		}
+		if len(ordersBySatellite) == 0 {
+			service.log.Debug("no orders to send")
+			break
+		}
+
+		var group errgroup.Group
+		attemptedSatellites := 0
+		ctx, cancel := context.WithTimeout(ctx, service.config.SenderTimeout)
+		defer cancel()
+
+		for satelliteID, unsentInfo := range ordersBySatellite {
+			satelliteID, unsentInfo := satelliteID, unsentInfo
+			if _, ok := errorSatellites[satelliteID]; ok {
+				continue
+			}
+			attemptedSatellites++
+
+			group.Go(func() error {
+				log := service.log.Named(satelliteID.String())
+				status, err := service.settleWindow(ctx, log, satelliteID, unsentInfo.InfoList)
+				if err != nil {
+					// satellite returned an error, but settlement was not explicitly rejected; we want to retry later
+					errorSatellitesMu.Lock()
+					errorSatellites[satelliteID] = struct{}{}
+					errorSatellitesMu.Unlock()
+					log.Error("failed to settle orders for satellite", zap.String("satellite ID", satelliteID.String()), zap.Error(err))
+					return nil
+				}
+
+				err = service.ordersStore.Archive(satelliteID, unsentInfo.CreatedAtHour, time.Now().UTC(), status)
+				if err != nil {
+					log.Error("failed to archive orders", zap.Error(err))
+					return nil
+				}
+
+				return nil
+			})
+
+		}
+		_ = group.Wait() // doesn't return errors
+
+		// if all satellites that orders need to be sent to  are offline, exit and try again later.
+		if attemptedSatellites == 0 {
+			break
+		}
+	}
+}
+
+func (service *Service) settleWindow(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info) (status pb.SettlementWithWindowResponse_Status, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	log.Info("sending", zap.Int("count", len(orders)))
+	defer log.Info("finished")
+
+	nodeurl, err := service.trust.GetNodeURL(ctx, satelliteID)
+	if err != nil {
+		return 0, OrderError.New("unable to get satellite address: %w", err)
+	}
+
+	conn, err := service.dialer.DialNodeURL(ctx, nodeurl)
+	if err != nil {
+		return 0, OrderError.New("unable to connect to the satellite: %w", err)
+	}
+	defer func() { err = errs.Combine(err, conn.Close()) }()
+
+	stream, err := pb.NewDRPCOrdersClient(conn).SettlementWithWindow(ctx)
+	if err != nil {
+		return 0, OrderError.New("failed to start settlement: %w", err)
+	}
+
+	for _, order := range orders {
+		req := pb.SettlementRequest{
+			Limit: order.Limit,
+			Order: order.Order,
+		}
+		err := stream.Send(&req)
+		if err != nil {
+			err = OrderError.New("sending settlement agreements returned an error: %w", err)
+			log.Error("rpc client when sending new orders settlements",
+				zap.Error(err),
+				zap.Any("request", req),
+			)
+			return 0, err
+		}
+	}
+
+	res, err := stream.CloseAndRecv()
+	if err != nil {
+		err = OrderError.New("CloseAndRecv settlement agreements returned an error: %w", err)
+		log.Error("rpc client error when closing sender ", zap.Error(err))
+		return 0, err
+	}
+
+	return res.Status, nil
 }
 
 // sleep for random interval in [0;maxSleep).
