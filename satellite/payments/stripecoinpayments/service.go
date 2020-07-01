@@ -199,11 +199,9 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 			},
 		)
 
-		// moment of transition to completed state, which indicates
-		// that customer funds were accepted and transferred to our
-		// account, so we can apply this amount to customer balance.
-		// Therefore, create intent to update customer balance in the future.
-		if info.Status == coinpayments.StatusCompleted {
+		// moment of CoinPayments receives funds, not when STORJ does
+		// this was a business decision to not wait until StatusCompleted
+		if info.Status >= coinpayments.StatusReceived {
 			//monkit currently does not have a DurationVal
 			mon.IntVal("coinpayment_duration").Observe(int64(time.Since(creationTimes[id])))
 			applies = append(applies, id)
