@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/heldamount"
+	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -204,4 +205,9 @@ func (db *satelliteDB) HeldAmount() heldamount.DB {
 // Compenstation returns database for storage node compensation
 func (db *satelliteDB) Compensation() compensation.DB {
 	return &compensationDB{db: db}
+}
+
+// NodeAPIVersion returns database for storage node api version lower bounds.
+func (db *satelliteDB) NodeAPIVersion() nodeapiversion.DB {
+	return &nodeAPIVersionDB{db: db}
 }

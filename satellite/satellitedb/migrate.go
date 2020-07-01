@@ -1200,11 +1200,25 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     116,
 				Action: migrate.SQL{
 					`CREATE TABLE audit_histories (
-                        node_id bytea NOT NULL,
-                        history bytea NOT NULL,
-                        PRIMARY KEY ( node_id )
+						node_id bytea NOT NULL,
+						history bytea NOT NULL,
+						PRIMARY KEY ( node_id )
 					);`,
 				},
+			},
+			{
+				DB:          db.DB,
+				Description: "add node_api_versions table",
+				Version:     117,
+				Action: migrate.SQL{`
+					CREATE TABLE node_api_versions (
+						id bytea NOT NULL,
+						api_version integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);
+				`},
 			},
 		},
 	}

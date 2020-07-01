@@ -1315,3 +1315,32 @@ read limitoffset (
 	where credits_spending.period = ?
 	where credits_spending.status = ?
 )
+
+// -- node api version -- //
+
+model node_api_version (
+	key id
+
+	field id          blob
+	field api_version int  ( updatable )
+
+	field created_at timestamp ( autoinsert )
+	field updated_at timestamp ( autoinsert, autoupdate )
+)
+
+create node_api_version (
+	noreturn
+	replace
+)
+
+read has (
+	select node_api_version
+	where node_api_version.id          =  ?
+	where node_api_version.api_version >= ?
+)
+
+update node_api_version (
+	where node_api_version.id          = ?
+	where node_api_version.api_version < ?
+	noreturn
+)

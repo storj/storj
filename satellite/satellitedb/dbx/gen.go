@@ -51,6 +51,12 @@ func (err *constraintError) Unwrap() error { return err.err }
 // Cause returns the underlying error.
 func (err *constraintError) Cause() error { return err.err }
 
+// IsConstraintError returns true if the error is a constraint error.
+func IsConstraintError(err error) bool {
+	_, ok := err.(*constraintError)
+	return ok
+}
+
 // Error implements the error interface.
 func (err *constraintError) Error() string {
 	return fmt.Sprintf("violates constraint %q: %v", err.constraint, err.err)

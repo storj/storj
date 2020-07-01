@@ -181,6 +181,13 @@ CREATE TABLE nodes (
 	exit_success boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE node_api_versions (
+	id bytea NOT NULL,
+	api_version integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE nodes_offline_times (
 	node_id bytea NOT NULL,
 	tracked_at timestamp with time zone NOT NULL,
