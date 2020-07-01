@@ -416,7 +416,12 @@ func (db *DB) closeDatabase(dbName string) (err error) {
 	if !ok {
 		return ErrDatabase.New("no database with name %s found. database was never opened or already closed.", dbName)
 	}
-	return ErrDatabase.Wrap(mdb.GetDB().Close())
+	// if an error occurred during openDatabase, there will be no internal DB to close
+	dbHandle := mdb.GetDB()
+	if dbHandle == nil {
+		return nil
+	}
+	return ErrDatabase.Wrap(dbHandle.Close())
 }
 
 // V0PieceInfo returns the instance of the V0PieceInfoDB database.
