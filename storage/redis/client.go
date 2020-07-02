@@ -154,7 +154,7 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 		return nil, nil
 	}
 	if len(keys) > client.lookupLimit {
-		return nil, storage.ErrLimitExceeded
+		return nil, storage.ErrLimitExceeded.New("lookup limit exceeded")
 	}
 
 	keyStrings := make([]string, len(keys))

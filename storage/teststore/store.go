@@ -134,7 +134,7 @@ func (store *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.V
 
 	store.CallCount.GetAll++
 	if len(keys) > store.lookupLimit {
-		return nil, storage.ErrLimitExceeded
+		return nil, storage.ErrLimitExceeded.New("lookup limit exceeded")
 	}
 
 	if store.forcedError() {

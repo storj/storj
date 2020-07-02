@@ -201,7 +201,7 @@ func (client *Client) Close() (err error) {
 func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(keys) > client.lookupLimit {
-		return nil, storage.ErrLimitExceeded
+		return nil, storage.ErrLimitExceeded.New("lookup limit exceeded")
 	}
 
 	vals := make(storage.Values, 0, len(keys))

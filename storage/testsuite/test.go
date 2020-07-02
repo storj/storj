@@ -77,7 +77,7 @@ func testConstraints(t *testing.T, ctx *testcontext.Context, store storage.KeyVa
 		}
 
 		_, err = store.GetAll(ctx, items[:lookupLimit+1].GetKeys())
-		if err == nil && err == storage.ErrLimitExceeded {
+		if !storage.ErrLimitExceeded.Has(err) {
 			t.Fatalf("GetAll LookupLimit+1 should fail: %v", err)
 		}
 	})
