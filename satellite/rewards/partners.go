@@ -135,6 +135,10 @@ func DefaultPartners() PartnerList {
 			ID:   "57855387-5a58-4a2b-97d2-15b1d76eea3c",
 			UUID: parseUUID("57855387-5a58-4a2b-97d2-15b1d76eea3c"),
 		}, {
+			Name: "Rclone",
+			ID:   "f746681d-91c1-4226-85c5-0cea4b66473b",
+			UUID: parseUUID("f746681d-91c1-4226-85c5-0cea4b66473b"),
+		}, {
 			Name: "Satoshi Soup",
 			ID:   "4400d796-3777-4964-8536-22a4ae439ed3",
 			UUID: parseUUID("4400d796-3777-4964-8536-22a4ae439ed3"),
