@@ -150,13 +150,13 @@ func TestStorageNodeApi(t *testing.T) {
 					CurrentMonthEstimatedAmount: estimated1 + estimated2,
 					CurrentMonthHeld:            int64(sum1 + sum2 - sum1AfterHeld - sum2AfterHeld),
 					PreviousMonthPayout: heldamount.PayoutMonthly{
-						EgressBandwidth:   0,
-						EgressPayout:      0,
-						EgressRepairAudit: 0,
-						RepairAuditPayout: 0,
-						DiskSpace:         0,
-						DiskSpaceAmount:   0,
-						HeldPercentRate:   0,
+						EgressBandwidth:         0,
+						EgressBandwidthPayout:   0,
+						EgressRepairAudit:       0,
+						EgressRepairAuditPayout: 0,
+						DiskSpace:               0,
+						DiskSpacePayout:         0,
+						HeldRate:                0,
 					},
 				})
 				require.NoError(t, err)
@@ -180,13 +180,13 @@ func TestStorageNodeApi(t *testing.T) {
 					CurrentMonthEstimatedAmount: estimated1,
 					CurrentMonthHeld:            int64(sum1 - sum1AfterHeld),
 					PreviousMonthPayout: heldamount.PayoutMonthly{
-						EgressBandwidth:   0,
-						EgressPayout:      0,
-						EgressRepairAudit: 0,
-						RepairAuditPayout: 0,
-						DiskSpace:         0,
-						DiskSpaceAmount:   0,
-						HeldPercentRate:   75,
+						EgressBandwidth:         0,
+						EgressBandwidthPayout:   0,
+						EgressRepairAudit:       0,
+						EgressRepairAuditPayout: 0,
+						DiskSpace:               0,
+						DiskSpacePayout:         0,
+						HeldRate:                75,
 					},
 				})
 				require.NoError(t, err)

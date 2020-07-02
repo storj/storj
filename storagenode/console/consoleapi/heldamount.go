@@ -52,7 +52,7 @@ func (heldAmount *HeldAmount) PayStubMonthly(w http.ResponseWriter, r *http.Requ
 
 	id := queryParams.Get("id")
 	if id == "" {
-		payStubs, err := heldAmount.service.AllPayStubsMonthlyCached(ctx, period)
+		payStubs, err := heldAmount.service.AllPayStubsMonthly(ctx, period)
 		if err != nil {
 			heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
 			return
@@ -69,7 +69,7 @@ func (heldAmount *HeldAmount) PayStubMonthly(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		payStub, err := heldAmount.service.SatellitePayStubMonthlyCached(ctx, satelliteID, period)
+		payStub, err := heldAmount.service.SatellitePayStubMonthly(ctx, satelliteID, period)
 		if err != nil {
 			if heldamount.ErrNoPayStubForPeriod.Has(err) {
 				heldAmount.serveJSONError(w, http.StatusNotFound, ErrHeldAmountAPI.Wrap(err))
@@ -112,7 +112,7 @@ func (heldAmount *HeldAmount) PayStubPeriod(w http.ResponseWriter, r *http.Reque
 
 	id := queryParams.Get("id")
 	if id == "" {
-		payStubs, err := heldAmount.service.AllPayStubsPeriodCached(ctx, start, end)
+		payStubs, err := heldAmount.service.AllPayStubsPeriod(ctx, start, end)
 		if err != nil {
 			if heldamount.ErrBadPeriod.Has(err) {
 				heldAmount.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))
@@ -134,7 +134,7 @@ func (heldAmount *HeldAmount) PayStubPeriod(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		payStubs, err := heldAmount.service.SatellitePayStubPeriodCached(ctx, satelliteID, start, end)
+		payStubs, err := heldAmount.service.SatellitePayStubPeriod(ctx, satelliteID, start, end)
 		if err != nil {
 			if heldamount.ErrBadPeriod.Has(err) {
 				heldAmount.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))

@@ -46,10 +46,11 @@ type CacheStorage struct {
 type Cache struct {
 	log *zap.Logger
 
-	db                CacheStorage
-	service           *Service
-	heldamountService *heldamount.Service
-	trust             *trust.Pool
+	db                 CacheStorage
+	service            *Service
+	heldamountEndpoint *heldamount.Endpoint
+	heldamountService  *heldamount.Service
+	trust              *trust.Pool
 
 	maxSleep   time.Duration
 	Reputation *sync2.Cycle
@@ -57,16 +58,17 @@ type Cache struct {
 }
 
 // NewCache creates new caching service instance
-func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, heldamountService *heldamount.Service, trust *trust.Pool) *Cache {
+func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, heldamountEndpoint *heldamount.Endpoint, heldamountService *heldamount.Service, trust *trust.Pool) *Cache {
 	return &Cache{
-		log:               log,
-		db:                db,
-		service:           service,
-		heldamountService: heldamountService,
-		trust:             trust,
-		maxSleep:          config.MaxSleep,
-		Reputation:        sync2.NewCycle(config.ReputationSync),
-		Storage:           sync2.NewCycle(config.StorageSync),
+		log:                log,
+		db:                 db,
+		service:            service,
+		heldamountEndpoint: heldamountEndpoint,
+		heldamountService:  heldamountService,
+		trust:              trust,
+		maxSleep:           config.MaxSleep,
+		Reputation:         sync2.NewCycle(config.ReputationSync),
+		Storage:            sync2.NewCycle(config.StorageSync),
 	}
 }
 
@@ -75,13 +77,25 @@ func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
 	err := cache.satelliteLoop(ctx, func(satelliteID storj.NodeID) error {
-		stubHistory, err := cache.heldamountService.GetAllPaystubs(ctx, satelliteID)
+		stubHistory, err := cache.heldamountEndpoint.GetAllPaystubs(ctx, satelliteID)
 		if err != nil {
 			return err
 		}
 
 		for i := 0; i < len(stubHistory); i++ {
 			err := cache.db.HeldAmount.StorePayStub(ctx, stubHistory[i])
+			if err != nil {
+				return err
+			}
+		}
+
+		paymentHistory, err := cache.heldamountEndpoint.GetAllPayments(ctx, satelliteID)
+		if err != nil {
+			return err
+		}
+
+		for j := 0; j < len(paymentHistory); j++ {
+			err := cache.db.HeldAmount.StorePayment(ctx, paymentHistory[j])
 			if err != nil {
 				return err
 			}
@@ -185,7 +199,7 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 		}
 
 		previousMonth := yearAndMonth.AddDate(0, -1, 0).String()
-		payStub, err := cache.heldamountService.GetPaystubStats(ctx, satellite, previousMonth)
+		payStub, err := cache.heldamountEndpoint.GetPaystub(ctx, satellite, previousMonth)
 		if err != nil {
 			if heldamount.ErrNoPayStubForPeriod.Has(err) {
 				return nil
@@ -196,6 +210,17 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 
 		if payStub != nil {
 			if err = cache.db.HeldAmount.StorePayStub(ctx, *payStub); err != nil {
+				return err
+			}
+		}
+
+		payment, err := cache.heldamountEndpoint.GetPayment(ctx, satellite, previousMonth)
+		if err != nil {
+			return err
+		}
+
+		if payment != nil {
+			if err = cache.db.HeldAmount.StorePayment(ctx, *payment); err != nil {
 				return err
 			}
 		}

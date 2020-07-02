@@ -256,7 +256,8 @@ type Peer struct {
 	}
 
 	Heldamount struct {
-		Service *heldamount.Service
+		Service  *heldamount.Service
+		Endpoint *heldamount.Endpoint
 	}
 
 	Bandwidth *bandwidth.Service
@@ -530,6 +531,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Named("heldamount:service"),
 			peer.DB.HeldAmount(),
 			peer.DB.Reputation(),
+			peer.Storage2.Trust,
+		)
+		peer.Heldamount.Endpoint = heldamount.NewEndpoint(
+			peer.Log.Named("heldamount:endpoint"),
 			peer.Dialer,
 			peer.Storage2.Trust,
 		)
@@ -553,6 +558,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				Satellites:   peer.DB.Satellites(),
 			},
 			peer.NodeStats.Service,
+			peer.Heldamount.Endpoint,
 			peer.Heldamount.Service,
 			peer.Storage2.Trust,
 		)

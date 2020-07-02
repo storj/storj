@@ -14,9 +14,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/storj/private/date"
 	"storj.io/storj/storagenode/reputation"
@@ -33,21 +30,6 @@ var (
 	mon = monkit.Package()
 )
 
-// Client encapsulates HeldAmountClient with underlying connection
-//
-// architecture: Client
-type Client struct {
-	conn *rpc.Conn
-	pb.DRPCHeldAmountClient
-}
-
-// Close closes underlying client connection
-func (c *Client) Close() error {
-	return c.conn.Close()
-}
-
-// TODO: separate service on service and endpoint.
-
 // Service retrieves info from satellites using an rpc client
 //
 // architecture: Service
@@ -56,121 +38,21 @@ type Service struct {
 
 	db           DB
 	reputationDB reputation.DB
-
-	dialer rpc.Dialer
-	trust  *trust.Pool
+	trust        *trust.Pool
 }
 
 // NewService creates new instance of service.
-func NewService(log *zap.Logger, db DB, reputationDB reputation.DB, dialer rpc.Dialer, trust *trust.Pool) *Service {
+func NewService(log *zap.Logger, db DB, reputationDB reputation.DB, trust *trust.Pool) *Service {
 	return &Service{
 		log:          log,
 		db:           db,
 		reputationDB: reputationDB,
-		dialer:       dialer,
 		trust:        trust,
 	}
 }
 
-// GetPaystubStats retrieves held amount for particular satellite from satellite using RPC.
-func (service *Service) GetPaystubStats(ctx context.Context, satelliteID storj.NodeID, period string) (_ *PayStub, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	client, err := service.dial(ctx, satelliteID)
-	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, client.Close()) }()
-
-	requestedPeriod, err := date.PeriodToTime(period)
-	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
-
-	resp, err := client.GetPayStub(ctx, &pb.GetHeldAmountRequest{Period: requestedPeriod})
-	if err != nil {
-		if rpcstatus.Code(err) == rpcstatus.OutOfRange {
-			return nil, ErrNoPayStubForPeriod.Wrap(err)
-		}
-
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
-
-	return &PayStub{
-		Period:         period[0:7],
-		SatelliteID:    satelliteID,
-		Created:        resp.CreatedAt,
-		Codes:          resp.Codes,
-		UsageAtRest:    resp.UsageAtRest,
-		UsageGet:       resp.UsageGet,
-		UsagePut:       resp.UsagePut,
-		UsageGetRepair: resp.UsageGetRepair,
-		UsagePutRepair: resp.UsagePutRepair,
-		UsageGetAudit:  resp.UsageGetAudit,
-		CompAtRest:     resp.CompAtRest,
-		CompGet:        resp.CompGet,
-		CompPut:        resp.CompPut,
-		CompGetRepair:  resp.CompGetRepair,
-		CompPutRepair:  resp.CompPutRepair,
-		CompGetAudit:   resp.CompGetAudit,
-		SurgePercent:   resp.SurgePercent,
-		Held:           resp.Held,
-		Owed:           resp.Owed,
-		Disposed:       resp.Disposed,
-		Paid:           resp.Paid,
-	}, nil
-}
-
-// GetAllPaystubs retrieves all paystubs for particular satellite.
-func (service *Service) GetAllPaystubs(ctx context.Context, satelliteID storj.NodeID) (_ []PayStub, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	client, err := service.dial(ctx, satelliteID)
-	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, client.Close()) }()
-
-	resp, err := client.GetAllPaystubs(ctx, &pb.GetAllPaystubsRequest{})
-	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
-	}
-
-	var payStubs []PayStub
-
-	for i := 0; i < len(resp.Paystub); i++ {
-		paystub := PayStub{
-			Period:         resp.Paystub[i].Period.String()[0:7],
-			SatelliteID:    satelliteID,
-			Created:        resp.Paystub[i].CreatedAt,
-			Codes:          resp.Paystub[i].Codes,
-			UsageAtRest:    resp.Paystub[i].UsageAtRest,
-			UsageGet:       resp.Paystub[i].UsageGet,
-			UsagePut:       resp.Paystub[i].UsagePut,
-			UsageGetRepair: resp.Paystub[i].UsageGetRepair,
-			UsagePutRepair: resp.Paystub[i].UsagePutRepair,
-			UsageGetAudit:  resp.Paystub[i].UsageGetAudit,
-			CompAtRest:     resp.Paystub[i].CompAtRest,
-			CompGet:        resp.Paystub[i].CompGet,
-			CompPut:        resp.Paystub[i].CompPut,
-			CompGetRepair:  resp.Paystub[i].CompGetRepair,
-			CompPutRepair:  resp.Paystub[i].CompPutRepair,
-			CompGetAudit:   resp.Paystub[i].CompGetAudit,
-			SurgePercent:   resp.Paystub[i].SurgePercent,
-			Held:           resp.Paystub[i].Held,
-			Owed:           resp.Paystub[i].Owed,
-			Disposed:       resp.Paystub[i].Disposed,
-			Paid:           resp.Paystub[i].Paid,
-		}
-
-		payStubs = append(payStubs, paystub)
-	}
-
-	return payStubs, nil
-}
-
-// SatellitePayStubMonthlyCached retrieves held amount for particular satellite for selected month from storagenode database.
-func (service *Service) SatellitePayStubMonthlyCached(ctx context.Context, satelliteID storj.NodeID, period string) (payStub *PayStub, err error) {
+// SatellitePayStubMonthly retrieves held amount for particular satellite for selected month from storagenode database.
+func (service *Service) SatellitePayStubMonthly(ctx context.Context, satelliteID storj.NodeID, period string) (payStub *PayStub, err error) {
 	defer mon.Task()(&ctx, &satelliteID, &period)(&err)
 
 	payStub, err = service.db.GetPayStub(ctx, satelliteID, period)
@@ -181,8 +63,8 @@ func (service *Service) SatellitePayStubMonthlyCached(ctx context.Context, satel
 	return payStub, nil
 }
 
-// AllPayStubsMonthlyCached retrieves held amount for all satellites per selected period from storagenode database.
-func (service *Service) AllPayStubsMonthlyCached(ctx context.Context, period string) (payStubs []PayStub, err error) {
+// AllPayStubsMonthly retrieves held amount for all satellites per selected period from storagenode database.
+func (service *Service) AllPayStubsMonthly(ctx context.Context, period string) (payStubs []PayStub, err error) {
 	defer mon.Task()(&ctx, &period)(&err)
 
 	payStubs, err = service.db.AllPayStubs(ctx, period)
@@ -193,8 +75,8 @@ func (service *Service) AllPayStubsMonthlyCached(ctx context.Context, period str
 	return payStubs, nil
 }
 
-// SatellitePayStubPeriodCached retrieves held amount for all satellites for selected months from storagenode database.
-func (service *Service) SatellitePayStubPeriodCached(ctx context.Context, satelliteID storj.NodeID, periodStart, periodEnd string) (payStubs []PayStub, err error) {
+// SatellitePayStubPeriod retrieves held amount for all satellites for selected months from storagenode database.
+func (service *Service) SatellitePayStubPeriod(ctx context.Context, satelliteID storj.NodeID, periodStart, periodEnd string) (payStubs []PayStub, err error) {
 	defer mon.Task()(&ctx, &satelliteID, &periodStart, &periodEnd)(&err)
 
 	periods, err := parsePeriodRange(periodStart, periodEnd)
@@ -218,8 +100,8 @@ func (service *Service) SatellitePayStubPeriodCached(ctx context.Context, satell
 	return payStubs, nil
 }
 
-// AllPayStubsPeriodCached retrieves held amount for all satellites for selected range of months from storagenode database.
-func (service *Service) AllPayStubsPeriodCached(ctx context.Context, periodStart, periodEnd string) (payStubs []PayStub, err error) {
+// AllPayStubsPeriod retrieves held amount for all satellites for selected range of months from storagenode database.
+func (service *Service) AllPayStubsPeriod(ctx context.Context, periodStart, periodEnd string) (payStubs []PayStub, err error) {
 	defer mon.Task()(&ctx, &periodStart, &periodEnd)(&err)
 
 	periods, err := parsePeriodRange(periodStart, periodEnd)
@@ -323,26 +205,6 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []HeldHi
 	}
 
 	return result, nil
-}
-
-// dial dials the HeldAmount client for the satellite by id
-func (service *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	nodeurl, err := service.trust.GetNodeURL(ctx, satelliteID)
-	if err != nil {
-		return nil, errs.New("unable to find satellite %s: %w", satelliteID, err)
-	}
-
-	conn, err := service.dialer.DialNodeURL(ctx, nodeurl)
-	if err != nil {
-		return nil, errs.New("unable to connect to the satellite %s: %w", satelliteID, err)
-	}
-
-	return &Client{
-		conn:                 conn,
-		DRPCHeldAmountClient: pb.NewDRPCHeldAmountClient(conn),
-	}, nil
 }
 
 // TODO: move to separate struct.

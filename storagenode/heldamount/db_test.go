@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/storagenode"
@@ -138,45 +137,6 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.NoError(t, err)
 		})
 
-		t.Run("Test GetPayment", func(t *testing.T) {
-			paym, err := heldAmount.GetPayment(ctx, satelliteID, period)
-			assert.NoError(t, err)
-			assert.Equal(t, paym.Created, payment.Created)
-			assert.Equal(t, paym.SatelliteID, payment.SatelliteID)
-			assert.Equal(t, paym.Period, payment.Period)
-			assert.Equal(t, paym.ID, payment.ID)
-			assert.Equal(t, paym.Amount, payment.Amount)
-			assert.Equal(t, paym.Notes, payment.Notes)
-			assert.Equal(t, paym.Receipt, payment.Receipt)
-
-			paym, err = heldAmount.GetPayment(ctx, satelliteID, "")
-			assert.Error(t, err)
-			assert.Equal(t, true, heldamount.ErrNoPayStubForPeriod.Has(err))
-			assert.Nil(t, paym)
-
-			paym, err = heldAmount.GetPayment(ctx, storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, period)
-			assert.Error(t, err)
-			assert.Equal(t, true, heldamount.ErrNoPayStubForPeriod.Has(err))
-			assert.Nil(t, paym)
-		})
-
-		t.Run("Test StorePayment", func(t *testing.T) {
-			payments, err := heldAmount.AllPayments(ctx, period)
-			assert.NoError(t, err)
-			assert.Equal(t, 1, len(payments))
-			assert.Equal(t, payments[0].Created, payment.Created)
-			assert.Equal(t, payments[0].SatelliteID, payment.SatelliteID)
-			assert.Equal(t, payments[0].Period, payment.Period)
-			assert.Equal(t, payments[0].ID, payment.ID)
-			assert.Equal(t, payments[0].Amount, payment.Amount)
-			assert.Equal(t, payments[0].Notes, payment.Notes)
-			assert.Equal(t, payments[0].Receipt, payment.Receipt)
-
-			payments, err = heldAmount.AllPayments(ctx, "")
-			assert.NoError(t, err)
-			assert.Equal(t, len(payments), 0)
-		})
-
 		t.Run("Test SatellitesHeldbackHistory", func(t *testing.T) {
 			heldback, err := heldAmount.SatellitesHeldbackHistory(ctx, satelliteID)
 			assert.NoError(t, err)
@@ -233,7 +193,7 @@ func TestSatellitePayStubPeriodCached(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		heldAmountDB := db.HeldAmount()
 		reputationDB := db.Reputation()
-		service := heldamount.NewService(nil, heldAmountDB, reputationDB, rpc.Dialer{}, nil)
+		service := heldamount.NewService(nil, heldAmountDB, reputationDB, nil)
 
 		payStub := heldamount.PayStub{
 			SatelliteID:    storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -264,15 +224,15 @@ func TestSatellitePayStubPeriodCached(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		payStubs, err := service.SatellitePayStubPeriodCached(ctx, payStub.SatelliteID, "2020-01", "2020-03")
+		payStubs, err := service.SatellitePayStubPeriod(ctx, payStub.SatelliteID, "2020-01", "2020-03")
 		require.NoError(t, err)
 		require.Equal(t, 3, len(payStubs))
 
-		payStubs, err = service.SatellitePayStubPeriodCached(ctx, payStub.SatelliteID, "2019-01", "2021-03")
+		payStubs, err = service.SatellitePayStubPeriod(ctx, payStub.SatelliteID, "2019-01", "2021-03")
 		require.NoError(t, err)
 		require.Equal(t, 3, len(payStubs))
 
-		payStubs, err = service.SatellitePayStubPeriodCached(ctx, payStub.SatelliteID, "2019-01", "2020-01")
+		payStubs, err = service.SatellitePayStubPeriod(ctx, payStub.SatelliteID, "2019-01", "2020-01")
 		require.NoError(t, err)
 		require.Equal(t, 1, len(payStubs))
 	})
@@ -282,7 +242,7 @@ func TestAllPayStubPeriodCached(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		heldAmountDB := db.HeldAmount()
 		reputationDB := db.Reputation()
-		service := heldamount.NewService(nil, heldAmountDB, reputationDB, rpc.Dialer{}, nil)
+		service := heldamount.NewService(nil, heldAmountDB, reputationDB, nil)
 
 		payStub := heldamount.PayStub{
 			SatelliteID:    storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -316,19 +276,19 @@ func TestAllPayStubPeriodCached(t *testing.T) {
 			}
 		}
 
-		payStubs, err := service.AllPayStubsPeriodCached(ctx, "2020-01", "2020-03")
+		payStubs, err := service.AllPayStubsPeriod(ctx, "2020-01", "2020-03")
 		require.NoError(t, err)
 		require.Equal(t, 9, len(payStubs))
 
-		payStubs, err = service.AllPayStubsPeriodCached(ctx, "2019-01", "2021-03")
+		payStubs, err = service.AllPayStubsPeriod(ctx, "2019-01", "2021-03")
 		require.NoError(t, err)
 		require.Equal(t, 9, len(payStubs))
 
-		payStubs, err = service.AllPayStubsPeriodCached(ctx, "2019-01", "2020-01")
+		payStubs, err = service.AllPayStubsPeriod(ctx, "2019-01", "2020-01")
 		require.NoError(t, err)
 		require.Equal(t, 3, len(payStubs))
 
-		payStubs, err = service.AllPayStubsPeriodCached(ctx, "2019-01", "2019-01")
+		payStubs, err = service.AllPayStubsPeriod(ctx, "2019-01", "2019-01")
 		require.NoError(t, err)
 		require.Equal(t, 0, len(payStubs))
 	})
