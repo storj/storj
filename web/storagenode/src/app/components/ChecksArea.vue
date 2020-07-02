@@ -4,21 +4,18 @@
 <template>
     <div class="checks-area-container">
         <div class="checks-area-container__header">
-            <p class="checks-area-container__header__title">{{label}}</p>
-            <VInfo
-                :text="infoText"
-                is-extra-padding="true"
-                is-custom-position="true"
-            >
-                <div>
-                    <ChecksInfoIcon
-                        class="checks-area-image"
-                        alt="Blue info icon with question mark"
-                    />
+            <p class="checks-area-container__header__title">{{ label }}</p>
+            <div class="checks-area-container__header__info-area">
+                <ChecksInfoIcon class="checks-area-image" alt="Blue info icon with question mark" @mouseenter="toggleTooltipVisibility" @mouseleave="toggleTooltipVisibility"/>
+                <div class="tooltip" v-show="isTooltipVisible">
+                    <div class="tooltip__text-area">
+                        <p class="tooltip__text-area__text">{{ infoText }}</p>
+                    </div>
+                    <div class="tooltip__footer"></div>
                 </div>
-            </VInfo>
+            </div>
         </div>
-        <p class="checks-area-container__amount"><b>{{value}}%</b></p>
+        <p class="checks-area-container__amount"><b>{{ value }}%</b></p>
     </div>
 </template>
 
@@ -43,6 +40,18 @@ export default class ChecksArea extends Vue {
     @Prop({default: ''})
     private readonly infoText: string;
 
+    /**
+     * Indicates if tooltip needs to be shown.
+     */
+    public isTooltipVisible: boolean = false;
+
+    /**
+     * Toggles tooltip visibility.
+     */
+    public toggleTooltipVisibility(): void {
+        this.isTooltipVisible = !this.isTooltipVisible;
+    }
+
     public get value(): string {
         return this.amount.toFixed(1);
     }
@@ -54,7 +63,7 @@ export default class ChecksArea extends Vue {
         width: calc(48% - 60px);
         height: 79px;
         background-color: var(--block-background-color);
-        border: 1px solid #e9eff4;
+        border: 1px solid var(--block-border-color);
         border-radius: 11px;
         padding: 32px 30px;
         margin-bottom: 13px;
@@ -67,7 +76,7 @@ export default class ChecksArea extends Vue {
             &__title {
                 font-size: 14px;
                 line-height: 21px;
-                color: #586c86;
+                color: var(--title-text-color);
                 margin: 0 5px 0 0;
             }
 
@@ -82,19 +91,50 @@ export default class ChecksArea extends Vue {
                     }
                 }
             }
+
+            &__info-area {
+                position: relative;
+            }
         }
 
         &__amount {
             font-size: 32px;
             line-height: 57px;
-            color: #535f77;
+            color: var(--regular-text-color);
             margin: 0;
         }
     }
 
-    /deep/ .info__message-box {
-        min-width: 190px;
-        white-space: normal;
+    .tooltip {
+        position: absolute;
+        bottom: 35px;
+        left: 50%;
+        transform: translate(-50%);
+        height: auto;
+        box-shadow: 0 2px 48px var(--tooltip-shadow-color);
+        border-radius: 12px;
+        background: var(--tooltip-background-color);
+
+        &__text-area {
+            padding: 15px 11px;
+            width: 178px;
+            font-family: 'font_regular', sans-serif;
+            font-size: 11px;
+            line-height: 17px;
+            color: var(--regular-text-color);
+            text-align: center;
+        }
+
+        &__footer {
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%);
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 11.5px 11.5px 0 11.5px;
+            border-color: var(--tooltip-background-color) transparent transparent transparent;
+        }
     }
 
     @media screen and (max-width: 460px) {

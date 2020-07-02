@@ -128,7 +128,7 @@
                 <ChecksArea
                     label="Suspension Score"
                     :amount="checks.suspension"
-                    info-text="Uptime checks occur to make sure your node is still online. This is the percentage of uptime checks you’ve passed."
+                    info-text="This score shows how close your node is to getting suspended on a satellite. A score of 60% or below will result in suspension. If your node stays suspended for more than one week you will be disqualified from this satellite, so please correct the errors that lead to suspension asap."
                 />
                 <ChecksArea
                     label="Audit Score"
