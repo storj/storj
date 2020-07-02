@@ -64,9 +64,9 @@ exports[`HeldHistoryMonthlyBreakdownTable renders correctly with actual values 1
     </div>
   </div>
   <div class="held-history-table-container--small">
-    <heldhistorymonthlybreakdowntablesmall-stub heldhistoryitem="[object Object]"></heldhistorymonthlybreakdowntablesmall-stub>
-    <heldhistorymonthlybreakdowntablesmall-stub heldhistoryitem="[object Object]"></heldhistorymonthlybreakdowntablesmall-stub>
-    <heldhistorymonthlybreakdowntablesmall-stub heldhistoryitem="[object Object]"></heldhistorymonthlybreakdowntablesmall-stub>
+    <heldhistorymonthlybreakdowntableitemsmall-stub heldhistoryitem="[object Object]"></heldhistorymonthlybreakdowntableitemsmall-stub>
+    <heldhistorymonthlybreakdowntableitemsmall-stub heldhistoryitem="[object Object]"></heldhistorymonthlybreakdowntableitemsmall-stub>
+    <heldhistorymonthlybreakdowntableitemsmall-stub heldhistoryitem="[object Object]"></heldhistorymonthlybreakdowntableitemsmall-stub>
   </div>
 </div>
 `;

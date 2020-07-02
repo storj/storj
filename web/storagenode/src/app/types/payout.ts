@@ -146,6 +146,7 @@ export interface PayoutApi {
 export class HeldHistory {
     public constructor(
         public monthlyBreakdown: HeldHistoryMonthlyBreakdownItem[] = [],
+        public allStats: HeldHistoryAllStatItem[] = [],
     ) {}
 }
 
@@ -160,7 +161,20 @@ export class HeldHistoryMonthlyBreakdownItem {
         public firstPeriod: number = 0,
         public secondPeriod: number = 0,
         public thirdPeriod: number = 0,
-        public fourthPeriod: number = 0,
+    ) {}
+}
+
+/**
+ * Contains held information summary of satellite grouped by periods.
+ */
+export class HeldHistoryAllStatItem {
+    public constructor(
+        public satelliteID: string = '',
+        public satelliteName: string = '',
+        public age: number = 1,
+        public totalHeld: number = 0,
+        public totalDisposed: number = 0,
+        public joinedAt: Date = new Date(),
     ) {}
 }
 

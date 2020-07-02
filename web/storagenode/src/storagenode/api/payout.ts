@@ -4,6 +4,7 @@
 import {
     EstimatedPayout,
     HeldHistory,
+    HeldHistoryAllStatItem,
     HeldHistoryMonthlyBreakdownItem,
     HeldInfo,
     PaymentInfoParameters,
@@ -161,11 +162,21 @@ export class PayoutHttpApi implements PayoutApi {
                 historyItem.firstPeriod / this.PRICE_DIVIDER,
                 historyItem.secondPeriod / this.PRICE_DIVIDER,
                 historyItem.thirdPeriod / this.PRICE_DIVIDER,
-                historyItem.fourthPeriod / this.PRICE_DIVIDER,
             );
         });
 
-        return new HeldHistory(monthlyBreakdown);
+        const allStats = data.map((historyItem: any) => {
+           return new HeldHistoryAllStatItem(
+               historyItem.satelliteID,
+               historyItem.satelliteName,
+               historyItem.age,
+               historyItem.totalHeld,
+               historyItem.totalDisposed,
+               new Date(historyItem.joinedAt),
+           );
+        });
+
+        return new HeldHistory(monthlyBreakdown, allStats);
     }
 
     /**

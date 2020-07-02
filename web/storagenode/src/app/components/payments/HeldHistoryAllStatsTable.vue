@@ -9,34 +9,34 @@
                     <p class="held-history-table-container--large__labels-area__text">Satellite</p>
                 </div>
                 <div class="column justify-end column-2">
-                    <p class="held-history-table-container--large__labels-area__text">Month 1-3</p>
+                    <p class="held-history-table-container--large__labels-area__text">First Contact</p>
                 </div>
                 <div class="column justify-end column-3">
-                    <p class="held-history-table-container--large__labels-area__text">Month 4-6</p>
+                    <p class="held-history-table-container--large__labels-area__text">Held Total</p>
                 </div>
                 <div class="column justify-end column-4">
-                    <p class="held-history-table-container--large__labels-area__text">Month 7-9</p>
+                    <p class="held-history-table-container--large__labels-area__text">Held Returned</p>
                 </div>
             </div>
-            <div v-for="item in monthlyBreakdown" class="held-history-table-container--large__info-area" :key="item.satelliteID">
+            <div v-for="item in allStats" class="held-history-table-container--large__info-area" :key="item.satelliteID">
                 <div class="justify-start column-1">
                     <p class="held-history-table-container--large__info-area__text">{{ item.satelliteName }}</p>
                     <p class="held-history-table-container--large__info-area__months">{{ item.age }} month</p>
                 </div>
                 <div class="column justify-end column-2">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.firstPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ item.joinedAt.toISOString().split('T')[0] }}</p>
                 </div>
                 <div class="column justify-end column-3">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.secondPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ item.totalHeld | centsToDollars }}</p>
                 </div>
                 <div class="column justify-end column-4">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.thirdPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ item.totalDisposed | centsToDollars }}</p>
                 </div>
             </div>
         </div>
         <div class="held-history-table-container--small">
-            <HeldHistoryMonthlyBreakdownTableItemSmall
-                v-for="item in monthlyBreakdown"
+            <HeldHistoryAllStatsTableItemSmall
+                v-for="item in allStats"
                 :held-history-item="item"
                 :key="item.satelliteID"
             />
@@ -45,24 +45,24 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component } from 'vue-property-decorator';
 
 import BaseHeldHistoryTable from '@/app/components/payments/BaseHeldHistoryTable.vue';
-import HeldHistoryMonthlyBreakdownTableItemSmall from '@/app/components/payments/HeldHistoryMonthlyBreakdownTableItemSmall.vue';
+import HeldHistoryAllStatsTableItemSmall from '@/app/components/payments/HeldHistoryAllStatsTableItemSmall.vue';
 
-import { HeldHistoryMonthlyBreakdownItem } from '@/app/types/payout';
+import { HeldHistoryAllStatItem } from '@/app/types/payout';
 
 @Component({
     components: {
-        HeldHistoryMonthlyBreakdownTableItemSmall,
+        HeldHistoryAllStatsTableItemSmall,
     },
 })
-export default class HeldHistoryMonthlyBreakdownTable extends BaseHeldHistoryTable {
+export default class HeldHistoryAllStatsTable extends BaseHeldHistoryTable {
     /**
      * Returns list of satellite held history items by periods from store.
      */
-    public get monthlyBreakdown(): HeldHistoryMonthlyBreakdownItem[] {
-        return this.$store.state.payoutModule.heldHistory.monthlyBreakdown;
+    public get allStats(): HeldHistoryAllStatItem[] {
+        return this.$store.state.payoutModule.heldHistory.allStats;
     }
 }
 </script>

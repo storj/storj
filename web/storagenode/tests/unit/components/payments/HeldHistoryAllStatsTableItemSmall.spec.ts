@@ -1,9 +1,9 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import HeldHistoryMonthlyBreakdownTableSmall from '@/app/components/payments/HeldHistoryMonthlyBreakdownTableSmall.vue';
+import HeldHistoryAllStatsTableItemSmall from '@/app/components/payments/HeldHistoryAllStatsTableItemSmall.vue';
 
-import { HeldHistoryMonthlyBreakdownItem } from '@/app/types/payout';
+import { HeldHistoryAllStatItem } from '@/app/types/payout';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
@@ -12,18 +12,19 @@ localVue.filter('centsToDollars', (cents: number): string => {
     return `$${(cents / 100).toFixed(2)}`;
 });
 
-describe('HeldHistoryMonthlyBreakdownTableSmall', (): void => {
+describe('HeldHistoryAllStatsTableItemSmall', (): void => {
     it('renders correctly with actual values',  async (): Promise<void> => {
-        const wrapper = shallowMount(HeldHistoryMonthlyBreakdownTableSmall, {
+        const testJoinAt = new Date(Date.UTC(2020, 0, 27));
+
+        const wrapper = shallowMount(HeldHistoryAllStatsTableItemSmall, {
             propsData: {
-                heldHistoryItem: new HeldHistoryMonthlyBreakdownItem(
+                heldHistoryItem: new HeldHistoryAllStatItem(
                     '1',
                     'name1',
-                    6,
-                    50000,
-                    7333880,
-                    7852235,
-                    0,
+                    7,
+                    45000,
+                    8000,
+                    testJoinAt,
                 ),
             },
             localVue,

@@ -8,6 +8,7 @@ import { makePayoutModule, PAYOUT_ACTIONS, PAYOUT_MUTATIONS } from '@/app/store/
 import {
     EstimatedPayout,
     HeldHistory,
+    HeldHistoryAllStatItem,
     HeldHistoryMonthlyBreakdownItem,
     HeldInfo,
     PayoutInfoRange,
@@ -80,16 +81,27 @@ describe('mutations', (): void => {
     });
 
     it('sets held history', (): void => {
-        const testHeldHistory = new HeldHistory([
-            new HeldHistoryMonthlyBreakdownItem('1', 'name1', 1, 50000, 0, 0, 0),
-            new HeldHistoryMonthlyBreakdownItem('2', 'name2', 5, 50000, 422280, 0, 0),
-            new HeldHistoryMonthlyBreakdownItem('3', 'name3', 6, 50000, 7333880, 7852235, 0),
-        ]);
+        const testJoinAt = new Date(Date.UTC(2020, 0, 30));
+
+        const testHeldHistory = new HeldHistory(
+            [
+                new HeldHistoryMonthlyBreakdownItem('1', 'name1', 1, 50000, 0, 0),
+                new HeldHistoryMonthlyBreakdownItem('2', 'name2', 5, 50000, 422280, 0),
+                new HeldHistoryMonthlyBreakdownItem('3', 'name3', 6, 50000, 7333880, 7852235),
+            ],
+            [
+                new HeldHistoryAllStatItem('1', 'name1', 1, 100, 0, testJoinAt),
+                new HeldHistoryAllStatItem('2', 'name2', 5, 30, 20, testJoinAt),
+            ],
+        );
 
         store.commit(PAYOUT_MUTATIONS.SET_HELD_HISTORY, testHeldHistory);
 
         expect(state.payoutModule.heldHistory.monthlyBreakdown.length).toBe(testHeldHistory.monthlyBreakdown.length);
         expect(state.payoutModule.heldHistory.monthlyBreakdown[1].satelliteName).toBe(testHeldHistory.monthlyBreakdown[1].satelliteName);
+        expect(state.payoutModule.heldHistory.allStats.length).toBe(testHeldHistory.allStats.length);
+        expect(state.payoutModule.heldHistory.allStats[0].joinedAt).toBe(testJoinAt);
+        expect(state.payoutModule.heldHistory.allStats[1].totalHeld).toBe(30);
     });
 
     it('sets estimated payout information', (): void => {
@@ -252,18 +264,29 @@ describe('actions', () => {
     });
 
     it('success get held history', async (): Promise<void> => {
+        const testJoinAt = new Date(Date.UTC(2020, 0, 30));
+
         jest.spyOn(payoutApi, 'getHeldHistory').mockReturnValue(
-            Promise.resolve(new HeldHistory([
-                new HeldHistoryMonthlyBreakdownItem('1', 'name1', 1, 50000, 0, 0, 0),
-                new HeldHistoryMonthlyBreakdownItem('2', 'name2', 5, 50000, 422280, 0, 0),
-                new HeldHistoryMonthlyBreakdownItem('3', 'name3', 6, 50000, 7333880, 7852235, 0),
-            ])),
+            Promise.resolve(new HeldHistory(
+                [
+                    new HeldHistoryMonthlyBreakdownItem('1', 'name1', 1, 50000, 0, 0),
+                    new HeldHistoryMonthlyBreakdownItem('2', 'name2', 5, 50000, 422280, 0),
+                    new HeldHistoryMonthlyBreakdownItem('3', 'name3', 6, 50000, 7333880, 7852235),
+                ],
+                [
+                    new HeldHistoryAllStatItem('1', 'name1', 1, 100, 0, testJoinAt),
+                    new HeldHistoryAllStatItem('2', 'name2', 5, 30, 20, testJoinAt),
+                ],
+            )),
         );
 
         await store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
 
         expect(state.payoutModule.heldHistory.monthlyBreakdown.length).toBe(3);
         expect(state.payoutModule.heldHistory.monthlyBreakdown[1].satelliteName).toBe('name2');
+        expect(state.payoutModule.heldHistory.allStats.length).toBe(2);
+        expect(state.payoutModule.heldHistory.allStats[0].joinedAt).toBe(testJoinAt);
+        expect(state.payoutModule.heldHistory.allStats[1].totalHeld).toBe(30);
     });
 
     it('get total throws an error when api call fails', async (): Promise<void> => {

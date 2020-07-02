@@ -3,10 +3,10 @@
 
 import Vuex from 'vuex';
 
-import HeldHistoryMonthlyBreakdownTable from '@/app/components/payments/HeldHistoryMonthlyBreakdownTable.vue';
+import HeldHistoryAllStatsTable from '@/app/components/payments/HeldHistoryAllStatsTable.vue';
 
 import { makePayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
-import { HeldHistory, HeldHistoryMonthlyBreakdownItem } from '@/app/types/payout';
+import { HeldHistory, HeldHistoryAllStatItem } from '@/app/types/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
@@ -22,18 +22,22 @@ const payoutModule = makePayoutModule(payoutApi);
 
 const store = new Vuex.Store({ modules: { payoutModule }});
 
-describe('HeldHistoryMonthlyBreakdownTable', (): void => {
+describe('HeldHistoryAllStatsTable', (): void => {
     it('renders correctly with actual values', async (): Promise<void> => {
-        const wrapper = shallowMount(HeldHistoryMonthlyBreakdownTable, {
+        const wrapper = shallowMount(HeldHistoryAllStatsTable, {
             store,
             localVue,
         });
 
-        await store.commit(PAYOUT_MUTATIONS.SET_HELD_HISTORY, new HeldHistory([
-            new HeldHistoryMonthlyBreakdownItem('1', 'name1', 1, 50000, 0, 0, 0),
-            new HeldHistoryMonthlyBreakdownItem('2', 'name2', 5, 50000, 422280, 0, 0),
-            new HeldHistoryMonthlyBreakdownItem('3', 'name3', 6, 50000, 7333880, 7852235, 0),
-        ]));
+        const testJoinAt = new Date(Date.UTC(2020, 0, 30));
+
+        await store.commit(PAYOUT_MUTATIONS.SET_HELD_HISTORY, new HeldHistory(
+            [],
+            [
+                new HeldHistoryAllStatItem('1', 'name1', 1, 50000, 20000, testJoinAt),
+                new HeldHistoryAllStatItem('2', 'name2', 5, 40000, 30000, testJoinAt),
+            ],
+        ));
 
         expect(wrapper).toMatchSnapshot();
     });
