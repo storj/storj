@@ -164,6 +164,7 @@ export default class AddStorjState extends Vue {
         flex-direction: column;
         align-items: center;
         justify-content: space-between;
+        margin-bottom: 20px;
 
         &__container {
             width: calc(100% - 90px);

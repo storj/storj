@@ -12,6 +12,17 @@ describe('ProgressBar.vue', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
+    it('renders correctly if add payment step is completed', (): void => {
+        const wrapper = mount(ProgressBar, {
+            propsData: {
+                isAddPaymentStep: true,
+            },
+        });
+
+        expect(wrapper.findAll('.completed-step').length).toBe(1);
+        expect(wrapper.findAll('.completed-font-color').length).toBe(1);
+    });
+
     it('renders correctly if create project step is completed', (): void => {
         const wrapper = mount(ProgressBar, {
             propsData: {
@@ -19,8 +30,8 @@ describe('ProgressBar.vue', () => {
             },
         });
 
-        expect(wrapper.findAll('.completed-step').length).toBe(1);
-        expect(wrapper.findAll('.completed-font-color').length).toBe(1);
+        expect(wrapper.findAll('.completed-step').length).toBe(3);
+        expect(wrapper.findAll('.completed-font-color').length).toBe(2);
     });
 
     it('renders correctly if create api key step is completed', (): void => {
@@ -30,8 +41,8 @@ describe('ProgressBar.vue', () => {
             },
         });
 
-        expect(wrapper.findAll('.completed-step').length).toBe(3);
-        expect(wrapper.findAll('.completed-font-color').length).toBe(2);
+        expect(wrapper.findAll('.completed-step').length).toBe(5);
+        expect(wrapper.findAll('.completed-font-color').length).toBe(3);
     });
 
     it('renders correctly if upload data step is completed', (): void => {
@@ -41,7 +52,7 @@ describe('ProgressBar.vue', () => {
             },
         });
 
-        expect(wrapper.findAll('.completed-step').length).toBe(5);
-        expect(wrapper.findAll('.completed-font-color').length).toBe(3);
+        expect(wrapper.findAll('.completed-step').length).toBe(7);
+        expect(wrapper.findAll('.completed-font-color').length).toBe(4);
     });
 });

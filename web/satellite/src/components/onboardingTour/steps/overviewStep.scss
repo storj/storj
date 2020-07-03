@@ -78,12 +78,38 @@ h2 {
 }
 
 .second-step {
-    margin: 0 50px;
+    margin: 0 25px 0 50px;
 }
 
-@media screen and (max-width: 800px) {
+.third-step {
+    margin: 0 50px 0 25px;
+}
+
+@media screen and (max-width: 1450px) {
+
+    .overview-area {
+        padding: 75px 30px;
+    }
 
     .second-step {
-        margin: 0 10px;
+        margin: 0 10px 0 20px;
+    }
+
+    .third-step {
+        margin: 0 20px 0 10px;
+    }
+}
+
+@media screen and (max-width: 900px) {
+
+    .overview-area {
+
+        &__steps-area {
+            flex-direction: column;
+
+            &__step {
+                margin: 0 0 30px 0;
+            }
+        }
     }
 }

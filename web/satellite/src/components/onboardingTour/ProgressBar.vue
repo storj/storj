@@ -6,6 +6,16 @@
         <div class="progress-bar-container__progress-area">
             <div
                 class="progress-bar-container__progress-area__circle"
+                :class="{ 'completed-step': isAddPaymentStep || isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep }"
+            >
+                <CheckedImage/>
+            </div>
+            <div
+                class="progress-bar-container__progress-area__bar"
+                :class="{ 'completed-step': isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep }"
+            />
+            <div
+                class="progress-bar-container__progress-area__circle"
                 :class="{ 'completed-step': isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep }"
             >
                 <CheckedImage/>
@@ -34,6 +44,12 @@
         <div class="progress-bar-container__titles-area">
             <span
                 class="progress-bar-container__titles-area__title"
+                :class="{ 'completed-font-color': isAddPaymentStep || isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep }"
+            >
+                Add Payment
+            </span>
+            <span
+                class="progress-bar-container__titles-area__title name-your-project-title"
                 :class="{ 'completed-font-color': isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep }"
             >
                 Name Your Project
@@ -66,6 +82,8 @@ import CheckedImage from '@/../static/images/common/checked.svg';
 })
 
 export default class ProgressBar extends Vue {
+    @Prop({ default: false })
+    public readonly isAddPaymentStep: boolean;
     @Prop({ default: false })
     public readonly isCreateProjectStep: boolean;
     @Prop({ default: false })
@@ -107,7 +125,7 @@ export default class ProgressBar extends Vue {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 188px 0 178px;
+            padding: 0 188px 0 188px;
 
             &__title {
                 font-family: 'font_regular', sans-serif;
@@ -117,6 +135,10 @@ export default class ProgressBar extends Vue {
                 text-align: center;
             }
         }
+    }
+
+    .name-your-project-title {
+        padding: 0 0 0 10px;
     }
 
     .api-key-title {
@@ -141,7 +163,7 @@ export default class ProgressBar extends Vue {
             }
 
             &__titles-area {
-                padding: 0 128px 0 118px;
+                padding: 0 128px 0 128px;
             }
         }
     }

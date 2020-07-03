@@ -70,10 +70,10 @@ describe('NewProjectArea', () => {
     });
 
     it('renders correctly without projects and with completed 50$ transaction', () => {
-        const billingTransactionItem = new PaymentsHistoryItem('itemId', 'test', 50, 50,
+        const paymentsTransactionItem = new PaymentsHistoryItem('itemId', 'test', 50, 50,
             PaymentsHistoryItemStatus.Completed, 'test', new Date(), new Date(), PaymentsHistoryItemType.Transaction);
         store.commit(PAYMENTS_MUTATIONS.CLEAR);
-        store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [billingTransactionItem]);
+        store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [paymentsTransactionItem]);
         store.commit(PAYMENTS_MUTATIONS.SET_BALANCE, new AccountBalance(0, 5000));
 
         const wrapper = mount(NewProjectArea, {
