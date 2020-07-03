@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -119,7 +120,9 @@ func (cache *redisLiveAccounting) GetAllProjectTotals(ctx context.Context) (_ ma
 			if err != nil {
 				return Error.New("could not get total for project %s", id.String())
 			}
-			projects[*id] = int64(intval)
+			if !strings.HasSuffix(item.Key.String(), "bandwidth") {
+				projects[*id] = int64(intval)
+			}
 		}
 		return nil
 	})
