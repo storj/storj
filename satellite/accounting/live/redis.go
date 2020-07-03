@@ -45,8 +45,8 @@ func (cache *redisLiveAccounting) GetProjectStorageUsage(ctx context.Context, pr
 		}
 		return 0, Error.Wrap(err)
 	}
-	intval, err := strconv.Atoi(string(val))
-	return int64(intval), Error.Wrap(err)
+	intval, err := strconv.ParseInt(string([]byte(val)), 10, 64)
+	return intval, Error.Wrap(err)
 }
 
 // createBandwidthProjectIDKey creates the bandwidth project key.
@@ -66,8 +66,8 @@ func (cache *redisLiveAccounting) GetProjectBandwidthUsage(ctx context.Context, 
 	if err != nil {
 		return 0, err
 	}
-	intval, err := strconv.Atoi(string(val))
-	return int64(intval), Error.Wrap(err)
+	intval, err := strconv.ParseInt(string([]byte(val)), 10, 64)
+	return intval, Error.Wrap(err)
 }
 
 // UpdateProjectBandwidthUsage increment the bandwidth cache key value.
@@ -116,12 +116,12 @@ func (cache *redisLiveAccounting) GetAllProjectTotals(ctx context.Context) (_ ma
 			}
 			id := new(uuid.UUID)
 			copy(id[:], item.Key[:])
-			intval, err := strconv.Atoi(string(item.Value))
+			intval, err := strconv.ParseInt(string([]byte(item.Value)), 10, 64)
 			if err != nil {
 				return Error.New("could not get total for project %s", id.String())
 			}
 			if !strings.HasSuffix(item.Key.String(), "bandwidth") {
-				projects[*id] = int64(intval)
+				projects[*id] = intval
 			}
 		}
 		return nil
