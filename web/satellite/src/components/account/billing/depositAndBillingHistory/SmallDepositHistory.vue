@@ -4,7 +4,7 @@
 <template>
     <div class="deposit-area" v-if="depositHistoryItems.length > 0">
         <div class="deposit-area__header">
-            <h1 class="deposit-area__header__title">Deposit History</h1>
+            <h1 class="deposit-area__header__title">Short Balance History</h1>
             <div class="button" @click="onViewAllClick">View All</div>
         </div>
         <SortingHeader/>

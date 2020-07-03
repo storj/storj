@@ -5,8 +5,9 @@ import sinon from 'sinon';
 import { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 
-import CreditsDropdown from '@/components/account/billing/freeCredits/CreditsDropdown.vue';
+import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 
+import { RouteConfig } from '@/router';
 import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
@@ -32,10 +33,28 @@ localVue.directive('click-outside', {
     },
 });
 
-describe('CreditsDropdown', (): void => {
-    it('renders correctly', (): void => {
-        const wrapper = mount(CreditsDropdown, {
+describe('HistoryDropdown', (): void => {
+    it('renders correctly if credit history', (): void => {
+        const creditsHistory: string = RouteConfig.Account.with(RouteConfig.CreditsHistory).path;
+        const wrapper = mount(HistoryDropdown, {
             localVue,
+            propsData: {
+                label: 'Credits History',
+                link: creditsHistory,
+            },
+        });
+
+        expect(wrapper).toMatchSnapshot();
+    });
+
+    it('renders correctly if balance history', (): void => {
+        const balanceHistory: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
+        const wrapper = mount(HistoryDropdown, {
+            localVue,
+            propsData: {
+                label: 'Balance History',
+                link: balanceHistory,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -43,14 +62,14 @@ describe('CreditsDropdown', (): void => {
 
     it('clicks work correctly', async (): Promise<void> => {
         const clickSpy = sinon.spy();
-        const wrapper = mount(CreditsDropdown, {
+        const wrapper = mount(HistoryDropdown, {
             localVue,
             methods: {
                 redirect: clickSpy,
             },
         });
 
-        await wrapper.find('.credits-dropdown__link-container').trigger('click');
+        await wrapper.find('.history-dropdown__link-container').trigger('click');
 
         expect(clickSpy.callCount).toBe(1);
     });

@@ -2,25 +2,28 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="credits-dropdown" v-click-outside="closeDropdown">
-        <div @click="redirect" class="credits-dropdown__link-container">
-            <span class="credits-dropdown__link-container__link">Credits History</span>
+    <div class="history-dropdown" v-click-outside="closeDropdown">
+        <div @click="redirect" class="history-dropdown__link-container">
+            <span class="history-dropdown__link-container__link">{{ label }}</span>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
-import { RouteConfig } from '@/router';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 @Component
-export default class CreditsDropdown extends Vue {
+export default class HistoryDropdown extends Vue {
+    @Prop({ default: '' })
+    public readonly label: string;
+    @Prop({ default: '' })
+    public readonly route: string;
+
     /**
-     * Holds logic to redirect user to credit history page.
+     * Holds logic to redirect user to history page.
      */
     public redirect(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.CreditsHistory).path);
+        this.$router.push(this.route);
     }
 
     /**
@@ -33,7 +36,7 @@ export default class CreditsDropdown extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .credits-dropdown {
+    .history-dropdown {
         z-index: 120;
         position: absolute;
         left: 0;
@@ -42,7 +45,7 @@ export default class CreditsDropdown extends Vue {
         border-radius: 6px;
         border: 1px solid #c5cbdb;
         box-shadow: 0 8px 34px rgba(161, 173, 185, 0.41);
-        width: 220px;
+        width: 210px;
 
         &__link-container {
             width: calc(100% - 30px);

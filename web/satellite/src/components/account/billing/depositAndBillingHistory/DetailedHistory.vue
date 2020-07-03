@@ -8,7 +8,7 @@
             <p class="history-area__back-area__title">Back to Billing</p>
         </div>
         <h1 class="history-area__title" v-if="isBillingHistory">Billing History</h1>
-        <h1 class="history-area__title" v-else>Deposit History</h1>
+        <h1 class="history-area__title" v-else>Balance History</h1>
         <div class="history-area__content" v-if="historyItems.length > 0">
             <SortingHeader/>
             <PaymentsItem
