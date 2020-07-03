@@ -91,6 +91,7 @@ func (cliCfg *UplinkFlags) getProject(ctx context.Context, encryptionBypass bool
 	}
 
 	uplinkCfg := uplink.Config{}
+	uplinkCfg.UserAgent = cliCfg.Client.UserAgent
 	uplinkCfg.DialTimeout = cliCfg.Client.DialTimeout
 
 	if encryptionBypass {
