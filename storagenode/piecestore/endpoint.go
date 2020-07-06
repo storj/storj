@@ -248,6 +248,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	}
 
 	var pieceWriter *pieces.Writer
+	// committed is set to true when the piece is committed.
+	// It is used to distinguish successful pieces where the uplink cancels the connections,
+	// and pieces that were actually canceled before being completed.
+	var committed bool
 	defer func() {
 		endTime := time.Now().UTC()
 		dt := endTime.Sub(startTime)
@@ -261,18 +265,18 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 		uploadDuration := dt.Nanoseconds()
 
-		if errs2.IsCanceled(err) {
-			mon.Meter("upload_cancel_byte_meter").Mark64(uploadSize)
-			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
-			mon.IntVal("upload_cancel_duration_ns").Observe(uploadDuration)
-			mon.FloatVal("upload_cancel_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
-		} else if err != nil {
+		if err != nil && !errs2.IsCanceled(err) {
 			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
 			endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+		} else if errs2.IsCanceled(err) && !committed {
+			mon.Meter("upload_cancel_byte_meter").Mark64(uploadSize)
+			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
+			mon.IntVal("upload_cancel_duration_ns").Observe(uploadDuration)
+			mon.FloatVal("upload_cancel_rate_bytes_per_sec").Observe(uploadRate)
+			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		} else {
 			mon.Meter("upload_success_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_success_size_bytes").Observe(uploadSize)
@@ -385,6 +389,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				if err := pieceWriter.Commit(ctx, info); err != nil {
 					return rpcstatus.Wrap(rpcstatus.Internal, err)
 				}
+				committed = true
 				if !limit.PieceExpiration.IsZero() {
 					err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
 					if err != nil {
