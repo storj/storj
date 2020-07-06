@@ -4,7 +4,9 @@
 package admin
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -218,6 +220,64 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+}
+
+func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		http.Error(w, "project-uuid missing", http.StatusBadRequest)
+		return
+	}
+
+	projectUUID, err := uuid.FromString(projectUUIDString)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid project-uuid: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "project with specified uuid does not exist", http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error getting project: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to read body: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	var input struct {
+		ProjectName string `json:"projectName"`
+		Description string `json:"description"`
+	}
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to unmarshal request: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if input.ProjectName == "" {
+		http.Error(w, "ProjectName is not set", http.StatusBadRequest)
+		return
+	}
+
+	project.Name = input.ProjectName
+	project.Description = input.Description
+
+	err = server.db.Console().Projects().Update(ctx, project)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error renaming project: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {

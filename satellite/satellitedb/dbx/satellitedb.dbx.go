@@ -5329,6 +5329,7 @@ type Project_Create_Fields struct {
 }
 
 type Project_Update_Fields struct {
+	Name           Project_Name_Field
 	Description    Project_Description_Field
 	UsageLimit     Project_UsageLimit_Field
 	BandwidthLimit Project_BandwidthLimit_Field
@@ -13767,6 +13768,11 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	var __values []interface{}
 	var __args []interface{}
 
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
 	if update.Description._set {
 		__values = append(__values, update.Description.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
@@ -20272,6 +20278,11 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
 	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
 
 	if update.Description._set {
 		__values = append(__values, update.Description.value())

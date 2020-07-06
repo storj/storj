@@ -140,6 +140,40 @@ func TestAddProject(t *testing.T) {
 	})
 }
 
+func TestRenameProject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		userID := planet.Uplinks[0].Projects[0].Owner
+		oldName, newName := "renameTest", "Test Project"
+
+		project, err := planet.Satellites[0].AddProject(ctx, userID.ID, oldName)
+		require.NoError(t, err)
+		require.Equal(t, oldName, project.Name)
+
+		body := strings.NewReader(fmt.Sprintf(`{"projectName":"%s","description":"This project got renamed"}`, newName))
+		req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/project/%s", project.ID.String()), body)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "very-secret-token")
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+
+		project, err = planet.Satellites[0].DB.Console().Projects().Get(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, newName, project.Name)
+	})
+}
+
 func TestDeleteProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
