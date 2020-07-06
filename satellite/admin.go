@@ -14,14 +14,12 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
-	"storj.io/common/peertls/extensions"
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/admin"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
@@ -62,8 +60,6 @@ type Admin struct {
 
 // NewAdmin creates a new satellite admin peer.
 func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
-	pointerDB metainfo.PointerDB,
-	revocationDB extensions.RevocationDB,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Admin, error) {
 	peer := &Admin{
 		Log:      log,
@@ -147,8 +143,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
 	}
-
-	{ // setup debug
+	{ //setup admin endpoint
 		var err error
 		peer.Admin.Listener, err = net.Listen("tcp", config.Admin.Address)
 		if err != nil {
