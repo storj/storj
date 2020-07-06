@@ -9,6 +9,7 @@ import (
 	"github.com/stripe/stripe-go/client"
 	"github.com/stripe/stripe-go/customerbalancetransaction"
 	"github.com/stripe/stripe-go/invoice"
+	"github.com/stripe/stripe-go/invoiceitem"
 	"github.com/stripe/stripe-go/paymentmethod"
 	"go.uber.org/zap"
 )
@@ -48,6 +49,7 @@ type StripeInvoices interface {
 // StripeInvoiceItems Stripe InvoiceItems interface.
 type StripeInvoiceItems interface {
 	New(params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error)
+	List(listParams *stripe.InvoiceItemListParams) *invoiceitem.Iter
 }
 
 // StripeCharges Stripe Charges interface.

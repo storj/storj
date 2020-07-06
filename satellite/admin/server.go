@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
@@ -49,18 +50,22 @@ type Server struct {
 	server   http.Server
 	mux      *mux.Router
 
-	db DB
+	db       DB
+	invoices payments.Invoices
 }
 
 // NewServer returns a new debug.Server.
-func NewServer(log *zap.Logger, listener net.Listener, db DB, config Config) *Server {
+func NewServer(log *zap.Logger, listener net.Listener, db DB, invoices payments.Invoices, config Config) *Server {
 	server := &Server{
-		log: log,
+		log:      log,
+
+		listener: listener,
+		mux:      mux.NewRouter(),
+
+		db:       db,
+		invoices: invoices,
 	}
 
-	server.db = db
-	server.listener = listener
-	server.mux = mux.NewRouter()
 	server.server.Handler = &protectedServer{
 		allowedAuthorization: config.AuthorizationToken,
 		next:                 server.mux,
@@ -70,6 +75,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, config Config) *Se
 	server.mux.HandleFunc("/api/user", server.addUser).Methods("POST")
 	server.mux.HandleFunc("/api/user/{useremail}", server.updateUser).Methods("PUT")
 	server.mux.HandleFunc("/api/user/{useremail}", server.userInfo).Methods("GET")
+	server.mux.HandleFunc("/api/user/{useremail}", server.deleteUser).Methods("DELETE")
 	server.mux.HandleFunc("/api/coupon", server.addCoupon).Methods("POST")
 	server.mux.HandleFunc("/api/coupon/{couponid}", server.couponInfo).Methods("GET")
 	server.mux.HandleFunc("/api/coupon/{couponid}", server.deleteCoupon).Methods("DELETE")

@@ -12,6 +12,7 @@ import (
 	"github.com/stripe/stripe-go/customerbalancetransaction"
 	"github.com/stripe/stripe-go/form"
 	"github.com/stripe/stripe-go/invoice"
+	"github.com/stripe/stripe-go/invoiceitem"
 	"github.com/stripe/stripe-go/paymentmethod"
 
 	"storj.io/common/uuid"
@@ -175,6 +176,10 @@ type mockInvoiceItems struct {
 
 func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error) {
 	return nil, nil
+}
+
+func (m *mockInvoiceItems) List(listParams *stripe.InvoiceItemListParams) *invoiceitem.Iter {
+	return &invoiceitem.Iter{Iter: &stripe.Iter{}}
 }
 
 type mockCustomerBalanceTransactions struct {

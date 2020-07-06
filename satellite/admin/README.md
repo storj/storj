@@ -80,6 +80,10 @@ A successful response body:
 }
 ```
 
+## DELETE /api/user/{user-email}
+
+Deletes the user.
+
 ## POST /api/coupon
 
 Adds a coupon for specific user.
