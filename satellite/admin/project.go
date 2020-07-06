@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
@@ -17,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
 func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
@@ -257,6 +259,50 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	if keys.TotalCount > 0 {
 		http.Error(w, fmt.Sprintf("api-keys still exist: count %v", keys.TotalCount), http.StatusConflict)
 		return
+	}
+
+	// do not delete projects that have usage for the current month.
+	year, month, _ := time.Now().UTC().Date()
+	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
+	currentUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectUUID, firstOfMonth, time.Now())
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to list project usage: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.ObjectCount > 0 {
+		http.Error(w, "usage for current month exists", http.StatusConflict)
+		return
+	}
+
+	// if usage of last month exist, make sure to look for billing records
+	lastMonthUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectUUID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+	if err != nil {
+		http.Error(w, "error getting project totals", http.StatusInternalServerError)
+		return
+	}
+
+	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
+		err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectUUID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour))
+		switch err {
+		case stripecoinpayments.ErrProjectRecordExists:
+			record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectUUID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour))
+			if err != nil {
+				http.Error(w, fmt.Sprintf("unable to get project records: %v", err), http.StatusInternalServerError)
+				return
+			}
+			// state = 0 means unapplied and not invoiced yet.
+			if record.State == 0 {
+				http.Error(w, "unapplied project invoice record exist", http.StatusConflict)
+				return
+			}
+		case nil:
+			http.Error(w, "usage for last month exist, but is not billed yet", http.StatusConflict)
+			return
+		default:
+			http.Error(w, fmt.Sprintf("unable to get project records: %v", err), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	err = server.db.Console().Projects().Delete(ctx, projectUUID)

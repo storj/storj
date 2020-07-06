@@ -47,6 +47,7 @@ type ProjectRecord struct {
 	Objects     float64
 	PeriodStart time.Time
 	PeriodEnd   time.Time
+	State       int
 }
 
 // ProjectRecordsPage holds project records and
