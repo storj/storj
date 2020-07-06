@@ -305,7 +305,7 @@ model project (
 
     field id              blob
 
-    field name            text
+    field name            text      ( updatable )
     field description     text      ( updatable )
     field usage_limit     int64     ( updatable, default 0 )
     field bandwidth_limit int64     ( updatable, default 0 )

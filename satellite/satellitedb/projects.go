@@ -127,6 +127,7 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 	defer mon.Task()(&ctx)(&err)
 
 	updateFields := dbx.Project_Update_Fields{
+		Name:        dbx.Project_Name(project.Name),
 		Description: dbx.Project_Description(project.Description),
 		RateLimit:   dbx.Project_RateLimit_Raw(project.RateLimit),
 	}

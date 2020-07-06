@@ -160,6 +160,17 @@ Updates bandwidth limit for a project.
 
 Updates rate limit for a project.
 
+## PUT /api/project/{project-id}
+
+Updates project name or description.
+
+```json
+{
+    "projectName": "My new Project Name",
+    "description": "My new awesome description!"
+}
+```
+
 ## DELETE /api/project/{project-id}
 
 Deletes the project.
