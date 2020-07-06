@@ -623,7 +623,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 			return xs, err
 		}
 
-		adminPeer, err := planet.newAdmin(i, identity, db, pointerDB, config, versionInfo)
+		adminPeer, err := planet.newAdmin(i, identity, db, config, versionInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -745,18 +745,11 @@ func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db sate
 	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
 }
 
-func (planet *Planet) newAdmin(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
+func (planet *Planet) newAdmin(count int, identity *identity.FullIdentity, db satellite.DB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
 	prefix := "satellite-admin" + strconv.Itoa(count)
 	log := planet.log.Named(prefix)
-	var err error
 
-	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	planet.databases = append(planet.databases, revocationDB)
-
-	return satellite.NewAdmin(log, identity, db, pointerDB, revocationDB, versionInfo, &config, nil)
+	return satellite.NewAdmin(log, identity, db, versionInfo, &config, nil)
 }
 
 func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {

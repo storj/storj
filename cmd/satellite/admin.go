@@ -10,9 +10,7 @@ import (
 
 	"storj.io/private/process"
 	"storj.io/private/version"
-	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -37,23 +35,7 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
-	if err != nil {
-		return errs.New("Error creating metainfodb connection on satellite api: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, pointerDB.Close())
-	}()
-
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Config.Server.Config)
-	if err != nil {
-		return errs.New("Error creating revocation database on satellite api: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, revocationDB.Close())
-	}()
-
-	peer, err := satellite.NewAdmin(log, identity, db, pointerDB, revocationDB, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
+	peer, err := satellite.NewAdmin(log, identity, db, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
@@ -65,11 +47,6 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, runCfg.Identity.CertPath); err != nil {
 		log.Warn("Failed to initialize telemetry batcher on satellite admin", zap.Error(err))
-	}
-
-	err = pointerDB.MigrateToLatest(ctx)
-	if err != nil {
-		return errs.New("Error creating metainfodb tables on satellite api: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)
