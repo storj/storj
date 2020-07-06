@@ -208,5 +208,6 @@ func fromDBXInvoiceProjectRecord(dbxRecord *dbx.StripecoinpaymentsInvoiceProject
 		Objects:     float64(dbxRecord.Objects),
 		PeriodStart: dbxRecord.PeriodStart,
 		PeriodEnd:   dbxRecord.PeriodEnd,
+		State:       dbxRecord.State,
 	}, nil
 }

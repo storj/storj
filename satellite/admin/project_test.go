@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -21,6 +22,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 )
 
@@ -190,6 +192,171 @@ func TestDeleteProject(t *testing.T) {
 		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
 		require.Error(t, err)
 		require.Nil(t, project)
+	})
+}
+
+func TestDeleteProjectWithUsageCurrentMonth(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		apiKeys, err := planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
+			Page:   1,
+			Limit:  2,
+			Search: "",
+		})
+		require.NoError(t, err)
+		require.Len(t, apiKeys.APIKeys, 1)
+
+		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
+		require.NoError(t, err)
+
+		accTime := time.Now().UTC().AddDate(0,0,-1)
+		tally := accounting.BucketStorageTally{
+			BucketName:         "test",
+			ProjectID:          projectID,
+			IntervalStart:      accTime,
+			ObjectCount:        1,
+			InlineSegmentCount: 1,
+			RemoteSegmentCount: 1,
+			InlineBytes:        10,
+			RemoteBytes:        640000,
+			MetadataSize:       2,
+		}
+		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
+		require.NoError(t, err)
+		tally = accounting.BucketStorageTally{
+			BucketName:         "test",
+			ProjectID:          projectID,
+			IntervalStart:      accTime.AddDate(0,0,1),
+			ObjectCount:        1,
+			InlineSegmentCount: 1,
+			RemoteSegmentCount: 1,
+			InlineBytes:        10,
+			RemoteBytes:        640000,
+			MetadataSize:       2,
+		}
+		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
+		require.NoError(t, err)
+
+		inline, remote, err := planet.Satellites[0].DB.ProjectAccounting().GetStorageTotals(ctx, projectID)
+		require.NoError(t, err)
+		require.Equal(t, int64(10), inline)
+		require.Equal(t, int64(640000), remote)
+
+		bw, err := planet.Satellites[0].DB.ProjectAccounting().GetAllocatedBandwidthTotal(ctx, projectID, accTime.AddDate(0,0,-1))
+		require.NoError(t, err)
+		require.EqualValues(t, 0, bw)
+
+		usage, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectTotal(ctx, projectID, accTime.AddDate(0,0,-1), accTime.AddDate(0,0,2))
+		require.NoError(t, err)
+		require.NotEqual(t, 0, usage.Egress)
+		require.NotEqual(t, float64(0), usage.Storage)
+
+
+		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s", projectID), nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "very-secret-token")
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		responseBody, err := ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.Equal(t, "usage for current month exists\n", string(responseBody))
+		require.NoError(t, response.Body.Close())
+		require.Equal(t, http.StatusConflict, response.StatusCode)
+	})
+}
+
+func TestDeleteProjectWithUsagePreviousMonth(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		apiKeys, err := planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
+			Page:   1,
+			Limit:  2,
+			Search: "",
+		})
+		require.NoError(t, err)
+		require.Len(t, apiKeys.APIKeys, 1)
+
+		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
+		require.NoError(t, err)
+
+		//ToDo: Improve updating of DB entries
+		accTime := time.Now().UTC().AddDate(0,-1,0)
+		tally := accounting.BucketStorageTally{
+			BucketName:         "test",
+			ProjectID:          projectID,
+			IntervalStart:      accTime,
+			ObjectCount:        1,
+			InlineSegmentCount: 1,
+			RemoteSegmentCount: 1,
+			InlineBytes:        10,
+			RemoteBytes:        640000,
+			MetadataSize:       2,
+		}
+		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
+		require.NoError(t, err)
+		tally = accounting.BucketStorageTally{
+			BucketName:         "test",
+			ProjectID:          projectID,
+			IntervalStart:      accTime.AddDate(0,0,1),
+			ObjectCount:        1,
+			InlineSegmentCount: 1,
+			RemoteSegmentCount: 1,
+			InlineBytes:        10,
+			RemoteBytes:        640000,
+			MetadataSize:       2,
+		}
+		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
+		require.NoError(t, err)
+
+		inline, remote, err := planet.Satellites[0].DB.ProjectAccounting().GetStorageTotals(ctx, projectID)
+		require.NoError(t, err)
+		require.Equal(t, int64(10), inline)
+		require.Equal(t, int64(640000), remote)
+
+		bw, err := planet.Satellites[0].DB.ProjectAccounting().GetAllocatedBandwidthTotal(ctx, projectID, accTime.AddDate(0,0,-1))
+		require.NoError(t, err)
+		require.EqualValues(t, 0, bw)
+
+		usage, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectTotal(ctx, projectID, accTime.AddDate(0,0,-1), accTime.AddDate(0,0,2))
+		require.NoError(t, err)
+		require.NotEqual(t, 0, usage.Egress)
+		require.NotEqual(t, float64(0), usage.Storage)
+
+
+		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s", projectID), nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "very-secret-token")
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		responseBody, err := ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.Equal(t, "usage for last month exist, but is not billed yet\n", string(responseBody))
+		require.NoError(t, response.Body.Close())
+		require.Equal(t, http.StatusConflict, response.StatusCode)
 	})
 }
 

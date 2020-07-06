@@ -23,12 +23,12 @@ import (
 // ensure that ProjectAccounting implements accounting.ProjectAccounting.
 var _ accounting.ProjectAccounting = (*ProjectAccounting)(nil)
 
-// ProjectAccounting implements the accounting/db ProjectAccounting interface
+// ProjectAccounting implements the accounting/db ProjectAccounting interface.
 type ProjectAccounting struct {
 	db *satelliteDB
 }
 
-// SaveTallies saves the latest bucket info
+// SaveTallies saves the latest bucket info.
 func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(bucketTallies) == 0 {
@@ -69,7 +69,7 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 	return Error.Wrap(err)
 }
 
-// GetTallies saves the latest bucket info
+// GetTallies saves the latest bucket info.
 func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounting.BucketTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -99,7 +99,7 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 	return tallies, nil
 }
 
-// CreateStorageTally creates a record in the bucket_storage_tallies accounting table
+// CreateStorageTally creates a record in the bucket_storage_tallies accounting table.
 func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accounting.BucketStorageTally) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -117,7 +117,7 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 	))
 }
 
-// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID for a time frame
+// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID for a time frame.
 func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
@@ -146,7 +146,7 @@ func (db *ProjectAccounting) GetProjectAllocatedBandwidth(ctx context.Context, p
 	return *egress, err
 }
 
-// GetStorageTotals returns the current inline and remote storage usage for a projectID
+// GetStorageTotals returns the current inline and remote storage usage for a projectID.
 func (db *ProjectAccounting) GetStorageTotals(ctx context.Context, projectID uuid.UUID) (inline int64, remote int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var inlineSum, remoteSum sql.NullInt64
@@ -228,8 +228,7 @@ func (db *ProjectAccounting) GetProjectBandwidthLimit(ctx context.Context, proje
 func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (usage *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
-
-	bucketNames, err := db.getBuckets(ctx, projectID, since, before)
+	bucketNames, err := db.getBuckets(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +243,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 			bucket_storage_tallies 
 		WHERE 
 			bucket_storage_tallies.project_id = ? AND 
-			bucket_storage_tallies.bucket_name = ? AND 
+			bucket_storage_tallies.bucket_name = ? AND
 			bucket_storage_tallies.interval_start >= ? AND 
 			bucket_storage_tallies.interval_start <= ? 
 		ORDER BY bucket_storage_tallies.interval_start DESC
@@ -259,7 +258,6 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 		if err != nil {
 			return nil, err
 		}
-
 		// generating tallies for each bucket name.
 		for storageTalliesRows.Next() {
 			tally := accounting.BucketStorageTally{}
@@ -287,14 +285,11 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 	usage = new(accounting.ProjectUsage)
 	usage.Egress = memory.Size(totalEgress).Int64()
-
 	// sum up storage and objects
 	for _, tallies := range bucketsTallies {
 		for i := len(tallies) - 1; i > 0; i-- {
 			current := (tallies)[i]
-
 			hours := (tallies)[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
-
 			usage.Storage += memory.Size(current.InlineBytes).Float64() * hours
 			usage.Storage += memory.Size(current.RemoteBytes).Float64() * hours
 			usage.ObjectCount += float64(current.ObjectCount) * hours
@@ -329,13 +324,13 @@ func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.
 	return totalEgress, err
 }
 
-// GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
+// GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.
 func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []accounting.BucketUsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since.UTC())
 	before = before.UTC()
 
-	buckets, err := db.getBuckets(ctx, projectID, since, before)
+	buckets, err := db.getBuckets(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +473,7 @@ func (db *ProjectAccounting) prefixMatch(expr string, prefix []byte) (string, []
 
 }
 
-// GetBucketTotals retrieves bucket usage totals for period of time
+// GetBucketTotals retrieves bucket usage totals for period of time.
 func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, since, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
@@ -617,14 +612,14 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	return page, nil
 }
 
-// getBuckets list all bucket of certain project for given period
-func (db *ProjectAccounting) getBuckets(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []string, err error) {
+// getBuckets list all bucket of certain project.
+func (db *ProjectAccounting) getBuckets(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name
-		FROM bucket_bandwidth_rollups
-		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?`)
+		FROM bucket_storage_tallies
+		WHERE project_id = ?`)
 
-	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, projectID[:], since, before)
+	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, projectID[:])
 	if err != nil {
 		return nil, err
 	}
@@ -644,7 +639,7 @@ func (db *ProjectAccounting) getBuckets(ctx context.Context, projectID uuid.UUID
 	return buckets, bucketRows.Err()
 }
 
-// timeTruncateDown truncates down to the hour before to be in sync with orders endpoint
+// timeTruncateDown truncates down to the hour before to be in sync with orders endpoint.
 func timeTruncateDown(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 }
