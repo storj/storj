@@ -22,6 +22,8 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
 // Admin is the satellite core process that runs chores
@@ -44,6 +46,12 @@ type Admin struct {
 	Version struct {
 		Chore   *checker.Chore
 		Service *checker.Service
+	}
+
+	Payments struct {
+		Accounts payments.Accounts
+		Service  *stripecoinpayments.Service
+		Stripe   stripecoinpayments.StripeClient
 	}
 
 	Admin struct {
@@ -104,6 +112,42 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup payments
+		pc := config.Payments
+
+		var stripeClient stripecoinpayments.StripeClient
+		var err error
+		switch pc.Provider {
+		default:
+			stripeClient = stripecoinpayments.NewStripeMock()
+		case "stripecoinpayments":
+			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+		}
+
+		peer.Payments.Service, err = stripecoinpayments.NewService(
+			peer.Log.Named("payments.stripe:service"),
+			stripeClient,
+			pc.StripeCoinPayments,
+			peer.DB.StripeCoinPayments(),
+			peer.DB.Console().Projects(),
+			peer.DB.ProjectAccounting(),
+			pc.StorageTBPrice,
+			pc.EgressTBPrice,
+			pc.ObjectPrice,
+			pc.BonusRate,
+			pc.CouponValue,
+			pc.CouponDuration,
+			pc.CouponProjectLimit,
+			pc.MinCoinPayment)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Payments.Stripe = stripeClient
+		peer.Payments.Accounts = peer.Payments.Service.Accounts()
+	}
+
 	{ // setup debug
 		var err error
 		peer.Admin.Listener, err = net.Listen("tcp", config.Admin.Address)
@@ -114,7 +158,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 
-		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, adminConfig)
+		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Payments.Accounts.Invoices(), adminConfig)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "admin",
 			Run:   peer.Admin.Server.Run,

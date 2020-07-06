@@ -62,3 +62,32 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 
 	return invoicesList, nil
 }
+
+// CheckPendingItems returns if pending invoice items for a given payment account exist.
+func (invoices *invoices) CheckPendingItems(ctx context.Context, userID uuid.UUID) (existingItems bool, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	params := &stripe.InvoiceItemListParams{
+		Customer: &customerID,
+		Pending:  stripe.Bool(true),
+	}
+
+	itemIterator := invoices.service.stripeClient.InvoiceItems().List(params)
+	for itemIterator.Next() {
+		item := itemIterator.InvoiceItem()
+		if item != nil {
+			return true, nil
+		}
+	}
+
+	if err = itemIterator.Err(); err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	return false, nil
+}

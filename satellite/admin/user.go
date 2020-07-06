@@ -231,3 +231,90 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		http.Error(w, "user-email missing", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, fmt.Sprintf("user with email %q not found", userEmail), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get user %q: %v", userEmail, err), http.StatusInternalServerError)
+		return
+	}
+
+	// Ensure user has no own projects any longer
+	projects, err := server.db.Console().Projects().GetByUserID(ctx, user.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to list buckets: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if len(projects) > 0 {
+		http.Error(w, fmt.Sprintf("some projects still exist: %v", projects), http.StatusConflict)
+		return
+	}
+
+	// Delete memberships in foreign projects
+	members, err := server.db.Console().ProjectMembers().GetByMemberID(ctx, user.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to search for user project memberships: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if len(members) > 0 {
+		for _, project := range members {
+			err := server.db.Console().ProjectMembers().Delete(ctx, user.ID, project.ProjectID)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("unable to delete user project membership: %v", err), http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
+	// ensure no unpaid invoices exist.
+	invoices, err := server.invoices.List(ctx, user.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to list user invoices: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if len(invoices) > 0 {
+		for _, invoice := range invoices {
+			if invoice.Status != "paid" {
+				http.Error(w, "user has unpaid/pending invoices", http.StatusConflict)
+				return
+			}
+		}
+	}
+
+	hasItems, err := server.invoices.CheckPendingItems(ctx, user.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to list pending invoice items: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if hasItems {
+		http.Error(w, "user has pending invoice items", http.StatusConflict)
+		return
+	}
+
+	userInfo := &console.User{
+		ID:        user.ID,
+		FullName:  "",
+		ShortName: "",
+		Email:     fmt.Sprintf("deactivated+%s@storj.io", user.ID.String()),
+		Status:    console.Deleted,
+	}
+
+	err = server.db.Console().Users().Update(ctx, userInfo)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to delete user: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
