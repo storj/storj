@@ -222,7 +222,7 @@ export default class EstimationArea extends Vue {
     public get grossTotal(): number {
         return (this.currentBandwidthDownload * BANDWIDTH_DOWNLOAD_PRICE_PER_TB
             + this.currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB
-            + this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / 730) / TB;
+            + this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / 720) / TB;
     }
 
     /**
@@ -289,7 +289,7 @@ export default class EstimationArea extends Vue {
             ];
         }
 
-        const approxHourInMonth = 730;
+        const approxHourInMonth = 720;
 
         return [
             new EstimationTableRow(

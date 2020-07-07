@@ -132,7 +132,7 @@ func TestStorageNodeApi(t *testing.T) {
 				expectedAuditRepairSatellite2 := 4 * float64(randAmount2*repairPrice) / math.Pow10(12)
 				expectedUsageSatellite1 := 2 * float64(randAmount1*egressPrice) / math.Pow10(12)
 				expectedUsageSatellite2 := 2 * float64(randAmount2*egressPrice) / math.Pow10(12)
-				expectedDisk := int64(float64(30000000000000*diskPrice/730)/math.Pow10(12)) * int64(time.Now().UTC().Day())
+				expectedDisk := int64(float64(30000000000000*diskPrice/720)/math.Pow10(12)) * int64(time.Now().UTC().Day())
 
 				day := int64(time.Now().Day())
 

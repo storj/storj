@@ -457,7 +457,7 @@ func (s *Service) estimatedPayoutCurrentMonth(ctx context.Context, satelliteID s
 	}
 
 	for j := 0; j < len(storageDaily); j++ {
-		diskSpace := (storageDaily[j].AtRestTotal * float64(priceModel.DiskSpace) / 730) / math.Pow10(12)
+		diskSpace := (storageDaily[j].AtRestTotal * float64(priceModel.DiskSpace) / 720) / math.Pow10(12)
 		totalSum += int64(diskSpace)
 	}
 
@@ -510,7 +510,7 @@ func (s *Service) estimatedPayoutPreviousMonth(ctx context.Context, satelliteID 
 
 	for j := 0; j < len(storageDaily); j++ {
 		payoutData.DiskSpace += storageDaily[j].AtRestTotal
-		payoutData.DiskSpacePayout += int64(storageDaily[j].AtRestTotal / 730 / math.Pow10(12) * float64(priceModel.DiskSpace*heldRate/100))
+		payoutData.DiskSpacePayout += int64(storageDaily[j].AtRestTotal / 720 / math.Pow10(12) * float64(priceModel.DiskSpace*heldRate/100))
 	}
 
 	return payoutData, nil

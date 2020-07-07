@@ -60,7 +60,7 @@ export function makePayoutModule(api: PayoutApi) {
             },
         },
         actions: {
-            [PAYOUT_ACTIONS.GET_HELD_INFO]: async function ({commit, state, rootState}: any, satelliteId: string = ''): Promise<void> {
+            [PAYOUT_ACTIONS.GET_HELD_INFO]: async function ({ commit, state, rootState }: any, satelliteId: string = ''): Promise<void> {
                 const heldInfo = state.periodRange.start ? await api.getHeldInfoByPeriod(new PaymentInfoParameters(
                     state.periodRange.start,
                     state.periodRange.end,
@@ -74,7 +74,7 @@ export function makePayoutModule(api: PayoutApi) {
                 commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, getHeldPercentage(rootState.node.selectedSatellite.joinDate));
                 commit(PAYOUT_MUTATIONS.SET_HELD_INFO, heldInfo);
             },
-            [PAYOUT_ACTIONS.GET_TOTAL]: async function ({commit, rootState}: any, satelliteId: string = ''): Promise<void> {
+            [PAYOUT_ACTIONS.GET_TOTAL]: async function ({ commit, rootState }: any, satelliteId: string = ''): Promise<void> {
                 const now = new Date();
                 const totalPayoutInfo = await api.getTotal(new PaymentInfoParameters(
                     new PayoutPeriod(rootState.node.selectedSatellite.joinDate.getUTCFullYear(), rootState.node.selectedSatellite.joinDate.getUTCMonth()),
@@ -90,7 +90,7 @@ export function makePayoutModule(api: PayoutApi) {
                     .map(data => data.egress.audit + data.egress.repair)
                     .reduce((previous, current) => previous + current, 0);
 
-                const approxHourInMonth = 730;
+                const approxHourInMonth = 720;
                 const currentDiskSpace = (rootState.node.storageChartData || [])
                     .map(data => data.atRestTotal)
                     .reduce((previous, current) => previous + current, 0) / approxHourInMonth;
@@ -102,10 +102,10 @@ export function makePayoutModule(api: PayoutApi) {
                 commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, getHeldPercentage(rootState.node.selectedSatellite.joinDate));
                 commit(PAYOUT_MUTATIONS.SET_TOTAL, new TotalPayoutInfo(totalPayoutInfo.totalHeldAmount, totalPayoutInfo.totalEarnings, thisMonthEarnings));
             },
-            [PAYOUT_ACTIONS.SET_PERIODS_RANGE]: function ({commit}: any, periodRange: PayoutInfoRange): void {
+            [PAYOUT_ACTIONS.SET_PERIODS_RANGE]: function ({ commit }: any, periodRange: PayoutInfoRange): void {
                 commit(PAYOUT_MUTATIONS.SET_RANGE, periodRange);
             },
-            [PAYOUT_ACTIONS.GET_HELD_HISTORY]: async function ({commit}: any): Promise<void> {
+            [PAYOUT_ACTIONS.GET_HELD_HISTORY]: async function ({ commit }: any): Promise<void> {
                 const heldHistory = await api.getHeldHistory();
 
                 commit(PAYOUT_MUTATIONS.SET_HELD_HISTORY, heldHistory);
