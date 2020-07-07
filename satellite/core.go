@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
@@ -114,10 +115,11 @@ type Core struct {
 	}
 
 	Accounting struct {
-		Tally               *tally.Service
-		Rollup              *rollup.Service
-		ProjectUsage        *accounting.Service
-		ReportedRollupChore *reportedrollup.Chore
+		Tally                 *tally.Service
+		Rollup                *rollup.Service
+		ProjectUsage          *accounting.Service
+		ReportedRollupChore   *reportedrollup.Chore
+		ProjectBWCleanupChore *projectbwcleanup.Chore
 	}
 
 	LiveAccounting struct {
@@ -437,6 +439,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Reported Rollup", peer.Accounting.ReportedRollupChore.Loop))
+
+		peer.Accounting.ProjectBWCleanupChore = projectbwcleanup.NewChore(peer.Log.Named("accounting:chore"), peer.DB.ProjectAccounting(), config.ProjectBWCleanup)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "accounting:project-bw-rollup",
+			Run:   peer.Accounting.ProjectBWCleanupChore.Run,
+			Close: peer.Accounting.ProjectBWCleanupChore.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Accounting Project Bandwidth Rollup", peer.Accounting.ProjectBWCleanupChore.Loop))
 	}
 
 	// TODO: remove in future, should be in API

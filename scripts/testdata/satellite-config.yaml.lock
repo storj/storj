@@ -562,6 +562,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of time we wait before running next transaction update loop
 # payments.stripe-coin-payments.transaction-update-interval: 2m0s
 
+# how often to remove unused project bandwidth rollups
+# project-bw-cleanup.interval: 168h0m0s
+
+# number of months of project bandwidth rollups to retain, not including the current month
+# project-bw-cleanup.retain-months: 2
+
 # the URL for referral manager
 # referrals.referral-manager-url: ""
 

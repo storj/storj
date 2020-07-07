@@ -15,6 +15,7 @@ import (
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
@@ -133,10 +134,11 @@ type Config struct {
 
 	DBCleanup dbcleanup.Config
 
-	Tally          tally.Config
-	Rollup         rollup.Config
-	LiveAccounting live.Config
-	ReportedRollup reportedrollup.Config
+	Tally            tally.Config
+	Rollup           rollup.Config
+	LiveAccounting   live.Config
+	ReportedRollup   reportedrollup.Config
+	ProjectBWCleanup projectbwcleanup.Config
 
 	Mail mailservice.Config
 

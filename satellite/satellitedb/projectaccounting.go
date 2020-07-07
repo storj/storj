@@ -147,6 +147,15 @@ func (db *ProjectAccounting) GetProjectAllocatedBandwidth(ctx context.Context, p
 	return *egress, err
 }
 
+// DeleteProjectAllocatedBandwidthBefore deletes project bandwidth rollups before the given time.
+func (db *ProjectAccounting) DeleteProjectAllocatedBandwidthBefore(ctx context.Context, before time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind("DELETE FROM project_bandwidth_rollups WHERE interval_month < ?"), before)
+
+	return err
+}
+
 // GetStorageTotals returns the current inline and remote storage usage for a projectID.
 func (db *ProjectAccounting) GetStorageTotals(ctx context.Context, projectID uuid.UUID) (inline int64, remote int64, err error) {
 	defer mon.Task()(&ctx)(&err)

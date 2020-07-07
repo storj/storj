@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
@@ -139,10 +140,11 @@ type Satellite struct {
 	}
 
 	Accounting struct {
-		Tally          *tally.Service
-		Rollup         *rollup.Service
-		ProjectUsage   *accounting.Service
-		ReportedRollup *reportedrollup.Chore
+		Tally            *tally.Service
+		Rollup           *rollup.Service
+		ProjectUsage     *accounting.Service
+		ReportedRollup   *reportedrollup.Chore
+		ProjectBWCleanup *projectbwcleanup.Chore
 	}
 
 	LiveAccounting struct {
@@ -529,6 +531,10 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 			ReportedRollup: reportedrollup.Config{
 				Interval: defaultInterval,
 			},
+			ProjectBWCleanup: projectbwcleanup.Config{
+				Interval:     defaultInterval,
+				RetainMonths: 1,
+			},
 			LiveAccounting: live.Config{
 				StorageBackend:    "redis://" + redis.Addr() + "?db=0",
 				BandwidthCacheTTL: 5 * time.Minute,
@@ -708,6 +714,7 @@ func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.C
 	system.Accounting.Rollup = peer.Accounting.Rollup
 	system.Accounting.ProjectUsage = peer.Accounting.ProjectUsage
 	system.Accounting.ReportedRollup = peer.Accounting.ReportedRollupChore
+	system.Accounting.ProjectBWCleanup = peer.Accounting.ProjectBWCleanupChore
 
 	system.LiveAccounting = peer.LiveAccounting
 

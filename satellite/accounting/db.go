@@ -171,6 +171,9 @@ type ProjectAccounting interface {
 	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
 	// GetProjectAllocatedBandwidth returns project allocated bandwidth for the specified year and month.
 	GetProjectAllocatedBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month) (int64, error)
+	// DeleteProjectAllocatedBandwidthBefore deletes project bandwidth rollups before the given time
+	DeleteProjectAllocatedBandwidthBefore(ctx context.Context, before time.Time) error
+
 	// GetStorageTotals returns the current inline and remote storage usage for a projectID
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	// UpdateProjectUsageLimit updates project usage limit.
