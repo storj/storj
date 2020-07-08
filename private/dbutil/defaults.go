@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	maxIdleConns    = flag.Int("db.max_idle_conns", 20, "Maximum Amount of Idle Database connections, -1 means the stdlib default")
-	maxOpenConns    = flag.Int("db.max_open_conns", 25, "Maximum Amount of Open Database connections, -1 means the stdlib default")
+	maxIdleConns    = flag.Int("db.max_idle_conns", 1, "Maximum Amount of Idle Database connections, -1 means the stdlib default")
+	maxOpenConns    = flag.Int("db.max_open_conns", 5, "Maximum Amount of Open Database connections, -1 means the stdlib default")
 	connMaxLifetime = flag.Duration("db.conn_max_lifetime", -1, "Maximum Database Connection Lifetime, -1ns means the stdlib default")
 )
 
