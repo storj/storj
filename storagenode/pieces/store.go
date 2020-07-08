@@ -298,6 +298,14 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	return Error.Wrap(err)
 }
 
+// DeleteSatelliteBlobs deletes blobs folder of specific satellite after successful GE.
+func (store *Store) DeleteSatelliteBlobs(ctx context.Context, satellite storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = store.blobs.DeleteNamespace(ctx, satellite.Bytes())
+	return Error.Wrap(err)
+}
+
 // Trash moves the specified piece to the blob trash. If necessary, it converts
 // the v0 piece to a v1 piece. It also marks the item as "trashed" in the
 // pieceExpirationDB.

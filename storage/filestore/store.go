@@ -120,6 +120,13 @@ func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref storage
 	return Error.Wrap(err)
 }
 
+// DeleteNamespace deletes blobs folder of specific satellite, used after successful GE only.
+func (store *blobStore) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = store.dir.DeleteNamespace(ctx, ref)
+	return Error.Wrap(err)
+}
+
 // Trash moves the ref to a trash directory
 func (store *blobStore) Trash(ctx context.Context, ref storage.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)

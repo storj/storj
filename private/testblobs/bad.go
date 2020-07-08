@@ -130,6 +130,14 @@ func (bad *BadBlobs) DeleteWithStorageFormat(ctx context.Context, ref storage.Bl
 	return bad.blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
 }
 
+// DeleteNamespace deletes blobs of specific satellite, used after successful GE only.
+func (bad *BadBlobs) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
+	if bad.err != nil {
+		return bad.err
+	}
+	return bad.blobs.DeleteNamespace(ctx, ref)
+}
+
 // Stat looks up disk metadata on the blob file.
 func (bad *BadBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.BlobInfo, error) {
 	if bad.err != nil {
