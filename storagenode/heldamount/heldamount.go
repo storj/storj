@@ -69,14 +69,13 @@ type AmountPeriod struct {
 	Held   int64  `json:"held"`
 }
 
-// EstimatedPayout contains amount in cents of estimated payout for current and previous months.
+// EstimatedPayout contains usage and estimated payout data for current and previous months.
 type EstimatedPayout struct {
-	CurrentMonthEstimatedAmount int64         `json:"currentAmount"`
-	CurrentMonthHeld            int64         `json:"currentHeld"`
-	PreviousMonthPayout         PayoutMonthly `json:"previousPayout"`
+	CurrentMonth  PayoutMonthly `json:"currentMonth"`
+	PreviousMonth PayoutMonthly `json:"previousMonth"`
 }
 
-// PayoutMonthly contains bandwidth and payout amount for month.
+// PayoutMonthly contains usage and estimated payout date.
 type PayoutMonthly struct {
 	EgressBandwidth         int64   `json:"egressBandwidth"`
 	EgressBandwidthPayout   int64   `json:"egressBandwidthPayout"`
@@ -85,6 +84,8 @@ type PayoutMonthly struct {
 	DiskSpace               float64 `json:"diskSpace"`
 	DiskSpacePayout         int64   `json:"diskSpacePayout"`
 	HeldRate                int64   `json:"heldRate"`
+	Payout                  int64   `json:"payout"`
+	Held                    int64   `json:"held"`
 }
 
 // Payment is node payment data for specific period.

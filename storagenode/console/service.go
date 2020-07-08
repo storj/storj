@@ -372,19 +372,18 @@ func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeI
 func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID) (payout heldamount.EstimatedPayout, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	currentMonthPayout, held, err := s.estimatedPayoutCurrentMonth(ctx, satelliteID)
+	currentMonthPayout, err := s.estimatedPayoutMonthly(ctx, satelliteID, time.Now().UTC())
 	if err != nil {
 		return heldamount.EstimatedPayout{}, SNOServiceErr.Wrap(err)
 	}
 
-	previousMonthPayout, err := s.estimatedPayoutPreviousMonth(ctx, satelliteID)
+	previousMonthPayout, err := s.estimatedPayoutMonthly(ctx, satelliteID, time.Now().UTC().AddDate(0, -1, 0).UTC())
 	if err != nil {
 		return heldamount.EstimatedPayout{}, SNOServiceErr.Wrap(err)
 	}
 
-	payout.CurrentMonthEstimatedAmount = currentMonthPayout
-	payout.CurrentMonthHeld = held
-	payout.PreviousMonthPayout = previousMonthPayout
+	payout.CurrentMonth = currentMonthPayout
+	payout.PreviousMonth = previousMonthPayout
 
 	return payout, nil
 }
@@ -395,86 +394,40 @@ func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context) (payout h
 
 	satelliteIDs := s.trust.GetSatellites(ctx)
 	for i := 0; i < len(satelliteIDs); i++ {
-		current, held, err := s.estimatedPayoutCurrentMonth(ctx, satelliteIDs[i])
+		current, err := s.estimatedPayoutMonthly(ctx, satelliteIDs[i], time.Now().UTC())
 		if err != nil {
 			return heldamount.EstimatedPayout{}, SNOServiceErr.Wrap(err)
 		}
 
-		previous, err := s.estimatedPayoutPreviousMonth(ctx, satelliteIDs[i])
+		previous, err := s.estimatedPayoutMonthly(ctx, satelliteIDs[i], time.Now().UTC().AddDate(0, -1, 0).UTC())
 		if err != nil {
 			return heldamount.EstimatedPayout{}, SNOServiceErr.Wrap(err)
 		}
 
-		payout.CurrentMonthEstimatedAmount += current
-		payout.CurrentMonthHeld += held
-		payout.PreviousMonthPayout.DiskSpacePayout += previous.DiskSpacePayout
-		payout.PreviousMonthPayout.DiskSpace += previous.DiskSpace
-		payout.PreviousMonthPayout.EgressBandwidth += previous.EgressBandwidth
-		payout.PreviousMonthPayout.EgressBandwidthPayout += previous.EgressBandwidthPayout
-		payout.PreviousMonthPayout.EgressRepairAuditPayout += previous.EgressRepairAuditPayout
-		payout.PreviousMonthPayout.EgressRepairAudit += previous.EgressRepairAudit
+		payout.CurrentMonth.Payout += current.Payout
+		payout.CurrentMonth.EgressRepairAuditPayout += current.EgressRepairAuditPayout
+		payout.CurrentMonth.DiskSpacePayout += current.DiskSpacePayout
+		payout.CurrentMonth.DiskSpace += current.DiskSpace
+		payout.CurrentMonth.EgressBandwidth += current.EgressBandwidth
+		payout.CurrentMonth.EgressBandwidthPayout += current.EgressBandwidthPayout
+		payout.CurrentMonth.EgressRepairAudit += current.EgressRepairAudit
+		payout.CurrentMonth.Held += current.Held
+		payout.PreviousMonth.Payout += previous.Payout
+		payout.PreviousMonth.DiskSpacePayout += previous.DiskSpacePayout
+		payout.PreviousMonth.DiskSpace += previous.DiskSpace
+		payout.PreviousMonth.EgressBandwidth += previous.EgressBandwidth
+		payout.PreviousMonth.EgressBandwidthPayout += previous.EgressBandwidthPayout
+		payout.PreviousMonth.EgressRepairAuditPayout += previous.EgressRepairAuditPayout
+		payout.PreviousMonth.EgressRepairAudit += previous.EgressRepairAudit
+		payout.PreviousMonth.Held += previous.Held
 	}
 
 	return payout, nil
 }
 
-// estimatedPayoutCurrentMonth returns estimated payout for current month from specific satellite with current level of load and previous month.
-func (s *Service) estimatedPayoutCurrentMonth(ctx context.Context, satelliteID storj.NodeID) (payout int64, held int64, err error) {
+// estimatedPayoutMonthly returns estimated payout data montly from specific satellite.
+func (s *Service) estimatedPayoutMonthly(ctx context.Context, satelliteID storj.NodeID, month time.Time) (payoutData heldamount.PayoutMonthly, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	var totalSum int64
-
-	stats, err := s.reputationDB.Get(ctx, satelliteID)
-	if err != nil {
-		return 0, 0, SNOServiceErr.Wrap(err)
-	}
-
-	heldRate := s.getHeldRate(stats.JoinedAt)
-
-	month := time.Now().UTC()
-	from, to := date.MonthBoundary(month)
-
-	priceModel, err := s.pricingDB.Get(ctx, satelliteID)
-	if err != nil {
-		return 0, 0, SNOServiceErr.Wrap(err)
-	}
-
-	bandwidthDaily, err := s.bandwidthDB.GetDailySatelliteRollups(ctx, satelliteID, from, to)
-	if err != nil {
-		return 0, 0, SNOServiceErr.Wrap(err)
-	}
-
-	for i := 0; i < len(bandwidthDaily); i++ {
-		auditDaily := float64(bandwidthDaily[i].Egress.Audit*priceModel.AuditBandwidth) / math.Pow10(12)
-		repairDaily := float64(bandwidthDaily[i].Egress.Repair*priceModel.RepairBandwidth) / math.Pow10(12)
-		usageDaily := float64(bandwidthDaily[i].Egress.Usage*priceModel.EgressBandwidth) / math.Pow10(12)
-		totalSum += int64(auditDaily + repairDaily + usageDaily)
-	}
-
-	storageDaily, err := s.storageUsageDB.GetDaily(ctx, satelliteID, from, to)
-	if err != nil {
-		return 0, 0, SNOServiceErr.Wrap(err)
-	}
-
-	for j := 0; j < len(storageDaily); j++ {
-		diskSpace := (storageDaily[j].AtRestTotal * float64(priceModel.DiskSpace) / 720) / math.Pow10(12)
-		totalSum += int64(diskSpace)
-	}
-
-	day := int64(time.Now().UTC().Day())
-	amount := totalSum - (totalSum*heldRate)/100
-
-	payout = amount * int64(to.Day()) / day
-	held = totalSum * heldRate / 100
-	return payout, held, nil
-}
-
-// estimatedPayoutPreviousMonth returns estimated payout data for previous month from specific satellite.
-func (s *Service) estimatedPayoutPreviousMonth(ctx context.Context, satelliteID storj.NodeID) (payoutData heldamount.PayoutMonthly, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	month := time.Now().UTC().AddDate(0, -1, 0).UTC()
-	from, to := date.MonthBoundary(month)
 
 	priceModel, err := s.pricingDB.Get(ctx, satelliteID)
 	if err != nil {
@@ -489,6 +442,8 @@ func (s *Service) estimatedPayoutPreviousMonth(ctx context.Context, satelliteID 
 	heldRate := s.getHeldRate(stats.JoinedAt)
 	payoutData.HeldRate = heldRate
 
+	from, to := date.MonthBoundary(month)
+
 	bandwidthDaily, err := s.bandwidthDB.GetDailySatelliteRollups(ctx, satelliteID, from, to)
 	if err != nil {
 		return heldamount.PayoutMonthly{}, SNOServiceErr.Wrap(err)
@@ -496,11 +451,9 @@ func (s *Service) estimatedPayoutPreviousMonth(ctx context.Context, satelliteID 
 
 	for i := 0; i < len(bandwidthDaily); i++ {
 		payoutData.EgressBandwidth += bandwidthDaily[i].Egress.Usage
-		usagePayout := float64(bandwidthDaily[i].Egress.Usage*priceModel.EgressBandwidth*heldRate/100) / math.Pow10(12)
-		payoutData.EgressBandwidthPayout += int64(usagePayout)
+		payoutData.EgressBandwidthPayout += int64(float64(bandwidthDaily[i].Egress.Usage*priceModel.EgressBandwidth) / math.Pow10(12))
 		payoutData.EgressRepairAudit += bandwidthDaily[i].Egress.Audit + bandwidthDaily[i].Egress.Repair
-		repairAuditPayout := float64((bandwidthDaily[i].Egress.Audit*priceModel.AuditBandwidth+bandwidthDaily[i].Egress.Repair*priceModel.RepairBandwidth)*heldRate/100) / math.Pow10(12)
-		payoutData.EgressRepairAuditPayout += int64(repairAuditPayout)
+		payoutData.EgressRepairAuditPayout += int64(float64(bandwidthDaily[i].Egress.Audit*priceModel.AuditBandwidth+bandwidthDaily[i].Egress.Repair*priceModel.RepairBandwidth) / math.Pow10(12))
 	}
 
 	storageDaily, err := s.storageUsageDB.GetDaily(ctx, satelliteID, from, to)
@@ -510,8 +463,14 @@ func (s *Service) estimatedPayoutPreviousMonth(ctx context.Context, satelliteID 
 
 	for j := 0; j < len(storageDaily); j++ {
 		payoutData.DiskSpace += storageDaily[j].AtRestTotal
-		payoutData.DiskSpacePayout += int64(storageDaily[j].AtRestTotal / 720 / math.Pow10(12) * float64(priceModel.DiskSpace*heldRate/100))
+		payoutData.DiskSpacePayout += int64(storageDaily[j].AtRestTotal / 720 / math.Pow10(12) * float64(priceModel.DiskSpace))
 	}
+
+	payoutData.Held = (payoutData.DiskSpacePayout + payoutData.EgressBandwidthPayout + payoutData.EgressRepairAuditPayout) * heldRate / 100
+	payoutData.DiskSpacePayout -= payoutData.DiskSpacePayout * heldRate / 100
+	payoutData.EgressRepairAuditPayout -= payoutData.EgressRepairAuditPayout * heldRate / 100
+	payoutData.EgressBandwidthPayout -= payoutData.EgressBandwidthPayout * heldRate / 100
+	payoutData.Payout = payoutData.DiskSpacePayout + payoutData.EgressBandwidthPayout + payoutData.EgressRepairAuditPayout
 
 	return payoutData, nil
 }
