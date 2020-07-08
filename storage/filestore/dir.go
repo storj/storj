@@ -474,6 +474,12 @@ func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef
 	return dir.deleteWithStorageFormatInPath(ctx, dir.blobsdir(), ref, formatVer)
 }
 
+// DeleteNamespace deletes blobs folder for a specific namespace.
+func (dir *Dir) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return dir.deleteNamespace(ctx, dir.blobsdir(), ref)
+}
+
 func (dir *Dir) deleteWithStorageFormatInPath(ctx context.Context, path string, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -529,6 +535,17 @@ func (dir *Dir) deleteWithStorageFormatInPath(ctx context.Context, path string, 
 	if isBusy(err) {
 		err = nil
 	}
+	return err
+}
+
+// deleteNamespace deletes folder with everything inside.
+func (dir *Dir) deleteNamespace(ctx context.Context, path string, ref []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	namespace := pathEncoding.EncodeToString(ref)
+	folderPath := filepath.Join(path, namespace)
+
+	err = os.RemoveAll(folderPath)
 	return err
 }
 

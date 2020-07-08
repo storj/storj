@@ -79,6 +79,8 @@ type Blobs interface {
 	Delete(ctx context.Context, ref BlobRef) error
 	// DeleteWithStorageFormat deletes a blob of a specific storage format.
 	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) error
+	// DeleteNamespace deletes blobs folder for a specific namespace.
+	DeleteNamespace(ctx context.Context, ref []byte) (err error)
 	// Trash marks a file for pending deletion.
 	Trash(ctx context.Context, ref BlobRef) error
 	// RestoreTrash restores all files in the trash for a given namespace and returns the keys restored.

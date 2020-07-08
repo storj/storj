@@ -113,6 +113,12 @@ func (slow *SlowBlobs) DeleteWithStorageFormat(ctx context.Context, ref storage.
 	return slow.blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
 }
 
+// DeleteNamespace deletes blobs of specific satellite, used after successful GE only.
+func (slow *SlowBlobs) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
+	slow.sleep()
+	return slow.blobs.DeleteNamespace(ctx, ref)
+}
+
 // Stat looks up disk metadata on the blob file
 func (slow *SlowBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.BlobInfo, error) {
 	slow.sleep()

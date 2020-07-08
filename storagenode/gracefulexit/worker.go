@@ -155,8 +155,12 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			}
 			// delete all remaining pieces
 			err = worker.deleteAllPieces(ctx)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			// delete everything left in blobs folder of specific satellites
+			err = worker.store.DeleteSatelliteBlobs(ctx, worker.satelliteURL.ID)
 			return errs.Wrap(err)
-
 		default:
 			// TODO handle err
 			worker.log.Error("unknown graceful exit message.", zap.Stringer("Satellite ID", worker.satelliteURL.ID))
