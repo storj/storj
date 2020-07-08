@@ -63,9 +63,7 @@ func BenchmarkOverlay(b *testing.B) {
 
 		b.Run("KnownUnreliableOrOffline", func(b *testing.B) {
 			criteria := &overlay.NodeCriteria{
-				AuditCount:   0,
 				OnlineWindow: 1000 * time.Hour,
-				UptimeCount:  0,
 			}
 			for i := 0; i < b.N; i++ {
 				badNodes, err := overlaydb.KnownUnreliableOrOffline(ctx, criteria, check)
@@ -310,8 +308,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		criteria := &overlay.NodeCriteria{
 			FreeDisk:         0,
-			AuditCount:       1,
-			UptimeCount:      0,
 			ExcludedIDs:      nil,
 			ExcludedNetworks: nil,
 			MinimumVersion:   "v1.0.0",
@@ -320,8 +316,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 		}
 		excludedCriteria := &overlay.NodeCriteria{
 			FreeDisk:         0,
-			AuditCount:       1,
-			UptimeCount:      0,
 			ExcludedIDs:      excludedIDs,
 			ExcludedNetworks: excludedNets,
 			MinimumVersion:   "v1.0.0",

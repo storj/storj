@@ -397,7 +397,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				Node: overlay.NodeSelectionConfig{
 					UptimeCount:      0,
 					AuditCount:       0,
-					NewNodeFraction:  0,
+					NewNodeFraction:  1,
 					OnlineWindow:     time.Minute,
 					DistinctIP:       false,
 					MinimumDiskSpace: 100 * memory.MB,

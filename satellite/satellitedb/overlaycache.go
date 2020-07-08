@@ -40,23 +40,21 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, last_net, last_ip_port, (total_audit_count < $1 OR total_uptime_count < $2) as isnew
+		SELECT id, address, last_net, last_ip_port, vetted_at
 			FROM nodes
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND exit_initiated_at IS NULL
-			AND type = $3
-			AND free_disk >= $4
-			AND last_contact_success > $5
+			AND type = $1
+			AND free_disk >= $2
+			AND last_contact_success > $3
 	`
 	args := []interface{}{
-		// $1, $2
-		selectionCfg.AuditCount, selectionCfg.UptimeCount,
-		// $3
+		// $1
 		int(pb.NodeType_STORAGE),
-		// $4
+		// $2
 		selectionCfg.MinimumDiskSpace.Int64(),
-		// $5
+		// $3
 		time.Now().Add(-selectionCfg.OnlineWindow),
 	}
 	if selectionCfg.MinimumVersion != "" {
@@ -64,9 +62,9 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 		if err != nil {
 			return nil, nil, err
 		}
-		query += `AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10)))) AND release`
+		query += `AND (major > $4 OR (major = $5 AND (minor > $6 OR (minor = $7 AND patch >= $8)))) AND release`
 		args = append(args,
-			// $6 - $10
+			// $4 - $8
 			version.Major, version.Major, version.Minor, version.Minor, version.Patch,
 		)
 	}
@@ -83,8 +81,8 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 		var node overlay.SelectedNode
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
-		var isnew bool
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &isnew)
+		var vettedAt *time.Time
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -92,7 +90,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 			node.LastIPPort = lastIPPort.String
 		}
 
-		if isnew {
+		if vettedAt == nil {
 			newNodes = append(newNodes, &node)
 			continue
 		}
@@ -1198,7 +1196,6 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	// if a node fails enough audits, it gets disqualified
 	// if a node gets enough "unknown" audits, it gets put into suspension
 	// if a node gets enough successful audits, and is in suspension, it gets removed from suspension
-
 	auditAlpha := dbNode.AuditReputationAlpha
 	auditBeta := dbNode.AuditReputationBeta
 	unknownAuditAlpha := dbNode.UnknownAuditReputationAlpha
@@ -1527,4 +1524,31 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 	}
 
 	return nil
+}
+
+var (
+	// ErrVetting is the error class for the following test methods.
+	ErrVetting = errs.Class("vetting error")
+)
+
+// TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
+func (cache *overlaycache) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
+	updateFields := dbx.Node_Update_Fields{
+		VettedAt: dbx.Node_VettedAt(time.Now().UTC()),
+	}
+	node, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return nil, err
+	}
+	return node.VettedAt, nil
+}
+
+// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier.
+func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	_, err = cache.db.Exec(ctx, `UPDATE nodes SET vetted_at = NULL WHERE nodes.id = $1;`, nodeID)
+	if err != nil {
+		return err
+	}
+	_, err = cache.db.OverlayCache().Get(ctx, nodeID)
+	return err
 }

@@ -179,17 +179,15 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 
 	conds.add(`type = ?`, int(pb.NodeType_STORAGE))
 	conds.add(`free_disk >= ?`, criteria.FreeDisk)
-	conds.add(`last_contact_success > ?`, time.Now().Add(-criteria.OnlineWindow))
+	conds.add(`last_contact_success > ?`, time.Now().UTC().Add(-criteria.OnlineWindow))
 
 	if isNewNodeQuery {
 		conds.add(
-			`(total_audit_count < ? OR total_uptime_count < ?)`,
-			criteria.AuditCount, criteria.UptimeCount,
+			`vetted_at IS NULL`,
 		)
 	} else {
 		conds.add(
-			`total_audit_count >= ? AND total_uptime_count >= ?`,
-			criteria.AuditCount, criteria.UptimeCount,
+			`vetted_at is NOT NULL`,
 		)
 	}
 

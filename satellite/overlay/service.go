@@ -101,6 +101,11 @@ type DB interface {
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
+
+	// TestVetNode directly sets a node's vetted_at timestamp to make testing easier
+	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
+	// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier
+	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
@@ -133,8 +138,6 @@ type FindStorageNodesRequest struct {
 // NodeCriteria are the requirements for selecting nodes.
 type NodeCriteria struct {
 	FreeDisk         int64
-	AuditCount       int64
-	UptimeCount      int64
 	ExcludedIDs      []storj.NodeID
 	ExcludedNetworks []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
 	MinimumVersion   string   // semver or empty
@@ -370,8 +373,6 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	criteria := NodeCriteria{
 		FreeDisk:         preferences.MinimumDiskSpace.Int64(),
-		AuditCount:       preferences.AuditCount,
-		UptimeCount:      preferences.UptimeCount,
 		ExcludedIDs:      excludedIDs,
 		ExcludedNetworks: excludedNetworks,
 		MinimumVersion:   preferences.MinimumVersion,
@@ -541,4 +542,29 @@ func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network st
 	}
 
 	return "", "", errors.New("unable to get network for address " + ipAddr.String())
+}
+
+// TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
+func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
+	vettedTime, err = service.db.TestVetNode(ctx, nodeID)
+	service.log.Warn("node vetted", zap.Stringer("node ID", nodeID), zap.Stringer("vetted time", vettedTime))
+	if err != nil {
+		service.log.Warn("error vetting node", zap.Stringer("node ID", nodeID))
+		return nil, err
+	}
+	err = service.SelectionCache.Refresh(ctx)
+	service.log.Warn("nodecache refresh err", zap.Error(err))
+	return vettedTime, err
+}
+
+// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier.
+func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	err = service.db.TestUnvetNode(ctx, nodeID)
+	if err != nil {
+		service.log.Warn("error unvetting node", zap.Stringer("node ID", nodeID), zap.Error(err))
+		return err
+	}
+	err = service.SelectionCache.Refresh(ctx)
+	service.log.Warn("nodecache refresh err", zap.Error(err))
+	return err
 }

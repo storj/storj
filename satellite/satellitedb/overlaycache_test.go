@@ -23,6 +23,7 @@ func TestUpdateStats(t *testing.T) {
 		nodeB := planet.StorageNodes[1]
 		nodeA.Contact.Chore.Pause(ctx)
 		nodeB.Contact.Chore.Pause(ctx)
+
 		cache := planet.Satellites[0].DB.OverlayCache()
 		numAudits := int64(2)
 		numUptimes := int64(3)
@@ -103,6 +104,7 @@ func TestBatchUpdateStats(t *testing.T) {
 		nodeB := planet.StorageNodes[1]
 		nodeA.Contact.Chore.Pause(ctx)
 		nodeB.Contact.Chore.Pause(ctx)
+
 		cache := planet.Satellites[0].DB.OverlayCache()
 		numAudits := int64(2)
 		numUptimes := int64(3)

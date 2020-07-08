@@ -31,7 +31,7 @@ type Config struct {
 type NodeSelectionConfig struct {
 	UptimeCount      int64         `help:"the number of times a node's uptime has been checked to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
 	AuditCount       int64         `help:"the number of times a node has been audited to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
-	NewNodeFraction  float64       `help:"the fraction of new nodes allowed per request" default:"0.05"`
+	NewNodeFraction  float64       `help:"the fraction of new nodes allowed per request" releaseDefault:"0.05" devDefault:"1"`
 	MinimumVersion   string        `help:"the minimum node software version for node selection queries" default:""`
 	OnlineWindow     time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h"`
 	DistinctIP       bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
