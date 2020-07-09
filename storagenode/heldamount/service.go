@@ -5,6 +5,7 @@ package heldamount
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/private/date"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -38,15 +40,17 @@ type Service struct {
 
 	db           DB
 	reputationDB reputation.DB
+	satellitesDB satellites.DB
 	trust        *trust.Pool
 }
 
 // NewService creates new instance of service.
-func NewService(log *zap.Logger, db DB, reputationDB reputation.DB, trust *trust.Pool) *Service {
+func NewService(log *zap.Logger, db DB, reputationDB reputation.DB, satelliteDB satellites.DB, trust *trust.Pool) *Service {
 	return &Service{
 		log:          log,
 		db:           db,
 		reputationDB: reputationDB,
+		satellitesDB: satelliteDB,
 		trust:        trust,
 	}
 }
@@ -202,6 +206,69 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []HeldHi
 		history.JoinedAt = stats.JoinedAt
 
 		result = append(result, history)
+	}
+
+	return result, nil
+}
+
+// PayoutHistory contains payout information for specific period for specific satellite.
+type PayoutHistory struct {
+	NodeAge        int64  `json:"nodeAge"`
+	Earned         int64  `json:"earned"`
+	Surge          int64  `json:"surge"`
+	Held           int64  `json:"held"`
+	AfterHeld      int64  `json:"afterHeld"`
+	HeldReturned   int64  `json:"heldReturned"`
+	Receipt        string `json:"receipt"`
+	IsExitComplete bool   `json:"isExitComplete"`
+}
+
+// PayoutHistoryMonthly retrieves paystub and payment receipt for specific month from all satellites.
+func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string) (result []PayoutHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	satelliteIDs := service.trust.GetSatellites(ctx)
+	for i := 0; i < len(satelliteIDs); i++ {
+		var payoutHistory PayoutHistory
+		paystub, err := service.db.GetPayStub(ctx, satelliteIDs[i], period)
+		if err != nil {
+			if ErrNoPayStubForPeriod.Has(err) {
+				continue
+			}
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
+
+		stats, err := service.reputationDB.Get(ctx, satelliteIDs[i])
+		if err != nil {
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
+
+		satellite, err := service.satellitesDB.GetSatellite(ctx, satelliteIDs[i])
+		if err != nil {
+			if sql.ErrNoRows == err {
+				payoutHistory.IsExitComplete = false
+			}
+
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
+
+		if satellite.Status == satellites.ExitSucceeded {
+			payoutHistory.IsExitComplete = true
+		}
+
+		if paystub.SurgePercent == 0 {
+			paystub.SurgePercent = 100
+		}
+
+		payoutHistory.Held = paystub.Held
+		payoutHistory.Receipt = paystub.Receipt
+		payoutHistory.AfterHeld = paystub.Paid
+		payoutHistory.NodeAge = int64(date.MonthsCountSince(stats.JoinedAt))
+		payoutHistory.HeldReturned = paystub.Disposed
+		payoutHistory.Surge = paystub.Paid * (paystub.SurgePercent/100 - 1)
+		payoutHistory.Earned = paystub.Paid
+
+		result = append(result, payoutHistory)
 	}
 
 	return result, nil

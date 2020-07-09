@@ -532,6 +532,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Named("heldamount:service"),
 			peer.DB.HeldAmount(),
 			peer.DB.Reputation(),
+			peer.DB.Satellites(),
 			peer.Storage2.Trust,
 		)
 		peer.Heldamount.Endpoint = heldamount.NewEndpoint(

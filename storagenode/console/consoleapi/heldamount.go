@@ -172,6 +172,34 @@ func (heldAmount *HeldAmount) HeldHistory(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// PayoutHistory retrieves paystubs for specific period from all satellites and transaction receipts if exists.
+func (heldAmount *HeldAmount) PayoutHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set(contentType, applicationJSON)
+
+	segmentParams := mux.Vars(r)
+
+	period, ok := segmentParams["period"]
+	if !ok {
+		heldAmount.serveJSONError(w, http.StatusBadRequest, ErrNotificationsAPI.Wrap(err))
+		return
+	}
+
+	payoutHistory, err := heldAmount.service.PayoutHistoryMonthly(ctx, period)
+	if err != nil {
+		heldAmount.serveJSONError(w, http.StatusInternalServerError, ErrHeldAmountAPI.Wrap(err))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(payoutHistory); err != nil {
+		heldAmount.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+		return
+	}
+}
+
 // HeldAmountPeriods retrieves all periods in which we have some heldamount data.
 // Have optional parameter - satelliteID.
 // If satelliteID specified - will retrieve periods only for concrete satellite.

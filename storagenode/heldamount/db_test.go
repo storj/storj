@@ -193,7 +193,8 @@ func TestSatellitePayStubPeriodCached(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		heldAmountDB := db.HeldAmount()
 		reputationDB := db.Reputation()
-		service := heldamount.NewService(nil, heldAmountDB, reputationDB, nil)
+		satellitesDB := db.Satellites()
+		service := heldamount.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
 
 		payStub := heldamount.PayStub{
 			SatelliteID:    storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -242,7 +243,8 @@ func TestAllPayStubPeriodCached(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		heldAmountDB := db.HeldAmount()
 		reputationDB := db.Reputation()
-		service := heldamount.NewService(nil, heldAmountDB, reputationDB, nil)
+		satellitesDB := db.Satellites()
+		service := heldamount.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
 
 		payStub := heldamount.PayStub{
 			SatelliteID:    storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"testing"
 	"time"
@@ -45,16 +44,13 @@ var (
 )
 
 func TestStorageNodeApi(t *testing.T) {
-	t.Skip("Flaky")
-
 	testplanet.Run(t,
 		testplanet.Config{
-			SatelliteCount:   2,
+			SatelliteCount:   1,
 			StorageNodeCount: 1,
 		},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			satellite := planet.Satellites[0]
-			satellite2 := planet.Satellites[1]
 			sno := planet.StorageNodes[0]
 			console := sno.Console
 			bandwidthdb := sno.DB.Bandwidth()
@@ -65,19 +61,13 @@ func TestStorageNodeApi(t *testing.T) {
 
 			now := time.Now().UTC().Add(-2 * time.Hour)
 
-			randAmount1 := int64(120000000000)
-			randAmount2 := int64(450000000000)
-
 			for _, action := range actions {
-				err := bandwidthdb.Add(ctx, satellite.ID(), action, randAmount1, now)
-				require.NoError(t, err)
-
-				err = bandwidthdb.Add(ctx, satellite2.ID(), action, randAmount2, now.Add(2*time.Hour))
+				err := bandwidthdb.Add(ctx, satellite.ID(), action, 2300000000000, now)
 				require.NoError(t, err)
 			}
 			var satellites []storj.NodeID
 
-			satellites = append(satellites, satellite.ID(), satellite2.ID())
+			satellites = append(satellites, satellite.ID())
 			stamps, _ := makeStorageUsageStamps(satellites)
 
 			err := storageusagedb.Store(ctx, stamps)
@@ -94,29 +84,15 @@ func TestStorageNodeApi(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			err = pricingdb.Store(ctx, pricing.Pricing{
-				SatelliteID:     satellite2.ID(),
-				EgressBandwidth: egressPrice,
-				RepairBandwidth: repairPrice,
-				AuditBandwidth:  auditPrice,
-				DiskSpace:       diskPrice,
-			})
-			require.NoError(t, err)
-
 			err = reputationdb.Store(ctx, reputation.Stats{
 				SatelliteID: satellite.ID(),
-				JoinedAt:    time.Now().UTC(),
-			})
-			require.NoError(t, err)
-			err = reputationdb.Store(ctx, reputation.Stats{
-				SatelliteID: satellite2.ID(),
 				JoinedAt:    time.Now().UTC(),
 			})
 			require.NoError(t, err)
 
 			t.Run("test EstimatedPayout", func(t *testing.T) {
 				// should return estimated payout for both satellites in current month and empty for previous
-				url := fmt.Sprintf("%s/estimatedPayout", baseURL)
+				url := fmt.Sprintf("%s/estimated-payout", baseURL)
 				res, err := http.Get(url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
@@ -129,42 +105,14 @@ func TestStorageNodeApi(t *testing.T) {
 				body, err := ioutil.ReadAll(res.Body)
 				require.NoError(t, err)
 
-				egressBandwidth1 := randAmount1
-				egressBandwidthPayout1 := int64(float64(randAmount1*egressPrice) / math.Pow10(12))
-				egressRepairAudit1 := randAmount1 * 2
-				egressRepairAuditPayout1 := int64(float64(randAmount1*auditPrice+randAmount1*repairPrice) / math.Pow10(12))
-				diskSpace1 := 30000000000000 * time.Now().UTC().Day()
-				egressBandwidth2 := randAmount2
-				egressBandwidthPayout2 := int64(float64(randAmount2*egressPrice) / math.Pow10(12))
-				egressRepairAudit2 := randAmount2 * 2
-				egressRepairAuditPayout2 := int64(float64(randAmount2*auditPrice+randAmount2*repairPrice) / math.Pow10(12))
-				diskSpace2 := 30000000000000 * time.Now().UTC().Day()
-				diskSpacePayout2 := int64(30000000000000/720/math.Pow10(12)*float64(diskPrice)) * int64(time.Now().UTC().Day())
+				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx)
+				require.NoError(t, err)
 
 				expected, err := json.Marshal(heldamount.EstimatedPayout{
-					CurrentMonth: heldamount.PayoutMonthly{
-						EgressBandwidth:         2 * (egressBandwidth1 + egressBandwidth2),
-						EgressBandwidthPayout:   (egressBandwidthPayout1 + egressBandwidthPayout2) / 2,
-						EgressRepairAudit:       2 * (egressRepairAudit1 + egressRepairAudit2),
-						EgressRepairAuditPayout: (egressRepairAuditPayout1 + egressRepairAuditPayout2) / 2,
-						DiskSpace:               float64(diskSpace1 + diskSpace2),
-						DiskSpacePayout:         (diskSpacePayout2 - (diskSpacePayout2 * 75 / 100)) * 2,
-						HeldRate:                0,
-						Held:                    (2*(egressBandwidthPayout1+egressRepairAuditPayout1)+diskSpacePayout2)*75/100 + (2*(egressBandwidthPayout2+egressRepairAuditPayout2)+diskSpacePayout2)*75/100,
-						Payout:                  ((egressBandwidthPayout1 + egressBandwidthPayout2) / 2) + ((egressRepairAuditPayout1 + egressRepairAuditPayout2) / 2) + (diskSpacePayout2-(diskSpacePayout2*75/100))*2,
-					},
-					PreviousMonth: heldamount.PayoutMonthly{
-						EgressBandwidth:         0,
-						EgressBandwidthPayout:   0,
-						EgressRepairAudit:       0,
-						EgressRepairAuditPayout: 0,
-						DiskSpace:               0,
-						DiskSpacePayout:         0,
-						HeldRate:                0,
-						Held:                    0,
-						Payout:                  0,
-					},
+					CurrentMonth:  estimation.CurrentMonth,
+					PreviousMonth: estimation.PreviousMonth,
 				})
+
 				require.NoError(t, err)
 				require.Equal(t, string(expected)+"\n", string(body))
 			})
