@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
+	"storj.io/storj/satellite/metainfo/objectdeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
@@ -459,6 +460,10 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					DialTimeout:    2 * time.Second,
 					RequestTimeout: 2 * time.Second,
 					FailThreshold:  2 * time.Second,
+				},
+				ObjectDeletion: objectdeletion.Config{
+					MaxObjectsPerRequest:     100,
+					ZombieSegmentsPerRequest: 3,
 				},
 			},
 			Orders: orders.Config{

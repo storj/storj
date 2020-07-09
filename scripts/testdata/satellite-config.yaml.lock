@@ -340,6 +340,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
+# maximum number of requests per batch
+# metainfo.object-deletion.max-objects-per-request: 100
+
+# number of segments per request when looking for zombie segments
+# metainfo.object-deletion.zombie-segments-per-request: 3
+
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 

@@ -11,6 +11,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/satellite/metainfo/objectdeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/cockroachkv"
@@ -55,18 +56,19 @@ type ProjectLimitConfig struct {
 
 // Config is a configuration struct that is everything you need to start a metainfo.
 type Config struct {
-	DatabaseURL          string               `help:"the database connection string to use" default:"postgres://"`
-	MinRemoteSegmentSize memory.Size          `default:"1240" help:"minimum remote segment size"`
-	MaxInlineSegmentSize memory.Size          `default:"4KiB" help:"maximum inline segment size"`
-	MaxSegmentSize       memory.Size          `default:"64MiB" help:"maximum segment size"`
-	MaxMetadataSize      memory.Size          `default:"2KiB" help:"maximum segment metadata size"`
-	MaxCommitInterval    time.Duration        `default:"48h" help:"maximum time allowed to pass between creating and committing a segment"`
-	Overlay              bool                 `default:"true" help:"toggle flag if overlay is enabled"`
-	RS                   RSConfig             `help:"redundancy scheme configuration"`
-	Loop                 LoopConfig           `help:"loop configuration"`
-	RateLimiter          RateLimiterConfig    `help:"rate limiter configuration"`
-	ProjectLimits        ProjectLimitConfig   `help:"project limit configuration"`
-	PieceDeletion        piecedeletion.Config `help:"piece deletion configuration"`
+	DatabaseURL          string                `help:"the database connection string to use" default:"postgres://"`
+	MinRemoteSegmentSize memory.Size           `default:"1240" help:"minimum remote segment size"`
+	MaxInlineSegmentSize memory.Size           `default:"4KiB" help:"maximum inline segment size"`
+	MaxSegmentSize       memory.Size           `default:"64MiB" help:"maximum segment size"`
+	MaxMetadataSize      memory.Size           `default:"2KiB" help:"maximum segment metadata size"`
+	MaxCommitInterval    time.Duration         `default:"48h" help:"maximum time allowed to pass between creating and committing a segment"`
+	Overlay              bool                  `default:"true" help:"toggle flag if overlay is enabled"`
+	RS                   RSConfig              `help:"redundancy scheme configuration"`
+	Loop                 LoopConfig            `help:"loop configuration"`
+	RateLimiter          RateLimiterConfig     `help:"rate limiter configuration"`
+	ProjectLimits        ProjectLimitConfig    `help:"project limit configuration"`
+	PieceDeletion        piecedeletion.Config  `help:"piece deletion configuration"`
+	ObjectDeletion       objectdeletion.Config `help:"object deletion configuration"`
 }
 
 // PointerDB stores pointers.
