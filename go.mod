@@ -16,6 +16,7 @@ require (
 	github.com/gorilla/mux v1.7.1
 	github.com/gorilla/schema v1.1.0
 	github.com/graphql-go/graphql v0.7.9
+	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
