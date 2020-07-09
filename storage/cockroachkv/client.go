@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"sort"
 
 	"github.com/lib/pq"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -187,6 +188,12 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 // DeleteMultiple deletes keys ignoring missing keys
 func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (items storage.Items, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// make sure delete always happen in the same order
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i].Less(keys[j])
+	})
+
 	for {
 		items, err = client.deleteMultipleOnce(ctx, keys)
 		if err != nil {
