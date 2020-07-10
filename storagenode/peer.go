@@ -247,8 +247,9 @@ type Peer struct {
 	}
 
 	GracefulExit struct {
-		Endpoint *gracefulexit.Endpoint
-		Chore    *gracefulexit.Chore
+		Endpoint     *gracefulexit.Endpoint
+		Chore        *gracefulexit.Chore
+		BlobsCleaner *gracefulexit.BlobsCleaner
 	}
 
 	Notifications struct {
@@ -656,6 +657,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Dialer,
 			peer.DB.Satellites(),
 		)
+		peer.GracefulExit.BlobsCleaner = gracefulexit.NewBlobsCleaner(
+			peer.Log.Named("gracefuexit:blobscleaner"),
+			peer.Storage2.Store,
+			peer.Storage2.Trust,
+			peer.DB.Satellites(),
+		)
+		// Runs once on node start to clean blobs from trash that left after successful GE.
+		peer.Services.Add(lifecycle.Item{
+			Name: "gracefulexit:blobscleaner",
+			Run:  peer.GracefulExit.BlobsCleaner.RemoveBlobs,
+		})
 		peer.Services.Add(lifecycle.Item{
 			Name:  "gracefulexit:chore",
 			Run:   peer.GracefulExit.Chore.Run,
