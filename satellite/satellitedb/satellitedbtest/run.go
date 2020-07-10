@@ -52,12 +52,12 @@ func Databases() []SatelliteDatabases {
 	return []SatelliteDatabases{
 		{
 			Name:      "Postgres",
-			MasterDB:  Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_POSTGRES_TEST environment variable."},
+			MasterDB:  Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
 			PointerDB: Database{"Postgres", postgresConnStr, ""},
 		},
 		{
 			Name:      "Cockroach",
-			MasterDB:  Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_COCKROACH_TEST environment variable."},
+			MasterDB:  Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
 			PointerDB: Database{"Cockroach", cockroachConnStr, ""},
 		},
 	}

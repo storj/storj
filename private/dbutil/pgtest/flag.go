@@ -15,11 +15,21 @@ import (
 
 // We need to define this in a separate package due to https://golang.org/issue/23910.
 
+func getenv(priority ...string) string {
+	for _, p := range priority {
+		v := os.Getenv(p)
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // postgres is the test database connection string.
-var postgres = flag.String("postgres-test-db", os.Getenv("STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
+var postgres = flag.String("postgres-test-db", getenv("STORJ_TEST_POSTGRES", "STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
 
 // cockroach is the test database connection string for CockroachDB
-var cockroach = flag.String("cockroach-test-db", os.Getenv("STORJ_COCKROACH_TEST"), "CockroachDB test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
+var cockroach = flag.String("cockroach-test-db", getenv("STORJ_TEST_COCKROACH", "STORJ_COCKROACH_TEST"), "CockroachDB test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
 
 // DefaultPostgres is expected to work under the storj-test docker-compose instance
 const DefaultPostgres = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"

@@ -57,11 +57,11 @@ pipeline {
 
                 stage('Tests') {
                     environment {
-                        STORJ_COCKROACH_TEST = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
+                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
-                        STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                         COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...'}"
                     }
                     steps {
@@ -99,8 +99,8 @@ pipeline {
 
                 stage('Check Benchmark') {
                     environment {
-                        STORJ_COCKROACH_TEST = 'cockroach://root@localhost:26256/benchcockroach?sslmode=disable'
-                        STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/benchcockroach?sslmode=disable'
+                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
                     }
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database benchcockroach;\''
