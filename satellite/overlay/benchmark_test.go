@@ -193,7 +193,7 @@ func BenchmarkOverlay(b *testing.B) {
 
 func BenchmarkNodeSelection(b *testing.B) {
 	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
-		const (
+		var (
 			Total       = 10000
 			Offline     = 1000
 			NodesPerNet = 2
@@ -203,6 +203,13 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 			newNodeFraction = 0.05
 		)
+
+		if testing.Short() {
+			Total /= 10
+			Offline /= 10
+			SelectCount /= 10
+			ExcludedCount /= 10
+		}
 
 		SelectNewCount := int(100 * newNodeFraction)
 

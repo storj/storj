@@ -97,6 +97,19 @@ pipeline {
                     }
                 }
 
+                stage('Check Benchmark') {
+                    environment {
+                        STORJ_COCKROACH_TEST = 'cockroach://root@localhost:26256/benchcockroach?sslmode=disable'
+                        STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                    }
+                    steps {
+                        sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database benchcockroach;\''
+
+                        sh 'psql -U postgres -c \'create database benchstorj;\''
+                        sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+                    }
+                }
+
                 stage('Integration') {
                     environment {
                         // use different hostname to avoid port conflicts

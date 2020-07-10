@@ -82,10 +82,15 @@ func BenchmarkDB_PieceCounts(b *testing.B) {
 		ctx := testcontext.New(b)
 		defer ctx.Cleanup()
 
+		var NumberOfNodes = 10000
+		if testing.Short() {
+			NumberOfNodes = 1000
+		}
+
 		overlaydb := db.OverlayCache()
 
 		counts := make(map[storj.NodeID]int)
-		for i := 0; i < 10000; i++ {
+		for i := 0; i < NumberOfNodes; i++ {
 			counts[testrand.NodeID()] = testrand.Intn(100000)
 		}
 
