@@ -107,6 +107,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		service.log.Error("Total disk space less than required minimum", zap.Int64("bytes", service.Config.MinimumDiskSpace.Int64()))
 		return Error.New("disk space requirement not met")
 	}
+
 	var group errgroup.Group
 	group.Go(func() error {
 		return service.Loop.Run(ctx, func(ctx context.Context) error {

@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
@@ -168,6 +169,18 @@ func (slow *SlowBlobs) SpaceUsedForBlobsInNamespace(ctx context.Context, namespa
 func (slow *SlowBlobs) SpaceUsedForTrash(ctx context.Context) (int64, error) {
 	slow.sleep()
 	return slow.blobs.SpaceUsedForTrash(ctx)
+}
+
+// CreateVerificationFile creates a file to be used for storage directory verification.
+func (slow *SlowBlobs) CreateVerificationFile(id storj.NodeID) error {
+	slow.sleep()
+	return slow.blobs.CreateVerificationFile(id)
+}
+
+// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
+// of the verification file.
+func (slow *SlowBlobs) VerifyStorageDir(id storj.NodeID) error {
+	return slow.blobs.VerifyStorageDir(id)
 }
 
 // SetLatency configures the blob store to sleep for delay duration for all
