@@ -199,6 +199,79 @@ func TestService_Delete_MultipleObject(t *testing.T) {
 	}
 }
 
+func calcExpectedPieces(segmentType string, numRequests int, batchSize int, largestSegmentIdx int, numPiecesPerSegment int) int {
+	numSegments := largestSegmentIdx + 1
+
+	totalPieces := numRequests * numSegments * numPiecesPerSegment
+
+	switch segmentType {
+	case "mixed-segment":
+		return totalPieces - numPiecesPerSegment
+	case "zombie-segment":
+		return numRequests * largestSegmentIdx * numPiecesPerSegment
+	default:
+		return totalPieces
+	}
+
+}
+
+func TestService_Delete_Batch(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	var testCases = []struct {
+		description         string
+		segmentType         string
+		numRequests         int
+		batchSize           int
+		largestSegmentIdx   int
+		numPiecesPerSegment int32
+	}{
+		{"single-request", "single-segment", 1, 1, 0, 3},
+		{"single-request", "multi-segment", 1, 1, 5, 2},
+		{"single-request", "inline-segment", 1, 1, 0, 0},
+		{"single-request", "mixed-segment", 1, 1, 5, 3},
+		{"single-request", "zombie-segment", 1, 1, 5, 2},
+
+		{"multi-request", "single-segment", 10, 2, 0, 3},
+		{"multi-request", "multi-segment", 10, 2, 5, 2},
+		{"multi-request", "inline-segment", 10, 2, 0, 0},
+		{"multi-request", "mixed-segment", 10, 3, 5, 3},
+		{"multi-request", "zombie-segment", 10, 2, 5, 2},
+	}
+
+	for _, tt := range testCases {
+		tt := tt
+		t.Run(tt.description, func(t *testing.T) {
+			config := objectdeletion.Config{
+				MaxObjectsPerRequest:     tt.batchSize,
+				ZombieSegmentsPerRequest: 3,
+			}
+
+			requests := createRequests(tt.numRequests)
+			expectedPiecesToDelete := calcExpectedPieces(tt.segmentType, tt.numRequests, tt.batchSize, tt.largestSegmentIdx, int(tt.numPiecesPerSegment))
+
+			pointerDBMock, err := newPointerDB(requests, tt.segmentType, tt.largestSegmentIdx, tt.numPiecesPerSegment, false)
+			require.NoError(t, err)
+
+			service, err := objectdeletion.NewService(zaptest.NewLogger(t), pointerDBMock, config)
+			require.NoError(t, err)
+
+			pointers, deletedPaths, err := service.Delete(ctx, requests...)
+			require.NoError(t, err)
+
+			report := objectdeletion.GenerateReport(ctx, logger, requests, deletedPaths)
+			require.False(t, report.HasFailures())
+
+			piecesToDeleted := objectdeletion.GroupPiecesByNodeID(pointers)
+
+			require.Equal(t, expectedPiecesToDelete, len(piecesToDeleted))
+		})
+	}
+
+}
+
 const (
 	lastSegmentIdx  = -1
 	firstSegmentIdx = 0
@@ -358,7 +431,7 @@ func createPaths(object *objectdeletion.ObjectIdentifier, largestSegmentIdx int)
 
 func createPath(projectID uuid.UUID, bucket []byte, segmentIdx int, encryptedPath []byte) []byte {
 	segment := "l"
-	if segmentIdx > lastSegmentIdx { // lastSegmentIndex = -1
+	if segmentIdx > lastSegmentIdx {
 		segment = "s" + strconv.Itoa(segmentIdx)
 	}
 
