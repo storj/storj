@@ -483,8 +483,9 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					ConversionRatesCycleInterval: defaultInterval,
 					ListingLimit:                 100,
 				},
-				CouponDuration: 2,
-				CouponValue:    275,
+				CouponDuration:    2,
+				CouponValue:       275,
+				PaywallProportion: 1,
 			},
 			Repairer: repairer.Config{
 				MaxRepair:                     10,

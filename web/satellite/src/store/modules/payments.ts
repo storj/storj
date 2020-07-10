@@ -26,6 +26,7 @@ export const PAYMENTS_MUTATIONS = {
     SET_CURRENT_ROLLUP_PRICE: 'SET_CURRENT_ROLLUP_PRICE',
     SET_PREVIOUS_ROLLUP_PRICE: 'SET_PREVIOUS_ROLLUP_PRICE',
     SET_PRICE_SUMMARY: 'SET_PRICE_SUMMARY',
+    SET_PAYWALL_ENABLED_STATUS: 'SET_PAYWALL_ENABLED_STATUS',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -43,6 +44,7 @@ export const PAYMENTS_ACTIONS = {
     GET_PROJECT_USAGE_AND_CHARGES: 'getProjectUsageAndCharges',
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP: 'getProjectUsageAndChargesCurrentRollup',
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP: 'getProjectUsageAndChargesPreviousRollup',
+    GET_PAYWALL_ENABLED_STATUS: 'getPaywallEnabledStatus',
 };
 
 const {
@@ -55,6 +57,7 @@ const {
     SET_PAYMENTS_HISTORY,
     SET_PROJECT_USAGE_AND_CHARGES,
     SET_PRICE_SUMMARY,
+    SET_PAYWALL_ENABLED_STATUS,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -71,6 +74,7 @@ const {
     MAKE_TOKEN_DEPOSIT,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
+    GET_PAYWALL_ENABLED_STATUS,
 } = PAYMENTS_ACTIONS;
 
 export class PaymentsState {
@@ -84,6 +88,7 @@ export class PaymentsState {
     public priceSummary: number = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
+    public paywallEnabled: boolean = true;
 }
 
 /**
@@ -148,6 +153,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
 
                 state.priceSummary = usageItemSummaries.reduce((accumulator, current) => accumulator + current);
             },
+            [SET_PAYWALL_ENABLED_STATUS](state: PaymentsState, paywallEnabledStatus: boolean): void {
+                state.paywallEnabled = paywallEnabledStatus;
+            },
             [CLEAR](state: PaymentsState) {
                 state.balance = new AccountBalance();
                 state.paymentsHistory = [];
@@ -156,6 +164,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 state.creditCards = [];
                 state.startDate = new Date();
                 state.endDate = new Date();
+                state.paywallEnabled = true;
             },
         },
         actions: {
@@ -227,6 +236,11 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
                 commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
+            },
+            [GET_PAYWALL_ENABLED_STATUS]: async function({commit, rootGetters}: any): Promise<void> {
+                const paywallEnabledStatus: boolean = await api.getPaywallEnabledStatus(rootGetters.user.id);
+
+                commit(SET_PAYWALL_ENABLED_STATUS, paywallEnabledStatus);
             },
         },
         getters: {

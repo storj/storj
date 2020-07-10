@@ -6,8 +6,22 @@ import ProgressBar from '@/components/onboardingTour/ProgressBar.vue';
 import { mount } from '@vue/test-utils';
 
 describe('ProgressBar.vue', () => {
-    it('renders correctly', (): void => {
-        const wrapper = mount(ProgressBar);
+    it('renders correctly if paywall is enabled', (): void => {
+        const wrapper = mount(ProgressBar, {
+            propsData: {
+                isPaywallEnabled: true,
+            },
+        });
+
+        expect(wrapper).toMatchSnapshot();
+    });
+
+    it('renders correctly if paywall is disabled', (): void => {
+        const wrapper = mount(ProgressBar, {
+            propsData: {
+                isPaywallEnabled: false,
+            },
+        });
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -16,6 +30,7 @@ describe('ProgressBar.vue', () => {
         const wrapper = mount(ProgressBar, {
             propsData: {
                 isAddPaymentStep: true,
+                isPaywallEnabled: true,
             },
         });
 
@@ -27,6 +42,7 @@ describe('ProgressBar.vue', () => {
         const wrapper = mount(ProgressBar, {
             propsData: {
                 isCreateProjectStep: true,
+                isPaywallEnabled: true,
             },
         });
 
@@ -38,6 +54,7 @@ describe('ProgressBar.vue', () => {
         const wrapper = mount(ProgressBar, {
             propsData: {
                 isCreateApiKeyStep: true,
+                isPaywallEnabled: true,
             },
         });
 
@@ -49,6 +66,7 @@ describe('ProgressBar.vue', () => {
         const wrapper = mount(ProgressBar, {
             propsData: {
                 isUploadDataStep: true,
+                isPaywallEnabled: true,
             },
         });
 

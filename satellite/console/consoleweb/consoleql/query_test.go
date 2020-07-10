@@ -74,7 +74,8 @@ func TestGraphqlQuery(t *testing.T) {
 			pc.CouponValue,
 			pc.CouponDuration,
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.MinCoinPayment,
+			pc.PaywallProportion)
 		require.NoError(t, err)
 
 		service, err := console.NewService(

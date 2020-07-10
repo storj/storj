@@ -58,6 +58,7 @@ import { AppState } from '@/utils/constants/appStateEnum';
 import { ProjectOwning } from '@/utils/projectOwning';
 
 const {
+    GET_PAYWALL_ENABLED_STATUS,
     SETUP_ACCOUNT,
     GET_BALANCE,
     GET_CREDIT_CARDS,
@@ -98,6 +99,12 @@ export default class DashboardArea extends Vue {
             setTimeout(async () => await this.$router.push(RouteConfig.Login.path), 1000);
 
             return;
+        }
+
+        try {
+            await this.$store.dispatch(GET_PAYWALL_ENABLED_STATUS);
+        } catch (error) {
+            await this.$notify.error(`Unable to get paywall enabled status. ${error.message}`);
         }
 
         try {

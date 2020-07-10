@@ -82,12 +82,13 @@ type Service struct {
 	rates    coinpayments.CurrencyRateInfos
 	ratesErr error
 
-	listingLimit int
-	nowFn        func() time.Time
+	listingLimit      int
+	nowFn             func() time.Time
+	PaywallProportion float64
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64, paywallProportion float64) (*Service, error) {
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -132,6 +133,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		AutoAdvance:              config.AutoAdvance,
 		listingLimit:             config.ListingLimit,
 		nowFn:                    time.Now,
+		PaywallProportion:        paywallProportion,
 	}, nil
 }
 
@@ -209,6 +211,10 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 		}
 
 		userID := ids[id]
+
+		if !service.Accounts().PaywallEnabled(userID) {
+			continue
+		}
 
 		rate, err := service.db.Transactions().GetLockedRate(ctx, id)
 		if err != nil {

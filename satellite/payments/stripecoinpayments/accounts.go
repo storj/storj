@@ -194,3 +194,14 @@ func (accounts *accounts) Credits() payments.Credits {
 
 	return &credits{service: accounts.service}
 }
+
+// PaywallEnabled returns a true if a credit card or account
+// balance is required to create projects.
+func (accounts *accounts) PaywallEnabled(userID uuid.UUID) bool {
+	return BytesAreWithinProportion(userID, accounts.service.PaywallProportion)
+}
+
+//BytesAreWithinProportion returns true if first byte is less than the normalized proportion [0..1].
+func BytesAreWithinProportion(uuidBytes [16]byte, proportion float64) bool {
+	return int(uuidBytes[0]) < int(proportion*256)
+}

@@ -5,12 +5,14 @@
     <div class="progress-bar-container">
         <div class="progress-bar-container__progress-area">
             <div
+                v-if="isPaywallEnabled"
                 class="progress-bar-container__progress-area__circle"
                 :class="{ 'completed-step': isAddPaymentStep || isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep }"
             >
                 <CheckedImage/>
             </div>
             <div
+                v-if="isPaywallEnabled"
                 class="progress-bar-container__progress-area__bar"
                 :class="{ 'completed-step': isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep }"
             />
@@ -41,8 +43,9 @@
                 <CheckedImage/>
             </div>
         </div>
-        <div class="progress-bar-container__titles-area">
+        <div class="progress-bar-container__titles-area" :class="{ 'titles-area-no-paywall': !isPaywallEnabled }">
             <span
+                v-if="isPaywallEnabled"
                 class="progress-bar-container__titles-area__title"
                 :class="{ 'completed-font-color': isAddPaymentStep || isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep }"
             >
@@ -50,7 +53,7 @@
             </span>
             <span
                 class="progress-bar-container__titles-area__title name-your-project-title"
-                :class="{ 'completed-font-color': isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep }"
+                :class="{ 'completed-font-color': isCreateProjectStep || isCreateApiKeyStep || isUploadDataStep, 'title-no-paywall': !isPaywallEnabled }"
             >
                 Name Your Project
             </span>
@@ -82,6 +85,8 @@ import CheckedImage from '@/../static/images/common/checked.svg';
 })
 
 export default class ProgressBar extends Vue {
+    @Prop({ default: false })
+    public readonly isPaywallEnabled: boolean;
     @Prop({ default: false })
     public readonly isAddPaymentStep: boolean;
     @Prop({ default: false })
@@ -153,6 +158,14 @@ export default class ProgressBar extends Vue {
         color: #2683ff;
     }
 
+    .titles-area-no-paywall {
+        padding: 0 188px 0 178px;
+    }
+
+    .title-no-paywall {
+        padding: 0;
+    }
+
     @media screen and (max-width: 800px) {
 
         .progress-bar-container {
@@ -165,6 +178,10 @@ export default class ProgressBar extends Vue {
             &__titles-area {
                 padding: 0 128px 0 128px;
             }
+        }
+
+        .titles-area-no-paywall {
+            padding: 0 128px 0 118px;
         }
     }
 </style>

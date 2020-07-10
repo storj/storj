@@ -9,8 +9,9 @@ exports[`OnboardingTourArea.vue renders correctly 1`] = `
     <closeimage-stub class="tour-area__info-bar__close-img"></closeimage-stub>
   </div>
   <div class="tour-area__content">
-    <progressbar-stub></progressbar-stub>
+    <progressbar-stub ispaywallenabled="true"></progressbar-stub>
     <overviewstep-stub></overviewstep-stub>
+    <!---->
     <!---->
     <!---->
     <!---->

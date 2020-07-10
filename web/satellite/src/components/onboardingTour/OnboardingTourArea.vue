@@ -3,7 +3,7 @@
 
 <template>
     <div class="tour-area">
-        <div class="tour-area__info-bar" v-show="isInfoBarVisible">
+        <div class="tour-area__info-bar" v-show="isInfoBarVisible && isPaywallEnabled">
             <div class="tour-area__info-bar__message">
                 <b class="tour-area__info-bar__message__bold">Try Tardigrade with 50 GB Free after adding a payment method.</b>
                 <p class="tour-area__info-bar__message__regular"> Cancel before your credit runs out and you’ll never be billed.</p>
@@ -12,14 +12,19 @@
         </div>
         <div class="tour-area__content">
             <ProgressBar
+                :is-paywall-enabled="isPaywallEnabled"
                 :is-add-payment-step="isAddPaymentState"
                 :is-create-project-step="isCreateProjectState"
                 :is-create-api-key-step="isCreatApiKeyState"
                 :is-upload-data-step="isUploadDataState"
             />
             <OverviewStep
-                v-if="isDefaultState"
+                v-if="isDefaultState && isPaywallEnabled"
                 @setAddPaymentState="setAddPaymentState"
+            />
+            <OverviewStepNoPaywall
+                v-if="isDefaultState && !isPaywallEnabled"
+                @setCreateProjectState="setCreateProjectState"
             />
             <AddPaymentStep
                 v-if="isAddPaymentState"
@@ -52,6 +57,7 @@ import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue
 import CreateApiKeyStep from '@/components/onboardingTour/steps/CreateApiKeyStep.vue';
 import CreateProjectStep from '@/components/onboardingTour/steps/CreateProjectStep.vue';
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
+import OverviewStepNoPaywall from '@/components/onboardingTour/steps/OverviewStepNoPaywall.vue';
 import UploadDataStep from '@/components/onboardingTour/steps/UploadDataStep.vue';
 
 import CheckedImage from '@/../static/images/common/checked.svg';
@@ -59,9 +65,11 @@ import CloseImage from '@/../static/images/onboardingTour/close.svg';
 
 import { RouteConfig } from '@/router';
 import { TourState } from '@/utils/constants/onboardingTourEnums';
+import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
+        OverviewStepNoPaywall,
         UploadDataStep,
         CreateApiKeyStep,
         CreateProjectStep,
@@ -109,6 +117,13 @@ export default class OnboardingTourArea extends Vue {
         if (this.$store.getters.isTransactionProcessing || this.$store.getters.isBalancePositive) {
             this.setAddPaymentState();
         }
+    }
+
+    /**
+     * Indicates if paywall is enabled.
+     */
+    public get isPaywallEnabled(): boolean {
+        return this.$store.state.paymentsModule.paywallEnabled;
     }
 
     /**
