@@ -61,7 +61,6 @@ import (
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage/redis/redisserver"
 )
 
@@ -152,10 +151,6 @@ type Satellite struct {
 
 	Mail struct {
 		Service *mailservice.Service
-	}
-
-	Vouchers struct {
-		Endpoint *vouchers.Endpoint
 	}
 
 	Console struct {

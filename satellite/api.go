@@ -51,7 +51,6 @@ import (
 	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/satellite/vouchers"
 )
 
 // API is the satellite API process
@@ -87,10 +86,6 @@ type API struct {
 		DB        overlay.DB
 		Service   *overlay.Service
 		Inspector *overlay.Inspector
-	}
-
-	Vouchers struct {
-		Endpoint *vouchers.Endpoint
 	}
 
 	Orders struct {
@@ -292,12 +287,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "contact:service",
 			Close: peer.Contact.Service.Close,
 		})
-	}
-
-	{ // setup vouchers
-		if err := pb.DRPCRegisterVouchers(peer.Server.DRPC(), peer.Vouchers.Endpoint); err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup live accounting
