@@ -24,10 +24,10 @@ export class Dashboard {
  */
 export class SatelliteInfo {
     public constructor(
-        public id: string,
-        public url: string,
-        public disqualified: Date | null,
-        public suspended: Date | null,
+        public id: string = '',
+        public url: string = '',
+        public disqualified: Date | null = null,
+        public suspended: Date | null = null,
     ) { }
 }
 

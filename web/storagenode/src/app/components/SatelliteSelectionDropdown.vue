@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -10,27 +10,20 @@
                 </div>
             </div>
             <!-- loop for rendering satellites -->
-            <div class="satellite-selection-overflow-container__satellite-choice"
-                v-for="satellite in satellites" :key="satellite.id"
-                @click.stop="onSatelliteClick(satellite.id)">
-                <DisqualificationIcon
-                    class="satellite-selection-overflow-container__satellite-choice__image"
-                    v-if="satellite.disqualified"
-                    alt="disqualified image"
-                />
-                <SuspensionIcon
-                    class="satellite-selection-overflow-container__satellite-choice__image"
-                    v-if="satellite.suspended && !satellite.disqualified"
-                    alt="suspended image"
-                />
-                <p class="satellite-selection-overflow-container__satellite-choice__name" :class="{disqualified: satellite.disqualified, suspended: satellite.suspended}">{{satellite.url}}</p>
-            </div>
+            <SatelliteSelectionDropdownItem
+                v-for="satellite in satellites"
+                :satellite="satellite"
+                :key="satellite.id"
+                @onSatelliteClick="onSatelliteClick"
+            />
         </div>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
+import SatelliteSelectionDropdownItem from '@/app/components/SatelliteSelectionDropdownItem.vue';
 
 import DisqualificationIcon from '@/../static/images/disqualify.svg';
 import SuspensionIcon from '@/../static/images/suspend.svg';
@@ -43,6 +36,7 @@ import { SatelliteInfo } from '@/storagenode/dashboard';
 
 @Component({
     components: {
+        SatelliteSelectionDropdownItem,
         DisqualificationIcon,
         SuspensionIcon,
     },
