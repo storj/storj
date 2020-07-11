@@ -71,6 +71,8 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
 
+				paystub.UsageAtRest /= 720
+
 				expected, err := json.Marshal([]heldamount.PayStub{paystub})
 				require.NoError(t, err)
 
@@ -147,6 +149,8 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
 
+				paystub2.UsageAtRest /= 720
+
 				expected, err := json.Marshal([]heldamount.PayStub{paystub2, paystub})
 				require.NoError(t, err)
 
@@ -160,7 +164,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.Equal(t, string(expected)+"\n", string(body))
 
 				// should return 2 paystubs inserted earlier
-				url = fmt.Sprintf("%s/paystubs/s%s", baseURL, "2020-01")
+				url = fmt.Sprintf("%s/paystubs/%s", baseURL, "2020-01")
 				res2, err := http.Get(url)
 				require.NoError(t, err)
 				require.NotNil(t, res2)
@@ -210,6 +214,8 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
+
+				paystub3.UsageAtRest /= 720
 
 				expected, err := json.Marshal([]heldamount.PayStub{paystub3, paystub})
 				require.NoError(t, err)

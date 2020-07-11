@@ -462,7 +462,8 @@ func (s *Service) estimatedPayoutMonthly(ctx context.Context, satelliteID storj.
 	}
 
 	for j := 0; j < len(storageDaily); j++ {
-		payoutData.DiskSpace += storageDaily[j].AtRestTotal
+		// dividing by 720 to show tbm instead of tbh
+		payoutData.DiskSpace += storageDaily[j].AtRestTotal / 720
 		payoutData.DiskSpacePayout += int64(storageDaily[j].AtRestTotal / 720 / math.Pow10(12) * float64(priceModel.DiskSpace))
 	}
 

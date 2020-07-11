@@ -64,6 +64,8 @@ func (service *Service) SatellitePayStubMonthly(ctx context.Context, satelliteID
 		return nil, ErrHeldAmountService.Wrap(err)
 	}
 
+	payStub.UsageAtRestTbM()
+
 	return payStub, nil
 }
 
@@ -74,6 +76,10 @@ func (service *Service) AllPayStubsMonthly(ctx context.Context, period string) (
 	payStubs, err = service.db.AllPayStubs(ctx, period)
 	if err != nil {
 		return payStubs, ErrHeldAmountService.Wrap(err)
+	}
+
+	for i := 0; i < len(payStubs); i++ {
+		payStubs[i].UsageAtRestTbM()
 	}
 
 	return payStubs, nil
@@ -101,6 +107,10 @@ func (service *Service) SatellitePayStubPeriod(ctx context.Context, satelliteID 
 		payStubs = append(payStubs, *payStub)
 	}
 
+	for i := 0; i < len(payStubs); i++ {
+		payStubs[i].UsageAtRestTbM()
+	}
+
 	return payStubs, nil
 }
 
@@ -124,6 +134,10 @@ func (service *Service) AllPayStubsPeriod(ctx context.Context, periodStart, peri
 		}
 
 		payStubs = append(payStubs, payStub...)
+	}
+
+	for i := 0; i < len(payStubs); i++ {
+		payStubs[i].UsageAtRestTbM()
 	}
 
 	return payStubs, nil
@@ -327,4 +341,9 @@ func parsePeriodRange(periodStart, periodEnd string) (periods []string, err erro
 	}
 
 	return periods, nil
+}
+
+// UsageAtRestTbM converts paystub's usage_at_rest from tbh to tbm.
+func (paystub *PayStub) UsageAtRestTbM() {
+	paystub.UsageAtRest /= 720
 }

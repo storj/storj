@@ -222,7 +222,7 @@ export default class EstimationArea extends Vue {
     public get grossTotal(): number {
         return (this.currentBandwidthDownload * BANDWIDTH_DOWNLOAD_PRICE_PER_TB
             + this.currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB
-            + this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / 720) / TB;
+            + this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB) / TB;
     }
 
     /**
@@ -285,11 +285,9 @@ export default class EstimationArea extends Vue {
             return [
                 new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGet), this.heldInfo.compGet),
                 new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGetRepair + this.heldInfo.usageGetAudit), this.heldInfo.compGetRepair + this.heldInfo.compGetAudit),
-                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, formatBytes(this.heldInfo.usageAtRest) + 'h', '--', this.heldInfo.compAtRest),
+                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, formatBytes(this.heldInfo.usageAtRest) + 'm', '--', this.heldInfo.compAtRest),
             ];
         }
-
-        const approxHourInMonth = 720;
 
         return [
             new EstimationTableRow(
@@ -312,9 +310,9 @@ export default class EstimationArea extends Vue {
                 'Disk Average Month',
                 'Storage',
                 `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`,
-                this.totalDiskSpace + 'h',
+                this.totalDiskSpace + 'm',
                 '--',
-                this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / TB / approxHourInMonth,
+                this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / TB,
             ),
         ];
     }
