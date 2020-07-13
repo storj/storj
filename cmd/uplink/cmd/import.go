@@ -108,7 +108,7 @@ func importMain(cmd *cobra.Command, args []string) (err error) {
 
 		// This is a little hacky but viper deserializes accesses into a map[string]interface{}
 		// and complains if we try and override with map[string]string{}.
-		accesses := toStringMapE(importCfg.Accesses)
+		accesses := convertAccessesForViper(importCfg.Accesses)
 
 		overwritten := false
 		if _, ok := accesses[name]; ok {

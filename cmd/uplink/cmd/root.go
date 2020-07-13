@@ -14,7 +14,6 @@ import (
 	"runtime/pprof"
 	"strings"
 
-	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -161,18 +160,16 @@ func writeMemoryProfile() error {
 	return f.Close()
 }
 
-func toStringMapE(from interface{}) (to map[string]interface{}) {
-	to = make(map[string]interface{})
-
-	switch f := from.(type) {
-	case map[string]string:
-		for key, value := range f {
-			to[key] = value
-		}
-		return to
-	default:
-		return cast.ToStringMap(from)
+// convertAccessesForViper converts map[string]string to map[string]interface{}.
+//
+// This is a little hacky but viper deserializes accesses into a map[string]interface{}
+// and complains if we try and override with map[string]string{}.
+func convertAccessesForViper(from map[string]string) map[string]interface{} {
+	to := make(map[string]interface{})
+	for key, value := range from {
+		to[key] = value
 	}
+	return to
 }
 
 func modifyFlagDefaults(cmd *cobra.Command, args []string) (err error) {

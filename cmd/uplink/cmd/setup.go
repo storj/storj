@@ -117,7 +117,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	// NB: accesses should always be `map[string]interface{}` for "conventional"
 	// config serialization/flattening.
-	accesses := toStringMapE(setupCfg.Accesses)
+	accesses := convertAccessesForViper(setupCfg.Accesses)
 	accesses[accessName] = accessData
 	overrides["accesses"] = accesses
 
