@@ -422,6 +422,7 @@ func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 		satellite := planet.Satellites[0]
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Worker.Loop.Stop()
+		satellite.Audit.Chore.Loop.Pause()
 
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()

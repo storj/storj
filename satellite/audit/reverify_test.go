@@ -45,6 +45,7 @@ func TestReverifySuccess(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -128,6 +129,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -213,6 +215,7 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -305,6 +308,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -376,6 +380,7 @@ func TestReverifyOffline(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -445,6 +450,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -541,6 +547,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
@@ -626,6 +633,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		metainfo := satellite.Metainfo.Service
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
@@ -712,6 +720,7 @@ func TestReverifyReplacedSegment(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
@@ -799,6 +808,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
@@ -909,6 +919,7 @@ func TestReverifyExpired1(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -965,6 +976,7 @@ func TestReverifyExpired2(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
@@ -1099,6 +1111,7 @@ func TestReverifySlowDownload(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -1185,6 +1198,7 @@ func TestReverifyUnknownError(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)

@@ -4,6 +4,7 @@
 package audit
 
 import (
+	"context"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -18,14 +19,49 @@ var ErrEmptyQueue = errs.Class("empty audit queue")
 type Queue struct {
 	mu    sync.Mutex
 	queue []storj.Path
+	// onEmpty is a callback used to swap the active and pending queues when the active queue is empty.
+	onEmpty func()
 }
 
-// Swap switches the backing queue slice with a new queue slice.
-func (q *Queue) Swap(newQueue []storj.Path) {
+// WaitForSwap waits for the active queue to be empty, then replaces it with a new pending queue.
+// DO NOT CALL AGAIN UNTIL PREVIOUS CALL HAS RETURNED - there should only ever be one routine that calls WaitForSwap.
+// Otherwise, there is a possibility of one call getting stuck until the context is canceled.
+func (q *Queue) WaitForSwap(ctx context.Context, newQueue []storj.Path) error {
 	q.mu.Lock()
-	defer q.mu.Unlock()
+	if q.onEmpty != nil {
+		q.mu.Unlock()
+		panic("massive internal error, this shouldn't happen")
+	}
 
-	q.queue = newQueue
+	if len(q.queue) == 0 {
+		q.queue = newQueue
+		q.mu.Unlock()
+		return nil
+	}
+
+	onEmptyCalledChan := make(chan struct{})
+	cleanup := func() {
+		q.onEmpty = nil
+		close(onEmptyCalledChan)
+	}
+	// onEmpty assumes the mutex is locked when it is called.
+	q.onEmpty = func() {
+		q.queue = newQueue
+		cleanup()
+	}
+	q.mu.Unlock()
+
+	select {
+	case <-onEmptyCalledChan:
+	case <-ctx.Done():
+		q.mu.Lock()
+		defer q.mu.Unlock()
+
+		if q.onEmpty != nil {
+			cleanup()
+		}
+	}
+	return ctx.Err()
 }
 
 // Next gets the next item in the queue.
@@ -33,9 +69,15 @@ func (q *Queue) Next() (storj.Path, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	// return error if queue is empty
+	// if the queue is empty, call onEmpty to swap queues (if there is a pending queue)
+	// otherwise, return empty queue error
 	if len(q.queue) == 0 {
-		return "", ErrEmptyQueue.New("")
+		if q.onEmpty != nil {
+			q.onEmpty()
+		}
+		if len(q.queue) == 0 {
+			return "", ErrEmptyQueue.New("")
+		}
 	}
 
 	next := q.queue[0]

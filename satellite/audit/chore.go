@@ -74,7 +74,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				}
 			}
 		}
-		chore.queue.Swap(newQueue)
+
+		// Wait for active queue to be completed, then swap with the new one.
+		err = chore.queue.WaitForSwap(ctx, newQueue)
+		if err != nil {
+			return err
+		}
 
 		return nil
 	})

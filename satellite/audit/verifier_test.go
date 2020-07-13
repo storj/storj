@@ -42,6 +42,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -95,6 +96,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -156,6 +158,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -213,6 +216,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -296,6 +300,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -360,6 +365,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -393,6 +399,7 @@ func TestVerifierExpired(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -444,6 +451,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -482,6 +490,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -526,6 +535,7 @@ func TestVerifierMissingPieceHashesNotVerified(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -575,6 +585,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -631,6 +642,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -662,6 +674,7 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		metainfo := satellite.Metainfo.Service
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -697,6 +710,7 @@ func TestVerifierReplacedSegment(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -729,6 +743,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -788,6 +803,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -837,6 +853,7 @@ func TestVerifierUnknownError(t *testing.T) {
 		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
