@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/signing"
@@ -16,19 +15,13 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
 )
 
 func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
-	t.Skip("fixme: flaky since orders cache")
+	t.Skip("endpoint currently disabled")
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Orders.FlushBatchSize = 1
-				config.Orders.FlushInterval = 2 * time.Second
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ordersDB := satellite.Orders.DB
@@ -36,6 +29,10 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 		now := time.Now().UTC()
 		projectID := testrand.UUID()
 		bucketname := "testbucket"
+
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		satellite.Orders.Chore.Loop.Pause()
 
 		// confirm storagenode and bucket bandwidth tables start empty
 		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, satellite.ID(), time.Time{}, now)
@@ -141,15 +138,10 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 	})
 }
 func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
-	t.Skip("fixme: flaky since orders cache")
+	t.Skip("endpoint currently disabled")
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Orders.FlushBatchSize = 1
-				config.Orders.FlushInterval = 2 * time.Second
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ordersDB := satellite.Orders.DB
@@ -157,6 +149,10 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		now := time.Now().UTC()
 		projectID := testrand.UUID()
 		bucketname := "testbucket"
+
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		satellite.Orders.Chore.Loop.Pause()
 
 		// confirm storagenode and bucket bandwidth tables start empty
 		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, satellite.ID(), time.Time{}, now)
@@ -249,15 +245,10 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 }
 
 func TestSettlementWithWindowEndpointErrors(t *testing.T) {
-	t.Skip("fixme: flaky since orders cache")
+	t.Skip("endpoint currently disabled")
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Orders.FlushBatchSize = 1
-				config.Orders.FlushInterval = 2 * time.Second
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ordersDB := satellite.Orders.DB
@@ -265,6 +256,10 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		now := time.Now().UTC()
 		projectID := testrand.UUID()
 		bucketname := "testbucket"
+
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		satellite.Orders.Chore.Loop.Pause()
 
 		// confirm storagenode and bucket bandwidth tables start empty
 		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, satellite.ID(), time.Time{}, now)
@@ -346,6 +341,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 				snbw, err = ordersDB.GetStorageNodeBandwidth(ctx, storagenode.ID(), time.Time{}, time.Now().UTC())
 				require.NoError(t, err)
 				require.EqualValues(t, 0, snbw)
+
 				// wait for rollup_write_cache to flush
 				satellite.Orders.Chore.Loop.TriggerWait()
 				newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, time.Now().UTC())
