@@ -4,6 +4,7 @@
 package pieces_test
 
 import (
+	"errors"
 	"io"
 	"testing"
 	"time"
@@ -78,7 +79,7 @@ func BenchmarkReadWrite(b *testing.B) {
 			for {
 				_, err := reader.Read(data)
 				if err != nil {
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					require.NoError(b, err)

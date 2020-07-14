@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"sort"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -98,7 +99,7 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 
 	var val []byte
 	err = row.Scan(&val)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, storage.ErrKeyNotFound.New("%q", key)
 	}
 
@@ -285,7 +286,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 
 		var val []byte
 		err = row.Scan(&val)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 
@@ -305,7 +306,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 
 		var val []byte
 		err = row.Scan(&val)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return storage.ErrValueChanged.New("%q", key)
 		}
 		return Error.Wrap(err)
@@ -317,7 +318,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 
 		var metadata []byte
 		err = row.Scan(&metadata)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			// Row not found for this fullpath.
 			// Potentially because another concurrent transaction changed the row.
 			return storage.ErrKeyNotFound.New("%q", key)

@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -120,7 +121,7 @@ func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketN
 		dbx.ValueAttribution_ProjectId(projectID[:]),
 		dbx.ValueAttribution_BucketName(bucketName),
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, attribution.ErrBucketNotAttributed.New("%q", bucketName)
 	}
 	if err != nil {

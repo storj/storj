@@ -8,6 +8,7 @@ package schema
 
 import (
 	"context"
+	"errors"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -46,7 +47,7 @@ func PrepareDB(ctx context.Context, db tagsql.DB, dbURL string) error {
 		return err
 	}
 	err = m.Up()
-	if err == migrate.ErrNoChange {
+	if errors.Is(err, migrate.ErrNoChange) {
 		err = nil
 	}
 	return err

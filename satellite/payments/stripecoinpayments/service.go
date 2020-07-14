@@ -5,6 +5,7 @@ package stripecoinpayments
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -571,7 +572,7 @@ func (service *Service) createProjectRecords(ctx context.Context, customerID str
 		}
 
 		if err = service.db.ProjectRecords().Check(ctx, project.ID, start, end); err != nil {
-			if err == ErrProjectRecordExists {
+			if errors.Is(err, ErrProjectRecordExists) {
 				service.log.Warn("Record for this project already exists.", zap.String("Customer ID", customerID), zap.String("Project ID", project.ID.String()))
 				continue
 			}
@@ -678,7 +679,7 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 
 		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
 		if err != nil {
-			if err == ErrNoCustomer {
+			if errors.Is(err, ErrNoCustomer) {
 				service.log.Warn("Stripe customer does not exist for project owner.", zap.Stringer("Owner ID", proj.OwnerID), zap.Stringer("Project ID", proj.ID))
 				continue
 			}
@@ -808,7 +809,7 @@ func (service *Service) applyCoupons(ctx context.Context, usages []CouponUsage) 
 
 		customerID, err := service.db.Customers().GetCustomerID(ctx, coupon.UserID)
 		if err != nil {
-			if err == ErrNoCustomer {
+			if errors.Is(err, ErrNoCustomer) {
 				service.log.Warn("Stripe customer does not exist for coupon owner.", zap.Stringer("User ID", coupon.UserID), zap.Stringer("Coupon ID", coupon.ID))
 				continue
 			}

@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -123,7 +124,7 @@ func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, pro
 	var sum *int64
 	query := `SELECT SUM(allocated) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start >= ?;`
 	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], pb.PieceAction_GET, from.UTC()).Scan(&sum)
-	if err == sql.ErrNoRows || sum == nil {
+	if errors.Is(err, sql.ErrNoRows) || sum == nil {
 		return 0, nil
 	}
 
@@ -139,7 +140,7 @@ func (db *ProjectAccounting) GetProjectAllocatedBandwidth(ctx context.Context, p
 
 	query := `SELECT egress_allocated FROM project_bandwidth_rollups WHERE project_id = ? AND interval_month = ?;`
 	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], interval).Scan(&egress)
-	if err == sql.ErrNoRows || egress == nil {
+	if errors.Is(err, sql.ErrNoRows) || egress == nil {
 		return 0, nil
 	}
 

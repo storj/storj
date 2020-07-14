@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/csv"
+	"errors"
 	"io"
 	"os"
 	"time"
@@ -73,7 +74,7 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 	segmentsSkipped := 0
 	for {
 		record, err := csvReader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

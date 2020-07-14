@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/zeebo/errs"
 
@@ -94,7 +95,7 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 	default:
 		return seg, errs.New("invalid dbType: %v", r.db.implementation)
 	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		err = storage.ErrEmptyQueue.New("")
 	}
 	return seg, err

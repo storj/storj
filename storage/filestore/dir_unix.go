@@ -6,6 +6,7 @@
 package filestore
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -14,7 +15,7 @@ import (
 
 func isBusy(err error) bool {
 	err = underlyingError(err)
-	return err == unix.EBUSY
+	return errors.Is(err, unix.EBUSY)
 }
 
 func diskInfoFromPath(path string) (info DiskInfo, err error) {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -1388,7 +1389,7 @@ func (s *Service) getProjectLimit(ctx context.Context, userID uuid.UUID) (limit 
 
 	registrationToken, err := s.store.RegistrationTokens().GetByOwnerID(ctx, userID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return openRegistrationProjectLimit, nil
 		}
 		return 0, err

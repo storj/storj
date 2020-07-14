@@ -6,6 +6,7 @@
 package filestore
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,7 +19,7 @@ var errSharingViolation = windows.Errno(32)
 
 func isBusy(err error) bool {
 	err = underlyingError(err)
-	return err == errSharingViolation
+	return errors.Is(err, errSharingViolation)
 }
 
 func diskInfoFromPath(path string) (info DiskInfo, err error) {
@@ -91,7 +92,7 @@ func getVolumeSerialNumber(path string) (string, error) {
 
 // windows api occasionally returns
 func ignoreSuccess(err error) error {
-	if err == windows.Errno(0) {
+	if errors.Is(err, windows.Errno(0)) {
 		return nil
 	}
 	return err

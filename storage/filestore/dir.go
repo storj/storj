@@ -6,6 +6,7 @@ package filestore
 import (
 	"context"
 	"encoding/base32"
+	"errors"
 	"io"
 	"io/ioutil"
 	"math"
@@ -600,7 +601,7 @@ func (dir *Dir) listNamespacesInPath(ctx context.Context, path string) (ids [][]
 	for {
 		dirNames, err := openDir.Readdirnames(nameBatchSize)
 		if err != nil {
-			if err == io.EOF || os.IsNotExist(err) {
+			if errors.Is(err, io.EOF) || os.IsNotExist(err) {
 				return ids, nil
 			}
 			return ids, err
@@ -649,7 +650,7 @@ func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path 
 		}
 		subdirNames, err := openDir.Readdirnames(nameBatchSize)
 		if err != nil {
-			if err == io.EOF || os.IsNotExist(err) {
+			if errors.Is(err, io.EOF) || os.IsNotExist(err) {
 				return nil
 			}
 			return err
@@ -763,7 +764,7 @@ func removeAllContent(ctx context.Context, path string) (err error) {
 			// the file might be still in use, so ignore the error
 			_ = os.RemoveAll(filepath.Join(path, file))
 		}
-		if err == io.EOF || len(files) == 0 {
+		if errors.Is(err, io.EOF) || len(files) == 0 {
 			return dir.Close()
 		}
 		if err != nil {

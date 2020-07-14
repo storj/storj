@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -109,7 +110,7 @@ func (db *invoiceProjectRecords) Check(ctx context.Context, projectID uuid.UUID,
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 
@@ -130,7 +131,7 @@ func (db *invoiceProjectRecords) Get(ctx context.Context, projectID uuid.UUID, s
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err

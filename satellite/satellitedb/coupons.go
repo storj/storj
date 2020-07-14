@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -271,7 +272,7 @@ func (coupons *coupons) GetLatest(ctx context.Context, couponID uuid.UUID) (_ ti
 
 	var created time.Time
 	err = amountRow.Scan(&created)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return created, stripecoinpayments.ErrNoCouponUsages.Wrap(err)
 	}
 

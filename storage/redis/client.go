@@ -6,6 +6,7 @@ package redis
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/url"
 	"sort"
 	"strconv"
@@ -298,7 +299,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 	}
 
 	err = client.db.Watch(txf, key.String())
-	if err == redis.TxFailedErr {
+	if errors.Is(err, redis.TxFailedErr) {
 		return storage.ErrValueChanged.New("%q", key)
 	}
 	return Error.Wrap(err)
@@ -307,10 +308,10 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 func get(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (_ storage.Value, err error) {
 	defer mon.Task()(&ctx)(&err)
 	value, err := cmdable.Get(string(key)).Bytes()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		return nil, storage.ErrKeyNotFound.New("%q", key)
 	}
-	if err != nil && err != redis.TxFailedErr {
+	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return nil, Error.New("get error: %v", err)
 	}
 	return value, errs.Wrap(err)
@@ -319,7 +320,7 @@ func get(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (_ storage
 func put(ctx context.Context, cmdable redis.Cmdable, key storage.Key, value storage.Value, ttl time.Duration) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = cmdable.Set(key.String(), []byte(value), ttl).Err()
-	if err != nil && err != redis.TxFailedErr {
+	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return Error.New("put error: %v", err)
 	}
 	return errs.Wrap(err)
@@ -328,7 +329,7 @@ func put(ctx context.Context, cmdable redis.Cmdable, key storage.Key, value stor
 func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = cmdable.Del(key.String()).Err()
-	if err != nil && err != redis.TxFailedErr {
+	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return Error.New("delete error: %v", err)
 	}
 	return errs.Wrap(err)
@@ -337,7 +338,7 @@ func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err er
 func eval(ctx context.Context, cmdable redis.Cmdable, script string, keys []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = cmdable.Eval(script, keys, nil).Err()
-	if err != nil && err != redis.TxFailedErr {
+	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return Error.New("eval error: %v", err)
 	}
 	return errs.Wrap(err)
@@ -350,7 +351,7 @@ func deleteMultiple(ctx context.Context, cmdable redis.Cmdable, keys []storage.K
 	for _, key := range keys {
 		value, err := get(ctx, cmdable, key)
 		if err != nil {
-			if errs.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
+			if errors.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
 				continue
 			}
 			return items, err
@@ -358,7 +359,7 @@ func deleteMultiple(ctx context.Context, cmdable redis.Cmdable, keys []storage.K
 
 		err = delete(ctx, cmdable, key)
 		if err != nil {
-			if errs.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
+			if errors.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
 				continue
 			}
 			return items, err

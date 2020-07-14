@@ -6,6 +6,7 @@ package postgreskv
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"sort"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -94,7 +95,7 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 
 	var val []byte
 	err = row.Scan(&val)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, storage.ErrKeyNotFound.New("%q", key)
 	}
 
@@ -243,7 +244,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 
 		var val []byte
 		err = row.Scan(&val)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 
@@ -264,7 +265,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 
 		var val []byte
 		err = row.Scan(&val)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return storage.ErrValueChanged.New("%q", key)
 		}
 

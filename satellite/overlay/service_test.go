@@ -93,7 +93,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	{ // Get
 		_, err := service.Get(ctx, storj.NodeID{})
 		require.Error(t, err)
-		require.True(t, err == overlay.ErrEmptyNode)
+		require.Equal(t, overlay.ErrEmptyNode, err)
 
 		valid1, err := service.Get(ctx, valid1ID)
 		require.NoError(t, err)

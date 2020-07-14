@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"io"
 	"strings"
 
@@ -140,7 +141,7 @@ func wrapRows(rows driver.Rows) (crdbRows *cockroachRows, err error) {
 	dest := make([]driver.Value, len(columns))
 	err = rows.Next(dest)
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return &cockroachRows{rows: rows, firstResults: nil, eof: true}, nil
 		}
 		return nil, err

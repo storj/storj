@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -69,7 +70,7 @@ func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 		LIMIT ?
 	`, limit)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, ErrOrders.Wrap(err)
@@ -128,7 +129,7 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 		FROM unsent_order
 	`)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, ErrOrders.Wrap(err)
@@ -261,7 +262,7 @@ func (db *ordersDB) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 		LIMIT ?
 	`, limit)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, ErrOrders.Wrap(err)
@@ -314,7 +315,7 @@ func (db *ordersDB) CleanArchive(ctx context.Context, ttl time.Duration) (_ int,
 		WHERE archived_at <= ?
 	`, deleteBefore)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil
 		}
 		return 0, ErrOrders.Wrap(err)

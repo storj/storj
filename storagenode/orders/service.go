@@ -5,6 +5,7 @@ package orders
 
 import (
 	"context"
+	"errors"
 	"io"
 	"math/rand"
 	"time"
@@ -322,7 +323,7 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 	for {
 		response, err := stream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 

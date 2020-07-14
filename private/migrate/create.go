@@ -6,6 +6,7 @@ package migrate
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/zeebo/errs"
 
@@ -36,7 +37,7 @@ func Create(ctx context.Context, identifier string, db DBX) error {
 		err = row.Scan(&previousSchema)
 
 		// not created yet
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			_, err := tx.ExecContext(ctx, schema)
 			if err != nil {
 				return err

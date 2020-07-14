@@ -70,7 +70,7 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		dbx.BucketMetainfo_Name(bucketName),
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return storj.Bucket{}, storj.ErrBucketNotFound.New("%s", bucketName)
 		}
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)

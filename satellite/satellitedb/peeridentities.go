@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -31,7 +32,7 @@ func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, iden
 	err = idents.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		serial, err := tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
 		if serial == nil || err != nil {
-			if serial == nil || err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) || serial == nil {
 				return tx.CreateNoReturn_PeerIdentity(ctx,
 					dbx.PeerIdentity_NodeId(nodeID.Bytes()),
 					dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),

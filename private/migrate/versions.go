@@ -6,6 +6,7 @@ package migrate
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"regexp"
 	"sort"
 	"strconv"
@@ -227,7 +228,7 @@ func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logge
 		/* #nosec G202 */ // Table name is white listed by the ValidTableName method
 		// executed at the beginning of the function
 		err := tx.QueryRow(ctx, rebind(db, `SELECT MAX(version) FROM `+migration.Table)).Scan(&version)
-		if err == sql.ErrNoRows || !version.Valid {
+		if errors.Is(err, sql.ErrNoRows) || !version.Valid {
 			version.Int64 = -1
 			return nil
 		}

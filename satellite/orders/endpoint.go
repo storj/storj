@@ -6,6 +6,7 @@ package orders
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"sort"
 	"time"
@@ -241,7 +242,7 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 	}
 
 	formatError := func(err error) error {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		return rpcstatus.Error(rpcstatus.Unknown, err.Error())
@@ -406,7 +407,7 @@ func (endpoint *Endpoint) SettlementWithWindow(stream pb.DRPCOrders_SettlementWi
 	for {
 		request, err = stream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			log.Debug("err streaming order request", zap.Error(err))

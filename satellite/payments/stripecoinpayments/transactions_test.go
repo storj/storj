@@ -5,6 +5,7 @@ package stripecoinpayments_test
 
 import (
 	"encoding/base64"
+	"errors"
 	"math/big"
 	"sync"
 	"testing"
@@ -167,7 +168,7 @@ func TestConcurrentConsume(t *testing.T) {
 				if err == nil {
 					return nil
 				}
-				if err == stripecoinpayments.ErrTransactionConsumed {
+				if errors.Is(err, stripecoinpayments.ErrTransactionConsumed) {
 					appendError(err)
 					return nil
 				}

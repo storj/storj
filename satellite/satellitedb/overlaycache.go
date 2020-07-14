@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -136,7 +137,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay
 	}
 
 	node, err := cache.db.Get_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, overlay.ErrNodeNotFound.New("%v", id)
 	}
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 
 	"go.uber.org/zap"
 
@@ -29,7 +30,7 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit
 
 	pending, err := containment.db.Get_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, audit.ErrContainedNotFound.New("%v", id)
 		}
 		return nil, audit.ContainError.Wrap(err)

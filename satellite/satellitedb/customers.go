@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"storj.io/common/uuid"
@@ -42,7 +43,7 @@ func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID)
 
 	idRow, err := customers.db.Get_StripeCustomer_CustomerId_By_UserId(ctx, dbx.StripeCustomer_UserId(userID[:]))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", stripecoinpayments.ErrNoCustomer
 		}
 

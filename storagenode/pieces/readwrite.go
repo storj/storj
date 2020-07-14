@@ -6,6 +6,7 @@ package pieces
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"hash"
 	"io"
 
@@ -100,7 +101,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 	n, err := w.blob.Write(data)
 	w.pieceSize += int64(n)
 	_, _ = w.hash.Write(data[:n]) // guaranteed not to return an error
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return n, err
 	}
 	return n, Error.Wrap(err)
@@ -298,7 +299,7 @@ func (r *Reader) Read(data []byte) (int, error) {
 	}
 	n, err := r.blob.Read(data)
 	r.pos += int64(n)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return n, err
 	}
 	return n, Error.Wrap(err)
@@ -323,7 +324,7 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 			pos -= V1PieceHeaderReservedArea
 		}
 	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return pos, err
 	}
 	return pos, Error.Wrap(err)
@@ -336,7 +337,7 @@ func (r *Reader) ReadAt(data []byte, offset int64) (int, error) {
 		offset += V1PieceHeaderReservedArea
 	}
 	n, err := r.blob.ReadAt(data, offset)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return n, err
 	}
 	return n, Error.Wrap(err)

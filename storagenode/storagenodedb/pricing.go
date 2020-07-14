@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/zeebo/errs"
 
@@ -76,7 +77,7 @@ func (db *pricingDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *pric
 		&pricingModel.DiskSpace,
 	)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		err = nil
 	}
 

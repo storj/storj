@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/zeebo/errs"
 
@@ -44,7 +45,7 @@ func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
 	var piecesTotal int64
 	err = totalPiecesRow.Scan(&piecesTotal)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			err = db.createInitTotalPieces(ctx)
 			if err != nil {
 				return ErrPieceSpaceUsed.Wrap(err)
@@ -61,7 +62,7 @@ func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
 	var trashTotal int64
 	err = totalTrashRow.Scan(&trashTotal)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			err = db.createInitTotalTrash(ctx)
 			if err != nil {
 				return ErrPieceSpaceUsed.Wrap(err)
@@ -98,7 +99,7 @@ func (db *pieceSpaceUsedDB) GetPieceTotals(ctx context.Context) (total int64, co
 
 	err = row.Scan(&total, &contentSize)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 0, 0, nil
 		}
 		return 0, 0, ErrPieceSpaceUsed.Wrap(err)
@@ -118,7 +119,7 @@ func (db *pieceSpaceUsedDB) GetTrashTotal(ctx context.Context) (total int64, err
 
 	err = row.Scan(&total)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return total, nil
 		}
 		return total, ErrPieceSpaceUsed.Wrap(err)
@@ -137,7 +138,7 @@ func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) 
 			AND satellite_id IS NOT ?
 	`, trashTotalRowName)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, ErrPieceSpaceUsed.Wrap(err)
@@ -208,7 +209,7 @@ func (db *pieceSpaceUsedDB) UpdatePieceTotalsForAllSatellites(ctx context.Contex
 		`, vals.Total, vals.ContentSize, satelliteID, vals.Total, vals.ContentSize, satelliteID)
 
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				continue
 			}
 			return ErrPieceSpaceUsed.Wrap(err)

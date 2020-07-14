@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"storj.io/common/pb"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -26,7 +27,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 
 		dbxInfo, err := tx.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentInfo.Path))
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				// no rows err, so create/insert an entry
 				return tx.CreateNoReturn_Irreparabledb(
 					ctx,
