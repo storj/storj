@@ -8,14 +8,10 @@ import { DirectiveBinding } from 'vue/types/options';
 import App from '@/app/App.vue';
 import { router } from '@/app/router';
 import { store } from '@/app/store';
-import { TelemetryPlugin } from '@/app/telemetry/telemetry';
 
 Vue.config.productionTip = false;
-
-const telemetry = new TelemetryPlugin();
-
-Vue.use(telemetry);
 VueClipboard.config.autoSetContainer = true;
+
 Vue.use(VueClipboard);
 
 let clickOutsideEvent: EventListener;

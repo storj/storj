@@ -20,7 +20,6 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { TelemetryViews } from '@/app/telemetry/telemetry';
 import { NotificationsCursor } from '@/app/types/notifications';
 
 @Component ({
@@ -56,9 +55,6 @@ export default class Dashboard extends Vue {
         }
 
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
-
-        this.$telemetry.identify(this.$store.state.node.info.id);
-        this.$telemetry.view(TelemetryViews.MainPage);
     }
 }
 </script>

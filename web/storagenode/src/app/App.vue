@@ -58,14 +58,11 @@ export default class App extends Vue {
         return this.$store.state.appStateModule.isLoading;
     }
 
-    public async beforeCreate(): Promise<void> {
+    public beforeCreate(): void {
         document.body.classList.add('js-loading');
         window.onload = () => {
             document.body.classList.remove('js-loading');
         };
-
-        // TODO: place key to server config.
-        await this.$telemetry.init('DTEcoJRlUAN2VylCWMiLrqoknW800GNO');
     }
 
     public onScroll(): void {
