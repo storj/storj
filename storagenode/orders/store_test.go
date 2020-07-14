@@ -1,7 +1,6 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
-
-package orders
+package orders_test
 
 import (
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/storagenode/orders"
 )
 
 func TestOrdersStore(t *testing.T) {
@@ -21,11 +21,11 @@ func TestOrdersStore(t *testing.T) {
 	dirName := ctx.Dir("test-orders")
 
 	// make order limit grace period 24 hours
-	ordersStore := NewFileStore(dirName, 24*time.Hour)
-
+	ordersStore, err := orders.NewFileStore(dirName, 24*time.Hour, time.Hour)
+	require.NoError(t, err)
 	// adding order before grace period should result in an error
 	newSN := testrand.SerialNumber()
-	newInfo := &Info{
+	newInfo := &orders.Info{
 		Limit: &pb.OrderLimit{
 			SerialNumber:    newSN,
 			SatelliteId:     testrand.NodeID(),
@@ -38,7 +38,7 @@ func TestOrdersStore(t *testing.T) {
 			Amount:       10,
 		},
 	}
-	err := ordersStore.Enqueue(newInfo)
+	err = ordersStore.Enqueue(newInfo)
 	require.Error(t, err)
 
 	// for each satellite, make three orders from four hours ago, three from two hours ago, and three from now.
@@ -54,16 +54,15 @@ func TestOrdersStore(t *testing.T) {
 	require.NoError(t, err)
 
 	// update grace period so that some of the order limits are considered created before the grace period
-	ordersStore.orderLimitGracePeriod = time.Hour
-
+	ordersStore.TestSetSettleBuffer(time.Hour, 0)
 	// 3 times:
 	//    list unsent orders - should receive data from all satellites the first two times, and nothing the last time.
-	//    add listed orders to batches for archival
-	//    delete unsent file for each returned satellite/createdAt bucket
-	originalArchivedInfos := make(map[storj.SerialNumber]*ArchivedInfo)
-	archiveBatches := [][]*ArchivedInfo{}
+	//    archive unsent orders
+	expectedArchivedInfos := make(map[storj.SerialNumber]*orders.ArchivedInfo)
 	archiveTime1 := time.Now().Add(-2 * time.Hour)
 	archiveTime2 := time.Now()
+	status1 := pb.SettlementWithWindowResponse_ACCEPTED
+	status2 := pb.SettlementWithWindowResponse_REJECTED
 	for i := 0; i < 3; i++ {
 		unsentMap, err := ordersStore.ListUnsentBySatellite()
 		require.NoError(t, err)
@@ -73,7 +72,6 @@ func TestOrdersStore(t *testing.T) {
 			require.Len(t, unsentMap, 0)
 			break
 		}
-		archiveBatch := []*ArchivedInfo{}
 		// go through order limits and make sure information is accurate
 		require.Len(t, unsentMap, numSatellites)
 		for satelliteID, unsentSatList := range unsentMap {
@@ -90,32 +88,33 @@ func TestOrdersStore(t *testing.T) {
 				require.Equal(t, unsentSatList.CreatedAtHour.UTC(), unsentInfo.Limit.OrderCreation.Truncate(time.Hour).UTC())
 
 				// add to archive batch
+				// create
 				archivedAt := archiveTime1
+				orderStatus := orders.StatusAccepted
 				if i == 1 {
 					archivedAt = archiveTime2
+					orderStatus = orders.StatusRejected
 				}
-				newArchivedInfo := &ArchivedInfo{
+				newArchivedInfo := &orders.ArchivedInfo{
 					Limit:      unsentInfo.Limit,
 					Order:      unsentInfo.Order,
-					Status:     StatusAccepted,
+					Status:     orderStatus,
 					ArchivedAt: archivedAt,
 				}
-				originalArchivedInfos[unsentInfo.Limit.SerialNumber] = newArchivedInfo
-				archiveBatch = append(archiveBatch, newArchivedInfo)
+				expectedArchivedInfos[unsentInfo.Limit.SerialNumber] = newArchivedInfo
 			}
 
-			// delete unsent file for this satellite/creation hour
-			err = ordersStore.DeleteUnsentFile(satelliteID, unsentSatList.CreatedAtHour)
+			// archive unsent file
+			archivedAt := archiveTime1
+			status := status1
+			if i == 1 {
+				archivedAt = archiveTime2
+				status = status2
+			}
+			err = ordersStore.Archive(satelliteID, unsentSatList.CreatedAtHour, archivedAt, status)
 			require.NoError(t, err)
 		}
-		// add archive batch to archiveBatches
-		archiveBatches = append(archiveBatches, archiveBatch)
 	}
-	// archive first batch two hours ago, archive second batch now
-	err = ordersStore.Archive(archiveTime1, archiveBatches[0]...)
-	require.NoError(t, err)
-	err = ordersStore.Archive(archiveTime2, archiveBatches[1]...)
-	require.NoError(t, err)
 
 	// list archived, expect everything from first two created at time buckets
 	archived, err := ordersStore.ListArchived()
@@ -123,8 +122,15 @@ func TestOrdersStore(t *testing.T) {
 	require.Len(t, archived, numSatellites*serialsPerSatPerTime*2)
 	for _, archivedInfo := range archived {
 		sn := archivedInfo.Limit.SerialNumber
-		originalInfo := originalArchivedInfos[sn]
-		verifyArchivedInfosEqual(t, archivedInfo, originalInfo)
+		expectedInfo := expectedArchivedInfos[sn]
+		verifyArchivedInfosEqual(t, expectedInfo, archivedInfo)
+
+		// one of the batches should be "accepted" and the other should be "rejected"
+		if archivedInfo.ArchivedAt.Round(0).Equal(archiveTime2.Round(0)) {
+			require.Equal(t, archivedInfo.Status, orders.StatusRejected)
+		} else {
+			require.Equal(t, archivedInfo.Status, orders.StatusAccepted)
+		}
 	}
 
 	// clean archive for anything older than 30 minutes
@@ -137,9 +143,10 @@ func TestOrdersStore(t *testing.T) {
 	require.Len(t, archived, numSatellites*serialsPerSatPerTime)
 	for _, archivedInfo := range archived {
 		sn := archivedInfo.Limit.SerialNumber
-		originalInfo := originalArchivedInfos[sn]
-		verifyArchivedInfosEqual(t, archivedInfo, originalInfo)
+		expectedInfo := expectedArchivedInfos[sn]
+		verifyArchivedInfosEqual(t, expectedInfo, archivedInfo)
 		require.Equal(t, archivedInfo.ArchivedAt.Round(0), archiveTime2.Round(0))
+		require.Equal(t, archivedInfo.Status, orders.StatusRejected)
 	}
 
 	// clean archive for everything before now, expect list to return nothing
@@ -150,7 +157,7 @@ func TestOrdersStore(t *testing.T) {
 	require.Len(t, archived, 0)
 }
 
-func verifyInfosEqual(t *testing.T, a, b *Info) {
+func verifyInfosEqual(t *testing.T, a, b *orders.Info) {
 	t.Helper()
 
 	require.NotNil(t, a)
@@ -163,10 +170,9 @@ func verifyInfosEqual(t *testing.T, a, b *Info) {
 
 	require.Equal(t, a.Order.Amount, b.Order.Amount)
 	require.Equal(t, a.Order.SerialNumber, b.Order.SerialNumber)
-
 }
 
-func verifyArchivedInfosEqual(t *testing.T, a, b *ArchivedInfo) {
+func verifyArchivedInfosEqual(t *testing.T, a, b *orders.ArchivedInfo) {
 	t.Helper()
 
 	require.NotNil(t, a)
@@ -184,13 +190,13 @@ func verifyArchivedInfosEqual(t *testing.T, a, b *ArchivedInfo) {
 	require.Equal(t, a.ArchivedAt.UTC(), b.ArchivedAt.UTC())
 }
 
-func storeNewOrders(ordersStore *FileStore, numSatellites, numOrdersPerSatPerTime int, createdAtTimes []time.Time) (map[storj.SerialNumber]*Info, error) {
+func storeNewOrders(ordersStore *orders.FileStore, numSatellites, numOrdersPerSatPerTime int, createdAtTimes []time.Time) (map[storj.SerialNumber]*orders.Info, error) {
 	actions := []pb.PieceAction{
 		pb.PieceAction_GET,
 		pb.PieceAction_PUT_REPAIR,
 		pb.PieceAction_GET_AUDIT,
 	}
-	originalInfos := make(map[storj.SerialNumber]*Info)
+	originalInfos := make(map[storj.SerialNumber]*orders.Info)
 	for i := 0; i < numSatellites; i++ {
 		satellite := testrand.NodeID()
 
@@ -200,8 +206,7 @@ func storeNewOrders(ordersStore *FileStore, numSatellites, numOrdersPerSatPerTim
 				amount := testrand.Int63n(1000)
 				sn := testrand.SerialNumber()
 				action := actions[j%len(actions)]
-
-				newInfo := &Info{
+				newInfo := &orders.Info{
 					Limit: &pb.OrderLimit{
 						SerialNumber:    sn,
 						SatelliteId:     satellite,
@@ -222,7 +227,6 @@ func storeNewOrders(ordersStore *FileStore, numSatellites, numOrdersPerSatPerTim
 					return originalInfos, err
 				}
 			}
-
 		}
 	}
 	return originalInfos, nil
