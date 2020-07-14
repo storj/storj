@@ -60,6 +60,10 @@ func DefaultPartners() PartnerList {
 			ID:   "cadac3fb-6a3f-4d17-9748-cc66d0617d55",
 			UUID: parseUUID("cadac3fb-6a3f-4d17-9748-cc66d0617d55"),
 		}, {
+			Name: "Duplicati",
+			ID:   "261e368e-d888-4d8e-8aa7-694aed20043a",
+			UUID: parseUUID("261e368e-d888-4d8e-8aa7-694aed20043a"),
+		}, {
 			Name: "DVLabs",
 			ID:   "53fb82d7-73ff-4a1a-ab0c-6968cffc850e",
 			UUID: parseUUID("53fb82d7-73ff-4a1a-ab0c-6968cffc850e"),
