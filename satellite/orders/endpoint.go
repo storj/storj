@@ -382,6 +382,11 @@ func (endpoint *Endpoint) SettlementWithWindow(stream pb.DRPCOrders_SettlementWi
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO: remove once the storagenode side of this endpoint is implemented
+	if true {
+		return rpcstatus.Error(rpcstatus.Unimplemented, "endpoint not supporrted")
+	}
+
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		endpoint.log.Debug("err peer identity from context", zap.Error(err))
