@@ -5,7 +5,6 @@ package heldamount
 
 import (
 	"context"
-	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -111,10 +110,6 @@ func (endpoint *Endpoint) GetAllPaystubs(ctx context.Context, satelliteID storj.
 
 	resp, err := client.GetAllPaystubs(ctx, &pb.GetAllPaystubsRequest{})
 	if err != nil {
-		if strings.Contains(err.Error(), "node not found") {
-			return nil, nil
-		}
-
 		return nil, ErrHeldAmountService.Wrap(err)
 	}
 
@@ -198,10 +193,6 @@ func (endpoint *Endpoint) GetAllPayments(ctx context.Context, satelliteID storj.
 
 	resp, err := client.GetAllPayments(ctx, &pb.GetAllPaymentsRequest{})
 	if err != nil {
-		if strings.Contains(err.Error(), "node not found") {
-			return nil, nil
-		}
-
 		return nil, ErrHeldAmountService.Wrap(err)
 	}
 

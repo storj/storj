@@ -52,7 +52,7 @@ func (e *Endpoint) GetPayStub(ctx context.Context, req *pb.GetHeldAmountRequest)
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
 		if overlay.ErrNodeNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+			return nil, nil
 		}
 
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -107,7 +107,7 @@ func (e *Endpoint) GetAllPaystubs(ctx context.Context, req *pb.GetAllPaystubsReq
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
 		if overlay.ErrNodeNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+			return nil, nil
 		}
 
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -174,7 +174,7 @@ func (e *Endpoint) GetPayment(ctx context.Context, req *pb.GetPaymentRequest) (_
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
 		if overlay.ErrNodeNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+			return nil, nil
 		}
 
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -215,7 +215,7 @@ func (e *Endpoint) GetAllPayments(ctx context.Context, req *pb.GetAllPaymentsReq
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
 		if overlay.ErrNodeNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+			return nil, nil
 		}
 
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())

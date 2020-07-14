@@ -52,7 +52,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
 		if overlay.ErrNodeNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
+			return nil, nil
 		}
 		e.log.Error("overlay.Get failed", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -98,7 +98,7 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
 		if overlay.ErrNodeNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
+			return nil, nil
 		}
 		e.log.Error("overlay.Get failed", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
