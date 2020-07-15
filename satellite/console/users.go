@@ -101,4 +101,6 @@ type User struct {
 	PartnerID uuid.UUID  `json:"partnerId"`
 
 	CreatedAt time.Time `json:"createdAt"`
+
+	ProjectLimit int `json:"project_limit"`
 }

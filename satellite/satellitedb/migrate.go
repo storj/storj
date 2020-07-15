@@ -1229,6 +1229,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE bucket_metainfos ADD UNIQUE (project_id, name);`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "add project_limit field to users table",
+				Version:     119,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN project_limit INTEGER NOT NULL DEFAULT 0;`,
+				},
+			},
 		},
 	}
 }

@@ -30,8 +30,6 @@ import (
 var mon = monkit.Package()
 
 const (
-	openRegistrationProjectLimit = 1
-
 	// maxLimit specifies the limit for all paged queries.
 	maxLimit            = 50
 	tokenExpirationTime = 24 * time.Hour
@@ -96,6 +94,7 @@ type Service struct {
 type Config struct {
 	PasswordCost            int  `help:"password hashing cost (0=automatic)" internal:"true" default:"0"`
 	OpenRegistrationEnabled bool `help:"enable open registration" default:"false"`
+	DefaultProjectLimit     int  `help:"default project limits for users" default:"1"`
 }
 
 // PaymentsService separates all payment related functionality
@@ -1390,7 +1389,7 @@ func (s *Service) getProjectLimit(ctx context.Context, userID uuid.UUID) (limit 
 	registrationToken, err := s.store.RegistrationTokens().GetByOwnerID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return openRegistrationProjectLimit, nil
+			return s.config.DefaultProjectLimit, nil
 		}
 		return 0, err
 	}

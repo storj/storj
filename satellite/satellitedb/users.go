@@ -97,6 +97,17 @@ func (users *users) Update(ctx context.Context, user *console.User) (err error) 
 	return err
 }
 
+// GetProjectLimit is a method to get the users project limit
+func (users *users) GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := users.db.Get_User_ProjectLimit_By_Id(ctx, dbx.User_Id(id[:]))
+	if err != nil {
+		return 0, err
+	}
+	return row.ProjectLimit, nil
+}
+
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable
 func toUpdateUser(user *console.User) dbx.User_Update_Fields {
 	update := dbx.User_Update_Fields{
@@ -105,6 +116,7 @@ func toUpdateUser(user *console.User) dbx.User_Update_Fields {
 		Email:           dbx.User_Email(user.Email),
 		NormalizedEmail: dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
 		Status:          dbx.User_Status(int(user.Status)),
+		ProjectLimit:    dbx.User_ProjectLimit(user.ProjectLimit),
 	}
 
 	// extra password check to update only calculated hash from service
@@ -134,6 +146,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		PasswordHash: user.PasswordHash,
 		Status:       console.UserStatus(user.Status),
 		CreatedAt:    user.CreatedAt,
+		ProjectLimit: user.ProjectLimit,
 	}
 
 	if user.PartnerId != nil {

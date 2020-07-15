@@ -376,6 +376,7 @@ CREATE TABLE users (
 	status integer NOT NULL,
 	partner_id bytea,
 	created_at timestamp with time zone NOT NULL,
+	project_limit integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (

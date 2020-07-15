@@ -284,6 +284,7 @@ model user (
     field status           int       ( updatable, autoinsert )
     field partner_id       blob      ( nullable )
     field created_at       timestamp ( autoinsert )
+    field project_limit    int       ( updatable, default 0 )
 )
 
 create user ( )
@@ -297,6 +298,10 @@ read one (
 )
 read one (
     select user
+    where user.id = ?
+)
+read one (
+    select user.project_limit
     where user.id = ?
 )
 
