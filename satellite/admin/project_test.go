@@ -44,7 +44,7 @@ func TestAPI(t *testing.T) {
 		link := "http://" + address.String() + "/api/project/" + project.ID.String() + "/limit"
 
 		t.Run("GetProject", func(t *testing.T) {
-			assertGet(t, link, `{"usage":{"amount":"0 B","bytes":0},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0}}`)
+			assertGet(t, link, `{"usage":{"amount":"0 B","bytes":0},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0},"maxBuckets":0}`)
 		})
 
 		t.Run("UpdateUsage", func(t *testing.T) {
@@ -59,7 +59,7 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, link, `{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0}}`)
+			assertGet(t, link, `{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0},"maxBuckets":0}`)
 
 			req, err = http.NewRequest(http.MethodPut, link+"?usage=1GB", nil)
 			require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0}}`)
+			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0},"maxBuckets":0}`)
 		})
 
 		t.Run("UpdateBandwidth", func(t *testing.T) {
@@ -83,7 +83,7 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"1.0 MB","bytes":1000000},"rate":{"rps":0}}`)
+			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"1.0 MB","bytes":1000000},"rate":{"rps":0},"maxBuckets":0}`)
 		})
 
 		t.Run("UpdateRate", func(t *testing.T) {
@@ -96,7 +96,19 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"1.0 MB","bytes":1000000},"rate":{"rps":100}}`)
+			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"1.0 MB","bytes":1000000},"rate":{"rps":100},"maxBuckets":0}`)
+		})
+		t.Run("UpdateBuckets", func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodPut, link+"?buckets=2000", nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "very-secret-token")
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+
+			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"1.0 MB","bytes":1000000},"rate":{"rps":100},"maxBuckets":2000}`)
 		})
 	})
 }
@@ -254,7 +266,7 @@ func TestDeleteProjectWithUsageCurrentMonth(t *testing.T) {
 		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
 		require.NoError(t, err)
 
-		accTime := time.Now().UTC().AddDate(0,0,-1)
+		accTime := time.Now().UTC().AddDate(0, 0, -1)
 		tally := accounting.BucketStorageTally{
 			BucketName:         "test",
 			ProjectID:          projectID,
@@ -271,7 +283,7 @@ func TestDeleteProjectWithUsageCurrentMonth(t *testing.T) {
 		tally = accounting.BucketStorageTally{
 			BucketName:         "test",
 			ProjectID:          projectID,
-			IntervalStart:      accTime.AddDate(0,0,1),
+			IntervalStart:      accTime.AddDate(0, 0, 1),
 			ObjectCount:        1,
 			InlineSegmentCount: 1,
 			RemoteSegmentCount: 1,
@@ -287,15 +299,14 @@ func TestDeleteProjectWithUsageCurrentMonth(t *testing.T) {
 		require.Equal(t, int64(10), inline)
 		require.Equal(t, int64(640000), remote)
 
-		bw, err := planet.Satellites[0].DB.ProjectAccounting().GetAllocatedBandwidthTotal(ctx, projectID, accTime.AddDate(0,0,-1))
+		bw, err := planet.Satellites[0].DB.ProjectAccounting().GetAllocatedBandwidthTotal(ctx, projectID, accTime.AddDate(0, 0, -1))
 		require.NoError(t, err)
 		require.EqualValues(t, 0, bw)
 
-		usage, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectTotal(ctx, projectID, accTime.AddDate(0,0,-1), accTime.AddDate(0,0,2))
+		usage, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectTotal(ctx, projectID, accTime.AddDate(0, 0, -1), accTime.AddDate(0, 0, 2))
 		require.NoError(t, err)
 		require.NotEqual(t, 0, usage.Egress)
 		require.NotEqual(t, float64(0), usage.Storage)
-
 
 		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s", projectID), nil)
 		require.NoError(t, err)
@@ -337,7 +348,7 @@ func TestDeleteProjectWithUsagePreviousMonth(t *testing.T) {
 		require.NoError(t, err)
 
 		//ToDo: Improve updating of DB entries
-		accTime := time.Now().UTC().AddDate(0,-1,0)
+		accTime := time.Now().UTC().AddDate(0, -1, 0)
 		tally := accounting.BucketStorageTally{
 			BucketName:         "test",
 			ProjectID:          projectID,
@@ -354,7 +365,7 @@ func TestDeleteProjectWithUsagePreviousMonth(t *testing.T) {
 		tally = accounting.BucketStorageTally{
 			BucketName:         "test",
 			ProjectID:          projectID,
-			IntervalStart:      accTime.AddDate(0,0,1),
+			IntervalStart:      accTime.AddDate(0, 0, 1),
 			ObjectCount:        1,
 			InlineSegmentCount: 1,
 			RemoteSegmentCount: 1,
@@ -370,15 +381,14 @@ func TestDeleteProjectWithUsagePreviousMonth(t *testing.T) {
 		require.Equal(t, int64(10), inline)
 		require.Equal(t, int64(640000), remote)
 
-		bw, err := planet.Satellites[0].DB.ProjectAccounting().GetAllocatedBandwidthTotal(ctx, projectID, accTime.AddDate(0,0,-1))
+		bw, err := planet.Satellites[0].DB.ProjectAccounting().GetAllocatedBandwidthTotal(ctx, projectID, accTime.AddDate(0, 0, -1))
 		require.NoError(t, err)
 		require.EqualValues(t, 0, bw)
 
-		usage, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectTotal(ctx, projectID, accTime.AddDate(0,0,-1), accTime.AddDate(0,0,2))
+		usage, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectTotal(ctx, projectID, accTime.AddDate(0, 0, -1), accTime.AddDate(0, 0, 2))
 		require.NoError(t, err)
 		require.NotEqual(t, 0, usage.Egress)
 		require.NotEqual(t, float64(0), usage.Storage)
-
 
 		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s", projectID), nil)
 		require.NoError(t, err)

@@ -164,6 +164,10 @@ Updates bandwidth limit for a project.
 
 Updates rate limit for a project.
 
+## POST /api/project/{project-id}/limit?buckets={value}
+
+Updates bucket limit for a project.
+
 ## PUT /api/project/{project-id}
 
 Updates project name or description.

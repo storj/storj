@@ -69,11 +69,13 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		Rate struct {
 			RPS int `json:"rps"`
 		} `json:"rate"`
+		Buckets int `json:"maxBuckets"`
 	}
 	output.Usage.Amount = usagelimit
 	output.Usage.Bytes = usagelimit.Int64()
 	output.Bandwidth.Amount = bandwidthlimit
 	output.Bandwidth.Bytes = bandwidthlimit.Int64()
+	output.Buckets = project.MaxBuckets
 	if project.RateLimit != nil {
 		output.Rate.RPS = *project.RateLimit
 	}
@@ -108,6 +110,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 		Usage     *memory.Size `schema:"usage"`
 		Bandwidth *memory.Size `schema:"bandwidth"`
 		Rate      *int         `schema:"rate"`
+		Buckets   *int         `schema:"buckets"`
 	}
 
 	if err := r.ParseForm(); err != nil {
@@ -157,6 +160,19 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 		err = server.db.Console().Projects().UpdateRateLimit(ctx, projectUUID, *arguments.Rate)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to update rate: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if arguments.Buckets != nil {
+		if *arguments.Buckets < 0 {
+			http.Error(w, fmt.Sprintf("negative bucket count: %v", arguments.Buckets), http.StatusBadRequest)
+			return
+		}
+
+		err = server.db.Console().Projects().UpdateBucketLimit(ctx, projectUUID, *arguments.Buckets)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to update bucket limit: %v", err), http.StatusInternalServerError)
 			return
 		}
 	}

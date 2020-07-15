@@ -38,6 +38,8 @@ type Projects interface {
 
 	// GetMaxBuckets is a method to get the maximum number of buckets allowed for the project
 	GetMaxBuckets(ctx context.Context, id uuid.UUID) (int, error)
+	// UpdateBucketLimit is a method for updating projects bucket limit.
+	UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit int) error
 }
 
 // Project is a database object that describes Project entity

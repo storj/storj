@@ -157,6 +157,19 @@ func (projects *projects) UpdateRateLimit(ctx context.Context, id uuid.UUID, new
 	return err
 }
 
+// UpdateBucketLimit is a method for updating projects bucket limit.
+func (projects *projects) UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			MaxBuckets: dbx.Project_MaxBuckets(newLimit),
+		})
+
+	return err
+}
+
 // List returns paginated projects, created before provided timestamp.
 func (projects *projects) List(ctx context.Context, offset int64, limit int, before time.Time) (_ console.ProjectsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
