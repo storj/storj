@@ -319,6 +319,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
 			peer.Orders.DB,
+			peer.DB.NodeAPIVersion(),
 			config.Orders.SettlementBatchSize,
 		)
 		peer.Orders.Service = orders.NewService(

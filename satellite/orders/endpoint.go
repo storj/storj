@@ -22,6 +22,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/date"
+	"storj.io/storj/satellite/nodeapiversion"
 )
 
 // DB implements saving order after receiving from storage node
@@ -200,15 +201,17 @@ type Endpoint struct {
 	log                 *zap.Logger
 	satelliteSignee     signing.Signee
 	DB                  DB
+	nodeAPIVersionDB    nodeapiversion.DB
 	settlementBatchSize int
 }
 
 // NewEndpoint new orders receiving endpoint
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, settlementBatchSize int) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, settlementBatchSize int) *Endpoint {
 	return &Endpoint{
 		log:                 log,
 		satelliteSignee:     satelliteSignee,
 		DB:                  db,
+		nodeAPIVersionDB:    nodeAPIVersionDB,
 		settlementBatchSize: settlementBatchSize,
 	}
 }
@@ -239,6 +242,13 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+
+	ok, err := endpoint.nodeAPIVersionDB.VersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
+	} else if ok {
+		return rpcstatus.Error(rpcstatus.PermissionDenied, "node api version too new")
 	}
 
 	formatError := func(err error) error {
@@ -392,6 +402,11 @@ func (endpoint *Endpoint) SettlementWithWindow(stream pb.DRPCOrders_SettlementWi
 	if err != nil {
 		endpoint.log.Debug("err peer identity from context", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
 	log := endpoint.log.Named(peer.ID.String())

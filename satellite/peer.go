@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -104,6 +105,8 @@ type DB interface {
 	Compensation() compensation.DB
 	// Revocation tracks revoked macaroons
 	Revocation() revocation.DB
+	// NodeAPIVersion tracks nodes observed api usage
+	NodeAPIVersion() nodeapiversion.DB
 }
 
 // Config is the global config satellite
