@@ -229,9 +229,6 @@ func (table *Table) Sort() {
 	})
 
 	sort.Strings(table.PrimaryKey)
-	for i := range table.Unique {
-		sort.Strings(table.Unique[i])
-	}
 
 	sort.Slice(table.Unique, func(i, k int) bool {
 		return lessStrings(table.Unique[i], table.Unique[k])
