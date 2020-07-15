@@ -25,6 +25,8 @@ type Users interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, user *User) error
+	// GetProjectLimit is a method to get the users project limit
+	GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error)
 }
 
 // UserInfo holds User updatable data.

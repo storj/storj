@@ -28,7 +28,10 @@ import ProjectDetails from '@/components/project/ProjectDetails.vue';
 import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 
 import { RouteConfig } from '@/router';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
+import { MetaUtils } from '@/utils/meta';
+import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
     components: {
@@ -47,6 +50,11 @@ export default class ProjectDashboard extends Vue {
             this.$router.push(RouteConfig.OnboardingTour.path);
 
             return;
+        }
+
+        const defaultProjectLimit: number = parseInt(MetaUtils.getMetaContent('default-project-limit'));
+        if (defaultProjectLimit && new ProjectOwning(this.$store).usersProjectsCount() < defaultProjectLimit) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
         }
 
         this.$segment.track(SegmentEvent.PROJECT_VIEWED, {

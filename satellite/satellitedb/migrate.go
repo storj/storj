@@ -1237,6 +1237,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN project_limit INTEGER NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "back fill user project limits from existing registration tokens",
+				Version:     120,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE users SET project_limit = registration_tokens.project_limit FROM registration_tokens WHERE users.id = registration_tokens.owner_id;`,
+				},
+			},
 		},
 	}
 }

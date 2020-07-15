@@ -546,6 +546,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				AuthTokenSecret: "my-suppa-secret-key",
 				Config: console.Config{
 					PasswordCost: console.TestPasswordCost,
+					DefaultProjectLimit: 5,
 				},
 				RateLimit: web.IPRateLimiterConfig{
 					Duration:  5 * time.Minute,

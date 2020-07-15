@@ -78,6 +78,8 @@ import {
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
+import { MetaUtils } from '@/utils/meta';
+import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
     components: {
@@ -223,7 +225,10 @@ export default class NewProjectPopup extends Vue {
     private selectCreatedProject(): void {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
 
-        this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
+        const defaultProjectLimit: number = parseInt(MetaUtils.getMetaContent('default-project-limit'));
+        if (new ProjectOwning(this.$store).usersProjectsCount() >= defaultProjectLimit) {
+            this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
+        }
     }
 
     /**

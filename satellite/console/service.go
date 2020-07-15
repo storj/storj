@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"database/sql"
-	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -502,6 +501,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			if err != nil {
 				return Error.Wrap(err)
 			}
+		}
+
+		if registrationToken != nil {
+			newUser.ProjectLimit = registrationToken.ProjectLimit
 		}
 
 		u, err = tx.Users().Insert(ctx,
@@ -1383,27 +1386,16 @@ func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 	}, nil
 }
 
-func (s *Service) getProjectLimit(ctx context.Context, userID uuid.UUID) (limit int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	registrationToken, err := s.store.RegistrationTokens().GetByOwnerID(ctx, userID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return s.config.DefaultProjectLimit, nil
-		}
-		return 0, err
-	}
-
-	return registrationToken.ProjectLimit, nil
-}
-
 // checkProjectLimit is used to check if user is able to create a new project
 func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	projectLimit, err := s.getProjectLimit(ctx, userID)
+	limit, err := s.store.Users().GetProjectLimit(ctx, userID)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+	if limit == 0 {
+		limit = s.config.DefaultProjectLimit
 	}
 
 	projects, err := s.GetUsersProjects(ctx)
@@ -1411,7 +1403,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (err 
 		return Error.Wrap(err)
 	}
 
-	if len(projects) >= projectLimit {
+	if len(projects) >= limit {
 		return ErrProjLimit.Wrap(errs.New(projLimitErrMsg))
 	}
 

@@ -202,7 +202,7 @@ export default class DashboardArea extends Vue {
     public get isInfoBarShown(): boolean {
         const isBillingPage = this.$route.name === RouteConfig.Billing.name;
 
-        return isBillingPage && new ProjectOwning(this.$store).userHasOwnProject();
+        return isBillingPage && new ProjectOwning(this.$store).usersProjectsCount() > 0;
     }
 
     /**

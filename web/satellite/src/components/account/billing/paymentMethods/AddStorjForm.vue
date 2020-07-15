@@ -106,7 +106,7 @@ export default class AddStorjForm extends Vue {
      * Indicates if user has own project.
      */
     private get userHasOwnProject(): boolean {
-        return new ProjectOwning(this.$store).userHasOwnProject();
+        return new ProjectOwning(this.$store).usersProjectsCount() > 0;
     }
 
     /**

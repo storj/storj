@@ -20,6 +20,10 @@ func TestSatellite_AddProject(t *testing.T) {
 		user, err := planet.Satellites[0].AddUser(ctx, "test user", "test-email@test", 4)
 		require.NoError(t, err)
 
+		limit, err := planet.Satellites[0].DB.Console().Users().GetProjectLimit(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, 4, limit)
+
 		for i := 0; i < 4; i++ {
 			_, err = planet.Satellites[0].AddProject(ctx, user.ID, "test project "+strconv.Itoa(i))
 			require.NoError(t, err)

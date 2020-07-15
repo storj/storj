@@ -28,13 +28,13 @@ describe('projectOwning', () => {
         const user = new User('ownerId');
         store.commit(USER_MUTATIONS.SET_USER, user);
 
-        expect(new ProjectOwning(store).userHasOwnProject()).toBeFalsy();
+        expect(new ProjectOwning(store).usersProjectsCount()).toBe(0);
     });
 
     it('user has project', () => {
         const project = new Project('id', 'test', 'test', 'test', 'ownerId', true);
         store.commit(PROJECTS_MUTATIONS.ADD, project);
 
-        expect(new ProjectOwning(store).userHasOwnProject()).toBeTruthy();
+        expect(new ProjectOwning(store).usersProjectsCount()).toBe(1);
     });
 });

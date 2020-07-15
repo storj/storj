@@ -23,6 +23,7 @@ import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { MetaUtils } from '@/utils/meta';
 import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
@@ -32,13 +33,13 @@ import { ProjectOwning } from '@/utils/projectOwning';
     },
 })
 export default class NewProjectArea extends Vue {
-    // TODO: temporary solution. Remove when user will be able to create more then one project
     /**
      * Life cycle hook before initial render.
      * Toggles new project button visibility depending on user having his own project or payment method.
      */
     public beforeMount(): void {
-        if (this.userHasOwnProject || !this.$store.getters.canUserCreateFirstProject) {
+        const defaultProjectLimit: number = parseInt(MetaUtils.getMetaContent('default-project-limit'));
+        if (this.usersProjectsAmount >= defaultProjectLimit || !this.$store.getters.canUserCreateFirstProject) {
             this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
 
             return;
@@ -76,10 +77,10 @@ export default class NewProjectArea extends Vue {
     }
 
     /**
-     * Indicates if user has own project.
+     * Returns user's projects amount.
      */
-    private get userHasOwnProject(): boolean {
-        return new ProjectOwning(this.$store).userHasOwnProject();
+    private get usersProjectsAmount(): number {
+        return new ProjectOwning(this.$store).usersProjectsCount();
     }
 }
 </script>

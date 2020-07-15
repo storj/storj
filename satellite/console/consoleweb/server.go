@@ -273,6 +273,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		VerificationPageURL     string
 		PartneredSatelliteNames string
 		GoogleTagManagerID      string
+		DefaultProjectLimit     int
 	}
 
 	data.SatelliteName = server.config.SatelliteName
@@ -281,6 +282,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.VerificationPageURL = server.config.VerificationPageURL
 	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
 	data.GoogleTagManagerID = server.config.GoogleTagManagerID
+	data.DefaultProjectLimit = server.config.DefaultProjectLimit
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
 		server.log.Error("index template could not be executed")

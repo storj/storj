@@ -59,6 +59,9 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	if !user.PartnerID.IsZero() {
 		optional.PartnerId = dbx.User_PartnerId(user.PartnerID[:])
 	}
+	if user.ProjectLimit != 0 {
+		optional.ProjectLimit = dbx.User_ProjectLimit(user.ProjectLimit)
+	}
 
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),

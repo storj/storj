@@ -85,7 +85,7 @@ func TestGraphqlQuery(t *testing.T) {
 			db.Rewards(),
 			partnersService,
 			paymentsService.Accounts(),
-			console.Config{PasswordCost: console.TestPasswordCost},
+			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 			5000,
 		)
 		require.NoError(t, err)

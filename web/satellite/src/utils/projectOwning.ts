@@ -6,12 +6,20 @@ import { Store } from 'vuex';
 import { Project } from '@/types/projects';
 
 /**
- * ProjectOwning exposes method checking if user has his own project.
+ * ProjectOwning exposes method that returns user's projects amount.
  */
 export class ProjectOwning {
     public constructor(public store: Store<any>) {}
 
-    public userHasOwnProject(): boolean {
-        return this.store.state.projectsModule.projects.some((project: Project) => project.ownerId === this.store.getters.user.id);
+    public usersProjectsCount(): number {
+        let projectsCount: number = 0;
+
+        this.store.state.projectsModule.projects.map((project: Project) => {
+            if (project.ownerId === this.store.getters.user.id) {
+                projectsCount++;
+            }
+        });
+
+        return projectsCount;
     }
 }

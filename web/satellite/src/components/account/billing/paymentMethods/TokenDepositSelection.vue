@@ -120,7 +120,7 @@ export default class TokenDepositSelection extends Vue {
      * Returns payment options depending on user having his own project.
      */
     public get options(): PaymentAmountOption[] {
-        if (!new ProjectOwning(this.$store).userHasOwnProject() && this.noCreditCards) {
+        if (new ProjectOwning(this.$store).usersProjectsCount() === 0 && this.noCreditCards) {
             return this.initialPaymentOptions;
         }
 

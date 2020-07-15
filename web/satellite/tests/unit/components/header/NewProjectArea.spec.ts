@@ -84,20 +84,4 @@ describe('NewProjectArea', () => {
 
         expect(wrapper.findAll('.new-project-button-container').length).toBe(1);
     });
-
-    it('user is unable to create project with his project and with payment method', () => {
-        const user = new User('ownerId', 'test', 'test', 'test@test.test', 'test', 'test');
-        const project = new Project('id', 'test', 'test', 'test', 'ownerId', true);
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_PROJECT_POPUP);
-        store.commit(USER_MUTATIONS.SET_USER, user);
-        store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, [project]);
-
-        const wrapper = mount(NewProjectArea, {
-            store,
-            localVue,
-            router,
-        });
-
-        expect(wrapper.findAll('.new-project-button-container').length).toBe(0);
-    });
 });
