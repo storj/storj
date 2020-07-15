@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import sinon from 'sinon';
 
 import CreateApiKeyStep from '@/components/onboardingTour/steps/CreateApiKeyStep.vue';
 
@@ -15,6 +16,7 @@ import { createLocalVue, mount } from '@vue/test-utils';
 
 import { ApiKeysMock } from '../../mock/api/apiKeys';
 import { ProjectsApiMock } from '../../mock/api/projects';
+import {appStateModule} from "@/store/modules/appState";
 
 const localVue = createLocalVue();
 const notificationPlugin = new NotificatorPlugin();
@@ -31,7 +33,7 @@ localVue.use(Vuex);
 localVue.use(notificationPlugin);
 localVue.use(segmentioPlugin);
 
-const store = new Vuex.Store({ modules: { projectsModule, apiKeysModule }});
+const store = new Vuex.Store({ modules: { projectsModule, apiKeysModule, appStateModule }});
 
 describe('CreateApiKeyStep.vue', () => {
     it('renders correctly', (): void => {
@@ -58,13 +60,17 @@ describe('CreateApiKeyStep.vue', () => {
     });
 
     it('done click works correctly correctly', async (): Promise<void> => {
+        const spy = sinon.spy();
         const wrapper = mount(CreateApiKeyStep, {
             store,
             localVue,
+            methods: {
+                onDoneClick: spy,
+            },
         });
 
         await wrapper.find('.done-button').trigger('click');
 
-        expect(wrapper.emitted()).toHaveProperty('setUploadDataState');
+        expect(spy.callCount).toBe(1);
     });
 });

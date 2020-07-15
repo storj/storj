@@ -4,6 +4,7 @@
 export const APP_STATE_ACTIONS = {
     TOGGLE_TEAM_MEMBERS: 'toggleAddTeamMembersPopup',
     TOGGLE_NEW_PROJ : 'toggleNewProjectPopup',
+    TOGGLE_SAVE_API_KEY_MODAL: 'toggleSaveApiKeyModal',
     TOGGLE_PROJECTS: 'toggleProjectsDropdown',
     TOGGLE_ACCOUNT: 'toggleAccountDropdown',
     TOGGLE_DEL_PROJ: 'toggleDeleteProjectPopup',

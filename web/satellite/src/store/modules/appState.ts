@@ -24,6 +24,7 @@ export const appStateModule = {
             isChangePasswordPopupShown: false,
             isPaymentSelectionShown: false,
             isCreateProjectButtonShown: false,
+            isSaveApiKeyModalShown: false,
         },
         satelliteName: '',
     },
@@ -36,6 +37,11 @@ export const appStateModule = {
         // Mutation changing new project popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_NEW_PROJECT_POPUP](state: any): void {
             state.appState.isNewProjectPopupShown = !state.appState.isNewProjectPopupShown;
+        },
+
+        // Mutation changing save api key modal visibility
+        [APP_STATE_MUTATIONS.TOGGLE_SAVE_API_KEY_MODAL](state: any): void {
+            state.appState.isSaveApiKeyModalShown = !state.appState.isSaveApiKeyModalShown;
         },
 
         // Mutation changing project dropdown visibility
@@ -119,6 +125,13 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_NEW_PROJECT_POPUP);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_SAVE_API_KEY_MODAL]: function ({commit, state}: any): void {
+            if (!state.appState.isSaveApiKeyModalShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_SAVE_API_KEY_MODAL);
         },
         [APP_STATE_ACTIONS.TOGGLE_PROJECTS]: function ({commit, state}: any): void {
             if (!state.appState.isProjectsDropdownShown) {

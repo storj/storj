@@ -44,6 +44,7 @@ exports[`CreateApiKeyStep.vue create api key works correctly correctly 1`] = `
     <!---->
   </div>
   <div class="done-button container" style="width: 156px; height: 48px;"><span class="label">Done</span></div>
+  <!---->
 </div>
 `;
 
@@ -79,5 +80,6 @@ exports[`CreateApiKeyStep.vue renders correctly 1`] = `
     <!---->
   </div>
   <div class="done-button container disabled" style="width: 156px; height: 48px;"><span class="label">Done</span></div>
+  <!---->
 </div>
 `;
