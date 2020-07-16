@@ -1,3 +1,4 @@
+import {PaymentsHistoryItemType} from "@/types/payments";
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
@@ -64,7 +65,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { PaymentAmountOption } from '@/types/payments';
+import { PaymentAmountOption, PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { ProjectOwning } from '@/utils/projectOwning';
 
@@ -113,7 +114,9 @@ export default class TokenDepositSelection extends Vue {
      * Indicates if dropdown expands top.
      */
     public get isExpandingTop(): boolean {
-        return this.$store.state.paymentsModule.paymentsHistory.length === 0;
+        return !this.$store.state.paymentsModule.paymentsHistory.some((item: PaymentsHistoryItem) => {
+            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
+        });
     }
 
     /**
