@@ -17,8 +17,8 @@ import (
 
 // Config contains configurable values for rollup.
 type Config struct {
-	Interval            time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s"`
-	DeleteTallies       bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
+	Interval      time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s"`
+	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
 }
 
 // Service is the rollup service for totalling data on storage nodes on daily intervals

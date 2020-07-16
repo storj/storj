@@ -823,6 +823,7 @@ func TestSettledAmountsMatch(t *testing.T) {
 	}
 
 	for _, tt := range testCases {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			matches := satellitedb.SettledAmountsMatch(tt.rows, tt.orderActionAmounts)
 			require.Equal(t, tt.expected, matches)

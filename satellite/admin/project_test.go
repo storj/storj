@@ -179,6 +179,7 @@ func TestRenameProject(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.NoError(t, response.Body.Close())
 
 		project, err = planet.Satellites[0].DB.Console().Projects().Get(ctx, project.ID)
 		require.NoError(t, err)

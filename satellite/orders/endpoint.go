@@ -464,7 +464,7 @@ func (endpoint *Endpoint) SettlementWithWindow(stream pb.DRPCOrders_SettlementWi
 			log.Info("get bucketID from serial number table err", zap.Error(err))
 			continue
 		}
-		projectID, bucketname, err := SplitBucketID([]byte(bucketID))
+		projectID, bucketname, err := SplitBucketID(bucketID)
 		if err != nil {
 			log.Info("split bucket err", zap.Error(err), zap.String("bucketID", string(bucketID)))
 			continue

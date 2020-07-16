@@ -523,8 +523,8 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				Interval: defaultInterval,
 			},
 			Rollup: rollup.Config{
-				Interval:            defaultInterval,
-				DeleteTallies:       false,
+				Interval:      defaultInterval,
+				DeleteTallies: false,
 			},
 			ReportedRollup: reportedrollup.Config{
 				Interval: defaultInterval,
@@ -545,7 +545,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				AuthToken:       "very-secret-token",
 				AuthTokenSecret: "my-suppa-secret-key",
 				Config: console.Config{
-					PasswordCost: console.TestPasswordCost,
+					PasswordCost:        console.TestPasswordCost,
 					DefaultProjectLimit: 5,
 				},
 				RateLimit: web.IPRateLimiterConfig{

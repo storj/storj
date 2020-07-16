@@ -323,6 +323,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		}
 
 		for _, tt := range testCases {
+			tt := tt
 			t.Run(tt.name, func(t *testing.T) {
 				conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
 				require.NoError(t, err)
