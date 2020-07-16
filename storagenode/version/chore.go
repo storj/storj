@@ -21,14 +21,6 @@ var (
 	mon = monkit.Package()
 )
 
-// Relevance contains information about software being outdated.
-type Relevance struct {
-	expectedVersion  version.SemVer
-	isOutdated       bool
-	firstTimeSpotted time.Time
-	timesNotified    notifications.TimesNotified
-}
-
 // Chore contains the information and variables to ensure the Software is up to date for storagenode.
 type Chore struct {
 	log     *zap.Logger
@@ -39,6 +31,8 @@ type Chore struct {
 	notifications *notifications.Service
 
 	version Relevance
+	// nowFn used to mock time is tests.
+	nowFn func() time.Time
 }
 
 // NewChore creates a Version Check Client with default configuration for storagenode.
@@ -49,6 +43,7 @@ func NewChore(log *zap.Logger, service *checker.Service, notifications *notifica
 		nodeID:        nodeID,
 		notifications: notifications,
 		Loop:          sync2.NewCycle(checkInterval),
+		nowFn:         time.Now().UTC,
 	}
 }
 
@@ -63,9 +58,8 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 	}
 
-	chore.version.init(chore.service.Info.Version)
-
-	now := time.Now().UTC()
+	currentVer := chore.service.Info.Version
+	chore.version.init(currentVer)
 
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
 		suggested, err := chore.service.CheckVersion(ctx)
@@ -73,26 +67,29 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			return err
 		}
 
-		chore.version.checkRelevance(suggested, chore.service.Info.Version)
+		err = chore.checkRelevance(ctx, suggested, currentVer)
+		if err != nil {
+			return err
+		}
 
-		if !chore.version.isOutdated {
+		if !chore.version.IsOutdated {
 			return nil
 		}
 
 		var notification notifications.NewNotification
-
+		now := chore.nowFn()
 		switch {
-		case chore.version.firstTimeSpotted.Add(time.Hour*335).Before(now) && chore.version.timesNotified == notifications.TimesNotifiedSecond:
+		case chore.version.FirstTimeSpotted.Add(time.Hour*336).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedSecond:
 			notification = notifications.NewVersionNotification(notifications.TimesNotifiedSecond, suggested, chore.nodeID)
-			chore.version.timesNotified = notifications.TimesNotifiedLast
+			chore.version.TimesNotified = notifications.TimesNotifiedLast
 
-		case chore.version.firstTimeSpotted.Add(time.Hour*144).Before(now) && chore.version.timesNotified == notifications.TimesNotifiedFirst:
+		case chore.version.FirstTimeSpotted.Add(time.Hour*144).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedFirst:
 			notification = notifications.NewVersionNotification(notifications.TimesNotifiedFirst, suggested, chore.nodeID)
-			chore.version.timesNotified = notifications.TimesNotifiedSecond
+			chore.version.TimesNotified = notifications.TimesNotifiedSecond
 
-		case chore.version.firstTimeSpotted.Add(time.Hour*96).Before(now) && chore.version.timesNotified == notifications.TimesNotifiedZero:
+		case chore.version.FirstTimeSpotted.Add(time.Hour*96).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedZero:
 			notification = notifications.NewVersionNotification(notifications.TimesNotifiedZero, suggested, chore.nodeID)
-			chore.version.timesNotified = notifications.TimesNotifiedFirst
+			chore.version.TimesNotified = notifications.TimesNotifiedFirst
 		default:
 			return nil
 		}
@@ -106,22 +103,61 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	})
 }
 
-func (relevance *Relevance) init(currentVer version.SemVer) {
-	relevance.expectedVersion = currentVer
-	relevance.firstTimeSpotted = time.Now().UTC()
-	relevance.timesNotified = notifications.TimesNotifiedZero
+func (chore *Chore) checkRelevance(ctx context.Context, suggested version.SemVer, current version.SemVer) error {
+	if current.Compare(suggested) < 0 {
+		cursor, err := chore.service.GetCursor(ctx)
+		if err != nil {
+			return err
+		}
+
+		bytes, err := cursor.MarshalJSON()
+		if err != nil {
+			return err
+		}
+
+		cursorString := string(bytes)
+		if cursorString != "" {
+			cursorString = cursorString[1 : len(cursorString)-1]
+		}
+
+		if cursorString == "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" {
+			chore.version.IsOutdated = true
+
+			if chore.version.ExpectedVersion.Compare(suggested) < 0 {
+				chore.version.ExpectedVersion = suggested
+				chore.version.FirstTimeSpotted = time.Now().UTC()
+				chore.version.TimesNotified = notifications.TimesNotifiedZero
+			}
+		} else {
+			chore.version.IsOutdated = false
+			chore.version.TimesNotified = notifications.TimesNotifiedZero
+			return nil
+		}
+	}
+	return nil
 }
 
-func (relevance *Relevance) checkRelevance(suggested version.SemVer, current version.SemVer) {
-	if current.Compare(suggested) < 0 {
-		relevance.isOutdated = true
-		if relevance.expectedVersion.Compare(suggested) < 0 {
-			relevance.expectedVersion = suggested
-			relevance.firstTimeSpotted = time.Now().UTC()
-			relevance.timesNotified = notifications.TimesNotifiedZero
-		}
-	} else {
-		relevance.isOutdated = false
-		relevance.timesNotified = notifications.TimesNotifiedZero
-	}
+// Relevance contains information about software being outdated.
+type Relevance struct {
+	ExpectedVersion  version.SemVer
+	IsOutdated       bool
+	FirstTimeSpotted time.Time
+	TimesNotified    notifications.TimesNotified
+}
+
+func (relevance *Relevance) init(currentVer version.SemVer) {
+	relevance.ExpectedVersion = currentVer
+	relevance.FirstTimeSpotted = time.Now().UTC()
+	relevance.TimesNotified = notifications.TimesNotifiedZero
+}
+
+// TestSetNow allows tests to have the Service act as if the current time is whatever
+// they want. This avoids races and sleeping, making tests more reliable and efficient.
+func (chore *Chore) TestSetNow(now func() time.Time) {
+	chore.nowFn = now
+}
+
+// TestCheckVersion returns chore.relevance, used for chore tests only.
+func (chore *Chore) TestCheckVersion() (relevance Relevance) {
+	return chore.version
 }
