@@ -80,7 +80,7 @@ func (service *Service) CheckVersion(ctx context.Context) (latest version.SemVer
 }
 
 // checkVersion checks if the client is running latest/allowed version.
-func (service *Service) checkVersion(ctx context.Context) (latestVersion version.SemVer, allowed bool) {
+func (service *Service) checkVersion(ctx context.Context) (_ version.SemVer, allowed bool) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -90,7 +90,9 @@ func (service *Service) checkVersion(ctx context.Context) (latestVersion version
 		service.mu.Lock()
 		service.allowed = allowed
 		if err == nil {
-			service.acceptedVersion = minimum
+			if minimum.Compare(service.acceptedVersion) >= 0 {
+				service.acceptedVersion = minimum
+			}
 		}
 		service.mu.Unlock()
 		service.checked.Release()
@@ -102,6 +104,15 @@ func (service *Service) checkVersion(ctx context.Context) (latestVersion version
 	}
 	suggestedVersion, err := allowedVersions.Processes.Storagenode.Suggested.SemVer()
 	if err != nil {
+		return service.acceptedVersion, true
+	}
+
+	service.mu.Lock()
+	isVersionActual := suggestedVersion.Compare(service.acceptedVersion)
+	service.mu.Unlock()
+
+	if isVersionActual < 0 {
+		minimum = service.Info.Version
 		return service.acceptedVersion, true
 	}
 
@@ -134,6 +145,23 @@ func (service *Service) checkVersion(ctx context.Context) (latestVersion version
 		zap.Stringer("minimum allowed version", minimumOld),
 	)
 	return suggestedVersion, false
+}
+
+// GetCursor returns storagenode rollout cursor value.
+func (service *Service) GetCursor(ctx context.Context) (_ version.RolloutBytes, err error) {
+	allowedVersions, err := service.client.All(ctx)
+	if err != nil {
+		return version.RolloutBytes{}, err
+	}
+	return allowedVersions.Processes.Storagenode.Rollout.Cursor, nil
+}
+
+// SetAcceptedVersion changes accepted version to specific for tests.
+func (service *Service) SetAcceptedVersion(version version.SemVer) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	service.acceptedVersion = version
 }
 
 // Checked returns whether the version has been updated.

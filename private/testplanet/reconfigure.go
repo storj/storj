@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/versioncontrol"
 )
 
 // Reconfigure allows to change node configurations.
@@ -28,6 +29,8 @@ type Reconfigure struct {
 	StorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
 	StorageNode   func(index int, config *storagenode.Config)
 	UniqueIPCount int
+
+	VersionControl func(config *versioncontrol.Config)
 
 	Identities func(log *zap.Logger, version storj.IDVersion) *testidentity.Identities
 }
