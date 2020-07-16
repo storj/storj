@@ -167,6 +167,12 @@ export default class SNOHeader extends Vue {
             console.error(`${error.message} satellite data.`);
         }
 
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, this.$store.state.node.selectedSatellite.id);
+        } catch (error) {
+            console.error(error);
+        }
+
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
     }
 }

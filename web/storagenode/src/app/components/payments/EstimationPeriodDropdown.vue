@@ -44,7 +44,6 @@ export default class EstimationPeriodDropdown extends Vue {
      * Indicates if period selection calendar should be disabled.
      */
     public get isCalendarDisabled(): boolean {
-        // TODO: change to available periods check after #1929 merge.
         const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
         const now = new Date();
 

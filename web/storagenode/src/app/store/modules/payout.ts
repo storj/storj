@@ -127,8 +127,8 @@ export function makePayoutModule(api: PayoutApi) {
 
                 commit(PAYOUT_MUTATIONS.SET_PERIODS, periods);
             },
-            [PAYOUT_ACTIONS.GET_ESTIMATION]: async function ({commit}: any): Promise<void> {
-                const estimatedInfo = await api.getEstimatedInfo();
+            [PAYOUT_ACTIONS.GET_ESTIMATION]: async function ({ commit }: any, satelliteId: string = ''): Promise<void> {
+                const estimatedInfo = await api.getEstimatedInfo(satelliteId);
 
                 commit(PAYOUT_MUTATIONS.SET_ESTIMATION, estimatedInfo);
             },

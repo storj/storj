@@ -8,8 +8,8 @@ import {
     HeldInfo,
     PaymentInfoParameters,
     PayoutApi,
-    PreviousMonthEstimatedPayout,
     PayoutPeriod,
+    PreviousMonthEstimatedPayout,
     TotalPayoutInfo,
 } from '@/app/types/payout';
 import { HttpClient } from '@/storagenode/utils/httpClient';
@@ -174,8 +174,14 @@ export class PayoutHttpApi implements PayoutApi {
      * @returns estimated payout information
      * @throws Error
      */
-    public async getEstimatedInfo(): Promise<EstimatedPayout> {
-        const response = await this.client.get('/api/sno/estimated-payout/');
+    public async getEstimatedInfo(satelliteId: string): Promise<EstimatedPayout> {
+        let path = '/api/sno/estimated-payout';
+
+        if (satelliteId) {
+            path += '?id=' + satelliteId;
+        }
+
+        const response = await this.client.get(path);
 
         if (!response.ok) {
             throw new Error('can not get estimated payout information');

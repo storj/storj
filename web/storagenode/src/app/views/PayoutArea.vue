@@ -86,7 +86,7 @@ export default class PayoutArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, this.$store.state.node.selectedSatellite.id);
         } catch (error) {
             console.error(error);
         }

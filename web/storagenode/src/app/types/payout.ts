@@ -137,7 +137,7 @@ export interface PayoutApi {
      * Fetch estimated payout information.
      * @throws Error
      */
-    getEstimatedInfo(): Promise<EstimatedPayout>;
+    getEstimatedInfo(satelliteId: string): Promise<EstimatedPayout>;
 }
 
 /**

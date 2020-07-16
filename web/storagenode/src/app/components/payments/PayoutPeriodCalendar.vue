@@ -124,8 +124,18 @@ export default class PayoutPeriodCalendar extends Vue {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, this.$store.state.node.selectedSatellite.id);
             await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
         } catch (error) {
-            await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, true);
-            console.error(error.message);
+            const lastMonthDate = new Date();
+            lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
+
+
+            const selectedPeriod: PayoutInfoRange = this.$store.state.payoutModule.periodRange;
+            const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());
+            const isLastPeriodSelected: boolean = !selectedPeriod.start && selectedPeriod.end.period === lastMonthPayoutPeriod.period;
+
+            if (!isLastPeriodSelected) {
+                await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, true);
+                console.error(error.message);
+            }
         }
 
         this.close();
@@ -291,13 +301,22 @@ export default class PayoutPeriodCalendar extends Vue {
 
         const months: MonthButton[] = [];
         const availablePeriods: string[] = this.$store.state.payoutModule.payoutPeriods.map(payoutPeriod => payoutPeriod.period);
+        const lastMonthDate = new Date();
+        lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
 
         // Creates month entities and adds them to list.
         for (let i = 0; i < 12; i++) {
             const period = `${year}-${i < 9 ? '0' + (i + 1) : (i + 1)}`;
+
+            const isLastMonth: boolean = lastMonthDate.getUTCFullYear() === year && lastMonthDate.getUTCMonth() === i;
+            const isLastMonthActive: boolean =
+                isLastMonth && this.$store.state.node.selectedSatellite.joinDate.getTime() < new Date(
+                    this.now.getUTCFullYear(), this.now.getUTCMonth(), 1 , 0, 0, 1,
+                ).getTime();
+
             const isMonthActive: boolean = availablePeriods.includes(period);
 
-            months.push(new MonthButton(year, i, isMonthActive, false));
+            months.push(new MonthButton(year, i, isMonthActive || isLastMonthActive, false));
         }
 
         this.displayedMonths[year] = months;
