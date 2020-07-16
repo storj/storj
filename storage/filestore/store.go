@@ -155,8 +155,8 @@ func (store *blobStore) GarbageCollect(ctx context.Context) (err error) {
 	return Error.Wrap(err)
 }
 
-// Create creates a new blob that can be written
-// optionally takes a size argument for performance improvements, -1 is unknown size.
+// Create creates a new blob that can be written.
+// Optionally takes a size argument for performance improvements, -1 is unknown size.
 func (store *blobStore) Create(ctx context.Context, ref storage.BlobRef, size int64) (_ storage.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 	file, err := store.dir.CreateTemporaryFile(ctx, size)

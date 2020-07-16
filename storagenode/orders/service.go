@@ -362,8 +362,8 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 	return errList.Err()
 }
 
-// sleep for random interval in [0;maxSleep)
-// returns error if context was cancelled.
+// sleep for random interval in [0;maxSleep).
+// Returns an error if context was cancelled.
 func (service *Service) sleep(ctx context.Context) error {
 	if service.config.MaxSleep <= 0 {
 		return nil

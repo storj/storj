@@ -27,7 +27,8 @@ import (
 	"storj.io/uplink/private/testuplink"
 )
 
-// Uplink is a general purpose.
+// Uplink is a registered user on all satellites,
+// which contains the necessary accesses and project info.
 type Uplink struct {
 	Log      *zap.Logger
 	Identity *identity.FullIdentity

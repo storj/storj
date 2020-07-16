@@ -7,8 +7,8 @@ package console
 type OrderDirection uint8
 
 const (
-	// Ascending indicates that we should order ascending
+	// Ascending indicates that we should order ascending.
 	Ascending OrderDirection = 1
-	// Descending indicates that we should order descending
+	// Descending indicates that we should order descending.
 	Descending OrderDirection = 2
 )

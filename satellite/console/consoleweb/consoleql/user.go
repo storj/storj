@@ -55,9 +55,9 @@ func baseUserConfig() graphql.ObjectConfig {
 	}
 }
 
-// graphqlUser creates *graphql.Object type representation of satellite.User
-// TODO: simplify.
+// graphqlUser creates *graphql.Object type representation of satellite.User.
 func graphqlUser() *graphql.Object {
+	// TODO: simplify
 	return graphql.NewObject(baseUserConfig())
 }
 

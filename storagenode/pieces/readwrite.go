@@ -245,8 +245,10 @@ func (r *Reader) StorageFormatVersion() storage.FormatVersion {
 }
 
 // GetPieceHeader reads, unmarshals, and returns the piece header. It may only be called once,
-// before any Read() calls. (Retrieving the header at any time could be supported, but for the sake
-// of performance we need to understand why and how often that would happen.).
+// before any Read() calls.
+//
+// Retrieving the header at any time could be supported, but for the sake
+// of performance we need to understand why and how often that would happen.
 func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 	if r.formatVersion < filestore.FormatV1 {
 		return nil, BadFormatVersion.New("Can't get piece header from storage format V0 reader")

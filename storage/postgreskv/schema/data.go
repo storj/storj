@@ -55,32 +55,32 @@ type bindataFileInfo struct {
 	modTime time.Time
 }
 
-// Name return file name.
+// Name return file name
 func (fi bindataFileInfo) Name() string {
 	return fi.name
 }
 
-// Size return file size.
+// Size return file size
 func (fi bindataFileInfo) Size() int64 {
 	return fi.size
 }
 
-// Mode return file mode.
+// Mode return file mode
 func (fi bindataFileInfo) Mode() os.FileMode {
 	return fi.mode
 }
 
-// Mode return file modify time.
+// Mode return file modify time
 func (fi bindataFileInfo) ModTime() time.Time {
 	return fi.modTime
 }
 
-// IsDir return file whether a directory.
+// IsDir return file whether a directory
 func (fi bindataFileInfo) IsDir() bool {
 	return fi.mode&os.ModeDir != 0
 }
 
-// Sys return file is sys mode.
+// Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
@@ -358,7 +358,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"2020011601_kvimplementation_switchover.up.sql":   &bintree{_2020011601_kvimplementation_switchoverUpSql, map[string]*bintree{}},
 }}
 
-// RestoreAsset restores an asset under the given directory.
+// RestoreAsset restores an asset under the given directory
 func RestoreAsset(dir, name string) error {
 	data, err := Asset(name)
 	if err != nil {
@@ -383,7 +383,7 @@ func RestoreAsset(dir, name string) error {
 	return nil
 }
 
-// RestoreAssets restores an asset under the given directory recursively.
+// RestoreAssets restores an asset under the given directory recursively
 func RestoreAssets(dir, name string) error {
 	children, err := AssetDir(name)
 	// File
