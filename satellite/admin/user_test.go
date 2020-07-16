@@ -103,6 +103,53 @@ func TestAddUser(t *testing.T) {
 	})
 }
 
+func TestAddUserSameEmail(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		email := "alice+2@mail.test"
+
+		body := strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
+		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/user", body)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "very-secret-token")
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+		responseBody, err := ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.NoError(t, response.Body.Close())
+
+		var output console.User
+
+		err = json.Unmarshal(responseBody, &output)
+		require.NoError(t, err)
+
+		user, err := planet.Satellites[0].DB.Console().Users().Get(ctx, output.ID)
+		require.NoError(t, err)
+		require.Equal(t, email, user.Email)
+
+		// Add same user again, this should fail
+		body = strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
+		req, err = http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/user", body)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "very-secret-token")
+
+		response, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusConflict, response.StatusCode)
+	})
+}
+
 func TestUpdateUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,

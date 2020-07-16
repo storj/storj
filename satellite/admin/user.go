@@ -45,6 +45,16 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	existingUser, err := server.db.Console().Users().GetByEmail(ctx, input.Email)
+	if err != nil && !errors.Is(sql.ErrNoRows, err) {
+		http.Error(w, fmt.Sprintf("failed to check for user email %q: %v", input.Email, err), http.StatusInternalServerError)
+		return
+	}
+	if existingUser != nil {
+		http.Error(w, fmt.Sprintf("user with email already exists %s", input.Email), http.StatusConflict)
+		return
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), 0)
 	if err != nil {
 		http.Error(w, "Unable to save password hash", http.StatusInternalServerError)
