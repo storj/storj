@@ -44,6 +44,7 @@ func TestHeldAmountDB(t *testing.T) {
 			Held:           14,
 			Owed:           15,
 			Disposed:       16,
+			Receipt:        "test",
 		}
 		paystub2 := paystub
 		paystub2.Period = "2020-02"
@@ -55,6 +56,13 @@ func TestHeldAmountDB(t *testing.T) {
 		})
 
 		t.Run("Test GetPayStub", func(t *testing.T) {
+			err := heldAmount.StorePayment(ctx, heldamount.Payment{
+				SatelliteID: satelliteID,
+				Period:      period,
+				Receipt:     "test",
+			})
+			assert.NoError(t, err)
+
 			stub, err := heldAmount.GetPayStub(ctx, satelliteID, period)
 			assert.NoError(t, err)
 			assert.Equal(t, stub.Period, paystub.Period)
@@ -78,6 +86,7 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.Equal(t, stub.UsageGetRepair, paystub.UsageGetRepair)
 			assert.Equal(t, stub.UsagePut, paystub.UsagePut)
 			assert.Equal(t, stub.UsagePutRepair, paystub.UsagePutRepair)
+			assert.Equal(t, stub.Receipt, paystub.Receipt)
 
 			stub, err = heldAmount.GetPayStub(ctx, satelliteID, "")
 			assert.Error(t, err)
@@ -116,6 +125,7 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.Equal(t, stubs[0].UsageGetRepair, paystub.UsageGetRepair)
 			assert.Equal(t, stubs[0].UsagePut, paystub.UsagePut)
 			assert.Equal(t, stubs[0].UsagePutRepair, paystub.UsagePutRepair)
+			assert.NotEqual(t, stubs[0].Receipt, paystub.Receipt)
 
 			stubs, err = heldAmount.AllPayStubs(ctx, "")
 			assert.Equal(t, len(stubs), 0)
