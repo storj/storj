@@ -14,10 +14,10 @@ import (
 	"storj.io/storj/private/tagsql"
 )
 
-// Error is the default migrate errs class
+// Error is the default migrate errs class.
 var Error = errs.Class("migrate")
 
-// Create with a previous schema check
+// Create with a previous schema check.
 func Create(ctx context.Context, identifier string, db DBX) error {
 	// is this necessary? it's not immediately obvious why we roll back the transaction
 	// when the schemas match.

@@ -40,7 +40,7 @@ type Info struct {
 	UplinkPieceHash *pb.PieceHash
 }
 
-// ExpiredInfo is a fully namespaced piece id
+// ExpiredInfo is a fully namespaced piece id.
 type ExpiredInfo struct {
 	SatelliteID storj.NodeID
 	PieceID     storj.PieceID
@@ -146,7 +146,7 @@ type StoredPieceAccess interface {
 	ModTime(ctx context.Context) (time.Time, error)
 }
 
-// SatelliteUsage contains information of how much space is used by a satellite
+// SatelliteUsage contains information of how much space is used by a satellite.
 type SatelliteUsage struct {
 	Total       int64 // the total space used (including headers)
 	ContentSize int64 // only content size used (excluding things like headers)
@@ -176,12 +176,12 @@ type Store struct {
 }
 
 // StoreForTest is a wrapper around Store to be used only in test scenarios. It enables writing
-// pieces with older storage formats
+// pieces with older storage formats.
 type StoreForTest struct {
 	*Store
 }
 
-// NewStore creates a new piece store
+// NewStore creates a new piece store.
 func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, pieceSpaceUsedDB PieceSpaceUsedDB, config Config) *Store {
 	return &Store{
 		log:            log,
@@ -339,7 +339,7 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 	return Error.Wrap(err)
 }
 
-// EmptyTrash deletes pieces in the trash that have been in there longer than trashExpiryInterval
+// EmptyTrash deletes pieces in the trash that have been in there longer than trashExpiryInterval.
 func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, trashedBefore time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -359,7 +359,7 @@ func (store *Store) EmptyTrash(ctx context.Context, satelliteID storj.NodeID, tr
 	return Error.Wrap(err)
 }
 
-// RestoreTrash restores all pieces in the trash
+// RestoreTrash restores all pieces in the trash.
 func (store *Store) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -493,7 +493,7 @@ func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.Nod
 	return err
 }
 
-// GetExpired gets piece IDs that are expired and were created before the given time
+// GetExpired gets piece IDs that are expired and were created before the given time.
 func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (_ []ExpiredInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -511,7 +511,7 @@ func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time, limit i
 	return expired, nil
 }
 
-// SetExpiration records an expiration time for the specified piece ID owned by the specified satellite
+// SetExpiration records an expiration time for the specified piece ID owned by the specified satellite.
 func (store *Store) SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time) (err error) {
 	return store.expirationInfo.SetExpiration(ctx, satellite, pieceID, expiresAt)
 }
@@ -563,7 +563,7 @@ func (store *Store) SpaceUsedForTrash(ctx context.Context) (int64, error) {
 }
 
 // SpaceUsedForPiecesAndTrash returns the total space used by both active
-// pieces and the trash directory
+// pieces and the trash directory.
 func (store *Store) SpaceUsedForPiecesAndTrash(ctx context.Context) (int64, error) {
 	piecesTotal, _, err := store.SpaceUsedForPieces(ctx)
 	if err != nil {
@@ -622,7 +622,7 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 	return piecesTotal, piecesContentSize, nil
 }
 
-// SpaceUsedTotalAndBySatellite adds up the space used by and for all satellites for blob storage
+// SpaceUsedTotalAndBySatellite adds up the space used by and for all satellites for blob storage.
 func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTotal, piecesContentSize int64, totalBySatellite map[storj.NodeID]SatelliteUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -704,17 +704,17 @@ func newStoredPieceAccess(store *Store, blobInfo storage.BlobInfo) (storedPieceA
 	}, nil
 }
 
-// PieceID returns the piece ID of the piece
+// PieceID returns the piece ID of the piece.
 func (access storedPieceAccess) PieceID() storj.PieceID {
 	return access.pieceID
 }
 
-// Satellite returns the satellite ID that owns the piece
+// Satellite returns the satellite ID that owns the piece.
 func (access storedPieceAccess) Satellite() (storj.NodeID, error) {
 	return storj.NodeIDFromBytes(access.BlobRef().Namespace)
 }
 
-// Size gives the size of the piece on disk, and the size of the content (not including the piece header, if applicable)
+// Size gives the size of the piece on disk, and the size of the content (not including the piece header, if applicable).
 func (access storedPieceAccess) Size(ctx context.Context) (size, contentSize int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	stat, err := access.Stat(ctx)

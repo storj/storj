@@ -22,7 +22,7 @@ type DB interface {
 	All(ctx context.Context) ([]Stats, error)
 }
 
-// Stats consist of reputation metrics
+// Stats consist of reputation metrics.
 type Stats struct {
 	SatelliteID storj.NodeID
 
@@ -36,7 +36,7 @@ type Stats struct {
 	JoinedAt  time.Time
 }
 
-// Metric encapsulates storagenode reputation metrics
+// Metric encapsulates storagenode reputation metrics.
 type Metric struct {
 	TotalCount   int64 `json:"totalCount"`
 	SuccessCount int64 `json:"successCount"`

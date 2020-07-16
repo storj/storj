@@ -18,7 +18,7 @@ const (
 	FieldJoinedAt = "joinedAt"
 )
 
-// graphqlProjectMember creates projectMember type
+// graphqlProjectMember creates projectMember type.
 func graphqlProjectMember(service *console.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: ProjectMemberType,
@@ -96,7 +96,7 @@ func graphqlProjectMembersPage(types *TypeCreator) *graphql.Object {
 	})
 }
 
-// projectMember encapsulates User and joinedAt
+// projectMember encapsulates User and joinedAt.
 type projectMember struct {
 	User     *console.User
 	JoinedAt time.Time

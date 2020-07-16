@@ -72,7 +72,7 @@ func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbut
 	}, nil
 }
 
-// QuerySnapshot loads snapshot from database
+// QuerySnapshot loads snapshot from database.
 func QuerySnapshot(ctx context.Context, db dbschema.Queryer) (*dbschema.Snapshot, error) {
 	schema, err := QuerySchema(ctx, db)
 	if err != nil {
@@ -91,7 +91,7 @@ func QuerySnapshot(ctx context.Context, db dbschema.Queryer) (*dbschema.Snapshot
 	}, err
 }
 
-// CheckApplicationName ensures that the Connection String contains an application name
+// CheckApplicationName ensures that the Connection String contains an application name.
 func CheckApplicationName(s string) (r string) {
 	if !strings.Contains(s, "application_name") {
 		if !strings.Contains(s, "?") {
@@ -105,7 +105,7 @@ func CheckApplicationName(s string) (r string) {
 	return s
 }
 
-// IsConstraintError checks if given error is about constraint violation
+// IsConstraintError checks if given error is about constraint violation.
 func IsConstraintError(err error) bool {
 	errCode := ErrorCode(err)
 	return strings.HasPrefix(errCode, pgErrorClassConstraintViolation)

@@ -34,7 +34,7 @@ func (percents Percents) String() string {
 	return strings.Join(s, ",")
 }
 
-// Set implements pflag.Value by parsing a comma separated list of percents
+// Set implements pflag.Value by parsing a comma separated list of percents.
 func (percents *Percents) Set(value string) error {
 	var entries []string
 	if value != "" {
@@ -54,7 +54,7 @@ func (percents *Percents) Set(value string) error {
 	return nil
 }
 
-// Type returns the type of the pflag.Value
+// Type returns the type of the pflag.Value.
 func (percents Percents) Type() string {
 	return "percents"
 }

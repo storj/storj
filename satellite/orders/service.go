@@ -24,7 +24,7 @@ import (
 	"storj.io/uplink/private/eestream"
 )
 
-// ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces
+// ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces.
 var ErrDownloadFailedNotEnoughPieces = errs.Class("not enough pieces for download")
 
 // Config is a configuration struct for orders Service.
@@ -239,7 +239,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 	return limits, piecePrivateKey, nil
 }
 
-// RandomSampleOfOrderLimits returns a random sample of the order limits
+// RandomSampleOfOrderLimits returns a random sample of the order limits.
 func (service *Service) RandomSampleOfOrderLimits(limits []*pb.AddressedOrderLimit, sampleSize int) ([]*pb.AddressedOrderLimit, error) {
 	service.rngMu.Lock()
 	perm := service.rng.Perm(len(limits))
@@ -834,7 +834,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 	return limit, piecePrivateKey, nil
 }
 
-// UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket
+// UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket.
 func (service *Service) UpdateGetInlineOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	now := time.Now().UTC()
@@ -843,7 +843,7 @@ func (service *Service) UpdateGetInlineOrder(ctx context.Context, projectID uuid
 	return service.orders.UpdateBucketBandwidthInline(ctx, projectID, bucketName, pb.PieceAction_GET, amount, intervalStart)
 }
 
-// UpdatePutInlineOrder updates amount of inline PUT bandwidth for given bucket
+// UpdatePutInlineOrder updates amount of inline PUT bandwidth for given bucket.
 func (service *Service) UpdatePutInlineOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	now := time.Now().UTC()
@@ -852,7 +852,7 @@ func (service *Service) UpdatePutInlineOrder(ctx context.Context, projectID uuid
 	return service.orders.UpdateBucketBandwidthInline(ctx, projectID, bucketName, pb.PieceAction_PUT, amount, intervalStart)
 }
 
-// SplitBucketID takes a bucketID, splits on /, and returns a projectID and bucketName
+// SplitBucketID takes a bucketID, splits on /, and returns a projectID and bucketName.
 func SplitBucketID(bucketID []byte) (projectID uuid.UUID, bucketName []byte, err error) {
 	pathElements := bytes.Split(bucketID, []byte("/"))
 	if len(pathElements) > 1 {

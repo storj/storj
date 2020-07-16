@@ -11,7 +11,7 @@ import (
 	"storj.io/storj/private/dbutil/sqliteutil"
 )
 
-// States is the global variable that stores all the states for testing
+// States is the global variable that stores all the states for testing.
 var States = MultiDBStates{
 	List: []*MultiDBState{
 		&v0,
@@ -61,7 +61,7 @@ var States = MultiDBStates{
 	},
 }
 
-// MultiDBStates provides a convenient list of MultiDBState
+// MultiDBStates provides a convenient list of MultiDBState.
 type MultiDBStates struct {
 	List []*MultiDBState
 }
@@ -83,7 +83,7 @@ type MultiDBState struct {
 	DBStates DBStates
 }
 
-// DBStates is a convenience type
+// DBStates is a convenience type.
 type DBStates map[string]*DBState
 
 // DBState allows you to define the desired state of the DB using SQl commands.
@@ -95,20 +95,20 @@ type DBState struct {
 	NewData string
 }
 
-// MultiDBSnapshot represents an expected state among multiple databases
+// MultiDBSnapshot represents an expected state among multiple databases.
 type MultiDBSnapshot struct {
 	Version     int
 	DBSnapshots DBSnapshots
 }
 
-// NewMultiDBSnapshot returns a new MultiDBSnapshot
+// NewMultiDBSnapshot returns a new MultiDBSnapshot.
 func NewMultiDBSnapshot() *MultiDBSnapshot {
 	return &MultiDBSnapshot{
 		DBSnapshots: DBSnapshots{},
 	}
 }
 
-// DBSnapshots is a convenience type
+// DBSnapshots is a convenience type.
 type DBSnapshots map[string]*DBSnapshot
 
 // DBSnapshot is a snapshot of a single DB.

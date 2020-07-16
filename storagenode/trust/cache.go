@@ -15,7 +15,7 @@ import (
 	"storj.io/common/fpath"
 )
 
-// Cache caches source information about trusted satellites
+// Cache caches source information about trusted satellites.
 type Cache struct {
 	path string
 	data *CacheData
@@ -48,7 +48,7 @@ func LoadCache(path string) (*Cache, error) {
 	}, nil
 }
 
-// Path returns the path on disk to the file containing the cache
+// Path returns the path on disk to the file containing the cache.
 func (cache *Cache) Path() string {
 	return cache.path
 }
@@ -61,30 +61,30 @@ func (cache *Cache) Lookup(key string) (entries []Entry, ok bool) {
 	return entries, ok
 }
 
-// Set sets the entries in the cache for the provided key
+// Set sets the entries in the cache for the provided key.
 func (cache *Cache) Set(key string, entries []Entry) {
 	cache.data.Entries[key] = entries
 }
 
-// Save persists the cache to disk
+// Save persists the cache to disk.
 func (cache *Cache) Save(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return SaveCacheData(cache.path, cache.data)
 }
 
-// CacheData represents the data stored in the cache
+// CacheData represents the data stored in the cache.
 type CacheData struct {
 	Entries map[string][]Entry `json:"entries"`
 }
 
-// NewCacheData returns an new CacheData
+// NewCacheData returns an new CacheData.
 func NewCacheData() *CacheData {
 	return &CacheData{
 		Entries: make(map[string][]Entry),
 	}
 }
 
-// LoadCacheData loads the cache data from the given path
+// LoadCacheData loads the cache data from the given path.
 func LoadCacheData(path string) (*CacheData, error) {
 	dataBytes, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -102,7 +102,7 @@ func LoadCacheData(path string) (*CacheData, error) {
 	return data, nil
 }
 
-// SaveCacheData persists the cache data to the given path
+// SaveCacheData persists the cache data to the given path.
 func SaveCacheData(path string, data *CacheData) error {
 	// Ensure the entries map is always non-nil on save
 	if data.Entries == nil {

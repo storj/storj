@@ -245,7 +245,7 @@ func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes [
 	return pointerBytes, pointer, nil
 }
 
-// List returns all Path keys in the pointers bucket
+// List returns all Path keys in the pointers bucket.
 func (s *Service) List(ctx context.Context, prefix string, startAfter string, recursive bool, limit int32,
 	metaFlags uint32) (items []*pb.ListResponse_Item, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -295,7 +295,7 @@ func (s *Service) createListItem(ctx context.Context, rawItem storage.ListItem, 
 }
 
 // getMetadata adds the metadata to the given item pointer according to the
-// given metaFlags
+// given metaFlags.
 func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags uint32) (err error) {
 	if metaFlags == meta.None || len(data) == 0 {
 		return nil
@@ -348,25 +348,25 @@ func (s *Service) UnsynchronizedDelete(ctx context.Context, path string) (err er
 	return Error.Wrap(err)
 }
 
-// CreateBucket creates a new bucket in the buckets db
+// CreateBucket creates a new bucket in the buckets db.
 func (s *Service) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return s.bucketsDB.CreateBucket(ctx, bucket)
 }
 
-// GetBucket returns an existing bucket in the buckets db
+// GetBucket returns an existing bucket in the buckets db.
 func (s *Service) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return s.bucketsDB.GetBucket(ctx, bucketName, projectID)
 }
 
-// UpdateBucket returns an updated bucket in the buckets db
+// UpdateBucket returns an updated bucket in the buckets db.
 func (s *Service) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return s.bucketsDB.UpdateBucket(ctx, bucket)
 }
 
-// DeleteBucket deletes a bucket from the bucekts db
+// DeleteBucket deletes a bucket from the bucekts db.
 func (s *Service) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -395,13 +395,13 @@ func (s *Service) IsBucketEmpty(ctx context.Context, projectID uuid.UUID, bucket
 	return len(items) == 0, nil
 }
 
-// ListBuckets returns a list of buckets for a project
+// ListBuckets returns a list of buckets for a project.
 func (s *Service) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return s.bucketsDB.ListBuckets(ctx, projectID, listOpts, allowedBuckets)
 }
 
-// CountBuckets returns the number of buckets a project currently has
+// CountBuckets returns the number of buckets a project currently has.
 func (s *Service) CountBuckets(ctx context.Context, projectID uuid.UUID) (count int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return s.bucketsDB.CountBuckets(ctx, projectID)

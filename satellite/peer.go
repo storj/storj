@@ -109,7 +109,7 @@ type DB interface {
 	NodeAPIVersion() nodeapiversion.DB
 }
 
-// Config is the global config satellite
+// Config is the global config satellite.
 type Config struct {
 	Identity identity.Config
 	Server   server.Config

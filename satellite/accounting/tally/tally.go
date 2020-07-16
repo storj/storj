@@ -25,7 +25,7 @@ var (
 	mon   = monkit.Package()
 )
 
-// Config contains configurable values for the tally service
+// Config contains configurable values for the tally service.
 type Config struct {
 	Interval time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
 }
@@ -44,7 +44,7 @@ type Service struct {
 	nowFn                   func() time.Time
 }
 
-// New creates a new tally Service
+// New creates a new tally Service.
 func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
 	return &Service{
 		log:  log,
@@ -58,7 +58,7 @@ func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.P
 	}
 }
 
-// Run the tally service loop
+// Run the tally service loop.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -83,7 +83,7 @@ func (service *Service) SetNow(now func() time.Time) {
 	service.nowFn = now
 }
 
-// Tally calculates data-at-rest usage once
+// Tally calculates data-at-rest usage once.
 func (service *Service) Tally(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -190,7 +190,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 var _ metainfo.Observer = (*Observer)(nil)
 
-// Observer observes metainfo and adds up tallies for nodes and buckets
+// Observer observes metainfo and adds up tallies for nodes and buckets.
 type Observer struct {
 	Now    time.Time
 	Log    *zap.Logger
@@ -213,7 +213,7 @@ func (observer *Observer) pointerExpired(pointer *pb.Pointer) bool {
 	return !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(observer.Now)
 }
 
-// ensureBucket returns bucket corresponding to the passed in path
+// ensureBucket returns bucket corresponding to the passed in path.
 func (observer *Observer) ensureBucket(ctx context.Context, path metainfo.ScopedPath) *accounting.BucketTally {
 	bucketID := storj.JoinPaths(path.ProjectIDString, path.BucketName)
 
@@ -290,5 +290,5 @@ func projectTotalsFromBuckets(buckets map[string]*accounting.BucketTally) map[uu
 	return projectTallyTotals
 }
 
-// using custom name to avoid breaking monitoring
+// using custom name to avoid breaking monitoring.
 var monAccounting = monkit.ScopeNamed("storj.io/storj/satellite/accounting")

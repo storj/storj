@@ -28,7 +28,7 @@ var (
 	mon   = monkit.Package()
 )
 
-// Config contains configurable values for checker
+// Config contains configurable values for checker.
 type Config struct {
 	Interval            time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s"`
 	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
@@ -37,7 +37,7 @@ type Config struct {
 	RepairOverride            int           `help:"override value for repair threshold" default:"0"`
 }
 
-// durabilityStats remote segment information
+// durabilityStats remote segment information.
 type durabilityStats struct {
 	objectsChecked                 int64
 	remoteSegmentsChecked          int64
@@ -65,7 +65,7 @@ type Checker struct {
 	IrreparableLoop *sync2.Cycle
 }
 
-// NewChecker creates a new instance of checker
+// NewChecker creates a new instance of checker.
 func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metainfo *metainfo.Service, metaLoop *metainfo.Loop, overlay *overlay.Service, config Config) *Checker {
 	return &Checker{
 		logger: logger,
@@ -82,7 +82,7 @@ func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irrepar
 	}
 }
 
-// Run the checker loop
+// Run the checker loop.
 func (checker *Checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -104,7 +104,7 @@ func (checker *Checker) RefreshReliabilityCache(ctx context.Context) error {
 	return checker.nodestate.Refresh(ctx)
 }
 
-// Close halts the Checker loop
+// Close halts the Checker loop.
 func (checker *Checker) Close() error {
 	checker.Loop.Close()
 	return nil
@@ -151,7 +151,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	return nil
 }
 
-// checks for a string in slice
+// checks for a string in slice.
 func contains(a []string, x string) bool {
 	for _, n := range a {
 		if x == n {

@@ -16,7 +16,7 @@ type client struct {
 	client pb.DRPCContactClient
 }
 
-// dialNodeURL dials the target contact endpoint
+// dialNodeURL dials the target contact endpoint.
 func dialNodeURL(ctx context.Context, dialer rpc.Dialer, nodeurl storj.NodeURL) (*client, error) {
 	conn, err := dialer.DialNodeURL(ctx, nodeurl)
 	if err != nil {
@@ -29,12 +29,12 @@ func dialNodeURL(ctx context.Context, dialer rpc.Dialer, nodeurl storj.NodeURL) 
 	}, nil
 }
 
-// pingNode pings a node
+// pingNode pings a node.
 func (client *client) pingNode(ctx context.Context, req *pb.ContactPingRequest) (*pb.ContactPingResponse, error) {
 	return client.client.PingNode(ctx, req)
 }
 
-// Close closes the connection
+// Close closes the connection.
 func (client *client) Close() error {
 	return client.conn.Close()
 }

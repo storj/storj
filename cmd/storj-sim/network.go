@@ -203,7 +203,7 @@ func networkDestroy(flags *Flags, args []string) error {
 	return os.RemoveAll(flags.Directory)
 }
 
-// newNetwork creates a default network
+// newNetwork creates a default network.
 func newNetwork(flags *Flags) (*Processes, error) {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
@@ -667,7 +667,7 @@ func identitySetup(network *Processes) (*Processes, error) {
 	return processes, nil
 }
 
-// readConfigString reads from dir/config.yaml flagName returns the value in `into`
+// readConfigString reads from dir/config.yaml flagName returns the value in `into`.
 func readConfigString(into *string, dir, flagName string) error {
 	vip := viper.New()
 	vip.AddConfigPath(dir)

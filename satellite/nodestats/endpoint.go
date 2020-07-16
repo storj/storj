@@ -31,7 +31,7 @@ type Endpoint struct {
 	config     paymentsconfig.Config
 }
 
-// NewEndpoint creates new endpoint
+// NewEndpoint creates new endpoint.
 func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.StoragenodeAccounting, config paymentsconfig.Config) *Endpoint {
 	return &Endpoint{
 		log:        log,
@@ -41,7 +41,7 @@ func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.Stor
 	}
 }
 
-// GetStats sends node stats for client node
+// GetStats sends node stats for client node.
 func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb.GetStatsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -87,7 +87,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 	}, nil
 }
 
-// DailyStorageUsage returns slice of daily storage usage for given period of time sorted in ASC order by date
+// DailyStorageUsage returns slice of daily storage usage for given period of time sorted in ASC order by date.
 func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUsageRequest) (_ *pb.DailyStorageUsageResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -128,7 +128,7 @@ func (e *Endpoint) PricingModel(ctx context.Context, req *pb.PricingModelRequest
 	}, nil
 }
 
-// toProtoDailyStorageUsage converts StorageNodeUsage to PB DailyStorageUsageResponse_StorageUsage
+// toProtoDailyStorageUsage converts StorageNodeUsage to PB DailyStorageUsageResponse_StorageUsage.
 func toProtoDailyStorageUsage(usages []accounting.StorageNodeUsage) []*pb.DailyStorageUsageResponse_StorageUsage {
 	var pbUsages []*pb.DailyStorageUsageResponse_StorageUsage
 
@@ -142,7 +142,7 @@ func toProtoDailyStorageUsage(usages []accounting.StorageNodeUsage) []*pb.DailyS
 	return pbUsages
 }
 
-// calculateReputationScore is helper method to calculate reputation score value
+// calculateReputationScore is helper method to calculate reputation score value.
 func calculateReputationScore(alpha, beta float64) float64 {
 	return alpha / (alpha + beta)
 }

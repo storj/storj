@@ -22,7 +22,7 @@ var ErrHeldAmount = errs.Class("heldamount error")
 // HeldAmountDBName represents the database name.
 const HeldAmountDBName = "heldamount"
 
-// heldamountDB works with node heldamount DB
+// heldamountDB works with node heldamount DB.
 type heldamountDB struct {
 	dbContainerImpl
 }

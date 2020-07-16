@@ -13,7 +13,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// Batch handle requests sent in batch
+// Batch handle requests sent in batch.
 func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp *pb.BatchResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 

@@ -5,7 +5,7 @@ package revocation
 
 import "context"
 
-// DB is the interface for a revocation DB
+// DB is the interface for a revocation DB.
 type DB interface {
 	// Revoke is the method to revoke the supplied tail
 	Revoke(ctx context.Context, tail []byte, apiKeyID []byte) error

@@ -31,7 +31,7 @@ import (
 
 const advancedFlagName = "advanced"
 
-// UplinkFlags configuration flags
+// UplinkFlags configuration flags.
 type UplinkFlags struct {
 	Config
 
@@ -66,7 +66,7 @@ func init() {
 var cpuProfile = flag.String("profile.cpu", "", "file path of the cpu profile to be created")
 var memoryProfile = flag.String("profile.mem", "", "file path of the memory profile to be created")
 
-// RootCmd represents the base CLI command when called without any subcommands
+// RootCmd represents the base CLI command when called without any subcommands.
 var RootCmd = &cobra.Command{
 	Use:                "uplink",
 	Short:              "The Storj client-side CLI",

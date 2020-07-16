@@ -55,7 +55,7 @@ var (
 	mon = monkit.Package()
 )
 
-// Config contains configuration for console web server
+// Config contains configuration for console web server.
 type Config struct {
 	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:8081" releaseDefault:":10100"`
 	StaticDir       string `help:"path to static resources" default:""`
@@ -243,12 +243,12 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
-// Close closes server and underlying listener
+// Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return server.server.Close()
 }
 
-// appHandler is web app http handler function
+// appHandler is web app http handler function.
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 
@@ -461,7 +461,7 @@ func (server *Server) populatePromotionalCoupons(w http.ResponseWriter, r *http.
 	}
 }
 
-// accountActivationHandler is web app http handler function
+// accountActivationHandler is web app http handler function.
 func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -612,7 +612,7 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 	}
 }
 
-// grapqlHandler is graphql endpoint http handler function
+// grapqlHandler is graphql endpoint http handler function.
 func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -748,7 +748,7 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 	}
 }
 
-// seoHandler used to communicate with web crawlers and other web robots
+// seoHandler used to communicate with web crawlers and other web robots.
 func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	header := w.Header()
 
@@ -793,7 +793,7 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 	})
 }
 
-// initializeTemplates is used to initialize all templates
+// initializeTemplates is used to initialize all templates.
 func (server *Server) initializeTemplates() (err error) {
 	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
 	if err != nil {

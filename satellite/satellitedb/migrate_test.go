@@ -30,7 +30,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// loadSnapshots loads all the dbschemas from testdata/postgres.*
+// loadSnapshots loads all the dbschemas from testdata/postgres.*.
 func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Snapshots, *dbschema.Schema, error) {
 	snapshots := &dbschema.Snapshots{}
 

@@ -6,14 +6,14 @@ package date
 
 import "time"
 
-// MonthBoundary extract month from the provided date and returns its edges
+// MonthBoundary extract month from the provided date and returns its edges.
 func MonthBoundary(t time.Time) (time.Time, time.Time) {
 	startDate := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
 	endDate := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, -1, t.Location())
 	return startDate, endDate
 }
 
-// DayBoundary returns start and end of the provided day
+// DayBoundary returns start and end of the provided day.
 func DayBoundary(t time.Time) (time.Time, time.Time) {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()),
 		time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, -1, t.Location())
@@ -36,7 +36,7 @@ func MonthsCountSince(from time.Time) int {
 	return MonthsBetweenDates(from, time.Now())
 }
 
-// MonthsBetweenDates calculates amount of months between two dates
+// MonthsBetweenDates calculates amount of months between two dates.
 func MonthsBetweenDates(from time.Time, to time.Time) int {
 	// we need UTC here before its the only sensible way to say what day it is
 	y1, M1, _ := from.UTC().Date()
@@ -47,7 +47,7 @@ func MonthsBetweenDates(from time.Time, to time.Time) int {
 	return months
 }
 
-// TruncateToHourInNano returns the time truncated to the hour in nanoseconds
+// TruncateToHourInNano returns the time truncated to the hour in nanoseconds.
 func TruncateToHourInNano(t time.Time) int64 {
 	return t.Truncate(1 * time.Hour).UnixNano()
 }

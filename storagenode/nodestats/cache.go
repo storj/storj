@@ -23,7 +23,7 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
-// Config defines nodestats cache configuration
+// Config defines nodestats cache configuration.
 type Config struct {
 	MaxSleep       time.Duration `help:"maximum duration to wait before requesting data" releaseDefault:"300s" devDefault:"1s"`
 	ReputationSync time.Duration `help:"how often to sync reputation" releaseDefault:"4h" devDefault:"1m"`
@@ -57,7 +57,7 @@ type Cache struct {
 	Storage    *sync2.Cycle
 }
 
-// NewCache creates new caching service instance
+// NewCache creates new caching service instance.
 func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, heldamountEndpoint *heldamount.Endpoint, heldamountService *heldamount.Service, trust *trust.Pool) *Cache {
 	return &Cache{
 		log:                log,
@@ -72,7 +72,7 @@ func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
 	}
 }
 
-// Run runs loop
+// Run runs loop.
 func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
@@ -145,7 +145,7 @@ func (cache *Cache) Run(ctx context.Context) error {
 }
 
 // CacheReputationStats queries node stats from all the satellites
-// known to the storagenode and stores information into db
+// known to the storagenode and stores information into db.
 func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -165,7 +165,7 @@ func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 }
 
 // CacheSpaceUsage queries disk space usage from all the satellites
-// known to the storagenode and stores information into db
+// known to the storagenode and stores information into db.
 func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -231,7 +231,7 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 }
 
 // sleep for random interval in [0;maxSleep)
-// returns error if context was cancelled
+// returns error if context was cancelled.
 func (cache *Cache) sleep(ctx context.Context) error {
 	if cache.maxSleep <= 0 {
 		return nil
@@ -246,7 +246,7 @@ func (cache *Cache) sleep(ctx context.Context) error {
 }
 
 // satelliteLoop loops over all satellites from trust pool executing provided fn, caching errors if occurred,
-// on each step checks if context has been cancelled
+// on each step checks if context has been cancelled.
 func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storj.NodeID) error) error {
 	var groupErr errs.Group
 	for _, satellite := range cache.trust.GetSatellites(ctx) {
@@ -262,7 +262,7 @@ func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storj.NodeID) 
 	return groupErr.Err()
 }
 
-// Close closes underlying cycles
+// Close closes underlying cycles.
 func (cache *Cache) Close() error {
 	defer mon.Task()(nil)(nil)
 	cache.Reputation.Close()

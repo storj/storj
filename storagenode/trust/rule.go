@@ -3,7 +3,7 @@
 
 package trust
 
-// Rule indicates whether or not a Satellite URL is trusted
+// Rule indicates whether or not a Satellite URL is trusted.
 type Rule interface {
 	// IsTrusted returns true if the given Satellite is trusted and false otherwise
 	IsTrusted(url SatelliteURL) bool
@@ -12,10 +12,10 @@ type Rule interface {
 	String() string
 }
 
-// Rules is a collection of rules
+// Rules is a collection of rules.
 type Rules []Rule
 
-// IsTrusted returns true if the given Satellite is trusted and false otherwise
+// IsTrusted returns true if the given Satellite is trusted and false otherwise.
 func (rules Rules) IsTrusted(url SatelliteURL) bool {
 	for _, rule := range rules {
 		if !rule.IsTrusted(url) {

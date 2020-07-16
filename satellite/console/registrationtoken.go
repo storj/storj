@@ -29,10 +29,10 @@ type RegistrationTokens interface {
 	UpdateOwner(ctx context.Context, secret RegistrationSecret, ownerID uuid.UUID) error
 }
 
-// RegistrationSecret stores secret of registration token
+// RegistrationSecret stores secret of registration token.
 type RegistrationSecret [32]byte
 
-// RegistrationToken describing api key model in the database
+// RegistrationToken describing api key model in the database.
 type RegistrationToken struct {
 	// Secret is PK of the table and keeps unique value forRegToken
 	Secret RegistrationSecret
@@ -45,7 +45,7 @@ type RegistrationToken struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// NewRegistrationSecret creates new registration secret
+// NewRegistrationSecret creates new registration secret.
 func NewRegistrationSecret() (RegistrationSecret, error) {
 	var b [32]byte
 
@@ -57,12 +57,12 @@ func NewRegistrationSecret() (RegistrationSecret, error) {
 	return b, nil
 }
 
-// String implements Stringer
+// String implements Stringer.
 func (secret RegistrationSecret) String() string {
 	return base64.URLEncoding.EncodeToString(secret[:])
 }
 
-// IsZero returns if the RegistrationSecret is not set
+// IsZero returns if the RegistrationSecret is not set.
 func (secret RegistrationSecret) IsZero() bool {
 	var zero RegistrationSecret
 	// this doesn't need to be constant-time, because we're explicitly testing
@@ -70,7 +70,7 @@ func (secret RegistrationSecret) IsZero() bool {
 	return bytes.Equal(secret[:], zero[:])
 }
 
-// RegistrationSecretFromBase64 creates new registration secret from base64 string
+// RegistrationSecretFromBase64 creates new registration secret from base64 string.
 func RegistrationSecretFromBase64(s string) (RegistrationSecret, error) {
 	var secret RegistrationSecret
 

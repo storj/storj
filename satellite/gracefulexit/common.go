@@ -23,7 +23,7 @@ var (
 	mon = monkit.Package()
 )
 
-// Config for the chore
+// Config for the chore.
 type Config struct {
 	Enabled bool `help:"whether or not graceful exit is enabled on the satellite side." default:"true"`
 

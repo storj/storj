@@ -62,7 +62,7 @@ func (err *constraintError) Error() string {
 	return fmt.Sprintf("violates constraint %q: %v", err.constraint, err.err)
 }
 
-// WithTx wraps DB code in a transaction
+// WithTx wraps DB code in a transaction.
 func (db *DB) WithTx(ctx context.Context, fn func(context.Context, *Tx) error) (err error) {
 	return txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		return fn(ctx, &Tx{

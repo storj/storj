@@ -53,7 +53,7 @@ const (
 	ReferrerUserID = "referrerUserId"
 )
 
-// rootMutation creates mutation for graphql populated by AccountsClient
+// rootMutation creates mutation for graphql populated by AccountsClient.
 func rootMutation(log *zap.Logger, service *console.Service, mailService *mailservice.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Mutation,

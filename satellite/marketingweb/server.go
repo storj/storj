@@ -21,10 +21,10 @@ import (
 	"storj.io/storj/satellite/rewards"
 )
 
-// Error is satellite marketing error type
+// Error is satellite marketing error type.
 var Error = errs.Class("satellite marketing error")
 
-// Config contains configuration for marketingweb server
+// Config contains configuration for marketingweb server.
 type Config struct {
 	BaseURL   string `help:"base url for marketing Admin GUI" default:""`
 	Address   string `help:"server address of the marketing Admin GUI" default:"127.0.0.1:8090"`
@@ -63,7 +63,7 @@ func (s *Server) commonPages() []string {
 	}
 }
 
-// NewServer creates new instance of offersweb server
+// NewServer creates new instance of offersweb server.
 func NewServer(logger *zap.Logger, config Config, rewards rewards.DB, partners *rewards.PartnersService, listener net.Listener) (*Server, error) {
 	s := &Server{
 		log:      logger,
@@ -94,7 +94,7 @@ func NewServer(logger *zap.Logger, config Config, rewards rewards.DB, partners *
 	return s, nil
 }
 
-// GetOffers renders the tables for free credits and referral offers to the UI
+// GetOffers renders the tables for free credits and referral offers to the UI.
 func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
 		s.serveNotFound(w, req)
@@ -113,7 +113,7 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// parseTemplates parses and stores all templates in server
+// parseTemplates parses and stores all templates in server.
 func (s *Server) parseTemplates() (err error) {
 	homeFiles := append(s.commonPages(),
 		filepath.Join(s.templateDir, "home.html"),
@@ -262,7 +262,7 @@ func (s *Server) serveBadRequest(w http.ResponseWriter, req *http.Request, errMs
 	}
 }
 
-// Run starts the server that host admin web app and api endpoint
+// Run starts the server that host admin web app and api endpoint.
 func (s *Server) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
@@ -282,7 +282,7 @@ func (s *Server) Run(ctx context.Context) error {
 	return group.Wait()
 }
 
-// Close closes server and underlying listener
+// Close closes server and underlying listener.
 func (s *Server) Close() error {
 	return Error.Wrap(s.server.Close())
 }

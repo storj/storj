@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Deprecated contains deprecated config structs
+// Deprecated contains deprecated config structs.
 type Deprecated struct {
 	Kademlia struct {
 		ExternalAddress string `default:"" hidden:"true"`
@@ -23,7 +23,7 @@ type Deprecated struct {
 	}
 }
 
-// maps deprecated config values to new values if applicable
+// maps deprecated config values to new values if applicable.
 func mapDeprecatedConfigs(log *zap.Logger) {
 	type migration struct {
 		newValue        interface{}

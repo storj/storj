@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/private/teststorj"
 )
 
-// Simple test for ensuring the service runs Rollups in the Loop
+// Simple test for ensuring the service runs Rollups in the Loop.
 func TestBandwidthService(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,

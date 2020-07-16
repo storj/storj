@@ -50,7 +50,7 @@ func freeport() (addr string, port int) {
 	return addr, port
 }
 
-// Start starts a redis-server when available, otherwise falls back to miniredis
+// Start starts a redis-server when available, otherwise falls back to miniredis.
 func Start() (Server, error) {
 	server, err := Process()
 	if err != nil {
@@ -60,7 +60,7 @@ func Start() (Server, error) {
 	return server, err
 }
 
-// Process starts a redis-server test process
+// Process starts a redis-server test process.
 func Process() (Server, error) {
 	tmpdir, err := ioutil.TempDir("", "storj-redis")
 	if err != nil {
@@ -158,7 +158,7 @@ func pingServer(addr string) error {
 	return client.Ping().Err()
 }
 
-// Mini starts miniredis server
+// Mini starts miniredis server.
 func Mini() (Server, error) {
 	server, err := miniredis.Run()
 	if err != nil {
@@ -172,7 +172,7 @@ type miniserver struct {
 	*miniredis.Miniredis
 }
 
-// Close closes the underlying miniredis server
+// Close closes the underlying miniredis server.
 func (s *miniserver) Close() error {
 	s.Miniredis.Close()
 	return nil

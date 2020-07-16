@@ -13,10 +13,10 @@ import (
 	"storj.io/common/uuid"
 )
 
-// ErrBucketNotAttributed is returned if a requested bucket not attributed(entry not found)
+// ErrBucketNotAttributed is returned if a requested bucket not attributed(entry not found).
 var ErrBucketNotAttributed = errs.Class("bucket not attributed")
 
-// Info describing value attribution from partner to bucket
+// Info describing value attribution from partner to bucket.
 type Info struct {
 	ProjectID  uuid.UUID
 	BucketName []byte
@@ -24,7 +24,7 @@ type Info struct {
 	CreatedAt  time.Time
 }
 
-// CSVRow represents data from QueryAttribution without exposing dbx
+// CSVRow represents data from QueryAttribution without exposing dbx.
 type CSVRow struct {
 	PartnerID          []byte
 	ProjectID          []byte

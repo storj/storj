@@ -9,13 +9,13 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// LoginAuth implements LOGIN authentication mechanism
+// LoginAuth implements LOGIN authentication mechanism.
 type LoginAuth struct {
 	Username string
 	Password string
 }
 
-// Start begins an authentication with a server
+// Start begins an authentication with a server.
 func (auth LoginAuth) Start(server *smtp.ServerInfo) (proto string, toServer []byte, err error) {
 	if !server.TLS {
 		return "", nil, errs.New("unencrypted connection")
@@ -24,7 +24,7 @@ func (auth LoginAuth) Start(server *smtp.ServerInfo) (proto string, toServer []b
 }
 
 // Next continues the authentication with server response and flag representing
-// if server expects more data from client
+// if server expects more data from client.
 func (auth LoginAuth) Next(fromServer []byte, more bool) (toServer []byte, err error) {
 	if more {
 		switch string(fromServer) {

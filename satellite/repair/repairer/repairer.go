@@ -26,7 +26,7 @@ var (
 	mon   = monkit.Package()
 )
 
-// Config contains configurable values for repairer
+// Config contains configurable values for repairer.
 type Config struct {
 	MaxRepair                     int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
 	Interval                      time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"5m0s" devDefault:"1m0s"`
@@ -51,7 +51,7 @@ type Service struct {
 	irrDB      irreparable.DB
 }
 
-// NewService creates repairing service
+// NewService creates repairing service.
 func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repairer *SegmentRepairer, irrDB irreparable.DB) *Service {
 	return &Service{
 		log:        log,
@@ -64,7 +64,7 @@ func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repair
 	}
 }
 
-// Close closes resources
+// Close closes resources.
 func (service *Service) Close() error { return nil }
 
 // WaitForPendingRepairs waits for all ongoing repairs to complete.
@@ -81,7 +81,7 @@ func (service *Service) WaitForPendingRepairs() {
 	service.JobLimiter.Release(int64(service.config.MaxRepair))
 }
 
-// Run runs the repairer service
+// Run runs the repairer service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -106,7 +106,7 @@ func (service *Service) processWhileQueueHasItems(ctx context.Context) error {
 	}
 }
 
-// process picks items from repair queue and spawns a repair worker
+// process picks items from repair queue and spawns a repair worker.
 func (service *Service) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

@@ -94,7 +94,7 @@ func TestPendingBasic(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestPendingIsFinishedWorkAdded ensures that pending.IsFinished blocks if there is no work, then returns false when new work is added
+// TestPendingIsFinishedWorkAdded ensures that pending.IsFinished blocks if there is no work, then returns false when new work is added.
 func TestPendingIsFinishedWorkAdded(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -142,7 +142,7 @@ func TestPendingIsFinishedWorkAdded(t *testing.T) {
 	require.NoError(t, group.Wait())
 }
 
-// TestPendingIsFinishedDoneSendingCalled ensures that pending.IsFinished blocks if there is no work, then returns true when DoneSending is called
+// TestPendingIsFinishedDoneSendingCalled ensures that pending.IsFinished blocks if there is no work, then returns true when DoneSending is called.
 func TestPendingIsFinishedDoneSendingCalled(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -173,7 +173,7 @@ func TestPendingIsFinishedDoneSendingCalled(t *testing.T) {
 	require.NoError(t, group.Wait())
 }
 
-// TestPendingIsFinishedCtxCanceled ensures that pending.IsFinished blocks if there is no work, then returns true when context is canceled
+// TestPendingIsFinishedCtxCanceled ensures that pending.IsFinished blocks if there is no work, then returns true when context is canceled.
 func TestPendingIsFinishedCtxCanceled(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -205,7 +205,7 @@ func TestPendingIsFinishedCtxCanceled(t *testing.T) {
 	require.NoError(t, group.Wait())
 }
 
-// TestPendingIsFinishedDoneSendingCalledError ensures that pending.IsFinished blocks if there is no work, then returns true with an error when DoneSending is called with an error
+// TestPendingIsFinishedDoneSendingCalledError ensures that pending.IsFinished blocks if there is no work, then returns true with an error when DoneSending is called with an error.
 func TestPendingIsFinishedDoneSendingCalledError(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

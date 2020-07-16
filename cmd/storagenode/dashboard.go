@@ -145,7 +145,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 	return nil
 }
 
-// clearScreen clears the screen so it can be redrawn
+// clearScreen clears the screen so it can be redrawn.
 func clearScreen() {
 	switch runtime.GOOS {
 	case "linux", "darwin":

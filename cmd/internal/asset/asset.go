@@ -105,7 +105,7 @@ func ReadFile(path string) (*Asset, error) {
 	return asset, nil
 }
 
-// readFiles adds all nested files to asset
+// readFiles adds all nested files to asset.
 func (asset *Asset) readFiles(dir string, infos []os.FileInfo) error {
 	for _, info := range infos {
 		child, err := ReadFile(filepath.Join(dir, info.Name()))

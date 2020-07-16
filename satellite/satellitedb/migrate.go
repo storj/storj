@@ -132,7 +132,7 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 	}
 }
 
-// CheckVersion confirms the database is at the desired version
+// CheckVersion confirms the database is at the desired version.
 func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	switch db.implementation {
 	case dbutil.Postgres, dbutil.Cockroach:

@@ -28,7 +28,7 @@ func NewLimitedJobs(maxPiecesPerBatch int) *LimitedJobs {
 
 // TryPush tries to add a job to the queue.
 //
-// maxPiecesPerBatch < 0, means no limit
+// maxPiecesPerBatch < 0, means no limit.
 func (jobs *LimitedJobs) TryPush(job Job) bool {
 	jobs.mu.Lock()
 	defer jobs.mu.Unlock()

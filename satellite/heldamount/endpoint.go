@@ -31,7 +31,7 @@ type Endpoint struct {
 	accounting accounting.StoragenodeAccounting
 }
 
-// NewEndpoint creates new endpoint
+// NewEndpoint creates new endpoint.
 func NewEndpoint(log *zap.Logger, accounting accounting.StoragenodeAccounting, overlay overlay.DB, service *Service) *Endpoint {
 	return &Endpoint{
 		log:        log,

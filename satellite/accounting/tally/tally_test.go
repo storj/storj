@@ -314,7 +314,7 @@ func TestTallyEmptyProjectUpdatesLiveAccounting(t *testing.T) {
 }
 
 // addBucketTally creates a new expected bucket tally based on the
-// pointer that was just created for the test case
+// pointer that was just created for the test case.
 func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *accounting.BucketTally {
 	// if there is already an existing tally for this project and bucket, then
 	// add the new pointer data to the existing tally
@@ -349,7 +349,7 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	return newRemoteTally
 }
 
-// makePointer creates a pointer
+// makePointer creates a pointer.
 func makePointer(storageNodes []*testplanet.StorageNode, rs storj.RedundancyScheme, segmentSize int64, inline bool) *pb.Pointer {
 	if inline {
 		inlinePointer := &pb.Pointer{

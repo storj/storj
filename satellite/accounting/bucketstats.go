@@ -7,7 +7,7 @@ import (
 	"storj.io/common/uuid"
 )
 
-// BucketTally contains information about aggregate data stored in a bucket
+// BucketTally contains information about aggregate data stored in a bucket.
 type BucketTally struct {
 	ProjectID  uuid.UUID
 	BucketName []byte
@@ -23,7 +23,7 @@ type BucketTally struct {
 	MetadataSize int64
 }
 
-// Combine aggregates all the tallies
+// Combine aggregates all the tallies.
 func (s *BucketTally) Combine(o *BucketTally) {
 	s.ObjectCount += o.ObjectCount
 

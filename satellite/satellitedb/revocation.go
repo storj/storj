@@ -19,12 +19,12 @@ type revocationDB struct {
 	methods dbx.Methods
 }
 
-// Revoke will revoke the supplied tail
+// Revoke will revoke the supplied tail.
 func (db *revocationDB) Revoke(ctx context.Context, tail []byte, apiKeyID []byte) error {
 	return errs.Wrap(db.methods.CreateNoReturn_Revocation(ctx, dbx.Revocation_Revoked(tail), dbx.Revocation_ApiKeyId(apiKeyID)))
 }
 
-// Check will check whether any of the supplied tails have been revoked
+// Check will check whether any of the supplied tails have been revoked.
 func (db *revocationDB) Check(ctx context.Context, tails [][]byte) (bool, error) {
 	numTails := len(tails)
 	if numTails == 0 {

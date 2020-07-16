@@ -763,7 +763,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 }
 
 // TestVerifierSlowDownload checks that a node that times out while sending data to the
-// audit service gets put into containment mode
+// audit service gets put into containment mode.
 func TestVerifierSlowDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -821,7 +821,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 }
 
 // TestVerifierUnknownError checks that a node that returns an unknown error in response to an audit request
-// does not get marked as successful, failed, or contained
+// does not get marked as successful, failed, or contained.
 func TestVerifierUnknownError(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,

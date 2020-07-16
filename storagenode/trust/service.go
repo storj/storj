@@ -21,14 +21,14 @@ import (
 	"storj.io/common/sync2"
 )
 
-// Error is the default error class
+// Error is the default error class.
 var (
 	Error = errs.Class("trust")
 
 	mon = monkit.Package()
 )
 
-// IdentityResolver resolves peer identities from a node URL
+// IdentityResolver resolves peer identities from a node URL.
 type IdentityResolver interface {
 	// ResolveIdentity returns the peer identity of the peer located at the Node URL
 	ResolveIdentity(ctx context.Context, url storj.NodeURL) (*identity.PeerIdentity, error)
@@ -38,12 +38,12 @@ type IdentityResolver interface {
 // function literal.
 type IdentityResolverFunc func(ctx context.Context, url storj.NodeURL) (*identity.PeerIdentity, error)
 
-// ResolveIdentity returns the peer identity of the peer located at the Node URL
+// ResolveIdentity returns the peer identity of the peer located at the Node URL.
 func (fn IdentityResolverFunc) ResolveIdentity(ctx context.Context, url storj.NodeURL) (*identity.PeerIdentity, error) {
 	return fn(ctx, url)
 }
 
-// Dialer implements an IdentityResolver using an RPC dialer
+// Dialer implements an IdentityResolver using an RPC dialer.
 func Dialer(dialer rpc.Dialer) IdentityResolver {
 	return IdentityResolverFunc(func(ctx context.Context, url storj.NodeURL) (_ *identity.PeerIdentity, err error) {
 		defer mon.Task()(&ctx)(&err)
@@ -72,7 +72,7 @@ type Pool struct {
 	satellites   map[storj.NodeID]*satelliteInfoCache
 }
 
-// satelliteInfoCache caches identity information about a satellite
+// satelliteInfoCache caches identity information about a satellite.
 type satelliteInfoCache struct {
 	mu       sync.Mutex
 	url      storj.NodeURL
@@ -150,7 +150,7 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Sig
 	return signing.SigneeFromPeerIdentity(info.identity), nil
 }
 
-// GetSatellites returns a slice containing all trusted satellites
+// GetSatellites returns a slice containing all trusted satellites.
 func (pool *Pool) GetSatellites(ctx context.Context) (satellites []storj.NodeID) {
 	defer mon.Task()(&ctx)(nil)
 	for sat := range pool.satellites {

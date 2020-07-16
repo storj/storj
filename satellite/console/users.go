@@ -77,7 +77,7 @@ func (user *CreateUser) IsValid() error {
 	return errs.Combine()
 }
 
-// UserStatus - is used to indicate status of the users account
+// UserStatus - is used to indicate status of the users account.
 type UserStatus int
 
 const (

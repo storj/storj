@@ -3,7 +3,7 @@
 
 package console
 
-// OrderDirection is used for members in specific order direction
+// OrderDirection is used for members in specific order direction.
 type OrderDirection uint8
 
 const (

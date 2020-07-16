@@ -42,7 +42,7 @@ func init() {
 	setBasicFlags(cpCmd.Flags(), "progress", "expires", "metadata")
 }
 
-// upload transfers src from local machine to s3 compatible object dst
+// upload transfers src from local machine to s3 compatible object dst.
 func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) (err error) {
 	if !src.IsLocal() {
 		return fmt.Errorf("source must be local path: %s", src)
@@ -151,7 +151,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	return nil
 }
 
-// download transfers s3 compatible object src to dst on local machine
+// download transfers s3 compatible object src to dst on local machine.
 func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) (err error) {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
@@ -218,7 +218,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	return nil
 }
 
-// copy copies s3 compatible object src to s3 compatible object dst
+// copy copies s3 compatible object src to s3 compatible object dst.
 func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)

@@ -27,7 +27,7 @@ type ordersDB struct {
 	dbContainerImpl
 }
 
-// Enqueue inserts order to the unsent list
+// Enqueue inserts order to the unsent list.
 func (db *ordersDB) Enqueue(ctx context.Context, info *orders.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -305,7 +305,7 @@ func (db *ordersDB) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 	return infos, ErrOrders.Wrap(rows.Err())
 }
 
-// CleanArchive deletes all entries older than ttl
+// CleanArchive deletes all entries older than ttl.
 func (db *ordersDB) CleanArchive(ctx context.Context, ttl time.Duration) (_ int, err error) {
 	defer mon.Task()(&ctx)(&err)
 

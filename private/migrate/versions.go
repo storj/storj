@@ -53,7 +53,7 @@ Scenarios it doesn't handle properly.
 4. Figuring out what the exact executed steps are.
 */
 
-// Migration describes a migration steps
+// Migration describes a migration steps.
 type Migration struct {
 	// Table is the table name to register the applied migration version.
 	// NOTE: Always validates its value with the ValidTableName method before it's
@@ -74,12 +74,12 @@ type Step struct {
 	SeparateTx bool
 }
 
-// Action is something that needs to be done
+// Action is something that needs to be done.
 type Action interface {
 	Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error
 }
 
-// TargetVersion returns migration with steps upto specified version
+// TargetVersion returns migration with steps upto specified version.
 func (migration *Migration) TargetVersion(version int) *Migration {
 	m := *migration
 	m.Steps = nil
@@ -105,7 +105,7 @@ func (migration *Migration) ValidTableName() error {
 	return nil
 }
 
-// ValidateSteps checks that the version for each migration step increments in order
+// ValidateSteps checks that the version for each migration step increments in order.
 func (migration *Migration) ValidateSteps() error {
 	sorted := sort.SliceIsSorted(migration.Steps, func(i, j int) bool {
 		return migration.Steps[i].Version <= migration.Steps[j].Version
@@ -116,7 +116,7 @@ func (migration *Migration) ValidateSteps() error {
 	return nil
 }
 
-// ValidateVersions checks that the version of the migration matches the state of the database
+// ValidateVersions checks that the version of the migration matches the state of the database.
 func (migration *Migration) ValidateVersions(ctx context.Context, log *zap.Logger) error {
 	for _, step := range migration.Steps {
 		dbVersion, err := migration.getLatestVersion(ctx, log, step.DB)
@@ -139,7 +139,7 @@ func (migration *Migration) ValidateVersions(ctx context.Context, log *zap.Logge
 	return nil
 }
 
-// Run runs the migration steps
+// Run runs the migration steps.
 func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 	err := migration.ValidateSteps()
 	if err != nil {
@@ -238,7 +238,7 @@ func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logge
 	return int(version.Int64), Error.Wrap(err)
 }
 
-// addVersion adds information about a new migration
+// addVersion adds information about a new migration.
 func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db tagsql.DB, version int) error {
 	err := migration.ValidTableName()
 	if err != nil {
@@ -254,7 +254,7 @@ func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db tag
 	return err
 }
 
-// CurrentVersion finds the latest version for the db
+// CurrentVersion finds the latest version for the db.
 func (migration *Migration) CurrentVersion(ctx context.Context, log *zap.Logger, db tagsql.DB) (int, error) {
 	err := migration.ensureVersionTable(ctx, log, db)
 	if err != nil {
@@ -263,10 +263,10 @@ func (migration *Migration) CurrentVersion(ctx context.Context, log *zap.Logger,
 	return migration.getLatestVersion(ctx, log, db)
 }
 
-// SQL statements that are executed on the database
+// SQL statements that are executed on the database.
 type SQL []string
 
-// Run runs the SQL statements
+// Run runs the SQL statements.
 func (sql SQL) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) (err error) {
 	for _, query := range sql {
 		_, err := tx.Exec(ctx, rebind(db, query))
@@ -277,10 +277,10 @@ func (sql SQL) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql
 	return nil
 }
 
-// Func is an arbitrary operation
+// Func is an arbitrary operation.
 type Func func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error
 
-// Run runs the migration
+// Run runs the migration.
 func (fn Func) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
 	return fn(ctx, log, db, tx)
 }

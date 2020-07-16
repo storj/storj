@@ -25,7 +25,7 @@ func NewChore(service *Service, checkInterval time.Duration) *Chore {
 	}
 }
 
-// Run logs the current version information
+// Run logs the current version information.
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !chore.service.Checked() {

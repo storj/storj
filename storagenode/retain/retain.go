@@ -120,7 +120,7 @@ func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
 
 // Queue adds a retain request to the queue.
 // It discards a request for a satellite that already has a queued request.
-// true is returned if the request is queued and false is returned if it is discarded
+// true is returned if the request is queued and false is returned if it is discarded.
 func (s *Service) Queue(req Request) bool {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
@@ -245,7 +245,7 @@ func (s *Service) Run(ctx context.Context) error {
 	return err
 }
 
-// next returns next item from queue, requires mutex to be held
+// next returns next item from queue, requires mutex to be held.
 func (s *Service) next() (Request, bool) {
 	for id, request := range s.queued {
 		// Check whether a worker is retaining this satellite,
@@ -261,7 +261,7 @@ func (s *Service) next() (Request, bool) {
 	return Request{}, false
 }
 
-// finish marks the request as finished, requires mutex to be held
+// finish marks the request as finished, requires mutex to be held.
 func (s *Service) finish(request Request) {
 	delete(s.working, request.SatelliteID)
 }

@@ -26,14 +26,14 @@ var (
 	mon = monkit.Package()
 )
 
-// Client is the entrypoint into a cockroachkv data store
+// Client is the entrypoint into a cockroachkv data store.
 type Client struct {
 	db          tagsql.DB
 	dbURL       string
 	lookupLimit int
 }
 
-// New instantiates a new cockroachkv client given db URL
+// New instantiates a new cockroachkv client given db URL.
 func New(dbURL string) (*Client, error) {
 	dbURL = pgutil.CheckApplicationName(dbURL)
 
@@ -63,7 +63,7 @@ func (client *Client) SetLookupLimit(v int) { client.lookupLimit = v }
 // LookupLimit returns the maximum limit that is allowed.
 func (client *Client) LookupLimit() int { return client.lookupLimit }
 
-// Close closes the client
+// Close closes the client.
 func (client *Client) Close() error {
 	return client.db.Close()
 }
@@ -185,7 +185,7 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	return nil
 }
 
-// DeleteMultiple deletes keys ignoring missing keys
+// DeleteMultiple deletes keys ignoring missing keys.
 func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (items storage.Items, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -272,7 +272,7 @@ func (client *Client) IterateWithoutLookupLimit(ctx context.Context, opts storag
 	return fn(ctx, opi)
 }
 
-// CompareAndSwap atomically compares and swaps oldValue with newValue
+// CompareAndSwap atomically compares and swaps oldValue with newValue.
 func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldValue, newValue storage.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

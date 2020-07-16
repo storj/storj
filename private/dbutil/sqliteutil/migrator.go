@@ -172,7 +172,7 @@ func KeepTables(ctx context.Context, db tagsql.DB, tablesToKeep ...string) (err 
 	return err
 }
 
-// dropTables performs the table drops in a single transaction
+// dropTables performs the table drops in a single transaction.
 func dropTables(ctx context.Context, db tagsql.DB, tablesToKeep ...string) (err error) {
 	err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		// Get a list of tables excluding sqlite3 system tables.

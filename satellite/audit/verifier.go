@@ -44,7 +44,7 @@ var (
 	ErrSegmentModified = errs.Class("segment has been modified")
 )
 
-// Share represents required information about an audited share
+// Share represents required information about an audited share.
 type Share struct {
 	Error    error
 	PieceNum int
@@ -69,7 +69,7 @@ type Verifier struct {
 	OnTestingCheckSegmentAlteredHook func()
 }
 
-// NewVerifier creates a Verifier
+// NewVerifier creates a Verifier.
 func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, dialer rpc.Dialer, overlay *overlay.Service, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
 		log:                log,
@@ -308,7 +308,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	}, nil
 }
 
-// DownloadShares downloads shares from the nodes where remote pieces are located
+// DownloadShares downloads shares from the nodes where remote pieces are located.
 func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, stripeIndex int64, shareSize int32) (shares map[int]Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -345,7 +345,7 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 	return shares, nil
 }
 
-// Reverify reverifies the contained nodes in the stripe
+// Reverify reverifies the contained nodes in the stripe.
 func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -619,7 +619,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 	return report, err
 }
 
-// GetShare use piece store client to download shares from nodes
+// GetShare use piece store client to download shares from nodes.
 func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -729,7 +729,7 @@ func auditShares(ctx context.Context, required, total int, originals map[int]Sha
 	return pieceNums, copies, nil
 }
 
-// makeCopies takes in a map of audit Shares and deep copies their data to a slice of infectious Shares
+// makeCopies takes in a map of audit Shares and deep copies their data to a slice of infectious Shares.
 func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectious.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 	copies = make([]infectious.Share, 0, len(originals))
@@ -762,7 +762,7 @@ func getOfflineNodes(pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, skip
 	return offlines
 }
 
-// getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit
+// getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit.
 func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, offlineNodes, unknownNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
 	defer mon.Task()(&ctx)(nil)
 	fails := make(map[storj.NodeID]bool)

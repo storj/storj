@@ -28,13 +28,13 @@ func getenv(priority ...string) string {
 // postgres is the test database connection string.
 var postgres = flag.String("postgres-test-db", getenv("STORJ_TEST_POSTGRES", "STORJ_POSTGRES_TEST"), "PostgreSQL test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
 
-// cockroach is the test database connection string for CockroachDB
+// cockroach is the test database connection string for CockroachDB.
 var cockroach = flag.String("cockroach-test-db", getenv("STORJ_TEST_COCKROACH", "STORJ_COCKROACH_TEST"), "CockroachDB test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
 
-// DefaultPostgres is expected to work under the storj-test docker-compose instance
+// DefaultPostgres is expected to work under the storj-test docker-compose instance.
 const DefaultPostgres = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 
-// DefaultCockroach is expected to work when a local cockroachDB instance is running
+// DefaultCockroach is expected to work when a local cockroachDB instance is running.
 const DefaultCockroach = "cockroach://root@localhost:26257/master?sslmode=disable"
 
 // Database defines a postgres compatible database.

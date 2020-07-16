@@ -71,7 +71,7 @@ func parseHumanDate(date string, now time.Time) (time.Time, error) {
 	}
 }
 
-// shareMain is the function executed when shareCmd is called
+// shareMain is the function executed when shareCmd is called.
 func shareMain(cmd *cobra.Command, args []string) (err error) {
 	now := time.Now()
 	notBefore, err := parseHumanDate(shareCfg.NotBefore, now)

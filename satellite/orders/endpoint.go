@@ -101,7 +101,7 @@ type ConsumedSerial struct {
 }
 
 // PendingSerial is a serial number reported by a storagenode waiting to be
-// settled
+// settled.
 type PendingSerial struct {
 	NodeID       storj.NodeID
 	BucketID     []byte
@@ -122,7 +122,7 @@ var (
 	mon = monkit.Package()
 )
 
-// BucketBandwidthRollup contains all the info needed for a bucket bandwidth rollup
+// BucketBandwidthRollup contains all the info needed for a bucket bandwidth rollup.
 type BucketBandwidthRollup struct {
 	ProjectID  uuid.UUID
 	BucketName string
@@ -132,7 +132,7 @@ type BucketBandwidthRollup struct {
 	Settled    int64
 }
 
-// SortBucketBandwidthRollups sorts the rollups
+// SortBucketBandwidthRollups sorts the rollups.
 func SortBucketBandwidthRollups(rollups []BucketBandwidthRollup) {
 	sort.SliceStable(rollups, func(i, j int) bool {
 		uuidCompare := bytes.Compare(rollups[i].ProjectID[:], rollups[j].ProjectID[:])
@@ -155,7 +155,7 @@ func SortBucketBandwidthRollups(rollups []BucketBandwidthRollup) {
 	})
 }
 
-// StoragenodeBandwidthRollup contains all the info needed for a storagenode bandwidth rollup
+// StoragenodeBandwidthRollup contains all the info needed for a storagenode bandwidth rollup.
 type StoragenodeBandwidthRollup struct {
 	NodeID    storj.NodeID
 	Action    pb.PieceAction
@@ -163,7 +163,7 @@ type StoragenodeBandwidthRollup struct {
 	Settled   int64
 }
 
-// SortStoragenodeBandwidthRollups sorts the rollups
+// SortStoragenodeBandwidthRollups sorts the rollups.
 func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
 	sort.SliceStable(rollups, func(i, j int) bool {
 		nodeCompare := bytes.Compare(rollups[i].NodeID.Bytes(), rollups[j].NodeID.Bytes())
@@ -182,13 +182,13 @@ func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
 	})
 }
 
-// ProcessOrderRequest for batch order processing
+// ProcessOrderRequest for batch order processing.
 type ProcessOrderRequest struct {
 	Order      *pb.Order
 	OrderLimit *pb.OrderLimit
 }
 
-// ProcessOrderResponse for batch order processing responses
+// ProcessOrderResponse for batch order processing responses.
 type ProcessOrderResponse struct {
 	SerialNumber storj.SerialNumber
 	Status       pb.SettlementResponse_Status
@@ -205,7 +205,7 @@ type Endpoint struct {
 	settlementBatchSize int
 }
 
-// NewEndpoint new orders receiving endpoint
+// NewEndpoint new orders receiving endpoint.
 func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, settlementBatchSize int) *Endpoint {
 	return &Endpoint{
 		log:                 log,

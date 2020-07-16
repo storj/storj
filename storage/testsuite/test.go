@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-// RunTests runs common storage.KeyValueStore tests
+// RunTests runs common storage.KeyValueStore tests.
 func RunTests(t *testing.T, store storage.KeyValueStore) {
 	// store = storelogger.NewTest(t, store)
 	ctx := testcontext.New(t)

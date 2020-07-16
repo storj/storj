@@ -40,7 +40,7 @@ var (
 	mon = monkit.Package()
 )
 
-// OldConfig contains everything necessary for a server
+// OldConfig contains everything necessary for a server.
 type OldConfig struct {
 	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
 	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls (unused)" devDefault:"" releaseDefault:""`
@@ -681,7 +681,7 @@ func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, o
 	}
 }
 
-// RestoreTrash restores all trashed items for the satellite issuing the call
+// RestoreTrash restores all trashed items for the satellite issuing the call.
 func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.RestoreTrashRequest) (res *pb.RestoreTrashResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -703,7 +703,7 @@ func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.
 	return &pb.RestoreTrashResponse{}, nil
 }
 
-// Retain keeps only piece ids specified in the request
+// Retain keeps only piece ids specified in the request.
 func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -745,7 +745,7 @@ func (endpoint *Endpoint) TestLiveRequestCount() int32 {
 	return atomic.LoadInt32(&endpoint.liveRequests)
 }
 
-// min finds the min of two values
+// min finds the min of two values.
 func min(a, b int64) int64 {
 	if a < b {
 		return a

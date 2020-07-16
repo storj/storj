@@ -25,21 +25,21 @@ type expiredDeleter struct {
 	metainfo *metainfo.Service
 }
 
-// RemoteSegment deletes the segment if it is expired
+// RemoteSegment deletes the segment if it is expired.
 func (ed *expiredDeleter) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx, path.Raw)(&err)
 
 	return ed.deleteSegmentIfExpired(ctx, path, pointer)
 }
 
-// InlineSegment deletes the segment if it is expired
+// InlineSegment deletes the segment if it is expired.
 func (ed *expiredDeleter) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx, path.Raw)(&err)
 
 	return ed.deleteSegmentIfExpired(ctx, path, pointer)
 }
 
-// Object returns nil because the expired deleter only cares about segments
+// Object returns nil because the expired deleter only cares about segments.
 func (ed *expiredDeleter) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }

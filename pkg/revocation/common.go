@@ -21,7 +21,7 @@ func NewDBFromCfg(cfg tlsopts.Config) (*DB, error) {
 	return NewDB(cfg.RevocationDBURL)
 }
 
-// NewDB returns a new revocation database given the URL
+// NewDB returns a new revocation database given the URL.
 func NewDB(dbURL string) (*DB, error) {
 	driver, source, _, err := dbutil.SplitConnStr(dbURL)
 	if err != nil {
@@ -45,7 +45,7 @@ func NewDB(dbURL string) (*DB, error) {
 	return db, nil
 }
 
-// newDBBolt creates a bolt-backed DB
+// newDBBolt creates a bolt-backed DB.
 func newDBBolt(path string) (*DB, error) {
 	client, err := boltdb.New(path, extensions.RevocationBucket)
 	if err != nil {

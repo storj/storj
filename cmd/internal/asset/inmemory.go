@@ -14,13 +14,13 @@ import (
 
 var _ http.FileSystem = (*InmemoryFileSystem)(nil)
 
-// InmemoryFileSystem defines an inmemory http.FileSystem
+// InmemoryFileSystem defines an inmemory http.FileSystem.
 type InmemoryFileSystem struct {
 	Root  *Asset
 	Index map[string]*Asset
 }
 
-// Inmemory creates an InmemoryFileSystem from
+// Inmemory creates an InmemoryFileSystem from.
 func Inmemory(root *Asset) *InmemoryFileSystem {
 	fs := &InmemoryFileSystem{}
 	fs.Root = root
@@ -29,7 +29,7 @@ func Inmemory(root *Asset) *InmemoryFileSystem {
 	return fs
 }
 
-// reindex inserts a node to the index
+// reindex inserts a node to the index.
 func (fs *InmemoryFileSystem) reindex(prefix, name string, file *Asset) {
 	fs.Index[path.Join(prefix, name)] = file
 	for _, child := range file.Children {
@@ -51,7 +51,7 @@ func (asset *Asset) File() *File {
 	return &File{*bytes.NewReader(asset.Data), asset}
 }
 
-// File defines a readable file
+// File defines a readable file.
 type File struct {
 	bytes.Reader
 	*Asset
@@ -98,20 +98,20 @@ type FileInfo struct {
 	modTime time.Time
 }
 
-// Name implements os.FileInfo
+// Name implements os.FileInfo.
 func (info FileInfo) Name() string { return info.name }
 
-// Size implements os.FileInfo
+// Size implements os.FileInfo.
 func (info FileInfo) Size() int64 { return info.size }
 
-// Mode implements os.FileInfo
+// Mode implements os.FileInfo.
 func (info FileInfo) Mode() os.FileMode { return info.mode }
 
-// ModTime implements os.FileInfo
+// ModTime implements os.FileInfo.
 func (info FileInfo) ModTime() time.Time { return info.modTime }
 
-// IsDir implements os.FileInfo
+// IsDir implements os.FileInfo.
 func (info FileInfo) IsDir() bool { return info.mode.IsDir() }
 
-// Sys implements os.FileInfo
+// Sys implements os.FileInfo.
 func (info FileInfo) Sys() interface{} { return nil }

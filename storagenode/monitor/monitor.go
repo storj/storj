@@ -63,7 +63,7 @@ func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, 
 	}
 }
 
-// Run runs monitor service
+// Run runs monitor service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -133,7 +133,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
-// NotifyLowDisk reports disk space to satellites if cooldown timer has expired
+// NotifyLowDisk reports disk space to satellites if cooldown timer has expired.
 func (service *Service) NotifyLowDisk() {
 	service.cooldown.Trigger()
 }
@@ -169,7 +169,7 @@ func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
 	return usedSpace, nil
 }
 
-// AvailableSpace returns available disk space for upload
+// AvailableSpace returns available disk space for upload.
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	usedSpace, err := service.usedSpace(ctx)

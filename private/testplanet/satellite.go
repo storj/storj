@@ -64,7 +64,7 @@ import (
 	"storj.io/storj/storage/redis/redisserver"
 )
 
-// Satellite contains all the processes needed to run a full Satellite setup
+// Satellite contains all the processes needed to run a full Satellite setup.
 type Satellite struct {
 	Config satellite.Config
 
@@ -271,7 +271,7 @@ func (system *Satellite) authenticatedContext(ctx context.Context, userID uuid.U
 	return console.WithAuth(ctx, auth), nil
 }
 
-// Close closes all the subsystems in the Satellite system
+// Close closes all the subsystems in the Satellite system.
 func (system *Satellite) Close() error {
 	return errs.Combine(
 		system.API.Close(),
@@ -282,7 +282,7 @@ func (system *Satellite) Close() error {
 	)
 }
 
-// Run runs all the subsystems in the Satellite system
+// Run runs all the subsystems in the Satellite system.
 func (system *Satellite) Run(ctx context.Context) (err error) {
 	group, ctx := errgroup.WithContext(ctx)
 
@@ -307,7 +307,7 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 // PrivateAddr returns the private address from the Satellite system API.
 func (system *Satellite) PrivateAddr() string { return system.API.Server.PrivateAddr().String() }
 
-// newSatellites initializes satellites
+// newSatellites initializes satellites.
 func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtest.SatelliteDatabases) ([]*Satellite, error) {
 	var xs []*Satellite
 	defer func() {

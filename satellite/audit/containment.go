@@ -23,7 +23,7 @@ var (
 	ErrContainDelete = errs.Class("unable to delete pending audit")
 )
 
-// PendingAudit contains info needed for retrying an audit for a contained node
+// PendingAudit contains info needed for retrying an audit for a contained node.
 type PendingAudit struct {
 	NodeID            storj.NodeID
 	PieceID           storj.PieceID

@@ -55,7 +55,7 @@ func (collector *PathCollector) Flush(ctx context.Context) (err error) {
 	return collector.flush(ctx, 1)
 }
 
-// RemoteSegment takes a remote segment found in metainfo and creates a graceful exit transfer queue item if it doesn't exist already
+// RemoteSegment takes a remote segment found in metainfo and creates a graceful exit transfer queue item if it doesn't exist already.
 func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	if len(collector.nodeIDStorage) == 0 {
 		return nil
@@ -98,12 +98,12 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo
 	return nil
 }
 
-// Object returns nil because the audit service does not interact with objects
+// Object returns nil because the audit service does not interact with objects.
 func (collector *PathCollector) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
-// InlineSegment returns nil because we're only auditing for storage nodes for now
+// InlineSegment returns nil because we're only auditing for storage nodes for now.
 func (collector *PathCollector) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
 	return nil
 }

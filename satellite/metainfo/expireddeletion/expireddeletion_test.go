@@ -28,7 +28,7 @@ import (
 // * Verify that all three segments still exist
 // * Expire one of the segments
 // * Run the expired segment chore
-// * Verify that two segments still exist and the expired one has been deleted
+// * Verify that two segments still exist and the expired one has been deleted.
 func TestExpiredDeletion(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,

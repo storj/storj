@@ -33,7 +33,7 @@ var (
 	ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
 )
 
-// TTLItem keeps association between serial number and ttl
+// TTLItem keeps association between serial number and ttl.
 type TTLItem struct {
 	serialNumber storj.SerialNumber
 	ttl          time.Time

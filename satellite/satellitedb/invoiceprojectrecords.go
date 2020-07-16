@@ -190,7 +190,7 @@ func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64
 	return page, nil
 }
 
-// fromDBXInvoiceProjectRecord converts *dbx.StripecoinpaymentsInvoiceProjectRecord to *stripecoinpayments.ProjectRecord
+// fromDBXInvoiceProjectRecord converts *dbx.StripecoinpaymentsInvoiceProjectRecord to *stripecoinpayments.ProjectRecord.
 func fromDBXInvoiceProjectRecord(dbxRecord *dbx.StripecoinpaymentsInvoiceProjectRecord) (*stripecoinpayments.ProjectRecord, error) {
 	id, err := uuid.FromBytes(dbxRecord.Id)
 	if err != nil {

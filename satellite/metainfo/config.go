@@ -23,7 +23,7 @@ const (
 )
 
 // RSConfig is a configuration struct that keeps details about default
-// redundancy strategy information
+// redundancy strategy information.
 type RSConfig struct {
 	MaxBufferMem     memory.Size `help:"maximum buffer memory to be allocated for read buffers" default:"4MiB"`
 	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"256B"`
@@ -38,7 +38,7 @@ type RSConfig struct {
 	Validate          bool `help:"validate redundancy scheme configuration" default:"true"`
 }
 
-// RateLimiterConfig is a configuration struct for endpoint rate limiting
+// RateLimiterConfig is a configuration struct for endpoint rate limiting.
 type RateLimiterConfig struct {
 	Enabled         bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
 	Rate            float64       `help:"request rate per project per second." releaseDefault:"1000" devDefault:"100"`
@@ -46,14 +46,14 @@ type RateLimiterConfig struct {
 	CacheExpiration time.Duration `help:"how long to cache the projects limiter." releaseDefault:"10m" devDefault:"10s"`
 }
 
-// ProjectLimitConfig is a configuration struct for default project limits
+// ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
 	MaxBuckets          int         `help:"max bucket count for a project." default:"100"`
 	DefaultMaxUsage     memory.Size `help:"the default storage usage limit" releaseDefault:"50GB" devDefault:"200GB"`
 	DefaultMaxBandwidth memory.Size `help:"the default bandwidth usage limit" releaseDefault:"50GB" devDefault:"200GB"`
 }
 
-// Config is a configuration struct that is everything you need to start a metainfo
+// Config is a configuration struct that is everything you need to start a metainfo.
 type Config struct {
 	DatabaseURL          string               `help:"the database connection string to use" default:"postgres://"`
 	MinRemoteSegmentSize memory.Size          `default:"1240" help:"minimum remote segment size"`

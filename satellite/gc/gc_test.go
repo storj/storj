@@ -31,7 +31,7 @@ import (
 // * Delete one object from the metainfo service on the satellite
 // * Wait for bloom filter generation
 // * Check that pieces of the deleted object are deleted on the storagenode
-// * Check that pieces of the kept object are not deleted on the storagenode
+// * Check that pieces of the kept object are not deleted on the storagenode.
 func TestGarbageCollection(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,

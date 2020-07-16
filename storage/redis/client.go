@@ -27,10 +27,10 @@ var (
 )
 
 // TODO(coyle): this should be set to 61 * time.Minute after we implement Ping and Refresh on Overlay.
-// This disables the TTL since the Set command only includes a TTL if it is greater than 0
+// This disables the TTL since the Set command only includes a TTL if it is greater than 0.
 const defaultNodeExpiration = 0 * time.Minute
 
-// Client is the entrypoint into Redis
+// Client is the entrypoint into Redis.
 type Client struct {
 	db  *redis.Client
 	TTL time.Duration
@@ -38,7 +38,7 @@ type Client struct {
 	lookupLimit int
 }
 
-// NewClient returns a configured Client instance, verifying a successful connection to redis
+// NewClient returns a configured Client instance, verifying a successful connection to redis.
 func NewClient(address, password string, db int) (*Client, error) {
 	client := &Client{
 		db: redis.NewClient(&redis.Options{
@@ -58,7 +58,7 @@ func NewClient(address, password string, db int) (*Client, error) {
 	return client, nil
 }
 
-// NewClientFrom returns a configured Client instance from a redis address, verifying a successful connection to redis
+// NewClientFrom returns a configured Client instance from a redis address, verifying a successful connection to redis.
 func NewClientFrom(address string) (*Client, error) {
 	redisurl, err := url.Parse(address)
 	if err != nil {
@@ -126,7 +126,7 @@ func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_
 	return storage.ListKeys(ctx, client, first, limit)
 }
 
-// Delete deletes a key/value pair from redis, for a given the key
+// Delete deletes a key/value pair from redis, for a given the key.
 func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
@@ -135,20 +135,20 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	return delete(ctx, client.db, key)
 }
 
-// DeleteMultiple deletes keys ignoring missing keys
+// DeleteMultiple deletes keys ignoring missing keys.
 func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
 	defer mon.Task()(&ctx, len(keys))(&err)
 	return deleteMultiple(ctx, client.db, keys)
 }
 
-// Close closes a redis client
+// Close closes a redis client.
 func (client *Client) Close() error {
 	return client.db.Close()
 }
 
 // GetAll is the bulk method for gets from the redis data store.
 // The maximum keys returned will be LookupLimit. If more than that
-// is requested, an error will be returned
+// is requested, an error will be returned.
 func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(keys) == 0 {
@@ -255,7 +255,7 @@ func (client *Client) allPrefixedItems(prefix, first, last storage.Key, limit in
 	return all, nil
 }
 
-// CompareAndSwap atomically compares and swaps oldValue with newValue
+// CompareAndSwap atomically compares and swaps oldValue with newValue.
 func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldValue, newValue storage.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {

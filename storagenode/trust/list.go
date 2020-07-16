@@ -11,7 +11,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// List represents a dynamic trust list
+// List represents a dynamic trust list.
 type List struct {
 	log     *zap.Logger
 	sources Sources

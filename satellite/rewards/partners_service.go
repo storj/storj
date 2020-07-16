@@ -54,7 +54,7 @@ func NewPartnersService(log *zap.Logger, db PartnersDB, domains []string) *Partn
 	}
 }
 
-// parnterIDEncoding is base32 without padding
+// parnterIDEncoding is base32 without padding.
 var parnterIDEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 // GeneratePartnerLink returns partner referral link.

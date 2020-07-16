@@ -19,7 +19,7 @@ var (
 	mon = monkit.Package()
 )
 
-// Config for graceful exit
+// Config for graceful exit.
 type Config struct {
 	ChoreInterval          time.Duration `help:"how often to run the chore to check for satellites for the node to exit." releaseDefault:"15m" devDefault:"10s"`
 	NumWorkers             int           `help:"number of workers to handle satellite exits" default:"4"`

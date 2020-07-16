@@ -27,7 +27,7 @@ import (
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
-// StorageNodeFlags defines storage node configuration
+// StorageNodeFlags defines storage node configuration.
 type StorageNodeFlags struct {
 	EditConf bool `default:"false" help:"open config in default editor"`
 

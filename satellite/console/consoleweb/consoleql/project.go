@@ -84,7 +84,7 @@ const (
 	BeforeArg = "before"
 )
 
-// graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo
+// graphqlProject creates *graphql.Object type representation of satellite.ProjectInfo.
 func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: ProjectType,
@@ -240,7 +240,7 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 	})
 }
 
-// graphqlProjectInput creates graphql.InputObject type needed to create/update satellite.Project
+// graphqlProjectInput creates graphql.InputObject type needed to create/update satellite.Project.
 func graphqlProjectInput() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: ProjectInputType,
@@ -255,7 +255,7 @@ func graphqlProjectInput() *graphql.InputObject {
 	})
 }
 
-// graphqlBucketUsageCursor creates bucket usage cursor graphql input type
+// graphqlBucketUsageCursor creates bucket usage cursor graphql input type.
 func graphqlBucketUsageCursor() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: BucketUsageCursorInputType,
@@ -273,7 +273,7 @@ func graphqlBucketUsageCursor() *graphql.InputObject {
 	})
 }
 
-// graphqlBucketUsage creates bucket usage grapqhl type
+// graphqlBucketUsage creates bucket usage grapqhl type.
 func graphqlBucketUsage() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: BucketUsageType,
@@ -300,7 +300,7 @@ func graphqlBucketUsage() *graphql.Object {
 	})
 }
 
-// graphqlBucketUsagePage creates bucket usage page graphql object
+// graphqlBucketUsagePage creates bucket usage page graphql object.
 func graphqlBucketUsagePage(types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: BucketUsagePageType,
@@ -330,7 +330,7 @@ func graphqlBucketUsagePage(types *TypeCreator) *graphql.Object {
 	})
 }
 
-// graphqlProjectUsage creates project usage graphql type
+// graphqlProjectUsage creates project usage graphql type.
 func graphqlProjectUsage() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: ProjectUsageType,
@@ -354,7 +354,7 @@ func graphqlProjectUsage() *graphql.Object {
 	})
 }
 
-// fromMapProjectInfo creates console.ProjectInfo from input args
+// fromMapProjectInfo creates console.ProjectInfo from input args.
 func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInfo) {
 	project.Name, _ = args[FieldName].(string)
 	project.Description, _ = args[FieldDescription].(string)
@@ -362,7 +362,7 @@ func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInf
 	return
 }
 
-// fromMapBucketUsageCursor creates console.BucketUsageCursor from input args
+// fromMapBucketUsageCursor creates console.BucketUsageCursor from input args.
 func fromMapBucketUsageCursor(args map[string]interface{}) (cursor accounting.BucketUsageCursor) {
 	limit, _ := args[LimitArg].(int)
 	page, _ := args[PageArg].(int)

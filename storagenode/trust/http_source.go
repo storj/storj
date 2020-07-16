@@ -20,7 +20,7 @@ var (
 	ErrHTTPSource = errs.Class("HTTP source")
 )
 
-// HTTPSource represents a trust source at a http:// or https:// URL
+// HTTPSource represents a trust source at a http:// or https:// URL.
 type HTTPSource struct {
 	url *url.URL
 }
@@ -44,7 +44,7 @@ func NewHTTPSource(httpURL string) (*HTTPSource, error) {
 	return &HTTPSource{url: u}, nil
 }
 
-// String implements the Source interface and returns the URL
+// String implements the Source interface and returns the URL.
 func (source *HTTPSource) String() string {
 	return source.url.String()
 }

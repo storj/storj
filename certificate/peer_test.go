@@ -29,7 +29,7 @@ import (
 	"storj.io/storj/pkg/server"
 )
 
-// TODO: test sad path
+// TODO: test sad path.
 func TestCertificateSigner_Sign_E2E(t *testing.T) {
 	testidentity.SignerVersionsTest(t, func(t *testing.T, _ storj.IDVersion, signer *identity.FullCertificateAuthority) {
 		testidentity.CompleteIdentityVersionsTest(t, func(t *testing.T, _ storj.IDVersion, serverIdent *identity.FullIdentity) {

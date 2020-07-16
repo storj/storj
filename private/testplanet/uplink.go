@@ -27,7 +27,7 @@ import (
 	"storj.io/uplink/private/testuplink"
 )
 
-// Uplink is a general purpose
+// Uplink is a general purpose.
 type Uplink struct {
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
@@ -156,16 +156,16 @@ func (planet *Planet) newUplink(name string) (*Uplink, error) {
 	return planetUplink, nil
 }
 
-// ID returns uplink id
+// ID returns uplink id.
 func (client *Uplink) ID() storj.NodeID { return client.Identity.ID }
 
-// Addr returns uplink address
+// Addr returns uplink address.
 func (client *Uplink) Addr() string { return "" }
 
-// Shutdown shuts down all uplink dependencies
+// Shutdown shuts down all uplink dependencies.
 func (client *Uplink) Shutdown() error { return nil }
 
-// DialMetainfo dials destination with apikey and returns metainfo Client
+// DialMetainfo dials destination with apikey and returns metainfo Client.
 func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey *macaroon.APIKey) (*metainfo.Client, error) {
 	return metainfo.DialNodeURL(ctx, client.Dialer, destination.NodeURL().String(), apikey, "Test/1.0")
 }
@@ -175,12 +175,12 @@ func (client *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 	return piecestore.DialNodeURL(ctx, client.Dialer, destination.NodeURL(), client.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
 }
 
-// Upload data to specific satellite
+// Upload data to specific satellite.
 func (client *Uplink) Upload(ctx context.Context, satellite *Satellite, bucket string, path storj.Path, data []byte) error {
 	return client.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{})
 }
 
-// UploadWithExpiration data to specific satellite and expiration time
+// UploadWithExpiration data to specific satellite and expiration time.
 func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path, data []byte, expiration time.Time) error {
 	_, found := testuplink.GetMaxSegmentSize(ctx)
 	if !found {
@@ -215,7 +215,7 @@ func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satel
 	return upload.Commit()
 }
 
-// Download data from specific satellite
+// Download data from specific satellite.
 func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) ([]byte, error) {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
@@ -236,7 +236,7 @@ func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucket
 	return data, nil
 }
 
-// DownloadStream returns stream for downloading data
+// DownloadStream returns stream for downloading data.
 func (client *Uplink) DownloadStream(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) (_ io.ReadCloser, cleanup func() error, err error) {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
@@ -254,7 +254,7 @@ func (client *Uplink) DownloadStream(ctx context.Context, satellite *Satellite, 
 	return downloader, cleanup, err
 }
 
-// DownloadStreamRange returns stream for downloading data
+// DownloadStreamRange returns stream for downloading data.
 func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path, start, limit int64) (_ io.ReadCloser, cleanup func() error, err error) {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
@@ -275,7 +275,7 @@ func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satell
 	return downloader, cleanup, err
 }
 
-// DeleteObject deletes an object at the path in a bucket
+// DeleteObject deletes an object at the path in a bucket.
 func (client *Uplink) DeleteObject(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) error {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
@@ -290,7 +290,7 @@ func (client *Uplink) DeleteObject(ctx context.Context, satellite *Satellite, bu
 	return err
 }
 
-// CreateBucket creates a new bucket
+// CreateBucket creates a new bucket.
 func (client *Uplink) CreateBucket(ctx context.Context, satellite *Satellite, bucketName string) error {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {

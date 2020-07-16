@@ -13,12 +13,12 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Data is the database content formatted as strings
+// Data is the database content formatted as strings.
 type Data struct {
 	Tables []*TableData
 }
 
-// TableData is content of a sql table
+// TableData is content of a sql table.
 type TableData struct {
 	Name    string
 	Columns []string
@@ -36,7 +36,7 @@ func (c ColumnData) String() string {
 	return fmt.Sprintf("%s:%s", c.Column, c.Value)
 }
 
-// RowData is content of a single row
+// RowData is content of a single row.
 type RowData []ColumnData
 
 // Less returns true if one row is less than the other.
@@ -74,7 +74,7 @@ func (table *TableData) AddRow(row RowData) error {
 	return nil
 }
 
-// FindTable finds a table by name
+// FindTable finds a table by name.
 func (data *Data) FindTable(tableName string) (*TableData, bool) {
 	for _, table := range data.Tables {
 		if table.Name == tableName {
@@ -103,7 +103,7 @@ func (row RowData) Clone() RowData {
 	return append(RowData{}, row...)
 }
 
-// QueryData loads all data from tables
+// QueryData loads all data from tables.
 func QueryData(ctx context.Context, db Queryer, schema *Schema, quoteColumn func(string) string) (*Data, error) {
 	data := &Data{}
 

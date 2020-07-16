@@ -18,12 +18,12 @@ var (
 	diffOpts = jsondiff.DefaultConsoleOptions()
 )
 
-// DebugCert is a subset of the most relevant fields from an x509.Certificate for debugging
+// DebugCert is a subset of the most relevant fields from an x509.Certificate for debugging.
 type DebugCert struct {
 	Cert *x509.Certificate
 }
 
-// NewDebugCert converts an *x509.Certificate into a DebugCert
+// NewDebugCert converts an *x509.Certificate into a DebugCert.
 func NewDebugCert(cert x509.Certificate) DebugCert {
 	return DebugCert{
 		Cert: &cert,
@@ -31,7 +31,7 @@ func NewDebugCert(cert x509.Certificate) DebugCert {
 }
 
 // PrintJSON uses a json marshaler to pretty-print arbitrary data for debugging
-// with special considerations for certain, specific types
+// with special considerations for certain, specific types.
 func PrintJSON(data interface{}, label string) {
 	var (
 		jsonBytes []byte
@@ -89,7 +89,7 @@ func PrintJSON(data interface{}, label string) {
 	fmt.Println("")
 }
 
-// Cmp is used to compare 2 DebugCerts against each other and print the diff
+// Cmp is used to compare 2 DebugCerts against each other and print the diff.
 func (c DebugCert) Cmp(c2 DebugCert, label string) error {
 	fmt.Println("diff " + label + " ---================================================================---")
 	cJSON, err := c.JSON()
@@ -107,7 +107,7 @@ func (c DebugCert) Cmp(c2 DebugCert, label string) error {
 	return nil
 }
 
-// JSON serializes the certificate to JSON
+// JSON serializes the certificate to JSON.
 func (c DebugCert) JSON() ([]byte, error) {
 	return json.Marshal(c.Cert)
 }

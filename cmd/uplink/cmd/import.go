@@ -48,7 +48,7 @@ func init() {
 	cfgstruct.SetBoolAnnotation(importCmd.Flags(), "access", cfgstruct.BasicHelpAnnotationName, false)
 }
 
-// importMain is the function executed when importCmd is called
+// importMain is the function executed when importCmd is called.
 func importMain(cmd *cobra.Command, args []string) (err error) {
 	if cmd.Flag("access").Changed {
 		return ErrAccessFlag

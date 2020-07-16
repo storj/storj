@@ -9,7 +9,7 @@ import (
 	"os/signal"
 )
 
-// NewCLIContext creates a context that can be canceled with Ctrl-C
+// NewCLIContext creates a context that can be canceled with Ctrl-C.
 func NewCLIContext(root context.Context) (context.Context, func()) {
 	// trap Ctrl+C and call cancel on the context
 	ctx, cancel := context.WithCancel(root)

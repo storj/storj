@@ -36,7 +36,7 @@ import (
 	"storj.io/storj/storagenode/storageusage"
 )
 
-// VersionTable is the table that stores the version info in each db
+// VersionTable is the table that stores the version info in each db.
 const VersionTable = "versions"
 
 var (
@@ -50,13 +50,13 @@ var (
 	ErrPreflight = errs.Class("storage node preflight database error")
 )
 
-// DBContainer defines an interface to allow accessing and setting a SQLDB
+// DBContainer defines an interface to allow accessing and setting a SQLDB.
 type DBContainer interface {
 	Configure(sqlDB tagsql.DB)
 	GetDB() tagsql.DB
 }
 
-// withTx is a helper method which executes callback in transaction scope
+// withTx is a helper method which executes callback in transaction scope.
 func withTx(ctx context.Context, db tagsql.DB, cb func(tx tagsql.Tx) error) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -73,7 +73,7 @@ func withTx(ctx context.Context, db tagsql.DB, cb func(tx tagsql.Tx) error) erro
 	return cb(tx)
 }
 
-// Config configures storage node database
+// Config configures storage node database.
 type Config struct {
 	// TODO: figure out better names
 	Storage   string
@@ -84,7 +84,7 @@ type Config struct {
 	Filestore filestore.Config
 }
 
-// DB contains access to different database tables
+// DB contains access to different database tables.
 type DB struct {
 	log    *zap.Logger
 	config Config
@@ -110,7 +110,7 @@ type DB struct {
 	SQLDBs map[string]DBContainer
 }
 
-// New creates a new master database for storage node
+// New creates a new master database for storage node.
 func New(log *zap.Logger, config Config) (*DB, error) {
 	piecesDir, err := filestore.NewDir(log, config.Pieces)
 	if err != nil {
@@ -439,7 +439,7 @@ func (db *DB) Orders() orders.DB {
 	return db.ordersDB
 }
 
-// Pieces returns blob storage for pieces
+// Pieces returns blob storage for pieces.
 func (db *DB) Pieces() storage.Blobs {
 	return db.pieces
 }
@@ -484,7 +484,7 @@ func (db *DB) Pricing() pricing.DB {
 	return db.pricingDB
 }
 
-// RawDatabases are required for testing purposes
+// RawDatabases are required for testing purposes.
 func (db *DB) RawDatabases() map[string]DBContainer {
 	return db.SQLDBs
 }

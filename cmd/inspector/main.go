@@ -119,7 +119,7 @@ func NewInspector(ctx context.Context, address, path string) (*Inspector, error)
 // Close closes the inspector.
 func (i *Inspector) Close() error { return i.conn.Close() }
 
-// ObjectHealth gets information about the health of an object on the network
+// ObjectHealth gets information about the health of an object on the network.
 func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	i, err := NewInspector(ctx, *Addr, *IdentityPath)
@@ -201,7 +201,7 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// SegmentHealth gets information about the health of a segment on the network
+// SegmentHealth gets information about the health of a segment on the network.
 func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	i, err := NewInspector(ctx, *Addr, *IdentityPath)
@@ -415,7 +415,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// sortSegments by the object they belong to
+// sortSegments by the object they belong to.
 func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.IrreparableSegment {
 	objects := make(map[string][]*pb.IrreparableSegment)
 	for _, seg := range segments {

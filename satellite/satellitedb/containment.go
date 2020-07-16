@@ -21,7 +21,7 @@ type containment struct {
 	db *satelliteDB
 }
 
-// Get gets the pending audit by node id
+// Get gets the pending audit by node id.
 func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit.PendingAudit, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if id.IsZero() {
@@ -39,7 +39,7 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit
 	return convertDBPending(ctx, pending)
 }
 
-// IncrementPending creates a new pending audit entry, or increases its reverify count if it already exists
+// IncrementPending creates a new pending audit entry, or increases its reverify count if it already exists.
 func (containment *containment) IncrementPending(ctx context.Context, pendingAudit *audit.PendingAudit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = containment.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
@@ -81,7 +81,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 	return audit.ContainError.Wrap(err)
 }
 
-// Delete deletes the pending audit
+// Delete deletes the pending audit.
 func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (isDeleted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if id.IsZero() {

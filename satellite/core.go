@@ -144,7 +144,7 @@ type Core struct {
 	}
 }
 
-// New creates a new satellite
+// New creates a new satellite.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache,
 	rollupsWriteCache *orders.RollupsWriteCache,

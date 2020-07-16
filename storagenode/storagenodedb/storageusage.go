@@ -18,12 +18,12 @@ import (
 // StorageUsageDBName represents the database name.
 const StorageUsageDBName = "storage_usage"
 
-// storageUsageDB storage usage DB
+// storageUsageDB storage usage DB.
 type storageUsageDB struct {
 	dbContainerImpl
 }
 
-// Store stores storage usage stamps to db replacing conflicting entries
+// Store stores storage usage stamps to db replacing conflicting entries.
 func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -48,7 +48,7 @@ func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 }
 
 // GetDaily returns daily storage usage stamps for particular satellite
-// for provided time range
+// for provided time range.
 func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -89,7 +89,7 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 }
 
 // GetDailyTotal returns daily storage usage stamps summed across all known satellites
-// for provided time range
+// for provided time range.
 func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 

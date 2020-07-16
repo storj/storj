@@ -171,7 +171,7 @@ func testDataRepair(t *testing.T, inMemoryRepair bool) {
 // - On one of the remaining nodes, corrupt the piece data being stored by that node
 // - Triggers data repair, which attempts to repair the data from the remaining nodes to
 //	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair failed and the pointer was not updated
+// - Expects that the repair failed and the pointer was not updated.
 func TestCorruptDataRepairInMemory_Failed(t *testing.T) {
 	testCorruptDataRepairFailed(t, true)
 }
@@ -288,7 +288,7 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 // - On one of the remaining nodes, corrupt the piece data being stored by that node
 // - Triggers data repair, which attempts to repair the data from the remaining nodes to
 //	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair succeed and the pointer should not contain the corrupted piece
+// - Expects that the repair succeed and the pointer should not contain the corrupted piece.
 func TestCorruptDataRepairInMemory_Succeed(t *testing.T) {
 	testCorruptDataRepairSucceed(t, true)
 }
@@ -407,7 +407,7 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 // - Call checker to add segment to the repair queue
 // - Modify segment to be expired
 // - Run the repairer
-// - Verify segment is no longer in the repair queue
+// - Verify segment is no longer in the repair queue.
 func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -495,7 +495,7 @@ func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 // - Call checker to add segment to the repair queue
 // - Delete segment from the satellite database
 // - Run the repairer
-// - Verify segment is no longer in the repair queue
+// - Verify segment is no longer in the repair queue.
 func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -576,7 +576,7 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 // - Disqualify nodes so that online nodes < minimum threshold
 // - Run the repairer
 // - Verify segment is no longer in the repair queue and segment should be the same
-// - Verify segment is now in the irreparable db instead
+// - Verify segment is now in the irreparable db instead.
 func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -681,7 +681,7 @@ func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *testplan
 // - Kill (as opposed to disqualifying) nodes so that online nodes < minimum threshold
 // - Run the repairer
 // - Verify segment is no longer in the repair queue and segment should be the same
-// - Verify segment is now in the irreparable db instead
+// - Verify segment is now in the irreparable db instead.
 func TestIrreparableSegmentNodesOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -782,7 +782,7 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 // - Shuts down the 4 nodes from which the data was repaired
 // - Now we have just the 3 new nodes to which the data was repaired
 // - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
-// - Expect newly repaired pointer does not contain the disqualified or suspended nodes
+// - Expect newly repaired pointer does not contain the disqualified or suspended nodes.
 func TestRepairMultipleDisqualifiedAndSuspendedInMemory(t *testing.T) {
 	testRepairMultipleDisqualifiedAndSuspended(t, true)
 }
@@ -1249,7 +1249,7 @@ func testDataRepairUploadLimit(t *testing.T, inMemoryRepair bool) {
 // - Shuts down the 4 nodes from which the data was repaired
 // - Now we have just the 3 new nodes to which the data was repaired
 // - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
-// - Expect newly repaired pointer does not contain the gracefully exited nodes
+// - Expect newly repaired pointer does not contain the gracefully exited nodes.
 func TestRepairGracefullyExitedInMemory(t *testing.T) {
 	testRepairGracefullyExited(t, true)
 }

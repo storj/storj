@@ -23,7 +23,7 @@ import (
 	"storj.io/storj/pkg/listenmux"
 )
 
-// Config holds server specific configuration parameters
+// Config holds server specific configuration parameters.
 type Config struct {
 	tlsopts.Config
 	Address        string `user:"true" help:"public address to listen on" default:":7777"`
@@ -99,22 +99,22 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 	return server, nil
 }
 
-// Identity returns the server's identity
+// Identity returns the server's identity.
 func (p *Server) Identity() *identity.FullIdentity { return p.tlsOptions.Ident }
 
-// Addr returns the server's public listener address
+// Addr returns the server's public listener address.
 func (p *Server) Addr() net.Addr { return p.public.listener.Addr() }
 
-// PrivateAddr returns the server's private listener address
+// PrivateAddr returns the server's private listener address.
 func (p *Server) PrivateAddr() net.Addr { return p.private.listener.Addr() }
 
-// DRPC returns the server's dRPC mux for registration purposes
+// DRPC returns the server's dRPC mux for registration purposes.
 func (p *Server) DRPC() *drpcmux.Mux { return p.public.mux }
 
-// PrivateDRPC returns the server's dRPC mux for registration purposes
+// PrivateDRPC returns the server's dRPC mux for registration purposes.
 func (p *Server) PrivateDRPC() *drpcmux.Mux { return p.private.mux }
 
-// Close shuts down the server
+// Close shuts down the server.
 func (p *Server) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -132,7 +132,7 @@ func (p *Server) Close() error {
 	return nil
 }
 
-// Run will run the server and all of its services
+// Run will run the server and all of its services.
 func (p *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

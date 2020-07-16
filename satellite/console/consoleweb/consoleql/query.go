@@ -25,7 +25,7 @@ const (
 	CreditUsageQuery = "creditUsage"
 )
 
-// rootQuery creates query for graphql populated by AccountsClient
+// rootQuery creates query for graphql populated by AccountsClient.
 func rootQuery(service *console.Service, mailService *mailservice.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Query,

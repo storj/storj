@@ -26,7 +26,7 @@ import (
 	"storj.io/uplink/private/eestream"
 )
 
-// millis for the transfer queue building ticker
+// millis for the transfer queue building ticker.
 const buildQueueMillis = 100
 
 var (
@@ -52,7 +52,7 @@ type Endpoint struct {
 	recvTimeout    time.Duration
 }
 
-// connectionsTracker for tracking ongoing connections on this api server
+// connectionsTracker for tracking ongoing connections on this api server.
 type connectionsTracker struct {
 	mu   sync.RWMutex
 	data map[storj.NodeID]struct{}
@@ -763,7 +763,7 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb
 // if a node hasn't started graceful exit, it will initialize the process
 // if a node has finished graceful exit, it will return a finished message
 // if a node has started graceful exit, but no transfer item is available yet, it will return an not ready message
-// otherwise, the returned message will be nil
+// otherwise, the returned message will be nil.
 func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.NodeID) (*pb.SatelliteMessage, error) {
 	exitStatus, err := endpoint.overlaydb.GetExitStatus(ctx, nodeID)
 	if err != nil {

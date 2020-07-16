@@ -34,7 +34,7 @@ type bandwidthDB struct {
 	dbContainerImpl
 }
 
-// Add adds bandwidth usage to the table
+// Add adds bandwidth usage to the table.
 func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = db.ExecContext(ctx, `
@@ -60,7 +60,7 @@ func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action
 	return ErrBandwidth.Wrap(err)
 }
 
-// MonthSummary returns summary of the current months bandwidth usages
+// MonthSummary returns summary of the current months bandwidth usages.
 func (db *bandwidthDB) MonthSummary(ctx context.Context, now time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 

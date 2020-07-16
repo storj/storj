@@ -417,7 +417,7 @@ func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplane
 	}
 }
 
-// ipToLastNet converts target address to its IP and /24 subnet IPv4 or /64 subnet IPv6
+// ipToLastNet converts target address to its IP and /24 subnet IPv4 or /64 subnet IPv6.
 func ipToLastNet(target string) (network string, err error) {
 	host, _, err := net.SplitHostPort(target)
 	if err != nil {

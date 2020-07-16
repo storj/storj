@@ -20,7 +20,7 @@ func init() {
 	}, RootCmd)
 }
 
-// putMain is the function executed when putCmd is called
+// putMain is the function executed when putCmd is called.
 func putMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
 		return fmt.Errorf("no object specified for copy")

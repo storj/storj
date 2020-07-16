@@ -69,7 +69,7 @@ func (writer *PrefixWriter) Write(data []byte) (int, error) {
 	return writer.root.Write(data)
 }
 
-// Write implements io.Writer that prefixes lines
+// Write implements io.Writer that prefixes lines.
 func (writer *prefixWriter) Write(data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, nil

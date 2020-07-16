@@ -35,7 +35,7 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
-// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
+// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.
 func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -128,7 +128,7 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 	return nodeNets, Error.Wrap(rows.Err())
 }
 
-// Get looks up the node by nodeID
+// Get looks up the node by nodeID.
 func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -147,7 +147,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay
 	return convertDBNode(ctx, node)
 }
 
-// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
+// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs.
 func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -185,7 +185,7 @@ func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeI
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// KnownOffline filters a set of nodes to offline nodes
+// KnownOffline filters a set of nodes to offline nodes.
 func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -217,7 +217,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 	return offlineNodes, Error.Wrap(rows.Err())
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
+// KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new.
 func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -325,7 +325,7 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// BatchUpdateStats updates multiple storagenode's stats in one transaction
+// BatchUpdateStats updates multiple storagenode's stats in one transaction.
 func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(updateRequests) == 0 {
@@ -415,7 +415,7 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 	return failed, errlist.Err()
 }
 
-// UpdateStats a single storagenode's stats in the db
+// UpdateStats a single storagenode's stats in the db.
 func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	nodeID := updateReq.NodeID
@@ -463,7 +463,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 }
 
 // UpdateNodeInfo updates the following fields for a given node ID:
-// wallet, email for node operator, free disk, and version
+// wallet, email for node operator, free disk, and version.
 func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *overlay.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -501,7 +501,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 	return convertDBNode(ctx, updatedDBNode)
 }
 
-// UpdateUptime updates a single storagenode's uptime stats in the db
+// UpdateUptime updates a single storagenode's uptime stats in the db.
 func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 

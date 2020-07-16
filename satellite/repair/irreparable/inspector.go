@@ -22,12 +22,12 @@ type Inspector struct {
 	irrdb DB
 }
 
-// NewInspector creates an Inspector
+// NewInspector creates an Inspector.
 func NewInspector(irrdb DB) *Inspector {
 	return &Inspector{irrdb: irrdb}
 }
 
-// ListIrreparableSegments returns a number of irreparable segments by limit and offset
+// ListIrreparableSegments returns a number of irreparable segments by limit and offset.
 func (srv *Inspector) ListIrreparableSegments(ctx context.Context, req *pb.ListIrreparableSegmentsRequest) (_ *pb.ListIrreparableSegmentsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	last := req.GetLastSeenSegmentPath()

@@ -20,7 +20,7 @@ var ErrReputation = errs.Class("reputation error")
 // ReputationDBName represents the database name.
 const ReputationDBName = "reputation"
 
-// reputation works with node reputation DB
+// reputation works with node reputation DB.
 type reputationDB struct {
 	dbContainerImpl
 }

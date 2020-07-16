@@ -86,7 +86,7 @@ func (page *TransactionsPage) CreationTimes() map[coinpayments.TransactionID]tim
 	return creationTimes
 }
 
-// TransactionAndUserList is a composite type for storing userID and txID
+// TransactionAndUserList is a composite type for storing userID and txID.
 type TransactionAndUserList map[coinpayments.TransactionID]uuid.UUID
 
 // IDList returns transaction id list.

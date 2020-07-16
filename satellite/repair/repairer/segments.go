@@ -46,7 +46,7 @@ func (ie *irreparableError) Error() string {
 	return fmt.Sprintf("%d available pieces < %d required", ie.piecesAvailable, ie.piecesRequired)
 }
 
-// SegmentRepairer for segments
+// SegmentRepairer for segments.
 type SegmentRepairer struct {
 	log      *zap.Logger
 	metainfo *metainfo.Service
@@ -95,7 +95,7 @@ func NewSegmentRepairer(
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
 // note that shouldDelete is used even in the case where err is not null
-// note that it will update audit status as failed for nodes that failed piece hash verification during repair downloading
+// note that it will update audit status as failed for nodes that failed piece hash verification during repair downloading.
 func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (shouldDelete bool, err error) {
 	defer mon.Task()(&ctx, path)(&err)
 
@@ -347,7 +347,7 @@ func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, fail
 	return 0, nil
 }
 
-// sliceToSet converts the given slice to a set
+// sliceToSet converts the given slice to a set.
 func sliceToSet(slice []int32) map[int32]bool {
 	set := make(map[int32]bool, len(slice))
 	for _, value := range slice {

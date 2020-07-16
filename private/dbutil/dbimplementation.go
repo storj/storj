@@ -3,7 +3,7 @@
 
 package dbutil
 
-// Implementation type of valid DBs
+// Implementation type of valid DBs.
 type Implementation int
 
 const (

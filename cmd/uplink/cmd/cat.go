@@ -20,7 +20,7 @@ func init() {
 	}, RootCmd)
 }
 
-// catMain is the function executed when catCmd is called
+// catMain is the function executed when catCmd is called.
 func catMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
 		return fmt.Errorf("no object specified for copy")

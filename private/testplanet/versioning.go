@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/versioncontrol"
 )
 
-// newVersionControlServer initializes the Versioning Server
+// newVersionControlServer initializes the Versioning Server.
 func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err error) {
 
 	prefix := "versioncontrol"

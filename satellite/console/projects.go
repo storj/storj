@@ -42,7 +42,7 @@ type Projects interface {
 	UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit int) error
 }
 
-// Project is a database object that describes Project entity
+// Project is a database object that describes Project entity.
 type Project struct {
 	ID uuid.UUID `json:"id"`
 
@@ -55,7 +55,7 @@ type Project struct {
 	CreatedAt   time.Time `json:"createdAt"`
 }
 
-// ProjectInfo holds data needed to create/update Project
+// ProjectInfo holds data needed to create/update Project.
 type ProjectInfo struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`

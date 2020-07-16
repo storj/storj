@@ -36,7 +36,7 @@ func TestCache_Database(t *testing.T) {
 	})
 }
 
-// returns a NodeSelectionConfig with sensible test values
+// returns a NodeSelectionConfig with sensible test values.
 func testNodeSelectionConfig(auditCount int64, newNodeFraction float64, distinctIP bool) overlay.NodeSelectionConfig {
 	return overlay.NodeSelectionConfig{
 		UptimeCount:     0,
@@ -734,7 +734,7 @@ func TestGetSuccesfulNodesNotCheckedInSince(t *testing.T) {
 	})
 }
 
-// TestSuspendedSelection ensures that suspended nodes are not selected by SelectStorageNodes
+// TestSuspendedSelection ensures that suspended nodes are not selected by SelectStorageNodes.
 func TestSuspendedSelection(t *testing.T) {
 	totalNodes := 10
 

@@ -25,7 +25,7 @@ var ErrInvalidBlobRef = errs.Class("invalid blob ref")
 // the same FormatVersion is returned later when reading that stored blob.
 type FormatVersion int
 
-// BlobRef is a reference to a blob
+// BlobRef is a reference to a blob.
 type BlobRef struct {
 	Namespace []byte
 	Key       []byte

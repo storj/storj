@@ -91,5 +91,5 @@ func (emptyStmt) Close() error                                    { return nil }
 func (emptyStmt) Exec(args []driver.Value) (driver.Result, error) { return nil, nil }
 func (emptyStmt) Query(args []driver.Value) (driver.Rows, error)  { return nil, nil }
 
-// must be 1 so that we can pass 1 argument
+// must be 1 so that we can pass 1 argument.
 func (emptyStmt) NumInput() int { return 1 }

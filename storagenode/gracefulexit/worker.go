@@ -59,7 +59,7 @@ func NewWorker(log *zap.Logger, store *pieces.Store, trust *trust.Pool, satellit
 }
 
 // Run calls the satellite endpoint, transfers pieces, validates, and responds with success or failure.
-// It also marks the satellite finished once all the pieces have been transferred
+// It also marks the satellite finished once all the pieces have been transferred.
 func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer done()
@@ -313,7 +313,7 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 	return c.Send(success)
 }
 
-// deleteOnePiece deletes one piece stored for a satellite
+// deleteOnePiece deletes one piece stored for a satellite.
 func (worker *Worker) deleteOnePiece(ctx context.Context, pieceID storj.PieceID) error {
 	piece, err := worker.store.Reader(ctx, worker.satelliteURL.ID, pieceID)
 	if err != nil {
@@ -333,7 +333,7 @@ func (worker *Worker) deleteOnePiece(ctx context.Context, pieceID storj.PieceID)
 	return worker.satelliteDB.UpdateGracefulExit(ctx, worker.satelliteURL.ID, size)
 }
 
-// deletePiece deletes one piece stored for a satellite, without updating satellite Graceful Exit status
+// deletePiece deletes one piece stored for a satellite, without updating satellite Graceful Exit status.
 func (worker *Worker) deletePiece(ctx context.Context, pieceID storj.PieceID) error {
 	err := worker.store.Delete(ctx, worker.satelliteURL.ID, pieceID)
 	if err != nil {
@@ -359,7 +359,7 @@ func (worker *Worker) deletePiece(ctx context.Context, pieceID storj.PieceID) er
 	return err
 }
 
-// deleteAllPieces deletes pieces stored for a satellite
+// deleteAllPieces deletes pieces stored for a satellite.
 func (worker *Worker) deleteAllPieces(ctx context.Context) error {
 	var totalDeleted int64
 	err := worker.store.WalkSatellitePieces(ctx, worker.satelliteURL.ID, func(piece pieces.StoredPieceAccess) error {

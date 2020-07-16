@@ -15,7 +15,7 @@ import (
 	"storj.io/private/version"
 )
 
-// Config contains the necessary Information to check the Software Version
+// Config contains the necessary Information to check the Software Version.
 type Config struct {
 	ClientConfig
 
@@ -38,7 +38,7 @@ type Service struct {
 	acceptedVersion version.SemVer
 }
 
-// NewService creates a Version Check Client with default configuration
+// NewService creates a Version Check Client with default configuration.
 func NewService(log *zap.Logger, config Config, info version.Info, service string) (client *Service) {
 	return &Service{
 		log:     log,
@@ -51,7 +51,7 @@ func NewService(log *zap.Logger, config Config, info version.Info, service strin
 }
 
 // CheckProcessVersion is not meant to be used for peers but is meant to be
-// used for other utilities
+// used for other utilities.
 func CheckProcessVersion(ctx context.Context, log *zap.Logger, config Config, info version.Info, service string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = NewService(log, config, info, service).CheckVersion(ctx)
@@ -141,7 +141,7 @@ func (service *Service) Checked() bool {
 	return service.checked.Released()
 }
 
-// isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version
+// isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version.
 func isAcceptedVersion(test version.SemVer, target version.OldSemVer) bool {
 	return test.Major > uint64(target.Major) || (test.Major == uint64(target.Major) && (test.Minor > uint64(target.Minor) || (test.Minor == uint64(target.Minor) && test.Patch >= uint64(target.Patch))))
 }

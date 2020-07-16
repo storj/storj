@@ -28,7 +28,7 @@ const (
 	FieldPartnerID = "partnerId"
 )
 
-// base graphql config for user
+// base graphql config for user.
 func baseUserConfig() graphql.ObjectConfig {
 	return graphql.ObjectConfig{
 		Name: UserType,
@@ -56,12 +56,12 @@ func baseUserConfig() graphql.ObjectConfig {
 }
 
 // graphqlUser creates *graphql.Object type representation of satellite.User
-// TODO: simplify
+// TODO: simplify.
 func graphqlUser() *graphql.Object {
 	return graphql.NewObject(baseUserConfig())
 }
 
-// graphqlUserInput creates graphql.InputObject type needed to register/update satellite.User
+// graphqlUserInput creates graphql.InputObject type needed to register/update satellite.User.
 func graphqlUserInput() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: UserInputType,

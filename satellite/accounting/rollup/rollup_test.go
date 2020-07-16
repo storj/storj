@@ -178,7 +178,7 @@ func TestRollupDeletes(t *testing.T) {
 		})
 }
 
-// expectedTotals sums test data up to, but not including the current day's
+// expectedTotals sums test data up to, but not including the current day's.
 func expectedTotals(data []testData, id storj.NodeID, currentDay int) []float64 {
 	totals := make([]float64, 5)
 	for i := 0; i < currentDay; i++ {
@@ -206,7 +206,7 @@ func createData(planet *testplanet.Planet, days int) []testData {
 	return data
 }
 
-// dqNodes disqualifies half the nodes in the testplanet and returns a map of dqed nodes
+// dqNodes disqualifies half the nodes in the testplanet and returns a map of dqed nodes.
 func dqNodes(ctx *testcontext.Context, planet *testplanet.Planet) (map[storj.NodeID]bool, error) {
 	dqed := make(map[storj.NodeID]bool)
 

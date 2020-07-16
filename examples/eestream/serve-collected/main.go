@@ -38,7 +38,7 @@ func main() {
 	}
 }
 
-// Main is the exported CLI executable function
+// Main is the exported CLI executable function.
 func Main() error {
 	ctx := context.Background()
 	encKey := storj.Key(sha256.Sum256([]byte(*key)))

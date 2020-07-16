@@ -37,7 +37,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// Satellite defines satellite configuration
+// Satellite defines satellite configuration.
 type Satellite struct {
 	Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 
@@ -55,7 +55,7 @@ type Satellite struct {
 	satellite.Config
 }
 
-// APIKeysLRUOptions returns a cache.Options based on the APIKeys LRU config
+// APIKeysLRUOptions returns a cache.Options based on the APIKeys LRU config.
 func (s *Satellite) APIKeysLRUOptions() cache.Options {
 	return cache.Options{
 		Expiration: s.DatabaseOptions.APIKeysCache.Expiration,
@@ -63,7 +63,7 @@ func (s *Satellite) APIKeysLRUOptions() cache.Options {
 	}
 }
 
-// RevocationLRUOptions returns a cache.Options based on the Revocations LRU config
+// RevocationLRUOptions returns a cache.Options based on the Revocations LRU config.
 func (s *Satellite) RevocationLRUOptions() cache.Options {
 	return cache.Options{
 		Expiration: s.DatabaseOptions.RevocationsCache.Expiration,

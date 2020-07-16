@@ -24,7 +24,7 @@ type Config struct {
 	TLS     tlsopts.Config
 }
 
-// Client implements pb.DRPCCertificatesClient
+// Client implements pb.DRPCCertificatesClient.
 type Client struct {
 	conn   *rpc.Conn
 	client pb.DRPCCertificatesClient

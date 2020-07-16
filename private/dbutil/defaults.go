@@ -25,7 +25,7 @@ type ConfigurableDB interface {
 	Stats() sql.DBStats
 }
 
-// Configure Sets Connection Boundaries and adds db_stats monitoring to monkit
+// Configure Sets Connection Boundaries and adds db_stats monitoring to monkit.
 func Configure(db ConfigurableDB, dbName string, mon *monkit.Scope) {
 	if *maxIdleConns >= 0 {
 		db.SetMaxIdleConns(*maxIdleConns)

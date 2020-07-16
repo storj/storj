@@ -116,7 +116,7 @@ func TestLoop(t *testing.T) {
 // * let observer 2 return an error from one of its handlers
 // * let observer 3's context be canceled
 // * expect observer 1 to see all segments
-// * expect observers 2 and 3 to finish with errors
+// * expect observers 2 and 3 to finish with errors.
 func TestLoopObserverCancel(t *testing.T) {
 	segmentSize := 8 * memory.KiB
 
@@ -202,7 +202,7 @@ func TestLoopObserverCancel(t *testing.T) {
 // * hook two observers up to metainfo loop
 // * cancel loop context partway through
 // * expect both observers to exit with an error and see fewer than 3 remote segments
-// * expect that a new observer attempting to join at this point receives a loop closed error
+// * expect that a new observer attempting to join at this point receives a loop closed error.
 func TestLoopCancel(t *testing.T) {
 	segmentSize := 8 * memory.KiB
 

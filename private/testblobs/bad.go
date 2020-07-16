@@ -106,7 +106,7 @@ func (bad *BadBlobs) RestoreTrash(ctx context.Context, namespace []byte) ([][]by
 	return bad.blobs.RestoreTrash(ctx, namespace)
 }
 
-// EmptyTrash empties the trash
+// EmptyTrash empties the trash.
 func (bad *BadBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error) {
 	if bad.err != nil {
 		return 0, nil, bad.err

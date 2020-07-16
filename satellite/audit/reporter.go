@@ -27,7 +27,7 @@ type Reporter struct {
 	maxReverifyCount int32
 }
 
-// Report contains audit result lists for nodes that succeeded, failed, were offline, have pending audits, or failed for unknown reasons
+// Report contains audit result lists for nodes that succeeded, failed, were offline, have pending audits, or failed for unknown reasons.
 type Report struct {
 	Successes     storj.NodeIDList
 	Fails         storj.NodeIDList
@@ -36,7 +36,7 @@ type Report struct {
 	Unknown       storj.NodeIDList
 }
 
-// NewReporter instantiates a reporter
+// NewReporter instantiates a reporter.
 func NewReporter(log *zap.Logger, overlay *overlay.Service, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
 	return &Reporter{
 		log:              log,
@@ -124,7 +124,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path sto
 	return Report{}, nil
 }
 
-// recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditoutcome=fail
+// recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditoutcome=fail.
 func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -144,7 +144,7 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 	return nil, nil
 }
 
-// recordAuditUnknownStatus updates nodeIDs in overlay with isup=true, auditoutcome=unknown
+// recordAuditUnknownStatus updates nodeIDs in overlay with isup=true, auditoutcome=unknown.
 func (reporter *Reporter) recordAuditUnknownStatus(ctx context.Context, unknownAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -186,7 +186,7 @@ func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeID
 	return nil, nil
 }
 
-// recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditoutcome=success
+// recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditoutcome=success.
 func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -207,7 +207,7 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 	return nil, nil
 }
 
-// recordPendingAudits updates the containment status of nodes with pending audits
+// recordPendingAudits updates the containment status of nodes with pending audits.
 func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits []*PendingAudit) (failed []*PendingAudit, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group

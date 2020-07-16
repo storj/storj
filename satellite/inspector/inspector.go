@@ -35,7 +35,7 @@ type Endpoint struct {
 	metainfo *metainfo.Service
 }
 
-// NewEndpoint will initialize an Endpoint struct
+// NewEndpoint will initialize an Endpoint struct.
 func NewEndpoint(log *zap.Logger, cache *overlay.Service, metainfo *metainfo.Service) *Endpoint {
 	return &Endpoint{
 		log:      log,
@@ -44,7 +44,7 @@ func NewEndpoint(log *zap.Logger, cache *overlay.Service, metainfo *metainfo.Ser
 	}
 }
 
-// ObjectHealth will check the health of an object
+// ObjectHealth will check the health of an object.
 func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthRequest) (resp *pb.ObjectHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -109,7 +109,7 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 	}, nil
 }
 
-// SegmentHealth will check the health of a segment
+// SegmentHealth will check the health of a segment.
 func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealthRequest) (resp *pb.SegmentHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 

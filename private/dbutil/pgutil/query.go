@@ -184,7 +184,7 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 	return schema, nil
 }
 
-// matches FOREIGN KEY (project_id) REFERENCES projects(id) ON UPDATE CASCADE ON DELETE CASCADE
+// matches FOREIGN KEY (project_id) REFERENCES projects(id) ON UPDATE CASCADE ON DELETE CASCADE.
 var rxPostgresForeignKey = regexp.MustCompile(
 	`^FOREIGN KEY \([[:word:]]+\) ` +
 		`REFERENCES ([[:word:]]+)\(([[:word:]]+)\)` +

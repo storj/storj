@@ -899,7 +899,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 	})
 }
 
-// TestReverifyExpired1 tests the case where the segment passed into Reverify is expired
+// TestReverifyExpired1 tests the case where the segment passed into Reverify is expired.
 func TestReverifyExpired1(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -1074,7 +1074,7 @@ func TestReverifyExpired2(t *testing.T) {
 }
 
 // TestReverifySlowDownload checks that a node that times out while sending data to the
-// audit service gets put into containment mode
+// audit service gets put into containment mode.
 func TestReverifySlowDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,

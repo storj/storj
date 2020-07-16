@@ -215,7 +215,7 @@ func (endpoint *Endpoint) GetAllPayments(ctx context.Context, satelliteID storj.
 	return payments, nil
 }
 
-// dial dials the HeldAmount client for the satellite by id
+// dial dials the HeldAmount client for the satellite by id.
 func (endpoint *Endpoint) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 

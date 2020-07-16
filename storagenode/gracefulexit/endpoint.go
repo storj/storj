@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
-// Endpoint is
+// Endpoint is.
 type Endpoint struct {
 	log        *zap.Logger
 	usageCache *pieces.BlobsUsageCache

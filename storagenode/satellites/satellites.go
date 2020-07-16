@@ -10,7 +10,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// Status refers to the state of the relationship with a satellites
+// Status refers to the state of the relationship with a satellites.
 type Status = int
 
 const (
@@ -26,7 +26,7 @@ const (
 	ExitFailed = 4
 )
 
-// ExitProgress contains the status of a graceful exit
+// ExitProgress contains the status of a graceful exit.
 type ExitProgress struct {
 	SatelliteID       storj.NodeID
 	InitiatedAt       *time.Time
@@ -37,7 +37,7 @@ type ExitProgress struct {
 	Status            int32
 }
 
-// Satellite contains the satellite and status
+// Satellite contains the satellite and status.
 type Satellite struct {
 	SatelliteID storj.NodeID
 	AddedAt     time.Time

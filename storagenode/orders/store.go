@@ -172,7 +172,7 @@ func (store *FileStore) ListUnsentBySatellite() (infoMap map[storj.NodeID]Unsent
 // Archive moves a file from "unsent" to "archive". The filename/path changes from
 // unsent/unsent-orders-<satelliteID>-<createdAtHour>
 // to
-// archive/archived-orders-<satelliteID>-<createdAtHour>-<archivedTime>-<ACCEPTED/REJECTED>
+// archive/archived-orders-<satelliteID>-<createdAtHour>-<archivedTime>-<ACCEPTED/REJECTED>.
 func (store *FileStore) Archive(satelliteID storj.NodeID, createdAtHour, archivedAt time.Time, status pb.SettlementWithWindowResponse_Status) error {
 	store.unsentMu.Lock()
 	defer store.unsentMu.Unlock()
@@ -343,7 +343,7 @@ func (store *FileStore) settleBufferPassed(createdHour time.Time) bool {
 }
 
 // getUnsentFileInfo gets the satellite ID and created hour from a filename.
-// it expects the file name to be in the format "unsent-orders-<satelliteID>-<createdAtHour>"
+// it expects the file name to be in the format "unsent-orders-<satelliteID>-<createdAtHour>".
 func getUnsentFileInfo(name string) (satellite storj.NodeID, createdHour time.Time, err error) {
 	if !strings.HasPrefix(name, unsentFilePrefix) {
 		return storj.NodeID{}, time.Time{}, OrderError.New("Not a valid unsent order file name: %s", name)
@@ -372,7 +372,7 @@ func getUnsentFileInfo(name string) (satellite storj.NodeID, createdHour time.Ti
 }
 
 // getArchivedFileInfo gets the archived at time from an archive file name.
-// it expects the file name to be in the format "archived-orders-<satelliteID>-<createdAtHour>-<archviedAtTime>-<status>"
+// it expects the file name to be in the format "archived-orders-<satelliteID>-<createdAtHour>-<archviedAtTime>-<status>".
 func getArchivedFileInfo(name string) (satelliteID storj.NodeID, createdAtHour, archivedAt time.Time, status string, err error) {
 	if !strings.HasPrefix(name, archiveFilePrefix) {
 		return storj.NodeID{}, time.Time{}, time.Time{}, "", OrderError.New("Not a valid archived order file name: %s", name)

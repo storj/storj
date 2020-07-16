@@ -32,15 +32,15 @@ import (
 	"storj.io/storj/storage/redis/redisserver"
 )
 
-// discardSender discard sending of an actual email
+// discardSender discard sending of an actual email.
 type discardSender struct{}
 
-// SendEmail immediately returns with nil error
+// SendEmail immediately returns with nil error.
 func (*discardSender) SendEmail(ctx context.Context, msg *post.Message) error {
 	return nil
 }
 
-// FromAddress returns empty post.Address
+// FromAddress returns empty post.Address.
 func (*discardSender) FromAddress() post.Address {
 	return post.Address{}
 }

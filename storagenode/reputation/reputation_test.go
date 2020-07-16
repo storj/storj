@@ -129,7 +129,7 @@ func TestReputationDBGetAll(t *testing.T) {
 	})
 }
 
-// compareReputationMetric compares two reputation metrics and asserts that they are equal
+// compareReputationMetric compares two reputation metrics and asserts that they are equal.
 func compareReputationMetric(t *testing.T, a, b *reputation.Metric) {
 	assert.Equal(t, a.SuccessCount, b.SuccessCount)
 	assert.Equal(t, a.TotalCount, b.TotalCount)

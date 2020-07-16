@@ -16,7 +16,7 @@ type irreparableDB struct {
 	db *satelliteDB
 }
 
-// IncrementRepairAttempts a db entry for to increment the repair attempts field
+// IncrementRepairAttempts a db entry for to increment the repair attempts field.
 func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *pb.IrreparableSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
@@ -56,7 +56,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 	return Error.Wrap(err)
 }
 
-// Get a irreparable's segment info from the db
+// Get a irreparable's segment info from the db.
 func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *pb.IrreparableSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
@@ -80,7 +80,7 @@ func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *pb.
 	}, nil
 }
 
-// GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved
+// GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved.
 func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegmentPath []byte) (resp []*pb.IrreparableSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// the offset is hardcoded to 0 since we are using the lastSeenSegmentPath to
@@ -113,7 +113,7 @@ func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegm
 	return resp, err
 }
 
-// Delete a irreparable's segment info from the db
+// Delete a irreparable's segment info from the db.
 func (db *irreparableDB) Delete(ctx context.Context, segmentPath []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = db.db.Delete_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))

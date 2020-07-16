@@ -16,7 +16,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Message is RFC compliant email message
+// Message is RFC compliant email message.
 type Message struct {
 	From      Address
 	To        []Address
@@ -29,7 +29,7 @@ type Message struct {
 	Parts     []Part
 }
 
-// Part represent one part of multipart message
+// Part represent one part of multipart message.
 type Part struct {
 	Type        string
 	Encoding    string
@@ -37,10 +37,10 @@ type Part struct {
 	Content     string
 }
 
-// Error is the default message errs class
+// Error is the default message errs class.
 var Error = errs.Class("Email message error")
 
-// Bytes builds message and returns result as bytes
+// Bytes builds message and returns result as bytes.
 func (msg *Message) Bytes() (data []byte, err error) {
 	// always returns nil error on read and write, so most of the errors can be ignored
 	var body bytes.Buffer

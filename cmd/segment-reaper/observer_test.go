@@ -573,7 +573,7 @@ func TestObserver_findZombieSegments(t *testing.T) {
 }
 
 // segmentRef is an object segment reference to be used for simulating calls to
-// observer.processSegment
+// observer.processSegment.
 type segmentRef struct {
 	path    metainfo.ScopedPath
 	pointer *pb.Pointer

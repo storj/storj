@@ -54,7 +54,7 @@ func TestBasic(t *testing.T) {
 	}
 }
 
-// test that nodes get put into each satellite's overlay cache
+// test that nodes get put into each satellite's overlay cache.
 func TestContact(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 2, StorageNodeCount: 5, UplinkCount: 0,

@@ -18,12 +18,12 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// StoragenodeAccounting implements the accounting/db StoragenodeAccounting interface
+// StoragenodeAccounting implements the accounting/db StoragenodeAccounting interface.
 type StoragenodeAccounting struct {
 	db *satelliteDB
 }
 
-// SaveTallies records raw tallies of at rest data to the database
+// SaveTallies records raw tallies of at rest data to the database.
 func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodeData) == 0 {
@@ -59,7 +59,7 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 	return Error.Wrap(err)
 }
 
-// GetTallies retrieves all raw tallies
+// GetTallies retrieves all raw tallies.
 func (db *StoragenodeAccounting) GetTallies(ctx context.Context) (_ []*accounting.StoragenodeStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 	raws, err := db.db.All_StoragenodeStorageTally(ctx)
@@ -78,7 +78,7 @@ func (db *StoragenodeAccounting) GetTallies(ctx context.Context) (_ []*accountin
 	return out, Error.Wrap(err)
 }
 
-// GetTalliesSince retrieves all raw tallies since latestRollup
+// GetTalliesSince retrieves all raw tallies since latestRollup.
 func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRollup time.Time) (_ []*accounting.StoragenodeStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 	raws, err := db.db.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.StoragenodeStorageTally_IntervalEndTime(latestRollup))
@@ -97,7 +97,7 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRoll
 	return out, Error.Wrap(err)
 }
 
-// GetBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
+// GetBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup.
 func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRollup time.Time) (_ []*accounting.StoragenodeBandwidthRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup))
@@ -117,7 +117,7 @@ func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRo
 	return out, Error.Wrap(err)
 }
 
-// SaveRollup records raw tallies of at rest data to the database
+// SaveRollup records raw tallies of at rest data to the database.
 func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup time.Time, stats accounting.RollupStats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(stats) == 0 {
@@ -152,7 +152,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 	return Error.Wrap(err)
 }
 
-// LastTimestamp records the greatest last tallied time
+// LastTimestamp records the greatest last tallied time.
 func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampType string) (_ time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 	lastTally := time.Time{}
@@ -170,7 +170,7 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 	return lastTally, err
 }
 
-// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
+// QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID.
 func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []*accounting.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var sqlStmt = `SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total,
@@ -217,7 +217,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 	return csv, rows.Err()
 }
 
-// QueryStorageNodePeriodUsage returns usage invoices for nodes for a compensation period
+// QueryStorageNodePeriodUsage returns usage invoices for nodes for a compensation period.
 func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) (_ []accounting.StorageNodePeriodUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -271,7 +271,7 @@ func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context
 	return usages, rows.Err()
 }
 
-// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
+// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period.
 func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.StorageNodeUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -333,7 +333,7 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	return nodeStorageUsages, rows.Err()
 }
 
-// DeleteTalliesBefore deletes all raw tallies prior to some time
+// DeleteTalliesBefore deletes all raw tallies prior to some time.
 func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	var deleteRawSQL = `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < ?`

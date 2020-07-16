@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-// TestSuspendBasic ensures that we can suspend a node using overlayService.SuspendNode and that we can unsuspend a node using overlayservice.UnsuspendNode
+// TestSuspendBasic ensures that we can suspend a node using overlayService.SuspendNode and that we can unsuspend a node using overlayservice.UnsuspendNode.
 func TestSuspendBasic(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
@@ -259,7 +259,7 @@ func TestSuspendDQDisabled(t *testing.T) {
 	})
 }
 
-// TestSuspendBatchUpdateStats ensures that suspension and alpha/beta fields are properly updated from batch update stats
+// TestSuspendBatchUpdateStats ensures that suspension and alpha/beta fields are properly updated from batch update stats.
 func TestSuspendBatchUpdateStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,

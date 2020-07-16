@@ -39,7 +39,7 @@ const (
 	MinFormatVersionSupported = FormatV0
 )
 
-// blobReader implements reading blobs
+// blobReader implements reading blobs.
 type blobReader struct {
 	*os.File
 	formatVersion storage.FormatVersion
@@ -63,7 +63,7 @@ func (blob *blobReader) StorageFormatVersion() storage.FormatVersion {
 	return blob.formatVersion
 }
 
-// blobWriter implements writing blobs
+// blobWriter implements writing blobs.
 type blobWriter struct {
 	ref           storage.BlobRef
 	store         *blobStore

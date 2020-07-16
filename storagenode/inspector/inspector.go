@@ -43,7 +43,7 @@ type Endpoint struct {
 	externalAddress  string
 }
 
-// NewEndpoint creates piecestore inspector instance
+// NewEndpoint creates piecestore inspector instance.
 func NewEndpoint(
 	log *zap.Logger,
 	pieceStore *pieces.Store,
@@ -67,7 +67,7 @@ func NewEndpoint(
 	}
 }
 
-// Stats returns current statistics about the storage node
+// Stats returns current statistics about the storage node.
 func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out *pb.StatSummaryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return inspector.retrieveStats(ctx)
@@ -99,7 +99,7 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	}, nil
 }
 
-// Dashboard returns dashboard information
+// Dashboard returns dashboard information.
 func (inspector *Endpoint) Dashboard(ctx context.Context, in *pb.DashboardRequest) (out *pb.DashboardResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return inspector.getDashboardData(ctx)

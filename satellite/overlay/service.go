@@ -17,19 +17,19 @@ import (
 	"storj.io/storj/storage"
 )
 
-// ErrEmptyNode is returned when the nodeID is empty
+// ErrEmptyNode is returned when the nodeID is empty.
 var ErrEmptyNode = errs.New("empty node ID")
 
-// ErrNodeNotFound is returned if a node does not exist in database
+// ErrNodeNotFound is returned if a node does not exist in database.
 var ErrNodeNotFound = errs.Class("node not found")
 
-// ErrNodeOffline is returned if a nodes is offline
+// ErrNodeOffline is returned if a nodes is offline.
 var ErrNodeOffline = errs.Class("node is offline")
 
-// ErrNodeDisqualified is returned if a nodes is disqualified
+// ErrNodeDisqualified is returned if a nodes is disqualified.
 var ErrNodeDisqualified = errs.Class("node is disqualified")
 
-// ErrNotEnoughNodes is when selecting nodes failed with the given parameters
+// ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
 // DB implements the database for overlay.Service
@@ -97,7 +97,7 @@ type DB interface {
 	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
 }
 
-// NodeCheckInInfo contains all the info that will be updated when a node checkins
+// NodeCheckInInfo contains all the info that will be updated when a node checkins.
 type NodeCheckInInfo struct {
 	NodeID     storj.NodeID
 	Address    *pb.NodeAddress
@@ -124,7 +124,7 @@ type FindStorageNodesRequest struct {
 	MinimumVersion string // semver or empty
 }
 
-// NodeCriteria are the requirements for selecting nodes
+// NodeCriteria are the requirements for selecting nodes.
 type NodeCriteria struct {
 	FreeDisk         int64
 	AuditCount       int64
@@ -183,7 +183,7 @@ type ExitStatusRequest struct {
 	ExitSuccess         bool
 }
 
-// NodeDossier is the complete info that the satellite tracks for a storage node
+// NodeDossier is the complete info that the satellite tracks for a storage node.
 type NodeDossier struct {
 	pb.Node
 	Type                  pb.NodeType
@@ -219,7 +219,7 @@ type NodeStats struct {
 	UnknownAuditSuspended       *time.Time
 }
 
-// NodeLastContact contains the ID, address, and timestamp
+// NodeLastContact contains the ID, address, and timestamp.
 type NodeLastContact struct {
 	URL                storj.NodeURL
 	LastIPPort         string
@@ -258,7 +258,7 @@ type Service struct {
 	SelectionCache *NodeSelectionCache
 }
 
-// NewService returns a new Service
+// NewService returns a new Service.
 func NewService(log *zap.Logger, db DB, config Config) *Service {
 	return &Service{
 		log:    log,
@@ -270,10 +270,10 @@ func NewService(log *zap.Logger, db DB, config Config) *Service {
 	}
 }
 
-// Close closes resources
+// Close closes resources.
 func (service *Service) Close() error { return nil }
 
-// Inspect lists limited number of items in the cache
+// Inspect lists limited number of items in the cache.
 func (service *Service) Inspect(ctx context.Context) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// TODO: implement inspection tools
@@ -387,7 +387,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	return nodes, nil
 }
 
-// KnownOffline filters a set of nodes to offline nodes
+// KnownOffline filters a set of nodes to offline nodes.
 func (service *Service) KnownOffline(ctx context.Context, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
@@ -420,7 +420,7 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 	return service.db.Reliable(ctx, criteria)
 }
 
-// BatchUpdateStats updates multiple storagenode's stats in one transaction
+// BatchUpdateStats updates multiple storagenode's stats in one transaction.
 func (service *Service) BatchUpdateStats(ctx context.Context, requests []*UpdateRequest) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -476,7 +476,7 @@ func (service *Service) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, 
 	return service.db.GetSuccesfulNodesNotCheckedInSince(ctx, duration)
 }
 
-// GetMissingPieces returns the list of offline nodes
+// GetMissingPieces returns the list of offline nodes.
 func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var nodeIDs storj.NodeIDList
@@ -510,7 +510,7 @@ func (service *Service) GetOfflineNodesLimited(ctx context.Context, limit int) (
 	return service.db.GetOfflineNodesLimited(ctx, limit)
 }
 
-// ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6
+// ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.
 func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 

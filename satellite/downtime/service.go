@@ -70,5 +70,5 @@ func (service *Service) CheckAndUpdateNodeAvailability(ctx context.Context, node
 	return false, nil
 }
 
-// Close closes resources
+// Close closes resources.
 func (service *Service) Close() error { return nil }

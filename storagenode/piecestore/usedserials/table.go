@@ -51,7 +51,7 @@ func (a Full) Less(b Full) bool {
 
 // serialsList is a structure that contains a list of partial serials and a list of full serials
 // if the satellite puts the expiration time as the first 8 bytes, the partial serials list will be used
-// otherwise, the full serials list will be used
+// otherwise, the full serials list will be used.
 type serialsList struct {
 	partialSerials []Partial
 	fullSerials    []storj.SerialNumber
