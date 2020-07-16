@@ -147,6 +147,7 @@ func TestAddUserSameEmail(t *testing.T) {
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusConflict, response.StatusCode)
+		require.NoError(t, response.Body.Close())
 	})
 }
 
