@@ -122,7 +122,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		selectedSatellite = append(selectedSatellite, inputs...)
 		break
 	}
-	if err != scanner.Err() || err != nil {
+	if err != scanner.Err() || err != nil { //nolint: goerr113
 		return errs.Wrap(err)
 	}
 

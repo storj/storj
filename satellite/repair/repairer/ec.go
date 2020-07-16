@@ -6,6 +6,7 @@ package repairer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -327,7 +328,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 
 	var successfulCount, failureCount, cancellationCount int32
 	timer := time.AfterFunc(timeout, func() {
-		if ctx.Err() != context.Canceled {
+		if !errors.Is(ctx.Err(), context.Canceled) {
 			ec.log.Debug("Timer expired. Canceling the long tail...",
 				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
 			)
@@ -459,8 +460,8 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	_, err = sync2.Copy(ctx, upload, data)
 	// Canceled context means the piece upload was interrupted by user or due
 	// to slow connection. No error logging for this case.
-	if ctx.Err() == context.Canceled {
-		if parent.Err() == context.Canceled {
+	if errors.Is(ctx.Err(), context.Canceled) {
+		if errors.Is(parent.Err(), context.Canceled) {
 			ec.log.Debug("Upload to node canceled by user",
 				zap.Stringer("Node ID", storageNodeID))
 		} else {

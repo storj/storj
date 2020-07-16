@@ -143,7 +143,7 @@ func (client *Client) getAllOnce(ctx context.Context, keys storage.Keys) (values
 	}
 	defer func() {
 		closeErr := rows.Close()
-		if closeErr != nil && closeErr != err {
+		if closeErr != nil && closeErr != err { //nolint: goerr113
 			err = errs.Combine(err, closeErr)
 		}
 	}()
@@ -218,7 +218,7 @@ func (client *Client) deleteMultipleOnce(ctx context.Context, keys storage.Keys)
 	}
 	defer func() {
 		closeErr := rows.Close()
-		if closeErr != nil && closeErr != err {
+		if closeErr != nil && closeErr != err { //nolint: goerr113
 			err = errs.Combine(err, closeErr)
 		}
 	}()

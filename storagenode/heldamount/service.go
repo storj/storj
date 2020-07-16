@@ -6,6 +6,7 @@ package heldamount
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -259,7 +260,7 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 
 		satellite, err := service.satellitesDB.GetSatellite(ctx, satelliteIDs[i])
 		if err != nil {
-			if sql.ErrNoRows == err {
+			if errors.Is(err, sql.ErrNoRows) {
 				payoutHistory.IsExitComplete = false
 			}
 

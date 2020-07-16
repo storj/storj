@@ -6,6 +6,7 @@ package gracefulexit
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 
 	"go.uber.org/zap"
@@ -45,7 +46,7 @@ func (blobsCleaner *BlobsCleaner) RemoveBlobs(ctx context.Context) (err error) {
 	for i := 0; i < len(satelliteIDs); i++ {
 		stats, err := blobsCleaner.satelliteDB.GetSatellite(ctx, satelliteIDs[i])
 		if err != nil {
-			if sql.ErrNoRows == err {
+			if errors.Is(err, sql.ErrNoRows) {
 				continue
 			}
 

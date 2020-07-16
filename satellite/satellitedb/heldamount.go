@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/zeebo/errs"
 
@@ -50,7 +51,7 @@ func (paystubs *paymentStubs) GetPaystub(ctx context.Context, nodeID storj.NodeI
 		&payStub.Paid,
 	)
 	if err != nil {
-		if sql.ErrNoRows == err {
+		if errors.Is(err, sql.ErrNoRows) {
 			return heldamount.PayStub{}, heldamount.ErrNoDataForPeriod.Wrap(err)
 		}
 
@@ -151,7 +152,7 @@ func (paystubs *paymentStubs) GetPayment(ctx context.Context, nodeID storj.NodeI
 		&payment.Notes,
 	)
 	if err != nil {
-		if sql.ErrNoRows == err {
+		if errors.Is(err, sql.ErrNoRows) {
 			return heldamount.StoragenodePayment{}, heldamount.ErrNoDataForPeriod.Wrap(err)
 		}
 

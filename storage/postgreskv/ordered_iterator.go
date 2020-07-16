@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/zeebo/errs"
@@ -83,7 +84,7 @@ func (opi *orderedPostgresIterator) Next(ctx context.Context, item *storage.List
 			result := func() bool {
 				defer mon.TaskNamed("acquire_new_query")(nil)(nil)
 
-				if err := opi.curRows.Err(); err != nil && err != sql.ErrNoRows {
+				if err := opi.curRows.Err(); err != nil && !errors.Is(err, sql.ErrNoRows) {
 					opi.errEncountered = errs.Wrap(err)
 					return false
 				}

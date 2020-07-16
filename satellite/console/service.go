@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -472,7 +473,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	if err == nil {
 		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, Error.Wrap(err)
 	}
 

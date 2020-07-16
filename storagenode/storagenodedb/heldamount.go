@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/zeebo/errs"
 
@@ -137,7 +138,7 @@ func (db *heldamountDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID
 		&result.Paid,
 	)
 	if err != nil {
-		if sql.ErrNoRows == err {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, heldamount.ErrNoPayStubForPeriod.Wrap(err)
 		}
 		return nil, ErrHeldAmount.Wrap(err)
@@ -150,7 +151,7 @@ func (db *heldamountDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID
 
 	err = rowPayment.Scan(&result.Receipt)
 	if err != nil {
-		if sql.ErrNoRows == err {
+		if errors.Is(err, sql.ErrNoRows) {
 			return &result, nil
 		}
 		return nil, ErrHeldAmount.Wrap(err)

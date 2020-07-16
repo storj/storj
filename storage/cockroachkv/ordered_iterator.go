@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/zeebo/errs"
@@ -85,7 +86,7 @@ func (oci *orderedCockroachIterator) Next(ctx context.Context, item *storage.Lis
 				defer mon.TaskNamed("acquire_new_query")(nil)(nil)
 
 				retry := false
-				if err := oci.curRows.Err(); err != nil && err != sql.ErrNoRows {
+				if err := oci.curRows.Err(); err != nil && !errors.Is(err, sql.ErrNoRows) {
 					// This NeedsRetry needs to be exported here because it is
 					// expected behavior for cockroach to return retryable errors
 					// that will be captured in this Rows object.
