@@ -80,6 +80,13 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("failed to insert user: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	err = server.payments.Setup(ctx, newuser.ID, newuser.Email)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to create payment account for user: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	//Set User Status to be activated, as we manually created it
 	newuser.Status = console.Active
 	newuser.PasswordHash = nil
@@ -280,7 +287,7 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ensure no unpaid invoices exist.
-	invoices, err := server.invoices.List(ctx, user.ID)
+	invoices, err := server.payments.Invoices().List(ctx, user.ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("unable to list user invoices: %v", err), http.StatusInternalServerError)
 		return
@@ -294,7 +301,7 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	hasItems, err := server.invoices.CheckPendingItems(ctx, user.ID)
+	hasItems, err := server.payments.Invoices().CheckPendingItems(ctx, user.ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("unable to list pending invoice items: %v", err), http.StatusInternalServerError)
 		return

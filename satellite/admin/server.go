@@ -51,19 +51,19 @@ type Server struct {
 	mux      *mux.Router
 
 	db       DB
-	invoices payments.Invoices
+	payments payments.Accounts
 }
 
 // NewServer returns a new debug.Server.
-func NewServer(log *zap.Logger, listener net.Listener, db DB, invoices payments.Invoices, config Config) *Server {
+func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.Accounts, config Config) *Server {
 	server := &Server{
-		log:      log,
+		log: log,
 
 		listener: listener,
 		mux:      mux.NewRouter(),
 
 		db:       db,
-		invoices: invoices,
+		payments: accounts,
 	}
 
 	server.server.Handler = &protectedServer{
