@@ -336,6 +336,8 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 			Description: stripe.String(StripeDepositTransactionDescription),
 		}
 		params.AddMetadata("txID", tx.ID.String())
+		params.AddMetadata("storj_amount", tx.Amount.String())
+		params.AddMetadata("storj_usd_rate", rate.String())
 		_, err = service.stripeClient.CustomerBalanceTransactions().New(params)
 		if err != nil {
 			return err

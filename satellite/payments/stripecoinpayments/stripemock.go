@@ -18,7 +18,18 @@ import (
 	"storj.io/common/uuid"
 )
 
-// MockStripeClient Stripe client mock.
+// mockClient singleton of mockStripeClient.
+//
+// The satellite has a Core part and API part which mostly duplicate each
+// other. Each of them have a StripeClient instance. This is not a problem in
+// production, because the stripeClient implementation is stateless and calls
+// the Web API of the same Stripe backend. But it is a problem in test
+// environments as the mockStripeClient client is stateful - the data is stored
+// in in-memory maps. Therefore, we need it to be a singleton, so the Core and
+// API parts share the same state.
+var mockClient StripeClient
+
+// mockStripeClient Stripe client mock.
 type mockStripeClient struct {
 	customers                   *mockCustomers
 	paymentMethods              *mockPaymentMethods
@@ -30,14 +41,17 @@ type mockStripeClient struct {
 
 // NewStripeMock creates new Stripe client mock.
 func NewStripeMock() StripeClient {
-	return &mockStripeClient{
-		customers:                   newMockCustomers(),
-		paymentMethods:              &mockPaymentMethods{},
-		invoices:                    &mockInvoices{},
-		invoiceItems:                &mockInvoiceItems{},
-		customerBalanceTransactions: newMockCustomerBalanceTransactions(),
-		charges:                     &mockCharges{},
+	if mockClient == nil {
+		mockClient = &mockStripeClient{
+			customers:                   newMockCustomers(),
+			paymentMethods:              &mockPaymentMethods{},
+			invoices:                    &mockInvoices{},
+			invoiceItems:                &mockInvoiceItems{},
+			customerBalanceTransactions: newMockCustomerBalanceTransactions(),
+			charges:                     &mockCharges{},
+		}
 	}
+	return mockClient
 }
 
 func (m *mockStripeClient) Customers() StripeCustomers {
