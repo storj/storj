@@ -73,7 +73,7 @@ export default class AddStorjState extends Vue {
      */
     public beforeMount(): void {
         switch (true) {
-            case this.$store.getters.isTransactionCompleted:
+            case this.$store.getters.isBalancePositive:
                 this.setVerifiedState();
 
                 return;

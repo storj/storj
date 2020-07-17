@@ -102,7 +102,7 @@ export default class AddPaymentStep extends Vue {
      * Sets area to needed state.
      */
     public mounted(): void {
-        if (this.$store.getters.isTransactionProcessing || this.$store.getters.isTransactionCompleted) {
+        if (this.$store.getters.isTransactionProcessing || this.$store.getters.isBalancePositive) {
             this.setAddStorjState();
         }
     }

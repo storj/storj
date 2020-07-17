@@ -106,7 +106,7 @@ export default class OnboardingTourArea extends Vue {
             return;
         }
 
-        if (this.$store.getters.isTransactionProcessing || this.$store.getters.isTransactionCompleted) {
+        if (this.$store.getters.isTransactionProcessing || this.$store.getters.isBalancePositive) {
             this.setAddPaymentState();
         }
     }

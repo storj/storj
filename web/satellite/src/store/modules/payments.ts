@@ -231,10 +231,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
         },
         getters: {
             canUserCreateFirstProject: (state: PaymentsState): boolean => {
-                return (state.paymentsHistory.some((paymentsItem: PaymentsHistoryItem) => {
-                    return paymentsItem.amount >= 50 && paymentsItem.type === PaymentsHistoryItemType.Transaction
-                        && paymentsItem.status === PaymentsHistoryItemStatus.Completed;
-                }) && state.balance.sum > 0) || state.creditCards.length > 0;
+                return state.balance.sum > 0 || state.creditCards.length > 0;
             },
             isTransactionProcessing: (state: PaymentsState): boolean => {
                 return state.paymentsHistory.some((paymentsItem: PaymentsHistoryItem) => {
@@ -244,11 +241,8 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                         || paymentsItem.status === PaymentsHistoryItemStatus.Completed);
                 }) && state.balance.sum === 0;
             },
-            isTransactionCompleted: (state: PaymentsState): boolean => {
-                return (state.paymentsHistory.some((paymentsItem: PaymentsHistoryItem) => {
-                    return paymentsItem.amount >= 50 && paymentsItem.type === PaymentsHistoryItemType.Transaction
-                        && paymentsItem.status === PaymentsHistoryItemStatus.Completed;
-                }) && state.balance.sum > 0);
+            isBalancePositive: (state: PaymentsState): boolean => {
+                return state.balance.sum > 0;
             },
         },
     };
