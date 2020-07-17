@@ -191,6 +191,18 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		return false, orderLimitFailureError.New("could not create GET_REPAIR order limits: %w", err)
 	}
 
+	// Double check for healthy pieces which became unhealthy inside CreateGetRepairOrderLimits
+	// Remove them from healthyPieces and add them to unhealthyPieces
+	var newHealthyPieces []*pb.RemotePiece
+	for _, piece := range healthyPieces {
+		if getOrderLimits[piece.GetPieceNum()] == nil {
+			unhealthyPieces = append(unhealthyPieces, piece)
+		} else {
+			newHealthyPieces = append(newHealthyPieces, piece)
+		}
+	}
+	healthyPieces = newHealthyPieces
+
 	var requestCount int
 	var minSuccessfulNeeded int
 	{
