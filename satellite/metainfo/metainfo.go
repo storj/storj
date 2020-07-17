@@ -924,28 +924,6 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	satStreamID := &pb.SatStreamID{
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedPath,
-		Version:       req.Version,
-		CreationDate:  now,
-	}
-
-	satStreamID, err = signing.SignStreamID(ctx, endpoint.satellite, satStreamID)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	encodedStreamID, err := pb.Marshal(satStreamID)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	streamID, err := storj.StreamIDFromBytes(encodedStreamID)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
 	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
@@ -965,13 +943,13 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	var object *pb.Object
 	if canRead || canList {
 		// Info about deleted object is returned only if either Read, or List permission is granted
-		object, err = endpoint.getObject(ctx, keyInfo.ProjectID, satStreamID.Bucket, satStreamID.EncryptedPath, satStreamID.Version)
+		object, err = endpoint.getObject(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath, req.Version)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, satStreamID.Bucket, satStreamID.EncryptedPath)
+	err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
 	if err != nil {
 		if !canRead && !canList {
 			// No error info is returned if neither Read, nor List permission is granted
@@ -984,8 +962,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	mon.Meter("req_delete_object").Mark(1)
 
 	return &pb.ObjectBeginDeleteResponse{
-		StreamId: streamID,
-		Object:   object,
+		Object: object,
 	}, nil
 }
 
