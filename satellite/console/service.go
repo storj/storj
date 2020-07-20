@@ -1499,25 +1499,34 @@ func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectI
 }
 
 // isProjectMember checks if the user is a member of given project.
-func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (result isProjectMember, err error) {
+func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (_ isProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 	project, err := s.store.Projects().Get(ctx, projectID)
 	if err != nil {
-		return result, Error.Wrap(err)
+		return isProjectMember{}, Error.Wrap(err)
 	}
 
 	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, userID)
 	if err != nil {
-		return result, Error.Wrap(err)
+		return isProjectMember{}, Error.Wrap(err)
 	}
 
-	for _, membership := range memberships {
-		if membership.ProjectID == projectID {
-			result.membership = &membership // nolint: scopelint
-			result.project = project
-			return
-		}
+	membership, ok := findMembershipByProjectID(memberships, projectID)
+	if ok {
+		return isProjectMember{
+			project:    project,
+			membership: &membership,
+		}, nil
 	}
 
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
+}
+
+func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {
+	for _, membership := range memberships {
+		if membership.ProjectID == projectID {
+			return membership, true
+		}
+	}
+	return ProjectMember{}, false
 }
