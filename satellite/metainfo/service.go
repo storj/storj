@@ -5,7 +5,6 @@ package metainfo
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -150,7 +149,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 			}
 		}
 		// remove the toRemove pieces from the map
-		// only if piece number and node id match
+		// only if all piece number, node id and hash match
 		for _, piece := range toRemove {
 			if piece == nil {
 				continue
@@ -166,15 +165,8 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 			if piece == nil {
 				continue
 			}
-			piece.Hash = nil
 			_, exists := pieceMap[piece.PieceNum]
 			if exists {
-				// temporary logging to get some insight into this error
-				s.logger.Info("temporary logging around error: 'piece to add already exists'",
-					zap.String("old pointer", fmt.Sprintf("%v", ref.GetRemote().GetRemotePieces())),
-					zap.String("latest pointer", fmt.Sprintf("%v", pointer.GetRemote().GetRemotePieces())),
-					zap.String("nodes to remove", fmt.Sprintf("%v", toRemove)),
-					zap.String("nodes to add", fmt.Sprintf("%v", toAdd)))
 				return nil, Error.New("piece to add already exists (piece no: %d)", piece.PieceNum)
 			}
 			pieceMap[piece.PieceNum] = piece
