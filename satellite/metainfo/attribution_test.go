@@ -5,6 +5,7 @@ package metainfo_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -108,5 +109,68 @@ func TestUserAgentAttribution(t *testing.T) {
 		attribution, err := satellite.DB.Attribution().Get(ctx, uplink.Projects[0].ID, []byte("bucket"))
 		require.NoError(t, err)
 		assert.Equal(t, partnerID, attribution.PartnerID)
+	})
+}
+
+func TestAttributionReport(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			bucketName = "test"
+			filePath   = "path"
+		)
+
+		up := planet.Uplinks[0]
+		up.Config.UserAgent = "Zenko/1.0"
+
+		err := up.CreateBucket(ctx, planet.Satellites[0], bucketName)
+		require.NoError(t, err)
+
+		{ // upload test-data
+			err = up.Upload(ctx, planet.Satellites[0], bucketName, filePath, testrand.Bytes(5*memory.KiB))
+			require.NoError(t, err)
+		}
+
+		{ // download test-data
+			_, err = up.Download(ctx, planet.Satellites[0], bucketName, filePath)
+			require.NoError(t, err)
+		}
+
+		{ // Flush all the pending information through the system.
+			// Calculate the usage used for upload
+			for _, sn := range planet.StorageNodes {
+				sn.Storage2.Orders.Sender.TriggerWait()
+			}
+
+			rollout := planet.Satellites[0].Core.Accounting.ReportedRollupChore
+			require.NoError(t, rollout.RunOnce(ctx, time.Now()))
+
+			// Trigger tally so it gets all set up and can return a storage usage
+			planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
+		}
+
+		{
+			before := time.Now().Add(-time.Hour)
+			after := before.Add(2 * time.Hour)
+
+			projectID := up.Projects[0].ID
+
+			usage, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectTotal(ctx, projectID, before, after)
+			require.NoError(t, err)
+			require.NotZero(t, usage.Egress)
+
+			partner, err := planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "Zenko")
+			require.NoError(t, err)
+
+			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
+			require.NoError(t, err)
+			require.NotZero(t, rows[0].RemoteBytesPerHour)
+			require.Equal(t, rows[0].EgressData, usage.Egress)
+		}
+
 	})
 }
