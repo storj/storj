@@ -3,9 +3,12 @@
 
 <template>
     <div class="title-area">
-        <div class="title-area__node-id-container">
-            <b class="title-area__node-id-container__title">Node ID:</b>
-            <p class="title-area__node-id-container__id">{{ this.nodeId }}</p>
+        <div class="title-area__node-id-container" v-clipboard="this.nodeId">
+            <b class="title-area__node-id-container__title">Node ID</b>
+            <div class="title-area__node-id-container__right-area">
+                <p class="title-area__node-id-container__id">{{ this.nodeId }}</p>
+                <CopyIcon />
+            </div>
         </div>
         <h1 class="title-area__title">Your Storage Node Stats</h1>
         <div class="title-area__info-container">
@@ -59,6 +62,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VInfo from '@/app/components/VInfo.vue';
 
+import CopyIcon from '@/../static/images/Copy.svg';
+
 import { StatusOnline } from '@/app/store/modules/node';
 import { Duration, millisecondsInSecond, minutesInHour, secondsInHour, secondsInMinute } from '@/app/utils/duration';
 
@@ -90,6 +95,7 @@ class NodeInfo {
 @Component ({
     components: {
         VInfo,
+        CopyIcon,
     },
 })
 export default class SNOContentTitle extends Vue {
@@ -149,6 +155,13 @@ export default class SNOContentTitle extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .svg {
+
+        path {
+            fill: var(--node-id-copy-icon-color);
+        }
+    }
+
     .title-area {
         font-family: 'font_regular', sans-serif;
         margin-bottom: 9px;
@@ -157,19 +170,40 @@ export default class SNOContentTitle extends Vue {
             color: var(--regular-text-color);
             height: 44px;
             padding: 14px;
-            border: 1px solid #e8e8e8;
+            border: 1px solid var(--node-id-border-color);
             border-radius: 12px;
             font-size: 14px;
             margin-right: 30px;
             display: none;
+            cursor: pointer;
 
             &__title {
+                font-family: 'font_bold', sans-serif;
                 min-width: 55px;
                 margin-right: 5px;
             }
 
             &__id {
+                margin-right: 20px;
                 font-size: 11px;
+            }
+
+            &__right-area {
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+            }
+
+            &:hover {
+                border-color: var(--node-id-border-hover-color);
+                color: var(--node-id-hover-text-color);
+
+                .svg {
+
+                    path {
+                        fill: var(--node-id-border-hover-color) !important;
+                    }
+                }
             }
         }
 
@@ -244,6 +278,7 @@ export default class SNOContentTitle extends Vue {
             &__node-id-container {
                 display: flex;
                 align-items: center;
+                justify-content: space-between;
                 margin: 0 0 20px 0;
                 height: auto;
 
