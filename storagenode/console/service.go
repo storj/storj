@@ -451,10 +451,10 @@ func (s *Service) estimatedPayoutMonthly(ctx context.Context, satelliteID storj.
 
 	for i := 0; i < len(bandwidthDaily); i++ {
 		payoutData.EgressBandwidth += bandwidthDaily[i].Egress.Usage
-		payoutData.EgressBandwidthPayout += int64(float64(bandwidthDaily[i].Egress.Usage*priceModel.EgressBandwidth) / math.Pow10(12))
 		payoutData.EgressRepairAudit += bandwidthDaily[i].Egress.Audit + bandwidthDaily[i].Egress.Repair
-		payoutData.EgressRepairAuditPayout += int64(float64(bandwidthDaily[i].Egress.Audit*priceModel.AuditBandwidth+bandwidthDaily[i].Egress.Repair*priceModel.RepairBandwidth) / math.Pow10(12))
 	}
+	payoutData.EgressBandwidthPayout += int64(float64(payoutData.EgressBandwidth*priceModel.EgressBandwidth) / math.Pow10(12))
+	payoutData.EgressRepairAuditPayout += int64(float64(payoutData.EgressRepairAudit*priceModel.AuditBandwidth) / math.Pow10(12))
 
 	storageDaily, err := s.storageUsageDB.GetDaily(ctx, satelliteID, from, to)
 	if err != nil {
@@ -464,14 +464,11 @@ func (s *Service) estimatedPayoutMonthly(ctx context.Context, satelliteID storj.
 	for j := 0; j < len(storageDaily); j++ {
 		// dividing by 720 to show tbm instead of tbh
 		payoutData.DiskSpace += storageDaily[j].AtRestTotal / 720
-		payoutData.DiskSpacePayout += int64(storageDaily[j].AtRestTotal / 720 / math.Pow10(12) * float64(priceModel.DiskSpace))
 	}
+	payoutData.DiskSpacePayout += int64(payoutData.DiskSpace / 720 / math.Pow10(12) * float64(priceModel.DiskSpace))
 
 	payoutData.Held = (payoutData.DiskSpacePayout + payoutData.EgressBandwidthPayout + payoutData.EgressRepairAuditPayout) * heldRate / 100
-	payoutData.DiskSpacePayout -= payoutData.DiskSpacePayout * heldRate / 100
-	payoutData.EgressRepairAuditPayout -= payoutData.EgressRepairAuditPayout * heldRate / 100
-	payoutData.EgressBandwidthPayout -= payoutData.EgressBandwidthPayout * heldRate / 100
-	payoutData.Payout = payoutData.DiskSpacePayout + payoutData.EgressBandwidthPayout + payoutData.EgressRepairAuditPayout
+	payoutData.Payout = payoutData.DiskSpacePayout + payoutData.EgressBandwidthPayout + payoutData.EgressRepairAuditPayout - payoutData.Held
 
 	return payoutData, nil
 }
