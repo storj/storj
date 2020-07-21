@@ -107,7 +107,7 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			orderExpiration: oneWeek,
 			limit:           10 * memory.KiB.Int64(),
 			availableSpace:  5 * memory.KiB.Int64(),
-			err:             "out of space",
+			err:             "not enough available disk space",
 		},
 	} {
 		tt := tt

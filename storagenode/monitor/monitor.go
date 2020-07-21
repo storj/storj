@@ -68,6 +68,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// get the disk space details
+
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
 	storageStatus, err := service.store.StorageStatus(ctx)
 	if err != nil {
@@ -148,13 +149,12 @@ func (service *Service) Close() (err error) {
 func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usedSpace, err := service.usedSpace(ctx)
+	freeSpace, err := service.AvailableSpace(ctx)
 	if err != nil {
-		return Error.Wrap(err)
+		return err
 	}
-
 	service.contact.UpdateSelf(&pb.NodeCapacity{
-		FreeDisk: service.allocatedDiskSpace - usedSpace,
+		FreeDisk: freeSpace,
 	})
 
 	return nil
@@ -176,11 +176,21 @@ func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
-	allocatedSpace := service.allocatedDiskSpace
 
-	mon.IntVal("allocated_space").Observe(allocatedSpace)
+	freeSpaceForStorj := service.allocatedDiskSpace - usedSpace
+
+	diskStatus, err := service.store.StorageStatus(ctx)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	if diskStatus.DiskFree < freeSpaceForStorj {
+		freeSpaceForStorj = diskStatus.DiskFree
+	}
+
+	mon.IntVal("allocated_space").Observe(service.allocatedDiskSpace)
 	mon.IntVal("used_space").Observe(usedSpace)
-	mon.IntVal("available_space").Observe(allocatedSpace - usedSpace)
+	mon.IntVal("available_space").Observe(freeSpaceForStorj)
 
-	return allocatedSpace - usedSpace, nil
+	return freeSpaceForStorj, nil
 }

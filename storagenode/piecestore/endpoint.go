@@ -238,13 +238,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 	}()
 
-	// double verify that disk actually has sufficient capacity
-	status, err := endpoint.store.StorageStatus(ctx)
-	if err != nil {
-		return err
-	}
-	if status.DiskFree < limit.Limit {
-		return rpcstatus.Errorf(rpcstatus.Aborted, "not enough available disk space, have: %v, need: %v", status.DiskFree, limit.Limit)
+	if availableSpace < limit.Limit {
+		return rpcstatus.Errorf(rpcstatus.Aborted, "not enough available disk space, have: %v, need: %v", availableSpace, limit.Limit)
 	}
 
 	var pieceWriter *pieces.Writer
