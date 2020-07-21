@@ -136,9 +136,8 @@ func TestRevokeMacaroon(t *testing.T) {
 		_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-		// TODO uncomment when uplink client will be updated
-		// _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-		// assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 		_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
@@ -152,9 +151,8 @@ func TestRevokeMacaroon(t *testing.T) {
 		_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-		// TODO uncomment when uplink client will be updated
-		// _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-		// assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 		_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
@@ -232,9 +230,8 @@ func TestInvalidAPIKey(t *testing.T) {
 			_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
 			assertInvalidArgument(t, err, false)
 
-			// TODO uncomment when uplink client will be updated
-			// _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-			// assertInvalidArgument(t, err, false)
+			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
 			assertInvalidArgument(t, err, false)
@@ -248,9 +245,8 @@ func TestInvalidAPIKey(t *testing.T) {
 			_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
 			assertInvalidArgument(t, err, false)
 
-			// TODO uncomment when uplink client will be updated
-			// _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-			// assertInvalidArgument(t, err, false)
+			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+			assertInvalidArgument(t, err, false)
 
 			_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
 			assertInvalidArgument(t, err, false)
@@ -1042,18 +1038,17 @@ func TestInlineSegment(t *testing.T) {
 		}
 
 		{ // test deleting segments
-			// TODO uncomment when uplink client will be updated
-			// _, _, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
-			// 	Bucket:        params.Bucket,
-			// 	EncryptedPath: params.EncryptedPath,
-			// })
-			// require.NoError(t, err)
+			_, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+				Bucket:        params.Bucket,
+				EncryptedPath: params.EncryptedPath,
+			})
+			require.NoError(t, err)
 
-			// _, err = metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
-			// 	Bucket:        params.Bucket,
-			// 	EncryptedPath: params.EncryptedPath,
-			// })
-			// require.Error(t, err)
+			_, err = metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+				Bucket:        params.Bucket,
+				EncryptedPath: params.EncryptedPath,
+			})
+			require.Error(t, err)
 		}
 	})
 }
@@ -1110,18 +1105,17 @@ func TestRemoteSegment(t *testing.T) {
 			// Begin deleting object
 			// List objects
 
-			// TODO uncomment when uplink client will be updated
-			// _, _, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
-			// 	Bucket:        []byte(expectedBucketName),
-			// 	EncryptedPath: items[0].EncryptedPath,
-			// })
-			// require.NoError(t, err)
+			_, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+				Bucket:        []byte(expectedBucketName),
+				EncryptedPath: items[0].EncryptedPath,
+			})
+			require.NoError(t, err)
 
-			// items, _, err = metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
-			// 	Bucket: []byte(expectedBucketName),
-			// })
-			// require.NoError(t, err)
-			// require.Len(t, items, 0)
+			items, _, err = metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+				Bucket: []byte(expectedBucketName),
+			})
+			require.NoError(t, err)
+			require.Len(t, items, 0)
 		}
 	})
 }

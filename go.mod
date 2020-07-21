@@ -41,9 +41,9 @@ require (
 	golang.org/x/sys v0.0.0-20200610111108-226ff32320da
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
-	storj.io/common v0.0.0-20200707192119-b151d384e6c7
+	storj.io/common v0.0.0-20200710113903-e5030388ee6a
 	storj.io/drpc v0.0.13
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
-	storj.io/private v0.0.0-20200605221229-3236fe879ab3
-	storj.io/uplink v1.1.2-0.20200616134034-15d9aa571aa7
+	storj.io/private v0.0.0-20200714090519-72be711b6edd
+	storj.io/uplink v1.1.3-0.20200720090036-c66d9eb21232
 )
