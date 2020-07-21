@@ -147,7 +147,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	db, err := storagenodedb.New(log.Named("db"), runCfg.DatabaseConfig())
+	db, err := storagenodedb.Open(log.Named("db"), runCfg.DatabaseConfig())
 	if err != nil {
 		return errs.New("Error starting master database on storagenode: %+v", err)
 	}
@@ -245,7 +245,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return fpath.EditFile(configFile)
 	}
 
-	return err
+	// create db
+	db, err := storagenodedb.New(zap.L().Named("db"), setupCfg.DatabaseConfig())
+	if err != nil {
+		return err
+	}
+
+	return db.Close()
 }
 
 func cmdConfig(cmd *cobra.Command, args []string) (err error) {
@@ -277,7 +283,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	db, err := storagenodedb.New(zap.L().Named("db"), diagCfg.DatabaseConfig())
+	db, err := storagenodedb.Open(zap.L().Named("db"), diagCfg.DatabaseConfig())
 	if err != nil {
 		return errs.New("Error starting master database on storage node: %v", err)
 	}

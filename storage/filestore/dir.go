@@ -43,6 +43,27 @@ type Dir struct {
 	trashnow    func() time.Time // the function used by trash to determine "now"
 }
 
+// OpenDir opens existing folder for storing blobs.
+func OpenDir(log *zap.Logger, path string) (*Dir, error) {
+	dir := &Dir{
+		log:      log,
+		path:     path,
+		trashnow: time.Now,
+	}
+
+	stat := func(path string) error {
+		_, err := os.Stat(path)
+		return err
+	}
+
+	return dir, errs.Combine(
+		stat(dir.blobsdir()),
+		stat(dir.tempdir()),
+		stat(dir.garbagedir()),
+		stat(dir.trashdir()),
+	)
+}
+
 // NewDir returns folder for storing blobs.
 func NewDir(log *zap.Logger, path string) (*Dir, error) {
 	dir := &Dir{

@@ -116,6 +116,77 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	pieces := filestore.New(log, piecesDir, config.Filestore)
+
+	deprecatedInfoDB := &deprecatedInfoDB{}
+	v0PieceInfoDB := &v0PieceInfoDB{}
+	bandwidthDB := &bandwidthDB{}
+	ordersDB := &ordersDB{}
+	pieceExpirationDB := &pieceExpirationDB{}
+	pieceSpaceUsedDB := &pieceSpaceUsedDB{}
+	reputationDB := &reputationDB{}
+	storageUsageDB := &storageUsageDB{}
+	usedSerialsDB := &usedSerialsDB{}
+	satellitesDB := &satellitesDB{}
+	notificationsDB := &notificationDB{}
+	heldamountDB := &heldamountDB{}
+	pricingDB := &pricingDB{}
+
+	db := &DB{
+		log:    log,
+		config: config,
+
+		pieces: pieces,
+
+		dbDirectory: filepath.Dir(config.Info2),
+
+		deprecatedInfoDB:  deprecatedInfoDB,
+		v0PieceInfoDB:     v0PieceInfoDB,
+		bandwidthDB:       bandwidthDB,
+		ordersDB:          ordersDB,
+		pieceExpirationDB: pieceExpirationDB,
+		pieceSpaceUsedDB:  pieceSpaceUsedDB,
+		reputationDB:      reputationDB,
+		storageUsageDB:    storageUsageDB,
+		usedSerialsDB:     usedSerialsDB,
+		satellitesDB:      satellitesDB,
+		notificationsDB:   notificationsDB,
+		heldamountDB:      heldamountDB,
+		pricingDB:         pricingDB,
+
+		SQLDBs: map[string]DBContainer{
+			DeprecatedInfoDBName:  deprecatedInfoDB,
+			PieceInfoDBName:       v0PieceInfoDB,
+			BandwidthDBName:       bandwidthDB,
+			OrdersDBName:          ordersDB,
+			PieceExpirationDBName: pieceExpirationDB,
+			PieceSpaceUsedDBName:  pieceSpaceUsedDB,
+			ReputationDBName:      reputationDB,
+			StorageUsageDBName:    storageUsageDB,
+			UsedSerialsDBName:     usedSerialsDB,
+			SatellitesDBName:      satellitesDB,
+			NotificationsDBName:   notificationsDB,
+			HeldAmountDBName:      heldamountDB,
+			PricingDBName:         pricingDB,
+		},
+	}
+
+	err = db.createDatabases()
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
+// Open opens a new master database for storage node.
+func Open(log *zap.Logger, config Config) (*DB, error) {
+	piecesDir, err := filestore.OpenDir(log, config.Pieces)
+	if err != nil {
+		return nil, err
+	}
+
 	pieces := filestore.New(log, piecesDir, config.Filestore)
 
 	deprecatedInfoDB := &deprecatedInfoDB{}
@@ -175,7 +246,44 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return db, nil
+}
+
+// createDatabases creates all the SQLite3 storage node databases and returns if any fails to create successfully.
+func (db *DB) createDatabases() error {
+	// These objects have a Configure method to allow setting the underlining SQLDB connection
+	// that each uses internally to do data access to the SQLite3 databases.
+	// The reason it was done this way was because there's some outside consumers that are
+	// taking a reference to the business object.
+	if err := os.MkdirAll(filepath.Dir(db.dbDirectory), 0700); err != nil {
+		return ErrDatabase.Wrap(err)
+	}
+
+	dbs := []string{
+		DeprecatedInfoDBName,
+		BandwidthDBName,
+		OrdersDBName,
+		PieceExpirationDBName,
+		PieceInfoDBName,
+		PieceSpaceUsedDBName,
+		ReputationDBName,
+		StorageUsageDBName,
+		UsedSerialsDBName,
+		SatellitesDBName,
+		NotificationsDBName,
+		HeldAmountDBName,
+		PricingDBName,
+	}
+
+	for _, dbName := range dbs {
+		err := db.createDatabase(dbName)
+		if err != nil {
+			return errs.Combine(err, db.closeDatabases())
+		}
+	}
+
+	return nil
 }
 
 // openDatabases opens all the SQLite3 storage node databases and returns if any fails to open successfully.
@@ -184,70 +292,30 @@ func (db *DB) openDatabases() error {
 	// that each uses internally to do data access to the SQLite3 databases.
 	// The reason it was done this way was because there's some outside consumers that are
 	// taking a reference to the business object.
-	err := db.openDatabase(DeprecatedInfoDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
+
+	dbs := []string{
+		DeprecatedInfoDBName,
+		BandwidthDBName,
+		OrdersDBName,
+		PieceExpirationDBName,
+		PieceInfoDBName,
+		PieceSpaceUsedDBName,
+		ReputationDBName,
+		StorageUsageDBName,
+		UsedSerialsDBName,
+		SatellitesDBName,
+		NotificationsDBName,
+		HeldAmountDBName,
+		PricingDBName,
 	}
 
-	err = db.openDatabase(BandwidthDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
+	for _, dbName := range dbs {
+		err := db.openExistingDatabase(dbName)
+		if err != nil {
+			return errs.Combine(err, db.closeDatabases())
+		}
 	}
 
-	err = db.openDatabase(OrdersDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(PieceExpirationDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(PieceInfoDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(PieceSpaceUsedDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(ReputationDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(StorageUsageDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(UsedSerialsDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(SatellitesDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(NotificationsDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(HeldAmountDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(PricingDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
 	return nil
 }
 
@@ -255,12 +323,35 @@ func (db *DB) rawDatabaseFromName(dbName string) tagsql.DB {
 	return db.SQLDBs[dbName].GetDB()
 }
 
+// createDatabase creates new database at the specified path, returns err if db exists.
+func (db *DB) createDatabase(dbName string) error {
+	path := db.filepathFromDBName(dbName)
+
+	if _, err := os.Stat(path); err == nil {
+		return ErrDatabase.New("database %s already exists", dbName)
+	} else if !os.IsNotExist(err) {
+		return ErrDatabase.Wrap(err)
+	}
+
+	return db.openDatabase(dbName)
+}
+
+// openExistingDatabase opens existing database at the specified path.
+func (db *DB) openExistingDatabase(dbName string) error {
+	path := db.filepathFromDBName(dbName)
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return ErrDatabase.New("database %s does not exist %+v", dbName, err)
+		}
+		return ErrDatabase.Wrap(err)
+	}
+
+	return db.openDatabase(dbName)
+}
+
 // openDatabase opens or creates a database at the specified path.
 func (db *DB) openDatabase(dbName string) error {
 	path := db.filepathFromDBName(dbName)
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return ErrDatabase.Wrap(err)
-	}
 
 	driver := db.config.Driver
 	if driver == "" {
@@ -528,7 +619,7 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		return ErrDatabase.Wrap(err)
 	}
 
-	err = db.openDatabase(dbName)
+	err = db.openExistingDatabase(dbName)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
