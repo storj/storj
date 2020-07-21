@@ -264,12 +264,19 @@ func TestAttributionReport(t *testing.T) {
 		err := up.CreateBucket(ctx, planet.Satellites[0], bucketName)
 		require.NoError(t, err)
 
-		{ // upload test-data
+		{ // upload and download as Zenko
 			err = up.Upload(ctx, planet.Satellites[0], bucketName, filePath, testrand.Bytes(5*memory.KiB))
+			require.NoError(t, err)
+
+			_, err = up.Download(ctx, planet.Satellites[0], bucketName, filePath)
 			require.NoError(t, err)
 		}
 
-		{ // download test-data
+		up.Config.UserAgent = "Minio/1.0"
+		{ // upload and download as Minio
+			err = up.Upload(ctx, planet.Satellites[0], bucketName, filePath, testrand.Bytes(5*memory.KiB))
+			require.NoError(t, err)
+
 			_, err = up.Download(ctx, planet.Satellites[0], bucketName, filePath)
 			require.NoError(t, err)
 		}
@@ -304,7 +311,14 @@ func TestAttributionReport(t *testing.T) {
 			require.NoError(t, err)
 			require.NotZero(t, rows[0].RemoteBytesPerHour)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
-		}
 
+			// Minio should have no attribution because bucket was created by Zenko
+			partner, err = planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "Minio")
+			require.NoError(t, err)
+
+			rows, err = planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
+			require.NoError(t, err)
+			require.Empty(t, rows)
+		}
 	})
 }
