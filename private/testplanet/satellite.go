@@ -467,11 +467,12 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				},
 			},
 			Orders: orders.Config{
-				Expiration:          7 * 24 * time.Hour,
-				SettlementBatchSize: 10,
-				FlushBatchSize:      10,
-				FlushInterval:       defaultInterval,
-				NodeStatusLogging:   true,
+				Expiration:                 7 * 24 * time.Hour,
+				SettlementBatchSize:        10,
+				FlushBatchSize:             10,
+				FlushInterval:              defaultInterval,
+				NodeStatusLogging:          true,
+				WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase1,
 			},
 			Checker: checker.Config{
 				Interval:                  defaultInterval,

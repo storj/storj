@@ -451,6 +451,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many orders to batch per transaction
 # orders.settlement-batch-size: 250
 
+# rollout phase for the windowed endpoint
+# orders.window-endpoint-rollout-phase: phase1
+
 # disable node cache
 # overlay.node-selection-cache.disabled: false
 
