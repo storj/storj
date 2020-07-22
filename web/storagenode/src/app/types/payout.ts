@@ -4,7 +4,8 @@
 import {
     EstimatedPayout,
     PayoutPeriod,
-    SatelliteHeldHistory, SatellitePayoutForPeriod,
+    SatelliteHeldHistory,
+    SatellitePayoutForPeriod,
     TotalHeldAndPaid,
     TotalPaystubForPeriod,
 } from '@/storagenode/payouts/payouts';

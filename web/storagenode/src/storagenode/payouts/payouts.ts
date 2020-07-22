@@ -172,6 +172,7 @@ export class TotalPaystubForPeriod {
 export class TotalHeldAndPaid {
     public held: number = 0;
     public paid: number = 0;
+    public disposed: number = 0;
     // TODO: remove
     public currentMonthEarnings: number = 0;
 
@@ -181,6 +182,7 @@ export class TotalHeldAndPaid {
         paystubs.forEach(paystub => {
             this.held += this.convertToCents(paystub.held - paystub.disposed);
             this.paid += this.convertToCents(paystub.paid);
+            this.disposed += this.convertToCents(paystub.disposed);
         });
     }
 

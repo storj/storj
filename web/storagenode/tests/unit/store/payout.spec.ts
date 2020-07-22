@@ -64,6 +64,7 @@ describe('mutations', (): void => {
 
         expect(state.payoutModule.totalHeldAndPaid.held).toBe(50);
         expect(state.payoutModule.totalHeldAndPaid.paid).toBe(100);
+        expect(state.payoutModule.totalHeldAndPaid.disposed).toBe(10);
         expect(state.payoutModule.currentMonthEarnings).toBe(22);
     });
 
@@ -246,6 +247,7 @@ describe('actions', () => {
     it('success get total', async (): Promise<void> => {
         const paystub = new Paystub();
         paystub.held = 100000;
+        paystub.disposed = 50000;
         paystub.paid = 200000;
 
         jest.spyOn(payoutApi, 'getPaystubsForPeriod').mockReturnValue(
@@ -254,8 +256,9 @@ describe('actions', () => {
 
         await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
 
-        expect(state.payoutModule.totalHeldAndPaid.held).toBe(10);
+        expect(state.payoutModule.totalHeldAndPaid.held).toBe(5);
         expect(state.payoutModule.totalHeldAndPaid.paid).toBe(20);
+        expect(state.payoutModule.totalHeldAndPaid.disposed).toBe(5);
         expect(state.payoutModule.currentMonthEarnings).toBe(0);
     });
 
@@ -266,7 +269,7 @@ describe('actions', () => {
             await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
             expect(true).toBe(false);
         } catch (error) {
-            expect(state.payoutModule.totalHeldAndPaid.held).toBe(10);
+            expect(state.payoutModule.totalHeldAndPaid.held).toBe(5);
             expect(state.payoutModule.totalHeldAndPaid.paid).toBe(20);
             expect(state.payoutModule.currentMonthEarnings).toBe(0);
         }
