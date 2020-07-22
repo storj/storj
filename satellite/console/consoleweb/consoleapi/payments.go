@@ -307,6 +307,12 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
+	if status == http.StatusInternalServerError {
+		p.log.Error("returning error to client", zap.Int("code", status), zap.Error(err))
+	} else {
+		p.log.Debug("returning error to client", zap.Int("code", status), zap.Error(err))
+	}
+
 	w.WriteHeader(status)
 
 	var response struct {
