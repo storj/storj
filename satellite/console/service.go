@@ -335,23 +335,6 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 		)
 	}
 
-	credits, err := paymentService.service.accounts.Credits().ListByUserID(ctx, auth.User.ID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	for _, credit := range credits {
-		billingHistory = append(billingHistory,
-			&BillingHistoryItem{
-				Description: "10% Bonus for STORJ Token Deposit",
-				Amount:      credit.Amount,
-				Status:      "Added to balance",
-				Start:       credit.Created,
-				Type:        DepositBonus,
-			},
-		)
-	}
-
 	bonuses, err := paymentService.service.accounts.StorjTokens().ListDepositBonuses(ctx, auth.User.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
