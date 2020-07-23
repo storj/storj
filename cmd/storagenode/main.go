@@ -104,6 +104,7 @@ const (
 )
 
 func init() {
+	process.SetHardcodedApplicationName("storagenode")
 	defaultConfDir := fpath.ApplicationDir("storj", "storagenode")
 	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "storagenode")
 	defaultDiagDir = filepath.Join(defaultConfDir, "storage")
