@@ -5,6 +5,7 @@ package stripecoinpayments
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/stripe/stripe-go"
@@ -27,7 +28,10 @@ import (
 // environments as the mockStripeClient client is stateful - the data is stored
 // in in-memory maps. Therefore, we need it to be a singleton, so the Core and
 // API parts share the same state.
-var mockClient StripeClient
+var mock struct {
+	once   sync.Once
+	client StripeClient
+}
 
 // mockStripeClient Stripe client mock.
 type mockStripeClient struct {
@@ -41,8 +45,8 @@ type mockStripeClient struct {
 
 // NewStripeMock creates new Stripe client mock.
 func NewStripeMock() StripeClient {
-	if mockClient == nil {
-		mockClient = &mockStripeClient{
+	mock.once.Do(func() {
+		mock.client = &mockStripeClient{
 			customers:                   newMockCustomers(),
 			paymentMethods:              &mockPaymentMethods{},
 			invoices:                    &mockInvoices{},
@@ -50,8 +54,8 @@ func NewStripeMock() StripeClient {
 			customerBalanceTransactions: newMockCustomerBalanceTransactions(),
 			charges:                     &mockCharges{},
 		}
-	}
-	return mockClient
+	})
+	return mock.client
 }
 
 func (m *mockStripeClient) Customers() StripeCustomers {
