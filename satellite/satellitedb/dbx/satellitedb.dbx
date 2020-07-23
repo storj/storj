@@ -1291,67 +1291,6 @@ update coupon_usage (
     where coupon_usage.period = ?
 )
 
-model credit (
-	key transaction_id
-
-	field user_id        blob
-	field transaction_id text
-	field amount         int64
-
-	field created_at timestamp ( autoinsert )
-)
-
-create credit ( )
-
-read one (
-	select credit
-	where credit.transaction_id = ?
-)
-
-read all (
-	select credit
-	where credit.user_id = ?
-	orderby desc credit.created_at
-)
-
-read limitoffset (
-	select credit
-	where credit.user_id    =  ?
-	where credit.created_at <= ?
-	orderby desc credit.created_at
-)
-
-model credits_spending (
-	key id
-
-	field id         blob
-	field user_id    blob
-	field project_id blob
-	field amount     int64
-	field status     int   ( updatable )
-	field period     timestamp
-
-	field created_at timestamp ( autoinsert )
-)
-
-create credits_spending ( )
-
-update credits_spending (
-	where credits_spending.id = ?
-)
-
-read all (
-	select credits_spending
-	where credits_spending.user_id = ?
-	orderby desc credits_spending.created_at
-)
-
-read limitoffset (
-	select credits_spending
-	where credits_spending.period = ?
-	where credits_spending.status = ?
-)
-
 // -- node api version -- //
 
 model node_api_version (

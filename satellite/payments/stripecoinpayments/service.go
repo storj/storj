@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -467,7 +466,6 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 func (service *Service) processCustomers(ctx context.Context, customers []Customer, start, end time.Time) (int, int, error) {
 	var allRecords []CreateProjectRecord
 	var usages []CouponUsage
-	var creditsSpendings []CreditsSpending
 	for _, customer := range customers {
 		projects, err := service.projectsDB.GetOwn(ctx, customer.UserID)
 		if err != nil {
@@ -531,41 +529,9 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 				}
 			}
 		}
-
-		if leftToCharge == 0 {
-			continue
-		}
-
-		// Last, apply any credits from STORJ deposit bonuses on the remainder.
-		userBonuses, err := service.db.Credits().Balance(ctx, customer.UserID)
-		if err != nil {
-			return 0, 0, err
-		}
-
-		if userBonuses > 0 {
-			amountChargedFromBonuses := leftToCharge
-			if amountChargedFromBonuses >= userBonuses {
-				amountChargedFromBonuses = userBonuses
-			}
-
-			creditSpendingID, err := uuid.New()
-			if err != nil {
-				return 0, 0, err
-			}
-
-			if amountChargedFromBonuses > 0 {
-				creditsSpendings = append(creditsSpendings, CreditsSpending{
-					ID:     creditSpendingID,
-					Amount: amountChargedFromBonuses,
-					UserID: customer.UserID,
-					Status: CreditsSpendingStatusUnapplied,
-					Period: start,
-				})
-			}
-		}
 	}
 
-	return len(allRecords), len(usages), service.db.ProjectRecords().Create(ctx, allRecords, usages, creditsSpendings, start, end)
+	return len(allRecords), len(usages), service.db.ProjectRecords().Create(ctx, allRecords, usages, start, end)
 }
 
 // createProjectRecords creates invoice project record if none exists.
@@ -861,91 +827,6 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 	}
 
 	projectItem.AddMetadata("couponID", coupon.ID.String())
-
-	_, err = service.stripeClient.InvoiceItems().New(projectItem)
-
-	return err
-}
-
-// InvoiceApplyCredits iterates through credits with status false of project and creates invoice line items
-// for stripe customer.
-func (service *Service) InvoiceApplyCredits(ctx context.Context, period time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	now := service.nowFn().UTC()
-	utc := period.UTC()
-
-	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
-
-	if end.After(now) {
-		return Error.New("allowed for past periods only")
-	}
-
-	spendingsPage, err := service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, service.listingLimit, start)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	if err = service.applySpendings(ctx, spendingsPage.Spendings); err != nil {
-		return Error.Wrap(err)
-	}
-
-	for spendingsPage.Next {
-		if err = ctx.Err(); err != nil {
-			return Error.Wrap(err)
-		}
-
-		// we are always starting from offset 0 because applySpendings is changing credits spendings state to applied
-		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, service.listingLimit, start)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		if err = service.applySpendings(ctx, spendingsPage.Spendings); err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	return nil
-}
-
-// applyCredits applies concrete spending as invoice line item.
-func (service *Service) applySpendings(ctx context.Context, spendings []CreditsSpending) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	for _, spending := range spendings {
-		if err = ctx.Err(); err != nil {
-			return err
-		}
-
-		if err = service.createInvoiceCreditItem(ctx, spending); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// createInvoiceCreditItem consumes invoice project record and creates invoice line items for stripe customer.
-func (service *Service) createInvoiceCreditItem(ctx context.Context, spending CreditsSpending) (err error) {
-	defer mon.Task()(&ctx, spending)(&err)
-
-	err = service.db.Credits().ApplyCreditsSpending(ctx, spending.ID)
-	if err != nil {
-		return err
-	}
-	customerID, err := service.db.Customers().GetCustomerID(ctx, spending.UserID)
-
-	projectItem := &stripe.InvoiceItemParams{
-		Amount:      stripe.Int64(-spending.Amount),
-		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Customer:    stripe.String(customerID),
-		Description: stripe.String("Credits from STORJ deposit bonus"),
-	}
-
-	projectItem.AddMetadata("projectID", spending.ProjectID.String())
-	projectItem.AddMetadata("userID", spending.UserID.String())
 
 	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 

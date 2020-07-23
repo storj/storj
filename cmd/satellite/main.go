@@ -199,13 +199,6 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdCreateCustomerInvoiceCoupons,
 	}
-	createCustomerInvoiceCreditsCmd = &cobra.Command{
-		Use:   "create-invoice-credits [period]",
-		Short: "Adds credits to stripe invoices",
-		Long:  "Creates stripe invoice line items for not consumed credits.",
-		Args:  cobra.ExactArgs(1),
-		RunE:  cmdCreateCustomerInvoiceCredits,
-	}
 	createCustomerInvoicesCmd = &cobra.Command{
 		Use:   "create-invoices [period]",
 		Short: "Creates stripe invoices from pending invoice items",
@@ -291,7 +284,6 @@ func init() {
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
 	billingCmd.AddCommand(createCustomerInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoiceCouponsCmd)
-	billingCmd.AddCommand(createCustomerInvoiceCreditsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
@@ -313,7 +305,6 @@ func init() {
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoiceCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(createCustomerInvoiceCreditsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -672,19 +663,6 @@ func cmdCreateCustomerInvoiceCoupons(cmd *cobra.Command, args []string) (err err
 
 	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
 		return payments.InvoiceApplyCoupons(ctx, period)
-	})
-}
-
-func cmdCreateCustomerInvoiceCredits(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-
-	period, err := parseBillingPeriod(args[0])
-	if err != nil {
-		return errs.New("invalid period specified: %v", err)
-	}
-
-	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
-		return payments.InvoiceApplyCredits(ctx, period)
 	})
 }
 

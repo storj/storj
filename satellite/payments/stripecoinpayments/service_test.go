@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
@@ -51,14 +50,6 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 			project, err := satellite.AddProject(ctx, user.ID, "testproject-"+strconv.Itoa(i))
 			require.NoError(t, err)
 
-			credit := payments.Credit{
-				UserID:        user.ID,
-				Amount:        9,
-				TransactionID: coinpayments.TransactionID("transID" + strconv.Itoa(i)),
-			}
-			err = satellite.DB.StripeCoinPayments().Credits().InsertCredit(ctx, credit)
-			require.NoError(t, err)
-
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
 				pb.PieceAction_GET, int64(i+10)*memory.GiB.Int64(), period)
 			require.NoError(t, err)
@@ -83,11 +74,6 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, numberOfProjects, len(couponsPage.Usages))
 
-		// check if we have credits spendings for each project
-		spendingsPage, err := satellite.DB.StripeCoinPayments().Credits().ListCreditsSpendingsPaged(ctx, int(stripecoinpayments.CreditsSpendingStatusUnapplied), 0, 40, start)
-		require.NoError(t, err)
-		require.Equal(t, numberOfProjects, len(spendingsPage.Spendings))
-
 		err = satellite.API.Payments.Service.InvoiceApplyProjectRecords(ctx, period)
 		require.NoError(t, err)
 
@@ -103,14 +89,6 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		couponsPage, err = satellite.DB.StripeCoinPayments().Coupons().ListUnapplied(ctx, 0, 40, start)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(couponsPage.Usages))
-
-		err = satellite.API.Payments.Service.InvoiceApplyCredits(ctx, period)
-		require.NoError(t, err)
-
-		// verify that we applied all unapplied credits spendings
-		spendingsPage, err = satellite.DB.StripeCoinPayments().Credits().ListCreditsSpendingsPaged(ctx, int(stripecoinpayments.CreditsSpendingStatusUnapplied), 0, 40, start)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(spendingsPage.Spendings))
 	})
 }
 
@@ -205,9 +183,6 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 		require.NoError(t, err)
 
 		err = payments.Service.InvoiceApplyCoupons(ctx, period)
-		require.NoError(t, err)
-
-		err = payments.Service.InvoiceApplyCredits(ctx, period)
 		require.NoError(t, err)
 
 		err = payments.Service.CreateInvoices(ctx, period)

@@ -32,9 +32,6 @@ type Accounts interface {
 	// Charges returns list of all credit card charges related to account.
 	Charges(ctx context.Context, userID uuid.UUID) ([]Charge, error)
 
-	// Credits exposes all needed functionality to manage credits.
-	Credits() Credits
-
 	// CreditCards exposes all needed functionality to manage account credit cards.
 	CreditCards() CreditCards
 

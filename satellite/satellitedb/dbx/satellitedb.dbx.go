@@ -23,7 +23,7 @@ import (
 	"storj.io/storj/private/tagsql"
 )
 
-// Prevent conditional imports from causing build failures.
+// Prevent conditional imports from causing build failures
 var _ = strconv.Itoa
 var _ = strings.LastIndex
 var _ = fmt.Sprint
@@ -353,23 +353,6 @@ CREATE TABLE coupon_usages (
 	status integer NOT NULL,
 	period timestamp with time zone NOT NULL,
 	PRIMARY KEY ( coupon_id, period )
-);
-CREATE TABLE credits (
-	user_id bytea NOT NULL,
-	transaction_id text NOT NULL,
-	amount bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( transaction_id )
-);
-CREATE TABLE credits_spendings (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL,
-	project_id bytea NOT NULL,
-	amount bigint NOT NULL,
-	status integer NOT NULL,
-	period timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
 );
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
@@ -887,23 +870,6 @@ CREATE TABLE coupon_usages (
 	status integer NOT NULL,
 	period timestamp with time zone NOT NULL,
 	PRIMARY KEY ( coupon_id, period )
-);
-CREATE TABLE credits (
-	user_id bytea NOT NULL,
-	transaction_id text NOT NULL,
-	amount bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( transaction_id )
-);
-CREATE TABLE credits_spendings (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL,
-	project_id bytea NOT NULL,
-	amount bigint NOT NULL,
-	status integer NOT NULL,
-	period timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
 );
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
@@ -2500,243 +2466,6 @@ func (f CouponUsage_Period_Field) value() interface{} {
 }
 
 func (CouponUsage_Period_Field) _Column() string { return "period" }
-
-type Credit struct {
-	UserId        []byte
-	TransactionId string
-	Amount        int64
-	CreatedAt     time.Time
-}
-
-func (Credit) _Table() string { return "credits" }
-
-type Credit_Update_Fields struct {
-}
-
-type Credit_UserId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Credit_UserId(v []byte) Credit_UserId_Field {
-	return Credit_UserId_Field{_set: true, _value: v}
-}
-
-func (f Credit_UserId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Credit_UserId_Field) _Column() string { return "user_id" }
-
-type Credit_TransactionId_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func Credit_TransactionId(v string) Credit_TransactionId_Field {
-	return Credit_TransactionId_Field{_set: true, _value: v}
-}
-
-func (f Credit_TransactionId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Credit_TransactionId_Field) _Column() string { return "transaction_id" }
-
-type Credit_Amount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Credit_Amount(v int64) Credit_Amount_Field {
-	return Credit_Amount_Field{_set: true, _value: v}
-}
-
-func (f Credit_Amount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Credit_Amount_Field) _Column() string { return "amount" }
-
-type Credit_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func Credit_CreatedAt(v time.Time) Credit_CreatedAt_Field {
-	return Credit_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f Credit_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Credit_CreatedAt_Field) _Column() string { return "created_at" }
-
-type CreditsSpending struct {
-	Id        []byte
-	UserId    []byte
-	ProjectId []byte
-	Amount    int64
-	Status    int
-	Period    time.Time
-	CreatedAt time.Time
-}
-
-func (CreditsSpending) _Table() string { return "credits_spendings" }
-
-type CreditsSpending_Update_Fields struct {
-	Status CreditsSpending_Status_Field
-}
-
-type CreditsSpending_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func CreditsSpending_Id(v []byte) CreditsSpending_Id_Field {
-	return CreditsSpending_Id_Field{_set: true, _value: v}
-}
-
-func (f CreditsSpending_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (CreditsSpending_Id_Field) _Column() string { return "id" }
-
-type CreditsSpending_UserId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func CreditsSpending_UserId(v []byte) CreditsSpending_UserId_Field {
-	return CreditsSpending_UserId_Field{_set: true, _value: v}
-}
-
-func (f CreditsSpending_UserId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (CreditsSpending_UserId_Field) _Column() string { return "user_id" }
-
-type CreditsSpending_ProjectId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func CreditsSpending_ProjectId(v []byte) CreditsSpending_ProjectId_Field {
-	return CreditsSpending_ProjectId_Field{_set: true, _value: v}
-}
-
-func (f CreditsSpending_ProjectId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (CreditsSpending_ProjectId_Field) _Column() string { return "project_id" }
-
-type CreditsSpending_Amount_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func CreditsSpending_Amount(v int64) CreditsSpending_Amount_Field {
-	return CreditsSpending_Amount_Field{_set: true, _value: v}
-}
-
-func (f CreditsSpending_Amount_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (CreditsSpending_Amount_Field) _Column() string { return "amount" }
-
-type CreditsSpending_Status_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func CreditsSpending_Status(v int) CreditsSpending_Status_Field {
-	return CreditsSpending_Status_Field{_set: true, _value: v}
-}
-
-func (f CreditsSpending_Status_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (CreditsSpending_Status_Field) _Column() string { return "status" }
-
-type CreditsSpending_Period_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func CreditsSpending_Period(v time.Time) CreditsSpending_Period_Field {
-	return CreditsSpending_Period_Field{_set: true, _value: v}
-}
-
-func (f CreditsSpending_Period_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (CreditsSpending_Period_Field) _Column() string { return "period" }
-
-type CreditsSpending_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func CreditsSpending_CreatedAt(v time.Time) CreditsSpending_CreatedAt_Field {
-	return CreditsSpending_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f CreditsSpending_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (CreditsSpending_CreatedAt_Field) _Column() string { return "created_at" }
 
 type GracefulExitProgress struct {
 	NodeId            []byte
@@ -10580,72 +10309,6 @@ func (obj *pgxImpl) Create_CouponUsage(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Create_Credit(ctx context.Context,
-	credit_user_id Credit_UserId_Field,
-	credit_transaction_id Credit_TransactionId_Field,
-	credit_amount Credit_Amount_Field) (
-	credit *Credit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__user_id_val := credit_user_id.value()
-	__transaction_id_val := credit_transaction_id.value()
-	__amount_val := credit_amount.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO credits ( user_id, transaction_id, amount, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING credits.user_id, credits.transaction_id, credits.amount, credits.created_at")
-
-	var __values []interface{}
-	__values = append(__values, __user_id_val, __transaction_id_val, __amount_val, __created_at_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	credit = &Credit{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credit.UserId, &credit.TransactionId, &credit.Amount, &credit.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return credit, nil
-
-}
-
-func (obj *pgxImpl) Create_CreditsSpending(ctx context.Context,
-	credits_spending_id CreditsSpending_Id_Field,
-	credits_spending_user_id CreditsSpending_UserId_Field,
-	credits_spending_project_id CreditsSpending_ProjectId_Field,
-	credits_spending_amount CreditsSpending_Amount_Field,
-	credits_spending_status CreditsSpending_Status_Field,
-	credits_spending_period CreditsSpending_Period_Field) (
-	credits_spending *CreditsSpending, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := credits_spending_id.value()
-	__user_id_val := credits_spending_user_id.value()
-	__project_id_val := credits_spending_project_id.value()
-	__amount_val := credits_spending_amount.value()
-	__status_val := credits_spending_status.value()
-	__period_val := credits_spending_period.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO credits_spendings ( id, user_id, project_id, amount, status, period, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at")
-
-	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __project_id_val, __amount_val, __status_val, __period_val, __created_at_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	credits_spending = &CreditsSpending{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return credits_spending, nil
-
-}
-
 func (obj *pgxImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version NodeApiVersion_ApiVersion_Field) (
@@ -13044,172 +12707,6 @@ func (obj *pgxImpl) Limited_CouponUsage_By_Period_And_Status_Equal_Number(ctx co
 
 }
 
-func (obj *pgxImpl) Get_Credit_By_TransactionId(ctx context.Context,
-	credit_transaction_id Credit_TransactionId_Field) (
-	credit *Credit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits.user_id, credits.transaction_id, credits.amount, credits.created_at FROM credits WHERE credits.transaction_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, credit_transaction_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	credit = &Credit{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credit.UserId, &credit.TransactionId, &credit.Amount, &credit.CreatedAt)
-	if err != nil {
-		return (*Credit)(nil), obj.makeErr(err)
-	}
-	return credit, nil
-
-}
-
-func (obj *pgxImpl) All_Credit_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credit_user_id Credit_UserId_Field) (
-	rows []*Credit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits.user_id, credits.transaction_id, credits.amount, credits.created_at FROM credits WHERE credits.user_id = ? ORDER BY credits.created_at DESC")
-
-	var __values []interface{}
-	__values = append(__values, credit_user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		credit := &Credit{}
-		err = __rows.Scan(&credit.UserId, &credit.TransactionId, &credit.Amount, &credit.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, credit)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *pgxImpl) Limited_Credit_By_UserId_And_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credit_user_id Credit_UserId_Field,
-	credit_created_at_less_or_equal Credit_CreatedAt_Field,
-	limit int, offset int64) (
-	rows []*Credit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits.user_id, credits.transaction_id, credits.amount, credits.created_at FROM credits WHERE credits.user_id = ? AND credits.created_at <= ? ORDER BY credits.created_at DESC LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, credit_user_id.value(), credit_created_at_less_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		credit := &Credit{}
-		err = __rows.Scan(&credit.UserId, &credit.TransactionId, &credit.Amount, &credit.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, credit)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *pgxImpl) All_CreditsSpending_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credits_spending_user_id CreditsSpending_UserId_Field) (
-	rows []*CreditsSpending, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.user_id = ? ORDER BY credits_spendings.created_at DESC")
-
-	var __values []interface{}
-	__values = append(__values, credits_spending_user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		credits_spending := &CreditsSpending{}
-		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, credits_spending)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *pgxImpl) Limited_CreditsSpending_By_Period_And_Status(ctx context.Context,
-	credits_spending_period CreditsSpending_Period_Field,
-	credits_spending_status CreditsSpending_Status_Field,
-	limit int, offset int64) (
-	rows []*CreditsSpending, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.period = ? AND credits_spendings.status = ? LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, credits_spending_period.value(), credits_spending_status.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		credits_spending := &CreditsSpending{}
-		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, credits_spending)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *pgxImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version_greater_or_equal NodeApiVersion_ApiVersion_Field) (
@@ -14618,47 +14115,6 @@ func (obj *pgxImpl) Update_CouponUsage_By_CouponId_And_Period(ctx context.Contex
 	return coupon_usage, nil
 }
 
-func (obj *pgxImpl) Update_CreditsSpending_By_Id(ctx context.Context,
-	credits_spending_id CreditsSpending_Id_Field,
-	update CreditsSpending_Update_Fields) (
-	credits_spending *CreditsSpending, err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE credits_spendings SET "), __sets, __sqlbundle_Literal(" WHERE credits_spendings.id = ? RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Status._set {
-		__values = append(__values, update.Status.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, credits_spending_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	credits_spending = &CreditsSpending{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return credits_spending, nil
-}
-
 func (obj *pgxImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version_less NodeApiVersion_ApiVersion_Field,
@@ -15588,26 +15044,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_progress;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM credits_spendings;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM credits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17214,72 +16650,6 @@ func (obj *pgxcockroachImpl) Create_CouponUsage(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return coupon_usage, nil
-
-}
-
-func (obj *pgxcockroachImpl) Create_Credit(ctx context.Context,
-	credit_user_id Credit_UserId_Field,
-	credit_transaction_id Credit_TransactionId_Field,
-	credit_amount Credit_Amount_Field) (
-	credit *Credit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__user_id_val := credit_user_id.value()
-	__transaction_id_val := credit_transaction_id.value()
-	__amount_val := credit_amount.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO credits ( user_id, transaction_id, amount, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING credits.user_id, credits.transaction_id, credits.amount, credits.created_at")
-
-	var __values []interface{}
-	__values = append(__values, __user_id_val, __transaction_id_val, __amount_val, __created_at_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	credit = &Credit{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credit.UserId, &credit.TransactionId, &credit.Amount, &credit.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return credit, nil
-
-}
-
-func (obj *pgxcockroachImpl) Create_CreditsSpending(ctx context.Context,
-	credits_spending_id CreditsSpending_Id_Field,
-	credits_spending_user_id CreditsSpending_UserId_Field,
-	credits_spending_project_id CreditsSpending_ProjectId_Field,
-	credits_spending_amount CreditsSpending_Amount_Field,
-	credits_spending_status CreditsSpending_Status_Field,
-	credits_spending_period CreditsSpending_Period_Field) (
-	credits_spending *CreditsSpending, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := credits_spending_id.value()
-	__user_id_val := credits_spending_user_id.value()
-	__project_id_val := credits_spending_project_id.value()
-	__amount_val := credits_spending_amount.value()
-	__status_val := credits_spending_status.value()
-	__period_val := credits_spending_period.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO credits_spendings ( id, user_id, project_id, amount, status, period, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at")
-
-	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __project_id_val, __amount_val, __status_val, __period_val, __created_at_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	credits_spending = &CreditsSpending{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return credits_spending, nil
 
 }
 
@@ -19681,172 +19051,6 @@ func (obj *pgxcockroachImpl) Limited_CouponUsage_By_Period_And_Status_Equal_Numb
 
 }
 
-func (obj *pgxcockroachImpl) Get_Credit_By_TransactionId(ctx context.Context,
-	credit_transaction_id Credit_TransactionId_Field) (
-	credit *Credit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits.user_id, credits.transaction_id, credits.amount, credits.created_at FROM credits WHERE credits.transaction_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, credit_transaction_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	credit = &Credit{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credit.UserId, &credit.TransactionId, &credit.Amount, &credit.CreatedAt)
-	if err != nil {
-		return (*Credit)(nil), obj.makeErr(err)
-	}
-	return credit, nil
-
-}
-
-func (obj *pgxcockroachImpl) All_Credit_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credit_user_id Credit_UserId_Field) (
-	rows []*Credit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits.user_id, credits.transaction_id, credits.amount, credits.created_at FROM credits WHERE credits.user_id = ? ORDER BY credits.created_at DESC")
-
-	var __values []interface{}
-	__values = append(__values, credit_user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		credit := &Credit{}
-		err = __rows.Scan(&credit.UserId, &credit.TransactionId, &credit.Amount, &credit.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, credit)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *pgxcockroachImpl) Limited_Credit_By_UserId_And_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credit_user_id Credit_UserId_Field,
-	credit_created_at_less_or_equal Credit_CreatedAt_Field,
-	limit int, offset int64) (
-	rows []*Credit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits.user_id, credits.transaction_id, credits.amount, credits.created_at FROM credits WHERE credits.user_id = ? AND credits.created_at <= ? ORDER BY credits.created_at DESC LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, credit_user_id.value(), credit_created_at_less_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		credit := &Credit{}
-		err = __rows.Scan(&credit.UserId, &credit.TransactionId, &credit.Amount, &credit.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, credit)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *pgxcockroachImpl) All_CreditsSpending_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credits_spending_user_id CreditsSpending_UserId_Field) (
-	rows []*CreditsSpending, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.user_id = ? ORDER BY credits_spendings.created_at DESC")
-
-	var __values []interface{}
-	__values = append(__values, credits_spending_user_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		credits_spending := &CreditsSpending{}
-		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, credits_spending)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
-func (obj *pgxcockroachImpl) Limited_CreditsSpending_By_Period_And_Status(ctx context.Context,
-	credits_spending_period CreditsSpending_Period_Field,
-	credits_spending_status CreditsSpending_Status_Field,
-	limit int, offset int64) (
-	rows []*CreditsSpending, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at FROM credits_spendings WHERE credits_spendings.period = ? AND credits_spendings.status = ? LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, credits_spending_period.value(), credits_spending_status.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	for __rows.Next() {
-		credits_spending := &CreditsSpending{}
-		err = __rows.Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		rows = append(rows, credits_spending)
-	}
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return rows, nil
-
-}
-
 func (obj *pgxcockroachImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version_greater_or_equal NodeApiVersion_ApiVersion_Field) (
@@ -21255,47 +20459,6 @@ func (obj *pgxcockroachImpl) Update_CouponUsage_By_CouponId_And_Period(ctx conte
 	return coupon_usage, nil
 }
 
-func (obj *pgxcockroachImpl) Update_CreditsSpending_By_Id(ctx context.Context,
-	credits_spending_id CreditsSpending_Id_Field,
-	update CreditsSpending_Update_Fields) (
-	credits_spending *CreditsSpending, err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE credits_spendings SET "), __sets, __sqlbundle_Literal(" WHERE credits_spendings.id = ? RETURNING credits_spendings.id, credits_spendings.user_id, credits_spendings.project_id, credits_spendings.amount, credits_spendings.status, credits_spendings.period, credits_spendings.created_at")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Status._set {
-		__values = append(__values, update.Status.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, credits_spending_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	credits_spending = &CreditsSpending{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&credits_spending.Id, &credits_spending.UserId, &credits_spending.ProjectId, &credits_spending.Amount, &credits_spending.Status, &credits_spending.Period, &credits_spending.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return credits_spending, nil
-}
-
 func (obj *pgxcockroachImpl) UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version_less NodeApiVersion_ApiVersion_Field,
@@ -22234,26 +21397,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM credits_spendings;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM credits;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupon_usages;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -22472,26 +21615,6 @@ func (rx *Rx) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 		return
 	}
 	return tx.All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx, coupon_user_id)
-}
-
-func (rx *Rx) All_Credit_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credit_user_id Credit_UserId_Field) (
-	rows []*Credit, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_Credit_By_UserId_OrderBy_Desc_CreatedAt(ctx, credit_user_id)
-}
-
-func (rx *Rx) All_CreditsSpending_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credits_spending_user_id CreditsSpending_UserId_Field) (
-	rows []*CreditsSpending, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_CreditsSpending_By_UserId_OrderBy_Desc_CreatedAt(ctx, credits_spending_user_id)
 }
 
 func (rx *Rx) All_Node_Id(ctx context.Context) (
@@ -22986,35 +22109,6 @@ func (rx *Rx) Create_CouponUsage(ctx context.Context,
 		return
 	}
 	return tx.Create_CouponUsage(ctx, coupon_usage_coupon_id, coupon_usage_amount, coupon_usage_status, coupon_usage_period)
-
-}
-
-func (rx *Rx) Create_Credit(ctx context.Context,
-	credit_user_id Credit_UserId_Field,
-	credit_transaction_id Credit_TransactionId_Field,
-	credit_amount Credit_Amount_Field) (
-	credit *Credit, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_Credit(ctx, credit_user_id, credit_transaction_id, credit_amount)
-
-}
-
-func (rx *Rx) Create_CreditsSpending(ctx context.Context,
-	credits_spending_id CreditsSpending_Id_Field,
-	credits_spending_user_id CreditsSpending_UserId_Field,
-	credits_spending_project_id CreditsSpending_ProjectId_Field,
-	credits_spending_amount CreditsSpending_Amount_Field,
-	credits_spending_status CreditsSpending_Status_Field,
-	credits_spending_period CreditsSpending_Period_Field) (
-	credits_spending *CreditsSpending, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_CreditsSpending(ctx, credits_spending_id, credits_spending_user_id, credits_spending_project_id, credits_spending_amount, credits_spending_status, credits_spending_period)
 
 }
 
@@ -23604,16 +22698,6 @@ func (rx *Rx) Get_Coupon_By_Id(ctx context.Context,
 	return tx.Get_Coupon_By_Id(ctx, coupon_id)
 }
 
-func (rx *Rx) Get_Credit_By_TransactionId(ctx context.Context,
-	credit_transaction_id Credit_TransactionId_Field) (
-	credit *Credit, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_Credit_By_TransactionId(ctx, credit_transaction_id)
-}
-
 func (rx *Rx) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
@@ -23951,30 +23035,6 @@ func (rx *Rx) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_Cr
 	return tx.Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx, coupon_created_at_less_or_equal, coupon_status, limit, offset)
 }
 
-func (rx *Rx) Limited_Credit_By_UserId_And_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
-	credit_user_id Credit_UserId_Field,
-	credit_created_at_less_or_equal Credit_CreatedAt_Field,
-	limit int, offset int64) (
-	rows []*Credit, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_Credit_By_UserId_And_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx, credit_user_id, credit_created_at_less_or_equal, limit, offset)
-}
-
-func (rx *Rx) Limited_CreditsSpending_By_Period_And_Status(ctx context.Context,
-	credits_spending_period CreditsSpending_Period_Field,
-	credits_spending_status CreditsSpending_Status_Field,
-	limit int, offset int64) (
-	rows []*CreditsSpending, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_CreditsSpending_By_Period_And_Status(ctx, credits_spending_period, credits_spending_status, limit, offset)
-}
-
 func (rx *Rx) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
 	limit int, offset int64) (
@@ -24250,17 +23310,6 @@ func (rx *Rx) Update_Coupon_By_Id(ctx context.Context,
 	return tx.Update_Coupon_By_Id(ctx, coupon_id, update)
 }
 
-func (rx *Rx) Update_CreditsSpending_By_Id(ctx context.Context,
-	credits_spending_id CreditsSpending_Id_Field,
-	update CreditsSpending_Update_Fields) (
-	credits_spending *CreditsSpending, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_CreditsSpending_By_Id(ctx, credits_spending_id, update)
-}
-
 func (rx *Rx) Update_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field,
 	update Node_Update_Fields) (
@@ -24373,14 +23422,6 @@ type Methods interface {
 	All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coupon_user_id Coupon_UserId_Field) (
 		rows []*Coupon, err error)
-
-	All_Credit_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
-		credit_user_id Credit_UserId_Field) (
-		rows []*Credit, err error)
-
-	All_CreditsSpending_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
-		credits_spending_user_id CreditsSpending_UserId_Field) (
-		rows []*CreditsSpending, err error)
 
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
@@ -24628,21 +23669,6 @@ type Methods interface {
 		coupon_usage_status CouponUsage_Status_Field,
 		coupon_usage_period CouponUsage_Period_Field) (
 		coupon_usage *CouponUsage, err error)
-
-	Create_Credit(ctx context.Context,
-		credit_user_id Credit_UserId_Field,
-		credit_transaction_id Credit_TransactionId_Field,
-		credit_amount Credit_Amount_Field) (
-		credit *Credit, err error)
-
-	Create_CreditsSpending(ctx context.Context,
-		credits_spending_id CreditsSpending_Id_Field,
-		credits_spending_user_id CreditsSpending_UserId_Field,
-		credits_spending_project_id CreditsSpending_ProjectId_Field,
-		credits_spending_amount CreditsSpending_Amount_Field,
-		credits_spending_status CreditsSpending_Status_Field,
-		credits_spending_period CreditsSpending_Period_Field) (
-		credits_spending *CreditsSpending, err error)
 
 	Create_NodesOfflineTime(ctx context.Context,
 		nodes_offline_time_node_id NodesOfflineTime_NodeId_Field,
@@ -24910,10 +23936,6 @@ type Methods interface {
 		coupon_id Coupon_Id_Field) (
 		coupon *Coupon, err error)
 
-	Get_Credit_By_TransactionId(ctx context.Context,
-		credit_transaction_id Credit_TransactionId_Field) (
-		credit *Credit, err error)
-
 	Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 		graceful_exit_progress *GracefulExitProgress, err error)
@@ -25059,18 +24081,6 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Coupon, err error)
 
-	Limited_Credit_By_UserId_And_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
-		credit_user_id Credit_UserId_Field,
-		credit_created_at_less_or_equal Credit_CreatedAt_Field,
-		limit int, offset int64) (
-		rows []*Credit, err error)
-
-	Limited_CreditsSpending_By_Period_And_Status(ctx context.Context,
-		credits_spending_period CreditsSpending_Period_Field,
-		credits_spending_status CreditsSpending_Status_Field,
-		limit int, offset int64) (
-		rows []*CreditsSpending, err error)
-
 	Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
 		limit int, offset int64) (
@@ -25199,11 +24209,6 @@ type Methods interface {
 		coupon_id Coupon_Id_Field,
 		update Coupon_Update_Fields) (
 		coupon *Coupon, err error)
-
-	Update_CreditsSpending_By_Id(ctx context.Context,
-		credits_spending_id CreditsSpending_Id_Field,
-		update CreditsSpending_Update_Fields) (
-		credits_spending *CreditsSpending, err error)
 
 	Update_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field,

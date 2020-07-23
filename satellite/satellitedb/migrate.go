@@ -1246,6 +1246,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`UPDATE users SET project_limit = registration_tokens.project_limit FROM registration_tokens WHERE users.id = registration_tokens.owner_id;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "drop tables related to credits (old deposit bonuses)",
+				Version:     121,
+				Action: migrate.SQL{
+					`DROP TABLE credits;`,
+					`DROP TABLE credits_spendings;`,
+				},
+			},
 		},
 	}
 }
