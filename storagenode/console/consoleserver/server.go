@@ -84,7 +84,7 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	heldAmountRouter.HandleFunc("/paystubs/{start}/{end}", heldAmountController.PayStubPeriod).Methods(http.MethodGet)
 	heldAmountRouter.HandleFunc("/held-history", heldAmountController.HeldHistory).Methods(http.MethodGet)
 	heldAmountRouter.HandleFunc("/periods", heldAmountController.HeldAmountPeriods).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/payout-history", heldAmountController.PayoutHistory).Methods(http.MethodGet)
+	heldAmountRouter.HandleFunc("/payout-history/{period}", heldAmountController.PayoutHistory).Methods(http.MethodGet)
 
 	if assets != nil {
 		fs := http.FileServer(assets)
