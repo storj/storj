@@ -415,6 +415,12 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					Staleness: 3 * time.Minute,
 				},
 				UpdateStatsBatchSize: 100,
+				AuditHistory: overlay.AuditHistoryConfig{
+					WindowSize:       10 * time.Minute,
+					TrackingPeriod:   time.Hour,
+					GracePeriod:      time.Hour,
+					OfflineThreshold: 0.6,
+				},
 			},
 			Metainfo: metainfo.Config{
 				DatabaseURL:          "", // not used
