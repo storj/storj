@@ -11,13 +11,17 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/console"
 )
 
 func TestSatellite_AddProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		user, err := planet.Satellites[0].AddUser(ctx, "test user", "test-email@test", 4)
+		user, err := planet.Satellites[0].AddUser(ctx, console.CreateUser{
+			FullName: "test user",
+			Email:    "test-email@test",
+		}, 4)
 		require.NoError(t, err)
 
 		limit, err := planet.Satellites[0].DB.Console().Users().GetProjectLimit(ctx, user.ID)

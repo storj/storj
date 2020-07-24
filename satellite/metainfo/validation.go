@@ -202,23 +202,6 @@ func (endpoint *Endpoint) validateRevoke(ctx context.Context, header *pb.Request
 	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized attempt to revoke macaroon")
 }
 
-// getKeyInfo returns key info based on the header.
-func (endpoint *Endpoint) getKeyInfo(ctx context.Context, header *pb.RequestHeader) (_ *console.APIKeyInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	key, err := getAPIKey(ctx, header)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "Invalid API credentials")
-	}
-
-	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
-	}
-
-	return keyInfo, nil
-}
-
 func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !endpoint.config.RateLimiter.Enabled {

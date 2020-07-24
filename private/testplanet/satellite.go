@@ -201,18 +201,16 @@ func (system *Satellite) NodeURL() storj.NodeURL {
 	return storj.NodeURL{ID: system.API.ID(), Address: system.API.Addr()}
 }
 
-// AddUser adds user to a satellite.
-func (system *Satellite) AddUser(ctx context.Context, fullName, email string, maxNumberOfProjects int) (*console.User, error) {
+// AddUser adds user to a satellite. Password from newUser will be always overridden by FullName to have
+// known password which can be used automatically.
+func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser, maxNumberOfProjects int) (*console.User, error) {
 	regToken, err := system.API.Console.Service.CreateRegToken(ctx, maxNumberOfProjects)
 	if err != nil {
 		return nil, err
 	}
 
-	user, err := system.API.Console.Service.CreateUser(ctx, console.CreateUser{
-		FullName: fullName,
-		Email:    email,
-		Password: fullName,
-	}, regToken.Secret, "")
+	newUser.Password = newUser.FullName
+	user, err := system.API.Console.Service.CreateUser(ctx, newUser, regToken.Secret, "")
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +225,7 @@ func (system *Satellite) AddUser(ctx context.Context, fullName, email string, ma
 		return nil, err
 	}
 
-	authCtx, err := system.authenticatedContext(ctx, user.ID)
+	authCtx, err := system.AuthenticatedContext(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +239,7 @@ func (system *Satellite) AddUser(ctx context.Context, fullName, email string, ma
 
 // AddProject adds project to a satellite and makes specified user an owner.
 func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name string) (*console.Project, error) {
-	authCtx, err := system.authenticatedContext(ctx, ownerID)
+	authCtx, err := system.AuthenticatedContext(ctx, ownerID)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +252,8 @@ func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name
 	return project, nil
 }
 
-func (system *Satellite) authenticatedContext(ctx context.Context, userID uuid.UUID) (context.Context, error) {
+// AuthenticatedContext creates context with authentication date for given user.
+func (system *Satellite) AuthenticatedContext(ctx context.Context, userID uuid.UUID) (context.Context, error) {
 	user, err := system.API.Console.Service.GetUser(ctx, userID)
 	if err != nil {
 		return nil, err

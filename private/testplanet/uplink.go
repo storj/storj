@@ -21,6 +21,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
 	"storj.io/uplink/private/piecestore"
@@ -108,15 +109,13 @@ func (planet *Planet) newUplink(name string) (*Uplink, error) {
 	planetUplink.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
 	for j, satellite := range planet.Satellites {
-		console := satellite.API.Console
+		consoleAPI := satellite.API.Console
 
 		projectName := fmt.Sprintf("%s_%d", name, j)
-		user, err := satellite.AddUser(
-			ctx,
-			fmt.Sprintf("User %s", projectName),
-			fmt.Sprintf("user@%s.test", projectName),
-			10,
-		)
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: fmt.Sprintf("User %s", projectName),
+			Email:    fmt.Sprintf("user@%s.test", projectName),
+		}, 10)
 		if err != nil {
 			return nil, err
 		}
@@ -126,11 +125,11 @@ func (planet *Planet) newUplink(name string) (*Uplink, error) {
 			return nil, err
 		}
 
-		authCtx, err := satellite.authenticatedContext(ctx, user.ID)
+		authCtx, err := satellite.AuthenticatedContext(ctx, user.ID)
 		if err != nil {
 			return nil, err
 		}
-		_, apiKey, err := console.Service.CreateAPIKey(authCtx, project.ID, "root")
+		_, apiKey, err := consoleAPI.Service.CreateAPIKey(authCtx, project.ID, "root")
 		if err != nil {
 			return nil, err
 		}

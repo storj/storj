@@ -44,7 +44,10 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		numberOfProjects := 19
 		// generate test data, each user has one project, one coupon and some credits
 		for i := 0; i < numberOfProjects; i++ {
-			user, err := satellite.AddUser(ctx, "testuser"+strconv.Itoa(i), "user@test"+strconv.Itoa(i), 1)
+			user, err := satellite.AddUser(ctx, console.CreateUser{
+				FullName: "testuser" + strconv.Itoa(i),
+				Email:    "user@test" + strconv.Itoa(i),
+			}, 1)
 			require.NoError(t, err)
 
 			project, err := satellite.AddProject(ctx, user.ID, "testproject-"+strconv.Itoa(i))
@@ -117,7 +120,10 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 		numberOfProjects := 5
 		storageHours := 24
 
-		user, err := satellite.AddUser(ctx, "testuser", "user@test", numberOfProjects)
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, numberOfProjects)
 		require.NoError(t, err)
 
 		projects := make([]*console.Project, numberOfProjects)
@@ -213,7 +219,10 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 
 		storageHours := 24
 
-		user, err := satellite.AddUser(ctx, "testuser", "user@test", 5)
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 5)
 		require.NoError(t, err)
 
 		project, err := satellite.AddProject(ctx, user.ID, "testproject")
@@ -320,7 +329,10 @@ func TestService_ApplyCouponsInTheOrder(t *testing.T) {
 		})
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
 
-		user, err := satellite.AddUser(ctx, "testuser", "user@test", 5)
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 5)
 		require.NoError(t, err)
 
 		project, err := satellite.AddProject(ctx, user.ID, "testproject")
@@ -446,7 +458,10 @@ func TestService_CouponStatus(t *testing.T) {
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
-			user, err := satellite.AddUser(ctx, "testuser"+strconv.Itoa(i), "test@test"+strconv.Itoa(i), 1)
+			user, err := satellite.AddUser(ctx, console.CreateUser{
+				FullName: "testuser" + strconv.Itoa(i),
+				Email:    "test@test" + strconv.Itoa(i),
+			}, 1)
 			require.NoError(t, err, errTag)
 
 			project, err := satellite.AddProject(ctx, user.ID, "testproject-"+strconv.Itoa(i))
@@ -516,7 +531,11 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 		projects := make([]*console.Project, numberOfUsers)
 		for i := 0; i < numberOfUsers; i++ {
 			var err error
-			users[i], err = satellite.AddUser(ctx, "testuser"+strconv.Itoa(i), "user@test"+strconv.Itoa(i), 1)
+
+			users[i], err = satellite.AddUser(ctx, console.CreateUser{
+				FullName: "testuser" + strconv.Itoa(i),
+				Email:    "user@test" + strconv.Itoa(i),
+			}, 1)
 			require.NoError(t, err)
 
 			projects[i], err = satellite.AddProject(ctx, users[i].ID, "testproject-"+strconv.Itoa(i))

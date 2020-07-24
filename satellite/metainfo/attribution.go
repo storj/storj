@@ -18,16 +18,18 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/drpc/drpccache"
 	"storj.io/storj/satellite/attribution"
+	"storj.io/storj/satellite/console"
 )
 
-// ensureAttribution ensures that the bucketName has the partner information specified by the header.
+// ensureAttribution ensures that the bucketName has the partner information specified by keyInfo partner ID or the header user agent.
+// PartnerID from keyInfo is a value associated with registered user and prevails over header user agent.
 //
 // Assumes that the user has permissions sufficient for authenticating.
-func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, bucketName []byte) error {
+func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName []byte) error {
 	if header == nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
 	}
-	if len(header.UserAgent) == 0 {
+	if len(header.UserAgent) == 0 && keyInfo.PartnerID.IsZero() {
 		return nil
 	}
 
@@ -41,17 +43,16 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 		}
 	}
 
-	partnerID, err := endpoint.ResolvePartnerID(ctx, header)
-	if err != nil {
-		return err
-	}
+	var err error
+	partnerID := keyInfo.PartnerID
 	if partnerID.IsZero() {
-		return nil
-	}
-
-	keyInfo, err := endpoint.getKeyInfo(ctx, header)
-	if err != nil {
-		return err
+		partnerID, err = endpoint.ResolvePartnerID(ctx, header)
+		if err != nil {
+			return err
+		}
+		if partnerID.IsZero() {
+			return nil
+		}
 	}
 
 	err = endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, partnerID)
