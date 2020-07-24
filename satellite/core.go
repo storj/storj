@@ -274,7 +274,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				Address:   config.Contact.ExternalAddress,
 			},
 			config.Repairer.MaxExcessRateOptimalThreshold,
-			config.Orders.NodeStatusLogging,
 		)
 	}
 

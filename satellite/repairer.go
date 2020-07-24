@@ -161,7 +161,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 				Address:   config.Contact.ExternalAddress,
 			},
 			config.Repairer.MaxExcessRateOptimalThreshold,
-			config.Orders.NodeStatusLogging,
 		)
 	}
 

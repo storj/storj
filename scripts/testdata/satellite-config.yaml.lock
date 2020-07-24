@@ -439,9 +439,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
 
-# log the offline/disqualification status of nodes
-# orders.node-status-logging: false
-
 # how many records to read in a single transaction when calculating billable bandwidth
 # orders.reported-rollups-read-batch-size: 1000
 

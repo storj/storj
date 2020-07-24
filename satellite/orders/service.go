@@ -34,7 +34,7 @@ type Config struct {
 	FlushBatchSize               int           `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
 	FlushInterval                time.Duration `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
 	ReportedRollupsReadBatchSize int           `help:"how many records to read in a single transaction when calculating billable bandwidth" default:"1000"`
-	NodeStatusLogging            bool          `help:"log the offline/disqualification status of nodes" default:"false"`
+	NodeStatusLogging            bool          `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false"`
 }
 
 // Service for creating order limits.
@@ -48,7 +48,6 @@ type Service struct {
 	satelliteAddress                    *pb.NodeAddress
 	orderExpiration                     time.Duration
 	repairMaxExcessRateOptimalThreshold float64
-	nodeStatusLogging                   bool
 	rngMu                               sync.Mutex
 	rng                                 *mathrand.Rand
 }
@@ -57,7 +56,7 @@ type Service struct {
 func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
 	orders DB, orderExpiration time.Duration, satelliteAddress *pb.NodeAddress,
-	repairMaxExcessRateOptimalThreshold float64, nodeStatusLogging bool,
+	repairMaxExcessRateOptimalThreshold float64,
 ) *Service {
 	return &Service{
 		log:                                 log,
@@ -67,7 +66,6 @@ func NewService(
 		satelliteAddress:                    satelliteAddress,
 		orderExpiration:                     orderExpiration,
 		repairMaxExcessRateOptimalThreshold: repairMaxExcessRateOptimalThreshold,
-		nodeStatusLogging:                   nodeStatusLogging,
 		rng:                                 mathrand.New(mathrand.NewSource(time.Now().UnixNano())),
 	}
 }

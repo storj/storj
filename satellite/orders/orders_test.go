@@ -621,7 +621,7 @@ func TestProcessOrders(t *testing.T) {
 func TestRandomSampleLimits(t *testing.T) {
 	orderlimits := []*pb.AddressedOrderLimit{{}, {}, {}, {}}
 
-	s := orders.NewService(nil, nil, nil, nil, 0, nil, 0, false)
+	s := orders.NewService(nil, nil, nil, nil, 0, nil, 0)
 	t.Run("sample size is less than the number of order limits", func(t *testing.T) {
 		var nilCount int
 		sampleSize := 2
