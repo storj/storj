@@ -41,32 +41,30 @@ type Config struct {
 //
 // architecture: Service
 type Service struct {
-	log                                 *zap.Logger
-	satellite                           signing.Signer
-	overlay                             *overlay.Service
-	orders                              DB
-	satelliteAddress                    *pb.NodeAddress
-	orderExpiration                     time.Duration
-	repairMaxExcessRateOptimalThreshold float64
-	rngMu                               sync.Mutex
-	rng                                 *mathrand.Rand
+	log              *zap.Logger
+	satellite        signing.Signer
+	overlay          *overlay.Service
+	orders           DB
+	satelliteAddress *pb.NodeAddress
+	orderExpiration  time.Duration
+	rngMu            sync.Mutex
+	rng              *mathrand.Rand
 }
 
 // NewService creates new service for creating order limits.
 func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
 	orders DB, orderExpiration time.Duration, satelliteAddress *pb.NodeAddress,
-	repairMaxExcessRateOptimalThreshold float64,
 ) *Service {
 	return &Service{
-		log:                                 log,
-		satellite:                           satellite,
-		overlay:                             overlay,
-		orders:                              orders,
-		satelliteAddress:                    satelliteAddress,
-		orderExpiration:                     orderExpiration,
-		repairMaxExcessRateOptimalThreshold: repairMaxExcessRateOptimalThreshold,
-		rng:                                 mathrand.New(mathrand.NewSource(time.Now().UnixNano())),
+		log:              log,
+		satellite:        satellite,
+		overlay:          overlay,
+		orders:           orders,
+		satelliteAddress: satelliteAddress,
+		orderExpiration:  orderExpiration,
+
+		rng: mathrand.New(mathrand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -656,7 +654,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 }
 
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of pointer to newNodes.
-func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*overlay.SelectedNode) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*overlay.SelectedNode, optimalThresholdMultiplier float64) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 	orderExpiration := time.Now().Add(service.orderExpiration)
 
@@ -680,11 +678,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 		totalPieces := redundancy.TotalCount()
 		limits = make([]*pb.AddressedOrderLimit, totalPieces)
 
-		totalPiecesAfterRepair := int(
-			math.Ceil(
-				float64(redundancy.OptimalThreshold()) * (1 + service.repairMaxExcessRateOptimalThreshold),
-			),
-		)
+		totalPiecesAfterRepair := int(math.Ceil(float64(redundancy.OptimalThreshold()) * optimalThresholdMultiplier))
 		if totalPiecesAfterRepair > totalPieces {
 			totalPiecesAfterRepair = totalPieces
 		}

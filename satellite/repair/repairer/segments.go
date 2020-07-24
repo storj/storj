@@ -206,9 +206,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	var requestCount int
 	var minSuccessfulNeeded int
 	{
-		totalNeeded := math.Ceil(float64(redundancy.OptimalThreshold()) *
-			repairer.multiplierOptimalThreshold,
-		)
+		totalNeeded := math.Ceil(float64(redundancy.OptimalThreshold()) * repairer.multiplierOptimalThreshold)
 		requestCount = int(totalNeeded) - len(healthyPieces)
 		minSuccessfulNeeded = redundancy.OptimalThreshold() - len(healthyPieces)
 	}
@@ -224,7 +222,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucketID, pointer, getOrderLimits, newNodes)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucketID, pointer, getOrderLimits, newNodes, repairer.multiplierOptimalThreshold)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}

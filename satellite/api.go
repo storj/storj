@@ -332,7 +332,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Contact.ExternalAddress,
 			},
-			config.Repairer.MaxExcessRateOptimalThreshold,
 		)
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
