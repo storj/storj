@@ -293,8 +293,8 @@ export default class PayoutPeriodCalendar extends Vue {
         const availablePeriods: string[] = this.$store.state.payoutModule.payoutPeriods.map(payoutPeriod => payoutPeriod.period);
 
         // Creates month entities and adds them to list.
-        for (let i = 1; i <= 12; i++) {
-            const period = `${year}-${i < 9 ? '0' + i : i}`;
+        for (let i = 0; i < 12; i++) {
+            const period = `${year}-${i < 9 ? '0' + (i + 1) : (i + 1)}`;
             const isMonthActive: boolean = availablePeriods.includes(period);
 
             months.push(new MonthButton(year, i, isMonthActive, false));

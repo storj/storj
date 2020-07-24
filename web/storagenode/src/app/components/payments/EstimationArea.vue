@@ -91,7 +91,7 @@
                 <div class="column justify-start column-2"></div>
                 <div class="column justify-start column-3"></div>
                 <div class="column justify-start column-4">
-                    <p class="estimation-table-container__total-area__text">{{ totalDiskSpace + 'h' }}</p>
+                    <p class="estimation-table-container__total-area__text">{{ totalDiskSpace + 'm' }}</p>
                 </div>
                 <div class="column justify-start column-5">
                     <p class="estimation-table-container__total-area__text">{{ totalBandwidth }}</p>
