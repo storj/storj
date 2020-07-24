@@ -58,6 +58,7 @@ func TestRolloutChore(t *testing.T) {
 		require.NotNil(t, chore)
 
 		chore.Loop.Pause()
+		chore.Loop.TriggerWait()
 
 		firstTimeStamp := chore.TestCheckVersion()
 		require.Equal(t, true, firstTimeStamp.IsOutdated)
