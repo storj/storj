@@ -228,12 +228,15 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []HeldHi
 
 // PayoutHistory contains payout information for specific period for specific satellite.
 type PayoutHistory struct {
-	NodeAge        int64  `json:"nodeAge"`
+	SatelliteID    string `json:"satelliteID"`
+	SatelliteURL   string `json:"satelliteURL"`
+	Age            int64  `json:"age"`
 	Earned         int64  `json:"earned"`
 	Surge          int64  `json:"surge"`
+	SurgePercent   int64  `json:"surgePercent"`
 	Held           int64  `json:"held"`
 	AfterHeld      int64  `json:"afterHeld"`
-	HeldReturned   int64  `json:"heldReturned"`
+	Disposed       int64  `json:"disposed"`
 	Receipt        string `json:"receipt"`
 	IsExitComplete bool   `json:"isExitComplete"`
 }
@@ -267,6 +270,11 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 			return nil, ErrHeldAmountService.Wrap(err)
 		}
 
+		url, err := service.trust.GetNodeURL(ctx, satelliteIDs[i])
+		if err != nil {
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
+
 		if satellite.Status == satellites.ExitSucceeded {
 			payoutHistory.IsExitComplete = true
 		}
@@ -278,10 +286,13 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 		payoutHistory.Held = paystub.Held
 		payoutHistory.Receipt = paystub.Receipt
 		payoutHistory.AfterHeld = paystub.Paid
-		payoutHistory.NodeAge = int64(date.MonthsCountSince(stats.JoinedAt))
-		payoutHistory.HeldReturned = paystub.Disposed
+		payoutHistory.Age = int64(date.MonthsCountSince(stats.JoinedAt))
+		payoutHistory.Disposed = paystub.Disposed
 		payoutHistory.Surge = paystub.Paid * (paystub.SurgePercent/100 - 1)
 		payoutHistory.Earned = paystub.Paid
+		payoutHistory.SatelliteID = satelliteIDs[i].String()
+		payoutHistory.SurgePercent = paystub.SurgePercent
+		payoutHistory.SatelliteURL = url.Address
 
 		result = append(result, payoutHistory)
 	}
