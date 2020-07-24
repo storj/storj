@@ -28,6 +28,7 @@ var ErrDownloadFailedNotEnoughPieces = errs.Class("not enough pieces for downloa
 // Config is a configuration struct for orders Service.
 type Config struct {
 	EncryptionKeys               EncryptionKeys             `help:"encryption keys to encrypt info in orders" default:""`
+	IncludeEncryptedMetadata     bool                       `help:"include encrypted metadata in the order limit" default:"false"`
 	Expiration                   time.Duration              `help:"how long until an order expires" default:"48h"` // 2 days
 	SettlementBatchSize          int                        `help:"how many orders to batch per transaction" default:"250"`
 	FlushBatchSize               int                        `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
@@ -40,7 +41,7 @@ type Config struct {
 // BucketsDB returns information about buckets.
 type BucketsDB interface {
 	// GetBucketID returns an existing bucket id.
-	GetBucketID(ctx context.Context, bucketName []byte, projectID uuid.UUID) (id uuid.UUID, err error)
+	GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (id uuid.UUID, err error)
 }
 
 // Service for creating order limits.
@@ -53,7 +54,9 @@ type Service struct {
 	orders    DB
 	buckets   BucketsDB
 
-	encryptionKeys   EncryptionKeys
+	includeEncryptedMetadata bool
+	encryptionKeys           EncryptionKeys
+
 	satelliteAddress *pb.NodeAddress
 	orderExpiration  time.Duration
 
@@ -67,7 +70,11 @@ func NewService(
 	orders DB, buckets BucketsDB,
 	config Config,
 	satelliteAddress *pb.NodeAddress,
-) *Service {
+) (*Service, error) {
+	if config.IncludeEncryptedMetadata && config.EncryptionKeys.Default.IsZero() {
+		return nil, Error.New("encryption keys must be specified to include encrypted metadata")
+	}
+
 	return &Service{
 		log:       log,
 		satellite: satellite,
@@ -75,12 +82,14 @@ func NewService(
 		orders:    orders,
 		buckets:   buckets,
 
-		encryptionKeys:   config.EncryptionKeys,
+		includeEncryptedMetadata: config.IncludeEncryptedMetadata,
+		encryptionKeys:           config.EncryptionKeys,
+
 		satelliteAddress: satelliteAddress,
 		orderExpiration:  config.Expiration,
 
 		rng: mathrand.New(mathrand.NewSource(time.Now().UnixNano())),
-	}
+	}, nil
 }
 
 // VerifyOrderLimitSignature verifies that the signature inside order limit belongs to the satellite.
@@ -144,7 +153,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerGet(service, pointer.GetRemote().RootPieceId, time.Now(), pieceSize)
+	signer, err := NewSignerGet(service, pointer.GetRemote().RootPieceId, time.Now(), pieceSize, bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -203,7 +212,7 @@ func (service *Service) perm(n int) []int {
 func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabase.BucketLocation, nodes []*overlay.SelectedNode, pieceExpiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	signer, err := NewSignerPut(service, pieceExpiration, time.Now(), maxPieceSize)
+	signer, err := NewSignerPut(service, pieceExpiration, time.Now(), maxPieceSize, bucket)
 	if err != nil {
 		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -246,7 +255,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucket meta
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerDelete(service, pointer.GetRemote().RootPieceId, time.Now())
+	signer, err := NewSignerDelete(service, pointer.GetRemote().RootPieceId, time.Now(), bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -300,7 +309,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucket metab
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerAudit(service, pointer.GetRemote().RootPieceId, time.Now(), int64(shareSize))
+	signer, err := NewSignerAudit(service, pointer.GetRemote().RootPieceId, time.Now(), int64(shareSize), bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -365,7 +374,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucket metaba
 		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeOffline.New("%v", nodeID)
 	}
 
-	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(shareSize))
+	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(shareSize), bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -417,7 +426,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerRepairGet(service, pointer.GetRemote().RootPieceId, time.Now(), pieceSize)
+	signer, err := NewSignerRepairGet(service, pointer.GetRemote().RootPieceId, time.Now(), pieceSize, bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -487,7 +496,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket m
 	totalPiecesToRepair := totalPiecesAfterRepair - numCurrentPieces
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
-	signer, err := NewSignerRepairPut(service, pointer.GetRemote().RootPieceId, pointer.ExpirationDate, time.Now(), pieceSize)
+	signer, err := NewSignerRepairPut(service, pointer.GetRemote().RootPieceId, pointer.ExpirationDate, time.Now(), pieceSize, bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -546,7 +555,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeOffline.New("%v", nodeID)
 	}
 
-	signer, err := NewSignerGracefulExit(service, rootPieceID, time.Now(), shareSize)
+	signer, err := NewSignerGracefulExit(service, rootPieceID, time.Now(), shareSize, bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}

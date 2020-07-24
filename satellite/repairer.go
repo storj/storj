@@ -150,7 +150,8 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Orders Chore", peer.Orders.Chore.Loop))
 
-		peer.Orders.Service = orders.NewService(
+		var err error
+		peer.Orders.Service, err = orders.NewService(
 			log.Named("orders"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay,
@@ -162,6 +163,9 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 				Address:   config.Contact.ExternalAddress,
 			},
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{ // setup repairer
