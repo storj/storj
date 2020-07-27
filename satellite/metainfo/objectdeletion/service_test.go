@@ -57,7 +57,7 @@ func TestService_Delete_SingleObject(t *testing.T) {
 		{"inline-segment", true, 0, 0, 1, 1, 0},
 		{"mixed-segment", true, 5, 3, 6, 6, 15},
 		{"zombie-segment", true, 5, 2, 5, 5, 10},
-		{"single-segment", false, 0, 3, 0, 1, 0},
+		{"single-segment", false, 0, 3, 1, 1, 0},
 	}
 
 	for _, tt := range testCases {
@@ -216,7 +216,6 @@ func calcExpectedPieces(segmentType string, numRequests int, batchSize int, larg
 }
 
 func TestService_Delete_Batch(t *testing.T) {
-	logger := zaptest.NewLogger(t)
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -258,15 +257,17 @@ func TestService_Delete_Batch(t *testing.T) {
 			service, err := objectdeletion.NewService(zaptest.NewLogger(t), pointerDBMock, config)
 			require.NoError(t, err)
 
-			pointers, deletedPaths, err := service.Delete(ctx, requests...)
+			results, err := service.Delete(ctx, requests...)
 			require.NoError(t, err)
+			pointers := []*pb.Pointer{}
+			for _, r := range results {
+				p := r.DeletedPointers()
+				pointers = append(pointers, p...)
+				require.False(t, r.HasFailures())
+			}
 
-			report := objectdeletion.GenerateReport(ctx, logger, requests, deletedPaths)
-			require.False(t, report.HasFailures())
-
-			piecesToDeleted := objectdeletion.GroupPiecesByNodeID(pointers)
-
-			require.Equal(t, expectedPiecesToDelete, len(piecesToDeleted))
+			piecesToDelete := objectdeletion.GroupPiecesByNodeID(pointers)
+			require.Equal(t, expectedPiecesToDelete, len(piecesToDelete))
 		})
 	}
 

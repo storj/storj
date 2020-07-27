@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 )
@@ -76,8 +75,8 @@ func NewService(log *zap.Logger, pointerDB PointerDB, config Config) (*Service, 
 	}, nil
 }
 
-// Delete run a batch deletion returning a list of pointers and paths.
-func (service *Service) Delete(ctx context.Context, requests ...*ObjectIdentifier) (pointers []*pb.Pointer, paths [][]byte, err error) {
+// Delete ensures that all pointers belongs to an object no longer exists.
+func (service *Service) Delete(ctx context.Context, requests ...*ObjectIdentifier) (reports []Report, err error) {
 	defer mon.Task()(&ctx, len(requests))(&err)
 
 	for len(requests) > 0 {
@@ -85,27 +84,24 @@ func (service *Service) Delete(ctx context.Context, requests ...*ObjectIdentifie
 		if batchSize > service.config.MaxObjectsPerRequest {
 			batchSize = service.config.MaxObjectsPerRequest
 		}
-
-		deletedPointers, deletedPaths, err := service.DeletePointers(ctx, requests[:batchSize])
+		pointers, paths, err := service.DeletePointers(ctx, requests[:batchSize])
 		if err != nil {
-			return pointers, paths, Error.Wrap(err)
+			return reports, Error.Wrap(err)
 		}
 
-		pointers = append(pointers, deletedPointers...)
-		paths = append(paths, deletedPaths...)
+		report := GenerateReport(ctx, service.log, requests[:batchSize], paths, pointers)
+		reports = append(reports, report)
 		requests = requests[batchSize:]
 	}
 
-	return pointers, paths, nil
+	return reports, nil
+
 }
 
 // DeletePointers returns a list of pointers and their paths that are deleted.
 // If a object is not found, we will consider it as a successful delete.
 func (service *Service) DeletePointers(ctx context.Context, requests []*ObjectIdentifier) (_ []*pb.Pointer, _ [][]byte, err error) {
 	defer mon.Task()(&ctx, len(requests))(&err)
-
-	// We should ignore client cancelling and always try to delete segments.
-	ctx = context2.WithoutCancellation(ctx)
 
 	// get first and last segment to determine the object state
 	lastAndFirstSegmentsPath := [][]byte{}
@@ -155,34 +151,19 @@ func (service *Service) DeletePointers(ctx context.Context, requests []*ObjectId
 	// while the database is sending a response -- in that case we won't send
 	// the piecedeletion requests and and let garbage collection clean up those
 	// pieces.
-	deletedPaths, pointers, err := service.pointers.UnsynchronizedGetDel(ctx, pathsToDel)
+	paths, pointers, err := service.pointers.UnsynchronizedGetDel(ctx, pathsToDel)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
-	// Update state map with other segments.
-	for i, pointer := range pointers {
-		id, segmentIdx, err := ParseSegmentPath(deletedPaths[i])
-		if err != nil {
-			return pointers, deletedPaths, Error.Wrap(err)
-		}
-
-		state, ok := states[id.Key()]
-		if !ok {
-			return pointers, deletedPaths, Error.New("object not found")
-		}
-
-		if segmentIdx == lastSegmentIndex || segmentIdx == firstSegmentIndex {
-			continue
-		}
-
-		state.OtherSegments = append(state.OtherSegments, pointer)
+	// if object is missing, we can consider it as a successful delete
+	objectMissingPaths := service.extractSegmentPathsForMissingObjects(ctx, states)
+	for _, p := range objectMissingPaths {
+		paths = append(paths, p)
+		pointers = append(pointers, nil)
 	}
 
-	// if object is missing, we can consider it as a successful delete
-	deletedPaths = append(deletedPaths, service.extractSegmentPathsForMissingObjects(ctx, states)...)
-
-	return pointers, deletedPaths, nil
+	return pointers, paths, nil
 }
 
 // GroupPiecesByNodeID returns a map that contains pieces with node id as the key.

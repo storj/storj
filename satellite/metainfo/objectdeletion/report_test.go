@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metainfo/objectdeletion"
@@ -35,28 +36,31 @@ func TestReport(t *testing.T) {
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 			requests := createRequests(tt.numRequests)
-			deletedSegmentPaths, err := createDeletedSegmentPaths(requests, tt.numDeletedPaths)
+			paths, pointers, err := createDeletedItems(requests, tt.numDeletedPaths)
 			require.NoError(t, err)
-			report := objectdeletion.GenerateReport(ctx, logger, requests, deletedSegmentPaths)
+
+			report := objectdeletion.GenerateReport(ctx, logger, requests, paths, pointers)
 			require.Equal(t, tt.expectedFailure, report.HasFailures())
 		})
 	}
 
 }
 
-func createDeletedSegmentPaths(requests []*objectdeletion.ObjectIdentifier, numDeleted int) ([][]byte, error) {
+func createDeletedItems(requests []*objectdeletion.ObjectIdentifier, numDeleted int) ([][]byte, []*pb.Pointer, error) {
 	if numDeleted > len(requests) {
-		return nil, errs.New("invalid argument")
+		return nil, nil, errs.New("invalid argument")
 	}
-	deletedSegmentPaths := make([][]byte, 0, numDeleted)
+	paths := make([][]byte, 0, numDeleted)
+	pointers := make([]*pb.Pointer, 0, numDeleted)
 	for i := 0; i < numDeleted; i++ {
 		path, err := requests[i].SegmentPath(int64(testrand.Intn(10)))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		deletedSegmentPaths = append(deletedSegmentPaths, path)
+		paths = append(paths, path)
+		pointers = append(pointers, &pb.Pointer{})
 	}
-	return deletedSegmentPaths, nil
+	return paths, pointers, nil
 }
 
 func createRequests(numRequests int) []*objectdeletion.ObjectIdentifier {

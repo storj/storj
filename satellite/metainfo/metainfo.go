@@ -15,9 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
 	"storj.io/common/encryption"
-	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -639,8 +637,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	canDelete := err == nil
 
 	if canDelete {
-		err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
-		if err != nil && !errs2.IsRPC(err, rpcstatus.NotFound) {
+		_, err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
+		if err != nil {
 			return nil, err
 		}
 	} else {
@@ -969,22 +967,22 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	})
 	canList := err == nil
 
-	var object *pb.Object
-	if canRead || canList {
-		// Info about deleted object is returned only if either Read, or List permission is granted
-		object, err = endpoint.getObject(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath, req.Version)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
+	report, err := endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
 	if err != nil {
 		if !canRead && !canList {
 			// No error info is returned if neither Read, nor List permission is granted
 			return &pb.ObjectBeginDeleteResponse{}, nil
 		}
 		return nil, err
+	}
+
+	var object *pb.Object
+	if canRead || canList {
+		// Info about deleted object is returned only if either Read, or List permission is granted
+		deletedObjects := report.DeletedObjects()
+		if len(deletedObjects) > 0 {
+			object = deletedObjects[0]
+		}
 	}
 
 	endpoint.log.Info("Object Delete", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "delete"), zap.String("type", "object"))
@@ -1753,28 +1751,6 @@ func (endpoint *Endpoint) getPointer(
 	return pointer, path, nil
 }
 
-// getObjectNumberOfSegments returns the number of segments of the indicated
-// object by projectID, bucket and encryptedPath.
-//
-// It returns 0 if the number is unknown.
-func (endpoint *Endpoint) getObjectNumberOfSegments(ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte) (_ int64, err error) {
-	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
-
-	pointer, _, err := endpoint.getPointer(ctx, projectID, lastSegment, bucket, encryptedPath)
-	if err != nil {
-		return 0, err
-	}
-
-	metaData := &pb.StreamMeta{}
-	err = pb.Unmarshal(pointer.Metadata, metaData)
-	if err != nil {
-		endpoint.log.Error("error unmarshaling pointer metadata", zap.Error(err))
-		return 0, rpcstatus.Error(rpcstatus.Internal, "unable to unmarshal metadata")
-	}
-
-	return metaData.NumberOfSegments, nil
-}
-
 // sortLimits sorts order limits and fill missing ones with nil values.
 func sortLimits(limits []*pb.AddressedOrderLimit, pointer *pb.Pointer) []*pb.AddressedOrderLimit {
 	sorted := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
@@ -1889,224 +1865,76 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 // having import cycles.
 func (endpoint *Endpoint) DeleteObjectPieces(
 	ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte,
-) (err error) {
+) (report objectdeletion.Report, err error) {
 	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
 
-	// We should ignore client cancelling and always try to delete segments.
-	ctx = context2.WithoutCancellation(ctx)
-
-	var (
-		lastSegmentNotFound  = false
-		prevLastSegmentIndex int64
-	)
-	{
-		numOfSegments, err := endpoint.getObjectNumberOfSegments(ctx, projectID, bucket, encryptedPath)
-		if err != nil {
-			if !errs2.IsRPC(err, rpcstatus.NotFound) {
-				return err
-			}
-
-			// Not found is that the last segment doesn't exist, so we proceed deleting
-			// in a reverse order the continuous segments starting from index 0
-			lastSegmentNotFound = true
-			{
-				var err error
-				prevLastSegmentIndex, err = endpoint.findIndexPreviousLastSegmentWhenNotKnowingNumSegments(
-					ctx, projectID, bucket, encryptedPath,
-				)
-				if err != nil {
-					endpoint.log.Error("unexpected error while finding last segment index previous to the last segment",
-						zap.Stringer("project_id", projectID),
-						zap.ByteString("bucket_name", bucket),
-						zap.Binary("encrypted_path", encryptedPath),
-						zap.Error(err),
-					)
-
-					return err
-				}
-			}
-
-			// There no last segment and any continuous segment so we return the
-			// NotFound error handled in this conditional block
-			if prevLastSegmentIndex == lastSegment {
-				return err
-			}
-
-		} else {
-			prevLastSegmentIndex = numOfSegments - 2 // because of the last segment and because it's an index
-		}
+	req := &objectdeletion.ObjectIdentifier{
+		ProjectID:     projectID,
+		Bucket:        bucket,
+		EncryptedPath: encryptedPath,
 	}
-
-	var (
-		nodesPieces = make(map[storj.NodeID][]storj.PieceID)
-		nodeIDs     storj.NodeIDList
-	)
-
-	if !lastSegmentNotFound {
-		// first delete the last segment
-		pointer, err := endpoint.deletePointer(ctx, projectID, lastSegment, bucket, encryptedPath)
-		if err != nil {
-			if storj.ErrObjectNotFound.Has(err) {
-				endpoint.log.Warn(
-					"unexpected not found error while deleting a pointer, it may have been deleted concurrently",
-					zap.String("pointer_path",
-						fmt.Sprintf("%s/l/%s/%q", projectID, bucket, encryptedPath),
-					),
-					zap.String("segment", "l"),
-				)
-			} else {
-				endpoint.log.Error("unexpected error while deleting object pieces",
-					zap.Stringer("project_id", projectID),
-					zap.ByteString("bucket_name", bucket),
-					zap.Binary("encrypted_path", encryptedPath),
-					zap.Error(err),
-				)
-				return rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-		}
-
-		if err == nil && pointer.Type == pb.Pointer_REMOTE {
-			rootPieceID := pointer.GetRemote().RootPieceId
-			for _, piece := range pointer.GetRemote().GetRemotePieces() {
-				pieceID := rootPieceID.Derive(piece.NodeId, piece.PieceNum)
-				pieces, ok := nodesPieces[piece.NodeId]
-				if !ok {
-					nodesPieces[piece.NodeId] = []storj.PieceID{pieceID}
-					nodeIDs = append(nodeIDs, piece.NodeId)
-					continue
-				}
-
-				nodesPieces[piece.NodeId] = append(pieces, pieceID)
-			}
-		}
-	}
-
-	for segmentIdx := prevLastSegmentIndex; segmentIdx >= 0; segmentIdx-- {
-		pointer, err := endpoint.deletePointer(ctx, projectID, segmentIdx, bucket, encryptedPath)
-		if err != nil {
-			segment := "s" + strconv.FormatInt(segmentIdx, 10)
-			if storj.ErrObjectNotFound.Has(err) {
-				endpoint.log.Warn(
-					"unexpected not found error while deleting a pointer, it may have been deleted concurrently",
-					zap.String("pointer_path",
-						fmt.Sprintf("%s/%s/%s/%q", projectID, segment, bucket, encryptedPath),
-					),
-					zap.String("segment", segment),
-				)
-			} else {
-				endpoint.log.Warn(
-					"unexpected error while deleting a pointer",
-					zap.String("pointer_path",
-						fmt.Sprintf("%s/%s/%s/%q", projectID, segment, bucket, encryptedPath),
-					),
-					zap.String("segment", segment),
-					zap.Error(err),
-				)
-			}
-
-			// We continue with the next segment and we leave the pieces of this
-			// segment to be deleted by the garbage collector
-			continue
-		}
-
-		if pointer.Type != pb.Pointer_REMOTE {
-			continue
-		}
-
-		rootPieceID := pointer.GetRemote().RootPieceId
-		for _, piece := range pointer.GetRemote().GetRemotePieces() {
-			pieceID := rootPieceID.Derive(piece.NodeId, piece.PieceNum)
-			pieces, ok := nodesPieces[piece.NodeId]
-			if !ok {
-				nodesPieces[piece.NodeId] = []storj.PieceID{pieceID}
-				nodeIDs = append(nodeIDs, piece.NodeId)
-				continue
-			}
-
-			nodesPieces[piece.NodeId] = append(pieces, pieceID)
-		}
-	}
-
-	if len(nodeIDs) == 0 {
-		return
-	}
-
-	nodes, err := endpoint.overlay.KnownReliable(ctx, nodeIDs)
+	results, err := endpoint.deleteObjects.Delete(ctx, req)
 	if err != nil {
-		endpoint.log.Warn("unable to look up nodes from overlay",
-			zap.String("object_path",
-				fmt.Sprintf("%s/%s/%q", projectID, bucket, encryptedPath),
-			),
+		endpoint.log.Error("failed to delete pointers",
+			zap.Stringer("project_id", projectID),
+			zap.ByteString("bucket_name", bucket),
+			zap.Binary("encrypted_path", encryptedPath),
 			zap.Error(err),
 		)
-		// Pieces will be collected by garbage collector
-		return nil
+		return report, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	var requests []piecedeletion.Request
-	for _, node := range nodes {
-		requests = append(requests, piecedeletion.Request{
-			Node: storj.NodeURL{
-				ID:      node.Id,
-				Address: node.Address.Address,
-			},
-			Pieces: nodesPieces[node.Id],
-		})
-	}
+	for _, r := range results {
+		pointers := r.DeletedPointers()
+		report.Deleted = append(report.Deleted, r.Deleted...)
+		report.Failed = append(report.Failed, r.Failed...)
 
-	return endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold)
-}
+		nodesPieces := objectdeletion.GroupPiecesByNodeID(pointers)
 
-// deletePointer deletes a pointer returning the deleted pointer.
-//
-// If the pointer isn't found when getting or deleting it, it returns
-// storj.ErrObjectNotFound error.
-func (endpoint *Endpoint) deletePointer(
-	ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, encryptedPath []byte,
-) (_ *pb.Pointer, err error) {
-	defer mon.Task()(&ctx, projectID, segmentIndex, bucket, encryptedPath)(&err)
-
-	pointer, path, err := endpoint.getPointer(ctx, projectID, segmentIndex, bucket, encryptedPath)
-	if err != nil {
-		if errs2.IsRPC(err, rpcstatus.NotFound) {
-			return nil, storj.ErrObjectNotFound.New("%s", err.Error())
+		if len(nodesPieces) == 0 {
+			continue
 		}
-		return nil, err
-	}
 
-	err = endpoint.metainfo.UnsynchronizedDelete(ctx, path)
-	if err != nil {
-		return nil, err
-	}
+		nodeIDs := []storj.NodeID{}
+		for nodeID := range nodesPieces {
+			nodeIDs = append(nodeIDs, nodeID)
+		}
 
-	return pointer, nil
-}
-
-// findIndexPreviousLastSegmentWhenNotKnowingNumSegments returns the index of
-// the segment previous to the last segment when there is an unknown number of
-// segments.
-//
-// It returns -1 index if none is found and error if there is some error getting
-// the segments' pointers.
-func (endpoint *Endpoint) findIndexPreviousLastSegmentWhenNotKnowingNumSegments(
-	ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte,
-) (index int64, err error) {
-	defer mon.Task()(&ctx, projectID, bucket, encryptedPath)(&err)
-
-	lastIdxFound := int64(lastSegment)
-	for {
-		_, _, err := endpoint.getPointer(ctx, projectID, lastIdxFound+1, bucket, encryptedPath)
+		nodes, err := endpoint.overlay.KnownReliable(ctx, nodeIDs)
 		if err != nil {
-			if errs2.IsRPC(err, rpcstatus.NotFound) {
-				break
-			}
-			return lastSegment, err
+			endpoint.log.Warn("unable to look up nodes from overlay",
+				zap.String("object_path",
+					fmt.Sprintf("%s/%s/%q", projectID, bucket, encryptedPath),
+				),
+				zap.Error(err),
+			)
+			// Pieces will be collected by garbage collector
+			continue
 		}
 
-		lastIdxFound++
+		var requests []piecedeletion.Request
+		for _, node := range nodes {
+			requests = append(requests, piecedeletion.Request{
+				Node: storj.NodeURL{
+					ID:      node.Id,
+					Address: node.Address.Address,
+				},
+				Pieces: nodesPieces[node.Id],
+			})
+		}
+
+		if err := endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold); err != nil {
+			endpoint.log.Error("failed to delete pieces",
+				zap.Stringer("project_id", projectID),
+				zap.ByteString("bucket_name", bucket),
+				zap.Binary("encrypted_path", encryptedPath),
+				zap.Error(err),
+			)
+		}
 	}
 
-	return lastIdxFound, nil
+	return report, nil
+
 }
 
 func (endpoint *Endpoint) redundancyScheme() *pb.RedundancyScheme {

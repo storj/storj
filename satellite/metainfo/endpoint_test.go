@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
-	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -75,7 +74,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					}
 
 					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
-					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
+					_, err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
 						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
@@ -150,7 +149,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					require.NoError(t, planet.StopPeer(planet.StorageNodes[1]))
 
 					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
-					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
+					_, err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
 						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
@@ -227,7 +226,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					}
 
 					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
-					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
+					_, err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
 						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
@@ -307,17 +306,16 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 						totalUsedSpace += usedSpace
 					}
 
-					err := satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
+					_, err := satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
 						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
 					require.NoError(t, err)
 
 					// confirm that the object was deleted
-					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, projectID, []byte(bucketName), encryptedPath,
-					)
-					require.Error(t, err)
-					require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
+					listResponse, more, err := satelliteSys.Metainfo.Service.List(ctx, "", "", true, 0, 0)
+					require.NoError(t, err)
+					require.False(t, more)
+					require.Len(t, listResponse, 0)
 
 					planet.WaitForStorageNodeDeleters(ctx)
 
@@ -359,35 +357,39 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 			const segmentSize = 10 * memory.KiB
 
 			var testCases = []struct {
-				caseDescription          string
-				objData                  []byte
-				noSegmentsIndexes        []int64 // Witout the last segment which is always included
-				expectedMaxGarbageFactor float64
-				expectedNotFoundErr      bool
+				caseDescription        string
+				objData                []byte
+				noSegmentsIndexes      []int64 // Witout the last segment which is always included
+				expectedSegmentGarbage int
+				expectedNotFound       bool
 			}{
 				{
-					caseDescription:     "some firsts",
-					objData:             testrand.Bytes(10 * segmentSize),
-					noSegmentsIndexes:   []int64{3, 5, 6, 9}, // Object with no pointers: L, 3, 5, 6, 9
-					expectedNotFoundErr: false,
+					caseDescription:        "some firsts",
+					objData:                testrand.Bytes(10 * segmentSize),
+					noSegmentsIndexes:      []int64{3, 5, 6, 9}, // Object with no pointers: L, 3, 5, 6, 9
+					expectedSegmentGarbage: 3,
+					expectedNotFound:       false,
 				},
 				{
-					caseDescription:     "some firsts inline",
-					objData:             testrand.Bytes((9 * segmentSize) + (3 * memory.KiB)),
-					noSegmentsIndexes:   []int64{4, 5, 6}, // Object with no pointers: L, 4, 5, 6
-					expectedNotFoundErr: false,
+					caseDescription:        "some firsts inline",
+					objData:                testrand.Bytes((9 * segmentSize) + (3 * memory.KiB)),
+					noSegmentsIndexes:      []int64{4, 5, 6}, // Object with no pointers: L, 4, 5, 6
+					expectedSegmentGarbage: 2,
+					expectedNotFound:       false,
 				},
 				{
-					caseDescription:     "no first",
-					objData:             testrand.Bytes(10 * segmentSize),
-					noSegmentsIndexes:   []int64{0}, // Object with no pointer to : L, 0
-					expectedNotFoundErr: true,
+					caseDescription:        "no first",
+					objData:                testrand.Bytes(10 * segmentSize),
+					noSegmentsIndexes:      []int64{0}, // Object with no pointer to : L, 0
+					expectedSegmentGarbage: 9,
+					expectedNotFound:       true,
 				},
 				{
-					caseDescription:     "no firsts",
-					objData:             testrand.Bytes(8 * segmentSize),
-					noSegmentsIndexes:   []int64{0, 2, 5}, // Object with no pointer to : L, 0, 2, 5
-					expectedNotFoundErr: true,
+					caseDescription:        "no firsts",
+					objData:                testrand.Bytes(8 * segmentSize),
+					noSegmentsIndexes:      []int64{0, 2, 5}, // Object with no pointer to : L, 0, 2, 5
+					expectedSegmentGarbage: 5,
+					expectedNotFound:       true,
 				},
 			}
 
@@ -416,23 +418,31 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 						totalUsedSpace += usedSpace
 					}
 
-					err := satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
+					_, err := satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
 						ctx, projectID, []byte(bucketName), encryptedPath,
 					)
-					if tc.expectedNotFoundErr {
-						require.Error(t, err)
-						require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
-						return
-					}
-
 					require.NoError(t, err)
 
-					// confirm that the object was deleted
-					err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, projectID, []byte(bucketName), encryptedPath,
-					)
-					require.Error(t, err)
-					require.Equal(t, rpcstatus.Code(err), rpcstatus.NotFound)
+					// check segment state after deletion
+					listResponse, more, err := satelliteSys.Metainfo.Service.List(ctx, "", "", true, 0, 0)
+					require.NoError(t, err)
+					require.False(t, more)
+					// since the segments are sparsed, we are only able to delete
+					// up to the last continuous segment found in the db.
+					numOfGarbageSegments := 0
+					for _, l := range listResponse {
+						_, path := parsePath(ctx, t, l.Path)
+						if string(encryptedPath) == string(path) {
+							numOfGarbageSegments++
+						}
+					}
+					require.Equal(t, tc.expectedSegmentGarbage, numOfGarbageSegments)
+
+					if tc.expectedNotFound {
+						// no pieces will be deleted since we can't find those
+						// segments in the database.
+						return
+					}
 
 					planet.WaitForStorageNodeDeleters(ctx)
 
@@ -463,12 +473,17 @@ func getProjectIDAndEncPathFirstObject(
 
 	keys, err := satellite.Metainfo.Database.List(ctx, storage.Key{}, 1)
 	require.NoError(t, err)
-	keyParts := storj.SplitPath(keys[0].String())
-	require.Len(t, keyParts, 4)
 
-	projectID, err = uuid.FromString(keyParts[0])
+	return parsePath(ctx, t, keys[0].String())
+}
+
+func parsePath(ctx context.Context, t *testing.T, path string) (projectID uuid.UUID, encryptedPath []byte) {
+	pathParts := storj.SplitPath(path)
+	require.Len(t, pathParts, 4)
+
+	projectID, err := uuid.FromString(pathParts[0])
 	require.NoError(t, err)
-	encryptedPath = []byte(keyParts[3])
+	encryptedPath = []byte(pathParts[3])
 
 	return projectID, encryptedPath
 }
