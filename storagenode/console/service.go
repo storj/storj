@@ -425,7 +425,7 @@ func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context) (payout h
 	return payout, nil
 }
 
-// estimatedPayoutMonthly returns estimated payout data montly from specific satellite.
+// estimatedPayoutMonthly returns estimated payout data monthly from specific satellite.
 func (s *Service) estimatedPayoutMonthly(ctx context.Context, satelliteID storj.NodeID, month time.Time) (payoutData heldamount.PayoutMonthly, err error) {
 	defer mon.Task()(&ctx)(&err)
 
