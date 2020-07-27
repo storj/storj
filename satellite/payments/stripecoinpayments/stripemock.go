@@ -16,21 +16,24 @@ import (
 	"github.com/stripe/stripe-go/invoiceitem"
 	"github.com/stripe/stripe-go/paymentmethod"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
-// mockClient singleton of mockStripeClient.
+// mocks synchronized map for caching mockStripeClient.
 //
 // The satellite has a Core part and API part which mostly duplicate each
 // other. Each of them have a StripeClient instance. This is not a problem in
 // production, because the stripeClient implementation is stateless and calls
 // the Web API of the same Stripe backend. But it is a problem in test
-// environments as the mockStripeClient client is stateful - the data is stored
-// in in-memory maps. Therefore, we need it to be a singleton, so the Core and
-// API parts share the same state.
-var mock struct {
-	once   sync.Once
-	client StripeClient
+// environments as the mockStripeClient is stateful - the data is stored in
+// in-memory maps. Therefore, we need the Core and API parts share the same
+// instance of mockStripeClient.
+var mocks = struct {
+	sync.Mutex
+	m map[storj.NodeID]StripeClient
+}{
+	m: make(map[storj.NodeID]StripeClient),
 }
 
 // mockStripeClient Stripe client mock.
@@ -44,9 +47,21 @@ type mockStripeClient struct {
 }
 
 // NewStripeMock creates new Stripe client mock.
-func NewStripeMock() StripeClient {
-	mock.once.Do(func() {
-		mock.client = &mockStripeClient{
+//
+// A new mock is returned for each unique id. If this method is called multiple
+// times with the same id, it will return the same mock instance for that id.
+//
+// If called by satellite component, the id param should be the peer.ID().
+// If called by CLI tool, the id param should be a zero value, i.e. storj.NodeID{}.
+// If called by satellitedb test case, the id param should be a random value,
+// i.e. testrand.NodeID().
+func NewStripeMock(id storj.NodeID) StripeClient {
+	mocks.Lock()
+	defer mocks.Unlock()
+
+	mock, ok := mocks.m[id]
+	if !ok {
+		mock = &mockStripeClient{
 			customers:                   newMockCustomers(),
 			paymentMethods:              &mockPaymentMethods{},
 			invoices:                    &mockInvoices{},
@@ -54,8 +69,10 @@ func NewStripeMock() StripeClient {
 			customerBalanceTransactions: newMockCustomerBalanceTransactions(),
 			charges:                     &mockCharges{},
 		}
-	})
-	return mock.client
+		mocks.m[id] = mock
+	}
+
+	return mock
 }
 
 func (m *mockStripeClient) Customers() StripeCustomers {
