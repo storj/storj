@@ -274,7 +274,7 @@ export default class EstimationArea extends Vue {
     private get currentDiskSpace(): number {
         if (!this.$store.state.node.storageChartData) return 0;
 
-        return this.$store.state.node.storageChartData.map(data => data.atRestTotal).reduce((previous, current) => previous + current, 0);
+        return this.$store.state.node.storageChartData.map(data => data.atRestTotal / 720).reduce((previous, current) => previous + current, 0);
     }
 
     /**
