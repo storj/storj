@@ -6,6 +6,7 @@ package rewards
 import (
 	"context"
 	"sort"
+	"strings"
 
 	"github.com/zeebo/errs"
 )
@@ -37,10 +38,11 @@ func NewPartnersStaticDB(list *PartnerList) (*PartnersStaticDB, error) {
 
 	var errg errs.Group
 	for _, p := range list.Partners {
-		if _, exists := db.byName[p.Name]; exists {
+		name := strings.ToLower(p.Name)
+		if _, exists := db.byName[name]; exists {
 			errg.Add(ErrPartners.New("name %q already exists", p.Name))
 		} else {
-			db.byName[p.Name] = p
+			db.byName[name] = p
 		}
 
 		if _, exists := db.byID[p.ID]; exists {
@@ -65,9 +67,9 @@ func (db *PartnersStaticDB) All(ctx context.Context) ([]PartnerInfo, error) {
 	return append([]PartnerInfo{}, db.list.Partners...), nil
 }
 
-// ByName returns partner definitions for a given name.
+// ByName returns partner definitions for a given name. Name is case insensitive.
 func (db *PartnersStaticDB) ByName(ctx context.Context, name string) (PartnerInfo, error) {
-	partner, ok := db.byName[name]
+	partner, ok := db.byName[strings.ToLower(name)]
 	if !ok {
 		return PartnerInfo{}, ErrPartnerNotExist.New("%q", name)
 	}

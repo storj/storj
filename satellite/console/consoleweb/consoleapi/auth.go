@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/rewards"
 )
 
 // ErrAuthAPI - console auth api error type.
@@ -32,10 +33,11 @@ type Auth struct {
 	service               *console.Service
 	mailService           *mailservice.Service
 	cookieAuth            *consolewebauth.CookieAuth
+	partners              *rewards.PartnersService
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
 	return &Auth{
 		log:                   log,
 		ExternalAddress:       externalAddress,
@@ -45,6 +47,7 @@ func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice
 		service:               service,
 		mailService:           mailService,
 		cookieAuth:            cookieAuth,
+		partners:              partners,
 	}
 }
 
@@ -102,6 +105,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		FullName       string `json:"fullName"`
 		ShortName      string `json:"shortName"`
 		Email          string `json:"email"`
+		Partner        string `json:"partner"`
 		PartnerID      string `json:"partnerId"`
 		Password       string `json:"password"`
 		SecretInput    string `json:"secret"`
@@ -118,6 +122,15 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
+	}
+
+	if registerData.Partner != "" {
+		info, err := a.partners.ByName(ctx, registerData.Partner)
+		if err != nil {
+			a.log.Warn("Invalid partner name", zap.String("Partner name", registerData.Partner), zap.String("User email", registerData.Email), zap.Error(err))
+		} else {
+			registerData.PartnerID = info.ID
+		}
 	}
 
 	user, err := a.service.CreateUser(ctx,

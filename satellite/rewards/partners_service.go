@@ -114,7 +114,7 @@ func (service *PartnersService) ByUserAgent(ctx context.Context, userAgentString
 		return PartnerInfo{}, ErrPartners.Wrap(err)
 	}
 
-	return service.db.ByName(ctx, info.Product.Name)
+	return service.db.ByUserAgent(ctx, info.Product.Name)
 }
 
 // All returns all partners.
