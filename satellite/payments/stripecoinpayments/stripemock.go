@@ -123,11 +123,18 @@ func (m *mockCustomers) New(params *stripe.CustomerParams) (*stripe.Customer, er
 			},
 		},
 	}
+
+	mocks.Lock()
+	defer mocks.Unlock()
+
 	m.customers = append(m.customers, customer)
 	return customer, nil
 }
 
 func (m *mockCustomers) Get(id string, params *stripe.CustomerParams) (*stripe.Customer, error) {
+	mocks.Lock()
+	defer mocks.Unlock()
+
 	for _, customer := range m.customers {
 		if id == customer.ID {
 			return customer, nil
@@ -145,6 +152,9 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 	if params == nil {
 		return customer, nil
 	}
+
+	mocks.Lock()
+	defer mocks.Unlock()
 
 	if params.Metadata != nil {
 		customer.Metadata = params.Metadata
@@ -236,12 +246,18 @@ func (m *mockCustomerBalanceTransactions) New(params *stripe.CustomerBalanceTran
 		Created:     time.Now().Unix(),
 	}
 
+	mocks.Lock()
+	defer mocks.Unlock()
+
 	m.transactions[*params.Customer] = append(m.transactions[*params.Customer], tx)
 
 	return tx, nil
 }
 
 func (m *mockCustomerBalanceTransactions) List(listParams *stripe.CustomerBalanceTransactionListParams) *customerbalancetransaction.Iter {
+	mocks.Lock()
+	defer mocks.Unlock()
+
 	return &customerbalancetransaction.Iter{Iter: stripe.GetIter(listParams, func(p *stripe.Params, b *form.Values) ([]interface{}, stripe.ListMeta, error) {
 		txs := m.transactions[*listParams.Customer]
 		ret := make([]interface{}, len(txs))
