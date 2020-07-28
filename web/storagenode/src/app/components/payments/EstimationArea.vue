@@ -222,7 +222,7 @@ export default class EstimationArea extends Vue {
     public get grossTotal(): number {
         return (this.currentBandwidthDownload * BANDWIDTH_DOWNLOAD_PRICE_PER_TB
             + this.currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB
-            + this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / 720) / TB;
+            + this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB) / TB;
     }
 
     /**
