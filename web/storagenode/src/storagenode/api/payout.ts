@@ -8,7 +8,7 @@ import {
     HeldHistoryMonthlyBreakdownItem,
     HeldInfo,
     PaymentInfoParameters,
-    PayoutApi,
+    PayoutApi, PayoutHistoryItem,
     PayoutPeriod,
     PreviousMonthEstimatedPayout,
     TotalPayoutInfo,
@@ -137,6 +137,42 @@ export class PayoutHttpApi implements PayoutApi {
     }
 
     /**
+     * Fetch payout history for given period.
+     *
+     * @returns payout information
+     * @throws Error
+     */
+    public async getPayoutHistory(period): Promise<PayoutHistoryItem[]> {
+        const path = `${this.ROOT_PATH}/payout-history/${period}`;
+
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('can not get payout history information');
+        }
+
+        const data: any = await response.json() || [];
+
+        return data.map((payoutHistoryItem: any) => {
+            return new PayoutHistoryItem(
+                payoutHistoryItem.satelliteID,
+                payoutHistoryItem.satelliteURL,
+                payoutHistoryItem.age,
+                payoutHistoryItem.earned,
+                payoutHistoryItem.surge,
+                payoutHistoryItem.surgePercent,
+                payoutHistoryItem.held,
+                payoutHistoryItem.afterHeld,
+                payoutHistoryItem.disposed,
+                payoutHistoryItem.paid,
+                payoutHistoryItem.receipt,
+                payoutHistoryItem.isExitComplete,
+                payoutHistoryItem.heldPercent,
+            );
+        });
+    }
+
+    /**
      * Fetch total payout information.
      *
      * @returns total payout information
@@ -153,15 +189,14 @@ export class PayoutHttpApi implements PayoutApi {
 
         const data: any = await response.json() || [];
 
-        // TODO: this will be changed with adding 'all stats' held history.
         const monthlyBreakdown = data.map((historyItem: any) => {
             return new HeldHistoryMonthlyBreakdownItem(
                 historyItem.satelliteID,
                 historyItem.satelliteName,
                 historyItem.age,
-                historyItem.firstPeriod / this.PRICE_DIVIDER,
-                historyItem.secondPeriod / this.PRICE_DIVIDER,
-                historyItem.thirdPeriod / this.PRICE_DIVIDER,
+                historyItem.firstPeriod,
+                historyItem.secondPeriod,
+                historyItem.thirdPeriod,
             );
         });
 

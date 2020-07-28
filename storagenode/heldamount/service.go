@@ -285,8 +285,13 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 			paystub.SurgePercent = 100
 		}
 
-		earned := (paystub.CompGetAudit + paystub.CompGet + paystub.CompGetRepair + paystub.CompAtRest) / (paystub.SurgePercent * 100)
-		surge := earned * paystub.SurgePercent / 100
+		surge := paystub.CompGetAudit + paystub.CompGet + paystub.CompGetRepair + paystub.CompAtRest
+		earned := surge / paystub.SurgePercent * 100
+
+		heldPercent, err := service.getHeldRate(stats.JoinedAt, paystub.Period)
+		if err != nil {
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
 
 		payoutHistory.Held = paystub.Held
 		payoutHistory.Receipt = paystub.Receipt
@@ -299,7 +304,7 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 		payoutHistory.SurgePercent = paystub.SurgePercent
 		payoutHistory.SatelliteURL = url.Address
 		payoutHistory.Paid = paystub.Paid
-		payoutHistory.HeldPercent = service.getHeldRate(stats.JoinedAt)
+		payoutHistory.HeldPercent = heldPercent
 
 		result = append(result, payoutHistory)
 	}
@@ -367,9 +372,15 @@ func (paystub *PayStub) UsageAtRestTbM() {
 	paystub.UsageAtRest /= 720
 }
 
-func (service *Service) getHeldRate(joinTime time.Time) (heldRate int64) {
-	monthsSinceJoin := date.MonthsCountSince(joinTime)
-	switch monthsSinceJoin {
+func (service *Service) getHeldRate(joinedAt time.Time, period string) (heldRate int64, err error) {
+	layout := "2006-01-02T15:04:05.000Z"
+	periodTime, err := time.Parse(layout, period+"-12T11:45:26.371Z")
+	if err != nil {
+		return 0, err
+	}
+
+	months := date.MonthsBetweenDates(joinedAt, periodTime)
+	switch months {
 	case 0, 1, 2:
 		heldRate = 75
 	case 3, 4, 5:
@@ -380,5 +391,5 @@ func (service *Service) getHeldRate(joinTime time.Time) (heldRate int64) {
 		heldRate = 0
 	}
 
-	return heldRate
+	return heldRate, nil
 }

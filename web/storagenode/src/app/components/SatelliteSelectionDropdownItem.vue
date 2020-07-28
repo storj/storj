@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -112,8 +112,9 @@ export default class SatelliteSelectionDropdownItem extends Vue {
 
         &__image {
             position: absolute;
-            top: 10px;
+            top: 50%;
             left: 10px;
+            transform: translateY(-50%);
         }
 
         &__name {
@@ -168,7 +169,7 @@ export default class SatelliteSelectionDropdownItem extends Vue {
 
     .disqualified,
     .suspended {
-        margin-left: 20px;
+        margin-left: 24px;
     }
 
     .copy-button {

@@ -120,17 +120,14 @@ import {
     BANDWIDTH_REPAIR_PRICE_PER_TB,
     DISK_SPACE_PRICE_PER_TB, PAYOUT_ACTIONS,
 } from '@/app/store/modules/payout';
-import { EstimatedPayout, HeldInfo, PayoutInfoRange, PayoutPeriod } from '@/app/types/payout';
+import {
+    EstimatedPayout,
+    HeldInfo,
+    monthNames,
+    PayoutInfoRange,
+    PayoutPeriod,
+} from '@/app/types/payout';
 import { formatBytes, TB } from '@/app/utils/converter';
-
-/**
- * Holds all months names.
- */
-const monthNames = [
-    'January', 'February', 'March', 'April',
-    'May', 'June', 'July',	'August',
-    'September', 'October', 'November',	'December',
-];
 
 /**
  * Describes table row data item.

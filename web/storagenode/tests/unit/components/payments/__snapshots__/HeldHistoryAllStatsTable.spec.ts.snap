@@ -26,10 +26,10 @@ exports[`HeldHistoryAllStatsTable renders correctly with actual values 1`] = `
         <p class="held-history-table-container--large__info-area__text">2020-01-30</p>
       </div>
       <div class="column justify-end column-3">
-        <p class="held-history-table-container--large__info-area__text">$500.00</p>
+        <p class="held-history-table-container--large__info-area__text">$0.05</p>
       </div>
       <div class="column justify-end column-4">
-        <p class="held-history-table-container--large__info-area__text">$200.00</p>
+        <p class="held-history-table-container--large__info-area__text">$0.02</p>
       </div>
     </div>
     <div class="held-history-table-container--large__info-area">
@@ -41,10 +41,10 @@ exports[`HeldHistoryAllStatsTable renders correctly with actual values 1`] = `
         <p class="held-history-table-container--large__info-area__text">2020-01-30</p>
       </div>
       <div class="column justify-end column-3">
-        <p class="held-history-table-container--large__info-area__text">$400.00</p>
+        <p class="held-history-table-container--large__info-area__text">$0.04</p>
       </div>
       <div class="column justify-end column-4">
-        <p class="held-history-table-container--large__info-area__text">$300.00</p>
+        <p class="held-history-table-container--large__info-area__text">$0.03</p>
       </div>
     </div>
   </div>

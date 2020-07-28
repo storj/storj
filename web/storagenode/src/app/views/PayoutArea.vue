@@ -13,6 +13,7 @@
             <SatelliteSelection />
             <p class="payout-area-container__section-title">Payout</p>
             <EstimationArea class="payout-area-container__estimation"/>
+            <PayoutHistoryTable class="payout-area-container__payout-history-table" v-if="payoutPeriods.length > 0" />
             <p class="payout-area-container__section-title">Held Amount</p>
             <p class="additional-text">
                 Learn more about held back
@@ -42,6 +43,7 @@ import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
 import HeldHistoryTable from '@/app/components/payments/HeldHistoryMonthlyBreakdownTable.vue';
 import HeldProgress from '@/app/components/payments/HeldProgress.vue';
+import PayoutHistoryTable from '@/app/components/payments/PayoutHistoryTable.vue';
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
@@ -52,10 +54,12 @@ import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { NotificationsCursor } from '@/app/types/notifications';
+import { PayoutPeriod } from '@/app/types/payout';
 import { SatelliteInfo } from '@/storagenode/dashboard';
 
 @Component ({
     components: {
+        PayoutHistoryTable,
         HeldHistoryArea,
         HeldProgress,
         HeldHistoryTable,
@@ -121,6 +125,10 @@ export default class PayoutArea extends Vue {
     public get selectedSatellite(): SatelliteInfo {
         return this.$store.state.node.selectedSatellite.id;
     }
+
+    public get payoutPeriods(): PayoutPeriod[] {
+        return this.$store.state.payoutModule.payoutPeriods;
+    }
 }
 </script>
 
@@ -182,6 +190,10 @@ export default class PayoutArea extends Vue {
             max-height: 62vh;
             background-color: #f3f4f9;
             border-radius: 12px;
+        }
+
+        &__payout-history-table {
+            margin-top: 20px;
         }
 
         &__held-info-area {

@@ -12,6 +12,7 @@ export const APPSTATE_MUTATIONS = {
     SET_DARK: 'SET_DARK',
     SET_NO_PAYOUT_INFO: 'SET_NO_PAYOUT_INFO',
     SET_LOADING_STATE: 'SET_LOADING_STATE',
+    TOGGLE_PAYOUT_HISTORY_CALENDAR: 'TOGGLE_PAYOUT_HISTORY_CALENDAR',
 };
 
 export const APPSTATE_ACTIONS = {
@@ -25,6 +26,7 @@ export const APPSTATE_ACTIONS = {
     SET_DARK_MODE: 'SET_DARK_MODE',
     SET_NO_PAYOUT_DATA: 'SET_NO_PAYOUT_DATA',
     SET_LOADING: 'SET_LOADING',
+    TOGGLE_PAYOUT_HISTORY_CALENDAR: 'TOGGLE_PAYOUT_HISTORY_CALENDAR',
 };
 
 const {
@@ -47,6 +49,7 @@ export const appStateModule = {
         isDarkMode: false,
         isNoPayoutData: false,
         isLoading: true,
+        isPayoutHistoryCalendarShown: false,
     },
     mutations: {
         [TOGGLE_SATELLITE_SELECTION](state: any): void {
@@ -80,6 +83,9 @@ export const appStateModule = {
         },
         [CLOSE_ALL_POPUPS](state: any): void {
             state.isSatelliteSelectionShown = false;
+        },
+        [APPSTATE_MUTATIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR](state: any, value): void {
+            state.isPayoutHistoryCalendarShown = value;
         },
     },
     actions: {
@@ -132,6 +138,9 @@ export const appStateModule = {
         },
         [APPSTATE_ACTIONS.CLOSE_ALL_POPUPS]: function ({commit}: any): void {
             commit(APPSTATE_MUTATIONS.CLOSE_ALL_POPUPS);
+        },
+        [APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR]: function ({commit, state}: any, value: boolean): void {
+            commit(APPSTATE_MUTATIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, value);
         },
     },
 };

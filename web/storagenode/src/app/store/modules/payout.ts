@@ -7,6 +7,7 @@ import {
     HeldInfo,
     PaymentInfoParameters,
     PayoutApi,
+    PayoutHistoryItem,
     PayoutInfoRange,
     PayoutPeriod,
     PayoutState,
@@ -23,6 +24,8 @@ export const PAYOUT_MUTATIONS = {
     SET_HELD_HISTORY: 'SET_HELD_HISTORY',
     SET_ESTIMATION: 'SET_ESTIMATION',
     SET_PERIODS: 'SET_PERIODS',
+    SET_PAYOUT_HISTORY: 'SET_PAYOUT_HISTORY',
+    SET_PAYOUT_HISTORY_PERIOD: 'SET_PAYOUT_HISTORY_PERIOD',
 };
 
 export const PAYOUT_ACTIONS = {
@@ -32,6 +35,8 @@ export const PAYOUT_ACTIONS = {
     GET_HELD_HISTORY: 'GET_HELD_HISTORY',
     GET_ESTIMATION: 'GET_ESTIMATION',
     GET_PERIODS: 'GET_PERIODS',
+    GET_PAYOUT_HISTORY: 'GET_PAYOUT_HISTORY',
+    SET_PAYOUT_HISTORY_PERIOD: 'SET_PAYOUT_HISTORY_PERIOD',
 };
 
 export const BANDWIDTH_DOWNLOAD_PRICE_PER_TB = 2000;
@@ -69,6 +74,12 @@ export function makePayoutModule(api: PayoutApi) {
             },
             [PAYOUT_MUTATIONS.SET_PERIODS](state: PayoutState, periods: PayoutPeriod[]): void {
                 state.payoutPeriods = periods;
+            },
+            [PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY](state: PayoutState, payoutHistory: PayoutHistoryItem[]): void {
+                state.payoutHistory = payoutHistory;
+            },
+            [PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_PERIOD](state: PayoutState, period: string): void {
+                state.payoutHistoryPeriod = period;
             },
         },
         actions: {
@@ -131,6 +142,20 @@ export function makePayoutModule(api: PayoutApi) {
                 const estimatedInfo = await api.getEstimatedInfo(satelliteId);
 
                 commit(PAYOUT_MUTATIONS.SET_ESTIMATION, estimatedInfo);
+            },
+            [PAYOUT_ACTIONS.GET_PAYOUT_HISTORY]: async function ({ commit, state }: any): Promise<void> {
+                const payoutHistory = await api.getPayoutHistory(state.payoutHistoryPeriod);
+
+                commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY, payoutHistory);
+            },
+            [PAYOUT_ACTIONS.SET_PAYOUT_HISTORY_PERIOD]: function ({ commit }: any, period: string): void {
+                commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_PERIOD, period);
+            },
+        },
+        getters: {
+            totalPaidForPayoutHistoryPeriod: (state: PayoutState): number => {
+                return state.payoutHistory.map(data => data.paid)
+                    .reduce((previous, current) => previous + current, 0);
             },
         },
     };
