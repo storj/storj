@@ -134,6 +134,48 @@ func TestStorageNodeUsage(t *testing.T) {
 	})
 }
 
+// There can be more than one rollup in a day. Test that the sums are grouped by day.
+func TestStorageNodeUsage_TwoRollupsInADay(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		now := time.Now().UTC()
+
+		nodeID := testrand.NodeID()
+
+		accountingDB := db.StoragenodeAccounting()
+
+		// create last rollup timestamp
+		_, err := accountingDB.LastTimestamp(ctx, accounting.LastRollup)
+		require.NoError(t, err)
+
+		t1 := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		t2 := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
+		rollups := make(accounting.RollupStats)
+
+		rollups[t1] = make(map[storj.NodeID]*accounting.Rollup)
+		rollups[t2] = make(map[storj.NodeID]*accounting.Rollup)
+
+		rollups[t1][nodeID] = &accounting.Rollup{
+			NodeID:      nodeID,
+			AtRestTotal: 1000,
+		}
+		rollups[t2][nodeID] = &accounting.Rollup{
+			NodeID:      nodeID,
+			AtRestTotal: 500,
+		}
+		// save rollup
+		err = accountingDB.SaveRollup(ctx, now.Add(time.Hour*-24), rollups)
+		require.NoError(t, err)
+
+		nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, time.Time{}, now)
+		require.NoError(t, err)
+		require.NotNil(t, nodeStorageUsages)
+		require.Equal(t, 1, len(nodeStorageUsages))
+
+		require.Equal(t, nodeID, nodeStorageUsages[0].NodeID)
+		require.EqualValues(t, 1500, nodeStorageUsages[0].StorageUsed)
+	})
+}
+
 func TestProjectLimits(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		proj, err := db.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})

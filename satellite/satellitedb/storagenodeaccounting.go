@@ -289,10 +289,11 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	start, end = start.UTC(), end.UTC()
 
 	query := `
-		SELECT at_rest_total, (start_time at time zone 'UTC')::date as start_time
+		SELECT SUM(at_rest_total), (start_time at time zone 'UTC')::date as start_time
 		FROM accounting_rollups
 		WHERE node_id = $1
 		AND $2 <= start_time AND start_time <= $3
+		GROUP BY (start_time at time zone 'UTC')::date
 		UNION
 		SELECT SUM(data_total) AS at_rest_total, (interval_end_time at time zone 'UTC')::date AS start_time
 				FROM storagenode_storage_tallies
