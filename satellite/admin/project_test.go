@@ -349,7 +349,9 @@ func TestDeleteProjectWithUsagePreviousMonth(t *testing.T) {
 		require.NoError(t, err)
 
 		//ToDo: Improve updating of DB entries
-		accTime := time.Now().UTC().AddDate(0, -1, 0)
+		now := time.Now().UTC()
+		// set fixed day to avoid failures at the end of the month
+		accTime := time.Date(now.Year(), now.Month()-1, 15, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), time.UTC)
 		tally := accounting.BucketStorageTally{
 			BucketName:         "test",
 			ProjectID:          projectID,
