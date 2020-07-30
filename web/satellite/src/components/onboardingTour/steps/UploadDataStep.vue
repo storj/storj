@@ -43,7 +43,7 @@
                     </p>
                     <a
                         class="upload-data-area__container__docs-area__option__link"
-                        href="https://documentation.tardigrade.io/api-reference/uplink-cli"
+                        href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
