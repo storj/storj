@@ -630,9 +630,31 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
-	if err != nil && !errs2.IsRPC(err, rpcstatus.NotFound) {
-		return nil, err
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionDelete,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedPath,
+		Time:          time.Now(),
+	})
+	canDelete := err == nil
+
+	if canDelete {
+		err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
+		if err != nil && !errs2.IsRPC(err, rpcstatus.NotFound) {
+			return nil, err
+		}
+	} else {
+		path, err := CreatePath(ctx, keyInfo.ProjectID, lastSegment, req.Bucket, req.EncryptedPath)
+		if err != nil {
+			endpoint.log.Error("unable to create path", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+
+		// TODO maybe we can have different Get without pointer unmarshaling
+		_, _, err = endpoint.metainfo.GetWithBytes(ctx, path)
+		if err == nil {
+			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+		}
 	}
 
 	endpoint.log.Info("Object Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "object"))

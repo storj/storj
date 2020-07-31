@@ -1702,3 +1702,82 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 	})
 
 }
+
+func TestDeleteRightsOnUpload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		up := planet.Uplinks[0]
+
+		err := up.CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		require.NoError(t, err)
+
+		data := testrand.Bytes(1 * memory.KiB)
+		err = up.Upload(ctx, planet.Satellites[0], "test-bucket", "test-key", data)
+		require.NoError(t, err)
+
+		access := up.Access[planet.Satellites[0].ID()]
+
+		overwrite := func(allowDelete bool) error {
+			permission := uplink.FullPermission()
+			permission.AllowDelete = allowDelete
+
+			sharedAccess, err := access.Share(permission)
+			require.NoError(t, err)
+
+			project, err := uplink.OpenProject(ctx, sharedAccess)
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			upload, err := project.UploadObject(ctx, "test-bucket", "test-key", nil)
+			require.NoError(t, err)
+
+			_, err = upload.Write([]byte("new data"))
+			require.NoError(t, err)
+
+			return upload.Commit()
+		}
+
+		require.Error(t, overwrite(false))
+		require.NoError(t, overwrite(true))
+	})
+}
+
+func TestImmutableUpload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+
+		permission := uplink.Permission{AllowUpload: true} // AllowDelete: false
+		sharedAccess, err := access.Share(permission)
+		require.NoError(t, err)
+
+		project, err := uplink.OpenProject(ctx, sharedAccess)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		_, err = project.CreateBucket(ctx, "test-bucket")
+		require.NoError(t, err)
+
+		// Uploading the object for first time should be successful.
+		upload, err := project.UploadObject(ctx, "test-bucket", "test-key", nil)
+		require.NoError(t, err)
+
+		_, err = upload.Write(testrand.Bytes(1 * memory.KiB))
+		require.NoError(t, err)
+
+		err = upload.Commit()
+		require.NoError(t, err)
+
+		// Overwriting the object should fail on Commit.
+		upload, err = project.UploadObject(ctx, "test-bucket", "test-key", nil)
+		require.NoError(t, err)
+
+		_, err = upload.Write(testrand.Bytes(1 * memory.KiB))
+		require.NoError(t, err)
+
+		err = upload.Commit()
+		require.Error(t, err)
+	})
+}
