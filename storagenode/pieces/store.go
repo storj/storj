@@ -295,6 +295,8 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satellite, pieceID))
 	}
 
+	store.log.Debug("deleted piece", zap.String("satelliteID", satellite.String()), zap.String("pieceID", pieceID.String()))
+
 	return Error.Wrap(err)
 }
 

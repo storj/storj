@@ -378,7 +378,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		}
 		pieceID := access.PieceID()
 		if !filter.Contains(pieceID) {
-			s.log.Debug("About to delete piece id",
+			s.log.Debug("About to move piece to trash",
 				zap.Stringer("Satellite ID", satelliteID),
 				zap.Stringer("Piece ID", pieceID),
 				zap.String("Status", s.config.Status.String()))
@@ -408,7 +408,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		return Error.Wrap(err)
 	}
 	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numDeleted))
-	s.log.Debug("Deleted pieces during retain", zap.Int("num deleted", numDeleted), zap.String("Retain Status", s.config.Status.String()))
+	s.log.Debug("Moved pieces to trash during retain", zap.Int("num deleted", numDeleted), zap.String("Retain Status", s.config.Status.String()))
 
 	return nil
 }
