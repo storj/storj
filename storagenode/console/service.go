@@ -182,10 +182,25 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	data.DiskSpace = DiskSpaceInfo{
-		Used:      pieceTotal,
-		Available: s.allocatedDiskSpace.Int64(),
-		Trash:     trash,
+	// temporary solution - in case we receive negative amount of free space we recalculate dir disk available space and recalculates used space.
+	// TODO: find real reason of negative space, garbage collector calculates trash correctly.
+	if s.allocatedDiskSpace.Int64()-pieceTotal-trash < 0 {
+		status, err := s.pieceStore.StorageStatus(ctx)
+		if err != nil {
+			return nil, SNOServiceErr.Wrap(err)
+		}
+
+		data.DiskSpace = DiskSpaceInfo{
+			Used:      s.allocatedDiskSpace.Int64() - status.DiskFree - trash,
+			Available: s.allocatedDiskSpace.Int64(),
+			Trash:     trash,
+		}
+	} else {
+		data.DiskSpace = DiskSpaceInfo{
+			Used:      pieceTotal,
+			Available: s.allocatedDiskSpace.Int64(),
+			Trash:     trash,
+		}
 	}
 
 	data.Bandwidth = BandwidthInfo{
