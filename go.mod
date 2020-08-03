@@ -5,11 +5,12 @@ go 1.13
 require (
 	github.com/alessio/shellescape v0.0.0-20190409004728-b115ca0f9053
 	github.com/alicebob/miniredis/v2 v2.11.1
-	github.com/btcsuite/btcutil v1.0.1
-	github.com/calebcase/tmpfile v1.0.2-0.20200602150926-3af473ef8439
+	github.com/btcsuite/btcutil v1.0.2
+	github.com/calebcase/tmpfile v1.0.2
 	github.com/cheggaaa/pb/v3 v3.0.1
 	github.com/fatih/color v1.7.0
 	github.com/go-redis/redis v6.14.1+incompatible
+	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang-migrate/migrate/v4 v4.7.0
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/go-cmp v0.4.0
@@ -35,15 +36,15 @@ require (
 	github.com/zeebo/errs v1.2.2
 	go.etcd.io/bbolt v1.3.4
 	go.uber.org/zap v1.15.0
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
-	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
-	golang.org/x/sys v0.0.0-20200610111108-226ff32320da
+	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
+	golang.org/x/sys v0.0.0-20200808120158-1030fc2bf1d9
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
 	storj.io/common v0.0.0-20200810083036-275dbbe0bd21
 	storj.io/drpc v0.0.14
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
 	storj.io/private v0.0.0-20200729145012-46794d335b51
-	storj.io/uplink v1.1.3-0.20200720090036-c66d9eb21232
+	storj.io/uplink v1.2.0
 )
