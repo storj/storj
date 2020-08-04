@@ -102,7 +102,7 @@ func BenchmarkOverlay(b *testing.B) {
 					NodeID:       id,
 					AuditOutcome: outcome,
 					IsUp:         i&2 == 0,
-				})
+				}, testAuditHistoryConfig())
 				require.NoError(b, err)
 			}
 		})
@@ -122,7 +122,7 @@ func BenchmarkOverlay(b *testing.B) {
 				})
 
 			}
-			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100)
+			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100, testAuditHistoryConfig())
 			require.NoError(b, err)
 		})
 
@@ -277,7 +277,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 						AuditLambda:  1,
 						AuditWeight:  1,
 						AuditDQ:      0.5,
-					})
+					}, testAuditHistoryConfig())
 					require.NoError(b, err)
 				}
 

@@ -57,9 +57,9 @@ type DB interface {
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
-	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int) (failed storj.NodeIDList, err error)
+	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int, auditHistoryConfig AuditHistoryConfig) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
-	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
+	UpdateStats(ctx context.Context, request *UpdateRequest, auditHistoryConfig AuditHistoryConfig) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
@@ -430,7 +430,7 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.AuditsRequiredForVetting = service.config.Node.AuditCount
 		request.UptimesRequiredForVetting = service.config.Node.UptimeCount
 	}
-	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize)
+	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize, service.config.AuditHistory)
 }
 
 // UpdateStats all parts of single storagenode's stats.
@@ -445,7 +445,7 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.AuditsRequiredForVetting = service.config.Node.AuditCount
 	request.UptimesRequiredForVetting = service.config.Node.UptimeCount
 
-	return service.db.UpdateStats(ctx, request)
+	return service.db.UpdateStats(ctx, request, service.config.AuditHistory)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.

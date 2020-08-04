@@ -124,7 +124,7 @@ func TestSuspendFailedAudit(t *testing.T) {
 			AuditLambda:  1,
 			AuditWeight:  1,
 			AuditDQ:      0.6,
-		})
+		}, testAuditHistoryConfig())
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)

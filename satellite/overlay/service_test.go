@@ -53,6 +53,16 @@ func testNodeSelectionConfig(auditCount int64, newNodeFraction float64, distinct
 	}
 }
 
+// returns an AuditHistoryConfig with sensible test values.
+func testAuditHistoryConfig() overlay.AuditHistoryConfig {
+	return overlay.AuditHistoryConfig{
+		WindowSize:       time.Hour,
+		TrackingPeriod:   time.Hour,
+		GracePeriod:      time.Hour,
+		OfflineThreshold: 0,
+	}
+}
+
 func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	valid1ID := testrand.NodeID()
 	valid2ID := testrand.NodeID()
@@ -62,7 +72,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	lastNet := "127.0.0"
 
 	nodeSelectionConfig := testNodeSelectionConfig(0, 0, false)
-	serviceConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100}
+	serviceConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100, AuditHistory: testAuditHistoryConfig()}
 	service := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
 
 	d := overlay.NodeCheckInInfo{
@@ -190,7 +200,7 @@ func TestRandomizedSelection(t *testing.T) {
 					AuditLambda:  1,
 					AuditWeight:  1,
 					AuditDQ:      0.5,
-				})
+				}, testAuditHistoryConfig())
 				require.NoError(t, err)
 			}
 
@@ -311,7 +321,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 					AuditLambda:  1,
 					AuditWeight:  1,
 					AuditDQ:      0.5,
-				})
+				}, testAuditHistoryConfig())
 				require.NoError(t, err)
 			}
 
@@ -768,7 +778,7 @@ func TestSuspendedSelection(t *testing.T) {
 					AuditLambda:  1,
 					AuditWeight:  1,
 					AuditDQ:      0.5,
-				})
+				}, testAuditHistoryConfig())
 				require.NoError(t, err)
 			}
 
