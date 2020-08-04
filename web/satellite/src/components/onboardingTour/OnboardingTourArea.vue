@@ -65,7 +65,6 @@ import CloseImage from '@/../static/images/onboardingTour/close.svg';
 
 import { RouteConfig } from '@/router';
 import { TourState } from '@/utils/constants/onboardingTourEnums';
-import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
@@ -123,7 +122,7 @@ export default class OnboardingTourArea extends Vue {
      * Indicates if paywall is enabled.
      */
     public get isPaywallEnabled(): boolean {
-        return this.$store.state.paymentsModule.paywallEnabled;
+        return this.$store.state.paymentsModule.isPaywallEnabled;
     }
 
     /**

@@ -45,6 +45,8 @@ class NotificatorPlugin {
 const notificationsPlugin = new NotificatorPlugin();
 localVue.use(notificationsPlugin);
 
+const ANIMATION_COMPLETE_TIME = 600;
+
 describe('PaymentMethods', () => {
     it('renders correctly without card', () => {
         const wrapper = mount(PaymentMethods, {
@@ -72,8 +74,8 @@ describe('PaymentMethods', () => {
                 setTimeout(() => {
                     expect(wrapper).toMatchSnapshot();
                     done();
-                }, 500);
-            }, 500);
+                }, ANIMATION_COMPLETE_TIME);
+            }, ANIMATION_COMPLETE_TIME);
         });
     });
 
@@ -94,8 +96,8 @@ describe('PaymentMethods', () => {
                 setTimeout(() => {
                     expect(wrapper).toMatchSnapshot();
                     done();
-                }, 500);
-            }, 500);
+                }, ANIMATION_COMPLETE_TIME);
+            }, ANIMATION_COMPLETE_TIME);
         });
     });
 

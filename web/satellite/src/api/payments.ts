@@ -269,7 +269,7 @@ export class PaymentsHttpApi implements PaymentsApi {
                 throw new ErrorUnauthorized();
             }
 
-            throw new Error('can not process coin payment');
+            throw new Error('can not get paywall status');
         }
 
         return await response.json();

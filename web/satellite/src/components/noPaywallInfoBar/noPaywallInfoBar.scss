@@ -1,0 +1,39 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+.no-paywall-bar {
+    width: calc(100% - 60px);
+    padding: 0 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'font_regular', sans-serif;
+
+    &__message,
+    &__link {
+        font-weight: normal;
+        font-size: 14px;
+        line-height: 12px;
+        color: #fff;
+
+        &__bold {
+            margin-right: 5px;
+        }
+    }
+
+    &__link {
+        font-family: 'font_medium', sans-serif;
+    }
+}
+
+.blue {
+    background-color: #2582ff;
+}
+
+.orange {
+    background-color: #e67c00;
+}
+
+.red {
+    background-color: #e43e3e;
+}

@@ -88,7 +88,7 @@ export class PaymentsState {
     public priceSummary: number = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
-    public paywallEnabled: boolean = true;
+    public isPaywallEnabled: boolean = true;
 }
 
 /**
@@ -154,7 +154,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 state.priceSummary = usageItemSummaries.reduce((accumulator, current) => accumulator + current);
             },
             [SET_PAYWALL_ENABLED_STATUS](state: PaymentsState, paywallEnabledStatus: boolean): void {
-                state.paywallEnabled = paywallEnabledStatus;
+                state.isPaywallEnabled = paywallEnabledStatus;
             },
             [CLEAR](state: PaymentsState) {
                 state.balance = new AccountBalance();
@@ -164,7 +164,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 state.creditCards = [];
                 state.startDate = new Date();
                 state.endDate = new Date();
-                state.paywallEnabled = true;
+                state.isPaywallEnabled = true;
             },
         },
         actions: {
