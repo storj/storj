@@ -156,12 +156,14 @@ func (service *Service) worker(ctx context.Context, seg *queue.InjuredSegment) (
 
 	service.log.Debug("Limiter running repair on segment")
 	// note that shouldDelete is used even in the case where err is not null
-	shouldDelete, err := service.repairer.Repair(ctx, seg)
+	shouldDelete, repairPerformed, err := service.repairer.Repair(ctx, seg)
 	if shouldDelete {
 		if err != nil {
 			service.log.Error("unexpected error repairing segment!", zap.Error(err))
-		} else {
+		} else if repairPerformed {
 			service.log.Debug("removing repaired segment from repair queue")
+		} else {
+			service.log.Debug("removing segment from repair queue; repair unnecessary")
 		}
 		if shouldDelete {
 			delErr := service.queue.Delete(ctx, seg)
@@ -174,9 +176,11 @@ func (service *Service) worker(ctx context.Context, seg *queue.InjuredSegment) (
 		return Error.Wrap(err)
 	}
 
-	repairedTime := service.nowFn().UTC()
-	timeForRepair := repairedTime.Sub(workerStartTime)
-	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds()) //mon:locked
+	if repairPerformed {
+		repairedTime := service.nowFn().UTC()
+		timeForRepair := repairedTime.Sub(workerStartTime)
+		mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds()) //mon:locked
+	}
 
 	insertedTime := seg.InsertedAt
 	// do not send metrics if segment was added before the InsertedTime field was added

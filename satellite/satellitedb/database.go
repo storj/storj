@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"storj.io/storj/satellite/repair/coordinator"
 
 	"storj.io/common/lrucache"
 	"storj.io/private/dbutil"
@@ -78,7 +79,8 @@ var safelyPartitionableDBs = map[string]bool{
 	// WARNING: only list additional db names here after they have been
 	// validated to be safely partitionable and that they do not do
 	// cross-db queries.
-	"repairqueue": true,
+	"repairqueue":   true,
+	"repairjoblist": true,
 }
 
 // Open creates instance of satellite.DB.
@@ -194,6 +196,11 @@ func (dbc *satelliteDBCollection) Reputation() reputation.DB {
 // RepairQueue is a getter for RepairQueue repository.
 func (dbc *satelliteDBCollection) RepairQueue() queue.RepairQueue {
 	return &repairQueue{db: dbc.getByName("repairqueue")}
+}
+
+// RepairJobList is a getter for the repair coordinator delegated job list database.
+func (db *satelliteDBCollection) RepairJobList() coordinator.JobListDB {
+	return &repairJobListDB{db: db.getByName("repairjoblist")}
 }
 
 // StoragenodeAccounting returns database for tracking storagenode usage.

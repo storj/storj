@@ -42,6 +42,8 @@ import (
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/coordinator"
+	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
@@ -83,6 +85,8 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
+	// RepairJobList returns database for tracking ongoing delegated repair jobs
+	RepairJobList() coordinator.JobListDB
 	// Console returns database for satellite console
 	Console() console.DB
 	// Orders returns database for orders
@@ -97,7 +101,7 @@ type DB interface {
 	StripeCoinPayments() stripecoinpayments.DB
 	// SnoPayout returns database for payouts.
 	SNOPayouts() snopayouts.DB
-	// Compoensation tracks storage node compensation
+	// Compensation tracks storage node compensation
 	Compensation() compensation.DB
 	// Revocation tracks revoked macaroons
 	Revocation() revocation.DB
@@ -122,9 +126,10 @@ type Config struct {
 
 	Reputation reputation.Config
 
-	Checker  checker.Config
-	Repairer repairer.Config
-	Audit    audit.Config
+	Checker     checker.Config
+	Repairer    repairer.Config
+	Audit       audit.Config
+	Coordinator coordinator.Config
 
 	GarbageCollection gc.Config
 

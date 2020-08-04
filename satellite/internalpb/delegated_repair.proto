@@ -55,7 +55,10 @@ message RepairJobResult {
     // Identifier for this job, as given in RepairJobResponse
     bytes job_id = 1;
     // Set nonzero only if the segment could not be reconstructed because of
-    // too few pieces available.
+    // too few pieces available. Set to the number of pieces that _could_ be
+    // retrieved. (This name ends up being confusing because it sounds like
+    // "how many irreparable pieces were retrieved" but really it's "the
+    // segment is irreparable; we got this many pieces". Suggestions welcome.)
     int32 irreparable_pieces_retrieved = 2;
     // Set only if the segment could not be reconstructed.
     string reconstruct_error = 3;

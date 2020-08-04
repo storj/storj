@@ -229,7 +229,10 @@ type RepairJobResult struct {
 	// Identifier for this job, as given in RepairJobResponse
 	JobId []byte `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	// Set nonzero only if the segment could not be reconstructed because of
-	// too few pieces available.
+	// too few pieces available. Set to the number of pieces that _could_ be
+	// retrieved. (This name ends up being confusing because it sounds like
+	// "how many irreparable pieces were retrieved" but really it's "the
+	// segment is irreparable; we got this many pieces". Suggestions welcome.)
 	IrreparablePiecesRetrieved int32 `protobuf:"varint,2,opt,name=irreparable_pieces_retrieved,json=irreparablePiecesRetrieved,proto3" json:"irreparable_pieces_retrieved,omitempty"`
 	// Set only if the segment could not be reconstructed.
 	ReconstructError string `protobuf:"bytes,3,opt,name=reconstruct_error,json=reconstructError,proto3" json:"reconstruct_error,omitempty"`

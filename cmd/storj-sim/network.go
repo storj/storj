@@ -71,9 +71,10 @@ const (
 	debugCoreHTTP  = 7
 
 	// Satellite worker specific constants.
-	debugMigrationHTTP = 0
-	debugRepairerHTTP  = 1
-	debugGCHTTP        = 2
+	debugMigrationHTTP         = 0
+	debugRepairerHTTP          = 1
+	debugGCHTTP                = 2
+	debugRepairCoordinatorHTTP = 3
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -426,6 +427,21 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			},
 		})
 		adminProcess.WaitForExited(migrationProcess)
+
+		repairCoordinatorProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-repair-coordinator/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+		})
+		repairCoordinatorProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
+			"run": {
+				"repair-coordinator",
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairCoordinatorHTTP)),
+				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
+				"--coordinator.authorized-worker-ids", "foo,bar,baz",
+			},
+		})
+		repairCoordinatorProcess.WaitForExited(migrationProcess)
 
 		repairProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-repairer/%d", i),

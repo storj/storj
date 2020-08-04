@@ -265,8 +265,9 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 			StreamID: objectsBefore[0].StreamID,
 			Position: metabase.SegmentPosition{Index: 0},
 		}
-		_, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, &queueSegment)
+		_, ok, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, &queueSegment)
 		require.NoError(t, err)
+		require.True(t, ok)
 
 		// get the only metainfo record (our upload)
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)

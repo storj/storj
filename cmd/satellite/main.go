@@ -105,6 +105,11 @@ var (
 		Short: "Run the repair service",
 		RunE:  cmdRepairerRun,
 	}
+	runRepairCoordinatorCmd = &cobra.Command{
+		Use:   "repair-coordinator",
+		Short: "Run the repair coordinator service",
+		RunE:  cmdRepairCoordinatorRun,
+	}
 	runAdminCmd = &cobra.Command{
 		Use:   "admin",
 		Short: "Run the satellite Admin",
@@ -306,6 +311,7 @@ func init() {
 	runCmd.AddCommand(runAPICmd)
 	runCmd.AddCommand(runAdminCmd)
 	runCmd.AddCommand(runRepairerCmd)
+	runCmd.AddCommand(runRepairCoordinatorCmd)
 	runCmd.AddCommand(runGCCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(qdiagCmd)
@@ -334,6 +340,7 @@ func init() {
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAdminCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runRepairCoordinatorCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(restoreTrashCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(registerLostSegments, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))

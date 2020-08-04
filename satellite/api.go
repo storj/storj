@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/repair/coordinator"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/snopayouts"
@@ -110,6 +111,10 @@ type API struct {
 
 	Inspector struct {
 		Endpoint *inspector.Endpoint
+	}
+
+	Repair struct {
+		Coordinator *coordinator.Endpoint
 	}
 
 	Accounting struct {
@@ -431,6 +436,17 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "metainfo:endpoint",
 			Close: peer.Metainfo.Endpoint.Close,
 		})
+	}
+
+	{ // setup targeted repair coordinator
+		var err error
+		peer.Repair.Coordinator, err = coordinator.NewEndpoint(peer.Log.Named("repair-coordinator"), config.Coordinator, peer.DB.RepairQueue(), peer.DB.RepairJobList())
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err := internalpb.DRPCRegisterRepairCoordinator(peer.Server.DRPC(), peer.Repair.Coordinator); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{ // setup inspector
