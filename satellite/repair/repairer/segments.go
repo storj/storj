@@ -216,7 +216,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		RequestedCount: requestCount,
 		ExcludedIDs:    excludeNodeIDs,
 	}
-	newNodes, err := repairer.overlay.FindStorageNodesForRepair(ctx, request)
+	newNodes, err := repairer.overlay.FindStorageNodesForUpload(ctx, request)
 	if err != nil {
 		return false, overlayQueryError.Wrap(err)
 	}
