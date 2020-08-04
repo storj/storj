@@ -198,21 +198,23 @@ type ProcessOrderResponse struct {
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log                 *zap.Logger
-	satelliteSignee     signing.Signee
-	DB                  DB
-	nodeAPIVersionDB    nodeapiversion.DB
-	settlementBatchSize int
+	log                        *zap.Logger
+	satelliteSignee            signing.Signee
+	DB                         DB
+	nodeAPIVersionDB           nodeapiversion.DB
+	settlementBatchSize        int
+	windowEndpointRolloutPhase WindowEndpointRolloutPhase
 }
 
 // NewEndpoint new orders receiving endpoint.
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, settlementBatchSize int) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, settlementBatchSize int, windowEndpointRolloutPhase WindowEndpointRolloutPhase) *Endpoint {
 	return &Endpoint{
-		log:                 log,
-		satelliteSignee:     satelliteSignee,
-		DB:                  db,
-		nodeAPIVersionDB:    nodeAPIVersionDB,
-		settlementBatchSize: settlementBatchSize,
+		log:                        log,
+		satelliteSignee:            satelliteSignee,
+		DB:                         db,
+		nodeAPIVersionDB:           nodeAPIVersionDB,
+		settlementBatchSize:        settlementBatchSize,
+		windowEndpointRolloutPhase: windowEndpointRolloutPhase,
 	}
 }
 
@@ -238,6 +240,14 @@ func monitoredSettlementStreamSend(ctx context.Context, stream pb.DRPCOrders_Set
 func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+
+	switch endpoint.windowEndpointRolloutPhase {
+	case WindowEndpointRolloutPhase1:
+	case WindowEndpointRolloutPhase2, WindowEndpointRolloutPhase3:
+		return rpcstatus.Error(rpcstatus.Unavailable, "endpoint disabled")
+	default:
+		return rpcstatus.Error(rpcstatus.Internal, "invalid window endpoint rollout phase")
+	}
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
@@ -390,13 +400,128 @@ type bucketIDAction struct {
 // Only one window is processed at a time.
 // Batches are atomic, all orders are settled successfully or they all fail.
 func (endpoint *Endpoint) SettlementWithWindow(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
+	switch endpoint.windowEndpointRolloutPhase {
+	case WindowEndpointRolloutPhase1, WindowEndpointRolloutPhase2:
+		return endpoint.SettlementWithWindowMigration(stream)
+	case WindowEndpointRolloutPhase3:
+		return endpoint.SettlementWithWindowFinal(stream)
+	default:
+		return rpcstatus.Error(rpcstatus.Internal, "invalid window endpoint rollout phase")
+	}
+}
+
+// SettlementWithWindowMigration implements phase 1 and phase 2 of the windowed order rollout where
+// it uses the same backend as the non-windowed settlement and inserts entries containing 0 for
+// the window which ensures that it is either entirely handled by the queue or entirely handled by
+// the phase 3 endpoint.
+func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: remove once the storagenode side of this endpoint is implemented
-	if true {
-		return rpcstatus.Error(rpcstatus.Unimplemented, "endpoint not supporrted")
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		endpoint.log.Debug("err peer identity from context", zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
+
+	err = endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	log := endpoint.log.Named(peer.ID.String())
+	log.Debug("SettlementWithWindow")
+
+	var receivedCount int
+	var window int64
+	var actions = map[pb.PieceAction]struct{}{}
+	var requests []*ProcessOrderRequest
+	var finished bool
+
+	for !finished {
+		requests = requests[:0]
+
+		for len(requests) < endpoint.settlementBatchSize {
+			request, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					finished = true
+					break
+				}
+				log.Debug("err streaming order request", zap.Error(err))
+				return rpcstatus.Error(rpcstatus.Unknown, err.Error())
+			}
+			receivedCount++
+
+			orderLimit := request.Limit
+			if orderLimit == nil {
+				log.Debug("request.OrderLimit is nil")
+				continue
+			}
+
+			order := request.Order
+			if order == nil {
+				log.Debug("request.Order is nil")
+				continue
+			}
+
+			if window == 0 {
+				window = date.TruncateToHourInNano(orderLimit.OrderCreation)
+			}
+
+			// don't process orders that aren't valid
+			if !endpoint.isValid(ctx, log, order, orderLimit, peer.ID, window) {
+				continue
+			}
+
+			actions[orderLimit.Action] = struct{}{}
+
+			requests = append(requests, &ProcessOrderRequest{
+				Order:      order,
+				OrderLimit: orderLimit,
+			})
+		}
+
+		// process all of the orders in the old way
+		_, err = endpoint.DB.ProcessOrders(ctx, requests)
+		if err != nil {
+			return rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+	}
+
+	// if we received no valid orders, then respond with rejected
+	if len(actions) == 0 || window == 0 {
+		return stream.SendAndClose(&pb.SettlementWithWindowResponse{
+			Status: pb.SettlementWithWindowResponse_REJECTED,
+		})
+	}
+
+	// insert zero rows for every action involved in the set of orders. this prevents
+	// many problems (double spends and underspends) by ensuring that any window is
+	// either handled entirely by the queue or entirely with the phase 3 windowed endpoint.
+	windowTime := time.Unix(0, window)
+	for action := range actions {
+		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, peer.ID, action, 0, windowTime); err != nil {
+			return rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+	}
+
+	log.Debug("orders processed",
+		zap.Int("total orders received", receivedCount),
+		zap.Time("window", windowTime),
+	)
+
+	return stream.SendAndClose(&pb.SettlementWithWindowResponse{
+		Status: pb.SettlementWithWindowResponse_ACCEPTED,
+	})
+}
+
+// SettlementWithWindowFinal processes all orders that were created in a 1 hour window.
+// Only one window is processed at a time.
+// Batches are atomic, all orders are settled successfully or they all fail.
+func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
+	ctx := stream.Context()
+	defer mon.Task()(&ctx)(&err)
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
@@ -495,7 +620,7 @@ func (endpoint *Endpoint) SettlementWithWindow(stream pb.DRPCOrders_SettlementWi
 		zap.String("status", status.String()),
 	)
 
-	if !alreadyProcessed {
+	if status == pb.SettlementWithWindowResponse_ACCEPTED && !alreadyProcessed {
 		for bucketIDAction, amount := range bucketSettled {
 			err = endpoint.DB.UpdateBucketBandwidthSettle(ctx,
 				bucketIDAction.projectID, []byte(bucketIDAction.bucketname), bucketIDAction.action, amount, time.Unix(0, window),

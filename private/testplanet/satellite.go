@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
+	"storj.io/storj/satellite/metainfo/objectdeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
@@ -414,6 +415,12 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					Staleness: 3 * time.Minute,
 				},
 				UpdateStatsBatchSize: 100,
+				AuditHistory: overlay.AuditHistoryConfig{
+					WindowSize:       10 * time.Minute,
+					TrackingPeriod:   time.Hour,
+					GracePeriod:      time.Hour,
+					OfflineThreshold: 0.6,
+				},
 			},
 			Metainfo: metainfo.Config{
 				DatabaseURL:          "", // not used
@@ -460,13 +467,18 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					RequestTimeout: 2 * time.Second,
 					FailThreshold:  2 * time.Second,
 				},
+				ObjectDeletion: objectdeletion.Config{
+					MaxObjectsPerRequest:     100,
+					ZombieSegmentsPerRequest: 3,
+				},
 			},
 			Orders: orders.Config{
-				Expiration:          7 * 24 * time.Hour,
-				SettlementBatchSize: 10,
-				FlushBatchSize:      10,
-				FlushInterval:       defaultInterval,
-				NodeStatusLogging:   true,
+				Expiration:                 7 * 24 * time.Hour,
+				SettlementBatchSize:        10,
+				FlushBatchSize:             10,
+				FlushInterval:              defaultInterval,
+				NodeStatusLogging:          true,
+				WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase1,
 			},
 			Checker: checker.Config{
 				Interval:                  defaultInterval,

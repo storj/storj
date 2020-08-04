@@ -6,7 +6,6 @@ package metainfo_test
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"sort"
 	"strconv"
 	"testing"
@@ -453,92 +452,6 @@ func TestExpirationTimeSegment(t *testing.T) {
 				assert.NoError(t, err)
 			}
 		}
-	})
-}
-
-func TestAttributionReport(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		const (
-			bucketName = "test"
-			filePath   = "path"
-		)
-
-		uplinkConfig := uplink.Config{
-			UserAgent: "Zenko/1.0",
-		}
-
-		projectInfo := planet.Uplinks[0].Projects[0]
-
-		access, err := uplink.RequestAccessWithPassphrase(ctx, projectInfo.Satellite.URL(), projectInfo.APIKey, "mypassphrase")
-		require.NoError(t, err)
-
-		project, err := uplinkConfig.OpenProject(ctx, access)
-		require.NoError(t, err)
-
-		_, err = project.EnsureBucket(ctx, bucketName)
-		require.NoError(t, err)
-
-		{ // upload test-data
-
-			upload, err := project.UploadObject(ctx, bucketName, filePath, nil)
-			require.NoError(t, err)
-
-			_, err = upload.Write(testrand.Bytes(5 * memory.KiB))
-			require.NoError(t, err)
-
-			err = upload.Commit()
-			require.NoError(t, err)
-		}
-
-		{ // download test-data
-
-			download, err := project.DownloadObject(ctx, bucketName, filePath, nil)
-			require.NoError(t, err)
-
-			_, err = ioutil.ReadAll(download)
-			require.NoError(t, err)
-
-			err = download.Close()
-			require.NoError(t, err)
-		}
-
-		{ // Flush all the pending information through the system.
-			// Calculate the usage used for upload
-			for _, sn := range planet.StorageNodes {
-				sn.Storage2.Orders.Sender.TriggerWait()
-			}
-
-			rollout := planet.Satellites[0].Core.Accounting.ReportedRollupChore
-			require.NoError(t, rollout.RunOnce(ctx, time.Now()))
-
-			// Trigger tally so it gets all set up and can return a storage usage
-			planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
-		}
-
-		{
-			before := time.Now().Add(-time.Hour)
-			after := before.Add(2 * time.Hour)
-
-			projectID := projectInfo.ID
-
-			usage, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectTotal(ctx, projectID, before, after)
-			require.NoError(t, err)
-			require.NotZero(t, usage.Egress)
-
-			partner, err := planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "Zenko")
-			require.NoError(t, err)
-
-			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
-			require.NoError(t, err)
-			require.NotZero(t, rows[0].RemoteBytesPerHour)
-			require.Equal(t, rows[0].EgressData, usage.Egress)
-		}
-
 	})
 }
 

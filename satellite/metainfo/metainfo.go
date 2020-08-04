@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo/objectdeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metainfo/pointerverification"
 	"storj.io/storj/satellite/orders"
@@ -69,6 +70,7 @@ type Endpoint struct {
 	log                  *zap.Logger
 	metainfo             *Service
 	deletePieces         *piecedeletion.Service
+	deleteObjects        *objectdeletion.Service
 	orders               *orders.Service
 	overlay              *overlay.Service
 	attributions         attribution.DB
@@ -100,10 +102,15 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	if err != nil {
 		return nil, err
 	}
+	objectDeletion, err := objectdeletion.NewService(log, metainfo, config.ObjectDeletion)
+	if err != nil {
+		return nil, err
+	}
 	return &Endpoint{
 		log:                 log,
 		metainfo:            metainfo,
 		deletePieces:        deletePieces,
+		deleteObjects:       objectDeletion,
 		orders:              orders,
 		overlay:             cache,
 		attributions:        attributions,

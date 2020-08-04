@@ -321,6 +321,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Orders.DB,
 			peer.DB.NodeAPIVersion(),
 			config.Orders.SettlementBatchSize,
+			config.Orders.WindowEndpointRolloutPhase,
 		)
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),

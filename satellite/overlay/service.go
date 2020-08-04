@@ -301,15 +301,6 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
 }
 
-// FindStorageNodesForRepair searches the overlay network for nodes that meet the provided requirements for repair.
-//
-// The main difference from FindStorageNodesForUpload is that here we filter out all nodes that share a subnet with any node in req.ExcludedIDs.
-// This additional complexity is not needed for other uses of finding storage nodes.
-func (service *Service) FindStorageNodesForRepair(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
-}
-
 // FindStorageNodesForGracefulExit searches the overlay network for nodes that meet the provided requirements for graceful-exit requests.
 //
 // The main difference between this method and the normal FindStorageNodes is that here we avoid using the cache.

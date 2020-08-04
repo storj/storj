@@ -76,6 +76,29 @@ func NewService(log *zap.Logger, pointerDB PointerDB, config Config) (*Service, 
 	}, nil
 }
 
+// Delete run a batch deletion returning a list of pointers and paths.
+func (service *Service) Delete(ctx context.Context, requests ...*ObjectIdentifier) (pointers []*pb.Pointer, paths [][]byte, err error) {
+	defer mon.Task()(&ctx, len(requests))(&err)
+
+	for len(requests) > 0 {
+		batchSize := len(requests)
+		if batchSize > service.config.MaxObjectsPerRequest {
+			batchSize = service.config.MaxObjectsPerRequest
+		}
+
+		deletedPointers, deletedPaths, err := service.DeletePointers(ctx, requests[:batchSize])
+		if err != nil {
+			return pointers, paths, Error.Wrap(err)
+		}
+
+		pointers = append(pointers, deletedPointers...)
+		paths = append(paths, deletedPaths...)
+		requests = requests[batchSize:]
+	}
+
+	return pointers, paths, nil
+}
+
 // DeletePointers returns a list of pointers and their paths that are deleted.
 // If a object is not found, we will consider it as a successful delete.
 func (service *Service) DeletePointers(ctx context.Context, requests []*ObjectIdentifier) (_ []*pb.Pointer, _ [][]byte, err error) {

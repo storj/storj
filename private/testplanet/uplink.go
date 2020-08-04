@@ -33,6 +33,7 @@ type Uplink struct {
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
 	Dialer   rpc.Dialer
+	Config   uplink.Config
 
 	APIKey map[storj.NodeID]*macaroon.APIKey
 	Access map[storj.NodeID]*uplink.Access
@@ -325,7 +326,7 @@ func (client *Uplink) DeleteBucket(ctx context.Context, satellite *Satellite, bu
 func (client *Uplink) GetProject(ctx context.Context, satellite *Satellite) (*uplink.Project, error) {
 	access := client.Access[satellite.ID()]
 
-	project, err := uplink.OpenProject(ctx, access)
+	project, err := client.Config.OpenProject(ctx, access)
 	if err != nil {
 		return nil, err
 	}
