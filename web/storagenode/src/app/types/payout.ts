@@ -37,6 +37,7 @@ export class HeldInfo {
         public owed: number = 0,
         public disposed: number = 0,
         public paid: number = 0,
+        public paidWithoutSurge: number = 0,
     ) {}
 }
 
