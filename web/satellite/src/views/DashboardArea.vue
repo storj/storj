@@ -6,11 +6,12 @@
         <div v-if="isLoading" class="loading-overlay active">
             <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Company logo loading gif">
         </div>
-        <div v-else class="dashboard-container__wrap">
+        <NoPaywallInfoBar v-if="isNoPaywallInfoBarShown && !isLoading"/>
+        <div v-if="!isLoading" class="dashboard-container__wrap">
             <NavigationArea class="regular-navigation"/>
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader/>
-                <div class="dashboard-container__main-area">
+                <div class="dashboard-container__main-area" :class="{ extended: isNoPaywallInfoBarShown }">
                     <div class="dashboard-container__main-area__bar-area">
                         <VInfoBar
                             v-if="isInfoBarShown"
@@ -38,6 +39,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import VInfoBar from '@/components/common/VInfoBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import NoPaywallInfoBar from '@/components/noPaywallInfoBar/NoPaywallInfoBar.vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
@@ -72,6 +74,7 @@ const {
         NavigationArea,
         DashboardHeader,
         VInfoBar,
+        NoPaywallInfoBar,
     },
 })
 export default class DashboardArea extends Vue {
@@ -204,6 +207,17 @@ export default class DashboardArea extends Vue {
     }
 
     /**
+     * Indicates if no paywall info bar is shown.
+     */
+    public get isNoPaywallInfoBarShown(): boolean {
+        const isOnboardingTour: boolean = this.$route.name === RouteConfig.OnboardingTour.name;
+
+        return !this.isPaywallEnabled && !isOnboardingTour &&
+            this.$store.state.paymentsModule.balance.coins === 0 &&
+            this.$store.state.paymentsModule.creditCards.length === 0;
+    }
+
+    /**
      * Indicates if info bar is shown.
      */
     public get isInfoBarShown(): boolean {
@@ -252,6 +266,13 @@ export default class DashboardArea extends Vue {
     public get isLoading(): boolean {
         return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
     }
+
+    /**
+     * Indicates if paywall is enabled.
+     */
+    private get isPaywallEnabled(): boolean {
+        return this.$store.state.paymentsModule.isPaywallEnabled;
+    }
 }
 </script>
 
@@ -292,6 +313,10 @@ export default class DashboardArea extends Vue {
                 flex: 1 1 auto;
             }
         }
+    }
+
+    .extended {
+        height: calc(100vh - 90px);
     }
 
     @media screen and (max-width: 1280px) {

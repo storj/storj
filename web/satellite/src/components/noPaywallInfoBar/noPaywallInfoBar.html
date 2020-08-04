@@ -1,0 +1,18 @@
+<!--Copyright (C) 2020 Storj Labs, Inc.-->
+<!--See LICENSE for copying information.-->
+
+<div class="no-paywall-bar" :class="{ blue: isDefaultMessage, orange: isWarningMessage, red: isErrorMessage }">
+    <p class="no-paywall-bar__message" v-if="isDefaultMessage">
+        <b class="no-paywall-bar__message__bold">Try Storj with 50 GB Free.</b>
+        <span>Add a payment method to keep experiencing Storj after your trial.</span>
+    </p>
+    <p class="no-paywall-bar__message" v-if="isWarningMessage">
+        <b class="no-paywall-bar__message__bold">Your 50 GB trial is running out soon!</b>
+        <span>Add a payment method to keep experiencing Storj.</span>
+    </p>
+    <p class="no-paywall-bar__message" v-if="isErrorMessage">
+        <b class="no-paywall-bar__message__bold">Your 50 GB trial has run out!</b>
+        <span>Add a payment method to keep experiencing Storj.</span>
+    </p>
+    <router-link class="no-paywall-bar__link" :to="billingPath">Add a Payment Method -></router-link>
+</div>

@@ -110,7 +110,9 @@ export class PaymentAmountOption {
     ) {}
 }
 
-// BillingHistoryItem holds all public information about billing history line.
+/**
+ * PaymentsHistoryItem holds all public information about payments history line.
+ */
 export class PaymentsHistoryItem {
     public constructor(
         public readonly id: string = '',
@@ -135,6 +137,17 @@ export class PaymentsHistoryItem {
 
     public get formattedStatus(): string {
         return this.status.charAt(0).toUpperCase() + this.status.substring(1);
+    }
+
+    /**
+     * RemainingAmountPercentage will return remaining amount of item in percentage.
+     */
+    public remainingAmountPercentage(): number {
+        if (this.amount === 0) {
+            return 0;
+        }
+
+        return this.remaining / this.amount * 100;
     }
 
     private amountDollars(amount): number {

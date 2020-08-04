@@ -180,11 +180,3 @@ a {
         height: calc(100vh - 70px);
     }
 }
-
-@media screen and (max-height: 700px) {
-
-    .navigation-area {
-        padding: 20px 0;
-        height: calc(100vh - 40px);
-    }
-}

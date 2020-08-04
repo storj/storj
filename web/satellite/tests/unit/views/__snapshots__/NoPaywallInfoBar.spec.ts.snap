@@ -1,0 +1,25 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`NoPaywallInfoBar.vue renders correctly with less than 75% usage 1`] = `
+<div class="no-paywall-bar blue">
+  <p class="no-paywall-bar__message"><b class="no-paywall-bar__message__bold">Try Storj with 50 GB Free.</b> <span>Add a payment method to keep experiencing Storj after your trial.</span></p>
+  <!---->
+  <!----> <a href="/account/billing" class="no-paywall-bar__link">Add a Payment Method -&gt;</a>
+</div>
+`;
+
+exports[`NoPaywallInfoBar.vue renders correctly with more than 75% usage 1`] = `
+<div class="no-paywall-bar orange">
+  <!---->
+  <p class="no-paywall-bar__message"><b class="no-paywall-bar__message__bold">Your 50 GB trial is running out soon!</b> <span>Add a payment method to keep experiencing Storj.</span></p>
+  <!----> <a href="/account/billing" class="no-paywall-bar__link">Add a Payment Method -&gt;</a>
+</div>
+`;
+
+exports[`NoPaywallInfoBar.vue renders correctly with used coupon 1`] = `
+<div class="no-paywall-bar red">
+  <!---->
+  <!---->
+  <p class="no-paywall-bar__message"><b class="no-paywall-bar__message__bold">Your 50 GB trial has run out!</b> <span>Add a payment method to keep experiencing Storj.</span></p> <a href="/account/billing" class="no-paywall-bar__link">Add a Payment Method -&gt;</a>
+</div>
+`;
