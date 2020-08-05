@@ -3,7 +3,7 @@
 exports[`PaymentsItem renders correctly if charge 1`] = `
 <div class="container">
   <div class="countdown-container container__item date">
-    <div>December 31, 1969</div>
+    <div>January 01, 1970</div>
   </div>
   <p class="container__item description">Charge</p>
   <p class="container__item status">Test</p>
@@ -21,7 +21,7 @@ exports[`PaymentsItem renders correctly if charge 1`] = `
 exports[`PaymentsItem renders correctly if invoice 1`] = `
 <div class="container">
   <div class="countdown-container container__item date">
-    <div>December 31, 1969</div>
+    <div>January 01, 1970</div>
   </div>
   <p class="container__item description">Invoice</p>
   <p class="container__item status">Test</p>
@@ -39,7 +39,7 @@ exports[`PaymentsItem renders correctly if invoice 1`] = `
 exports[`PaymentsItem renders correctly if transaction 1`] = `
 <div class="container">
   <div class="countdown-container container__item date">
-    <div>December 31, 1969</div>
+    <div>January 01, 1970</div>
   </div>
   <p class="container__item description">Transaction</p>
   <p class="container__item status">Test</p>
