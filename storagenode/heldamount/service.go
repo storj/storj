@@ -237,6 +237,7 @@ type PayoutHistory struct {
 	Held           int64  `json:"held"`
 	AfterHeld      int64  `json:"afterHeld"`
 	Disposed       int64  `json:"disposed"`
+	Paid           int64  `json:"paid"`
 	Receipt        string `json:"receipt"`
 	IsExitComplete bool   `json:"isExitComplete"`
 }
@@ -283,16 +284,20 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 			paystub.SurgePercent = 100
 		}
 
+		earned := paystub.CompGetAudit + paystub.CompGet + paystub.CompGetRepair + paystub.CompAtRest
+		surge := earned * paystub.SurgePercent / 100
+
 		payoutHistory.Held = paystub.Held
 		payoutHistory.Receipt = paystub.Receipt
-		payoutHistory.AfterHeld = paystub.Paid
+		payoutHistory.Surge = surge
+		payoutHistory.AfterHeld = surge - paystub.Held
 		payoutHistory.Age = int64(date.MonthsCountSince(stats.JoinedAt))
 		payoutHistory.Disposed = paystub.Disposed
-		payoutHistory.Surge = paystub.Paid * (paystub.SurgePercent/100 - 1)
-		payoutHistory.Earned = paystub.Paid
+		payoutHistory.Earned = earned
 		payoutHistory.SatelliteID = satelliteIDs[i].String()
 		payoutHistory.SurgePercent = paystub.SurgePercent
 		payoutHistory.SatelliteURL = url.Address
+		payoutHistory.Paid = paystub.Paid
 
 		result = append(result, payoutHistory)
 	}
