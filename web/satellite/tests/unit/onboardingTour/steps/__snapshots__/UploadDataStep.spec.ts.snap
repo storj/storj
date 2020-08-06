@@ -31,7 +31,7 @@ exports[`UploadDataStep.vue renders correctly 1`] = `
         </h3>
         <p class="upload-data-area__container__docs-area__option__info">
           Start uploading data from the command line.
-        </p> <a href="https://documentation.tardigrade.io/api-reference/uplink-cli" target="_blank" rel="noopener noreferrer" class="upload-data-area__container__docs-area__option__link">
+        </p> <a href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli" target="_blank" rel="noopener noreferrer" class="upload-data-area__container__docs-area__option__link">
           Uplink CLI Docs
         </a>
       </div>
