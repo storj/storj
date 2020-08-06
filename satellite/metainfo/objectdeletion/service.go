@@ -115,7 +115,6 @@ func (service *Service) Delete(ctx context.Context, requests ...*ObjectIdentifie
 	}
 
 	return reports, nil
-
 }
 
 // DeletePointers returns a list of pointers and their paths that are deleted.

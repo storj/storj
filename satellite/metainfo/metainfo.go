@@ -42,6 +42,7 @@ import (
 const (
 	satIDExpiration = 48 * time.Hour
 	lastSegment     = -1
+	firstSegment    = 0
 	listLimit       = 1000
 
 	deleteObjectPiecesSuccessThreshold = 0.75
@@ -400,9 +401,12 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	})
 	canList := err == nil
 
-	var bucket storj.Bucket
+	var (
+		bucket     storj.Bucket
+		convBucket *pb.Bucket
+	)
 	if canRead || canList {
-		// Info about deleted bucket is returned only if either Read, or List permission is granted
+		// Info about deleted bucket is returned only if either Read, or List permission is granted.
 		bucket, err = endpoint.metainfo.GetBucket(ctx, req.Name, keyInfo.ProjectID)
 		if err != nil {
 			if storj.ErrBucketNotFound.Has(err) {
@@ -410,28 +414,105 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 			}
 			return nil, err
 		}
+
+		convBucket, err = convertBucketToProto(bucket, endpoint.redundancyScheme())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = endpoint.metainfo.DeleteBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
 		if !canRead && !canList {
-			// No error info is returned if neither Read, nor List permission is granted
+			// No error info is returned if neither Read, nor List permission is granted.
 			return &pb.BucketDeleteResponse{}, nil
 		}
 		if ErrBucketNotEmpty.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
-		} else if storj.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+			// List permission is required to delete all objects in a bucket.
+			if !req.GetDeleteAll() || !canList {
+				return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+			}
+
+			_, deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, keyInfo.ProjectID, req.Name)
+			if err != nil {
+				return nil, err
+			}
+
+			return &pb.BucketDeleteResponse{Bucket: convBucket, DeletedObjectsCount: int64(deletedObjCount)}, nil
+		}
+		if storj.ErrBucketNotFound.Has(err) {
+			return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
 		}
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	convBucket, err := convertBucketToProto(bucket, endpoint.redundancyScheme())
+	return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
+}
+
+// deleteBucketNotEmpty deletes all objects that're complete or have first segment.
+// On success, it returns only the number of complete objects that has been deleted
+// since from the user's perspective, objects without last segment are invisible.
+func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) ([]byte, int, error) {
+	// Delete all objects that has last segment.
+	deletedCount, err := endpoint.deleteByPrefix(ctx, projectID, bucketName, lastSegment)
 	if err != nil {
-		return nil, err
+		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+	// Delete all zombie objects that have first segment.
+	_, err = endpoint.deleteByPrefix(ctx, projectID, bucketName, firstSegment)
+	if err != nil {
+		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
+	err = endpoint.metainfo.DeleteBucket(ctx, bucketName, projectID)
+	if err != nil {
+		if ErrBucketNotEmpty.Has(err) {
+			return nil, 0, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+		}
+		if storj.ErrBucketNotFound.Has(err) {
+			return bucketName, 0, nil
+		}
+		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return bucketName, deletedCount, nil
+}
+
+// deleteByPrefix deletes all objects that matches with a prefix.
+func (endpoint *Endpoint) deleteByPrefix(ctx context.Context, projectID uuid.UUID, bucketName []byte, segmentIdx int64) (deletedCount int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	prefix, err := CreatePath(ctx, projectID, segmentIdx, bucketName, []byte{})
+	if err != nil {
+		return deletedCount, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	for {
+		segments, more, err := endpoint.metainfo.List(ctx, prefix, "", true, 0, meta.None)
+		if err != nil {
+			return deletedCount, err
+		}
+
+		deleteReqs := make([]*objectdeletion.ObjectIdentifier, len(segments))
+		for i, segment := range segments {
+			deleteReqs[i] = &objectdeletion.ObjectIdentifier{
+				ProjectID:     projectID,
+				Bucket:        bucketName,
+				EncryptedPath: []byte(segment.Path),
+			}
+		}
+		rep, err := endpoint.deleteObjectsPieces(ctx, deleteReqs...)
+		if err != nil {
+			return deletedCount, err
+		}
+
+		deletedCount += len(rep.Deleted)
+
+		if !more {
+			break
+		}
+	}
+	return deletedCount, nil
 }
 
 // ListBuckets returns buckets in a project where the bucket name matches the request cursor.
@@ -1885,15 +1966,13 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 ) (report objectdeletion.Report, err error) {
 	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
 
-	// We should ignore client cancelling and always try to delete segments.
-	ctx = context2.WithoutCancellation(ctx)
-
 	req := &objectdeletion.ObjectIdentifier{
 		ProjectID:     projectID,
 		Bucket:        bucket,
 		EncryptedPath: encryptedPath,
 	}
-	results, err := endpoint.deleteObjects.Delete(ctx, req)
+
+	report, err = endpoint.deleteObjectsPieces(ctx, req)
 	if err != nil {
 		endpoint.log.Error("failed to delete pointers",
 			zap.Stringer("project_id", projectID),
@@ -1901,9 +1980,26 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 			zap.Binary("encrypted_path", encryptedPath),
 			zap.Error(err),
 		)
-		return report, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		// Only return an error if we failed to delete the pointers. If we failed
+		// to delete pieces, let garbage collector take care of it.
+		if objectdeletion.Error.Has(err) {
+			return report, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
 	}
 
+	return report, nil
+}
+
+func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...*objectdeletion.ObjectIdentifier) (report objectdeletion.Report, err error) {
+	// We should ignore client cancelling and always try to delete segments.
+	ctx = context2.WithoutCancellation(ctx)
+
+	results, err := endpoint.deleteObjects.Delete(ctx, reqs...)
+	if err != nil {
+		return report, err
+	}
+
+	var requests []piecedeletion.Request
 	for _, r := range results {
 		pointers := r.DeletedPointers()
 		report.Deleted = append(report.Deleted, r.Deleted...)
@@ -1915,7 +2011,6 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 			continue
 		}
 
-		var requests []piecedeletion.Request
 		for node, pieces := range nodesPieces {
 			requests = append(requests, piecedeletion.Request{
 				Node: storj.NodeURL{
@@ -1924,19 +2019,13 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 				Pieces: pieces,
 			})
 		}
+	}
 
-		if err := endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold); err != nil {
-			endpoint.log.Error("failed to delete pieces",
-				zap.Stringer("project_id", projectID),
-				zap.ByteString("bucket_name", bucket),
-				zap.Binary("encrypted_path", encryptedPath),
-				zap.Error(err),
-			)
-		}
+	if err := endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold); err != nil {
+		endpoint.log.Error("failed to delete pieces", zap.Error(err))
 	}
 
 	return report, nil
-
 }
 
 func (endpoint *Endpoint) redundancyScheme() *pb.RedundancyScheme {
