@@ -146,9 +146,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					Path:            filepath.Join(storageDir, "orders"),
 				},
 				Monitor: monitor.Config{
-					MinimumDiskSpace:      100 * memory.MB,
-					NotifyLowDiskCooldown: defaultInterval,
-					VerifyDirInterval:     defaultInterval,
+					MinimumDiskSpace:          100 * memory.MB,
+					NotifyLowDiskCooldown:     defaultInterval,
+					VerifyDirReadableInterval: defaultInterval,
+					VerifyDirWritableInterval: defaultInterval,
 				},
 				Trust: trust.Config{
 					Sources:         sources,

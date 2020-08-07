@@ -699,6 +699,11 @@ func (store *Store) StorageStatus(ctx context.Context) (_ StorageStatus, err err
 	}, nil
 }
 
+// CheckWritability tests writability of the storage directory by creating and deleting a file.
+func (store *Store) CheckWritability() error {
+	return store.blobs.CheckWritability()
+}
+
 type storedPieceAccess struct {
 	storage.BlobInfo
 	store   *Store
