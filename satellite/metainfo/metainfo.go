@@ -1915,31 +1915,13 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 			continue
 		}
 
-		nodeIDs := []storj.NodeID{}
-		for nodeID := range nodesPieces {
-			nodeIDs = append(nodeIDs, nodeID)
-		}
-
-		nodes, err := endpoint.overlay.KnownReliable(ctx, nodeIDs)
-		if err != nil {
-			endpoint.log.Warn("unable to look up nodes from overlay",
-				zap.String("object_path",
-					fmt.Sprintf("%s/%s/%q", projectID, bucket, encryptedPath),
-				),
-				zap.Error(err),
-			)
-			// Pieces will be collected by garbage collector
-			continue
-		}
-
 		var requests []piecedeletion.Request
-		for _, node := range nodes {
+		for node, pieces := range nodesPieces {
 			requests = append(requests, piecedeletion.Request{
 				Node: storj.NodeURL{
-					ID:      node.Id,
-					Address: node.Address.Address,
+					ID: node,
 				},
-				Pieces: nodesPieces[node.Id],
+				Pieces: pieces,
 			})
 		}
 

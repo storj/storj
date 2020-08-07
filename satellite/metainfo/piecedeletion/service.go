@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -56,6 +57,11 @@ func (config *Config) Verify() errs.Group {
 	return errlist
 }
 
+// Nodes stores reliable nodes information.
+type Nodes interface {
+	KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
+}
+
 // Service handles combining piece deletion requests.
 //
 // architecture: Service
@@ -64,6 +70,7 @@ type Service struct {
 	config Config
 
 	rpcDialer rpc.Dialer
+	nodesDB   Nodes
 
 	running  sync2.Fence
 	combiner *Combiner
@@ -72,13 +79,16 @@ type Service struct {
 }
 
 // NewService creates a new service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, config Config) (*Service, error) {
+func NewService(log *zap.Logger, dialer rpc.Dialer, nodesDB Nodes, config Config) (*Service, error) {
 	var errlist errs.Group
 	if log == nil {
 		errlist.Add(Error.New("log is nil"))
 	}
 	if dialer == (rpc.Dialer{}) {
 		errlist.Add(Error.New("dialer is zero"))
+	}
+	if nodesDB == nil {
+		errlist.Add(Error.New("nodesDB is nil"))
 	}
 	if errs := config.Verify(); len(errs) > 0 {
 		errlist.Add(errs...)
@@ -96,6 +106,7 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, config Config) (*Service, er
 		log:       log,
 		config:    config,
 		rpcDialer: dialerClone,
+		nodesDB:   nodesDB,
 	}, nil
 }
 
@@ -147,7 +158,38 @@ func (service *Service) Delete(ctx context.Context, requests []Request, successT
 		return Error.Wrap(err)
 	}
 
+	// Create a map for matching node information with the corresponding
+	// request.
+	nodesReqs := make(map[storj.NodeID]Request, len(requests))
+	nodeIDs := []storj.NodeID{}
 	for _, req := range requests {
+		if req.Node.Address == "" {
+			nodeIDs = append(nodeIDs, req.Node.ID)
+		}
+		nodesReqs[req.Node.ID] = req
+	}
+
+	if len(nodeIDs) > 0 {
+		nodes, err := service.nodesDB.KnownReliable(ctx, nodeIDs)
+		if err != nil {
+			// Pieces will be collected by garbage collector
+			return Error.Wrap(err)
+		}
+
+		for _, node := range nodes {
+			req := nodesReqs[node.Id]
+
+			nodesReqs[node.Id] = Request{
+				Node: storj.NodeURL{
+					ID:      node.Id,
+					Address: node.Address.Address,
+				},
+				Pieces: req.Pieces,
+			}
+		}
+	}
+
+	for _, req := range nodesReqs {
 		service.combiner.Enqueue(req.Node, Job{
 			Pieces:  req.Pieces,
 			Resolve: threshold,
