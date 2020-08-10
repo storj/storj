@@ -1255,6 +1255,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`DROP TABLE credits_spendings;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "drop project_invoice_stamps table",
+				Version:     122,
+				Action: migrate.SQL{
+					`DROP TABLE project_invoice_stamps;`,
+				},
+			},
 		},
 	}
 }

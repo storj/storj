@@ -401,15 +401,6 @@ CREATE TABLE bucket_metainfos (
 	UNIQUE ( name, project_id ),
 	UNIQUE ( project_id, name )
 );
-CREATE TABLE project_invoice_stamps (
-	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	invoice_id bytea NOT NULL,
-	start_date timestamp with time zone NOT NULL,
-	end_date timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( project_id, start_date, end_date ),
-	UNIQUE ( invoice_id )
-);
 CREATE TABLE project_members (
 	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,

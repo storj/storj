@@ -369,33 +369,6 @@ read limitoffset (
     orderby asc project.created_at
 )
 
-model project_invoice_stamp (
-    key    project_id start_date end_date
-    unique invoice_id
-
-    field  project_id project.id  cascade
-    field  invoice_id blob
-
-    field  start_date timestamp
-    field  end_date   timestamp
-
-    field  created_at timestamp
-)
-
-create project_invoice_stamp ( )
-
-read one (
-    select project_invoice_stamp
-    where  project_invoice_stamp.project_id = ?
-    where  project_invoice_stamp.start_date = ?
-)
-// pagination ?
-read all (
-    select project_invoice_stamp
-    where  project_invoice_stamp.project_id = ?
-    orderby desc project_invoice_stamp.start_date
-)
-
 model project_member (
     key member_id project_id
 
