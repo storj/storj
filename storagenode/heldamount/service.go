@@ -235,6 +235,7 @@ type PayoutHistory struct {
 	Surge          int64  `json:"surge"`
 	SurgePercent   int64  `json:"surgePercent"`
 	Held           int64  `json:"held"`
+	HeldPercent    int64  `json:"heldPercent"`
 	AfterHeld      int64  `json:"afterHeld"`
 	Disposed       int64  `json:"disposed"`
 	Paid           int64  `json:"paid"`
@@ -284,7 +285,7 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 			paystub.SurgePercent = 100
 		}
 
-		earned := paystub.CompGetAudit + paystub.CompGet + paystub.CompGetRepair + paystub.CompAtRest
+		earned := (paystub.CompGetAudit + paystub.CompGet + paystub.CompGetRepair + paystub.CompAtRest) / (paystub.SurgePercent * 100)
 		surge := earned * paystub.SurgePercent / 100
 
 		payoutHistory.Held = paystub.Held
@@ -298,6 +299,7 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 		payoutHistory.SurgePercent = paystub.SurgePercent
 		payoutHistory.SatelliteURL = url.Address
 		payoutHistory.Paid = paystub.Paid
+		payoutHistory.HeldPercent = service.getHeldRate(stats.JoinedAt)
 
 		result = append(result, payoutHistory)
 	}
@@ -363,4 +365,20 @@ func parsePeriodRange(periodStart, periodEnd string) (periods []string, err erro
 // UsageAtRestTbM converts paystub's usage_at_rest from tbh to tbm.
 func (paystub *PayStub) UsageAtRestTbM() {
 	paystub.UsageAtRest /= 720
+}
+
+func (service *Service) getHeldRate(joinTime time.Time) (heldRate int64) {
+	monthsSinceJoin := date.MonthsCountSince(joinTime)
+	switch monthsSinceJoin {
+	case 0, 1, 2:
+		heldRate = 75
+	case 3, 4, 5:
+		heldRate = 50
+	case 6, 7, 8:
+		heldRate = 25
+	default:
+		heldRate = 0
+	}
+
+	return heldRate
 }
