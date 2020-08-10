@@ -368,10 +368,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.piece-deletion.request-timeout: 1m0s
 
 # the default bandwidth usage limit
-# metainfo.project-limits.default-max-bandwidth: 50.0 GB
+# metainfo.project-limits.default-max-bandwidth: 50.00 GB
 
 # the default storage usage limit
-# metainfo.project-limits.default-max-usage: 50.0 GB
+# metainfo.project-limits.default-max-usage: 50.00 GB
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100
@@ -494,7 +494,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.node.distinct-ip: true
 
 # how much disk space a node at minimum must have to be selected for upload
-# overlay.node.minimum-disk-space: 500.0 MB
+# overlay.node.minimum-disk-space: 500.00 MB
 
 # the minimum node software version for node selection queries
 # overlay.node.minimum-version: ""
@@ -602,7 +602,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.interval: 5m0s
 
 # maximum buffer memory (in bytes) to be allocated for read buffers
-# repairer.max-buffer-mem: 4.0 MB
+# repairer.max-buffer-mem: 4.00 MB
 
 # ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload
 # repairer.max-excess-rate-optimal-threshold: 0.05

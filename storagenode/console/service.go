@@ -294,6 +294,13 @@ type Satellites struct {
 	EgressSummary    int64                   `json:"egressSummary"`
 	IngressSummary   int64                   `json:"ingressSummary"`
 	EarliestJoinedAt time.Time               `json:"earliestJoinedAt"`
+	Audits           []Audits                `json:"audits"`
+}
+
+// Audits represents audit metrics across all satellites.
+type Audits struct {
+	Audit       reputation.Metric
+	SatelliteID storj.NodeID
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
@@ -301,6 +308,8 @@ type Satellites struct {
 func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err error) {
 	defer mon.Task()(&ctx)(nil)
 	from, to := date.MonthBoundary(time.Now().UTC())
+
+	var audits []Audits
 
 	bandwidthDaily, err := s.bandwidthDB.GetDailyRollups(ctx, from, to)
 	if err != nil {
@@ -334,12 +343,17 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 
 	satellitesIDs := s.trust.GetSatellites(ctx)
 	joinedAt := time.Now().UTC()
+
 	for i := 0; i < len(satellitesIDs); i++ {
 		stats, err := s.reputationDB.Get(ctx, satellitesIDs[i])
 		if err != nil {
 			return nil, SNOServiceErr.Wrap(err)
 		}
 
+		audits = append(audits, Audits{
+			Audit:       stats.Audit,
+			SatelliteID: satellitesIDs[i],
+		})
 		if !stats.JoinedAt.IsZero() && stats.JoinedAt.Before(joinedAt) {
 			joinedAt = stats.JoinedAt
 		}
@@ -353,6 +367,7 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		EgressSummary:    egressSummary.Total(),
 		IngressSummary:   ingressSummary.Total(),
 		EarliestJoinedAt: joinedAt,
+		Audits:           audits,
 	}, nil
 }
 

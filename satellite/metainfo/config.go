@@ -26,7 +26,7 @@ const (
 // RSConfig is a configuration struct that keeps details about default
 // redundancy strategy information.
 type RSConfig struct {
-	MaxBufferMem     memory.Size `help:"maximum buffer memory to be allocated for read buffers" default:"4MiB"`
+	MaxBufferMem     memory.Size `help:"maximum buffer memory to be allocated for read buffers" default:"4.00MiB"`
 	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"256B"`
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
@@ -50,8 +50,8 @@ type RateLimiterConfig struct {
 // ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
 	MaxBuckets          int         `help:"max bucket count for a project." default:"100"`
-	DefaultMaxUsage     memory.Size `help:"the default storage usage limit" releaseDefault:"50GB" devDefault:"200GB"`
-	DefaultMaxBandwidth memory.Size `help:"the default bandwidth usage limit" releaseDefault:"50GB" devDefault:"200GB"`
+	DefaultMaxUsage     memory.Size `help:"the default storage usage limit" releaseDefault:"50.00GB" devDefault:"200GB"`
+	DefaultMaxBandwidth memory.Size `help:"the default bandwidth usage limit" releaseDefault:"50.00GB" devDefault:"200GB"`
 }
 
 // Config is a configuration struct that is everything you need to start a metainfo.

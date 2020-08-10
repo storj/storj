@@ -70,7 +70,7 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0},"maxBuckets":0}`)
+			assertGet(t, link, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0},"maxBuckets":0}`)
 		})
 
 		t.Run("UpdateBandwidth", func(t *testing.T) {
@@ -83,7 +83,7 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"1.0 MB","bytes":1000000},"rate":{"rps":0},"maxBuckets":0}`)
+			assertGet(t, link, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":0},"maxBuckets":0}`)
 		})
 
 		t.Run("UpdateRate", func(t *testing.T) {
@@ -96,7 +96,7 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"1.0 MB","bytes":1000000},"rate":{"rps":100},"maxBuckets":0}`)
+			assertGet(t, link, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"maxBuckets":0}`)
 		})
 		t.Run("UpdateBuckets", func(t *testing.T) {
 			req, err := http.NewRequest(http.MethodPut, link+"?buckets=2000", nil)
@@ -108,7 +108,7 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, link, `{"usage":{"amount":"1.0 GB","bytes":1000000000},"bandwidth":{"amount":"1.0 MB","bytes":1000000},"rate":{"rps":100},"maxBuckets":2000}`)
+			assertGet(t, link, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"1.00 MB","bytes":1000000},"rate":{"rps":100},"maxBuckets":2000}`)
 		})
 	})
 }

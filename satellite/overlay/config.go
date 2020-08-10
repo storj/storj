@@ -35,7 +35,7 @@ type NodeSelectionConfig struct {
 	MinimumVersion   string        `help:"the minimum node software version for node selection queries" default:""`
 	OnlineWindow     time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h"`
 	DistinctIP       bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
-	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"500MB"`
+	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"500.00MB"`
 
 	AuditReputationRepairWeight float64       `help:"weight to apply to audit reputation for total repair reputation calculation" default:"1.0"`
 	AuditReputationUplinkWeight float64       `help:"weight to apply to audit reputation for total uplink reputation calculation" default:"1.0"`
