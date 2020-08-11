@@ -29,10 +29,10 @@ Reference: [Redash query](https://redash.datasci.storj.io/queries/1224) for curr
 ## Design
 
 #### GC Manager and Workers
-The idea here is to split the garbage collection process into a manager process and many worker processes. The GC Manger will join the metainfo loop to retrieve pointer data. It will assign a portion of the storage nodes to each of the GC workers so that each worker is only responsible for creating bloom filters for a subset of all storage nodes. The GC master will send the piece IDs from the metainfo loop to the correct worker responsible for that storage node. Once the GC cycle is complete, the workers send the completed bloom filters to the storage nodes.
+The idea here is to split the garbage collection process into a manager process and many worker processes. The GC Manager will join the metainfo loop to retrieve pointer data. It will assign a portion of the storage nodes to each of the GC workers so that each worker is only responsible for creating bloom filters for a subset of all storage nodes. The GC master will send the piece IDs from the metainfo loop to the correct worker responsible for that storage node. Once the GC cycle is complete, the workers send the completed bloom filters to the storage nodes.
 
 #### Reliable data transfer mechanism
-With this design, the GC Manager will be sending piece ID data to the workers, it's very important we never lose a piece ID. We need a way to confirm each worker received every piece ID from the GC Manger for any given GC iteration. Otherwise it could cause the storage node to delete the unintended data. One way to solve this is to assign a sequence number to each piece ID sent from GC Manager to the worker so that at the end of the GC cycle, the manager and worker must confirm the end sequence number match and all sequences in between have been received.
+With this design, the GC Manager will be sending piece ID data to the workers, it's very important we never lose a piece ID. We need a way to confirm each worker received every piece ID from the GC Manager for any given GC iteration. Otherwise it could cause the storage node to delete the unintended data. One way to solve this is to assign a sequence number to each piece ID sent from GC Manager to the worker so that at the end of the GC cycle, the manager and worker must confirm the end sequence number match and all sequences in between have been received.
 
 #### GC Sessions
 Since the GC process runs on an interval, the GC workers need to keep track of which GC cycle relates to which bloom filters, we should store some sort of session ID or timestamp related to each GC cycle to track this.
@@ -110,7 +110,7 @@ Alternatives considered:
 
 2. Store bloom filters in a remote cache or remote data store. We currently have a redis instance that the Satellite uses, but it is only 1gb size so if we wanted to explore this option, we would need to greatly increase the size.
 
-3. Make bloom filter size smaller by altering the falsePositiveRate or hard code the size of the bloomfilters instead of basing it off of piece count.The bloom filter size is related to node count and piece count, but we could hard code the bloom filter size so that it only relates to node count. However we need to better understand the false positive impact of this before moving forward.
+3. Make bloom filter size smaller by altering the falsePositiveRate or hard code the size of the bloom filters instead of basing it off of piece count.The bloom filter size is related to node count and piece count, but we could hard code the bloom filter size so that it only relates to node count. However we need to better understand the false positive impact of this before moving forward.
 
 4. Only process a fraction of the storage nodes at one time. Currently GC runs every 5 days so instead of running once every 5 days, instead run continuously.
 - Cons:
