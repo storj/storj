@@ -6,6 +6,7 @@ package objectdeletion
 import (
 	"context"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
@@ -13,8 +14,6 @@ import (
 
 // Report represents the deleteion status report.
 type Report struct {
-	log *zap.Logger
-
 	Deleted []*ObjectState
 	Failed  []*ObjectState
 }
@@ -36,7 +35,8 @@ func (r Report) HasFailures() bool {
 }
 
 // DeletedObjects returns successfully deleted objects information.
-func (r Report) DeletedObjects() []*pb.Object {
+func (r Report) DeletedObjects() ([]*pb.Object, error) {
+	var errlist errs.Group
 	objects := make([]*pb.Object, 0, len(r.Deleted))
 	for _, d := range r.Deleted {
 		if d.LastSegment == nil {
@@ -45,12 +45,7 @@ func (r Report) DeletedObjects() []*pb.Object {
 		streamMeta := &pb.StreamMeta{}
 		err := pb.Unmarshal(d.LastSegment.Metadata, streamMeta)
 		if err != nil {
-			r.log.Error("failed to unmarshal stream metadata",
-				zap.Stringer("Project ID", d.ProjectID),
-				zap.String("Bucket", string(d.Bucket)),
-				zap.String("Encrypted Path", string(d.EncryptedPath)),
-				zap.Error(err),
-			)
+			errlist.Add(err)
 			continue
 		}
 		object := &pb.Object{
@@ -90,14 +85,14 @@ func (r Report) DeletedObjects() []*pb.Object {
 		objects = append(objects, object)
 	}
 
-	return objects
+	return objects, errlist.Err()
 }
 
 // GenerateReport returns the result of a delete, success, or failure.
 func GenerateReport(ctx context.Context, log *zap.Logger, requests []*ObjectIdentifier, deletedPaths [][]byte, pointers []*pb.Pointer) Report {
 	defer mon.Task()(&ctx)(nil)
 
-	report := Report{log: log}
+	report := Report{}
 	deletedObjects := make(map[string]*ObjectState)
 	for i, path := range deletedPaths {
 		if path == nil {

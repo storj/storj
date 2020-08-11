@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/context2"
 	"storj.io/common/encryption"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
@@ -979,7 +980,15 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	var object *pb.Object
 	if canRead || canList {
 		// Info about deleted object is returned only if either Read, or List permission is granted
-		deletedObjects := report.DeletedObjects()
+		deletedObjects, err := report.DeletedObjects()
+		if err != nil {
+			endpoint.log.Error("failed to construct deleted object information",
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.String("Bucket", string(req.Bucket)),
+				zap.String("Encrypted Path", string(req.EncryptedPath)),
+				zap.Error(err),
+			)
+		}
 		if len(deletedObjects) > 0 {
 			object = deletedObjects[0]
 		}
@@ -1875,6 +1884,9 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 	ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte,
 ) (report objectdeletion.Report, err error) {
 	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
+
+	// We should ignore client cancelling and always try to delete segments.
+	ctx = context2.WithoutCancellation(ctx)
 
 	req := &objectdeletion.ObjectIdentifier{
 		ProjectID:     projectID,
