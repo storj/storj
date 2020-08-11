@@ -444,7 +444,8 @@ func (store StoreForTest) GetV0PieceInfoDBForTest() V0PieceInfoDBForTest {
 //
 // Once we have migrated everything off of V0 storage and no longer need to support it, this can
 // cleanly become a method directly on *Reader and will need only the 'pieceID' parameter.
-func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, reader *Reader) (pb.PieceHash, pb.OrderLimit, error) {
+func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, reader *Reader) (_ pb.PieceHash, _ pb.OrderLimit, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if reader.StorageFormatVersion() == filestore.FormatV0 {
 		info, err := store.GetV0PieceInfo(ctx, satellite, pieceID)
 		if err != nil {
@@ -539,6 +540,7 @@ func (store *Store) DeleteFailed(ctx context.Context, expired ExpiredInfo, when 
 //
 // This returns both the total size of pieces plus the contentSize of pieces.
 func (store *Store) SpaceUsedForPieces(ctx context.Context) (piecesTotal int64, piecesContentSize int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if cache, ok := store.blobs.(*BlobsUsageCache); ok {
 		return cache.SpaceUsedForPieces(ctx)
 	}
@@ -566,7 +568,8 @@ func (store *Store) SpaceUsedForTrash(ctx context.Context) (int64, error) {
 
 // SpaceUsedForPiecesAndTrash returns the total space used by both active
 // pieces and the trash directory.
-func (store *Store) SpaceUsedForPiecesAndTrash(ctx context.Context) (int64, error) {
+func (store *Store) SpaceUsedForPiecesAndTrash(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	piecesTotal, _, err := store.SpaceUsedForPieces(ctx)
 	if err != nil {
 		return 0, err
@@ -580,7 +583,8 @@ func (store *Store) SpaceUsedForPiecesAndTrash(ctx context.Context) (int64, erro
 	return piecesTotal + trashTotal, nil
 }
 
-func (store *Store) getAllStoringSatellites(ctx context.Context) ([]storj.NodeID, error) {
+func (store *Store) getAllStoringSatellites(ctx context.Context) (_ []storj.NodeID, err error) {
+	defer mon.Task()(&ctx)(&err)
 	namespaces, err := store.blobs.ListNamespaces(ctx)
 	if err != nil {
 		return nil, err

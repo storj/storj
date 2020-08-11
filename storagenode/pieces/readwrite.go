@@ -308,7 +308,8 @@ func (r *Reader) Read(data []byte) (int, error) {
 }
 
 // Seek seeks to the specified location within the piece content (ignoring the header).
-func (r *Reader) Seek(offset int64, whence int) (int64, error) {
+func (r *Reader) Seek(ctx context.Context, offset int64, whence int) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if whence == io.SeekStart && r.formatVersion >= filestore.FormatV1 {
 		offset += V1PieceHeaderReservedArea
 	}

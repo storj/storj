@@ -560,14 +560,14 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			tryToSend := min(unsentAmount, maximumChunkSize)
 
 			// TODO: add timeout here
-			chunkSize, err := throttle.ConsumeOrWait(tryToSend)
+			chunkSize, err := throttle.ConsumeOrWait(ctx, tryToSend)
 			if err != nil {
 				// this can happen only because uplink decided to close the connection
 				return nil
 			}
 
 			chunkData := make([]byte, chunkSize)
-			_, err = pieceReader.Seek(currentOffset, io.SeekStart)
+			_, err = pieceReader.Seek(ctx, currentOffset, io.SeekStart)
 			if err != nil {
 				endpoint.log.Error("error seeking on piecereader", zap.Error(err))
 				return rpcstatus.Wrap(rpcstatus.Internal, err)
@@ -637,7 +637,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			}
 
 			chunkSize := message.Order.Amount - largestOrder.Amount
-			if err := throttle.Produce(chunkSize); err != nil {
+			if err := throttle.Produce(ctx, chunkSize); err != nil {
 				// shouldn't happen since only receiving side is calling Fail
 				return rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
