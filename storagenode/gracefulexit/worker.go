@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -40,6 +41,12 @@ type Worker struct {
 	ecclient           ecclient.Client
 	minBytesPerSecond  memory.Size
 	minDownloadTimeout time.Duration
+	Connects           int64
+	NumSucceeded       int64
+	NumFailed          int64
+	Conn               *rpc.Conn
+	ProcessClient      pb.DRPCSatelliteGracefulExit_ProcessClient
+	backoffTime        time.Duration
 }
 
 // NewWorker instantiates Worker.
@@ -58,34 +65,45 @@ func NewWorker(log *zap.Logger, store *pieces.Store, trust *trust.Pool, satellit
 	}
 }
 
+const (
+	startBackOffTime = 500 * time.Millisecond
+	maxBackOffTime   = time.Hour
+)
+
 // Run calls the satellite endpoint, transfers pieces, validates, and responds with success or failure.
 // It also marks the satellite finished once all the pieces have been transferred.
 func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer done()
 
+	worker.backoffTime = startBackOffTime
+
 	worker.log.Debug("running worker")
 
-	conn, err := worker.dialer.DialNodeURL(ctx, worker.satelliteURL)
-	if err != nil {
-		return errs.Wrap(err)
-	}
 	defer func() {
-		err = errs.Combine(err, conn.Close())
+		worker.log.Info("numbers of success, reconnects, failures:", zap.Any("successes:", atomic.LoadInt64(&worker.NumSucceeded)), zap.Any("connection attempts:", atomic.LoadInt64(&worker.Connects)), zap.Any("fails:", atomic.LoadInt64(&worker.NumFailed)))
 	}()
 
-	client := pb.NewDRPCSatelliteGracefulExitClient(conn)
-
-	c, err := client.Process(ctx)
-	if err != nil {
-		return errs.Wrap(err)
-	}
+	defer func() {
+		err = errs.Combine(err, worker.Conn.Close())
+	}()
 
 	for {
-		response, err := c.Recv()
+		err = worker.CheckConnection(ctx)
+		if err != nil {
+			if ErrReconnect.Has(err) {
+				continue
+			}
+		}
+		worker.backoffTime = startBackOffTime
+
+		response, err := worker.ProcessClient.Recv()
 		if errs.Is(err, io.EOF) {
-			// Done
-			return nil
+			err = worker.Conn.Close()
+			if err != nil {
+				worker.log.Error("unable to close connection", zap.Error(err))
+			}
+			continue
 		}
 		if errs2.IsRPC(err, rpcstatus.FailedPrecondition) {
 			// delete the entry from satellite table and inform graceful exit has failed to start
@@ -97,7 +115,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			return errs.Wrap(err)
 		}
 		if err != nil {
-			// TODO what happened
+			worker.log.Error("error while receiving message from satellite", zap.Error(err))
 			return errs.Wrap(err)
 		}
 
@@ -108,11 +126,14 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 		case *pb.SatelliteMessage_TransferPiece:
 			transferPieceMsg := msg.TransferPiece
 			worker.limiter.Go(ctx, func() {
-				err = worker.transferPiece(ctx, transferPieceMsg, c)
+				err = worker.transferPiece(ctx, transferPieceMsg, worker.ProcessClient)
 				if err != nil {
 					worker.log.Error("failed to transfer piece.",
 						zap.Stringer("Satellite ID", worker.satelliteURL.ID),
 						zap.Error(errs.Wrap(err)))
+					atomic.AddInt64(&worker.NumFailed, 1)
+				} else {
+					atomic.AddInt64(&worker.NumSucceeded, 1)
 				}
 			})
 
@@ -162,8 +183,9 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			if err != nil {
 				return errs.Wrap(err)
 			}
-			// delete everything left in blobs folder of specific satellites
+			// delete everything left in blobs folder of specific satellites.
 			err = worker.store.DeleteSatelliteBlobs(ctx, worker.satelliteURL.ID)
+
 			return errs.Wrap(err)
 		default:
 			// TODO handle err
@@ -362,6 +384,48 @@ func (worker *Worker) deletePiece(ctx context.Context, pieceID storj.PieceID) er
 		zap.Stringer("Satellite ID", worker.satelliteURL.ID),
 		zap.Stringer("Piece ID", pieceID))
 	return err
+}
+
+// wait waiting between new requests incrementing interval each time until limit exceeded.
+func (worker *Worker) wait(ctx context.Context) error {
+	worker.backoffTime *= 2
+	if worker.backoffTime > maxBackOffTime {
+		worker.backoffTime = maxBackOffTime
+	}
+
+	if !sync2.Sleep(ctx, worker.backoffTime) {
+		return ctx.Err()
+	}
+
+	return nil
+}
+
+// CheckConnection in worker for loop checks if connection is closed or nil, if so - reconnects to satellite.
+func (worker *Worker) CheckConnection(ctx context.Context) error {
+	if worker.Conn != nil && !worker.Conn.Closed() {
+		return nil
+	}
+
+	err := worker.wait(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	atomic.AddInt64(&worker.Connects, 1)
+	worker.Conn, err = worker.dialer.DialNodeURL(ctx, worker.satelliteURL)
+	if err != nil {
+		worker.log.Error("couldn't create connection with satellite", zap.Error(err))
+		return ErrReconnect.Wrap(err)
+	}
+	client := pb.NewDRPCSatelliteGracefulExitClient(worker.Conn)
+
+	worker.ProcessClient, err = client.Process(ctx)
+	if err != nil {
+		worker.log.Error("storagenode couldn't call Process", zap.Error(err))
+		return errs.Wrap(err)
+	}
+
+	return nil
 }
 
 // deleteAllPieces deletes pieces stored for a satellite.

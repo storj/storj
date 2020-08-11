@@ -94,6 +94,89 @@ func TestWorkerSuccess(t *testing.T) {
 	})
 }
 
+func TestWorkerCheckConnection(t *testing.T) {
+	const successThreshold = 4
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: successThreshold + 1,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		ul := planet.Uplinks[0]
+
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		exitingNode, err := findNodeToExit(ctx, planet, 1)
+		require.NoError(t, err)
+		exitingNode.GracefulExit.Chore.Loop.Pause()
+
+		exitStatusReq := overlay.ExitStatusRequest{
+			NodeID:          exitingNode.ID(),
+			ExitInitiatedAt: time.Now(),
+		}
+		_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &exitStatusReq)
+		require.NoError(t, err)
+
+		// run the satellite chore to build the transfer queue.
+		satellite.GracefulExit.Chore.Loop.TriggerWait()
+		satellite.GracefulExit.Chore.Loop.Pause()
+
+		// check that the satellite knows the storage node is exiting.
+		exitingNodes, err := satellite.DB.OverlayCache().GetExitingNodes(ctx)
+		require.NoError(t, err)
+		require.Len(t, exitingNodes, 1)
+		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
+		require.NoError(t, err)
+		require.Len(t, queueItems, 1)
+
+		// run the SN chore again to start processing transfers.
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.Peer.Storage2.Trust, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
+			gracefulexit.Config{
+				ChoreInterval:          0,
+				NumWorkers:             2,
+				NumConcurrentTransfers: 2,
+				MinBytesPerSecond:      128,
+				MinDownloadTimeout:     2 * time.Minute,
+			})
+		defer ctx.Check(worker.Close)
+		require.Nil(t, worker.Conn)
+		require.Nil(t, worker.ProcessClient)
+		require.Equal(t, worker.NumFailed, int64(0))
+		require.Equal(t, worker.NumSucceeded, int64(0))
+		require.Equal(t, worker.Connects, int64(0))
+
+		err = worker.CheckConnection(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, worker.Conn)
+		require.NotNil(t, worker.ProcessClient)
+		require.Equal(t, worker.Connects, int64(1))
+
+		err = worker.Run(ctx, func() {})
+		require.NoError(t, err)
+
+		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.EqualValues(t, progress.PiecesFailed, 0)
+		require.EqualValues(t, progress.PiecesTransferred, 1)
+
+		exitStatus, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
+		require.NoError(t, err)
+		require.NotNil(t, exitStatus.ExitFinishedAt)
+		require.True(t, exitStatus.ExitSuccess)
+		require.Equal(t, worker.NumFailed, int64(0))
+		require.Equal(t, worker.NumSucceeded, int64(1))
+		require.Equal(t, worker.Connects, int64(1))
+	})
+}
+
 func TestWorkerTimeout(t *testing.T) {
 	const successThreshold = 4
 	testplanet.Run(t, testplanet.Config{
