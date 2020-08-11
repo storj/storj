@@ -1027,6 +1027,14 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 	return &pb.ObjectFinishDeleteResponse{}, nil
 }
 
+// GetObjectIPs returns the IP addresses of the nodes holding the pieces for
+// the provided object. This is useful for knowing the locations of the pieces.
+func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPsRequest) (resp *pb.ObjectGetIPsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "GetObjectIPs unimplemented")
+}
+
 // BeginSegment begins segment uploading.
 func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBeginRequest) (resp *pb.SegmentBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
