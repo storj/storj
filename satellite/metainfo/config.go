@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	// BoltPointerBucket is the string representing the bucket used for `PointerEntries` in BoltDB
+	// BoltPointerBucket is the string representing the bucket used for `PointerEntries` in BoltDB.
 	BoltPointerBucket = "pointers"
 )
 

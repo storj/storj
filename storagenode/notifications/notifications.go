@@ -27,7 +27,7 @@ type Type int
 
 const (
 	// TypeCustom is a common notification type which doesn't describe node's core functionality.
-	// TODO: change type name when all notification types will be known
+	// TODO: change type name when all notification types will be known.
 	TypeCustom Type = 0
 	// TypeAuditCheckFailure is a notification type which describes node's audit check failure.
 	TypeAuditCheckFailure Type = 1

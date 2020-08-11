@@ -19,7 +19,7 @@ import (
 var mon = monkit.Package()
 
 var (
-	// ErrProjectUsage general error for project usage
+	// ErrProjectUsage general error for project usage.
 	ErrProjectUsage = errs.Class("project usage error")
 )
 

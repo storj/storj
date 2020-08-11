@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	// ErrExclusion is an error class for exclusion related errors
+	// ErrExclusion is an error class for exclusion related errors.
 	ErrExclusion = errs.Class("exclusion")
 )
 

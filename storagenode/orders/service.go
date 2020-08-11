@@ -23,9 +23,9 @@ import (
 )
 
 var (
-	// OrderError represents errors with orders
+	// OrderError represents errors with orders.
 	OrderError = errs.Class("order")
-	// OrderNotFoundError is the error returned when an order is not found
+	// OrderNotFoundError is the error returned when an order is not found.
 	OrderNotFoundError = errs.Class("order not found")
 
 	mon = monkit.Package()

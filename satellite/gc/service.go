@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	// Error defines the gc service errors class
+	// Error defines the gc service errors class.
 	Error = errs.Class("gc service error")
 	mon   = monkit.Package()
 )

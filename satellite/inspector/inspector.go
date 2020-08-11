@@ -20,7 +20,7 @@ import (
 
 var (
 	mon = monkit.Package()
-	// Error wraps errors returned from Server struct methods
+	// Error wraps errors returned from Server struct methods.
 	Error = errs.Class("Endpoint error")
 )
 

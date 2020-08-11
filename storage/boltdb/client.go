@@ -32,7 +32,7 @@ type Client struct {
 }
 
 const (
-	// fileMode sets permissions so owner can read and write
+	// fileMode sets permissions so owner can read and write.
 	fileMode       = 0600
 	defaultTimeout = 1 * time.Second
 )

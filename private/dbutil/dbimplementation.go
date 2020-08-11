@@ -7,17 +7,17 @@ package dbutil
 type Implementation int
 
 const (
-	// Unknown is an unknown db type
+	// Unknown is an unknown db type.
 	Unknown Implementation = iota
-	// Postgres is a Postgresdb type
+	// Postgres is a Postgresdb type.
 	Postgres
-	// Cockroach is a Cockroachdb type
+	// Cockroach is a Cockroachdb type.
 	Cockroach
-	// Bolt is a Bolt kv store
+	// Bolt is a Bolt kv store.
 	Bolt
-	// Redis is a Redis kv store
+	// Redis is a Redis kv store.
 	Redis
-	// SQLite3 is a sqlite3 database
+	// SQLite3 is a sqlite3 database.
 	SQLite3
 )
 

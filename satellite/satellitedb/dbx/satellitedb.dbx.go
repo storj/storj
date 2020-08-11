@@ -23,7 +23,7 @@ import (
 	"storj.io/storj/private/tagsql"
 )
 
-// Prevent conditional imports from causing build failures
+// Prevent conditional imports from causing build failures.
 var _ = strconv.Itoa
 var _ = strings.LastIndex
 var _ = fmt.Sprint

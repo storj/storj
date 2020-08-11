@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	// ErrHTTPSource is an error class for HTTP source errors
+	// ErrHTTPSource is an error class for HTTP source errors.
 	ErrHTTPSource = errs.Class("HTTP source")
 )
 

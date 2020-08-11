@@ -37,13 +37,13 @@ var nodeSelectionConfig = overlay.NodeSelectionConfig{
 
 const (
 	// staleness is how stale the cache can be before we sync with
-	// the database to refresh the cache
+	// the database to refresh the cache.
 
-	// using a negative time will force the cache to refresh every time
+	// using a negative time will force the cache to refresh every time.
 	lowStaleness = -time.Hour
 
 	// using a positive time will make it so that the cache is only refreshed when
-	// it hasn't been in the past hour
+	// it hasn't been in the past hour.
 	highStaleness = time.Hour
 )
 

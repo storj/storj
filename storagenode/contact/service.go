@@ -23,7 +23,7 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is the default error class for contact package
+	// Error is the default error class for contact package.
 	Error = errs.Class("contact")
 
 	errPingSatellite = errs.Class("ping satellite error")

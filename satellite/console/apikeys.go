@@ -68,8 +68,8 @@ type APIKeyPage struct {
 type APIKeyOrder uint8
 
 const (
-	// KeyName indicates that we should order by key name
+	// KeyName indicates that we should order by key name.
 	KeyName APIKeyOrder = 1
-	// CreationDate indicates that we should order by creation date
+	// CreationDate indicates that we should order by creation date.
 	CreationDate APIKeyOrder = 2
 )

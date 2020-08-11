@@ -13,13 +13,13 @@ import (
 )
 
 var (
-	// ContainError is the containment errs class
+	// ContainError is the containment errs class.
 	ContainError = errs.Class("containment error")
 
-	// ErrContainedNotFound is the errs class for when a pending audit isn't found
+	// ErrContainedNotFound is the errs class for when a pending audit isn't found.
 	ErrContainedNotFound = errs.Class("pending audit not found")
 
-	// ErrContainDelete is the errs class for when a pending audit can't be deleted
+	// ErrContainDelete is the errs class for when a pending audit can't be deleted.
 	ErrContainDelete = errs.Class("unable to delete pending audit")
 )
 

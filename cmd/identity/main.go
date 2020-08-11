@@ -55,7 +55,6 @@ var (
 		Annotations: map[string]string{"type": "setup"},
 	}
 
-	//nolint
 	config struct {
 		Difficulty     uint64 `default:"36" help:"minimum difficulty for identity generation"`
 		Concurrency    uint   `default:"4" help:"number of concurrent workers for certificate authority generation"`

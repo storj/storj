@@ -20,7 +20,7 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is a pkg/revocation error
+	// Error is a pkg/revocation error.
 	Error = errs.Class("revocation error")
 )
 

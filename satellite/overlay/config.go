@@ -14,7 +14,7 @@ import (
 
 var (
 	mon = monkit.Package()
-	// Error represents an overlay error
+	// Error represents an overlay error.
 	Error = errs.Class("overlay error")
 )
 

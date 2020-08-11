@@ -48,20 +48,20 @@ const (
 	// The following values of peer class and endpoints are used
 	// to create a port with a consistent format for storj-sim services.
 
-	// Peer class
+	// Peer classes.
 	satellitePeer      = 0
 	gatewayPeer        = 1
 	versioncontrolPeer = 2
 	storagenodePeer    = 3
 
-	// Endpoint
+	// Endpoints.
 	publicRPC   = 0
 	privateRPC  = 1
 	publicHTTP  = 2
 	privateHTTP = 3
 	debugHTTP   = 9
 
-	// satellite specific constants
+	// Satellite specific constants.
 	redisPort         = 4
 	adminHTTP         = 5
 	debugAdminHTTP    = 6

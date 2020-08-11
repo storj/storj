@@ -28,30 +28,30 @@ import (
 )
 
 var (
-	// Addr is the address of peer from command flags
+	// Addr is the address of peer from command flags.
 	Addr = flag.String("address", "127.0.0.1:7778", "address of peer to inspect")
 
-	// IdentityPath is the path to the identity the inspector should use for network communication
+	// IdentityPath is the path to the identity the inspector should use for network communication.
 	IdentityPath = flag.String("identity-path", "", "path to the identity certificate for use on the network")
 
-	// CSVPath is the csv path where command output is written
+	// CSVPath is the csv path where command output is written.
 	CSVPath string
 
-	// ErrInspectorDial throws when there are errors dialing the inspector server
+	// ErrInspectorDial throws when there are errors dialing the inspector server.
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
 
-	// ErrRequest is for request errors after dialing
+	// ErrRequest is for request errors after dialing.
 	ErrRequest = errs.Class("error processing request:")
 
-	// ErrIdentity is for errors during identity creation for this CLI
+	// ErrIdentity is for errors during identity creation for this CLI.
 	ErrIdentity = errs.Class("error creating identity:")
 
-	// ErrArgs throws when there are errors with CLI args
+	// ErrArgs throws when there are errors with CLI args.
 	ErrArgs = errs.Class("error with CLI args:")
 
 	irreparableLimit int32
 
-	// Commander CLI
+	// Commander CLI.
 	rootCmd = &cobra.Command{
 		Use:   "inspector",
 		Short: "CLI for interacting with Storj network",

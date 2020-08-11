@@ -81,11 +81,11 @@ func (user *CreateUser) IsValid() error {
 type UserStatus int
 
 const (
-	// Inactive is a user status that he receives after registration
+	// Inactive is a user status that he receives after registration.
 	Inactive UserStatus = 0
-	// Active is a user status that he receives after account activation
+	// Active is a user status that he receives after account activation.
 	Active UserStatus = 1
-	// Deleted is a user status that he receives after deleting account
+	// Deleted is a user status that he receives after deleting account.
 	Deleted UserStatus = 2
 )
 
