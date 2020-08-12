@@ -21,7 +21,7 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is the error class for this package
+	// Error is the error class for this package.
 	Error = errs.Class("reportedrollup")
 )
 

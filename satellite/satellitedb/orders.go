@@ -28,15 +28,15 @@ const defaultIntervalSeconds = int(time.Hour / time.Second)
 var (
 	// ErrDifferentStorageNodes is returned when ProcessOrders gets orders from different storage nodes.
 	ErrDifferentStorageNodes = errs.Class("different storage nodes")
-	// ErrBucketFromSerial is returned when there is an error trying to get the bucket name from the serial number
+	// ErrBucketFromSerial is returned when there is an error trying to get the bucket name from the serial number.
 	ErrBucketFromSerial = errs.Class("bucket from serial number")
-	// ErrUpdateBucketBandwidthSettle is returned when there is an error updating bucket bandwidth
+	// ErrUpdateBucketBandwidthSettle is returned when there is an error updating bucket bandwidth.
 	ErrUpdateBucketBandwidthSettle = errs.Class("update bucket bandwidth settle")
-	// ErrProcessOrderWithWindowTx is returned when there is an error with the ProcessOrders transaction
+	// ErrProcessOrderWithWindowTx is returned when there is an error with the ProcessOrders transaction.
 	ErrProcessOrderWithWindowTx = errs.Class("process order with window transaction")
-	// ErrGetStoragenodeBandwidthInWindow is returned when there is an error getting all storage node bandwidth for a window
+	// ErrGetStoragenodeBandwidthInWindow is returned when there is an error getting all storage node bandwidth for a window.
 	ErrGetStoragenodeBandwidthInWindow = errs.Class("get storagenode bandwidth in window")
-	// ErrCreateStoragenodeBandwidth is returned when there is an error updating storage node bandwidth
+	// ErrCreateStoragenodeBandwidth is returned when there is an error updating storage node bandwidth.
 	ErrCreateStoragenodeBandwidth = errs.Class("create storagenode bandwidth")
 )
 

@@ -31,9 +31,9 @@ type UserCredits interface {
 type CreditType string
 
 const (
-	// Invitee is a type of credits earned by invitee
+	// Invitee is a type of credits earned by invitee.
 	Invitee CreditType = "invitee"
-	// Referrer is a type of credits earned by referrer
+	// Referrer is a type of credits earned by referrer.
 	Referrer CreditType = "referrer"
 )
 

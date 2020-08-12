@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	// ErrStaticSource is an error class for static source errors
+	// ErrStaticSource is an error class for static source errors.
 	ErrStaticSource = errs.Class("static source")
 )
 

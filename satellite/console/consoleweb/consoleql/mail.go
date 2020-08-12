@@ -4,19 +4,19 @@
 package consoleql
 
 const (
-	// ActivationPath is key for path which handles account activation
+	// ActivationPath is key for path which handles account activation.
 	ActivationPath = "activationPath"
-	// PasswordRecoveryPath is key for path which handles password recovery
+	// PasswordRecoveryPath is key for path which handles password recovery.
 	PasswordRecoveryPath = "passwordRecoveryPath"
-	// CancelPasswordRecoveryPath is key for path which handles let us know sequence
+	// CancelPasswordRecoveryPath is key for path which handles let us know sequence.
 	CancelPasswordRecoveryPath = "cancelPasswordRecoveryPath"
-	// SignInPath is key for sign in server route
+	// SignInPath is key for sign in server route.
 	SignInPath = "signInPath"
-	// LetUsKnowURL is key to store let us know URL
+	// LetUsKnowURL is key to store let us know URL.
 	LetUsKnowURL = "letUsKnowURL"
-	// ContactInfoURL is a key to store contact info URL
+	// ContactInfoURL is a key to store contact info URL.
 	ContactInfoURL = "contactInfoURL"
-	// TermsAndConditionsURL is a key to store terms and conditions URL
+	// TermsAndConditionsURL is a key to store terms and conditions URL.
 	TermsAndConditionsURL = "termsAndConditionsURL"
 )
 

@@ -69,13 +69,13 @@ type Offers []Offer
 type OfferType int
 
 const (
-	// Invalid is a default value for offers that don't have correct type associated with it
+	// Invalid is a default value for offers that don't have correct type associated with it.
 	Invalid = OfferType(0)
-	// FreeCredit is a type of offers used for Free Credit Program
+	// FreeCredit is a type of offers used for Free Credit Program.
 	FreeCredit = OfferType(1)
-	// Referral is a type of offers used for Referral Program
+	// Referral is a type of offers used for Referral Program.
 	Referral = OfferType(2)
-	// Partner is an OfferType used be the Open Source Partner Program
+	// Partner is an OfferType used be the Open Source Partner Program.
 	Partner = OfferType(3)
 )
 

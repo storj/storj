@@ -14,42 +14,42 @@ import (
 )
 
 const (
-	// Mutation is graphql request that modifies data
+	// Mutation is graphql request that modifies data.
 	Mutation = "mutation"
 
-	// CreateProjectMutation is a mutation name for project creation
+	// CreateProjectMutation is a mutation name for project creation.
 	CreateProjectMutation = "createProject"
-	// DeleteProjectMutation is a mutation name for project deletion
+	// DeleteProjectMutation is a mutation name for project deletion.
 	DeleteProjectMutation = "deleteProject"
-	// UpdateProjectDescriptionMutation is a mutation name for project updating
+	// UpdateProjectDescriptionMutation is a mutation name for project updating.
 	UpdateProjectDescriptionMutation = "updateProjectDescription"
 
-	// AddProjectMembersMutation is a mutation name for adding new project members
+	// AddProjectMembersMutation is a mutation name for adding new project members.
 	AddProjectMembersMutation = "addProjectMembers"
-	// DeleteProjectMembersMutation is a mutation name for deleting project members
+	// DeleteProjectMembersMutation is a mutation name for deleting project members.
 	DeleteProjectMembersMutation = "deleteProjectMembers"
 
-	// CreateAPIKeyMutation is a mutation name for api key creation
+	// CreateAPIKeyMutation is a mutation name for api key creation.
 	CreateAPIKeyMutation = "createAPIKey"
-	// DeleteAPIKeysMutation is a mutation name for api key deleting
+	// DeleteAPIKeysMutation is a mutation name for api key deleting.
 	DeleteAPIKeysMutation = "deleteAPIKeys"
 
-	// AddPaymentMethodMutation is mutation name for adding new payment method
+	// AddPaymentMethodMutation is mutation name for adding new payment method.
 	AddPaymentMethodMutation = "addPaymentMethod"
-	// DeletePaymentMethodMutation is mutation name for deleting payment method
+	// DeletePaymentMethodMutation is mutation name for deleting payment method.
 	DeletePaymentMethodMutation = "deletePaymentMethod"
-	// SetDefaultPaymentMethodMutation is mutation name setting payment method as default payment method
+	// SetDefaultPaymentMethodMutation is mutation name setting payment method as default payment method.
 	SetDefaultPaymentMethodMutation = "setDefaultPaymentMethod"
 
-	// InputArg is argument name for all input types
+	// InputArg is argument name for all input types.
 	InputArg = "input"
-	// FieldProjectID is field name for projectID
+	// FieldProjectID is field name for projectID.
 	FieldProjectID = "projectID"
-	// FieldNewPassword is a field name for new password
+	// FieldNewPassword is a field name for new password.
 	FieldNewPassword = "newPassword"
-	// Secret is a field name for registration token for user creation during Vanguard release
+	// Secret is a field name for registration token for user creation during Vanguard release.
 	Secret = "secret"
-	// ReferrerUserID is a field name for passing referrer's user id
+	// ReferrerUserID is a field name for passing referrer's user id.
 	ReferrerUserID = "referrerUserId"
 )
 

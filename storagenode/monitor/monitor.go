@@ -23,7 +23,7 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is the default error class for piecestore monitor errors
+	// Error is the default error class for piecestore monitor errors.
 	Error = errs.Class("piecestore monitor")
 )
 

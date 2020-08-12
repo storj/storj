@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	// APIKeyInfoType is graphql type name for api key
+	// APIKeyInfoType is graphql type name for api key.
 	APIKeyInfoType = "keyInfo"
 	// CreateAPIKeyType is graphql type name for createAPIKey struct
-	// which incapsulates the actual key and it's info
+	// which incapsulates the actual key and it's info.
 	CreateAPIKeyType = "graphqlCreateAPIKey"
-	// FieldKey is field name for the actual key in createAPIKey
+	// FieldKey is field name for the actual key in createAPIKey.
 	FieldKey = "key"
 )
 

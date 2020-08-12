@@ -16,10 +16,10 @@ import (
 )
 
 var (
-	// ErrMigrateTables is error class for MigrateTables
+	// ErrMigrateTables is error class for MigrateTables.
 	ErrMigrateTables = errs.Class("migrate tables")
 
-	// ErrKeepTables is error class for MigrateTables
+	// ErrKeepTables is error class for MigrateTables.
 	ErrKeepTables = errs.Class("keep tables")
 )
 

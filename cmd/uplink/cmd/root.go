@@ -46,7 +46,7 @@ var (
 
 	defaults = cfgstruct.DefaultsFlag(RootCmd)
 
-	// Error is the class of errors returned by this package
+	// Error is the class of errors returned by this package.
 	Error = errs.Class("uplink")
 	// ErrAccessFlag is used where the `--access` flag is registered but not supported.
 	ErrAccessFlag = Error.New("--access flag not supported with `setup` and `import` subcommands")

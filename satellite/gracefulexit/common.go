@@ -14,7 +14,7 @@ var (
 	// Error is the default error class for graceful exit package.
 	Error = errs.Class("gracefulexit")
 
-	// ErrNodeNotFound is returned if a graceful exit entry for a  node does not exist in database
+	// ErrNodeNotFound is returned if a graceful exit entry for a  node does not exist in database.
 	ErrNodeNotFound = errs.Class("graceful exit node not found")
 
 	// ErrAboveOptimalThreshold is returned if a graceful exit entry for a node has more pieces than required.

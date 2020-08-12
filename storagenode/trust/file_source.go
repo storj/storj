@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	// ErrFileSource is an error class for file source errors
+	// ErrFileSource is an error class for file source errors.
 	ErrFileSource = errs.Class("file source")
 )
 

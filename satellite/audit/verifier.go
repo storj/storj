@@ -34,13 +34,13 @@ import (
 var (
 	mon = monkit.Package()
 
-	// ErrNotEnoughShares is the errs class for when not enough shares are available to do an audit
+	// ErrNotEnoughShares is the errs class for when not enough shares are available to do an audit.
 	ErrNotEnoughShares = errs.Class("not enough shares for successful audit")
-	// ErrSegmentDeleted is the errs class when the audited segment was deleted during the audit
+	// ErrSegmentDeleted is the errs class when the audited segment was deleted during the audit.
 	ErrSegmentDeleted = errs.Class("segment deleted during audit")
 	// ErrSegmentExpired is the errs class used when a segment to audit has already expired.
 	ErrSegmentExpired = errs.Class("segment expired before audit")
-	// ErrSegmentModified is the errs class used when a segment has been changed in any way
+	// ErrSegmentModified is the errs class used when a segment has been changed in any way.
 	ErrSegmentModified = errs.Class("segment has been modified")
 )
 

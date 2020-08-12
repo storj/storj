@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/context2"
 	"storj.io/common/encryption"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
@@ -48,9 +49,9 @@ const (
 
 var (
 	mon = monkit.Package()
-	// Error general metainfo error
+	// Error general metainfo error.
 	Error = errs.Class("metainfo error")
-	// ErrNodeAlreadyExists pointer already has a piece for a node err
+	// ErrNodeAlreadyExists pointer already has a piece for a node err.
 	ErrNodeAlreadyExists = errs.Class("metainfo error: node already exists")
 )
 
@@ -979,7 +980,15 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	var object *pb.Object
 	if canRead || canList {
 		// Info about deleted object is returned only if either Read, or List permission is granted
-		deletedObjects := report.DeletedObjects()
+		deletedObjects, err := report.DeletedObjects()
+		if err != nil {
+			endpoint.log.Error("failed to construct deleted object information",
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.String("Bucket", string(req.Bucket)),
+				zap.String("Encrypted Path", string(req.EncryptedPath)),
+				zap.Error(err),
+			)
+		}
 		if len(deletedObjects) > 0 {
 			object = deletedObjects[0]
 		}
@@ -1025,6 +1034,14 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 	// we don't need to do anything for shim implementation
 
 	return &pb.ObjectFinishDeleteResponse{}, nil
+}
+
+// GetObjectIPs returns the IP addresses of the nodes holding the pieces for
+// the provided object. This is useful for knowing the locations of the pieces.
+func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPsRequest) (resp *pb.ObjectGetIPsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "GetObjectIPs unimplemented")
 }
 
 // BeginSegment begins segment uploading.
@@ -1867,6 +1884,9 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 	ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte,
 ) (report objectdeletion.Report, err error) {
 	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
+
+	// We should ignore client cancelling and always try to delete segments.
+	ctx = context2.WithoutCancellation(ctx)
 
 	req := &objectdeletion.ObjectIdentifier{
 		ProjectID:     projectID,

@@ -19,9 +19,9 @@ import (
 )
 
 var (
-	// ErrMigrate is for tracking migration errors
+	// ErrMigrate is for tracking migration errors.
 	ErrMigrate = errs.Class("migrate")
-	// ErrMigrateMinVersion is for migration min version errors
+	// ErrMigrateMinVersion is for migration min version errors.
 	ErrMigrateMinVersion = errs.Class("migrate min version")
 )
 

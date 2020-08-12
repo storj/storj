@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	// ErrSatelliteURL is an error class for satellite URL related errors
+	// ErrSatelliteURL is an error class for satellite URL related errors.
 	ErrSatelliteURL = errs.Class("invalid satellite URL")
 )
 

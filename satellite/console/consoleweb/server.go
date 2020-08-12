@@ -50,7 +50,7 @@ const (
 )
 
 var (
-	// Error is satellite console error type
+	// Error is satellite console error type.
 	Error = errs.Class("satellite console error")
 
 	mon = monkit.Package()

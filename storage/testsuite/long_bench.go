@@ -27,10 +27,10 @@ import (
 const (
 	maxProblems = 10
 
-	// the largest and deepest level-2 directory in the dataset
+	// the largest and deepest level-2 directory in the dataset.
 	largestLevel2Directory = "Peronosporales/hateless/"
 
-	// the directory in the dataset with the most immediate children
+	// the directory in the dataset with the most immediate children.
 	largestSingleDirectory = "Peronosporales/hateless/tod/unricht/sniveling/Puyallup/"
 )
 

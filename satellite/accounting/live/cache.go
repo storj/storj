@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	// Error is the default error class for live-accounting
+	// Error is the default error class for live-accounting.
 	Error = errs.Class("live-accounting")
 	mon   = monkit.Package()
 )

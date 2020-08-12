@@ -42,13 +42,13 @@ func (state *ObjectState) Status() ObjectStatus {
 type ObjectStatus byte
 
 const (
-	// ObjectMissing represents when there's no object with that particular name
+	// ObjectMissing represents when there's no object with that particular name.
 	ObjectMissing = ObjectStatus(iota)
-	// ObjectMultiSegment represents a multi segment object
+	// ObjectMultiSegment represents a multi segment object.
 	ObjectMultiSegment
-	// ObjectSingleSegment represents a single segment object
+	// ObjectSingleSegment represents a single segment object.
 	ObjectSingleSegment
-	// ObjectActiveOrZombie represents either an object is being uploaded, deleted or it's a zombie
+	// ObjectActiveOrZombie represents either an object is being uploaded, deleted or it's a zombie.
 	ObjectActiveOrZombie
 )
 

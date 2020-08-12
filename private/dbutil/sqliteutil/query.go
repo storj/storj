@@ -230,12 +230,12 @@ func discoverIndexes(ctx context.Context, db dbschema.Queryer, schema *dbschema.
 }
 
 var (
-	// matches UNIQUE (a,b)
+	// matches "UNIQUE (a,b)".
 	rxUnique = regexp.MustCompile(`UNIQUE\s*\((.*?)\)`)
 
-	// matches ON table(expr)
+	// matches "ON table(expr)".
 	rxIndexExpr = regexp.MustCompile(`ON\s*[^(]*\((.*)\)`)
 
-	// matches WHERE (partial expression)
+	// matches "WHERE (partial expression)".
 	rxIndexPartial = regexp.MustCompile(`WHERE (.*)$`)
 )

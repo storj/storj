@@ -62,10 +62,10 @@ type ProjectMembersPage struct {
 type ProjectMemberOrder int8
 
 const (
-	// Name indicates that we should order by full name
+	// Name indicates that we should order by full name.
 	Name ProjectMemberOrder = 1
-	// Email indicates that we should order by email
+	// Email indicates that we should order by email.
 	Email ProjectMemberOrder = 2
-	// Created indicates that we should order by created date
+	// Created indicates that we should order by created date.
 	Created ProjectMemberOrder = 3
 )

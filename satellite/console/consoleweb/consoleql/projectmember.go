@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	// ProjectMemberType is a graphql type name for project member
+	// ProjectMemberType is a graphql type name for project member.
 	ProjectMemberType = "projectMember"
-	// FieldJoinedAt is a field name for joined at timestamp
+	// FieldJoinedAt is a field name for joined at timestamp.
 	FieldJoinedAt = "joinedAt"
 )
 

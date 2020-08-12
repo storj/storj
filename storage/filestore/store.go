@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	// Error is the default filestore error class
+	// Error is the default filestore error class.
 	Error = errs.Class("filestore error")
 
 	mon            = monkit.Package()
