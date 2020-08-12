@@ -179,6 +179,9 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests ...orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// change input parameter to UTC timezone before we send it to the database
+	archivedAt = archivedAt.UTC()
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return ErrOrders.Wrap(err)
@@ -306,14 +309,13 @@ func (db *ordersDB) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 }
 
 // CleanArchive deletes all entries older than ttl.
-func (db *ordersDB) CleanArchive(ctx context.Context, ttl time.Duration) (_ int, err error) {
+func (db *ordersDB) CleanArchive(ctx context.Context, deleteBefore time.Time) (_ int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	deleteBefore := time.Now().UTC().Add(-1 * ttl)
 	result, err := db.ExecContext(ctx, `
 		DELETE FROM order_archive_
 		WHERE archived_at <= ?
-	`, deleteBefore)
+	`, deleteBefore.UTC())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil

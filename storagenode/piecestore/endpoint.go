@@ -88,7 +88,6 @@ type Endpoint struct {
 
 	store        *pieces.Store
 	ordersStore  *orders.FileStore
-	orders       orders.DB
 	usage        bandwidth.DB
 	usedSerials  *usedserials.Table
 	pieceDeleter *pieces.Deleter
@@ -97,7 +96,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, orders orders.DB, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -110,7 +109,6 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 
 		store:        store,
 		ordersStore:  ordersStore,
-		orders:       orders,
 		usage:        usage,
 		usedSerials:  usedSerials,
 		pieceDeleter: pieceDeleter,
@@ -303,16 +301,15 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 	}()
 
-	orderSaved := false
-	largestOrder := pb.Order{}
 	// Ensure that the order is saved even in the face of an error. In the
 	// success path, the order will be saved just before sending the response
 	// and closing the stream (in which case, orderSaved will be true).
-	defer func() {
-		if !orderSaved {
-			endpoint.saveOrder(ctx, limit, &largestOrder)
-		}
-	}()
+	commitOrderToStore, err := endpoint.beginSaveOrder(limit)
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
+	}
+	largestOrder := pb.Order{}
+	defer commitOrderToStore(ctx, &largestOrder)
 
 	for {
 		// TODO: reuse messages to avoid allocations
@@ -404,11 +401,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			if err != nil {
 				return rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
-
-			// Save the order before completing the call. Set orderSaved so
-			// that the defer above does not also save.
-			orderSaved = true
-			endpoint.saveOrder(ctx, limit, &largestOrder)
 
 			closeErr := rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
 				return stream.SendAndClose(&pb.PieceUploadResponse{Done: storageNodeHash})
@@ -607,8 +599,12 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	})
 
 	recvErr := func() (err error) {
+		commitOrderToStore, err := endpoint.beginSaveOrder(limit)
+		if err != nil {
+			return err
+		}
 		largestOrder := pb.Order{}
-		defer endpoint.saveOrder(ctx, limit, &largestOrder)
+		defer commitOrderToStore(ctx, &largestOrder)
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
@@ -653,30 +649,34 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	return rpcstatus.Wrap(rpcstatus.Internal, errs.Combine(sendErr, recvErr))
 }
 
-// saveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order) {
-	// We always want to save order to the database to be able to settle.
-	ctx = context2.WithoutCancellation(ctx)
+// beginSaveOrder saves the order with all necessary information. It assumes it has been already verified.
+func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx context.Context, order *pb.Order), err error) {
+	defer mon.Task()(nil)(&err)
 
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	// TODO: do this in a goroutine
-	if order == nil || order.Amount <= 0 {
-		return
-	}
-	err = endpoint.ordersStore.Enqueue(&orders.Info{
-		Limit: limit,
-		Order: order,
-	})
+	commit, err := endpoint.ordersStore.BeginEnqueue(limit.SatelliteId, limit.OrderCreation)
 	if err != nil {
-		endpoint.log.Error("failed to add order", zap.Error(err))
-	} else {
-		err = endpoint.usage.Add(ctx, limit.SatelliteId, limit.Action, order.Amount, time.Now())
-		if err != nil {
-			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
-		}
+		return nil, err
 	}
+
+	done := false
+	return func(ctx context.Context, order *pb.Order) {
+		// TODO: do this in a goroutine
+		if order == nil || order.Amount <= 0 || done {
+			return
+		}
+		done = true
+
+		err = commit(&orders.Info{Limit: limit, Order: order})
+		if err != nil {
+			endpoint.log.Error("failed to add order", zap.Error(err))
+		} else {
+			// We always want to save order to the database to be able to settle.
+			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, order.Amount, time.Now())
+			if err != nil {
+				endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
+			}
+		}
+	}, nil
 }
 
 // RestoreTrash restores all trashed items for the satellite issuing the call.

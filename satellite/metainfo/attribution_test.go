@@ -165,6 +165,8 @@ func TestQueryAttribution(t *testing.T) {
 			objectKey  = "test-key"
 		)
 		satellite := planet.Satellites[0]
+		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
 
 		partner, err := satellite.API.Marketing.PartnersService.ByName(ctx, "Minio")
 		require.NoError(t, err)
@@ -217,22 +219,18 @@ func TestQueryAttribution(t *testing.T) {
 		{ // Flush all the pending information through the system.
 			// Calculate the usage used for upload
 			for _, sn := range planet.StorageNodes {
-				// change settle buffer so orders can be sent
-				sn.OrdersStore.TestSetSettleBuffer(-time.Hour, -time.Hour)
-				sn.Storage2.Orders.Sender.TriggerWait()
-				// change settle buffer back so orders can be added
-				sn.OrdersStore.TestSetSettleBuffer(time.Hour, time.Hour)
+				sn.Storage2.Orders.SendOrders(ctx, tomorrow)
 			}
 
 			rollout := planet.Satellites[0].Core.Accounting.ReportedRollupChore
-			require.NoError(t, rollout.RunOnce(ctx, time.Now()))
+			require.NoError(t, rollout.RunOnce(ctx, now))
 
 			// Trigger tally so it gets all set up and can return a storage usage
 			planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
 		}
 
 		{
-			before := time.Now().Add(-time.Hour)
+			before := now.Add(-time.Hour)
 			after := before.Add(2 * time.Hour)
 
 			usage, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectTotal(ctx, satProject.ID, before, after)
@@ -261,6 +259,8 @@ func TestAttributionReport(t *testing.T) {
 			bucketName = "test"
 			filePath   = "path"
 		)
+		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
 
 		up := planet.Uplinks[0]
 		up.Config.UserAgent = "Zenko/1.0"
@@ -288,22 +288,18 @@ func TestAttributionReport(t *testing.T) {
 		{ // Flush all the pending information through the system.
 			// Calculate the usage used for upload
 			for _, sn := range planet.StorageNodes {
-				// change settle buffer so orders can be sent
-				sn.OrdersStore.TestSetSettleBuffer(-time.Hour, -time.Hour)
-				sn.Storage2.Orders.Sender.TriggerWait()
-				// change settle buffer back so orders can be added
-				sn.OrdersStore.TestSetSettleBuffer(time.Hour, time.Hour)
+				sn.Storage2.Orders.SendOrders(ctx, tomorrow)
 			}
 
 			rollout := planet.Satellites[0].Core.Accounting.ReportedRollupChore
-			require.NoError(t, rollout.RunOnce(ctx, time.Now()))
+			require.NoError(t, rollout.RunOnce(ctx, now))
 
 			// Trigger tally so it gets all set up and can return a storage usage
 			planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
 		}
 
 		{
-			before := time.Now().Add(-time.Hour)
+			before := now.Add(-time.Hour)
 			after := before.Add(2 * time.Hour)
 
 			projectID := up.Projects[0].ID

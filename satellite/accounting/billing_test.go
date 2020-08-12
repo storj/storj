@@ -10,14 +10,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/storage"
 )
@@ -64,11 +62,6 @@ func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
 func TestBilling_InlineFiles(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Orders.FlushBatchSize = 1
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const (
 			bucketName = "testbucket"
@@ -112,11 +105,6 @@ func TestBilling_InlineFiles(t *testing.T) {
 func TestBilling_FilesAfterDeletion(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Orders.FlushBatchSize = 1
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const (
 			bucketName = "testbucket"
@@ -473,13 +461,9 @@ func getProjectTotalFromStorageNodes(
 	// Wait for the SNs endpoints to finish their work
 	require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
-	// Calculate the usage used for upload
+	// Ensure all nodes have sent up any orders for the time period we're calculating
 	for _, sn := range storageNodes {
-		// change settle buffer so orders can be sent
-		sn.OrdersStore.TestSetSettleBuffer(-time.Hour, -time.Hour)
-		sn.Storage2.Orders.Sender.TriggerWait()
-		// change settle buffer back so orders can be added
-		sn.OrdersStore.TestSetSettleBuffer(time.Hour, time.Hour)
+		sn.Storage2.Orders.SendOrders(ctx, since.Add(24*time.Hour))
 	}
 
 	sat := planet.Satellites[satelliteIdx]
