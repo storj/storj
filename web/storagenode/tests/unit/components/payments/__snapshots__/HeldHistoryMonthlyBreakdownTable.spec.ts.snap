@@ -23,7 +23,7 @@ exports[`HeldHistoryMonthlyBreakdownTable renders correctly with actual values 1
         <p class="held-history-table-container--large__info-area__months">1 month</p>
       </div>
       <div class="column justify-end column-2">
-        <p class="held-history-table-container--large__info-area__text">$500.00</p>
+        <p class="held-history-table-container--large__info-area__text">$0.05</p>
       </div>
       <div class="column justify-end column-3">
         <p class="held-history-table-container--large__info-area__text">$0.00</p>
@@ -38,10 +38,10 @@ exports[`HeldHistoryMonthlyBreakdownTable renders correctly with actual values 1
         <p class="held-history-table-container--large__info-area__months">5 month</p>
       </div>
       <div class="column justify-end column-2">
-        <p class="held-history-table-container--large__info-area__text">$500.00</p>
+        <p class="held-history-table-container--large__info-area__text">$0.05</p>
       </div>
       <div class="column justify-end column-3">
-        <p class="held-history-table-container--large__info-area__text">$4222.80</p>
+        <p class="held-history-table-container--large__info-area__text">$0.42</p>
       </div>
       <div class="column justify-end column-4">
         <p class="held-history-table-container--large__info-area__text">$0.00</p>
@@ -53,13 +53,13 @@ exports[`HeldHistoryMonthlyBreakdownTable renders correctly with actual values 1
         <p class="held-history-table-container--large__info-area__months">6 month</p>
       </div>
       <div class="column justify-end column-2">
-        <p class="held-history-table-container--large__info-area__text">$500.00</p>
+        <p class="held-history-table-container--large__info-area__text">$0.05</p>
       </div>
       <div class="column justify-end column-3">
-        <p class="held-history-table-container--large__info-area__text">$73338.80</p>
+        <p class="held-history-table-container--large__info-area__text">$7.33</p>
       </div>
       <div class="column justify-end column-4">
-        <p class="held-history-table-container--large__info-area__text">$78522.35</p>
+        <p class="held-history-table-container--large__info-area__text">$7.85</p>
       </div>
     </div>
   </div>

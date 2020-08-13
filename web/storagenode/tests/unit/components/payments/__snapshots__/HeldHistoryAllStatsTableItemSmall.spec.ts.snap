@@ -40,11 +40,11 @@ exports[`HeldHistoryAllStatsTableItemSmall renders correctly with actual values 
       </div>
       <div class="held-history-table-container--small__item__held-info__item">
         <p class="held-history-table-container--small__item__held-info__item__label">Held Total</p>
-        <p class="held-history-table-container--small__item__held-info__item__value">$450.00</p>
+        <p class="held-history-table-container--small__item__held-info__item__value">$0.04</p>
       </div>
       <div class="held-history-table-container--small__item__held-info__item">
         <p class="held-history-table-container--small__item__held-info__item__label">Held Returned</p>
-        <p class="held-history-table-container--small__item__held-info__item__value">$80.00</p>
+        <p class="held-history-table-container--small__item__held-info__item__value">$0.01</p>
       </div>
     </div>
   </transition-stub>

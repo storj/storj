@@ -1,6 +1,9 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// TODO: move comp division from api.
+const PRICE_DIVIDER: number = 10000;
+
 /**
  * Holds request arguments for payout information.
  */
@@ -95,6 +98,8 @@ export class PayoutState {
         public heldPercentage: number = 0,
         public payoutPeriods: PayoutPeriod[] = [],
         public heldHistory: HeldHistory = new HeldHistory(),
+        public payoutHistory: PayoutHistoryItem[] = [],
+        public payoutHistoryPeriod: string = '',
         public estimation: EstimatedPayout = new EstimatedPayout(),
     ) {}
 }
@@ -138,6 +143,12 @@ export interface PayoutApi {
      * @throws Error
      */
     getEstimatedInfo(satelliteId: string): Promise<EstimatedPayout>;
+
+    /**
+     * Fetches payout history for all satellites.
+     * @throws Error
+     */
+    getPayoutHistory(period: string): Promise<PayoutHistoryItem[]>;
 }
 
 /**
@@ -161,7 +172,11 @@ export class HeldHistoryMonthlyBreakdownItem {
         public firstPeriod: number = 0,
         public secondPeriod: number = 0,
         public thirdPeriod: number = 0,
-    ) {}
+    ) {
+        this.firstPeriod = this.firstPeriod / PRICE_DIVIDER;
+        this.secondPeriod = this.secondPeriod / PRICE_DIVIDER;
+        this.thirdPeriod = this.thirdPeriod / PRICE_DIVIDER;
+    }
 }
 
 /**
@@ -175,7 +190,10 @@ export class HeldHistoryAllStatItem {
         public totalHeld: number = 0,
         public totalDisposed: number = 0,
         public joinedAt: Date = new Date(),
-    ) {}
+    ) {
+        this.totalHeld = this.totalHeld / PRICE_DIVIDER;
+        this.totalDisposed = this.totalDisposed / PRICE_DIVIDER;
+    }
 }
 
 /**
@@ -203,4 +221,64 @@ export class PreviousMonthEstimatedPayout {
         public payout: number = 0,
         public held: number = 0,
     ) {}
+}
+
+/**
+ * Contains payout information for payout history table.
+ */
+export class PayoutHistoryItem {
+    public constructor(
+        public satelliteID: string = '',
+        public satelliteName: string = '',
+        public age: number = 1,
+        public earned: number = 0,
+        public surge: number = 0,
+        public surgePercent: number = 0,
+        public held: number = 0,
+        public afterHeld: number = 0,
+        public disposed: number = 0,
+        public paid: number = 0,
+        public receipt: string = '',
+        public isExitComplete: boolean = false,
+        public heldPercent: number = 0,
+    ) {
+        this.earned = this.earned / PRICE_DIVIDER;
+        this.surge = this.surge / PRICE_DIVIDER;
+        this.held = this.held / PRICE_DIVIDER;
+        this.afterHeld = this.afterHeld / PRICE_DIVIDER;
+        this.disposed = this.disposed / PRICE_DIVIDER;
+        this.paid = this.paid / PRICE_DIVIDER;
+    }
+}
+
+export interface StoredMonthsByYear {
+    [key: number]: MonthButton[];
+}
+
+/**
+ * Holds all months names.
+ */
+export const monthNames = [
+    'January', 'February', 'March', 'April',
+    'May', 'June', 'July',	'August',
+    'September', 'October', 'November',	'December',
+];
+
+/**
+ * Describes month button entity for calendar.
+ */
+export class MonthButton {
+    public constructor(
+        public year: number = 0,
+        public index: number = 0,
+        public active: boolean = false,
+        public selected: boolean = false,
+    ) {}
+
+    /**
+     * Returns month label depends on index.
+     */
+    public get name(): string {
+        return monthNames[this.index] ? monthNames[this.index].slice(0, 3) : '';
+    }
 }

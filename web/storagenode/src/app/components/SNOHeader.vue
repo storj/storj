@@ -170,6 +170,12 @@ export default class SNOHeader extends Vue {
         }
 
         try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
+        } catch (error) {
+            console.error(error.message);
+        }
+
+        try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, this.$store.state.node.selectedSatellite.id);
         } catch (error) {
             console.error(error);

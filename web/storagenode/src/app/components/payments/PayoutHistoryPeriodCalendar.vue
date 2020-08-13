@@ -13,7 +13,6 @@
                     <GrayArrowLeftIcon />
                 </div>
             </div>
-            <p class="payout-period-calendar__header__all-time" @click="selectAllTime">All time</p>
         </div>
         <div class="payout-period-calendar__months-area">
             <div
@@ -43,8 +42,6 @@ import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import {
     MonthButton,
     monthNames,
-    PayoutInfoRange,
-    PayoutPeriod,
     StoredMonthsByYear,
 } from '@/app/types/payout';
 
@@ -53,7 +50,7 @@ import {
         GrayArrowLeftIcon,
     },
 })
-export default class PayoutPeriodCalendar extends Vue {
+export default class PayoutHistoryPeriodCalendar extends Vue {
     private now: Date = new Date();
     /**
      * Contains current months list depends on active and selected month state.
@@ -63,8 +60,7 @@ export default class PayoutPeriodCalendar extends Vue {
     public period: string = '';
 
     private displayedMonths: StoredMonthsByYear = {};
-    private firstSelectedMonth: MonthButton | null;
-    private secondSelectedMonth: MonthButton | null;
+    private selectedMonth: MonthButton | null;
 
     /**
      * Lifecycle hook after initial render.
@@ -76,38 +72,15 @@ export default class PayoutPeriodCalendar extends Vue {
     }
 
     public async submit(): Promise<void> {
-        if (!this.firstSelectedMonth) {
-            this.close();
+        if (this.selectedMonth) {
+            const month = this.selectedMonth.index < 9 ? '0' + (this.selectedMonth.index + 1) : (this.selectedMonth.index + 1);
+            await this.$store.dispatch(PAYOUT_ACTIONS.SET_PAYOUT_HISTORY_PERIOD,
+                `${this.selectedMonth.year}-${month}`,
+            );
 
-            return;
-        }
-
-        this.secondSelectedMonth ? await this.$store.dispatch(
-            PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
-                new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
-                new PayoutPeriod(this.secondSelectedMonth.year, this.secondSelectedMonth.index),
-            ),
-        ) : await this.$store.dispatch(
-            PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
-                null,
-                new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
-            ),
-        );
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, this.$store.state.node.selectedSatellite.id);
-            await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
-        } catch (error) {
-            const lastMonthDate = new Date();
-            lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
-
-
-            const selectedPeriod: PayoutInfoRange = this.$store.state.payoutModule.periodRange;
-            const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());
-            const isLastPeriodSelected: boolean = !selectedPeriod.start && selectedPeriod.end.period === lastMonthPayoutPeriod.period;
-
-            if (!isLastPeriodSelected) {
-                await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, true);
+            try {
+                await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
+            } catch (error) {
                 console.error(error.message);
             }
         }
@@ -119,94 +92,39 @@ export default class PayoutPeriodCalendar extends Vue {
      * Updates selected period label.
      */
     public updatePeriod(): void {
-        if (!this.firstSelectedMonth) {
+        if (!this.selectedMonth) {
             this.period = '';
 
             return;
         }
 
-        this.period = this.secondSelectedMonth ?
-            `${this.firstSelectedMonth.name}, ${this.firstSelectedMonth.year} - ${this.secondSelectedMonth.name}, ${this.secondSelectedMonth.year}`
-            : `${monthNames[this.firstSelectedMonth.index]}, ${this.firstSelectedMonth.year}`;
+        this.period = `${monthNames[this.selectedMonth.index]}, ${this.selectedMonth.year}`;
     }
 
     /**
-     * Selects period between node start and now.
-     */
-    public selectAllTime(): void {
-        const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
-
-        if (nodeStartedAt.getUTCMonth() === this.now.getUTCMonth() && nodeStartedAt.getUTCFullYear() === this.now.getUTCFullYear()) {
-            return;
-        }
-
-        this.firstSelectedMonth = new MonthButton(nodeStartedAt.getUTCFullYear(), nodeStartedAt.getUTCMonth());
-        this.secondSelectedMonth = this.now.getUTCMonth() === 0 ?
-            new MonthButton(this.now.getUTCFullYear() - 1, 11)
-            : new MonthButton(this.now.getUTCFullYear(), this.now.getUTCMonth() - 1);
-
-        if (
-            this.firstSelectedMonth.year === this.secondSelectedMonth.year
-            && this.firstSelectedMonth.index === this.secondSelectedMonth.index
-        ) {
-            this.secondSelectedMonth = null;
-            this.checkMonth(this.firstSelectedMonth);
-        }
-
-        this.updateMonthsSelection(true);
-        this.updatePeriod();
-    }
-
-    /**
-     * Updates first and second selected month on click.
+     * Updates first selected month on click.
      */
     public checkMonth(month: MonthButton): void {
-        if (this.firstSelectedMonth && this.secondSelectedMonth) {
-            this.updateMonthsSelection(false);
-            this.firstSelectedMonth = this.secondSelectedMonth = null;
-
-            if (month.active) {
-                this.firstSelectedMonth = month;
-                month.selected = true;
-            }
-
-            this.updatePeriod();
-
+        if (!month.active || month.selected) {
             return;
         }
 
-        if (!month.active) return;
-
-        if (!this.firstSelectedMonth) {
-            this.firstSelectedMonth = month;
-            month.selected = true;
-            this.updatePeriod();
-
-            return;
+        if (this.selectedMonth) {
+            this.selectedMonth.selected = false;
         }
 
-        if (this.firstSelectedMonth === month) {
-            this.firstSelectedMonth = null;
-            month.selected = false;
-            this.updatePeriod();
-
-            return;
-        }
-
-        this.secondSelectedMonth = month;
-        if ((this.secondSelectedMonth && this.firstSelectedMonth) && new Date(this.secondSelectedMonth.year, this.secondSelectedMonth.index) < new Date(this.firstSelectedMonth.year, this.firstSelectedMonth.index)) {
-            [this.secondSelectedMonth, this.firstSelectedMonth] = [this.firstSelectedMonth, this.secondSelectedMonth];
-        }
-
+        this.selectedMonth = month;
+        month.selected = true;
         this.updatePeriod();
-        this.updateMonthsSelection(true);
     }
 
     /**
      * Increments year and updates current months set.
      */
     public incrementYear(): void {
-        if (this.displayedYear === this.now.getUTCFullYear()) return;
+        const isCurrentYear = this.displayedYear === this.now.getUTCFullYear();
+
+        if (isCurrentYear) return;
 
         this.displayedYear += 1;
         this.populateMonths(this.displayedYear);
@@ -217,50 +135,13 @@ export default class PayoutPeriodCalendar extends Vue {
      * Decrement year and updates current months set.
      */
     public decrementYear(): void {
-        if (this.displayedYear === this.$store.state.node.selectedSatellite.joinDate.getUTCFullYear()) return;
+        const isSelectedYearFirstForNodeInSatellite = this.displayedYear === this.$store.state.node.selectedSatellite.joinDate.getUTCFullYear();
+
+        if (isSelectedYearFirstForNodeInSatellite) return;
 
         this.displayedYear -= 1;
         this.populateMonths(this.displayedYear);
         this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
-    }
-
-    /**
-     * Marks all months between first and second selected as selected/unselected.
-     */
-    private updateMonthsSelection(value: boolean): void {
-        if (!this.firstSelectedMonth) return;
-
-        if (!this.secondSelectedMonth) {
-            const selectedMonth = this.displayedMonths[this.firstSelectedMonth.year].find(month => {
-                if (this.firstSelectedMonth) {
-                    return month.index === this.firstSelectedMonth.index;
-                }
-            });
-
-            if (selectedMonth) {
-                selectedMonth.selected = value;
-            }
-
-            return;
-        }
-
-        for (let i = this.firstSelectedMonth.year; i <= this.secondSelectedMonth.year; i++) {
-            if (!this.displayedMonths[i]) {
-                this.populateMonths(i);
-            }
-
-            this.displayedMonths[i].forEach(month => {
-                const date = new Date(month.year, month.index);
-
-                if (
-                    (this.secondSelectedMonth && this.firstSelectedMonth)
-                    && new Date(this.firstSelectedMonth.year, this.firstSelectedMonth.index) <= date
-                    && date <= new Date(this.secondSelectedMonth.year, this.secondSelectedMonth.index)
-                ) {
-                    month.selected = value;
-                }
-            });
-        }
     }
 
     /**
@@ -275,22 +156,13 @@ export default class PayoutPeriodCalendar extends Vue {
 
         const months: MonthButton[] = [];
         const availablePeriods: string[] = this.$store.state.payoutModule.payoutPeriods.map(payoutPeriod => payoutPeriod.period);
-        const lastMonthDate = new Date();
-        lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
 
-        // Creates month entities and adds them to list.
+        // Creates months entities and adds them to list.
         for (let i = 0; i < 12; i++) {
             const period = `${year}-${i < 9 ? '0' + (i + 1) : (i + 1)}`;
-
-            const isLastMonth: boolean = lastMonthDate.getUTCFullYear() === year && lastMonthDate.getUTCMonth() === i;
-            const isLastMonthActive: boolean =
-                isLastMonth && this.$store.state.node.selectedSatellite.joinDate.getTime() < new Date(
-                    this.now.getUTCFullYear(), this.now.getUTCMonth(), 1 , 0, 0, 1,
-                ).getTime();
-
             const isMonthActive: boolean = availablePeriods.includes(period);
 
-            months.push(new MonthButton(year, i, isMonthActive || isLastMonthActive, false));
+            months.push(new MonthButton(year, i, isMonthActive, false));
         }
 
         this.displayedMonths[year] = months;
@@ -300,7 +172,7 @@ export default class PayoutPeriodCalendar extends Vue {
      * Closes calendar.
      */
     private close(): void {
-        setTimeout(() => this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false), 0);
+        setTimeout(() => this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, false), 0);
     }
 }
 </script>
@@ -319,6 +191,7 @@ export default class PayoutPeriodCalendar extends Vue {
         padding: 24px;
         font-family: 'font_regular', sans-serif;
         cursor: default;
+        z-index: 110;
 
         &__header {
             display: flex;
@@ -361,13 +234,6 @@ export default class PayoutPeriodCalendar extends Vue {
                     height: 20px;
                     width: 15px;
                 }
-            }
-
-            &__all-time {
-                font-size: 12px;
-                line-height: 18px;
-                color: var(--navigation-link-color);
-                cursor: pointer;
             }
         }
 
