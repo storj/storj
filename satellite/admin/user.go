@@ -40,10 +40,12 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case input.Email == "":
-		http.Error(w, "Email is not set", http.StatusBadRequest)
+		httpJSONError(w, "email is not set",
+			"", http.StatusBadRequest)
 		return
 	case input.Password == "":
-		http.Error(w, "Password is not set", http.StatusBadRequest)
+		httpJSONError(w, "password is not set",
+			"", http.StatusBadRequest)
 		return
 	}
 
@@ -297,12 +299,13 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	// Ensure user has no own projects any longer
 	projects, err := server.db.Console().Projects().GetByUserID(ctx, user.ID)
 	if err != nil {
-		httpJSONError(w, "unable to list buckets",
+		httpJSONError(w, "unable to list projects",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if len(projects) > 0 {
-		http.Error(w, fmt.Sprintf("some projects still exist: %v", projects), http.StatusConflict)
+		httpJSONError(w, "some projects still exist",
+			fmt.Sprintf("%v", projects), http.StatusConflict)
 		return
 	}
 
@@ -317,7 +320,8 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		for _, project := range members {
 			err := server.db.Console().ProjectMembers().Delete(ctx, user.ID, project.ProjectID)
 			if err != nil {
-				http.Error(w, fmt.Sprintf("unable to delete user project membership: %v", err), http.StatusInternalServerError)
+				httpJSONError(w, "unable to delete user project membership",
+					err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
@@ -333,7 +337,8 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	if len(invoices) > 0 {
 		for _, invoice := range invoices {
 			if invoice.Status != "paid" {
-				http.Error(w, "user has unpaid/pending invoices", http.StatusConflict)
+				httpJSONError(w, "user has unpaid/pending invoices",
+					"", http.StatusConflict)
 				return
 			}
 		}

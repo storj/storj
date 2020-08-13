@@ -52,7 +52,7 @@ func TestBasic(t *testing.T) {
 		t.Run("WithAccess", func(t *testing.T) {
 			req, err := http.NewRequest(http.MethodGet, "http://"+address.String(), nil)
 			require.NoError(t, err)
-			req.Header.Set("Authorization", "very-secret-token")
+			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 			response, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)

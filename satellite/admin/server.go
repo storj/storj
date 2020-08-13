@@ -42,7 +42,7 @@ type DB interface {
 	Buckets() metainfo.BucketsDB
 }
 
-// Server provides endpoints for debugging.
+// Server provides endpoints for administrative tasks.
 type Server struct {
 	log *zap.Logger
 
@@ -54,7 +54,7 @@ type Server struct {
 	payments payments.Accounts
 }
 
-// NewServer returns a new debug.Server.
+// NewServer returns a new administration Server.
 func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.Accounts, config Config) *Server {
 	server := &Server{
 		log: log,
@@ -79,6 +79,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 	server.mux.HandleFunc("/api/coupon", server.addCoupon).Methods("POST")
 	server.mux.HandleFunc("/api/coupon/{couponid}", server.couponInfo).Methods("GET")
 	server.mux.HandleFunc("/api/coupon/{couponid}", server.deleteCoupon).Methods("DELETE")
+	server.mux.HandleFunc("/api/project/{project}/usage", server.checkProjectUsage).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.getProjectLimit).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
 	server.mux.HandleFunc("/api/project/{project}", server.renameProject).Methods("PUT")
@@ -96,7 +97,8 @@ type protectedServer struct {
 
 func (server *protectedServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if server.allowedAuthorization == "" {
-		http.Error(w, "Authorization not enabled.", http.StatusForbidden)
+		httpJSONError(w, "Authorization not enabled.",
+			"", http.StatusForbidden)
 		return
 	}
 
@@ -105,7 +107,8 @@ func (server *protectedServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		[]byte(server.allowedAuthorization),
 	)
 	if equality != 1 {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		httpJSONError(w, "Forbidden",
+			"", http.StatusForbidden)
 		return
 	}
 
@@ -114,7 +117,7 @@ func (server *protectedServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	server.next.ServeHTTP(w, r)
 }
 
-// Run starts the debug endpoint.
+// Run starts the admin endpoint.
 func (server *Server) Run(ctx context.Context) error {
 	if server.listener == nil {
 		return nil

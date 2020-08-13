@@ -130,6 +130,12 @@ A successful response body:
 
 Deletes the specified coupon.
 
+## GET /api/project/{project-id}/usage
+
+This endpoint returns whether the project has outstanding usage or not.
+
+A project with not usage returns status code 200 and `{"result":"no project usage exist"}`.
+
 ## GET /api/project/{project-id}/limit
 
 This endpoint returns information about project limits.

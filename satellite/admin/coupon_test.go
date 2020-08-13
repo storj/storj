@@ -39,7 +39,7 @@ func TestAddCoupon(t *testing.T) {
 		body := strings.NewReader(fmt.Sprintf(`{"userId": "%s", "duration": 2, "amount": 3000, "description": "testcoupon-alice"}`, user.ID))
 		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/coupon", body)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", "very-secret-token")
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestCouponInfo(t *testing.T) {
 		body := strings.NewReader(fmt.Sprintf(`{"userId": "%s", "duration": 2, "amount": 3000, "description": "testcoupon-alice"}`, user.ID))
 		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/coupon", body)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", "very-secret-token")
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
@@ -98,7 +98,7 @@ func TestCouponInfo(t *testing.T) {
 
 		req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/coupon/%s", id.String()), nil)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", "very-secret-token")
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
@@ -137,7 +137,7 @@ func TestCouponDelete(t *testing.T) {
 		body := strings.NewReader(fmt.Sprintf(`{"userId": "%s", "duration": 2, "amount": 3000, "description": "testcoupon-alice"}`, user.ID))
 		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/coupon", body)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", "very-secret-token")
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
@@ -157,7 +157,7 @@ func TestCouponDelete(t *testing.T) {
 
 		req, err = http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/coupon/%s", id), nil)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", "very-secret-token")
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
