@@ -1,12 +1,13 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vuex from 'vuex';
 import sinon from 'sinon';
+import Vuex from 'vuex';
 
 import CreateApiKeyStep from '@/components/onboardingTour/steps/CreateApiKeyStep.vue';
 
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { appStateModule } from '@/store/modules/appState';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ApiKeysPage } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
@@ -16,7 +17,6 @@ import { createLocalVue, mount } from '@vue/test-utils';
 
 import { ApiKeysMock } from '../../mock/api/apiKeys';
 import { ProjectsApiMock } from '../../mock/api/projects';
-import {appStateModule} from "@/store/modules/appState";
 
 const localVue = createLocalVue();
 const notificationPlugin = new NotificatorPlugin();
