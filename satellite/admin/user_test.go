@@ -51,7 +51,7 @@ func TestGetUser(t *testing.T) {
 			req, err := http.NewRequest(http.MethodGet, userLink, nil)
 			require.NoError(t, err)
 
-			req.Header.Set("Authorization", "very-secret-token")
+			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 			response, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestAddUser(t *testing.T) {
 		body := strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
 		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/user", body)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", "very-secret-token")
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestAddUserSameEmail(t *testing.T) {
 		body := strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
 		req, err := http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/user", body)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", "very-secret-token")
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestAddUserSameEmail(t *testing.T) {
 		body = strings.NewReader(fmt.Sprintf(`{"email":"%s","fullName":"Alice Test","password":"123a123"}`, email))
 		req, err = http.NewRequest(http.MethodPost, "http://"+address.String()+"/api/user", body)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", "very-secret-token")
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestUpdateUser(t *testing.T) {
 		body := strings.NewReader(`{"email":"alice+2@mail.test", "shortName":"Newbie"}`)
 		req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), body)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", "very-secret-token")
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
@@ -208,7 +208,7 @@ func TestDeleteUser(t *testing.T) {
 		// Deleting the user should fail, as project exists
 		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), nil)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", "very-secret-token")
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
@@ -224,7 +224,7 @@ func TestDeleteUser(t *testing.T) {
 		// Deleting the user should pass, as no project exists for given user
 		req, err = http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), nil)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", "very-secret-token")
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
