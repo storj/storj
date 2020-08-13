@@ -491,6 +491,15 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 					verifier.log.Debug("Reverify: order limit not created (disqualified)", zap.Stringer("Node ID", pending.NodeID))
 					return
 				}
+				if overlay.ErrNodeFinishedGE.Has(err) {
+					_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
+					if errDelete != nil {
+						verifier.log.Debug("Error deleting gracefully exited node from containment db", zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
+					}
+					ch <- result{nodeID: pending.NodeID, status: erred, err: err}
+					verifier.log.Debug("Reverify: order limit not created (completed graceful exit)", zap.Stringer("Node ID", pending.NodeID))
+					return
+				}
 				if overlay.ErrNodeOffline.Has(err) {
 					ch <- result{nodeID: pending.NodeID, status: offline}
 					verifier.log.Debug("Reverify: order limit not created (offline)", zap.Stringer("Node ID", pending.NodeID))

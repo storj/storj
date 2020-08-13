@@ -29,6 +29,9 @@ var ErrNodeOffline = errs.Class("node is offline")
 // ErrNodeDisqualified is returned if a nodes is disqualified.
 var ErrNodeDisqualified = errs.Class("node is disqualified")
 
+// ErrNodeFinishedGE is returned if a node has finished graceful exit.
+var ErrNodeFinishedGE = errs.Class("node finished graceful exit")
+
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
