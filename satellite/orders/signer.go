@@ -86,8 +86,8 @@ func NewSigner(service *Service, rootPieceID storj.PieceID, pieceExpiration time
 }
 
 // NewSignerGet creates a new signer for get orders.
-func NewSignerGet(service *Service, rootPieceID storj.PieceID, pieceExpiration time.Time, orderCreation time.Time, orderExpiration time.Time, limit int64) (*Signer, error) {
-	return NewSigner(service, rootPieceID, pieceExpiration, orderCreation, orderExpiration, limit, pb.PieceAction_GET)
+func NewSignerGet(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, orderExpiration time.Time, limit int64) (*Signer, error) {
+	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, orderExpiration, limit, pb.PieceAction_GET)
 }
 
 // NewSignerPut creates a new signer for put orders.
@@ -97,13 +97,13 @@ func NewSignerPut(service *Service, pieceExpiration time.Time, orderCreation tim
 }
 
 // NewSignerDelete creates a new signer for delete orders.
-func NewSignerDelete(service *Service, rootPieceID storj.PieceID, pieceExpiration time.Time, orderCreation time.Time, orderExpiration time.Time) (*Signer, error) {
-	return NewSigner(service, rootPieceID, pieceExpiration, orderCreation, orderExpiration, 0, pb.PieceAction_DELETE)
+func NewSignerDelete(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, orderExpiration time.Time) (*Signer, error) {
+	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, orderExpiration, 0, pb.PieceAction_DELETE)
 }
 
 // NewSignerRepairGet creates a new signer for get repair orders.
-func NewSignerRepairGet(service *Service, rootPieceID storj.PieceID, pieceExpiration time.Time, orderCreation time.Time, orderExpiration time.Time, pieceSize int64) (*Signer, error) {
-	return NewSigner(service, rootPieceID, pieceExpiration, orderCreation, orderExpiration, pieceSize, pb.PieceAction_GET_REPAIR)
+func NewSignerRepairGet(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, orderExpiration time.Time, pieceSize int64) (*Signer, error) {
+	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, orderExpiration, pieceSize, pb.PieceAction_GET_REPAIR)
 }
 
 // NewSignerRepairPut creates a new signer for put repair orders.
@@ -120,8 +120,8 @@ func NewSignerAudit(service *Service, rootPieceID storj.PieceID, orderCreation t
 func NewSignerGracefulExit(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, orderExpiration time.Time, shareSize int32) (*Signer, error) {
 	// TODO: we're using zero time.Time for piece expiration for some reason.
 
-	// TODO: we're using `PUT_REPAIR` here even though `PUT_GRACEFUL_EXIT` exists and
-	// seems like the perfect thing because we're in a pickle. we can't use `PUT`
+	// TODO: we're using `PUT_REPAIR` here even though we should be using `PUT`, such
+	// that the storage node cannot distinguish between requests. We can't use `PUT`
 	// because we don't want to charge bucket owners for graceful exit bandwidth, and
 	// we can't use `PUT_GRACEFUL_EXIT` because storagenode will only accept upload
 	// orders with `PUT` or `PUT_REPAIR` as the action. we also don't have a bunch of

@@ -618,40 +618,6 @@ func TestProcessOrders(t *testing.T) {
 	})
 }
 
-func TestRandomSampleLimits(t *testing.T) {
-	orderlimits := []*pb.AddressedOrderLimit{{}, {}, {}, {}}
-
-	s := orders.NewService(nil, nil, nil, nil, nil, 0, nil)
-	t.Run("sample size is less than the number of order limits", func(t *testing.T) {
-		var nilCount int
-		sampleSize := 2
-		limits, err := s.RandomSampleOfOrderLimits(orderlimits, sampleSize)
-		assert.NoError(t, err)
-		assert.Equal(t, len(orderlimits), len(limits))
-
-		for _, limit := range limits {
-			if limit == nil {
-				nilCount++
-			}
-		}
-		assert.Equal(t, len(orderlimits)-sampleSize, nilCount)
-	})
-
-	t.Run("sample size is greater than the number of order limits", func(t *testing.T) {
-		var nilCount int
-		sampleSize := 6
-		limits, err := s.RandomSampleOfOrderLimits(orderlimits, sampleSize)
-		assert.NoError(t, err)
-		assert.Equal(t, len(orderlimits), len(limits))
-		for _, limit := range limits {
-			if limit == nil {
-				nilCount++
-			}
-		}
-		assert.Equal(t, 0, nilCount)
-	})
-}
-
 func TestProcessOrders_DoubleSend(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		ordersDB := db.Orders()

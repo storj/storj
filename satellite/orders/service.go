@@ -120,26 +120,14 @@ func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID
 func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byte, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rootPieceID := pointer.GetRemote().RootPieceId
-	pieceExpiration := pointer.ExpirationDate
-	orderExpiration := time.Now().Add(service.orderExpiration)
-
-	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
-	serialNumber, err := createSerial(orderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+
+	orderCreation := time.Now()
+	orderExpiration := orderCreation.Add(service.orderExpiration)
 
 	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
 	for i, piece := range pointer.GetRemote().GetRemotePieces() {
@@ -152,102 +140,63 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	var nodeErrors errs.Group
-	var limits []*pb.AddressedOrderLimit
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		node, ok := nodes[piece.NodeId]
-		if !ok {
-			nodeErrors.Add(errs.New("node %q is not reliable", piece.NodeId))
-			continue
-		}
-
-		orderLimit := &pb.OrderLimit{
-			SerialNumber:     serialNumber,
-			SatelliteId:      service.satellite.ID(),
-			SatelliteAddress: service.satelliteAddress,
-			UplinkPublicKey:  piecePublicKey,
-			StorageNodeId:    piece.NodeId,
-			PieceId:          rootPieceID.Derive(piece.NodeId, piece.PieceNum),
-			Action:           pb.PieceAction_GET,
-			Limit:            pieceSize,
-			PieceExpiration:  pieceExpiration,
-			OrderCreation:    time.Now(),
-			OrderExpiration:  orderExpiration,
-		}
-
-		// use the lastIP that we have on record to avoid doing extra DNS resolutions
-		if node.LastIPPort != "" {
-			node.Address.Address = node.LastIPPort
-		}
-		limits = append(limits, &pb.AddressedOrderLimit{
-			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
-		})
-	}
-
-	if len(limits) < redundancy.RequiredCount() {
-		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //locked
-		err = Error.New("not enough nodes available: got %d, required %d", len(limits), redundancy.RequiredCount())
-		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, nodeErrors.Err()))
-	}
-
-	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpiration)
+	signer, err := NewSignerGet(service, pointer.GetRemote().RootPieceId, orderCreation, orderExpiration, pieceSize)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
 	neededLimits := pb.NewRedundancySchemeToStorj(pointer.GetRemote().GetRedundancy()).DownloadNodes()
-	if int(neededLimits) < redundancy.RequiredCount() {
-		err = Error.New("not enough needed node orderlimits: got %d, required %d", neededLimits, redundancy.RequiredCount())
-		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.Wrap(errs.Combine(err, nodeErrors.Err()))
+
+	pieces := pointer.GetRemote().GetRemotePieces()
+	for _, pieceIndex := range service.perm(len(pieces)) {
+		piece := pieces[pieceIndex]
+		node, ok := nodes[piece.NodeId]
+		if !ok {
+			continue
+		}
+
+		address := node.Address.Address
+		if node.LastIPPort != "" {
+			address = node.LastIPPort
+		}
+
+		_, err := signer.Sign(ctx, storj.NodeURL{
+			ID:      piece.NodeId,
+			Address: address,
+		}, piece.PieceNum)
+		if err != nil {
+			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+		}
+
+		if len(signer.AddressedLimits) >= int(neededLimits) {
+			break
+		}
 	}
-	// an orderLimit was created for each piece, but lets only use
-	// the number of orderLimits actually needed to do the download
-	limits, err = service.RandomSampleOfOrderLimits(limits, int(neededLimits))
+	if len(signer.AddressedLimits) < redundancy.RequiredCount() {
+		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //locked
+		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.New("not enough orderlimits: got %d, required %d", len(signer.AddressedLimits), redundancy.RequiredCount())
+	}
+
+	err = service.saveSerial(ctx, signer.Serial, bucketID, signer.OrderExpiration)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	for i, limit := range limits {
-		if limit == nil {
-			continue
-		}
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, limit.Limit)
-		if err != nil {
-			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-		}
-		limits[i].Limit = orderLimit
-	}
 	projectID, bucketName, err := SplitBucketID(bucketID)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	if err := service.updateBandwidth(ctx, projectID, bucketName, limits...); err != nil {
+	if err := service.updateBandwidth(ctx, projectID, bucketName, signer.AddressedLimits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	return limits, piecePrivateKey, nil
+	return signer.AddressedLimits, signer.PrivateKey, nil
 }
 
-// RandomSampleOfOrderLimits returns a random sample of the order limits.
-func (service *Service) RandomSampleOfOrderLimits(limits []*pb.AddressedOrderLimit, sampleSize int) ([]*pb.AddressedOrderLimit, error) {
+func (service *Service) perm(n int) []int {
 	service.rngMu.Lock()
-	perm := service.rng.Perm(len(limits))
-	service.rngMu.Unlock()
-
-	// the sample slice is the same size as the limits slice since that represents all
-	// of the pieces of a pointer in the correct order and we want to maintain the order
-	var sample = make([]*pb.AddressedOrderLimit, len(limits))
-	for _, i := range perm {
-		limit := limits[i]
-		sample[i] = limit
-
-		sampleSize--
-		if sampleSize <= 0 {
-			break
-		}
-	}
-	return sample, nil
+	defer service.rngMu.Unlock()
+	return service.rng.Perm(n)
 }
 
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
@@ -307,7 +256,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 	orderCreation := time.Now()
 	orderExpiration := orderCreation.Add(service.orderExpiration)
 
-	signer, err := NewSignerDelete(service, pointer.GetRemote().RootPieceId, pointer.ExpirationDate, orderCreation, orderExpiration)
+	signer, err := NewSignerDelete(service, pointer.GetRemote().RootPieceId, orderCreation, orderExpiration)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -496,7 +445,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerRepairGet(service, pointer.GetRemote().RootPieceId, pointer.ExpirationDate, orderCreation, orderExpiration, pieceSize)
+	signer, err := NewSignerRepairGet(service, pointer.GetRemote().RootPieceId, orderCreation, orderExpiration, pieceSize)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -606,7 +555,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 		}
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucketID, orderExpiration)
+	err = service.saveSerial(ctx, signer.Serial, bucketID, signer.OrderExpiration)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
