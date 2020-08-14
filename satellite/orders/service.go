@@ -126,9 +126,6 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 	}
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 
-	orderCreation := time.Now()
-	orderExpiration := orderCreation.Add(service.orderExpiration)
-
 	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
 	for i, piece := range pointer.GetRemote().GetRemotePieces() {
 		nodeIDs[i] = piece.NodeId
@@ -140,7 +137,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucketID []byt
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerGet(service, pointer.GetRemote().RootPieceId, orderCreation, orderExpiration, pieceSize)
+	signer, err := NewSignerGet(service, pointer.GetRemote().RootPieceId, time.Now(), pieceSize)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -203,10 +200,7 @@ func (service *Service) perm(n int) []int {
 func (service *Service) CreatePutOrderLimits(ctx context.Context, bucketID []byte, nodes []*overlay.SelectedNode, pieceExpiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	orderCreation := time.Now()
-	orderExpiration := orderCreation.Add(service.orderExpiration)
-
-	signer, err := NewSignerPut(service, pieceExpiration, orderCreation, orderExpiration, maxPieceSize)
+	signer, err := NewSignerPut(service, pieceExpiration, time.Now(), maxPieceSize)
 	if err != nil {
 		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -253,10 +247,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucketID []
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	orderCreation := time.Now()
-	orderExpiration := orderCreation.Add(service.orderExpiration)
-
-	signer, err := NewSignerDelete(service, pointer.GetRemote().RootPieceId, orderCreation, orderExpiration)
+	signer, err := NewSignerDelete(service, pointer.GetRemote().RootPieceId, time.Now())
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -299,9 +290,6 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 	shareSize := redundancy.GetErasureShareSize()
 	totalPieces := redundancy.GetTotal()
 
-	orderCreation := time.Now()
-	orderExpiration := orderCreation.Add(service.orderExpiration)
-
 	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
 	for i, piece := range pointer.GetRemote().GetRemotePieces() {
 		nodeIDs[i] = piece.NodeId
@@ -313,7 +301,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucketID []b
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerAudit(service, pointer.GetRemote().RootPieceId, orderCreation, orderExpiration, int64(shareSize))
+	signer, err := NewSignerAudit(service, pointer.GetRemote().RootPieceId, time.Now(), int64(shareSize))
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -369,9 +357,6 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 	// TODO reduce number of params ?
 	defer mon.Task()(&ctx)(&err)
 
-	orderCreation := time.Now()
-	orderExpiration := orderCreation.Add(service.orderExpiration)
-
 	node, err := service.overlay.Get(ctx, nodeID)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
@@ -386,7 +371,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeOffline.New("%v", nodeID)
 	}
 
-	signer, err := NewSignerAudit(service, rootPieceID, orderCreation, orderExpiration, int64(shareSize))
+	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(shareSize))
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -431,8 +416,6 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
 	totalPieces := redundancy.TotalCount()
-	orderCreation := time.Now()
-	orderExpiration := orderCreation.Add(service.orderExpiration)
 
 	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
 	for i, piece := range pointer.GetRemote().GetRemotePieces() {
@@ -445,7 +428,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerRepairGet(service, pointer.GetRemote().RootPieceId, orderCreation, orderExpiration, pieceSize)
+	signer, err := NewSignerRepairGet(service, pointer.GetRemote().RootPieceId, time.Now(), pieceSize)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -497,9 +480,6 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucketID
 func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*overlay.SelectedNode, optimalThresholdMultiplier float64) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	orderCreation := time.Now()
-	orderExpiration := orderCreation.Add(service.orderExpiration)
-
 	// Create the order limits for being used to upload the repaired pieces
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
@@ -523,7 +503,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 	totalPiecesToRepair := totalPiecesAfterRepair - numCurrentPieces
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
-	signer, err := NewSignerRepairPut(service, pointer.GetRemote().RootPieceId, pointer.ExpirationDate, orderCreation, orderExpiration, pieceSize)
+	signer, err := NewSignerRepairPut(service, pointer.GetRemote().RootPieceId, pointer.ExpirationDate, time.Now(), pieceSize)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -575,9 +555,6 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucketID
 func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, bucketID []byte, nodeID storj.NodeID, pieceNum int32, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	orderCreation := time.Now().UTC()
-	orderExpiration := orderCreation.Add(service.orderExpiration)
-
 	// should this use KnownReliable or similar?
 	node, err := service.overlay.Get(ctx, nodeID)
 	if err != nil {
@@ -590,7 +567,7 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeOffline.New("%v", nodeID)
 	}
 
-	signer, err := NewSignerGracefulExit(service, rootPieceID, orderCreation, orderExpiration, shareSize)
+	signer, err := NewSignerGracefulExit(service, rootPieceID, time.Now(), shareSize)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
