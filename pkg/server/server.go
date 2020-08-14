@@ -5,7 +5,6 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
 	"net"
 	"sync"
 
@@ -157,7 +156,7 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	const drpcHeader = "DRPC!!!1"
 
 	publicMux := listenmux.New(p.public.listener, len(drpcHeader))
-	publicDRPCListener := tls.NewListener(publicMux.Route(drpcHeader), p.tlsOptions.ServerTLSConfig())
+	publicDRPCListener := publicMux.Route(drpcHeader)
 
 	privateMux := listenmux.New(p.private.listener, len(drpcHeader))
 	privateDRPCListener := privateMux.Route(drpcHeader)

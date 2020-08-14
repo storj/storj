@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
@@ -223,9 +222,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "expected put or put repair action got %v", limit.Action)
 	}
 
-	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
-		return err
-	}
+	// if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
+	// 	return err
+	// }
 
 	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
 	if err != nil {
@@ -680,20 +679,20 @@ func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, o
 func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.RestoreTrashRequest) (res *pb.RestoreTrashResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
-	}
+	// peer, err := identity.PeerIdentityFromContext(ctx)
+	// if err != nil {
+	// 	return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	// }
 
-	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "RestoreTrash called with untrusted ID")
-	}
+	// err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	// if err != nil {
+	// 	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "RestoreTrash called with untrusted ID")
+	// }
 
-	err = endpoint.store.RestoreTrash(ctx, peer.ID)
-	if err != nil {
-		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
-	}
+	// err = endpoint.store.RestoreTrash(ctx, peer.ID)
+	// if err != nil {
+	// 	return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+	// }
 
 	return &pb.RestoreTrashResponse{}, nil
 }
@@ -707,30 +706,30 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return &pb.RetainResponse{}, nil
 	}
 
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
-	}
+	// peer, err := identity.PeerIdentityFromContext(ctx)
+	// if err != nil {
+	// 	return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	// }
 
-	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
-	if err != nil {
-		return nil, rpcstatus.Errorf(rpcstatus.PermissionDenied, "retain called with untrusted ID")
-	}
+	// err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	// if err != nil {
+	// 	return nil, rpcstatus.Errorf(rpcstatus.PermissionDenied, "retain called with untrusted ID")
+	// }
 
-	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
-	if err != nil {
-		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
-	}
+	// filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
+	// if err != nil {
+	// 	return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
+	// }
 
-	// the queue function will update the created before time based on the configurable retain buffer
-	queued := endpoint.retain.Queue(retain.Request{
-		SatelliteID:   peer.ID,
-		CreatedBefore: retainReq.GetCreationDate(),
-		Filter:        filter,
-	})
-	if !queued {
-		endpoint.log.Debug("Retain job not queued for satellite", zap.Stringer("Satellite ID", peer.ID))
-	}
+	// // the queue function will update the created before time based on the configurable retain buffer
+	// queued := endpoint.retain.Queue(retain.Request{
+	// 	SatelliteID:   peer.ID,
+	// 	CreatedBefore: retainReq.GetCreationDate(),
+	// 	Filter:        filter,
+	// })
+	// if !queued {
+	// 	endpoint.log.Debug("Retain job not queued for satellite", zap.Stringer("Satellite ID", peer.ID))
+	// }
 
 	return &pb.RetainResponse{}, nil
 }

@@ -10,7 +10,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -74,74 +73,75 @@ func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
 
 // Run runs loop.
 func (cache *Cache) Run(ctx context.Context) error {
-	var group errgroup.Group
+	return nil
+	// var group errgroup.Group
 
-	err := cache.satelliteLoop(ctx, func(satelliteID storj.NodeID) error {
-		stubHistory, err := cache.heldamountEndpoint.GetAllPaystubs(ctx, satelliteID)
-		if err != nil {
-			return err
-		}
+	// err := cache.satelliteLoop(ctx, func(satelliteID storj.NodeID) error {
+	// 	stubHistory, err := cache.heldamountEndpoint.GetAllPaystubs(ctx, satelliteID)
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-		for i := 0; i < len(stubHistory); i++ {
-			err := cache.db.HeldAmount.StorePayStub(ctx, stubHistory[i])
-			if err != nil {
-				return err
-			}
-		}
+	// 	for i := 0; i < len(stubHistory); i++ {
+	// 		err := cache.db.HeldAmount.StorePayStub(ctx, stubHistory[i])
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
 
-		paymentHistory, err := cache.heldamountEndpoint.GetAllPayments(ctx, satelliteID)
-		if err != nil {
-			return err
-		}
+	// 	paymentHistory, err := cache.heldamountEndpoint.GetAllPayments(ctx, satelliteID)
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-		for j := 0; j < len(paymentHistory); j++ {
-			err := cache.db.HeldAmount.StorePayment(ctx, paymentHistory[j])
-			if err != nil {
-				return err
-			}
-		}
+	// 	for j := 0; j < len(paymentHistory); j++ {
+	// 		err := cache.db.HeldAmount.StorePayment(ctx, paymentHistory[j])
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
 
-		pricingModel, err := cache.service.GetPricingModel(ctx, satelliteID)
-		if err != nil {
-			return err
-		}
-		return cache.db.Pricing.Store(ctx, *pricingModel)
-	})
-	if err != nil {
-		cache.log.Error("Get pricing-model/join date failed", zap.Error(err))
-	}
+	// 	pricingModel, err := cache.service.GetPricingModel(ctx, satelliteID)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	return cache.db.Pricing.Store(ctx, *pricingModel)
+	// })
+	// if err != nil {
+	// 	cache.log.Error("Get pricing-model/join date failed", zap.Error(err))
+	// }
 
-	cache.Reputation.Start(ctx, &group, func(ctx context.Context) error {
-		if err := cache.sleep(ctx); err != nil {
-			return err
-		}
+	// cache.Reputation.Start(ctx, &group, func(ctx context.Context) error {
+	// 	if err := cache.sleep(ctx); err != nil {
+	// 		return err
+	// 	}
 
-		err := cache.CacheReputationStats(ctx)
-		if err != nil {
-			cache.log.Error("Get stats query failed", zap.Error(err))
-		}
+	// 	err := cache.CacheReputationStats(ctx)
+	// 	if err != nil {
+	// 		cache.log.Error("Get stats query failed", zap.Error(err))
+	// 	}
 
-		return nil
-	})
-	cache.Storage.Start(ctx, &group, func(ctx context.Context) error {
-		if err := cache.sleep(ctx); err != nil {
-			return err
-		}
+	// 	return nil
+	// })
+	// cache.Storage.Start(ctx, &group, func(ctx context.Context) error {
+	// 	if err := cache.sleep(ctx); err != nil {
+	// 		return err
+	// 	}
 
-		err := cache.CacheSpaceUsage(ctx)
-		if err != nil {
-			cache.log.Error("Get disk space usage query failed", zap.Error(err))
-		}
+	// 	err := cache.CacheSpaceUsage(ctx)
+	// 	if err != nil {
+	// 		cache.log.Error("Get disk space usage query failed", zap.Error(err))
+	// 	}
 
-		err = cache.CacheHeldAmount(ctx)
-		if err != nil {
-			cache.log.Error("Get held amount query failed", zap.Error(err))
-		}
+	// 	err = cache.CacheHeldAmount(ctx)
+	// 	if err != nil {
+	// 		cache.log.Error("Get held amount query failed", zap.Error(err))
+	// 	}
 
-		return nil
-	})
+	// 	return nil
+	// })
 
-	return group.Wait()
+	// return group.Wait()
 }
 
 // CacheReputationStats queries node stats from all the satellites

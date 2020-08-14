@@ -593,6 +593,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		}
 
 		process.ExecBefore["run"] = func(process *Process) error {
+			nodeID, err := identity.NodeIDFromCertPath(filepath.Join(process.Directory, "identity.cert"))
+			if err != nil {
+				return err
+			}
+			fmt.Println("storagenode ID: ", nodeID.String())
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
 	}

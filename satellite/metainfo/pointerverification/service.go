@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
-	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/eestream"
@@ -115,36 +114,36 @@ func (service *Service) SelectValidPieces(ctx context.Context, pointer *pb.Point
 			continue
 		}
 
-		peerIdentity := service.identities.GetCached(ctx, piece.NodeId)
-		if peerIdentity == nil {
-			// This shouldn't happen due to the caching in the start of the func.
-			return nil, nil, Error.New("nil identity returned (%v)", piece.NodeId)
-		}
-		signee := signing.SigneeFromPeerIdentity(peerIdentity)
+		// peerIdentity := service.identities.GetCached(ctx, piece.NodeId)
+		// if peerIdentity == nil {
+		// 	// This shouldn't happen due to the caching in the start of the func.
+		// 	return nil, nil, Error.New("nil identity returned (%v)", piece.NodeId)
+		// }
+		// signee := signing.SigneeFromPeerIdentity(peerIdentity)
 
-		// verify the signature
-		err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
-		if err != nil {
-			// TODO: check whether the identity changed from what it was before.
+		// // verify the signature
+		// err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
+		// if err != nil {
+		// 	// TODO: check whether the identity changed from what it was before.
 
-			// Maybe the cache has gone stale?
-			peerIdentity, err := service.identities.GetUpdated(ctx, piece.NodeId)
-			if err != nil {
-				return nil, nil, Error.Wrap(err)
-			}
-			signee := signing.SigneeFromPeerIdentity(peerIdentity)
+		// 	// Maybe the cache has gone stale?
+		// 	peerIdentity, err := service.identities.GetUpdated(ctx, piece.NodeId)
+		// 	if err != nil {
+		// 		return nil, nil, Error.Wrap(err)
+		// 	}
+		// 	signee := signing.SigneeFromPeerIdentity(peerIdentity)
 
-			// let's check the signature again
-			err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
-			if err != nil {
-				invalid = append(invalid, InvalidPiece{
-					NodeID:   piece.NodeId,
-					PieceNum: piece.PieceNum,
-					Reason:   err,
-				})
-				continue
-			}
-		}
+		// 	// let's check the signature again
+		// 	err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
+		// 	if err != nil {
+		// 		invalid = append(invalid, InvalidPiece{
+		// 			NodeID:   piece.NodeId,
+		// 			PieceNum: piece.PieceNum,
+		// 			Reason:   err,
+		// 		})
+		// 		continue
+		// 	}
+		// }
 
 		valid = append(valid, piece)
 	}
