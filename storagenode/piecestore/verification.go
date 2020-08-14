@@ -55,9 +55,9 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing piece id")
 	}
 
-	if err := endpoint.trust.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
-		return rpcstatus.Wrap(rpcstatus.PermissionDenied, err)
-	}
+	// if err := endpoint.trust.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
+	// 	return rpcstatus.Wrap(rpcstatus.PermissionDenied, err)
+	// }
 
 	if err := endpoint.VerifyOrderLimitSignature(ctx, limit); err != nil {
 		if errs2.IsCanceled(err) {
