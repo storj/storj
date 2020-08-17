@@ -340,6 +340,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
+# maximum number of concurrent requests
+# metainfo.object-deletion.max-concurrent-requests: 10000
+
 # maximum number of requests per batch
 # metainfo.object-deletion.max-objects-per-request: 100
 
@@ -357,6 +360,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # maximum number of concurrent requests to storage nodes
 # metainfo.piece-deletion.max-concurrency: 100
+
+# maximum number of concurrent pieces can be processed
+# metainfo.piece-deletion.max-concurrent-pieces: 1000000
 
 # maximum number of pieces per batch
 # metainfo.piece-deletion.max-pieces-per-batch: 5000

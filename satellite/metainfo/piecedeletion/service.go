@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
@@ -18,7 +19,8 @@ import (
 
 // Config defines configuration options for Service.
 type Config struct {
-	MaxConcurrency int `help:"maximum number of concurrent requests to storage nodes" default:"100"`
+	MaxConcurrency      int `help:"maximum number of concurrent requests to storage nodes" default:"100"`
+	MaxConcurrentPieces int `help:"maximum number of concurrent pieces can be processed" default:"1000000"`
 
 	MaxPiecesPerBatch   int `help:"maximum number of pieces per batch" default:"5000"`
 	MaxPiecesPerRequest int `help:"maximum number pieces per single request" default:"1000"`
@@ -38,6 +40,9 @@ func (config *Config) Verify() errs.Group {
 	var errlist errs.Group
 	if config.MaxConcurrency <= 0 {
 		errlist.Add(Error.New("concurrency %d must be greater than 0", config.MaxConcurrency))
+	}
+	if config.MaxConcurrentPieces <= 0 {
+		errlist.Add(Error.New("max concurrent pieces %d must be greater than 0", config.MaxConcurrentPieces))
 	}
 	if config.MaxPiecesPerBatch < config.MaxPiecesPerRequest {
 		errlist.Add(Error.New("max pieces per batch %d should be larger than max pieces per request %d", config.MaxPiecesPerBatch, config.MaxPiecesPerRequest))
@@ -68,6 +73,8 @@ type Nodes interface {
 type Service struct {
 	log    *zap.Logger
 	config Config
+
+	concurrentRequests *semaphore.Weighted
 
 	rpcDialer rpc.Dialer
 	nodesDB   Nodes
@@ -103,10 +110,11 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodesDB Nodes, config Config
 	}
 
 	return &Service{
-		log:       log,
-		config:    config,
-		rpcDialer: dialerClone,
-		nodesDB:   nodesDB,
+		log:                log,
+		config:             config,
+		concurrentRequests: semaphore.NewWeighted(int64(config.MaxConcurrentPieces)),
+		rpcDialer:          dialerClone,
+		nodesDB:            nodesDB,
 	}, nil
 }
 
@@ -152,6 +160,18 @@ func (service *Service) Delete(ctx context.Context, requests []Request, successT
 			return Error.New("request #%d is invalid", i)
 		}
 	}
+
+	// When number of pieces are more than the maximum limit, we let it overflow,
+	// so we don't have to split requests in to separate batches.
+	totalPieceCount := requestsPieceCount(requests)
+	if totalPieceCount > service.config.MaxConcurrentPieces {
+		totalPieceCount = service.config.MaxConcurrentPieces
+	}
+
+	if err := service.concurrentRequests.Acquire(ctx, int64(totalPieceCount)); err != nil {
+		return Error.Wrap(err)
+	}
+	defer service.concurrentRequests.Release(int64(totalPieceCount))
 
 	threshold, err := sync2.NewSuccessThreshold(len(requests), successThreshold)
 	if err != nil {

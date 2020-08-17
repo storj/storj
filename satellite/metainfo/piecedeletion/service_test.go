@@ -33,6 +33,7 @@ func TestService_New_Error(t *testing.T) {
 
 	_, err := piecedeletion.NewService(nil, dialer, &nodesDB{}, piecedeletion.Config{
 		MaxConcurrency:      8,
+		MaxConcurrentPieces: 10,
 		MaxPiecesPerBatch:   0,
 		MaxPiecesPerRequest: 0,
 		DialTimeout:         time.Second,
@@ -42,14 +43,16 @@ func TestService_New_Error(t *testing.T) {
 	require.Contains(t, err.Error(), "log is nil")
 
 	_, err = piecedeletion.NewService(log, rpc.Dialer{}, &nodesDB{}, piecedeletion.Config{
-		MaxConcurrency: 87,
-		DialTimeout:    time.Second,
+		MaxConcurrency:      87,
+		MaxConcurrentPieces: 10,
+		DialTimeout:         time.Second,
 	})
 	require.True(t, piecedeletion.Error.Has(err), err)
 	require.Contains(t, err.Error(), "dialer is zero")
 
 	_, err = piecedeletion.NewService(log, dialer, nil, piecedeletion.Config{
 		MaxConcurrency:      8,
+		MaxConcurrentPieces: 10,
 		MaxPiecesPerBatch:   0,
 		MaxPiecesPerRequest: 0,
 		DialTimeout:         time.Second,
@@ -59,29 +62,41 @@ func TestService_New_Error(t *testing.T) {
 	require.Contains(t, err.Error(), "nodesDB is nil")
 
 	_, err = piecedeletion.NewService(log, dialer, &nodesDB{}, piecedeletion.Config{
-		MaxConcurrency: 0,
-		DialTimeout:    time.Second,
+		MaxConcurrency:      0,
+		MaxConcurrentPieces: 10,
+		DialTimeout:         time.Second,
 	})
 	require.True(t, piecedeletion.Error.Has(err), err)
 	require.Contains(t, err.Error(), "greater than 0")
 
 	_, err = piecedeletion.NewService(log, dialer, &nodesDB{}, piecedeletion.Config{
-		MaxConcurrency: -3,
-		DialTimeout:    time.Second,
+		MaxConcurrency:      -3,
+		MaxConcurrentPieces: 10,
+		DialTimeout:         time.Second,
 	})
 	require.True(t, piecedeletion.Error.Has(err), err)
 	require.Contains(t, err.Error(), "greater than 0")
 
 	_, err = piecedeletion.NewService(log, dialer, &nodesDB{}, piecedeletion.Config{
-		MaxConcurrency: 3,
-		DialTimeout:    time.Nanosecond,
+		MaxConcurrency:      3,
+		MaxConcurrentPieces: -10,
+		DialTimeout:         time.Second,
+	})
+	require.True(t, piecedeletion.Error.Has(err), err)
+	require.Contains(t, err.Error(), "greater than 0")
+
+	_, err = piecedeletion.NewService(log, dialer, &nodesDB{}, piecedeletion.Config{
+		MaxConcurrency:      3,
+		MaxConcurrentPieces: 10,
+		DialTimeout:         time.Nanosecond,
 	})
 	require.True(t, piecedeletion.Error.Has(err), err)
 	require.Contains(t, err.Error(), "dial timeout 1ns must be between 5ms and 5m0s")
 
 	_, err = piecedeletion.NewService(log, dialer, &nodesDB{}, piecedeletion.Config{
-		MaxConcurrency: 3,
-		DialTimeout:    time.Hour,
+		MaxConcurrency:      3,
+		MaxConcurrentPieces: 10,
+		DialTimeout:         time.Hour,
 	})
 	require.True(t, piecedeletion.Error.Has(err), err)
 	require.Contains(t, err.Error(), "dial timeout 1h0m0s must be between 5ms and 5m0s")

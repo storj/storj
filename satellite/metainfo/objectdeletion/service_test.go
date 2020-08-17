@@ -41,6 +41,7 @@ func TestService_Delete_SingleObject(t *testing.T) {
 	config := objectdeletion.Config{
 		MaxObjectsPerRequest:     100,
 		ZombieSegmentsPerRequest: 3,
+		MaxConcurrentRequests:    200,
 	}
 
 	var testCases = []struct {
@@ -102,6 +103,7 @@ func TestService_Delete_SingleObject_Failure(t *testing.T) {
 	config := objectdeletion.Config{
 		MaxObjectsPerRequest:     100,
 		ZombieSegmentsPerRequest: 3,
+		MaxConcurrentRequests:    200,
 	}
 
 	var testCases = []struct {
@@ -159,6 +161,7 @@ func TestService_Delete_MultipleObject(t *testing.T) {
 	config := objectdeletion.Config{
 		MaxObjectsPerRequest:     100,
 		ZombieSegmentsPerRequest: 3,
+		MaxConcurrentRequests:    200,
 	}
 
 	var testCases = []struct {
@@ -246,6 +249,7 @@ func TestService_Delete_Batch(t *testing.T) {
 			config := objectdeletion.Config{
 				MaxObjectsPerRequest:     tt.batchSize,
 				ZombieSegmentsPerRequest: 3,
+				MaxConcurrentRequests:    tt.batchSize * 2,
 			}
 
 			requests := createRequests(tt.numRequests)

@@ -457,7 +457,8 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					DefaultMaxBandwidth: 25 * memory.GB,
 				},
 				PieceDeletion: piecedeletion.Config{
-					MaxConcurrency: 100,
+					MaxConcurrency:      100,
+					MaxConcurrentPieces: 1000,
 
 					MaxPiecesPerBatch:   4000,
 					MaxPiecesPerRequest: 2000,
@@ -469,6 +470,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				ObjectDeletion: objectdeletion.Config{
 					MaxObjectsPerRequest:     100,
 					ZombieSegmentsPerRequest: 3,
+					MaxConcurrentRequests:    100,
 				},
 			},
 			Orders: orders.Config{
