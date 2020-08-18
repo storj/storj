@@ -43,11 +43,11 @@ var (
 	mon = monkit.Package()
 
 	// ErrDatabase represents errors from the databases.
-	ErrDatabase = errs.Class("storage node database error")
+	ErrDatabase = errs.Class("database")
 	// ErrNoRows represents database error if rows weren't affected.
 	ErrNoRows = errs.New("no rows affected")
 	// ErrPreflight represents an error during the preflight check.
-	ErrPreflight = errs.Class("storage node preflight database error")
+	ErrPreflight = errs.Class("preflight")
 )
 
 // DBContainer defines an interface to allow accessing and setting a SQLDB.
@@ -393,7 +393,7 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 		// Preflight stage 1: test schema correctness
 		schema, err := sqliteutil.QuerySchema(ctx, nextDB)
 		if err != nil {
-			return ErrPreflight.New("%s: schema check failed: %v", dbName, err)
+			return ErrPreflight.New("database %q: schema check failed: %v", dbName, err)
 		}
 		// we don't care about changes in versions table
 		schema.DropTable("versions")
@@ -429,12 +429,12 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 		}
 		// warn that schema contains unexpected indexes
 		if len(extraIdxs) > 0 {
-			db.log.Warn(fmt.Sprintf("%s: schema contains unexpected indices %v", dbName, extraIdxs))
+			db.log.Warn(fmt.Sprintf("database %q: schema contains unexpected indices %v", dbName, extraIdxs))
 		}
 
 		// expect expected schema to match actual schema
 		if diff := cmp.Diff(expectedSchema, schema); diff != "" {
-			return ErrPreflight.New("%s: expected schema does not match actual: %s", dbName, diff)
+			return ErrPreflight.New("database %q: expected schema does not match actual: %s", dbName, diff)
 		}
 
 		// Preflight stage 2: test basic read/write access
@@ -443,11 +443,11 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 		// drop test table in case the last preflight check failed before table could be dropped
 		_, err = nextDB.ExecContext(ctx, "DROP TABLE IF EXISTS test_table")
 		if err != nil {
-			return ErrPreflight.Wrap(err)
+			return ErrPreflight.New("database %q: failed drop if test_table: %w", dbName, err)
 		}
 		_, err = nextDB.ExecContext(ctx, "CREATE TABLE test_table(id int NOT NULL, name varchar(30), PRIMARY KEY (id))")
 		if err != nil {
-			return ErrPreflight.Wrap(err)
+			return ErrPreflight.New("database %q: failed create test_table: %w", dbName, err)
 		}
 
 		var expectedID, actualID int
@@ -456,31 +456,31 @@ func (db *DB) Preflight(ctx context.Context) (err error) {
 		expectedName = "TEST"
 		_, err = nextDB.ExecContext(ctx, "INSERT INTO test_table VALUES ( ?, ? )", expectedID, expectedName)
 		if err != nil {
-			return ErrPreflight.Wrap(err)
+			return ErrPreflight.New("database: %q: failed inserting test value: %w", dbName, err)
 		}
 
 		rows, err := nextDB.QueryContext(ctx, "SELECT id, name FROM test_table")
 		if err != nil {
-			return ErrPreflight.Wrap(err)
+			return ErrPreflight.New("database: %q: failed selecting test value: %w", dbName, err)
 		}
 		defer func() { err = errs.Combine(err, rows.Close()) }()
 		if !rows.Next() {
-			return ErrPreflight.New("%s: no rows in test_table", dbName)
+			return ErrPreflight.New("database %q: no rows in test_table", dbName)
 		}
 		err = rows.Scan(&actualID, &actualName)
 		if err != nil {
-			return ErrPreflight.Wrap(err)
+			return ErrPreflight.New("database %q: failed scanning row: %w", dbName, err)
 		}
 		if expectedID != actualID || expectedName != actualName {
-			return ErrPreflight.New("%s: expected: (%d, '%s'), actual: (%d, '%s')", dbName, expectedID, expectedName, actualID, actualName)
+			return ErrPreflight.New("database %q: expected (%d, '%s'), actual (%d, '%s')", dbName, expectedID, expectedName, actualID, actualName)
 		}
 		if rows.Next() {
-			return ErrPreflight.New("%s: more than one row in test_table", dbName)
+			return ErrPreflight.New("database %q: more than one row in test_table", dbName)
 		}
 
 		_, err = nextDB.ExecContext(ctx, "DROP TABLE test_table")
 		if err != nil {
-			return ErrPreflight.Wrap(err)
+			return ErrPreflight.New("database %q: failed drop test_table %w", dbName, err)
 		}
 	}
 	return nil
