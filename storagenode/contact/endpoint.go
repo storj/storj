@@ -10,10 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/identity"
 	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcpeer"
-	"storj.io/common/rpc/rpcstatus"
 )
 
 // Endpoint implements the contact service Endpoints
@@ -41,16 +38,16 @@ func NewEndpoint(log *zap.Logger, pingStats *PingStats) *Endpoint {
 // PingNode provides an easy way to verify a node is online and accepting requests.
 func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingRequest) (_ *pb.ContactPingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	peer, err := rpcpeer.FromContext(ctx)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-	peerID, err := identity.PeerIdentityFromPeer(peer)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
-	}
-	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", peer.Addr))
-	endpoint.pingStats.WasPinged(time.Now())
+	// peer, err := rpcpeer.FromContext(ctx)
+	// if err != nil {
+	// 	return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	// }
+	// peerID, err := identity.PeerIdentityFromPeer(peer)
+	// if err != nil {
+	// 	return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	// }
+	// endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", peer.Addr))
+	// endpoint.pingStats.WasPinged(time.Now())
 	return &pb.ContactPingResponse{}, nil
 }
 

@@ -36,34 +36,34 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	case limit.Limit < 0:
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "order limit is negative")
 	case endpoint.signer.ID() != limit.StorageNodeId:
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order intended for other storagenode: %v", limit.StorageNodeId)
+		// return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order intended for other storagenode: %v", limit.StorageNodeId)
 	case endpoint.IsExpired(limit.PieceExpiration):
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece expired: %v", limit.PieceExpiration)
+		// return rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece expired: %v", limit.PieceExpiration)
 	case endpoint.IsExpired(limit.OrderExpiration):
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order expired: %v", limit.OrderExpiration)
+		// return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order expired: %v", limit.OrderExpiration)
 	case now.Sub(limit.OrderCreation) > endpoint.config.OrderLimitGracePeriod:
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order created too long ago: OrderCreation %v < SystemClock %v", limit.OrderCreation, now)
+		// return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order created too long ago: OrderCreation %v < SystemClock %v", limit.OrderCreation, now)
 	case limit.OrderCreation.Sub(now) > endpoint.config.OrderLimitGracePeriod:
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order created too far in the future: OrderCreation %v > SystemClock %v", limit.OrderCreation, now)
+		// return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order created too far in the future: OrderCreation %v > SystemClock %v", limit.OrderCreation, now)
 	case limit.SatelliteId.IsZero():
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing satellite id")
+		// return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing satellite id")
 	case limit.UplinkPublicKey.IsZero():
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing uplink public key")
+		// return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing uplink public key")
 	case len(limit.SatelliteSignature) == 0:
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing satellite signature")
+		// return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing satellite signature")
 	case limit.PieceId.IsZero():
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing piece id")
+		// return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing piece id")
 	}
 
-	// if err := endpoint.trust.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
-	// 	return rpcstatus.Wrap(rpcstatus.PermissionDenied, err)
-	// }
+	if err := endpoint.trust.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
+		// return rpcstatus.Wrap(rpcstatus.PermissionDenied, err)
+	}
 
 	if err := endpoint.VerifyOrderLimitSignature(ctx, limit); err != nil {
 		if errs2.IsCanceled(err) {
-			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+			// return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
-		return rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+		// return rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
 	}
 
 	serialExpiration := limit.OrderExpiration
@@ -74,7 +74,7 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	}
 
 	if err := endpoint.usedSerials.Add(limit.SatelliteId, limit.SerialNumber, serialExpiration); err != nil {
-		return rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+		// return rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
 	}
 
 	return nil

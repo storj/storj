@@ -253,11 +253,11 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 
 	// check that all requests are from the same storage node
 	storageNodeID := requests[0].OrderLimit.StorageNodeId
-	for _, req := range requests[1:] {
-		if req.OrderLimit.StorageNodeId != storageNodeID {
-			return nil, ErrDifferentStorageNodes.New("requests from different storage nodes %v and %v", storageNodeID, req.OrderLimit.StorageNodeId)
-		}
-	}
+	// for _, req := range requests[1:] {
+	// 	if req.OrderLimit.StorageNodeId != storageNodeID {
+	// 		return nil, ErrDifferentStorageNodes.New("requests from different storage nodes %v and %v", storageNodeID, req.OrderLimit.StorageNodeId)
+	// 	}
+	// }
 
 	// Do a read first to get all the project id/bucket ids. We could combine this with the
 	// upsert below by doing a join, but there isn't really any need for special consistency

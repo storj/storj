@@ -26,6 +26,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/common/testrand"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -222,9 +223,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "expected put or put repair action got %v", limit.Action)
 	}
 
-	// if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
-	// 	return err
-	// }
+	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
+		return err
+	}
 
 	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
 	if err != nil {
@@ -463,11 +464,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 
-	// if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
-	// 	mon.Meter("download_verify_orderlimit_failed").Mark(1)
-	// 	endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
-	// 	return err
-	// }
+	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
+		mon.Meter("download_verify_orderlimit_failed").Mark(1)
+		endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+		return err
+	}
 
 	var pieceReader *pieces.Reader
 	defer func() {
@@ -684,10 +685,10 @@ func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.
 	// 	return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
 	// }
 
-	// err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
-	// if err != nil {
-	// 	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "RestoreTrash called with untrusted ID")
-	// }
+	err = endpoint.trust.VerifySatelliteID(ctx, testrand.NodeID())
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "RestoreTrash called with untrusted ID")
+	}
 
 	// err = endpoint.store.RestoreTrash(ctx, peer.ID)
 	// if err != nil {

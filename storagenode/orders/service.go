@@ -272,12 +272,14 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 	log.Info("sending", zap.Int("count", len(orders)))
 	defer log.Info("finished")
 
-	nodeurl, err := service.trust.GetNodeURL(ctx, satelliteID)
-	if err != nil {
-		return OrderError.New("unable to get satellite address: %w", err)
-	}
+	// nodeurl, err := service.trust.GetNodeURL(ctx, satelliteID)
+	// if err != nil {
+	// 	return OrderError.New("unable to get satellite address: %w", err)
+	// }
 
-	conn, err := service.dialer.DialNodeURL(ctx, nodeurl)
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		Address: "127.0.0.1:10000",
+	})
 	if err != nil {
 		return OrderError.New("unable to connect to the satellite: %w", err)
 	}

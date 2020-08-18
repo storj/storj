@@ -249,17 +249,17 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 		return rpcstatus.Error(rpcstatus.Internal, "invalid window endpoint rollout phase")
 	}
 
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
-	}
+	// peer, err := identity.PeerIdentityFromContext(ctx)
+	// if err != nil {
+	// 	return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	// }
 
-	ok, err := endpoint.nodeAPIVersionDB.VersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
-	if err != nil {
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
-	} else if ok {
-		return rpcstatus.Error(rpcstatus.PermissionDenied, "node api version too new")
-	}
+	// ok, err := endpoint.nodeAPIVersionDB.VersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	// if err != nil {
+	// 	return rpcstatus.Wrap(rpcstatus.Internal, err)
+	// } else if ok {
+	// 	return rpcstatus.Error(rpcstatus.PermissionDenied, "node api version too new")
+	// }
 
 	formatError := func(err error) error {
 		if errors.Is(err, io.EOF) {
@@ -268,8 +268,8 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 		return rpcstatus.Error(rpcstatus.Unknown, err.Error())
 	}
 
-	log := endpoint.log.Named(peer.ID.String())
-	log.Debug("Settlement")
+	// log := endpoint.log.Named(peer.ID.String())
+	// log.Debug("Settlement")
 
 	requests := make([]*ProcessOrderRequest, 0, endpoint.settlementBatchSize)
 
@@ -285,7 +285,7 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 	var expirationCount int64
 	defer func() {
 		if expirationCount > 0 {
-			log.Debug("order verification found expired orders", zap.Int64("amount", expirationCount))
+			// log.Debug("order verification found expired orders", zap.Int64("amount", expirationCount))
 		}
 	}()
 
@@ -308,9 +308,9 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 		orderLimit := request.Limit
 		order := request.Order
 
-		if orderLimit.StorageNodeId != peer.ID {
-			return rpcstatus.Error(rpcstatus.Unauthenticated, "only specified storage node can settle order")
-		}
+		// if orderLimit.StorageNodeId != peer.ID {
+		// 	return rpcstatus.Error(rpcstatus.Unauthenticated, "only specified storage node can settle order")
+		// }
 
 		rejectErr := func() error {
 			// check expiration first before the signatures so that we can throw out the large
@@ -344,7 +344,7 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 		if rejectErr != nil {
 			mon.Event("order_verification_failed")
 			if !errExpiredOrder.Has(rejectErr) {
-				log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(rejectErr))
+				// log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(rejectErr))
 			}
 			err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
 				SerialNumber: orderLimit.SerialNumber,

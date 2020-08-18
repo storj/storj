@@ -12,9 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
 	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
 )
@@ -95,16 +93,16 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
-	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
-	if err != nil {
-		mon.Event("failed ping node")
-		pingNodeSuccess = false
-		pingErrorMessage = fmt.Sprintf("failed to ping storage node, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
-		service.log.Debug("pingBack pingNode error",
-			zap.Stringer("Node ID", nodeurl.ID),
-			zap.String("pingErrorMessage", pingErrorMessage),
-		)
-	}
+	// _, err = client.pingNode(ctx, &pb.ContactPingRequest{})
+	// if err != nil {
+	// 	mon.Event("failed ping node")
+	// 	pingNodeSuccess = false
+	// 	pingErrorMessage = fmt.Sprintf("failed to ping storage node, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
+	// 	service.log.Debug("pingBack pingNode error",
+	// 		zap.Stringer("Node ID", nodeurl.ID),
+	// 		zap.String("pingErrorMessage", pingErrorMessage),
+	// 	)
+	// }
 
 	return pingNodeSuccess, pingErrorMessage, nil
 }

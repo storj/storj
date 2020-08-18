@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/overlay"
 )
@@ -64,20 +65,20 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	}
 
 	nodeID := testrand.NodeID()
-	// nodeurl := storj.NodeURL{
-	// 	ID:      nodeID,
-	// 	Address: req.Address,
-	// }
-	// pingNodeSuccess, pingErrorMessage, err := endpoint.service.PingBack(ctx, nodeurl)
-	// if err != nil {
-	// 	endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
-	// 	if errPingBackDial.Has(err) {
-	// 		err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeID, req.Address, err)
-	// 		return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-	// 	}
-	// 	err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeID, req.Address, err)
-	// 	return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-	// }
+	nodeurl := storj.NodeURL{
+		ID:      nodeID,
+		Address: "127.0.0.1:13000",
+	}
+	_, _, err = endpoint.service.PingBack(ctx, nodeurl)
+	if err != nil {
+		endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		if errPingBackDial.Has(err) {
+			err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeID, req.Address, err)
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeID, req.Address, err)
+		return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	}
 	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID: nodeID,
 		Address: &pb.NodeAddress{
