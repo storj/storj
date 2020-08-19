@@ -153,6 +153,10 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			if err != nil {
 				return errs.Wrap(err)
 			}
+
+			// wait for deletes to complete
+			worker.limiter.Wait()
+
 			// delete all remaining pieces
 			err = worker.deleteAllPieces(ctx)
 			if err != nil {
