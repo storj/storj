@@ -182,6 +182,10 @@ func TestBilling_TrafficAfterFileDeletion(t *testing.T) {
 			projectID    = uplink.Projects[0].ID
 		)
 
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		satelliteSys.Orders.Chore.Loop.Pause()
+
 		data := testrand.Bytes(5 * memory.KiB)
 		err := uplink.Upload(ctx, satelliteSys, bucketName, filePath, data)
 		require.NoError(t, err)
@@ -217,6 +221,9 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		satelliteSys.Audit.Worker.Loop.Pause()
 		satelliteSys.Repair.Checker.Loop.Pause()
 		satelliteSys.Repair.Repairer.Loop.Pause()
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		satelliteSys.Orders.Chore.Loop.Pause()
 
 		for _, sn := range planet.StorageNodes {
 			sn.Storage2.Orders.Sender.Pause()
@@ -303,6 +310,9 @@ func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
 		// traffic isn't billed.
 		satelliteSys.Audit.Chore.Loop.Stop()
 		satelliteSys.Repair.Repairer.Loop.Stop()
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		satelliteSys.Orders.Chore.Loop.Pause()
 
 		var (
 			uplnk     = planet.Uplinks[0]
@@ -465,7 +475,11 @@ func getProjectTotalFromStorageNodes(
 
 	// Calculate the usage used for upload
 	for _, sn := range storageNodes {
+		// change settle buffer so orders can be sent
+		sn.OrdersStore.TestSetSettleBuffer(-time.Hour, -time.Hour)
 		sn.Storage2.Orders.Sender.TriggerWait()
+		// change settle buffer back so orders can be added
+		sn.OrdersStore.TestSetSettleBuffer(time.Hour, time.Hour)
 	}
 
 	sat := planet.Satellites[satelliteIdx]
@@ -475,6 +489,9 @@ func getProjectTotalFromStorageNodes(
 	}
 
 	sat.Accounting.Tally.Loop.TriggerWait()
+
+	// flush rollups write cache
+	sat.Orders.Chore.Loop.TriggerWait()
 
 	usage, err := sat.DB.ProjectAccounting().GetProjectTotal(ctx, projectID, since, time.Now())
 	require.NoError(t, err)

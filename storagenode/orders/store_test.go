@@ -1,5 +1,6 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
+
 package orders_test
 
 import (
@@ -23,6 +24,7 @@ func TestOrdersStore(t *testing.T) {
 	// make order limit grace period 24 hours
 	ordersStore, err := orders.NewFileStore(dirName, 24*time.Hour, time.Hour)
 	require.NoError(t, err)
+
 	// adding order before grace period should result in an error
 	newSN := testrand.SerialNumber()
 	newInfo := &orders.Info{
@@ -59,6 +61,7 @@ func TestOrdersStore(t *testing.T) {
 	//    list unsent orders - should receive data from all satellites the first two times, and nothing the last time.
 	//    archive unsent orders
 	expectedArchivedInfos := make(map[storj.SerialNumber]*orders.ArchivedInfo)
+
 	archiveTime1 := time.Now().Add(-2 * time.Hour)
 	archiveTime2 := time.Now()
 	status1 := pb.SettlementWithWindowResponse_ACCEPTED
@@ -72,6 +75,7 @@ func TestOrdersStore(t *testing.T) {
 			require.Len(t, unsentMap, 0)
 			break
 		}
+
 		// go through order limits and make sure information is accurate
 		require.Len(t, unsentMap, numSatellites)
 		for satelliteID, unsentSatList := range unsentMap {
@@ -206,6 +210,7 @@ func storeNewOrders(ordersStore *orders.FileStore, numSatellites, numOrdersPerSa
 				amount := testrand.Int63n(1000)
 				sn := testrand.SerialNumber()
 				action := actions[j%len(actions)]
+
 				newInfo := &orders.Info{
 					Limit: &pb.OrderLimit{
 						SerialNumber:    sn,

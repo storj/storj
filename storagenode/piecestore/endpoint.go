@@ -87,6 +87,7 @@ type Endpoint struct {
 	pingStats pingStatsSource
 
 	store        *pieces.Store
+	ordersStore  *orders.FileStore
 	orders       orders.DB
 	usage        bandwidth.DB
 	usedSerials  *usedserials.Table
@@ -96,7 +97,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, orders orders.DB, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, orders orders.DB, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -108,6 +109,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		pingStats: pingStats,
 
 		store:        store,
+		ordersStore:  ordersStore,
 		orders:       orders,
 		usage:        usage,
 		usedSerials:  usedSerials,
@@ -662,7 +664,7 @@ func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, o
 	if order == nil || order.Amount <= 0 {
 		return
 	}
-	err = endpoint.orders.Enqueue(ctx, &orders.Info{
+	err = endpoint.ordersStore.Enqueue(&orders.Info{
 		Limit: limit,
 		Order: order,
 	})

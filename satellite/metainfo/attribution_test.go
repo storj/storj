@@ -217,7 +217,11 @@ func TestQueryAttribution(t *testing.T) {
 		{ // Flush all the pending information through the system.
 			// Calculate the usage used for upload
 			for _, sn := range planet.StorageNodes {
+				// change settle buffer so orders can be sent
+				sn.OrdersStore.TestSetSettleBuffer(-time.Hour, -time.Hour)
 				sn.Storage2.Orders.Sender.TriggerWait()
+				// change settle buffer back so orders can be added
+				sn.OrdersStore.TestSetSettleBuffer(time.Hour, time.Hour)
 			}
 
 			rollout := planet.Satellites[0].Core.Accounting.ReportedRollupChore
@@ -284,7 +288,11 @@ func TestAttributionReport(t *testing.T) {
 		{ // Flush all the pending information through the system.
 			// Calculate the usage used for upload
 			for _, sn := range planet.StorageNodes {
+				// change settle buffer so orders can be sent
+				sn.OrdersStore.TestSetSettleBuffer(-time.Hour, -time.Hour)
 				sn.Storage2.Orders.Sender.TriggerWait()
+				// change settle buffer back so orders can be added
+				sn.OrdersStore.TestSetSettleBuffer(time.Hour, time.Hour)
 			}
 
 			rollout := planet.Satellites[0].Core.Accounting.ReportedRollupChore
