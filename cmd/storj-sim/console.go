@@ -13,12 +13,14 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/payments"
 )
 
 func newConsoleEndpoints(address string) *consoleEndpoints {
@@ -49,6 +51,10 @@ func (ce *consoleEndpoints) Register() string {
 
 func (ce *consoleEndpoints) SetupAccount() string {
 	return ce.appendPath("/api/v0/payments/account")
+}
+
+func (ce *consoleEndpoints) CreditCards() string {
+	return ce.appendPath("/api/v0/payments/cards")
 }
 
 func (ce *consoleEndpoints) Activation(token string) string {
@@ -106,6 +112,24 @@ func (ce *consoleEndpoints) createOrGetAPIKey() (string, error) {
 	}
 
 	err = ce.setupAccount(authToken)
+	if err != nil {
+		return "", errs.Wrap(err)
+	}
+
+	err = ce.addCreditCard(authToken, "test")
+	if err != nil {
+		return "", errs.Wrap(err)
+	}
+
+	cards, err := ce.listCreditCards(authToken)
+	if err != nil {
+		return "", errs.Wrap(err)
+	}
+	if len(cards) == 0 {
+		return "", errs.New("no credit card(s) found")
+	}
+
+	err = ce.makeCreditCardDefault(authToken, cards[0].ID)
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
@@ -322,6 +346,98 @@ func (ce *consoleEndpoints) setupAccount(token string) error {
 	return nil
 }
 
+func (ce *consoleEndpoints) addCreditCard(token, cctoken string) error {
+	request, err := http.NewRequest(
+		http.MethodPost,
+		ce.CreditCards(),
+		strings.NewReader(cctoken))
+	if err != nil {
+		return err
+	}
+
+	request.AddCookie(&http.Cookie{
+		Name:  ce.cookieName,
+		Value: token,
+	})
+
+	resp, err := ce.client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+
+	if resp.StatusCode != http.StatusOK {
+		return errs.New("unexpected status code: %d (%q)",
+			resp.StatusCode, tryReadLine(resp.Body))
+	}
+
+	return nil
+}
+
+func (ce *consoleEndpoints) listCreditCards(token string) ([]payments.CreditCard, error) {
+	request, err := http.NewRequest(
+		http.MethodGet,
+		ce.CreditCards(),
+		nil)
+	if err != nil {
+		return nil, err
+	}
+
+	request.AddCookie(&http.Cookie{
+		Name:  ce.cookieName,
+		Value: token,
+	})
+
+	resp, err := ce.client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errs.New("unexpected status code: %d (%q)",
+			resp.StatusCode, tryReadLine(resp.Body))
+	}
+
+	var list []payments.CreditCard
+
+	decoder := json.NewDecoder(resp.Body)
+	err = decoder.Decode(&list)
+	if err != nil {
+		return nil, err
+	}
+
+	return list, nil
+}
+
+func (ce *consoleEndpoints) makeCreditCardDefault(token, ccID string) error {
+	request, err := http.NewRequest(
+		http.MethodPatch,
+		ce.CreditCards(),
+		strings.NewReader(ccID))
+	if err != nil {
+		return err
+	}
+
+	request.AddCookie(&http.Cookie{
+		Name:  ce.cookieName,
+		Value: token,
+	})
+
+	resp, err := ce.client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+
+	if resp.StatusCode != http.StatusOK {
+		return errs.New("unexpected status code: %d (%q)",
+			resp.StatusCode, tryReadLine(resp.Body))
+	}
+
+	return nil
+}
+
 func (ce *consoleEndpoints) getOrCreateProject(token string) (string, error) {
 	projectID, err := ce.getProject(token)
 	if err == nil {
@@ -445,12 +561,12 @@ func generateActivationKey(userID uuid.UUID, email string, createdAt time.Time) 
 	// TODO: change it in future, when satellite/console secret will be changed
 	signer := &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}
 
-	json, err := claims.JSON()
+	resJSON, err := claims.JSON()
 	if err != nil {
 		return "", err
 	}
 
-	token := consoleauth.Token{Payload: json}
+	token := consoleauth.Token{Payload: resJSON}
 	encoded := base64.URLEncoding.EncodeToString(token.Payload)
 
 	signature, err := signer.Sign([]byte(encoded))
