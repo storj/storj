@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 )
 
@@ -275,4 +276,15 @@ func (store *blobStore) TestCreateV0(ctx context.Context, ref storage.BlobRef) (
 		return nil, Error.Wrap(err)
 	}
 	return newBlobWriter(ref, store, FormatV0, file, store.config.WriteBufferSize.Int()), nil
+}
+
+// CreateVerificationFile creates a file to be used for storage directory verification.
+func (store *blobStore) CreateVerificationFile(id storj.NodeID) error {
+	return store.dir.CreateVerificationFile(id)
+}
+
+// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
+// of the verification file.
+func (store *blobStore) VerifyStorageDir(id storj.NodeID) error {
+	return store.dir.Verify(id)
 }

@@ -480,7 +480,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.OrdersStore, err = orders.NewFileStore(
 			config.Storage2.Orders.Path,
 			config.Storage2.OrderLimitGracePeriod,
-			config.Storage2.Orders.MaxInFlightTime,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -496,7 +495,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Store,
 			peer.Storage2.PieceDeleter,
 			peer.OrdersStore,
-			peer.DB.Orders(),
 			peer.DB.Bandwidth(),
 			peer.UsedSerials,
 			config.Storage2,

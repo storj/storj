@@ -85,7 +85,6 @@ func TestOrderDBSettle(t *testing.T) {
 func TestOrderFileStoreSettle(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		uplinkPeer := planet.Uplinks[0]
@@ -94,27 +93,23 @@ func TestOrderFileStoreSettle(t *testing.T) {
 		service := node.Storage2.Orders
 		service.Sender.Pause()
 		service.Cleanup.Pause()
+		tomorrow := time.Now().Add(24 * time.Hour)
 
 		// upload a file to generate an order on the storagenode
 		testData := testrand.Bytes(8 * memory.KiB)
 		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		// after uploading, set orders store to have
-		// gracePeriod=-1hr and maxInFlightTime=-1hr
-		// so that we can immediately attempt to send orders
-		node.OrdersStore.TestSetSettleBuffer(-time.Hour, -time.Hour)
-
-		toSend, err := node.OrdersStore.ListUnsentBySatellite()
+		toSend, err := node.OrdersStore.ListUnsentBySatellite(tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSend, 1)
 		ordersForSat := toSend[satellite.ID()]
 		require.Len(t, ordersForSat.InfoList, 1)
 
 		// trigger order send
-		service.Sender.TriggerWait()
+		service.SendOrders(ctx, tomorrow)
 
-		toSend, err = node.OrdersStore.ListUnsentBySatellite()
+		toSend, err = node.OrdersStore.ListUnsentBySatellite(tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSend, 0)
 
@@ -129,10 +124,6 @@ func TestOrderFileStoreSettle(t *testing.T) {
 func TestOrderFileStoreAndDBSettle(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			StorageNode: func(index int, config *storagenode.Config) {
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		uplinkPeer := planet.Uplinks[0]
@@ -141,6 +132,7 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		service := node.Storage2.Orders
 		service.Sender.Pause()
 		service.Cleanup.Pause()
+		tomorrow := time.Now().Add(24 * time.Hour)
 
 		// add orders to orders DB
 		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
@@ -184,19 +176,14 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		// after uploading, set orders store to have
-		// gracePeriod=-1hr and maxInFlightTime=-1hr
-		// so that we can immediately attempt to send orders
-		node.OrdersStore.TestSetSettleBuffer(-time.Hour, -time.Hour)
-
-		toSendFileStore, err := node.OrdersStore.ListUnsentBySatellite()
+		toSendFileStore, err := node.OrdersStore.ListUnsentBySatellite(tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSendFileStore, 1)
 		ordersForSat := toSendFileStore[satellite.ID()]
 		require.Len(t, ordersForSat.InfoList, 1)
 
 		// trigger order send
-		service.Sender.TriggerWait()
+		service.SendOrders(ctx, tomorrow)
 
 		// DB orders should be archived, but filestore orders should still be unsent.
 		toSendDB, err = node.DB.Orders().ListUnsent(ctx, 10)
@@ -207,17 +194,17 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, archived, 1)
 
-		toSendFileStore, err = node.OrdersStore.ListUnsentBySatellite()
+		toSendFileStore, err = node.OrdersStore.ListUnsentBySatellite(tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSendFileStore, 1)
 		ordersForSat = toSendFileStore[satellite.ID()]
 		require.Len(t, ordersForSat.InfoList, 1)
 
 		// trigger order send again
-		service.Sender.TriggerWait()
+		service.SendOrders(ctx, tomorrow)
 
 		// now FileStore orders should be archived too.
-		toSendFileStore, err = node.OrdersStore.ListUnsentBySatellite()
+		toSendFileStore, err = node.OrdersStore.ListUnsentBySatellite(tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSendFileStore, 0)
 
@@ -231,11 +218,6 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 func TestCleanArchiveDB(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			StorageNode: func(index int, config *storagenode.Config) {
-				config.Storage2.Orders.ArchiveTTL = 12 * time.Hour
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		satellite := planet.Satellites[0].ID()
@@ -268,8 +250,8 @@ func TestCleanArchiveDB(t *testing.T) {
 		err = node.DB.Orders().Enqueue(ctx, order1)
 		require.NoError(t, err)
 
-		yesterday := time.Now().Add(-24 * time.Hour)
 		now := time.Now()
+		yesterday := now.Add(-24 * time.Hour)
 
 		// archive one order yesterday, one today
 		err = node.DB.Orders().Archive(ctx, yesterday, orders.ArchiveRequest{
@@ -286,8 +268,8 @@ func TestCleanArchiveDB(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// trigger cleanup
-		service.Cleanup.TriggerWait()
+		// trigger cleanup of archived orders older than 12 hours
+		require.NoError(t, service.CleanArchive(ctx, now.Add(-12*time.Hour)))
 
 		archived, err := node.DB.Orders().ListArchived(ctx, 10)
 		require.NoError(t, err)
@@ -301,8 +283,9 @@ func TestCleanArchiveFileStore(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNode: func(index int, config *storagenode.Config) {
-				config.Storage2.Orders.ArchiveTTL = 12 * time.Hour
+			StorageNode: func(_ int, config *storagenode.Config) {
+				// A large grace period so we can write to multiple buckets at once
+				config.Storage2.OrderLimitGracePeriod = 48 * time.Hour
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -312,11 +295,13 @@ func TestCleanArchiveFileStore(t *testing.T) {
 		service := node.Storage2.Orders
 		service.Sender.Pause()
 		service.Cleanup.Pause()
+		now := time.Now()
+		yesterday := now.Add(-24 * time.Hour)
 
 		serialNumber0 := testrand.SerialNumber()
-		createdAt0 := time.Now()
+		createdAt0 := now
 		serialNumber1 := testrand.SerialNumber()
-		createdAt1 := time.Now().Add(-24 * time.Hour)
+		createdAt1 := now.Add(-24 * time.Hour)
 
 		order0 := &orders.Info{
 			Limit: &pb.OrderLimit{
@@ -336,19 +321,12 @@ func TestCleanArchiveFileStore(t *testing.T) {
 		}
 
 		// enqueue both orders; they will be placed in separate buckets because they have different creation hours
-		// change settle buffer so that day-old order can be queued
-		node.OrdersStore.TestSetSettleBuffer(24*time.Hour, 24*time.Hour)
 		err := node.OrdersStore.Enqueue(order0)
 		require.NoError(t, err)
 		err = node.OrdersStore.Enqueue(order1)
 		require.NoError(t, err)
 
-		yesterday := time.Now().Add(-24 * time.Hour)
-		now := time.Now()
-
 		// archive one order yesterday, one today
-		// change settle buffer so that new order can be archived
-		node.OrdersStore.TestSetSettleBuffer(-1*time.Hour, -1*time.Hour)
 		err = node.OrdersStore.Archive(satellite, createdAt0.Truncate(time.Hour), yesterday, pb.SettlementWithWindowResponse_ACCEPTED)
 		require.NoError(t, err)
 		err = node.OrdersStore.Archive(satellite, createdAt1.Truncate(time.Hour), now, pb.SettlementWithWindowResponse_ACCEPTED)
@@ -358,8 +336,8 @@ func TestCleanArchiveFileStore(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, archived, 2)
 
-		// trigger cleanup
-		service.Cleanup.TriggerWait()
+		// trigger cleanup of archived orders older than 12 hours
+		require.NoError(t, service.CleanArchive(ctx, now.Add(-12*time.Hour)))
 
 		archived, err = node.OrdersStore.ListArchived()
 		require.NoError(t, err)

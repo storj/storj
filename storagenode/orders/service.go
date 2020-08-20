@@ -79,19 +79,18 @@ type DB interface {
 	Archive(ctx context.Context, archivedAt time.Time, requests ...ArchiveRequest) error
 	// ListArchived returns orders that have been sent.
 	ListArchived(ctx context.Context, limit int) ([]*ArchivedInfo, error)
-	// CleanArchive deletes all entries older than ttl
-	CleanArchive(ctx context.Context, ttl time.Duration) (int, error)
+	// CleanArchive deletes all entries older than the before time.
+	CleanArchive(ctx context.Context, deleteBefore time.Time) (int, error)
 }
 
 // Config defines configuration for sending orders.
 type Config struct {
-	MaxSleep          time.Duration `help:"maximum duration to wait before trying to send orders" releaseDefault:"300s" devDefault:"1s"`
-	SenderInterval    time.Duration `help:"duration between sending" releaseDefault:"1h0m0s" devDefault:"30s"`
+	MaxSleep          time.Duration `help:"maximum duration to wait before trying to send orders" releaseDefault:"30s" devDefault:"1s"`
+	SenderInterval    time.Duration `help:"duration between sending" releaseDefault:"5m0s" devDefault:"30s"`
 	SenderTimeout     time.Duration `help:"timeout for sending" default:"1h0m0s"`
 	SenderDialTimeout time.Duration `help:"timeout for dialing satellite during sending orders" default:"1m0s"`
-	CleanupInterval   time.Duration `help:"duration between archive cleanups" default:"1h0m0s"`
+	CleanupInterval   time.Duration `help:"duration between archive cleanups" default:"5m0s"`
 	ArchiveTTL        time.Duration `help:"length of time to archive orders before deletion" default:"168h0m0s"` // 7 days
-	MaxInFlightTime   time.Duration `help:"the maximum amount of time to wait after the order limit grace period before settling orders" default:"1h"`
 	Path              string        `help:"path to store order limit files in" default:"$CONFDIR/orders"`
 }
 
@@ -137,7 +136,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			return err
 		}
 
-		service.sendOrders(ctx)
+		service.SendOrders(ctx, time.Now())
 
 		return nil
 	})
@@ -146,7 +145,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			return err
 		}
 
-		err := service.cleanArchive(ctx)
+		err := service.CleanArchive(ctx, time.Now().Add(-service.config.ArchiveTTL))
 		if err != nil {
 			service.log.Error("clean archive failed", zap.Error(err))
 		}
@@ -157,17 +156,18 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
-func (service *Service) cleanArchive(ctx context.Context) (err error) {
+// CleanArchive removes all archived orders that were archived before the deleteBefore time.
+func (service *Service) CleanArchive(ctx context.Context, deleteBefore time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Debug("cleaning")
 
-	deleted, err := service.orders.CleanArchive(ctx, service.config.ArchiveTTL)
+	deleted, err := service.orders.CleanArchive(ctx, deleteBefore)
 	if err != nil {
 		service.log.Error("cleaning DB archive", zap.Error(err))
 		return nil
 	}
 
-	err = service.ordersStore.CleanArchive(time.Now().UTC().Add(-service.config.ArchiveTTL))
+	err = service.ordersStore.CleanArchive(deleteBefore)
 	if err != nil {
 		service.log.Error("cleaning filestore archive", zap.Error(err))
 		return nil
@@ -177,7 +177,8 @@ func (service *Service) cleanArchive(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) sendOrders(ctx context.Context) {
+// SendOrders sends the orders using now as the current time.
+func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 	defer mon.Task()(&ctx)
 	service.log.Debug("sending")
 
@@ -188,7 +189,7 @@ func (service *Service) sendOrders(ctx context.Context) {
 		return
 	}
 
-	service.sendOrdersFromFileStore(ctx)
+	service.sendOrdersFromFileStore(ctx, now)
 }
 
 func (service *Service) sendOrdersFromDB(ctx context.Context) (hasOrders bool) {
@@ -386,7 +387,7 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 	return errList.Err()
 }
 
-func (service *Service) sendOrdersFromFileStore(ctx context.Context) {
+func (service *Service) sendOrdersFromFileStore(ctx context.Context, now time.Time) {
 	defer mon.Task()(&ctx)
 
 	errorSatellites := make(map[storj.NodeID]struct{})
@@ -394,7 +395,7 @@ func (service *Service) sendOrdersFromFileStore(ctx context.Context) {
 
 	// Continue sending until there are no more windows to send, or all relevant satellites are offline.
 	for {
-		ordersBySatellite, err := service.ordersStore.ListUnsentBySatellite()
+		ordersBySatellite, err := service.ordersStore.ListUnsentBySatellite(now)
 		if err != nil {
 			service.log.Error("listing orders", zap.Error(err))
 			return

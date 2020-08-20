@@ -40,7 +40,8 @@ func TestDB(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, emptyArchive, 0)
 
-		before := time.Now().Add(-time.Second)
+		now := time.Now()
+		before := now.Add(-time.Second)
 
 		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 		require.NoError(t, err)
@@ -110,7 +111,7 @@ func TestDB(t *testing.T) {
 		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(pb.Equal)))
 
 		// test archival
-		archivedAt := time.Now().UTC()
+		archivedAt := time.Now()
 		err = ordersdb.Archive(ctx, archivedAt, orders.ArchiveRequest{
 			Satellite: satellite0.ID,
 			Serial:    infos[0].Limit.SerialNumber,
@@ -175,13 +176,13 @@ func TestDB(t *testing.T) {
 
 		time.Sleep(time.Second)
 
-		// with 1 hour ttl, archived order should not be deleted
-		n, err := db.Orders().CleanArchive(ctx, time.Hour)
+		// archived order should not be deleted because they are not 1 hour old
+		n, err := db.Orders().CleanArchive(ctx, now.Add(-time.Hour))
 		require.NoError(t, err)
 		require.Equal(t, 0, n)
 
-		// with 1 nanosecond ttl, archived order should be deleted
-		n, err = db.Orders().CleanArchive(ctx, time.Nanosecond)
+		// archived order should be deleted because they are archived before 1 second later
+		n, err = db.Orders().CleanArchive(ctx, archivedAt.Add(time.Second))
 		require.NoError(t, err)
 		require.Equal(t, 2, n)
 	})
@@ -191,7 +192,8 @@ func TestDB_Trivial(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		satelliteID, serial := testrand.NodeID(), testrand.SerialNumber()
 
-		before := time.Now().Add(-time.Second)
+		now := time.Now()
+		before := now.Add(-time.Second)
 
 		{ // Ensure Enqueue works at all
 			err := db.Orders().Enqueue(ctx, &orders.Info{
@@ -220,7 +222,7 @@ func TestDB_Trivial(t *testing.T) {
 		}
 
 		{ // Ensure Archive works at all
-			err := db.Orders().Archive(ctx, before.UTC(), orders.ArchiveRequest{satelliteID, serial, orders.StatusAccepted})
+			err := db.Orders().Archive(ctx, before, orders.ArchiveRequest{satelliteID, serial, orders.StatusAccepted})
 			require.NoError(t, err)
 		}
 
@@ -229,8 +231,9 @@ func TestDB_Trivial(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, infos, 1)
 		}
+
 		{ // Ensure CleanArchive works at all
-			n, err := db.Orders().CleanArchive(ctx, time.Nanosecond)
+			n, err := db.Orders().CleanArchive(ctx, now)
 			require.NoError(t, err)
 			require.Equal(t, 1, n)
 		}

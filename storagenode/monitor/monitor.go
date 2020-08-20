@@ -30,6 +30,7 @@ var (
 // Config defines parameters for storage node disk and bandwidth usage monitoring.
 type Config struct {
 	Interval              time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	VerifyDirInterval     time.Duration `help:"how frequently to verify access to the storage directory" releaseDefault:"1m" devDefault:"30s"`
 	MinimumDiskSpace      memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"500GB"`
 	MinimumBandwidth      memory.Size   `help:"how much bandwidth a node at minimum has to advertise (deprecated)" default:"0TB"`
 	NotifyLowDiskCooldown time.Duration `help:"minimum length of time between capacity reports" default:"10m" hidden:"true"`
@@ -46,6 +47,7 @@ type Service struct {
 	allocatedDiskSpace int64
 	cooldown           *sync2.Cooldown
 	Loop               *sync2.Cycle
+	VerifyDirLoop      *sync2.Cycle
 	Config             Config
 }
 
@@ -59,6 +61,7 @@ func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, 
 		allocatedDiskSpace: allocatedDiskSpace,
 		cooldown:           sync2.NewCooldown(config.NotifyLowDiskCooldown),
 		Loop:               sync2.NewCycle(interval),
+		VerifyDirLoop:      sync2.NewCycle(config.VerifyDirInterval),
 		Config:             config,
 	}
 }
@@ -107,7 +110,22 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		service.log.Error("Total disk space less than required minimum", zap.Int64("bytes", service.Config.MinimumDiskSpace.Int64()))
 		return Error.New("disk space requirement not met")
 	}
-	var group errgroup.Group
+
+	// Create file to identify the storage directory.
+	if err := service.store.CreateVerificationFile(service.contact.Local().ID); err != nil {
+		return Error.New("failed to create storage directory verification: %v", err)
+	}
+
+	group, ctx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		return service.VerifyDirLoop.Run(ctx, func(ctx context.Context) error {
+			err := service.store.VerifyStorageDir(service.contact.Local().ID)
+			if err != nil {
+				return Error.New("error verifying storage directory: %v", err)
+			}
+			return nil
+		})
+	})
 	group.Go(func() error {
 		return service.Loop.Run(ctx, func(ctx context.Context) error {
 			err := service.updateNodeInformation(ctx)
@@ -117,7 +135,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			return nil
 		})
 	})
-	service.cooldown.Start(ctx, &group, func(ctx context.Context) error {
+	service.cooldown.Start(ctx, group, func(ctx context.Context) error {
 		err := service.updateNodeInformation(ctx)
 		if err != nil {
 			service.log.Error("error during updating node information: ", zap.Error(err))

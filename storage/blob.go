@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/common/storj"
 )
 
 // ErrInvalidBlobRef is returned when an blob reference is invalid.
@@ -108,6 +110,11 @@ type Blobs interface {
 	// error, WalkNamespace will stop iterating and return the error immediately. The ctx
 	// parameter is intended to allow canceling iteration early.
 	WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(BlobInfo) error) error
+	// CreateVerificationFile creates a file to be used for storage directory verification.
+	CreateVerificationFile(id storj.NodeID) error
+	// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
+	// of the verification file.
+	VerifyStorageDir(id storj.NodeID) error
 	// Close closes the blob store and any resources associated with it.
 	Close() error
 }

@@ -193,6 +193,17 @@ func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, e
 	}
 }
 
+// CreateVerificationFile creates a file to be used for storage directory verification.
+func (store *Store) CreateVerificationFile(id storj.NodeID) error {
+	return store.blobs.CreateVerificationFile(id)
+}
+
+// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
+// of the verification file.
+func (store *Store) VerifyStorageDir(id storj.NodeID) error {
+	return store.blobs.VerifyStorageDir(id)
+}
+
 // Writer returns a new piece writer.
 func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Writer, err error) {
 	defer mon.Task()(&ctx)(&err)

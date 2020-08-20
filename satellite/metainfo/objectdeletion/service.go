@@ -9,6 +9,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -29,6 +30,7 @@ var (
 type Config struct {
 	MaxObjectsPerRequest     int `help:"maximum number of requests per batch" default:"100"`
 	ZombieSegmentsPerRequest int `help:"number of segments per request when looking for zombie segments" default:"3"`
+	MaxConcurrentRequests    int `help:"maximum number of concurrent requests" default:"10000"`
 }
 
 // Verify verifies configuration sanity.
@@ -41,6 +43,10 @@ func (config *Config) Verify() errs.Group {
 
 	if config.ZombieSegmentsPerRequest <= 0 {
 		errlist.Add(Error.New("zombie segments per request %d must be greater than 0", config.ZombieSegmentsPerRequest))
+	}
+
+	if config.MaxConcurrentRequests <= 0 {
+		errlist.Add(Error.New("max concurrent requests %d must be greater than 0", config.MaxConcurrentRequests))
 	}
 
 	return errlist
@@ -59,6 +65,8 @@ type Service struct {
 	log    *zap.Logger
 	config Config
 
+	concurrentRequests *semaphore.Weighted
+
 	pointers PointerDB
 }
 
@@ -69,15 +77,27 @@ func NewService(log *zap.Logger, pointerDB PointerDB, config Config) (*Service, 
 	}
 
 	return &Service{
-		log:      log,
-		config:   config,
-		pointers: pointerDB,
+		log:                log,
+		config:             config,
+		concurrentRequests: semaphore.NewWeighted(int64(config.MaxConcurrentRequests)),
+		pointers:           pointerDB,
 	}, nil
 }
 
 // Delete ensures that all pointers belongs to an object no longer exists.
 func (service *Service) Delete(ctx context.Context, requests ...*ObjectIdentifier) (reports []Report, err error) {
 	defer mon.Task()(&ctx, len(requests))(&err)
+
+	// When number of requests are more than the maximum limit, we let it overflow,
+	// so we don't have to acquire the semaphore on each batch.
+	requestsCount := len(requests)
+	if requestsCount > service.config.MaxConcurrentRequests {
+		requestsCount = service.config.MaxConcurrentRequests
+	}
+	if err := service.concurrentRequests.Acquire(ctx, int64(requestsCount)); err != nil {
+		return reports, Error.Wrap(err)
+	}
+	defer service.concurrentRequests.Release(int64(requestsCount))
 
 	for len(requests) > 0 {
 		batchSize := len(requests)

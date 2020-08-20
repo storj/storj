@@ -36,6 +36,9 @@ func TestSendingReceivingOrders(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
+
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.Sender.Pause()
@@ -49,8 +52,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 		sumBeforeSend := 0
 		for _, storageNode := range planet.StorageNodes {
 			// change settle buffer so orders can be sent
-			storageNode.OrdersStore.TestSetSettleBuffer(-time.Hour, -time.Hour)
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite()
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumBeforeSend += len(satUnsent.InfoList)
@@ -62,9 +64,9 @@ func TestSendingReceivingOrders(t *testing.T) {
 		sumArchived := 0
 
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Orders.Sender.TriggerWait()
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite()
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumUnsent += len(satUnsent.InfoList)
@@ -88,6 +90,9 @@ func TestUnableToSendOrders(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
+
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.Sender.Pause()
@@ -100,9 +105,7 @@ func TestUnableToSendOrders(t *testing.T) {
 
 		sumBeforeSend := 0
 		for _, storageNode := range planet.StorageNodes {
-			// change settle buffer so orders can be sent
-			storageNode.OrdersStore.TestSetSettleBuffer(-time.Hour, -time.Hour)
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite()
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumBeforeSend += len(satUnsent.InfoList)
@@ -116,9 +119,9 @@ func TestUnableToSendOrders(t *testing.T) {
 		sumUnsent := 0
 		sumArchived := 0
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Orders.Sender.TriggerWait()
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite()
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumUnsent += len(satUnsent.InfoList)
@@ -142,6 +145,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
 		beforeRollup := now.Add(-time.Hour - time.Second)
 		afterRollup := now.Add(time.Hour + time.Second)
 		bucketName := "testbucket"
@@ -161,24 +165,24 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expectedData, data)
 
-		//HACKFIX: We need enough time to pass after the download ends for storagenodes to save orders
-		time.Sleep(200 * time.Millisecond)
+		// Wait for the download to end and so the orders will be saved
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
 		var expectedBucketBandwidth int64
 		expectedStorageBandwidth := make(map[storj.NodeID]int64)
 		for _, storageNode := range planet.StorageNodes {
-			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
+			infos, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
 			require.NoError(t, err)
-			if len(infos) > 0 {
-				for _, info := range infos {
-					expectedBucketBandwidth += info.Order.Amount
-					expectedStorageBandwidth[storageNode.ID()] += info.Order.Amount
+			for _, unsentInfo := range infos {
+				for _, orderInfo := range unsentInfo.InfoList {
+					expectedBucketBandwidth += orderInfo.Order.Amount
+					expectedStorageBandwidth[storageNode.ID()] += orderInfo.Order.Amount
 				}
 			}
 		}
 
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Orders.Sender.TriggerWait()
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 		}
 
 		reportedRollupChore := planet.Satellites[0].Core.Accounting.ReportedRollupChore
@@ -213,6 +217,7 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 		planet.Satellites[0].Orders.Chore.Loop.Pause()
 
 		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
 		beforeRollup := now.Add(-time.Hour - time.Second)
 		afterRollup := now.Add(time.Hour + time.Second)
 
@@ -239,9 +244,7 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 
 		// Have the nodes send up the orders.
 		for _, storageNode := range planet.StorageNodes {
-			// change settle buffer so that storagenodes can send orders
-			storageNode.OrdersStore.TestSetSettleBuffer(-time.Hour, -time.Hour)
-			storageNode.Storage2.Orders.Sender.TriggerWait()
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 		}
 		// flush rollups write cache
 		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
