@@ -462,8 +462,9 @@ func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 
 		// get encrypted path of segment with audit service
 		satellite.Audit.Chore.Loop.TriggerWait()
-		require.EqualValues(t, satellite.Audit.Queue.Size(), 1)
-		encryptedPath, err := satellite.Audit.Queue.Next()
+		queue := satellite.Audit.Queues.Fetch()
+		require.EqualValues(t, queue.Size(), 1)
+		encryptedPath, err := queue.Next()
 		require.NoError(t, err)
 		// replace pointer with one that is already expired
 		pointer.ExpirationDate = time.Now().Add(-time.Hour)
