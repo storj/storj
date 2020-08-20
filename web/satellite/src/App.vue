@@ -26,10 +26,6 @@ export default class App extends Vue {
     private ids: string[] = [
                 'accountDropdown',
                 'accountDropdownButton',
-                'projectDropdown',
-                'projectDropdownButton',
-                'sortTeamMemberByDropdown',
-                'sortTeamMemberByDropdownButton',
                 'notificationArea',
                 'paymentSelectButton',
                 'paymentSelect',

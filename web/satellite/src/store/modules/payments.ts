@@ -153,8 +153,8 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
 
                 state.priceSummary = usageItemSummaries.reduce((accumulator, current) => accumulator + current);
             },
-            [SET_PAYWALL_ENABLED_STATUS](state: PaymentsState, paywallEnabledStatus: boolean): void {
-                state.isPaywallEnabled = paywallEnabledStatus;
+            [SET_PAYWALL_ENABLED_STATUS](state: PaymentsState, isPaywallEnabled: boolean): void {
+                state.isPaywallEnabled = isPaywallEnabled;
             },
             [CLEAR](state: PaymentsState) {
                 state.balance = new AccountBalance();
@@ -238,9 +238,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
             },
             [GET_PAYWALL_ENABLED_STATUS]: async function({commit, rootGetters}: any): Promise<void> {
-                const paywallEnabledStatus: boolean = await api.getPaywallEnabledStatus(rootGetters.user.id);
+                const isPaywallEnabled: boolean = await api.getPaywallStatus(rootGetters.user.id);
 
-                commit(SET_PAYWALL_ENABLED_STATUS, paywallEnabledStatus);
+                commit(SET_PAYWALL_ENABLED_STATUS, isPaywallEnabled);
             },
         },
         getters: {

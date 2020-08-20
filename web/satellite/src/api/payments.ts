@@ -260,7 +260,7 @@ export class PaymentsHttpApi implements PaymentsApi {
      * @param userId
      * @throws Error
      */
-    public async getPaywallEnabledStatus(userId: string): Promise<boolean> {
+    public async getPaywallStatus(userId: string): Promise<boolean> {
         const path = `${this.ROOT_PATH}/paywall-enabled/${userId}`;
         const response = await this.client.get(path);
 

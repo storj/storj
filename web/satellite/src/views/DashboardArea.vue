@@ -8,11 +8,11 @@
         </div>
         <NoPaywallInfoBar v-if="isNoPaywallInfoBarShown && !isLoading"/>
         <div v-if="!isLoading" class="dashboard-container__wrap">
-            <NavigationArea class="regular-navigation"/>
+            <NavigationArea class="dashboard-container__wrap__regular-navigation"/>
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader/>
-                <div class="dashboard-container__main-area" :class="{ extended: isNoPaywallInfoBarShown }">
-                    <div class="dashboard-container__main-area__bar-area">
+                <div class="dashboard-container__wrap__column__main-area">
+                    <div class="dashboard-container__wrap__column__main-area__bar-area">
                         <VInfoBar
                             v-if="isInfoBarShown"
                             :first-value="storageRemaining"
@@ -24,7 +24,7 @@
                             link-label="Request Limit Increase ->"
                         />
                     </div>
-                    <div class="dashboard-container__main-area__content">
+                    <div class="dashboard-container__wrap__column__main-area__content">
                         <router-view/>
                     </div>
                 </div>
@@ -277,55 +277,6 @@ export default class DashboardArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .dashboard-container {
-        position: fixed;
-        max-width: 100%;
-        width: 100%;
-        height: 100%;
-        left: 0;
-        top: 0;
-        background-color: #f5f6fa;
-        z-index: 10;
-
-        &__wrap {
-            display: flex;
-
-            &__column {
-                display: flex;
-                flex-direction: column;
-                width: 100%;
-            }
-        }
-
-        &__main-area {
-            position: relative;
-            width: 100%;
-            height: calc(100vh - 50px);
-            overflow-y: scroll;
-            display: flex;
-            flex-direction: column;
-
-            &__bar-area {
-                flex: 0 1 auto;
-            }
-
-            &__content {
-                flex: 1 1 auto;
-            }
-        }
-    }
-
-    .extended {
-        height: calc(100vh - 90px);
-    }
-
-    @media screen and (max-width: 1280px) {
-
-        .regular-navigation {
-            display: none;
-        }
-    }
-
     .loading-overlay {
         display: flex;
         justify-content: center;
@@ -334,8 +285,7 @@ export default class DashboardArea extends Vue {
         top: 0;
         left: 0;
         right: 0;
-        height: 100vh;
-        z-index: 100;
+        bottom: 0;
         background-color: rgba(134, 134, 148, 1);
         visibility: hidden;
         opacity: 0;
@@ -343,14 +293,60 @@ export default class DashboardArea extends Vue {
         -moz-transition: all 0.5s linear;
         -o-transition: all 0.5s linear;
         transition: all 0.5s linear;
-
-        .loading-image {
-            z-index: 200;
-        }
     }
 
     .loading-overlay.active {
         visibility: visible;
         opacity: 1;
+    }
+
+    .dashboard-container {
+        position: fixed;
+        max-width: 100%;
+        width: 100%;
+        height: 100%;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #f5f6fa;
+        display: flex;
+        flex-direction: column;
+
+        &__wrap {
+            display: flex;
+            height: 100%;
+
+            &__column {
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                height: 100%;
+
+                &__main-area {
+                    position: relative;
+                    width: 100%;
+                    height: calc(100vh - 50px);
+                    overflow-y: scroll;
+                    display: flex;
+                    flex-direction: column;
+
+                    &__bar-area {
+                        flex: 0 0 auto;
+                    }
+
+                    &__content {
+                        flex: 0 0 auto;
+                    }
+                }
+            }
+        }
+    }
+
+    @media screen and (max-width: 1280px) {
+
+        .dashboard-container__wrap__regular-navigation {
+            display: none;
+        }
     }
 </style>
