@@ -76,7 +76,7 @@ export interface PaymentsApi {
      * @param userId
      * @throws Error
     */
-    getPaywallEnabledStatus(userId: string): Promise<boolean>;
+    getPaywallStatus(userId: string): Promise<boolean>;
 }
 
 export class AccountBalance {

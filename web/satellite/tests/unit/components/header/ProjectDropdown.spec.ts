@@ -3,7 +3,7 @@
 
 import Vuex from 'vuex';
 
-import ProjectSelectionDropdown from '@/components/header/projectSelection/ProjectSelectionDropdown.vue';
+import ProjectDropdown from '@/components/header/projectSelection/ProjectDropdown.vue';
 
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
@@ -21,12 +21,12 @@ const project2 = new Project('testId2', 'testName2', '');
 
 const store = new Vuex.Store({ modules: { projectsModule }});
 
-describe('ProjectSelectionDropdown', () => {
+describe('ProjectDropdown', () => {
     it('renders correctly', () => {
         store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, [project1, project2]);
         store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project1.id);
 
-        const wrapper = shallowMount(ProjectSelectionDropdown, {
+        const wrapper = shallowMount(ProjectDropdown, {
             store,
             localVue,
         });

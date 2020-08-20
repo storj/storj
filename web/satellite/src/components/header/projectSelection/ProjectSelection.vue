@@ -2,17 +2,16 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="project-selection-container" :class="{ default: !hasProjects }" id="projectDropdownButton">
-        <p class="project-selection-container__no-projects-text" v-if="!hasProjects">You have no projects</p>
+    <div class="project-selection" :class="{ default: !hasProjects }">
+        <p class="project-selection__no-projects-text" v-if="!hasProjects">You have no projects</p>
         <div
-            class="project-selection-toggle-container"
+            class="project-selection__toggle-container"
             :class="{ default: isOnboardingTour }"
-            @click="toggleSelection"
+            @click.stop="toggleSelection"
             v-if="hasProjects"
         >
-            <p class="project-selection-toggle-container__common" :class="{ default: isOnboardingTour }">Project:</p>
-            <h1 class="project-selection-toggle-container__name">{{name}}</h1>
-            <div class="project-selection-toggle-container__expander-area" v-if="!isOnboardingTour">
+            <h1 class="project-selection__toggle-container__name">{{name}}</h1>
+            <div class="project-selection__toggle-container__expander-area" v-if="!isOnboardingTour">
                 <ExpandIcon
                     v-if="!isDropdownShown"
                     alt="Arrow down (expand)"
@@ -22,8 +21,12 @@
                     alt="Arrow up (hide)"
                 />
             </div>
+            <ProjectDropdown
+                v-show="isDropdownShown"
+                @close="closeDropdown"
+                v-click-outside="closeDropdown"
+            />
         </div>
-        <ProjectSelectionDropdown v-if="isDropdownShown"/>
     </div>
 </template>
 
@@ -36,19 +39,19 @@ import HideIcon from '@/../static/images/common/BlueHide.svg';
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
+import ProjectDropdown from './ProjectDropdown.vue';
 
 @Component({
     components: {
-        ProjectSelectionDropdown,
+        ProjectDropdown,
         ExpandIcon,
         HideIcon,
     },
 })
-export default class ProjectSelectionArea extends Vue {
+export default class ProjectSelection extends Vue {
     private isLoading: boolean = false;
+    public isDropdownShown: boolean = false;
 
     /**
      * Fetches projects related information and than toggles selection popup.
@@ -66,7 +69,7 @@ export default class ProjectSelectionArea extends Vue {
             this.isLoading = false;
         }
 
-        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
+        this.toggleDropdown();
         this.isLoading = false;
     }
 
@@ -77,13 +80,6 @@ export default class ProjectSelectionArea extends Vue {
         const selectedProject: Project = this.$store.state.projectsModule.selectedProject;
 
         return selectedProject.id ? selectedProject.name : 'Choose project';
-    }
-
-    /**
-     * Indicates if project selection dropdown should be rendered.
-     */
-    public get isDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.isProjectsDropdownShown;
     }
 
     /**
@@ -99,14 +95,28 @@ export default class ProjectSelectionArea extends Vue {
     public get isOnboardingTour(): boolean {
         return this.$route.name === RouteConfig.OnboardingTour.name;
     }
+
+    /**
+     * Toggles project dropdown visibility.
+     */
+    public toggleDropdown(): void {
+        this.isDropdownShown = !this.isDropdownShown;
+    }
+
+    /**
+     * Closes project dropdown.
+     */
+    public closeDropdown(): void {
+        this.isDropdownShown = false;
+    }
 }
 </script>
 
 <style scoped lang="scss">
-    .project-selection-container {
-        position: relative;
+    .project-selection {
         background-color: #fff;
         cursor: pointer;
+        margin-right: 20px;
 
         &__no-projects-text {
             font-family: 'font_medium', sans-serif;
@@ -116,42 +126,43 @@ export default class ProjectSelectionArea extends Vue {
             opacity: 0.7;
             cursor: default !important;
         }
-    }
 
-    .project-selection-toggle-container {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-start;
-        width: 100%;
-        height: 50px;
-
-        &__common {
-            font-family: 'font_medium', sans-serif;
-            font-size: 16px;
-            line-height: 23px;
-            color: rgba(56, 75, 101, 0.4);
-            opacity: 0.7;
-            cursor: pointer;
-            margin-right: 5px;
-        }
-
-        &__name {
-            font-family: 'font_medium', sans-serif;
-            font-size: 16px;
-            line-height: 23px;
-            color: #354049;
-            transition: opacity 0.2s ease-in-out;
-            word-break: break-all;
-        }
-
-        &__expander-area {
-            margin-left: 12px;
+        &__toggle-container {
+            position: relative;
             display: flex;
+            flex-direction: row;
             align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
+            justify-content: flex-start;
+            width: 100%;
+            height: 50px;
+
+            &__common {
+                font-family: 'font_medium', sans-serif;
+                font-size: 16px;
+                line-height: 23px;
+                color: rgba(56, 75, 101, 0.4);
+                opacity: 0.7;
+                cursor: pointer;
+                margin-right: 5px;
+            }
+
+            &__name {
+                font-family: 'font_medium', sans-serif;
+                font-size: 16px;
+                line-height: 23px;
+                color: #354049;
+                transition: opacity 0.2s ease-in-out;
+                word-break: break-all;
+            }
+
+            &__expander-area {
+                margin-left: 11px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+            }
         }
     }
 
@@ -161,17 +172,16 @@ export default class ProjectSelectionArea extends Vue {
 
     @media screen and (max-width: 1280px) {
 
-        .project-selection-container {
+        .project-selection {
             margin-right: 30px;
-            padding-right: 10px;
-        }
 
-        .project-selection-toggle-container {
-            justify-content: space-between;
-            margin-left: 10px;
+            &__toggle-container {
+                justify-content: space-between;
+                padding-left: 10px;
 
-            &__common {
-                display: none;
+                &__common {
+                    display: none;
+                }
             }
         }
     }

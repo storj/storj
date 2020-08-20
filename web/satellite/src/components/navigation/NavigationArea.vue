@@ -6,7 +6,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
+import ProjectSelection from '@/components/header/projectSelection/ProjectSelection.vue';
 
 import ApiKeysIcon from '@/../static/images/navigation/apiKeys.svg';
 import DashboardIcon from '@/../static/images/navigation/dashboard.svg';
@@ -21,7 +21,7 @@ import { NavigationLink } from '@/types/navigation';
 
 @Component({
     components: {
-        ProjectSelectionArea,
+        ProjectSelection,
         LogoIcon,
         LogoTextIcon,
         DocsIcon,
