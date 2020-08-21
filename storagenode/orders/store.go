@@ -102,6 +102,11 @@ func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Ti
 		// always remove the in flight operation
 		defer store.enqueueFinishedLocked(satelliteID, createdAt)
 
+		// caller wants to abort; free file for sending and return with no error
+		if info == nil {
+			return nil
+		}
+
 		// check that the info matches what the enqueue was begun with
 		if info.Limit.SatelliteId != satelliteID || !info.Limit.OrderCreation.Equal(createdAt) {
 			return OrderError.New("invalid info passed in to enqueue commit")

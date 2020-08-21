@@ -660,11 +660,19 @@ func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx
 
 	done := false
 	return func(ctx context.Context, order *pb.Order) {
-		// TODO: do this in a goroutine
-		if order == nil || order.Amount <= 0 || done {
+		if done {
 			return
 		}
 		done = true
+
+		if order == nil || order.Amount <= 0 {
+			// free unsent orders file for sending without writing anything
+			err = commit(nil)
+			if err != nil {
+				endpoint.log.Error("failed to unlock orders file", zap.Error(err))
+			}
+			return
+		}
 
 		err = commit(&orders.Info{Limit: limit, Order: order})
 		if err != nil {
