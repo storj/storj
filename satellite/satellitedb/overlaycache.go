@@ -326,7 +326,7 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction.
-func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
+func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int, auditHistoryConfig overlay.AuditHistoryConfig) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(updateRequests) == 0 {
 		return failed, nil
@@ -344,6 +344,7 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 			}
 		}
 
+		auditTime := time.Now().UTC()
 		doAppendAll := true
 		err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 			_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
@@ -367,7 +368,13 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 					continue
 				}
 
-				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq)
+				onlineScore, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, auditTime, updateReq.IsUp, auditHistoryConfig)
+				if err != nil {
+					doAppendAll = false
+					return err
+				}
+
+				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq, onlineScore)
 
 				sql := buildUpdateStatement(updateNodeStats)
 
@@ -416,7 +423,7 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 }
 
 // UpdateStats a single storagenode's stats in the db.
-func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest, auditHistoryConfig overlay.AuditHistoryConfig) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	nodeID := updateReq.NodeID
 
@@ -439,7 +446,12 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 			return nil
 		}
 
-		updateFields := cache.populateUpdateFields(dbNode, updateReq)
+		onlineScore, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, time.Now().UTC(), updateReq.IsUp, auditHistoryConfig)
+		if err != nil {
+			return err
+		}
+
+		updateFields := cache.populateUpdateFields(dbNode, updateReq, onlineScore)
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 		if err != nil {
 			return err
@@ -1145,7 +1157,7 @@ type updateNodeStats struct {
 	Contained                   boolField
 }
 
-func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) updateNodeStats {
+func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditOnlineScore float64) updateNodeStats {
 	// there are three audit outcomes: success, failure, and unknown
 	// if a node fails enough audits, it gets disqualified
 	// if a node gets enough "unknown" audits, it gets put into suspension
@@ -1206,6 +1218,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)                  //locked
 	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha) //locked
 	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //locked
+	mon.FloatVal("audit_online_score").Observe(auditOnlineScore)              //locked
 
 	totalUptimeCount := dbNode.TotalUptimeCount
 	if updateReq.IsUp {
@@ -1264,6 +1277,9 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 		updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 	}
 
+	// TODO when we verify that auditOnlineScore is calculated as expected, add offline suspension
+	// TODO when we verify that offline suspension works as expected, add DQ from offline suspension
+
 	if updateReq.IsUp {
 		updateFields.UptimeSuccessCount = int64Field{set: true, value: dbNode.UptimeSuccessCount + 1}
 		updateFields.LastContactSuccess = timeField{set: true, value: time.Now()}
@@ -1281,9 +1297,9 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	return updateFields
 }
 
-func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) dbx.Node_Update_Fields {
+func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditOnlineScore float64) dbx.Node_Update_Fields {
 
-	update := cache.populateUpdateNodeStats(dbNode, updateReq)
+	update := cache.populateUpdateNodeStats(dbNode, updateReq, auditOnlineScore)
 	updateFields := dbx.Node_Update_Fields{}
 	if update.VettedAt.set {
 		updateFields.VettedAt = dbx.Node_VettedAt(update.VettedAt.value)

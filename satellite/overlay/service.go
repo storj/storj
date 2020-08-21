@@ -57,15 +57,18 @@ type DB interface {
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
 	// BatchUpdateStats updates multiple storagenode's stats in one transaction
-	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int) (failed storj.NodeIDList, err error)
+	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int, auditHistoryConfig AuditHistoryConfig) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
-	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
+	UpdateStats(ctx context.Context, request *UpdateRequest, auditHistoryConfig AuditHistoryConfig) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
+
+	// UpdateAuditHistory updates a node's audit history with an online or offline audit and returns the online score for the tracking period.
+	UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config AuditHistoryConfig) (onlineScore float64, err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
@@ -427,7 +430,7 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.AuditsRequiredForVetting = service.config.Node.AuditCount
 		request.UptimesRequiredForVetting = service.config.Node.UptimeCount
 	}
-	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize)
+	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize, service.config.AuditHistory)
 }
 
 // UpdateStats all parts of single storagenode's stats.
@@ -442,7 +445,7 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.AuditsRequiredForVetting = service.config.Node.AuditCount
 	request.UptimesRequiredForVetting = service.config.Node.UptimeCount
 
-	return service.db.UpdateStats(ctx, request)
+	return service.db.UpdateStats(ctx, request, service.config.AuditHistory)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.

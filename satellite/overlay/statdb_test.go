@@ -173,7 +173,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			AuditLambda:  0.123, AuditWeight: 0.456,
 			AuditDQ: 0, // don't disqualify for any reason
 		}
-		stats, err := cache.UpdateStats(ctx, updateReq)
+		stats, err := cache.UpdateStats(ctx, updateReq, testAuditHistoryConfig())
 		require.NoError(t, err)
 
 		expectedAuditAlpha := updateReq.AuditLambda*auditAlpha + updateReq.AuditWeight
@@ -186,7 +186,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 		updateReq.AuditOutcome = overlay.AuditFailure
 		updateReq.IsUp = false
-		stats, err = cache.UpdateStats(ctx, updateReq)
+		stats, err = cache.UpdateStats(ctx, updateReq, testAuditHistoryConfig())
 		require.NoError(t, err)
 
 		expectedAuditAlpha = updateReq.AuditLambda * auditAlpha

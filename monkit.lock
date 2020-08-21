@@ -91,6 +91,7 @@ storj.io/storj/satellite/repair/repairer."segment_repair_count" IntVal
 storj.io/storj/satellite/repair/repairer."segment_time_until_repair" IntVal
 storj.io/storj/satellite/repair/repairer."time_for_repair" FloatVal
 storj.io/storj/satellite/repair/repairer."time_since_checker_queue" FloatVal
+storj.io/storj/satellite/satellitedb."audit_online_score" FloatVal
 storj.io/storj/satellite/satellitedb."audit_reputation_alpha" FloatVal
 storj.io/storj/satellite/satellitedb."audit_reputation_beta" FloatVal
 storj.io/storj/satellite/satellitedb."nodetallies.totalsum" IntVal
