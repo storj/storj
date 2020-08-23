@@ -16,9 +16,6 @@ var (
 	// Error is the default error class for graceful exit package.
 	Error = errs.Class("gracefulexit")
 
-	// ErrReconnect is error class for connection/transport error.
-	ErrReconnect = errs.Class("reconnect")
-
 	mon = monkit.Package()
 )
 
