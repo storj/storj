@@ -314,8 +314,8 @@ type Satellites struct {
 
 // Audits represents audit metrics across all satellites.
 type Audits struct {
-	Audit       reputation.Metric
-	SatelliteID storj.NodeID
+	Audit         reputation.Metric `json:"audit"`
+	SatelliteName string            `json:"satelliteName"`
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
@@ -365,9 +365,14 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 			return nil, SNOServiceErr.Wrap(err)
 		}
 
+		url, err := s.trust.GetNodeURL(ctx, satellitesIDs[i])
+		if err != nil {
+			return nil, SNOServiceErr.Wrap(err)
+		}
+
 		audits = append(audits, Audits{
-			Audit:       stats.Audit,
-			SatelliteID: satellitesIDs[i],
+			Audit:         stats.Audit,
+			SatelliteName: url.Address,
 		})
 		if !stats.JoinedAt.IsZero() && stats.JoinedAt.Before(joinedAt) {
 			joinedAt = stats.JoinedAt
