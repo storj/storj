@@ -38,8 +38,6 @@ var (
 	ErrNotEnoughShares = errs.Class("not enough shares for successful audit")
 	// ErrSegmentDeleted is the errs class when the audited segment was deleted during the audit.
 	ErrSegmentDeleted = errs.Class("segment deleted during audit")
-	// ErrSegmentExpired is the errs class used when a segment to audit has already expired.
-	ErrSegmentExpired = errs.Class("segment expired before audit")
 	// ErrSegmentModified is the errs class used when a segment has been changed in any way.
 	ErrSegmentModified = errs.Class("segment has been modified")
 )
@@ -91,7 +89,8 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, path)
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
-			return Report{}, ErrSegmentDeleted.New("%q", path)
+			verifier.log.Debug("segment deleted before Verify")
+			return Report{}, nil
 		}
 		return Report{}, err
 	}
@@ -100,7 +99,8 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
 		}
-		return Report{}, ErrSegmentExpired.New("segment expired before Verify")
+		verifier.log.Debug("segment expired before Verify")
+		return Report{}, nil
 	}
 
 	defer func() {
@@ -148,6 +148,14 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 
 	err = verifier.checkIfSegmentAltered(ctx, path, pointer, pointerBytes)
 	if err != nil {
+		if ErrSegmentDeleted.Has(err) {
+			verifier.log.Debug("segment deleted during Verify")
+			return Report{}, nil
+		}
+		if ErrSegmentModified.Has(err) {
+			verifier.log.Debug("segment modified during Verify")
+			return Report{}, nil
+		}
 		return Report{
 			Offlines: offlineNodes,
 		}, err
@@ -370,7 +378,8 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, path)
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
-			return Report{}, ErrSegmentDeleted.New("%q", path)
+			verifier.log.Debug("segment deleted before Reverify")
+			return Report{}, nil
 		}
 		return Report{}, err
 	}
@@ -379,7 +388,8 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
 		}
-		return Report{}, ErrSegmentExpired.New("Segment expired before Reverify")
+		verifier.log.Debug("Segment expired before Reverify")
+		return Report{}, nil
 	}
 
 	pieceHashesVerified := make(map[storj.NodeID]bool)

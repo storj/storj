@@ -425,9 +425,9 @@ func TestVerifierExpired(t *testing.T) {
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
 
+		// Verify should not return an error
 		report, err := audits.Verifier.Verify(ctx, path, nil)
-		require.Error(t, err)
-		require.True(t, audit.ErrSegmentExpired.Has(err))
+		require.NoError(t, err)
 
 		// Verify should delete the expired segment
 		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
@@ -658,8 +658,9 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		err = ul.DeleteObject(ctx, satellite, "testbucket", "test/path")
 		require.NoError(t, err)
 
+		// Verify should not return an error, but report should be empty
 		report, err := audits.Verifier.Verify(ctx, path, nil)
-		require.True(t, audit.ErrSegmentDeleted.Has(err))
+		require.NoError(t, err)
 		assert.Empty(t, report)
 	})
 }
@@ -695,8 +696,9 @@ func TestVerifierModifiedSegment(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		// Verify should not return an error, but report should be empty
 		report, err := audits.Verifier.Verify(ctx, path, nil)
-		require.True(t, audit.ErrSegmentModified.Has(err))
+		require.NoError(t, err)
 		assert.Empty(t, report)
 	})
 }
@@ -728,8 +730,9 @@ func TestVerifierReplacedSegment(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		// Verify should not return an error, but report should be empty
 		report, err := audits.Verifier.Verify(ctx, path, nil)
-		require.True(t, audit.ErrSegmentDeleted.Has(err))
+		require.NoError(t, err)
 		assert.Empty(t, report)
 	})
 }

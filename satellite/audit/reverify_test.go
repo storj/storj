@@ -583,10 +583,10 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		err = ul.DeleteObject(ctx, satellite, "testbucket", "test/path1")
 		require.NoError(t, err)
 
-		// call reverify on the deleted file and expect a segment deleted error
+		// call reverify on the deleted file and expect no error
 		// but expect that the node is still in containment
 		report, err := audits.Verifier.Reverify(ctx, path)
-		require.True(t, audit.ErrSegmentDeleted.Has(err))
+		require.NoError(t, err)
 		assert.Empty(t, report)
 
 		_, err = containment.Get(ctx, nodeID)
@@ -945,9 +945,9 @@ func TestReverifyExpired1(t *testing.T) {
 		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
 		require.NoError(t, err)
 
+		// Reverify should not return an error
 		report, err := audits.Verifier.Reverify(ctx, path)
-		require.Error(t, err)
-		require.True(t, audit.ErrSegmentExpired.Has(err))
+		require.NoError(t, err)
 
 		// Reverify should delete the expired segment
 		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
