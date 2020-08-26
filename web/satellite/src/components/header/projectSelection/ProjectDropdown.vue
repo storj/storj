@@ -22,7 +22,7 @@
             >
                 <p class="project-dropdown__wrap__choice__unselected">{{ project.name }}</p>
             </div>
-						<div @click.prevent.stop="closeDropdown" class="project-dropdown__wrap__create-project__wrapper">
+						<div @click="toggleSelection" @click.prevent.stop="closeDropdown" class="project-dropdown__wrap__create-project__wrapper">
 							<p class="project-dropdown__wrap__create-project__text">Create Project</p>
 						</div>
         </div>
@@ -39,7 +39,7 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
@@ -102,6 +102,13 @@ export default class ProjectDropdown extends Vue {
     public get selectedProject(): Project {
         return this.$store.getters.selectedProject;
     }
+
+        /**
+		 * Opens new project creation popup.
+		 */
+        public toggleSelection(): void {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+        }
 
     /**
      * Closes dropdown.
@@ -175,17 +182,20 @@ export default class ProjectDropdown extends Vue {
                     }
                 }
             }
-						&__create-project {
-							&__wrapper {
-								border-top: 1px solid #d4d4d4;
-							}
-							&__text {
-								color: #2683ff;
-								padding-left: 20px;
-								font-weight: bold;
-								font-size: 14px;
-							}
-						}
+
+            &__create-project {
+
+                &__wrapper {
+                    border-top: 1px solid #d4d4d4;
+                }
+
+                &__text {
+                    color: #2683ff;
+                    padding-left: 20px;
+                    font-weight: bold;
+                    font-size: 14px;
+                }
+            }
         }
     }
 
