@@ -5,6 +5,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -14,11 +16,10 @@ import (
 )
 
 func main() {
-	// bucketName := os.Args[1]
-
 	ctx := context.Background()
 
-	metabase, err := DialMetainfo(ctx, "postgres://postgres:abc@localhost/metabase?sslmode=disable")
+	// metabase, err := DialMetainfo(ctx, "postgres://postgres:abc@localhost/metabase?sslmode=disable")
+	metabase, err := DialMetainfo(ctx, "postgresql://root@localhost:26257/metabase?sslmode=disable")
 	check(err)
 	defer func() { check(metabase.Close(ctx)) }()
 
@@ -38,12 +39,12 @@ func main() {
 	projectID, err := uuid.FromString("8e1c62d9-5a0c-410f-a33e-817689520f34")
 	check(err)
 
-	bucketID, err := satellitedb.Buckets().GetBucketID(ctx, []byte("metabase"), projectID)
-	check(err)
-
-	migrator := NewMigrator(pointerdb, metabase, projectID, bucketID, []byte("metabase"))
+	start := time.Now()
+	migrator := NewMigrator(pointerdb, metabase, projectID, []byte("metabase"))
 	err = migrator.MigrateBucket(ctx)
 	check(err)
+
+	fmt.Println("Migration time:", time.Now().Sub(start).Seconds())
 }
 
 func check(err error) {

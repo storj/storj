@@ -24,6 +24,14 @@ const (
 	NextVersion = Version(0)
 )
 
+type ObjectStatus byte
+
+const (
+	Partial   = ObjectStatus(0)
+	Committed = ObjectStatus(1)
+	Deleting  = ObjectStatus(2)
+)
+
 func (aliases NodeAliases) Encode() []int32 {
 	xs := make([]int32, len(aliases))
 	for i, v := range aliases {
@@ -60,9 +68,8 @@ func (mb *Metabase) Drop(ctx context.Context) error {
 		DROP TABLE IF EXISTS buckets;
 		DROP TABLE IF EXISTS objects;
 		DROP TABLE IF EXISTS segments;
-		DROP TYPE IF EXISTS  object_status;
 	`)
-	return wrapf("failed to drop: %w", err)
+	return wrapf("failed to drop existing: %w", err)
 }
 
 func (mb *Metabase) Migrate(ctx context.Context) error {
@@ -81,7 +88,12 @@ func (mb *Metabase) Migrate(ctx context.Context) error {
 			PRIMARY KEY (bucket_id)
 		);
 		CREATE UNIQUE INDEX buckets_project_index ON buckets (project_id, bucket_name);
+	`)
+	if err != nil {
+		return wrapf("failed create table buckets: %w", err)
+	}
 
+	_, err = mb.conn.Exec(ctx, `
 		-- CREATE TYPE encryption_parameters AS (
 		-- 	-- total 5 bytes
 		-- 	ciphersuite BYTE NOT NULL;
@@ -97,14 +109,14 @@ func (mb *Metabase) Migrate(ctx context.Context) error {
 		-- 	optimal     INT2   NOT NULL;
 		-- 	total       INT2   NOT NULL;
 		-- );
-
-		CREATE TYPE object_status AS ENUM (
-			'partial', 'committing', 'committed', 'deleting'
-		);
-
+	`)
+	if err != nil {
+		return wrapf("failed create types: %w", err)
+	}
+	_, err = mb.conn.Exec(ctx, `
 		CREATE TABLE objects (
 			project_id     BYTEA NOT NULL,
-			bucket_id      BYTEA NOT NULL,
+			bucket_name    BYTEA NOT NULL,
 			encrypted_path BYTEA NOT NULL,
 			version        INT4  NOT NULL default 0,
 			stream_id      BYTEA NOT NULL,
@@ -112,7 +124,7 @@ func (mb *Metabase) Migrate(ctx context.Context) error {
 			created_at TIMESTAMP NOT NULL default now(),
 			expires_at TIMESTAMP, -- TODO: should we send this to storage nodes at all?
 
-			status         object_status NOT NULL default 'partial',
+			status         INT2 NOT NULL default 0,
 			segment_count  INT4 NOT NULL default 0,
 
 			encrypted_metadata_nonce BYTEA default NULL,
@@ -124,16 +136,19 @@ func (mb *Metabase) Migrate(ctx context.Context) error {
 			encryption INT8 NOT NULL default 0,
 			redundancy INT8 NOT NULL default 0, -- needs to be 9 bytes, should this be in segments?
 
-			zombie_deletion_deadline TIME default now() + '1 day', -- should this be in a separate table?
+			zombie_deletion_deadline TIMESTAMPTZ default now() + '1 day', -- should this be in a separate table?
 
-			-- TODO: should we have first segment here?
-			-- TODO: should we use []segment instead?
+			-- FIX: we should have first segment here
 
-			PRIMARY KEY (project_id, bucket_id, encrypted_path, version)
+			PRIMARY KEY (project_id, bucket_name, encrypted_path, version)
 		);
-
+		`)
+	if err != nil {
+		return wrapf("failed create objects table: %w", err)
+	}
+	_, err = mb.conn.Exec(ctx, `
 		CREATE TABLE segments (
-			-- TODO: how to reverse lookup stream_id -> project_id, bucket_id, encrypted_path?
+			-- TODO: how to reverse lookup stream_id -> project_id, bucket_name, encrypted_path?
 
 			stream_id        BYTEA NOT NULL,
 			segment_position INT8  NOT NULL,
@@ -149,7 +164,7 @@ func (mb *Metabase) Migrate(ctx context.Context) error {
 			PRIMARY KEY (stream_id, segment_position)
 		);
 	`)
-	return wrapf("failed to migrate: %w", err)
+	return wrapf("failed create segments table: %w", err)
 }
 
 func (mb *Metabase) CreateBucket(ctx context.Context, projectID UUID, bucketName BucketName, bucketID UUID) error {
@@ -162,19 +177,16 @@ func (mb *Metabase) CreateBucket(ctx context.Context, projectID UUID, bucketName
 }
 
 func (mb *Metabase) BeginObject(ctx context.Context, projectID UUID, bucketName BucketName, path EncryptedPath, version Version, streamID UUID) error {
-	// NOTE: One of the problems in using SELECT is that it implies that
-	//       objects/buckets are in the same database, it's not clear whether this is a good constraint to have.
-	//       It definitely is more convienient.
-
 	// if version == NextVersion, use a for loop without tx max + insert query
+
+	// TODO: verify existence of bucket somehow
 
 	// TODO: add check for version = -1 for selecting next version
 	// TODO: if <key> + version exists then should fail
 	r, err := mb.conn.Exec(ctx, `
 		INSERT INTO objects (
-			project_id, bucket_id, encrypted_path, version, stream_id
-		) SELECT $1, bucket_id, $3, $4, $5 -- this verifies existence of a bucket
-			FROM buckets WHERE project_id = $1 AND bucket_name = $2
+			project_id, bucket_name, encrypted_path, version, stream_id
+		) VALUES ($1, $2, $3, $4, $5)
 	`, projectID, bucketName, string(path), version, streamID)
 	if err != nil {
 		return wrapf("failed to BeginObject: %w", err)
@@ -187,7 +199,7 @@ func (mb *Metabase) BeginObject(ctx context.Context, projectID UUID, bucketName 
 }
 
 func (mb *Metabase) BeginSegment(ctx context.Context,
-	projectID, bucketID UUID, path EncryptedPath, streamID UUID,
+	projectID UUID, bucketName BucketName, path EncryptedPath, streamID UUID,
 	segmentPosition SegmentPosition, rootPieceID []byte, aliases NodeAliases) error {
 	// TODO: verify somehow that object is still partial
 
@@ -213,7 +225,7 @@ func (mb *Metabase) BeginSegment(ctx context.Context,
 }
 
 func (mb *Metabase) CommitSegment(ctx context.Context,
-	projectID, bucketID UUID, path EncryptedPath, streamID UUID,
+	projectID UUID, bucketName BucketName, path EncryptedPath, streamID UUID,
 	segmentPosition SegmentPosition, rootPieceID []byte,
 	encryptedKey, encryptedKeyNonce []byte, aliases NodeAliases) error {
 
@@ -252,38 +264,35 @@ func (mb *Metabase) CommitSegment(ctx context.Context,
 		aliases.Encode(),
 	)
 
-	// TODO: should we track segment_status = 'object_committed', helps to clarify the bill
-
 	// TODO: error wrapping for concurrency errors
 
 	return wrapf("failed CommitSegment: %w", err)
 }
 
 func (mb *Metabase) CommitObject(ctx context.Context,
-	projectID, bucketID UUID, path EncryptedPath, version int64, streamID UUID,
+	projectID UUID, bucketName BucketName, path EncryptedPath, version int64, streamID UUID,
 	segmentPositions []SegmentPosition) error {
 
 	if len(segmentPositions) == 0 {
 		// TODO: derive segmentPositions from databas by querying the ID
 	}
 
-	// TODO: should we rewrite segmentPositions
 	// TODO: how do we handle segments that are not in the segment positions
 
 	_, err := mb.conn.Exec(ctx, `
 		UPDATE objects SET
-			status = 'committed'
+			status = 1
 			-- calculate number of segments
 			-- calculate total size of segments
 			-- calculate fixed segment size
 		WHERE
 			project_id     = $1 AND
-			bucket_id      = $2 AND
+			bucket_name      = $2 AND
 			encrypted_path = $3 AND
 			version        = $4 AND
 			stream_id      = $5 AND
-			status         = 'partial';
-	`, projectID, bucketID, path, version, streamID)
+			status         = 0;
+	`, projectID, bucketName, path, version, streamID)
 
 	// TODO: previously was using `segments_pending = segments_done AND` as a protection
 

@@ -3,27 +3,32 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
-	"github.com/jackc/pgx/v4"
 	"storj.io/common/pb"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
 
+const objectsArgs = 10
+const segmentsArgs = 8
+
 type Migrator struct {
 	PointerDB metainfo.PointerDB
 	Metabase  *Metabase
 
 	ProjectID  uuid.UUID
-	BucketID   uuid.UUID
 	BucketName []byte
 
-	Batch     *pgx.Batch
 	BatchSize int
+
+	Objects  []interface{}
+	Segments []interface{}
 }
 
-func NewMigrator(db metainfo.PointerDB, metabase *Metabase, projectID uuid.UUID, bucketID uuid.UUID, bucketName []byte) *Migrator {
+func NewMigrator(db metainfo.PointerDB, metabase *Metabase, projectID uuid.UUID, bucketName []byte) *Migrator {
 	return &Migrator{
 		PointerDB: db,
 		Metabase:  metabase,
@@ -31,8 +36,10 @@ func NewMigrator(db metainfo.PointerDB, metabase *Metabase, projectID uuid.UUID,
 		ProjectID:  projectID,
 		BucketName: bucketName,
 
-		Batch:     &pgx.Batch{},
 		BatchSize: 500,
+
+		Objects:  make([]interface{}, 0, 500*objectsArgs),
+		Segments: make([]interface{}, 0, 500*segmentsArgs),
 	}
 }
 
@@ -68,6 +75,20 @@ func (m *Migrator) MigrateBucket(ctx context.Context) error {
 				return err
 			}
 
+			if len(m.Objects)/objectsArgs >= m.BatchSize {
+				err = m.sendObjects(ctx)
+				if err != nil {
+					return err
+				}
+			}
+
+			if len(m.Segments)/segmentsArgs >= m.BatchSize {
+				err = m.sendSegments(ctx)
+				if err != nil {
+					return err
+				}
+			}
+
 			lastKey = item.Key
 			return nil
 		})
@@ -76,12 +97,14 @@ func (m *Migrator) MigrateBucket(ctx context.Context) error {
 		}
 	}
 
-	if m.Batch.Len() > 0 {
-		br := m.Metabase.conn.SendBatch(ctx, m.Batch)
-		err := br.Close()
-		if err != nil {
-			return err
-		}
+	err = m.sendObjects(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = m.sendSegments(ctx)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -104,27 +127,10 @@ func (m *Migrator) insertObject(ctx context.Context, encryptedPath []byte, point
 		return err
 	}
 
-	err = m.execute(ctx, `
-		INSERT INTO objects (
-			project_id, bucket_id, encrypted_path, version, stream_id,
-			created_at, expires_at,
-			status, segment_count,
-			encrypted_metadata_nonce
-		) VALUES (
-			$1, $2, $3, $4, $5, 
-			$6, $7,
-			$8, $9,
-			$10
-			--encrypted_metadata_nonce
-		)
-	`, m.ProjectID, m.BucketID, encryptedPath, -1, streamID,
+	m.Objects = append(m.Objects, m.ProjectID, m.BucketName, encryptedPath, -1, streamID,
 		pointer.CreationDate, pointer.ExpirationDate,
-		"committed", segmentsCount,
-		pointer.Metadata,
-	)
-	if err != nil {
-		return err
-	}
+		Committed, segmentsCount,
+		pointer.Metadata)
 
 	err = m.insertSegment(ctx, streamID, segmentsCount-1, pointer)
 	if err != nil {
@@ -182,38 +188,74 @@ func (m *Migrator) insertSegment(ctx context.Context, streamID UUID, segmentInde
 		encryptedKeyNonce = streamMeta.LastSegmentMeta.KeyNonce
 	}
 
-	err = m.execute(ctx, `
-	INSERT INTO segments (
+	m.Segments = append(m.Segments, streamID, segmentPosition.Encode(), rootPieceID,
+		encryptedKey, encryptedKeyNonce,
+		int32(pointer.SegmentSize), pointer.InlineSegment,
+		NodeAliases{1}.Encode())
+
+	return nil
+}
+
+func (m *Migrator) sendObjects(ctx context.Context) error {
+	if len(m.Objects) == 0 {
+		return nil
+	}
+
+	sql := `
+		INSERT INTO objects (
+				project_id, bucket_name, encrypted_path, version, stream_id,
+				created_at, expires_at,
+				status, segment_count,
+				encrypted_metadata_nonce
+		) VALUES 
+	`
+	i := 1
+	for i < len(m.Objects) {
+		// TODO make it cleaner
+		sql += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d),", i, i+1, i+2, i+3, i+4, i+5, i+6, i+7, i+8, i+9)
+		i += objectsArgs
+	}
+	sql = strings.TrimSuffix(sql, ",")
+
+	// fmt.Println(sql)
+
+	err := m.Metabase.Exec(ctx, sql, m.Objects...)
+	if err != nil {
+		return err
+	}
+
+	m.Objects = m.Objects[:0]
+
+	return nil
+}
+
+func (m *Migrator) sendSegments(ctx context.Context) error {
+	if len(m.Segments) == 0 {
+		return nil
+	}
+
+	sql := `INSERT INTO segments (
 		stream_id, segment_position, root_piece_id,
 		encrypted_key, encrypted_key_nonce,
 		data_size, inline_data,
 		node_aliases
-	) VALUES (
-		$1, $2, $3,
-		$4, $5,
-		$6, $7,
-		$8
-	)
-	`, streamID, segmentPosition.Encode(), rootPieceID,
-		encryptedKey, encryptedKeyNonce,
-		int32(pointer.SegmentSize), pointer.InlineSegment,
-		NodeAliases{1}.Encode(),
-	)
-	return err
-}
-
-func (m *Migrator) execute(ctx context.Context, sql string, arguments ...interface{}) error {
-	m.Batch.Queue(sql, arguments...)
-
-	if m.Batch.Len() >= m.BatchSize {
-		br := m.Metabase.conn.SendBatch(ctx, m.Batch)
-		err := br.Close()
-		if err != nil {
-			return err
-		}
-
-		m.Batch = &pgx.Batch{}
+	) VALUES 
+	`
+	i := 1
+	for i < len(m.Segments) {
+		sql += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d),", i, i+1, i+2, i+3, i+4, i+5, i+6, i+7)
+		i += segmentsArgs
 	}
+	sql = strings.TrimSuffix(sql, ",")
+
+	// fmt.Println(sql)
+
+	err := m.Metabase.Exec(ctx, sql, m.Segments...)
+	if err != nil {
+		return err
+	}
+
+	m.Segments = m.Segments[:0]
 
 	return nil
 }
