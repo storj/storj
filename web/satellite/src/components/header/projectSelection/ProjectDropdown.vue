@@ -22,6 +22,9 @@
             >
                 <p class="project-dropdown__wrap__choice__unselected">{{ project.name }}</p>
             </div>
+						<div @click.prevent.stop="closeDropdown" class="project-dropdown__wrap__create-project__wrapper">
+							<p class="project-dropdown__wrap__create-project__text">Create Project</p>
+						</div>
         </div>
     </div>
 </template>
@@ -172,6 +175,17 @@ export default class ProjectDropdown extends Vue {
                     }
                 }
             }
+						&__create-project {
+							&__wrapper {
+								border-top: 1px solid #d4d4d4;
+							}
+							&__text {
+								color: #2683ff;
+								padding-left: 20px;
+								font-weight: bold;
+								font-size: 14px;
+							}
+						}
         }
     }
 
