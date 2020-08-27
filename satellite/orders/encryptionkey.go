@@ -114,6 +114,9 @@ func (keys *EncryptionKeys) Set(s string) error {
 	if keys.KeyByID == nil {
 		keys.KeyByID = map[EncryptionKeyID]storj.Key{}
 	}
+	if s == "" {
+		return nil
+	}
 
 	for _, x := range strings.Split(s, ",") {
 		x = strings.TrimSpace(x)

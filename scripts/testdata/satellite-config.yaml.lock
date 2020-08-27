@@ -442,6 +442,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # path to log for oom notices
 # monkit.hw.oomlog: /var/log/kern.log
 
+# encryption keys to encrypt info in orders
+# orders.encryption-keys: ""
+
 # how long until an order expires
 # orders.expiration: 48h0m0s
 

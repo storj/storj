@@ -27,6 +27,7 @@ var ErrDownloadFailedNotEnoughPieces = errs.Class("not enough pieces for downloa
 
 // Config is a configuration struct for orders Service.
 type Config struct {
+	EncryptionKeys               EncryptionKeys             `help:"encryption keys to encrypt info in orders" default:""`
 	Expiration                   time.Duration              `help:"how long until an order expires" default:"48h"` // 2 days
 	SettlementBatchSize          int                        `help:"how many orders to batch per transaction" default:"250"`
 	FlushBatchSize               int                        `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
@@ -46,31 +47,37 @@ type BucketsDB interface {
 //
 // architecture: Service
 type Service struct {
-	log              *zap.Logger
-	satellite        signing.Signer
-	overlay          *overlay.Service
-	orders           DB
-	buckets          BucketsDB
+	log       *zap.Logger
+	satellite signing.Signer
+	overlay   *overlay.Service
+	orders    DB
+	buckets   BucketsDB
+
+	encryptionKeys   EncryptionKeys
 	satelliteAddress *pb.NodeAddress
 	orderExpiration  time.Duration
-	rngMu            sync.Mutex
-	rng              *mathrand.Rand
+
+	rngMu sync.Mutex
+	rng   *mathrand.Rand
 }
 
 // NewService creates new service for creating order limits.
 func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
 	orders DB, buckets BucketsDB,
-	orderExpiration time.Duration, satelliteAddress *pb.NodeAddress,
+	config Config,
+	satelliteAddress *pb.NodeAddress,
 ) *Service {
 	return &Service{
-		log:              log,
-		satellite:        satellite,
-		overlay:          overlay,
-		orders:           orders,
-		buckets:          buckets,
+		log:       log,
+		satellite: satellite,
+		overlay:   overlay,
+		orders:    orders,
+		buckets:   buckets,
+
+		encryptionKeys:   config.EncryptionKeys,
 		satelliteAddress: satelliteAddress,
-		orderExpiration:  orderExpiration,
+		orderExpiration:  config.Expiration,
 
 		rng: mathrand.New(mathrand.NewSource(time.Now().UnixNano())),
 	}

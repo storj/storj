@@ -269,7 +269,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Overlay.Service,
 			peer.Orders.DB,
 			peer.DB.Buckets(),
-			config.Orders.Expiration,
+			config.Orders,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Contact.ExternalAddress,
