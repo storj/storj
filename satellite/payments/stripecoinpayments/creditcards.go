@@ -149,3 +149,21 @@ func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, ca
 
 	return Error.Wrap(err)
 }
+
+// RemoveAll is used to detach all credit cards from payment account.
+// It should only be used in case of a user deletion. In case of an error, some cards could have been deleted already.
+func (creditCards *creditCards) RemoveAll(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	ccList, err := creditCards.List(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	for _, cc := range ccList {
+		_, err = creditCards.service.stripeClient.PaymentMethods().Detach(cc.ID, nil)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
+}

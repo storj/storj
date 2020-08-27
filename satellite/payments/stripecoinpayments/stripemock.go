@@ -5,6 +5,7 @@ package stripecoinpayments
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/stripe/stripe-go/paymentmethod"
 
 	"storj.io/common/storj"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 )
 
@@ -63,7 +65,7 @@ func NewStripeMock(id storj.NodeID) StripeClient {
 	if !ok {
 		mock = &mockStripeClient{
 			customers:                   newMockCustomers(),
-			paymentMethods:              &mockPaymentMethods{},
+			paymentMethods:              newMockPaymentMethods(),
 			invoices:                    &mockInvoices{},
 			invoiceItems:                &mockInvoiceItems{},
 			customerBalanceTransactions: newMockCustomerBalanceTransactions(),
@@ -166,39 +168,102 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 }
 
 type mockPaymentMethods struct {
+	// attached contains a mapping of customerID to its paymentMethods
+	attached map[string][]*stripe.PaymentMethod
+	// unattached contains created but not attached paymentMethods
+	unattached []*stripe.PaymentMethod
+}
+
+func newMockPaymentMethods() *mockPaymentMethods {
+	return &mockPaymentMethods{
+		attached: map[string][]*stripe.PaymentMethod{},
+	}
 }
 
 func (m *mockPaymentMethods) List(listParams *stripe.PaymentMethodListParams) *paymentmethod.Iter {
-	values := []interface{}{
-		&stripe.PaymentMethod{
-			ID: "pm_card_mastercard",
-			Card: &stripe.PaymentMethodCard{
-				ExpMonth: 12,
-				ExpYear:  2050,
-				Brand:    "Mastercard",
-				Last4:    "4444",
-			},
-		},
-	}
 	listMeta := stripe.ListMeta{
 		HasMore:    false,
-		TotalCount: uint32(len(values)),
+		TotalCount: uint32(len(m.attached)),
 	}
 	return &paymentmethod.Iter{Iter: stripe.GetIter(nil, func(*stripe.Params, *form.Values) ([]interface{}, stripe.ListMeta, error) {
-		return values, listMeta, nil
+		mocks.Lock()
+		defer mocks.Unlock()
+
+		list, ok := m.attached[*listParams.Customer]
+		if !ok {
+			list = []*stripe.PaymentMethod{}
+		}
+		ret := make([]interface{}, len(list))
+
+		for i, v := range list {
+			ret[i] = v
+		}
+
+		return ret, listMeta, nil
 	})}
 }
 
 func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
-	return nil, nil
+
+	randID := testrand.BucketName()
+	newMethod := &stripe.PaymentMethod{
+		ID: fmt.Sprintf("pm_card_%s", randID),
+		Card: &stripe.PaymentMethodCard{
+			ExpMonth:    12,
+			ExpYear:     2050,
+			Brand:       "Mastercard",
+			Last4:       "4444",
+			Description: randID,
+		},
+		Type: stripe.PaymentMethodTypeCard,
+	}
+
+	mocks.Lock()
+	defer mocks.Unlock()
+
+	m.unattached = append(m.unattached, newMethod)
+
+	return newMethod, nil
 }
 
 func (m *mockPaymentMethods) Attach(id string, params *stripe.PaymentMethodAttachParams) (*stripe.PaymentMethod, error) {
-	return nil, nil
+	var method *stripe.PaymentMethod
+
+	mocks.Lock()
+	defer mocks.Unlock()
+
+	for _, candidate := range m.unattached {
+		if candidate.ID == id {
+			method = candidate
+		}
+	}
+	attached, ok := m.attached[*params.Customer]
+	if !ok {
+		attached = []*stripe.PaymentMethod{}
+	}
+	m.attached[*params.Customer] = append(attached, method)
+	return method, nil
 }
 
 func (m *mockPaymentMethods) Detach(id string, params *stripe.PaymentMethodDetachParams) (*stripe.PaymentMethod, error) {
-	return nil, nil
+	var unattached *stripe.PaymentMethod
+
+	mocks.Lock()
+	defer mocks.Unlock()
+
+	for user, userMethods := range m.attached {
+		var remaining []*stripe.PaymentMethod
+		for _, method := range userMethods {
+			if id == method.ID {
+				unattached = method
+			} else {
+				remaining = append(remaining, method)
+			}
+		}
+		m.attached[user] = remaining
+	}
+
+	return unattached, nil
 }
 
 type mockInvoices struct {
