@@ -163,6 +163,26 @@ func DefaultPartners() PartnerList {
 			ID:   "7bf23e53-6393-4bd0-8bf9-53ecf0de742f",
 			UUID: parseUUID("7bf23e53-6393-4bd0-8bf9-53ecf0de742f"),
 		}, {
+			Name: "Kesque",
+			ID:   "c6b01830-920c-4895-93f5-c0bd74fb44d8",
+			UUID: parseUUID("c6b01830-920c-4895-93f5-c0bd74fb44d8"),
+		}, {
+			Name: "MSP360",
+			ID:   "f184948c-06e8-4edb-9a19-96667572d120",
+			UUID: parseUUID("f184948c-06e8-4edb-9a19-96667572d120"),
+		}, {
+			Name: "Innovoedge",
+			ID:   "bc1276a5-4ba8-4761-a164-e5a4a9f8593c",
+			UUID: parseUUID("bc1276a5-4ba8-4761-a164-e5a4a9f8593c"),
+		}, {
+			Name: "Taloflow",
+			ID:   "72ef94a4-c8ab-49fa-b5f1-4824532c4205",
+			UUID: parseUUID("72ef94a4-c8ab-49fa-b5f1-4824532c4205"),
+		}, {
+			Name: "Restic",
+			ID:   "c59d86e9-3d23-406c-a97a-9751b552df75",
+			UUID: parseUUID("c59d86e9-3d23-406c-a97a-9751b552df75"),
+		}, {
 			Name: "Zenko",
 			ID:   "8cd605fa-ad00-45b6-823e-550eddc611d6",
 			UUID: parseUUID("8cd605fa-ad00-45b6-823e-550eddc611d6"),
