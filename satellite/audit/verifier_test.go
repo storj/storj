@@ -51,10 +51,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: uplink.Projects[0].ID, BucketName: "testbucket"}
 
 		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
@@ -105,10 +102,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: uplink.Projects[0].ID, BucketName: "testbucket"}
 
 		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
@@ -177,10 +171,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: uplink.Projects[0].ID, BucketName: "testbucket"}
 
 		// replace the piece id of the selected stripe with a new random one
 		// to simulate missing piece on the storage nodes
@@ -235,10 +226,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: upl.Projects[0].ID, BucketName: "testbucket"}
 
 		tlsOptions, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
@@ -309,10 +297,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		err := upl.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: upl.Projects[0].ID, BucketName: "testbucket"}
 
 		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()

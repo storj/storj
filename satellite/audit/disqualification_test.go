@@ -122,11 +122,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		err := uplinkPeer.Upload(ctx, satellitePeer, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := satellitePeer.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		require.Len(t, projects, 1)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: "testbucket"}
 
 		items, _, err := satellitePeer.Metainfo.Service.List(ctx, "", "", true, 10, meta.All)
 		require.NoError(t, err)

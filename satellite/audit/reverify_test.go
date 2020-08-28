@@ -67,10 +67,7 @@ func TestReverifySuccess(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
@@ -151,10 +148,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
@@ -237,10 +231,7 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
@@ -857,10 +848,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer1.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		rootPieceID := pointer1.GetRemote().RootPieceId
@@ -1025,10 +1013,7 @@ func TestReverifyExpired2(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer1.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		rootPieceID := pointer1.GetRemote().RootPieceId
@@ -1135,10 +1120,7 @@ func TestReverifySlowDownload(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
@@ -1222,10 +1204,7 @@ func TestReverifyUnknownError(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"}
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
