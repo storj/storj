@@ -455,18 +455,18 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 	// Delete all zombie objects that have first segment.
 	_, err = endpoint.deleteByPrefix(ctx, projectID, bucketName, firstSegment)
 	if err != nil {
-		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, deletedCount, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	err = endpoint.metainfo.DeleteBucket(ctx, bucketName, projectID)
 	if err != nil {
 		if ErrBucketNotEmpty.Has(err) {
-			return nil, 0, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+			return nil, deletedCount, rpcstatus.Error(rpcstatus.FailedPrecondition, "cannot delete the bucket because it's being used by another process")
 		}
 		if storj.ErrBucketNotFound.Has(err) {
 			return bucketName, 0, nil
 		}
-		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, deletedCount, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	return bucketName, deletedCount, nil
