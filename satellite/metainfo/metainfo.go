@@ -1708,9 +1708,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
-	bucketID := bucket.Prefix()
 
-	exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID, []byte(bucketID))
+	exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("Retrieving project bandwidth total failed.", zap.Error(err))
 	}

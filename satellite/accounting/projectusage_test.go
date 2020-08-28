@@ -117,19 +117,13 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				saDB := planet.Satellites[0].DB
 				orderDB := saDB.Orders()
 
-				// Setup: get projectID and create bucketID
-				projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-				projectID := projects[0].ID
-				require.NoError(t, err)
-
-				bucket := metabase.BucketLocation{ProjectID: projectID, BucketName: "testbucket"}
-
+				bucket := metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: "testbucket"}
 				projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if testCase.expectedResource == "bandwidth" {
 					now := time.Now()
-					err := setUpBucketBandwidthAllocations(ctx, projectID, orderDB, now)
+					err := setUpBucketBandwidthAllocations(ctx, bucket.ProjectID, orderDB, now)
 					require.NoError(t, err)
 				}
 
@@ -137,10 +131,10 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				expectedData := testrand.Bytes(50 * memory.KiB)
 
 				filePath := "test/path"
-				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.BucketName, filePath, expectedData)
+				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.BucketName, filePath, expectedData)
 				require.NoError(t, err)
 
-				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, projectID, []byte(bucket.Prefix()))
+				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
 				require.NoError(t, err)
 				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
