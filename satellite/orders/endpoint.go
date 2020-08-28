@@ -22,6 +22,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/date"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/nodeapiversion"
 )
 
@@ -584,19 +585,19 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 		storagenodeSettled[int32(orderLimit.Action)] += order.Amount
 
-		bucketID, err := endpoint.DB.GetBucketIDFromSerialNumber(ctx, serialNum)
+		bucketPrefix, err := endpoint.DB.GetBucketIDFromSerialNumber(ctx, serialNum)
 		if err != nil {
-			log.Info("get bucketID from serial number table err", zap.Error(err))
+			log.Info("get bucketPrefix from serial number table err", zap.Error(err))
 			continue
 		}
-		projectID, bucketname, err := SplitBucketID(bucketID)
+		bucket, err := metabase.ParseBucketPrefix(metabase.BucketPrefix(bucketPrefix))
 		if err != nil {
-			log.Info("split bucket err", zap.Error(err), zap.String("bucketID", string(bucketID)))
+			log.Info("split bucket err", zap.Error(err), zap.String("bucketPrefix", string(bucketPrefix)))
 			continue
 		}
 		bucketSettled[bucketIDAction{
-			bucketname: string(bucketname),
-			projectID:  projectID,
+			bucketname: bucket.BucketName,
+			projectID:  bucket.ProjectID,
 			action:     orderLimit.Action,
 		}] += order.Amount
 	}

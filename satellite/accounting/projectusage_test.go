@@ -21,7 +21,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -30,6 +29,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/uplink/private/storage/meta"
@@ -121,8 +121,8 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 				projectID := projects[0].ID
 				require.NoError(t, err)
-				bucketName := "testbucket"
-				bucketID := createBucketID(projectID, []byte(bucketName))
+
+				bucket := metabase.BucketLocation{ProjectID: projectID, BucketName: "testbucket"}
 
 				projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
@@ -137,15 +137,15 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				expectedData := testrand.Bytes(50 * memory.KiB)
 
 				filePath := "test/path"
-				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, filePath, expectedData)
+				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.BucketName, filePath, expectedData)
 				require.NoError(t, err)
 
-				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, projectID, bucketID)
+				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, projectID, []byte(bucket.Prefix()))
 				require.NoError(t, err)
 				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
 				// Execute test: check that the uplink gets an error when they have exceeded bandwidth limits and try to download a file
-				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, filePath)
+				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucket.BucketName, filePath)
 				if testCase.expectedResource == "bandwidth" {
 					require.True(t, errs2.IsRPC(actualErr, testCase.expectedStatus))
 				} else {
@@ -234,13 +234,6 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 4000, alloc)
 	})
-}
-
-func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
-	entries := make([]string, 0)
-	entries = append(entries, projectID.String())
-	entries = append(entries, string(bucket))
-	return []byte(storj.JoinPaths(entries...))
 }
 
 func createBucketBandwidthRollupsForPast4Days(ctx *testcontext.Context, satelliteDB satellite.DB, projectID uuid.UUID) (int64, error) {

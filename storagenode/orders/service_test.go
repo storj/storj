@@ -12,10 +12,10 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/signing"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
@@ -36,10 +36,9 @@ func TestOrderDBSettle(t *testing.T) {
 		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
-			bucketID,
+			metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"},
 			[]*overlay.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},
@@ -138,10 +137,9 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
-			bucketID,
+			metabase.BucketLocation{ProjectID: projects[0].ID, BucketName: "testbucket"},
 			[]*overlay.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},
