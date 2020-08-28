@@ -45,6 +45,8 @@ func main() {
 	check(err)
 
 	fmt.Println("Migration time:", time.Now().Sub(start).Seconds())
+	fmt.Println("Objects created:", migrator.ObjectsCreated)
+	fmt.Println("Segments created:", migrator.SegmentsCreated)
 }
 
 func check(err error) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v4"
@@ -157,9 +158,11 @@ func (mb *Metabase) Migrate(ctx context.Context) error {
 			encrypted_key_nonce BYTEA NOT NULL,
 			encrypted_key       BYTEA NOT NULL,
 
-			data_size    INT4    NOT NULL DEFAULT -1,
-			inline_data  BYTEA   DEFAULT NULL,
-			node_aliases INT4[]  NOT NULL, -- TODO: should we do the migration immediately?
+			encrypted_data_size   INT4 NOT NULL,
+			unencrypted_data_size INT4 NOT NULL,
+
+			inline_data  BYTEA  DEFAULT NULL,
+			node_aliases INT4[] NOT NULL, -- TODO: should we do the migration immediately?
 
 			PRIMARY KEY (stream_id, segment_position)
 		);
@@ -201,71 +204,85 @@ func (mb *Metabase) BeginObject(ctx context.Context, projectID UUID, bucketName 
 func (mb *Metabase) BeginSegment(ctx context.Context,
 	projectID UUID, bucketName BucketName, path EncryptedPath, streamID UUID,
 	segmentPosition SegmentPosition, rootPieceID []byte, aliases NodeAliases) error {
-	// TODO: verify somehow that object is still partial
 
-	/*
-		err := mb.Exec(ctx, `
-			UPDATE objects SET
-				segments_pending = segments_pending + 1
-			WHERE
-				project_id     = $1 AND
-				bucket_id      = $2 AND
-				encrypted_path = $3 AND
-				stream_id      = $4 AND
-				version        = 0  AND
-				status         = 'partial';
-		`, projectID, bucketID, encryptedPath, streamID)
-		check(err)
-	*/
+	// NOTE: this isn't strictly necessary, since we can also fail this in CommitSegment.
+	//       however, we should prevent creating segements for non-partial objects.
 
-	// FIX: just verify that the object is still partial
+	// NOTE: these queries could be combined into one.
 
-	// TODO: error wrapping for concurrency errors
-	return wrapf("failed BeginSegment: %w", nil)
+	// Verify that object exists and is partial.
+	var value int
+	err := mb.conn.QueryRow(ctx, `
+		SELECT 1
+		FROM objects WHERE
+			project_id     = $1 AND
+			bucket_name    = $2 AND
+			encrypted_path = $3 AND
+			stream_id      = $4 AND
+			-- version     = $5 AND
+			status         = 0
+	`, projectID, bucketName, path, streamID).Scan(&value)
+	if err != nil {
+		return wrapf("object is not partial: %w", err)
+	}
+
+	// Verify that the segment does not exist.
+	err = mb.conn.QueryRow(ctx, `
+		SELECT 1
+		FROM segments WHERE
+			stream_id        = $1 AND
+			segment_position = $2
+	`, streamID, segmentPosition.Encode()).Scan(&value)
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return wrapf("segment already exists: %w", err)
+	}
+
+	return nil
 }
 
 func (mb *Metabase) CommitSegment(ctx context.Context,
 	projectID UUID, bucketName BucketName, path EncryptedPath, streamID UUID,
 	segmentPosition SegmentPosition, rootPieceID []byte,
-	encryptedKey, encryptedKeyNonce []byte, aliases NodeAliases) error {
+	encryptedKey, encryptedKeyNonce []byte,
+	encryptedSize, unencryptedSize int32,
+	aliases NodeAliases) error {
+
+	// Verify that object exists and is partial, how can we do this without transactions?
+	var value int
+	err := mb.conn.QueryRow(ctx, `
+		SELECT 1
+		FROM objects WHERE
+			project_id     = $1 AND
+			bucket_name    = $2 AND
+			encrypted_path = $3 AND
+			stream_id      = $4 AND
+			-- version     = $5 AND
+			status         = 0
+	`, projectID, bucketName, path, streamID).Scan(&value)
+	if err != nil {
+		return wrapf("object is not partial: %w", err)
+	}
 
 	// TODO: add other segment fields
-
-	// TODO: verify somehow that object is still partial
-	/*
-		err := mb.Exec(ctx, `
-			UPDATE objects SET
-				segments_pending = segments_pending + 1
-			WHERE
-				project_id     = $1 AND
-				bucket_id      = $2 AND
-				encrypted_path = $3 AND
-				stream_id      = $4 AND
-				version        = 0  AND
-				status         = 'partial';
-		`, projectID, bucketID, encryptedPath, streamID)
-		check(err)
-	*/
-
-	// FIX: use select for verifying object partialness and then insert.
-
-	_, err := mb.conn.Exec(ctx, `
+	_, err = mb.conn.Exec(ctx, `
 		INSERT INTO segments (
 			stream_id, segment_position, root_piece_id,
 			encrypted_key, encrypted_key_nonce,
+			encrypted_data_size, unencrypted_data_size,
 			node_aliases
 		) VALUES (
 			$1, $2, $3,
 			$4, $5,
-			$6
+			$6, $7,
+			$8
 		)
 	`, streamID, segmentPosition.Encode(), rootPieceID,
 		encryptedKey, encryptedKeyNonce,
+		encryptedSize, unencryptedSize,
 		aliases.Encode(),
 	)
 
 	// TODO: error wrapping for concurrency errors
-
 	return wrapf("failed CommitSegment: %w", err)
 }
 
@@ -274,7 +291,7 @@ func (mb *Metabase) CommitObject(ctx context.Context,
 	segmentPositions []SegmentPosition) error {
 
 	if len(segmentPositions) == 0 {
-		// TODO: derive segmentPositions from databas by querying the ID
+		// TODO: derive segmentPositions from database by querying the ID
 	}
 
 	// TODO: how do we handle segments that are not in the segment positions

@@ -14,7 +14,7 @@ import (
 
 const batchSize = 500
 const objectsArgs = 10
-const segmentsArgs = 8
+const segmentsArgs = 9
 
 type Migrator struct {
 	PointerDB metainfo.PointerDB
@@ -25,11 +25,13 @@ type Migrator struct {
 
 	BatchSize int
 
-	ObjectsSQL string
-	Objects    []interface{}
+	ObjectsSQL     string
+	Objects        []interface{}
+	ObjectsCreated int
 
-	SegmentsSQL string
-	Segments    []interface{}
+	SegmentsSQL     string
+	Segments        []interface{}
+	SegmentsCreated int
 }
 
 func NewMigrator(db metainfo.PointerDB, metabase *Metabase, projectID uuid.UUID, bucketName []byte) *Migrator {
@@ -58,6 +60,7 @@ func (m *Migrator) MigrateBucket(ctx context.Context) error {
 
 	more := true
 	lastKey := storage.Key{}
+	pointer := &pb.Pointer{}
 	for more {
 		more, err = storage.ListV2Iterate(ctx, m.PointerDB, storage.ListOptions{
 			Prefix:       storage.Key(path),
@@ -66,7 +69,6 @@ func (m *Migrator) MigrateBucket(ctx context.Context) error {
 			Limit:        int(0),
 			IncludeValue: true,
 		}, func(ctx context.Context, item *storage.ListItem) error {
-			pointer := &pb.Pointer{}
 			err = pb.Unmarshal(item.Value, pointer)
 			if err != nil {
 				return err
@@ -96,6 +98,7 @@ func (m *Migrator) MigrateBucket(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		m.ObjectsCreated += len(m.Objects) / objectsArgs
 	}
 
 	if len(m.Segments) != 0 {
@@ -104,6 +107,7 @@ func (m *Migrator) MigrateBucket(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		m.SegmentsCreated += len(m.Segments) / segmentsArgs
 	}
 
 	return nil
@@ -143,6 +147,7 @@ func (m *Migrator) insertObject(ctx context.Context, encryptedPath []byte, point
 		return err
 	}
 
+	segmentPointer := &pb.Pointer{}
 	for i := int64(0); i < segmentsCount-1; i++ {
 		path, err := metainfo.CreatePath(ctx, m.ProjectID, i, m.BucketName, encryptedPath)
 		if err != nil {
@@ -155,7 +160,6 @@ func (m *Migrator) insertObject(ctx context.Context, encryptedPath []byte, point
 			return err
 		}
 
-		segmentPointer := &pb.Pointer{}
 		err = pb.Unmarshal(value, segmentPointer)
 		if err != nil {
 			return err
@@ -198,7 +202,7 @@ func (m *Migrator) insertSegment(ctx context.Context, streamID UUID, segmentInde
 
 	m.Segments = append(m.Segments, streamID, segmentPosition.Encode(), rootPieceID,
 		encryptedKey, encryptedKeyNonce,
-		int32(pointer.SegmentSize), pointer.InlineSegment,
+		int32(pointer.SegmentSize), 0, pointer.InlineSegment,
 		NodeAliases{1}.Encode())
 
 	if len(m.Segments)/segmentsArgs >= m.BatchSize {
@@ -220,6 +224,7 @@ func (m *Migrator) sendObjects(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	m.ObjectsCreated += len(m.Objects) / objectsArgs
 
 	m.Objects = m.Objects[:0]
 
@@ -235,6 +240,7 @@ func (m *Migrator) sendSegments(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	m.SegmentsCreated += len(m.Segments) / segmentsArgs
 
 	m.Segments = m.Segments[:0]
 
@@ -264,14 +270,14 @@ func preparSegmentsSQL(batchSize int) string {
 	sql := `INSERT INTO segments (
 		stream_id, segment_position, root_piece_id,
 		encrypted_key, encrypted_key_nonce,
-		data_size, inline_data,
+		encrypted_data_size, unencrypted_data_size, inline_data,
 		node_aliases
 	) VALUES 
 	`
 	i := 1
 	for i < batchSize*segmentsArgs {
-		sql += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d),",
-			i, i+1, i+2, i+3, i+4, i+5, i+6, i+7)
+		sql += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d),",
+			i, i+1, i+2, i+3, i+4, i+5, i+6, i+7, i+8)
 		i += segmentsArgs
 	}
 
