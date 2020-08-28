@@ -922,6 +922,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`DROP TABLE project_invoice_stamps;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "drop project_invoice_stamps table",
+				Version:     123,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN online_score double precision NOT NULL DEFAULT 1;`,
+				},
+			},
 		},
 	}
 }

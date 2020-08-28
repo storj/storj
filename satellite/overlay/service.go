@@ -226,6 +226,9 @@ type NodeStats struct {
 	UnknownAuditReputationAlpha float64
 	UnknownAuditReputationBeta  float64
 	UnknownAuditSuspended       *time.Time
+	OfflineUnderReview          *time.Time
+	OfflineSuspended            *time.Time
+	OnlineScore                 float64
 }
 
 // NodeLastContact contains the ID, address, and timestamp.
