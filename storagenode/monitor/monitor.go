@@ -88,26 +88,26 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	// first time setup as a piece node server
 	if totalUsed == 0 && freeDiskSpace < service.allocatedDiskSpace {
 		service.allocatedDiskSpace = freeDiskSpace
-		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
+		service.log.Warn("Disk space is less than requested. Allocated space is", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
 	// on restarting the Piece node server, assuming already been working as a node
 	// used above the alloacated space, user changed the allocation space setting
 	// before restarting
 	if totalUsed >= service.allocatedDiskSpace {
-		service.log.Warn("Used more space than allocated. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
+		service.log.Warn("Used more space than allocated. Allocated space is", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
 	// the available disk space is less than remaining allocated space,
 	// due to change of setting before restarting
 	if freeDiskSpace < service.allocatedDiskSpace-totalUsed {
 		service.allocatedDiskSpace = freeDiskSpace + totalUsed
-		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
+		service.log.Warn("Disk space is less than requested. Allocated space is", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
 	// Ensure the disk is at least 500GB in size, which is our current minimum required to be an operator
 	if service.allocatedDiskSpace < service.Config.MinimumDiskSpace.Int64() {
-		service.log.Error("Total disk space less than required minimum", zap.Int64("bytes", service.Config.MinimumDiskSpace.Int64()))
+		service.log.Error("Total disk space is less than required minimum", zap.Int64("bytes", service.Config.MinimumDiskSpace.Int64()))
 		return Error.New("disk space requirement not met")
 	}
 
