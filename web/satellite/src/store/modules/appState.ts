@@ -13,7 +13,6 @@ export const appStateModule = {
             fetchState: AppState.LOADING,
             isAddTeamMembersPopupShown: false,
             isNewProjectPopupShown: false,
-            isProjectsDropdownShown: false,
             isAccountDropdownShown: false,
             isDeleteProjectPopupShown: false,
             isDeleteAccountPopupShown: false,
@@ -42,11 +41,6 @@ export const appStateModule = {
         // Mutation changing save api key modal visibility
         [APP_STATE_MUTATIONS.TOGGLE_SAVE_API_KEY_MODAL](state: any): void {
             state.appState.isSaveApiKeyModalShown = !state.appState.isSaveApiKeyModalShown;
-        },
-
-        // Mutation changing project dropdown visibility
-        [APP_STATE_MUTATIONS.TOGGLE_PROJECT_DROPDOWN](state: any): void {
-            state.appState.isProjectsDropdownShown = !state.appState.isProjectsDropdownShown;
         },
 
         // Mutation changing account dropdown visibility
@@ -95,7 +89,6 @@ export const appStateModule = {
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
             state.appState.isAccountDropdownShown = false;
-            state.appState.isProjectsDropdownShown = false;
             state.appState.isSortProjectMembersByPopupShown = false;
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: any, newFetchState: AppState): void {
@@ -132,13 +125,6 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SAVE_API_KEY_MODAL);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_PROJECTS]: function ({commit, state}: any): void {
-            if (!state.appState.isProjectsDropdownShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_PROJECT_DROPDOWN);
         },
         [APP_STATE_ACTIONS.TOGGLE_ACCOUNT]: function ({commit, state}: any): void {
             if (!state.appState.isAccountDropdownShown) {

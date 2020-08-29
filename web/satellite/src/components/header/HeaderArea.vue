@@ -7,7 +7,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import NewProjectArea from '@/components/header/NewProjectArea.vue';
-import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
 
@@ -20,7 +19,6 @@ import AccountButton from './AccountButton.vue';
 @Component({
     components: {
         ProjectCreationSuccessPopup,
-        ProjectSelectionArea,
         NewProjectArea,
         AccountButton,
         NavigationArea,

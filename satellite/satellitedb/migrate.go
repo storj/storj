@@ -9,10 +9,8 @@ import (
 	"strings"
 
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
@@ -207,7 +205,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 			{
 				DB:          db.DB,
 				Description: "Initial setup",
-				Version:     69,
+				Version:     103,
 				Action: migrate.SQL{
 					`CREATE TABLE accounting_rollups (
 						id bigserial NOT NULL,
@@ -221,6 +219,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						at_rest_total double precision NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
+					`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );`,
 
 					`CREATE TABLE accounting_timestamps (
 						name text NOT NULL,
@@ -230,7 +229,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 
 					`CREATE TABLE bucket_bandwidth_rollups (
 						bucket_name bytea NOT NULL,
-						interval_start timestamp NOT NULL,
+						interval_start timestamp with time zone NOT NULL,
 						interval_seconds integer NOT NULL,
 						action integer NOT NULL,
 						inline bigint NOT NULL,
@@ -239,11 +238,11 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						project_id bytea NOT NULL ,
 						CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY (bucket_name, project_id, interval_start, action)
 					);`,
-					`CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );`,
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );`,
 
 					`CREATE TABLE bucket_storage_tallies (
 						bucket_name bytea NOT NULL,
-						interval_start timestamp NOT NULL,
+						interval_start timestamp with time zone NOT NULL,
 						inline bigint NOT NULL,
 						remote bigint NOT NULL,
 						remote_segments_count integer NOT NULL,
@@ -256,11 +255,13 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 
 					`CREATE TABLE injuredsegments (
 						data bytea NOT NULL,
-						attempted timestamp,
+						attempted timestamp with time zone,
 						path bytea NOT NULL,
+						num_healthy_pieces integer DEFAULT 52 NOT NULL,
 						CONSTRAINT injuredsegments_pk PRIMARY KEY (path)
 					);`,
 					`CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );`,
+					`CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );`,
 
 					`CREATE TABLE irreparabledbs (
 						segmentpath bytea NOT NULL,
@@ -284,7 +285,6 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						address text NOT NULL DEFAULT '',
 						protocol INTEGER NOT NULL DEFAULT 0,
 						type INTEGER NOT NULL DEFAULT 0,
-						free_bandwidth BIGINT NOT NULL DEFAULT -1,
 						free_disk BIGINT NOT NULL DEFAULT -1,
 						latency_90 BIGINT NOT NULL DEFAULT 0,
 						last_contact_success TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch',
@@ -303,10 +303,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
 						uptime_reputation_beta double precision NOT NULL DEFAULT 0,
 						piece_count bigint NOT NULL DEFAULT 0,
-						exit_loop_completed_at TIMESTAMP,
-						exit_initiated_at TIMESTAMP,
-						exit_finished_at TIMESTAMP,
+						exit_loop_completed_at timestamp with time zone,
+						exit_initiated_at timestamp with time zone,
+						exit_finished_at timestamp with time zone,
 						exit_success boolean NOT NULL DEFAULT FALSE,
+						last_ip_port text,
+						suspended timestamp with time zone,
+						unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+						unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						vetted_at timestamp with time zone,
 						PRIMARY KEY ( id )
 					);`,
 					`CREATE INDEX node_last_ip ON nodes ( last_net );`,
@@ -354,6 +359,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						usage_limit bigint NOT NULL DEFAULT 0,
 						partner_id bytea,
 						owner_id bytea NOT NULL,
+						rate_limit integer,
 						PRIMARY KEY ( id )
 					);`,
 
@@ -376,7 +382,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						id serial NOT NULL,
 						serial_number bytea NOT NULL,
 						bucket_id bytea NOT NULL,
-						expires_at timestamp NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
 					`CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );`,
@@ -384,23 +390,21 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 
 					`CREATE TABLE storagenode_bandwidth_rollups (
 						storagenode_id bytea NOT NULL,
-						interval_start timestamp NOT NULL,
+						interval_start timestamp with time zone NOT NULL,
 						interval_seconds integer NOT NULL,
 						action integer NOT NULL,
-						allocated bigint NOT NULL,
+						allocated bigint DEFAULT 0,
 						settled bigint NOT NULL,
 						PRIMARY KEY ( storagenode_id, interval_start, action )
 					);`,
-					`CREATE INDEX storagenode_id_interval_start_interval_seconds_index ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`,
 
-					`CREATE TABLE accounting_raws (
-						id bigserial NOT NULL,
+					`CREATE TABLE storagenode_storage_tallies (
 						node_id bytea NOT NULL,
 						interval_end_time timestamp with time zone NOT NULL,
 						data_total double precision NOT NULL,
-						PRIMARY KEY ( id )
-					)`,
-					`ALTER TABLE accounting_raws RENAME TO storagenode_storage_tallies`,
+						CONSTRAINT storagenode_storage_tallies_pkey PRIMARY KEY ( interval_end_time, node_id )
+					);`,
+					`CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );`,
 
 					`CREATE TABLE users (
 						id bytea NOT NULL,
@@ -418,7 +422,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE TABLE value_attributions (
 						bucket_name bytea NOT NULL,
 						partner_id bytea NOT NULL,
-						last_updated timestamp NOT NULL,
+						last_updated timestamp with time zone NOT NULL,
 						project_id bytea NOT NULL,
 						PRIMARY KEY (project_id, bucket_name)
 					);`,
@@ -487,7 +491,8 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						expires_at timestamp with time zone NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						type text NOT NULL,
-						PRIMARY KEY ( id )
+						PRIMARY KEY ( id ),
+						UNIQUE (id, offer_id)
 					);`,
 					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id);`,
 
@@ -534,7 +539,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE TABLE graceful_exit_progress (
 						node_id bytea NOT NULL,
 						bytes_transferred bigint NOT NULL,
-						updated_at timestamp NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
 						pieces_transferred bigint NOT NULL DEFAULT 0,
 						pieces_failed bigint NOT NULL DEFAULT 0,
 						PRIMARY KEY ( node_id )
@@ -545,12 +550,12 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						path bytea NOT NULL,
 						piece_num integer NOT NULL,
 						durability_ratio double precision NOT NULL,
-						queued_at timestamp NOT NULL,
-						requested_at timestamp,
-						last_failed_at timestamp,
+						queued_at timestamp with time zone NOT NULL,
+						requested_at timestamp with time zone,
+						last_failed_at timestamp with time zone,
 						last_failed_code integer,
 						failed_count integer,
-						finished_at timestamp,
+						finished_at timestamp with time zone,
 						root_piece_id bytea,
 						order_limit_send_count integer NOT NULL DEFAULT 0,
 						PRIMARY KEY ( node_id, path, piece_num )
@@ -602,55 +607,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( tx_id )
 					);`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Add coupons and coupon_usage tables",
-				Version:     70,
-				Action: migrate.SQL{
-					`CREATE TABLE coupons (
-						id bytea NOT NULL,
-						project_id bytea NOT NULL,
-						user_id bytea NOT NULL,
-						amount bigint NOT NULL,
-						description text NOT NULL,
-						status integer NOT NULL,
-						duration bigint NOT NULL,
-						created_at timestamp with time zone NOT NULL,
-						PRIMARY KEY ( id ),
-						UNIQUE ( project_id )
-					);`,
-					`CREATE TABLE coupon_usages (
-						id bytea NOT NULL,
-						coupon_id bytea NOT NULL,
-						amount bigint NOT NULL,
-						interval_end timestamp with time zone NOT NULL,
-						PRIMARY KEY ( id )
-					);`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Reset node reputations to re-enable disqualification",
-				Version:     71,
-				Action: migrate.SQL{
-					`UPDATE nodes SET audit_reputation_beta = 0;`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Add unique to user_credits to match dbx schema",
-				Version:     72,
-				Action: migrate.SQL{
-					`ALTER TABLE user_credits ADD UNIQUE (id, offer_id);`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Add node downtime tracking table",
-				Version:     73,
-				Action: migrate.SQL{
+
 					`CREATE TABLE nodes_offline_times (
 						node_id bytea NOT NULL,
 						tracked_at timestamp with time zone NOT NULL,
@@ -658,31 +615,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( node_id, tracked_at )
 					);`,
 					`CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Drop storagenode_bandwidth_rollups allocated not null constraint",
-				Version:     74,
-				Action: migrate.SQL{
-					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN allocated DROP NOT NULL;`,
-					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN allocated SET DEFAULT 0;`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Drop coupon related tables",
-				Version:     75,
-				Action: migrate.SQL{
-					`DROP TABLE coupon_usages;`,
-					`DROP TABLE coupons;`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Update coupon related tables",
-				Version:     76,
-				Action: migrate.SQL{
+
 					`CREATE TABLE coupons (
 						id bytea NOT NULL,
 						project_id bytea NOT NULL,
@@ -702,13 +635,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						period timestamp with time zone NOT NULL,
 						PRIMARY KEY ( coupon_id, period )
 					);`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Create reported_serials table for faster order processing",
-				Version:     77,
-				Action: migrate.SQL{
+
 					`CREATE TABLE reported_serials (
 						expires_at timestamp with time zone NOT NULL,
 						storage_node_id bytea NOT NULL,
@@ -719,50 +646,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						observed_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
 					);`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Drop unused indexes",
-				Version:     78,
-				Action: migrate.SQL{
-					`DROP INDEX bucket_name_project_id_interval_start_interval_seconds;`,
-					`DROP INDEX storagenode_id_interval_start_interval_seconds_index;`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Migrate transactions adding new status completed",
-				Version:     79,
-				Action: migrate.SQL{
-					// delete all pending apply balance intents
-					`DELETE FROM stripecoinpayments_apply_balance_intents WHERE state = 0`,
-					// create apply balance intents for all misinterpreted transaction
-					`INSERT INTO stripecoinpayments_apply_balance_intents
-						(SELECT id, 0, now() FROM coinpayments_transactions WHERE status = 100)`,
-					// update all received transactions with applied balance intent to be completed
-					`UPDATE coinpayments_transactions AS txs
-						SET status = 100
-						FROM stripecoinpayments_apply_balance_intents AS ints
-						WHERE ints.tx_id = txs.id
-						AND txs.status = 1
-						AND ints.state = 1
-					`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Add rate_limit column to projects table",
-				Version:     80,
-				Action: migrate.SQL{
-					`ALTER TABLE projects ADD COLUMN rate_limit integer;`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Create Credits related tables",
-				Version:     81,
-				Action: migrate.SQL{
+
 					`CREATE TABLE credits (
 						user_id bytea NOT NULL,
 						transaction_id text NOT NULL,
@@ -770,6 +654,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( transaction_id )
 					);`,
+
 					`CREATE TABLE credits_spendings (
 						id bytea NOT NULL,
 						user_id bytea NOT NULL,
@@ -779,19 +664,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( id )
 					);`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Create consumed serials tables",
-				Version:     82,
-				Action: migrate.SQL{
+
 					`CREATE TABLE consumed_serials (
 						storage_node_id bytea NOT NULL,
 						serial_number bytea NOT NULL,
 						expires_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( storage_node_id, serial_number )
 					);`,
+					`CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );`,
+
 					`CREATE TABLE pending_serial_queue (
 						storage_node_id bytea NOT NULL,
 						bucket_id bytea NOT NULL,
@@ -801,33 +682,19 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						expires_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
 					);`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Clear repair queue and add healthy pieces count to repair queue",
-				Version:     83,
-				Action: migrate.SQL{
-					`TRUNCATE injuredsegments;`,
-					`ALTER TABLE injuredsegments ADD COLUMN num_healthy_pieces integer DEFAULT 52 NOT NULL;`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Create storagenode payment and paystub tables",
-				Version:     84,
-				Action: migrate.SQL{
+
 					`CREATE TABLE storagenode_payments (
 						id bigserial NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						node_id bytea NOT NULL,
-						period text,
+						period text NOT NULL,
 						amount bigint NOT NULL,
 						receipt text,
 						notes text,
 						PRIMARY KEY ( id )
 					);`,
 					`CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );`,
+
 					`CREATE TABLE storagenode_paystubs (
 						period text NOT NULL,
 						node_id bytea NOT NULL,
@@ -853,214 +720,6 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( period, node_id )
 					);`,
 					`CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );`,
-					`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Add unknown audit reputation and suspended flag to nodes table",
-				Version:     85,
-				Action: migrate.SQL{
-					`ALTER TABLE nodes ADD COLUMN unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1;`,
-					`ALTER TABLE nodes ADD COLUMN unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0;`,
-					`ALTER TABLE nodes ADD COLUMN suspended timestamp with time zone;`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Use time zones for bucket_bandwidth_rollups",
-				Version:     86,
-				Action: migrate.SQL{
-					`ALTER TABLE bucket_bandwidth_rollups ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Use time zones for bucket_storage_tallies",
-				Version:     87,
-				Action: migrate.SQL{
-					`ALTER TABLE bucket_storage_tallies ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Use time zones for graceful_exit_progress",
-				Version:     88,
-				Action: migrate.SQL{
-					`ALTER TABLE graceful_exit_progress ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE USING updated_at AT TIME ZONE 'UTC';`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Use time zones for graceful_exit_transfer_queue",
-				Version:     89,
-				Action: migrate.SQL{
-					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN queued_at TYPE TIMESTAMP WITH TIME ZONE USING queued_at AT TIME ZONE 'UTC';`,
-					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN requested_at TYPE TIMESTAMP WITH TIME ZONE USING requested_at AT TIME ZONE 'UTC';`,
-					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN last_failed_at TYPE TIMESTAMP WITH TIME ZONE USING last_failed_at AT TIME ZONE 'UTC';`,
-					`ALTER TABLE graceful_exit_transfer_queue ALTER COLUMN finished_at TYPE TIMESTAMP WITH TIME ZONE USING finished_at AT TIME ZONE 'UTC';`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Use time zones for injuredsegments",
-				Version:     90,
-				Action: migrate.SQL{
-					`ALTER TABLE injuredsegments ALTER COLUMN attempted TYPE TIMESTAMP WITH TIME ZONE USING attempted AT TIME ZONE 'UTC';`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Use time zones for nodes",
-				Version:     91,
-				Action: migrate.SQL{
-					`ALTER TABLE nodes ALTER COLUMN exit_initiated_at TYPE TIMESTAMP WITH TIME ZONE USING exit_initiated_at AT TIME ZONE 'UTC';`,
-					`ALTER TABLE nodes ALTER COLUMN exit_loop_completed_at TYPE TIMESTAMP WITH TIME ZONE USING exit_loop_completed_at AT TIME ZONE 'UTC';`,
-					`ALTER TABLE nodes ALTER COLUMN exit_finished_at TYPE TIMESTAMP WITH TIME ZONE USING exit_finished_at AT TIME ZONE 'UTC';`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Use time zones for serial_numbers",
-				Version:     92,
-				Action: migrate.SQL{
-					`ALTER TABLE serial_numbers ALTER COLUMN expires_at TYPE TIMESTAMP WITH TIME ZONE USING expires_at AT TIME ZONE 'UTC';`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Use time zones for storagenode_bandwidth_rollups",
-				Version:     93,
-				Action: migrate.SQL{
-					`ALTER TABLE storagenode_bandwidth_rollups ALTER COLUMN interval_start TYPE TIMESTAMP WITH TIME ZONE USING interval_start AT TIME ZONE current_setting('TIMEZONE');`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Use time zones for value_attributions",
-				Version:     94,
-				Action: migrate.SQL{
-					`ALTER TABLE value_attributions ALTER COLUMN last_updated TYPE TIMESTAMP WITH TIME ZONE USING last_updated AT TIME ZONE 'UTC';`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Add index to num_healthy_pieces column in injuredsegments table",
-				Version:     95,
-				Action: migrate.SQL{
-					`TRUNCATE injuredsegments;`,
-					`CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Add column last_ip_port to nodes table",
-				Version:     96,
-				Action: migrate.SQL{
-					`ALTER TABLE nodes ADD COLUMN last_ip_port text`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Add missing consumed_serials_expires_at_index index",
-				Version:     97,
-				Action: migrate.SQL{
-					`CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Add vetted_at timestamp column to nodes table",
-				Version:     98,
-				Action: migrate.SQL{
-					`ALTER TABLE nodes ADD COLUMN vetted_at timestamp with time zone;`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Backfill vetted_at with time.now for nodes that have been vetted already (aka nodes that have been audited 100 times)",
-				Version:     99,
-				Action: migrate.SQL{
-					`UPDATE nodes SET vetted_at = date_trunc('day', now() at time zone 'utc') at time zone 'utc' WHERE total_audit_count >= 100;`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Remove unused id field and thus change primary key for storagenode_storage_tallies table",
-				Version:     100,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-
-					// we need to handle the migration for cockroach differently than for postgres since cockroachdb 1. only
-					// allows primary key creation at table creation time and 2. table drop or rename is performed async and
-					// cannot be done in a transaction (ref: https://github.com/cockroachdb/cockroach/issues/12123).
-					// this migration step is not safe to run at the same time as any satellite core process that has data in the
-					// storagenode_storage_tallies table, but since we aren't using cockroachdb-backed satellite in prod yet this
-					// isn't a concern, meaning when this runs against cockroach there won't be any data in the table
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
-						_, err := db.Exec(ctx,
-							`ALTER TABLE storagenode_storage_tallies RENAME TO storagenode_storage_tallies_original;`,
-						)
-						if err != nil {
-							return ErrMigrate.Wrap(err)
-						}
-
-						_, err = db.Exec(ctx,
-							`CREATE TABLE storagenode_storage_tallies (
-								node_id bytea NOT NULL,
-								interval_end_time timestamp with time zone NOT NULL,
-								data_total double precision NOT NULL,
-								CONSTRAINT storagenode_storage_tallies_pkey PRIMARY KEY ( interval_end_time, node_id )
-							);
-							CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
-							INSERT INTO storagenode_storage_tallies (node_id, interval_end_time, data_total)
-								SELECT node_id, interval_end_time, data_total
-								FROM storagenode_storage_tallies_original;
-							DROP TABLE storagenode_storage_tallies_original;`,
-						)
-						if err != nil {
-							return ErrMigrate.Wrap(err)
-						}
-						return nil
-					}
-
-					// We were not using the serial64 id field on storagenode_storage_tallies table so we are removing it
-					// to save space and performance, this means we also have to drop the existing primary key that is depenedent on the id.
-					// When we create a new primary key make sure to name it so that if we rename the table in the future the primary key name won't change.
-					_, err := tx.Exec(ctx,
-						`ALTER TABLE storagenode_storage_tallies DROP CONSTRAINT accounting_raws_pkey;
-						ALTER TABLE storagenode_storage_tallies ADD CONSTRAINT storagenode_storage_tallies_pkey PRIMARY KEY ( interval_end_time, node_id );
-						ALTER TABLE storagenode_storage_tallies DROP COLUMN id;
-						CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
-						`,
-					)
-					if err != nil {
-						return ErrMigrate.Wrap(err)
-					}
-					return nil
-				}),
-			},
-			{
-				DB:          db.DB,
-				Description: "Add missing bucket_bandwidth_rollups_project_id_action_interval_index index",
-				Version:     101,
-				Action: migrate.SQL{
-					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Remove free_bandwidth column from nodes table",
-				Version:     102,
-				Action: migrate.SQL{
-					`ALTER TABLE nodes DROP COLUMN free_bandwidth;`,
-				},
-			},
-			{
-				DB:          db.DB,
-				Description: "Set NOT NULL on storagenode_payments period.",
-				Version:     103,
-				Action: migrate.SQL{
-					`ALTER TABLE storagenode_payments ALTER COLUMN period SET NOT NULL;`,
 				},
 			},
 			{

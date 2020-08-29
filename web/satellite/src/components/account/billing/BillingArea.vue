@@ -161,7 +161,7 @@ export default class BillingArea extends Vue {
      * Indicates if balance is not below zero but lower then CRITICAL_AMOUNT.
      */
     public get isBalanceLow(): boolean {
-        return this.balance.sum > 0 && this.balance.sum < this.CRITICAL_AMOUNT;
+        return this.balance.coins > 0 && this.balance.sum < this.CRITICAL_AMOUNT;
     }
 
     /**
@@ -204,7 +204,6 @@ export default class BillingArea extends Vue {
 
 <style scoped lang="scss">
     .account-billing-area {
-        padding-bottom: 55px;
 
         &__title-area {
             display: flex;

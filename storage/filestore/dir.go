@@ -4,6 +4,7 @@
 package filestore
 
 import (
+	"bytes"
 	"context"
 	"encoding/base32"
 	"errors"
@@ -19,6 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 )
 
@@ -29,6 +31,7 @@ const (
 	v0PieceFileSuffix      = ""
 	v1PieceFileSuffix      = ".sj1"
 	unknownPieceFileSuffix = "/..error_unknown_format../"
+	verificationFileName   = "storage-dir-verification"
 )
 
 var pathEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
@@ -94,6 +97,37 @@ func (dir *Dir) garbagedir() string { return filepath.Join(dir.path, "garbage") 
 
 // trashdir contains files staged for deletion for a period of time.
 func (dir *Dir) trashdir() string { return filepath.Join(dir.path, "trash") }
+
+// CreateVerificationFile creates a file to be used for storage directory verification.
+func (dir *Dir) CreateVerificationFile(id storj.NodeID) error {
+	f, err := os.Create(filepath.Join(dir.path, verificationFileName))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errs.Combine(err, f.Close())
+	}()
+	_, err = f.Write(id.Bytes())
+	return err
+}
+
+// Verify verifies that the storage directory is correct by checking for the existence and validity
+// of the verification file.
+func (dir *Dir) Verify(id storj.NodeID) error {
+	content, err := ioutil.ReadFile(filepath.Join(dir.path, verificationFileName))
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(content, id.Bytes()) {
+		verifyID, err := storj.NodeIDFromBytes(content)
+		if err != nil {
+			return errs.New("content of file is not a valid node ID: %x", content)
+		}
+		return errs.New("node ID in file (%s) does not match running node's ID (%s)", verifyID, id.String())
+	}
+	return nil
+}
 
 // CreateTemporaryFile creates a preallocated temporary file in the temp directory
 // prealloc preallocates file to make writing faster.

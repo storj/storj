@@ -182,10 +182,25 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	data.DiskSpace = DiskSpaceInfo{
-		Used:      pieceTotal,
-		Available: s.allocatedDiskSpace.Int64(),
-		Trash:     trash,
+	// temporary solution - in case we receive negative amount of free space we recalculate dir disk available space and recalculates used space.
+	// TODO: find real reason of negative space, garbage collector calculates trash correctly.
+	if s.allocatedDiskSpace.Int64()-pieceTotal-trash < 0 {
+		status, err := s.pieceStore.StorageStatus(ctx)
+		if err != nil {
+			return nil, SNOServiceErr.Wrap(err)
+		}
+
+		data.DiskSpace = DiskSpaceInfo{
+			Used:      s.allocatedDiskSpace.Int64() - status.DiskFree - trash,
+			Available: s.allocatedDiskSpace.Int64(),
+			Trash:     trash,
+		}
+	} else {
+		data.DiskSpace = DiskSpaceInfo{
+			Used:      pieceTotal,
+			Available: s.allocatedDiskSpace.Int64(),
+			Trash:     trash,
+		}
 	}
 
 	data.Bandwidth = BandwidthInfo{
@@ -299,8 +314,8 @@ type Satellites struct {
 
 // Audits represents audit metrics across all satellites.
 type Audits struct {
-	Audit       reputation.Metric
-	SatelliteID storj.NodeID
+	Audit         reputation.Metric `json:"audit"`
+	SatelliteName string            `json:"satelliteName"`
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
@@ -350,9 +365,14 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 			return nil, SNOServiceErr.Wrap(err)
 		}
 
+		url, err := s.trust.GetNodeURL(ctx, satellitesIDs[i])
+		if err != nil {
+			return nil, SNOServiceErr.Wrap(err)
+		}
+
 		audits = append(audits, Audits{
-			Audit:       stats.Audit,
-			SatelliteID: satellitesIDs[i],
+			Audit:         stats.Audit,
+			SatelliteName: url.Address,
 		})
 		if !stats.JoinedAt.IsZero() && stats.JoinedAt.Before(joinedAt) {
 			joinedAt = stats.JoinedAt

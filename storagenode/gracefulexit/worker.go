@@ -153,6 +153,10 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 			if err != nil {
 				return errs.Wrap(err)
 			}
+
+			// wait for deletes to complete
+			worker.limiter.Wait()
+
 			// delete all remaining pieces
 			err = worker.deleteAllPieces(ctx)
 			if err != nil {
@@ -235,6 +239,7 @@ func (worker *Worker) transferPiece(ctx context.Context, transferPiece *pb.Trans
 			zap.Stringer("Piece ID", pieceID),
 			zap.Error(errs.Wrap(err)))
 		worker.handleFailure(ctx, pb.TransferFailed_NOT_FOUND, pieceID, c.Send)
+		return err
 	}
 
 	if worker.minBytesPerSecond == 0 {

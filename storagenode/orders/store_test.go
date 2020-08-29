@@ -1,5 +1,6 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
+
 package orders_test
 
 import (
@@ -15,14 +16,16 @@ import (
 	"storj.io/storj/storagenode/orders"
 )
 
-func TestOrdersStore(t *testing.T) {
+func TestOrdersStore_Enqueue_GracePeriodFailure(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 	dirName := ctx.Dir("test-orders")
+	now := time.Now()
 
 	// make order limit grace period 24 hours
-	ordersStore, err := orders.NewFileStore(dirName, 24*time.Hour, time.Hour)
+	ordersStore, err := orders.NewFileStore(dirName, 24*time.Hour)
 	require.NoError(t, err)
+
 	// adding order before grace period should result in an error
 	newSN := testrand.SerialNumber()
 	newInfo := &orders.Info{
@@ -30,8 +33,8 @@ func TestOrdersStore(t *testing.T) {
 			SerialNumber:    newSN,
 			SatelliteId:     testrand.NodeID(),
 			Action:          pb.PieceAction_GET,
-			OrderCreation:   time.Now().Add(-48 * time.Hour),
-			OrderExpiration: time.Now().Add(time.Hour),
+			OrderCreation:   now.Add(-48 * time.Hour),
+			OrderExpiration: now.Add(time.Hour),
 		},
 		Order: &pb.Order{
 			SerialNumber: newSN,
@@ -40,31 +43,42 @@ func TestOrdersStore(t *testing.T) {
 	}
 	err = ordersStore.Enqueue(newInfo)
 	require.Error(t, err)
+}
+
+func TestOrdersStore_ListUnsentBySatellite(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	dirName := ctx.Dir("test-orders")
+	now := time.Now()
+
+	// make order limit grace period 12 hours
+	ordersStore, err := orders.NewFileStore(dirName, 12*time.Hour)
+	require.NoError(t, err)
 
 	// for each satellite, make three orders from four hours ago, three from two hours ago, and three from now.
 	numSatellites := 3
 	createdTimes := []time.Time{
-		time.Now().Add(-4 * time.Hour),
-		time.Now().Add(-2 * time.Hour),
-		time.Now(),
+		now.Add(-4 * time.Hour),
+		now.Add(-2 * time.Hour),
+		now,
 	}
 	serialsPerSatPerTime := 3
 
 	originalInfos, err := storeNewOrders(ordersStore, numSatellites, serialsPerSatPerTime, createdTimes)
 	require.NoError(t, err)
 
-	// update grace period so that some of the order limits are considered created before the grace period
-	ordersStore.TestSetSettleBuffer(time.Hour, 0)
 	// 3 times:
 	//    list unsent orders - should receive data from all satellites the first two times, and nothing the last time.
 	//    archive unsent orders
 	expectedArchivedInfos := make(map[storj.SerialNumber]*orders.ArchivedInfo)
-	archiveTime1 := time.Now().Add(-2 * time.Hour)
-	archiveTime2 := time.Now()
+
+	archiveTime1 := now.Add(-2 * time.Hour)
+	archiveTime2 := now
 	status1 := pb.SettlementWithWindowResponse_ACCEPTED
 	status2 := pb.SettlementWithWindowResponse_REJECTED
 	for i := 0; i < 3; i++ {
-		unsentMap, err := ordersStore.ListUnsentBySatellite()
+		// This should return all the orders created more than 1 hour before "now".
+		unsentMap, err := ordersStore.ListUnsentBySatellite(now.Add(12 * time.Hour))
 		require.NoError(t, err)
 
 		// on last iteration, expect nothing returned
@@ -72,6 +86,7 @@ func TestOrdersStore(t *testing.T) {
 			require.Len(t, unsentMap, 0)
 			break
 		}
+
 		// go through order limits and make sure information is accurate
 		require.Len(t, unsentMap, numSatellites)
 		for satelliteID, unsentSatList := range unsentMap {
@@ -85,7 +100,7 @@ func TestOrdersStore(t *testing.T) {
 
 				verifyInfosEqual(t, unsentInfo, originalInfo)
 				// expect that creation hour is consistent with order
-				require.Equal(t, unsentSatList.CreatedAtHour.UTC(), unsentInfo.Limit.OrderCreation.Truncate(time.Hour).UTC())
+				require.True(t, unsentSatList.CreatedAtHour.Equal(unsentInfo.Limit.OrderCreation.Truncate(time.Hour)))
 
 				// add to archive batch
 				// create
@@ -134,7 +149,7 @@ func TestOrdersStore(t *testing.T) {
 	}
 
 	// clean archive for anything older than 30 minutes
-	err = ordersStore.CleanArchive(time.Now().Add(-30 * time.Minute))
+	err = ordersStore.CleanArchive(now.Add(-30 * time.Minute))
 	require.NoError(t, err)
 
 	// list archived, expect only recent archived batch (other was cleaned)
@@ -150,11 +165,78 @@ func TestOrdersStore(t *testing.T) {
 	}
 
 	// clean archive for everything before now, expect list to return nothing
-	err = ordersStore.CleanArchive(time.Now())
+	err = ordersStore.CleanArchive(now.Add(time.Nanosecond))
 	require.NoError(t, err)
 	archived, err = ordersStore.ListArchived()
 	require.NoError(t, err)
 	require.Len(t, archived, 0)
+}
+
+func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	dirName := ctx.Dir("test-orders")
+	now := time.Now()
+	satellite := testrand.NodeID()
+	tomorrow := now.Add(24 * time.Hour)
+
+	// make order limit grace period 1 hour
+	ordersStore, err := orders.NewFileStore(dirName, time.Hour)
+	require.NoError(t, err)
+
+	// empty store means no orders can be listed
+	unsent, err := ordersStore.ListUnsentBySatellite(tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 0)
+
+	// store an order that can be listed
+	sn := testrand.SerialNumber()
+	require.NoError(t, ordersStore.Enqueue(&orders.Info{
+		Limit: &pb.OrderLimit{
+			SerialNumber:  sn,
+			SatelliteId:   satellite,
+			Action:        pb.PieceAction_GET,
+			OrderCreation: now,
+		},
+		Order: &pb.Order{
+			SerialNumber: sn,
+			Amount:       1,
+		},
+	}))
+
+	// check that we can list it tomorrow
+	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 1)
+
+	// begin an enqueue in the bucket
+	commit, err := ordersStore.BeginEnqueue(satellite, now)
+	require.NoError(t, err)
+
+	// we should no longer be able to list that window
+	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 0)
+
+	// commit the order
+	sn = testrand.SerialNumber()
+	require.NoError(t, commit(&orders.Info{
+		Limit: &pb.OrderLimit{
+			SerialNumber:  sn,
+			SatelliteId:   satellite,
+			Action:        pb.PieceAction_GET,
+			OrderCreation: now,
+		},
+		Order: &pb.Order{
+			SerialNumber: sn,
+			Amount:       1,
+		},
+	}))
+
+	// check that we can list it tomorrow
+	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 1)
 }
 
 func verifyInfosEqual(t *testing.T, a, b *orders.Info) {
@@ -206,6 +288,7 @@ func storeNewOrders(ordersStore *orders.FileStore, numSatellites, numOrdersPerSa
 				amount := testrand.Int63n(1000)
 				sn := testrand.SerialNumber()
 				action := actions[j%len(actions)]
+
 				newInfo := &orders.Info{
 					Limit: &pb.OrderLimit{
 						SerialNumber:    sn,

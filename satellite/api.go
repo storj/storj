@@ -384,6 +384,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Metainfo.PieceDeletion, err = piecedeletion.NewService(
 			peer.Log.Named("metainfo:piecedeletion"),
 			peer.Dialer,
+			peer.Overlay.Service,
 			config.Metainfo.PieceDeletion,
 		)
 		if err != nil {

@@ -17,6 +17,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/eestream"
@@ -180,13 +181,14 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		}
 	}
 
-	bucketID, err := createBucketID(path)
+	segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(path))
 	if err != nil {
-		return true, invalidRepairError.New("invalid path; cannot repair segment: %w", err)
+		return false, invalidRepairError.New("could not parse segment key: %w", err)
 	}
+	bucket := segmentLocation.Bucket()
 
 	// Create the order limits for the GET_REPAIR action
-	getOrderLimits, getPrivateKey, err := repairer.orders.CreateGetRepairOrderLimits(ctx, bucketID, pointer, healthyPieces)
+	getOrderLimits, getPrivateKey, err := repairer.orders.CreateGetRepairOrderLimits(ctx, bucket, pointer, healthyPieces)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create GET_REPAIR order limits: %w", err)
 	}
@@ -222,7 +224,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucketID, pointer, getOrderLimits, newNodes, repairer.multiplierOptimalThreshold)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucket, pointer, getOrderLimits, newNodes, repairer.multiplierOptimalThreshold)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}
@@ -364,12 +366,4 @@ func sliceToSet(slice []int32) map[int32]bool {
 		set[value] = true
 	}
 	return set
-}
-
-func createBucketID(path storj.Path) ([]byte, error) {
-	comps := storj.SplitPath(path)
-	if len(comps) < 3 {
-		return nil, Error.New("no bucket component in path: %s", path)
-	}
-	return []byte(storj.JoinPaths(comps[0], comps[2])), nil
 }

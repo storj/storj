@@ -29,6 +29,9 @@ var ErrNodeOffline = errs.Class("node is offline")
 // ErrNodeDisqualified is returned if a nodes is disqualified.
 var ErrNodeDisqualified = errs.Class("node is disqualified")
 
+// ErrNodeFinishedGE is returned if a node has finished graceful exit.
+var ErrNodeFinishedGE = errs.Class("node finished graceful exit")
+
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
@@ -53,16 +56,19 @@ type DB interface {
 	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
-	// BatchUpdateStats updates multiple storagenode's stats in one transaction
-	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int) (failed storj.NodeIDList, err error)
+	// BatchUpdateStats updates multiple storagenode's stats in one transaction.
+	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int, now time.Time) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
-	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
+	UpdateStats(ctx context.Context, request *UpdateRequest, now time.Time) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
+
+	// UpdateAuditHistory updates a node's audit history with an online or offline audit and returns the online score for the tracking period.
+	UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config AuditHistoryConfig) (onlineScore float64, err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
@@ -163,6 +169,7 @@ type UpdateRequest struct {
 	SuspensionDQEnabled       bool
 	AuditsRequiredForVetting  int64
 	UptimesRequiredForVetting int64
+	AuditHistory              AuditHistoryConfig
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -194,6 +201,8 @@ type NodeDossier struct {
 	Contained             bool
 	Disqualified          *time.Time
 	UnknownAuditSuspended *time.Time
+	OfflineSuspended      *time.Time
+	OfflineUnderReview    *time.Time
 	PieceCount            int64
 	ExitStatus            ExitStatus
 	CreatedAt             time.Time
@@ -423,8 +432,9 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 		request.AuditsRequiredForVetting = service.config.Node.AuditCount
 		request.UptimesRequiredForVetting = service.config.Node.UptimeCount
+		request.AuditHistory = service.config.AuditHistory
 	}
-	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize)
+	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize, time.Now())
 }
 
 // UpdateStats all parts of single storagenode's stats.
@@ -438,8 +448,9 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 	request.AuditsRequiredForVetting = service.config.Node.AuditCount
 	request.UptimesRequiredForVetting = service.config.Node.UptimeCount
+	request.AuditHistory = service.config.AuditHistory
 
-	return service.db.UpdateStats(ctx, request)
+	return service.db.UpdateStats(ctx, request, time.Now())
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.

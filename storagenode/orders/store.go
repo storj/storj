@@ -26,11 +26,27 @@ const (
 	archiveFilePrefix = "archived-orders-"
 )
 
+// activeWindow represents a window with active operations waiting to finish to enqueue
+// their orders.
+type activeWindow struct {
+	satelliteID storj.NodeID
+	timestamp   int64
+}
+
 // FileStore implements the orders.Store interface by appending orders to flat files.
 type FileStore struct {
 	ordersDir  string
 	unsentDir  string
 	archiveDir string
+
+	// always acquire the activeMu after the unsentMu to avoid deadlocks. if someone acquires
+	// activeMu before unsentMu, then you can be in a situation where two goroutines are
+	// waiting for each other forever.
+
+	// mutex for the active map
+	activeMu sync.Mutex
+	active   map[activeWindow]int
+
 	// mutex for unsent directory
 	unsentMu sync.Mutex
 	// mutex for archive directory
@@ -38,18 +54,16 @@ type FileStore struct {
 
 	// how long after OrderLimit creation date are OrderLimits no longer accepted (piecestore Config)
 	orderLimitGracePeriod time.Duration
-	// how long after the grace period passes to start submitting orders
-	maxInFlightTime time.Duration
 }
 
 // NewFileStore creates a new orders file store, and the directories necessary for its use.
-func NewFileStore(ordersDir string, orderLimitGracePeriod, maxInFlightTime time.Duration) (*FileStore, error) {
+func NewFileStore(ordersDir string, orderLimitGracePeriod time.Duration) (*FileStore, error) {
 	fs := &FileStore{
 		ordersDir:             ordersDir,
 		unsentDir:             filepath.Join(ordersDir, "unsent"),
 		archiveDir:            filepath.Join(ordersDir, "archive"),
+		active:                make(map[activeWindow]int),
 		orderLimitGracePeriod: orderLimitGracePeriod,
-		maxInFlightTime:       maxInFlightTime,
 	}
 
 	err := fs.ensureDirectories()
@@ -60,34 +74,104 @@ func NewFileStore(ordersDir string, orderLimitGracePeriod, maxInFlightTime time.
 	return fs, nil
 }
 
-// Enqueue inserts order to be sent at the end of the unsent file for a particular creation hour.
-// It assumes the  order is not being queued after the order limit grace period.
-func (store *FileStore) Enqueue(info *Info) (err error) {
+// BeginEnqueue returns a function that can be called to enqueue the passed in Info. If the Info
+// is too old to be enqueued, then an error is returned.
+func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Time) (commit func(*Info) error, err error) {
 	store.unsentMu.Lock()
 	defer store.unsentMu.Unlock()
+	store.activeMu.Lock()
+	defer store.activeMu.Unlock()
 
-	// if the settle buffer period has already passed, do not enqueue this order
-	if store.settleBufferPassed(info.Limit.OrderCreation.Truncate(time.Hour)) {
-		return OrderError.New("grace period passed for order limit")
+	// if the order is older than the grace period, reject it. We don't check against what
+	// window the order would go into to make the calculation more predictable: if the order
+	// is older than the grace limit, it will not be accepted.
+	if time.Since(createdAt) > store.orderLimitGracePeriod {
+		return nil, OrderError.New("grace period passed for order limit")
 	}
 
-	f, err := store.getUnsentFile(info.Limit.SatelliteId, info.Limit.OrderCreation)
-	if err != nil {
-		return OrderError.Wrap(err)
-	}
-	defer func() {
-		err = errs.Combine(err, OrderError.Wrap(f.Close()))
-	}()
+	// record that there is an operation in flight for this window
+	store.enqueueStartedLocked(satelliteID, createdAt)
 
-	err = writeLimit(f, info.Limit)
+	return func(info *Info) error {
+		// always acquire the activeMu after the unsentMu to avoid deadlocks
+		store.unsentMu.Lock()
+		defer store.unsentMu.Unlock()
+		store.activeMu.Lock()
+		defer store.activeMu.Unlock()
+
+		// always remove the in flight operation
+		defer store.enqueueFinishedLocked(satelliteID, createdAt)
+
+		// caller wants to abort; free file for sending and return with no error
+		if info == nil {
+			return nil
+		}
+
+		// check that the info matches what the enqueue was begun with
+		if info.Limit.SatelliteId != satelliteID || !info.Limit.OrderCreation.Equal(createdAt) {
+			return OrderError.New("invalid info passed in to enqueue commit")
+		}
+
+		// write out the data
+		f, err := store.getUnsentFile(info.Limit.SatelliteId, info.Limit.OrderCreation)
+		if err != nil {
+			return OrderError.Wrap(err)
+		}
+		defer func() {
+			err = errs.Combine(err, OrderError.Wrap(f.Close()))
+		}()
+
+		err = writeLimit(f, info.Limit)
+		if err != nil {
+			return err
+		}
+		err = writeOrder(f, info.Order)
+		if err != nil {
+			return err
+		}
+		return nil
+	}, nil
+}
+
+// enqueueStartedLocked records that there is an order pending to be written to the window.
+func (store *FileStore) enqueueStartedLocked(satelliteID storj.NodeID, createdAt time.Time) {
+	store.active[activeWindow{
+		satelliteID: satelliteID,
+		timestamp:   date.TruncateToHourInNano(createdAt),
+	}]++
+}
+
+// enqueueFinishedLocked informs that there is no longer an order pending to be written to the
+// window.
+func (store *FileStore) enqueueFinishedLocked(satelliteID storj.NodeID, createdAt time.Time) {
+	window := activeWindow{
+		satelliteID: satelliteID,
+		timestamp:   date.TruncateToHourInNano(createdAt),
+	}
+
+	store.active[window]--
+	if store.active[window] <= 0 {
+		delete(store.active, window)
+	}
+}
+
+// hasActiveEnqueueLocked returns true if there are active orders enqueued for the requested
+// window.
+func (store *FileStore) hasActiveEnqueueLocked(satelliteID storj.NodeID, createdAt time.Time) bool {
+	return store.active[activeWindow{
+		satelliteID: satelliteID,
+		timestamp:   date.TruncateToHourInNano(createdAt),
+	}] > 0
+}
+
+// Enqueue inserts order to be sent at the end of the unsent file for a particular creation hour.
+// It ensures the order is not being queued after the order limit grace period.
+func (store *FileStore) Enqueue(info *Info) (err error) {
+	commit, err := store.BeginEnqueue(info.Limit.SatelliteId, info.Limit.OrderCreation)
 	if err != nil {
 		return err
 	}
-	err = writeOrder(f, info.Order)
-	if err != nil {
-		return err
-	}
-	return nil
+	return commit(info)
 }
 
 // UnsentInfo is a struct containing a window of orders for a satellite and order creation hour.
@@ -100,9 +184,11 @@ type UnsentInfo struct {
 // It only reads files where the order limit grace period has passed, meaning no new orders will be appended.
 // There is a separate window for each created at hour, so if a satellite has 2 windows, `ListUnsentBySatellite`
 // needs to be called twice, with calls to `Archive` in between each call, to see all unsent orders.
-func (store *FileStore) ListUnsentBySatellite() (infoMap map[storj.NodeID]UnsentInfo, err error) {
+func (store *FileStore) ListUnsentBySatellite(now time.Time) (infoMap map[storj.NodeID]UnsentInfo, err error) {
 	store.unsentMu.Lock()
 	defer store.unsentMu.Unlock()
+	store.activeMu.Lock()
+	defer store.activeMu.Unlock()
 
 	var errList error
 	infoMap = make(map[storj.NodeID]UnsentInfo)
@@ -119,14 +205,23 @@ func (store *FileStore) ListUnsentBySatellite() (infoMap map[storj.NodeID]Unsent
 		if err != nil {
 			return err
 		}
+
 		// if we already have orders for this satellite, ignore the file
 		if _, ok := infoMap[satelliteID]; ok {
 			return nil
 		}
-		// if orders can still be added to file, ignore it.
-		if !store.settleBufferPassed(createdAtHour) {
+
+		// if orders can still be added to file, ignore it. We add an hour because that's
+		// the newest order that could be added to that window.
+		if now.Sub(createdAtHour.Add(time.Hour)) < store.orderLimitGracePeriod {
 			return nil
 		}
+
+		// if there are still active orders for the time, ignore it.
+		if store.hasActiveEnqueueLocked(satelliteID, createdAtHour) {
+			return nil
+		}
+
 		newUnsentInfo := UnsentInfo{
 			CreatedAtHour: createdAtHour,
 		}
@@ -288,15 +383,6 @@ func (store *FileStore) CleanArchive(deleteBefore time.Time) error {
 	return errs.Combine(errList, err)
 }
 
-// TestSetSettleBuffer is a function that allows us to modify order limit grace period and max inflight time for testing purposes.
-func (store *FileStore) TestSetSettleBuffer(orderLimitGracePeriod, maxInFlightTime time.Duration) {
-	store.unsentMu.Lock()
-	defer store.unsentMu.Unlock()
-
-	store.orderLimitGracePeriod = orderLimitGracePeriod
-	store.maxInFlightTime = maxInFlightTime
-}
-
 // ensureDirectories checks for the existence of the unsent and archived directories, and creates them if they do not exist.
 func (store *FileStore) ensureDirectories() error {
 	if _, err := os.Stat(store.unsentDir); os.IsNotExist(err) {
@@ -332,14 +418,6 @@ func getCreationHourString(t time.Time) string {
 	creationHour := date.TruncateToHourInNano(t)
 	timeStr := strconv.FormatInt(creationHour, 10)
 	return timeStr
-}
-
-// settleBufferPassed determines whether enough time has passed that no new orders will be added to a file.
-func (store *FileStore) settleBufferPassed(createdHour time.Time) bool {
-	// wait until the gracePeriod+maxInFlightTime has passed, to ensure in-flight actions have completed
-	canSendCutoff := time.Now().Add(-store.orderLimitGracePeriod).Add(-store.maxInFlightTime)
-	// add one hour to include order limits in file added at end of createdHour
-	return createdHour.Add(time.Hour).Before(canSendCutoff)
 }
 
 // getUnsentFileInfo gets the satellite ID and created hour from a filename.

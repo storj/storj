@@ -15,6 +15,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 )
 
@@ -153,7 +154,7 @@ func (chore *Chore) readWork(ctx context.Context, queue orders.Queue) (
 		seenConsumedSerials[key] = struct{}{}
 
 		// Parse the node id, project id, and bucket name from the reported serial.
-		projectID, bucketName, err := orders.SplitBucketID(row.BucketID)
+		bucket, err := metabase.ParseBucketPrefix(metabase.BucketPrefix(row.BucketID)) // TODO: rename row.BucketID -> row.BucketPrefix
 		if err != nil {
 			chore.log.Error("bad row inserted into reported serials",
 				zap.Binary("bucket_id", row.BucketID),
@@ -166,8 +167,8 @@ func (chore *Chore) readWork(ctx context.Context, queue orders.Queue) (
 
 		// Update our batch state to include it.
 		byBucket[bucketKey{
-			projectID:  projectID,
-			bucketName: string(bucketName),
+			projectID:  bucket.ProjectID,
+			bucketName: bucket.BucketName,
 			action:     action,
 		}] += settled
 

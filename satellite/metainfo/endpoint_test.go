@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -74,9 +75,7 @@ func TestEndpoint_DeleteObjectPieces(t *testing.T) {
 					}
 
 					projectID, encryptedPath := getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
-					_, err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(
-						ctx, projectID, []byte(bucketName), encryptedPath,
-					)
+					_, err = satelliteSys.Metainfo.Endpoint2.DeleteObjectPieces(ctx, projectID, []byte(bucketName), encryptedPath)
 					require.NoError(t, err)
 
 					planet.WaitForStorageNodeDeleters(ctx)
@@ -463,6 +462,60 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 				})
 			}
 		})
+	})
+}
+
+func TestDeleteBucket(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+				testplanet.MaxSegmentSize(13*memory.KiB),
+			),
+		},
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		satelliteSys := planet.Satellites[0]
+		uplnk := planet.Uplinks[0]
+
+		expectedBucketName := "remote-segments-bucket"
+
+		err := uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "single-segment-object", testrand.Bytes(10*memory.KiB))
+		require.NoError(t, err)
+		err = uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "multi-segment-object", testrand.Bytes(50*memory.KiB))
+		require.NoError(t, err)
+		err = uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "remote-segment-inline-object", testrand.Bytes(33*memory.KiB))
+		require.NoError(t, err)
+
+		listResp, err := satelliteSys.API.Metainfo.Endpoint2.ListObjects(ctx, &pb.ObjectListRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Bucket: []byte(expectedBucketName),
+		})
+		require.NoError(t, err)
+		require.Len(t, listResp.GetItems(), 3)
+
+		delResp, err := satelliteSys.API.Metainfo.Endpoint2.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name:      []byte(expectedBucketName),
+			DeleteAll: true,
+		})
+		require.NoError(t, err)
+		require.Equal(t, int64(3), delResp.DeletedObjectsCount)
+
+		// confirm the bucket is deleted
+		buckets, err := satelliteSys.Metainfo.Endpoint2.ListBuckets(ctx, &pb.BucketListRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Direction: int32(storj.Forward),
+		})
+		require.NoError(t, err)
+		require.Len(t, buckets.GetItems(), 0)
 	})
 }
 

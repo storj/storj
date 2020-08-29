@@ -109,7 +109,8 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-			})
+				AuditHistory: testAuditHistoryConfig(),
+			}, time.Now())
 			require.NoError(t, err)
 			reputableIds = append(reputableIds, storj.NodeID{byte(i)})
 		}

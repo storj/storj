@@ -37,7 +37,7 @@ import (
 
 func TestMaxOutBuckets(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		limit := planet.Satellites[0].Config.Metainfo.ProjectLimits.MaxBuckets
 		for i := 1; i <= limit; i++ {
@@ -623,15 +623,11 @@ func TestBeginCommitListSegment(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		metainfoService := planet.Satellites[0].Metainfo.Service
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		projectID := projects[0].ID
-
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
-			ProjectID: projectID,
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err = metainfoService.CreateBucket(ctx, bucket)
+		_, err := metainfoService.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -805,10 +801,6 @@ func TestInlineSegment(t *testing.T) {
 
 		metainfoService := planet.Satellites[0].Metainfo.Service
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		projectID := projects[0].ID
-
 		// TODO maybe split into separate cases
 		// Test:
 		// * create bucket
@@ -822,9 +814,9 @@ func TestInlineSegment(t *testing.T) {
 
 		bucket := storj.Bucket{
 			Name:      "inline-segments-bucket",
-			ProjectID: projectID,
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err = metainfoService.CreateBucket(ctx, bucket)
+		_, err := metainfoService.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -1597,15 +1589,11 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		metainfoService := planet.Satellites[0].Metainfo.Service
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		projectID := projects[0].ID
-
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
-			ProjectID: projectID,
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err = metainfoService.CreateBucket(ctx, bucket)
+		_, err := metainfoService.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)

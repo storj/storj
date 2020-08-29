@@ -192,7 +192,8 @@ func TestEnsureMinimumRequested(t *testing.T) {
 				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-			})
+				AuditHistory: testAuditHistoryConfig(),
+			}, time.Now())
 			require.NoError(t, err)
 		}
 
@@ -235,7 +236,8 @@ func TestEnsureMinimumRequested(t *testing.T) {
 				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-			})
+				AuditHistory: testAuditHistoryConfig(),
+			}, time.Now())
 			require.NoError(t, err)
 		}
 
@@ -272,7 +274,8 @@ func TestNodeSelection(t *testing.T) {
 					IsUp:         true,
 					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-				})
+					AuditHistory: testAuditHistoryConfig(),
+				}, time.Now())
 				require.NoError(t, err)
 			}
 		}
@@ -462,7 +465,8 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 					IsUp:         true,
 					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-				})
+					AuditHistory: testAuditHistoryConfig(),
+				}, time.Now())
 				require.NoError(t, err)
 			}
 
@@ -694,7 +698,8 @@ func TestDistinctIPs(t *testing.T) {
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
-			})
+				AuditHistory: testAuditHistoryConfig(),
+			}, time.Now())
 			assert.NoError(t, err)
 		}
 		testDistinctIPs(t, ctx, planet)

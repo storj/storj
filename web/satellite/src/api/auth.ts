@@ -196,7 +196,7 @@ export class AuthHttpApi {
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: {fullName: string; shortName: string; email: string; partner: string, partnerId: string; password: string}, secret: string, referrerUserId: string): Promise<string> {
+    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string}, secret: string, referrerUserId: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,

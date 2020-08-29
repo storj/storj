@@ -36,6 +36,9 @@ func TestSendingReceivingOrders(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
+
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.Sender.Pause()
@@ -48,9 +51,12 @@ func TestSendingReceivingOrders(t *testing.T) {
 
 		sumBeforeSend := 0
 		for _, storageNode := range planet.StorageNodes {
-			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
+			// change settle buffer so orders can be sent
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
 			require.NoError(t, err)
-			sumBeforeSend += len(infos)
+			for _, satUnsent := range unsentMap {
+				sumBeforeSend += len(satUnsent.InfoList)
+			}
 		}
 		require.NotZero(t, sumBeforeSend)
 
@@ -58,13 +64,15 @@ func TestSendingReceivingOrders(t *testing.T) {
 		sumArchived := 0
 
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Orders.Sender.TriggerWait()
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 
-			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
 			require.NoError(t, err)
-			sumUnsent += len(infos)
+			for _, satUnsent := range unsentMap {
+				sumUnsent += len(satUnsent.InfoList)
+			}
 
-			archivedInfos, err := storageNode.DB.Orders().ListArchived(ctx, sumBeforeSend)
+			archivedInfos, err := storageNode.OrdersStore.ListArchived()
 			require.NoError(t, err)
 			sumArchived += len(archivedInfos)
 		}
@@ -82,6 +90,9 @@ func TestUnableToSendOrders(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
+
 		planet.Satellites[0].Audit.Worker.Loop.Pause()
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.Sender.Pause()
@@ -94,9 +105,11 @@ func TestUnableToSendOrders(t *testing.T) {
 
 		sumBeforeSend := 0
 		for _, storageNode := range planet.StorageNodes {
-			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
 			require.NoError(t, err)
-			sumBeforeSend += len(infos)
+			for _, satUnsent := range unsentMap {
+				sumBeforeSend += len(satUnsent.InfoList)
+			}
 		}
 		require.NotZero(t, sumBeforeSend)
 
@@ -106,13 +119,15 @@ func TestUnableToSendOrders(t *testing.T) {
 		sumUnsent := 0
 		sumArchived := 0
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Orders.Sender.TriggerWait()
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 
-			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
 			require.NoError(t, err)
-			sumUnsent += len(infos)
+			for _, satUnsent := range unsentMap {
+				sumUnsent += len(satUnsent.InfoList)
+			}
 
-			archivedInfos, err := storageNode.DB.Orders().ListArchived(ctx, sumBeforeSend)
+			archivedInfos, err := storageNode.OrdersStore.ListArchived()
 			require.NoError(t, err)
 			sumArchived += len(archivedInfos)
 		}
@@ -130,6 +145,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
 		beforeRollup := now.Add(-time.Hour - time.Second)
 		afterRollup := now.Add(time.Hour + time.Second)
 		bucketName := "testbucket"
@@ -149,35 +165,32 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expectedData, data)
 
-		//HACKFIX: We need enough time to pass after the download ends for storagenodes to save orders
-		time.Sleep(200 * time.Millisecond)
+		// Wait for the download to end and so the orders will be saved
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
 		var expectedBucketBandwidth int64
 		expectedStorageBandwidth := make(map[storj.NodeID]int64)
 		for _, storageNode := range planet.StorageNodes {
-			infos, err := storageNode.DB.Orders().ListUnsent(ctx, 10)
+			infos, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
 			require.NoError(t, err)
-			if len(infos) > 0 {
-				for _, info := range infos {
-					expectedBucketBandwidth += info.Order.Amount
-					expectedStorageBandwidth[storageNode.ID()] += info.Order.Amount
+			for _, unsentInfo := range infos {
+				for _, orderInfo := range unsentInfo.InfoList {
+					expectedBucketBandwidth += orderInfo.Order.Amount
+					expectedStorageBandwidth[storageNode.ID()] += orderInfo.Order.Amount
 				}
 			}
 		}
 
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Orders.Sender.TriggerWait()
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 		}
 
 		reportedRollupChore := planet.Satellites[0].Core.Accounting.ReportedRollupChore
 		require.NoError(t, reportedRollupChore.RunOnce(ctx, now))
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
 		ordersDB := planet.Satellites[0].DB.Orders()
 
-		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, projects[0].ID, []byte(bucketName), beforeRollup, afterRollup)
+		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, planet.Uplinks[0].Projects[0].ID, []byte(bucketName), beforeRollup, afterRollup)
 		require.NoError(t, err)
 		require.Equal(t, expectedBucketBandwidth, bucketBandwidth)
 
@@ -196,7 +209,12 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		planet.Satellites[0].Orders.Chore.Loop.Pause()
+
 		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
 		beforeRollup := now.Add(-time.Hour - time.Second)
 		afterRollup := now.Add(time.Hour + time.Second)
 
@@ -221,13 +239,12 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, secondExpectedData, data)
 
-		//HACKFIX: We need enough time to pass after the download ends for storagenodes to save orders
-		time.Sleep(200 * time.Millisecond)
-
 		// Have the nodes send up the orders.
 		for _, storageNode := range planet.StorageNodes {
-			storageNode.Storage2.Orders.Sender.TriggerWait()
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 		}
+		// flush rollups write cache
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 
 		// Run the chore as if we were far in the future so that the orders are expired.
 		reportedRollupChore := planet.Satellites[0].Core.Accounting.ReportedRollupChore
@@ -252,51 +269,6 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 		require.NoError(t, err)
 		require.Greater(t, rightBucketBandwidth, int64(0))
 	})
-}
-
-func TestSplitBucketIDInvalid(t *testing.T) {
-	var testCases = []struct {
-		name     string
-		bucketID []byte
-	}{
-		{"invalid, not valid UUID", []byte("not UUID string/bucket1")},
-		{"invalid, not valid UUID, no bucket", []byte("not UUID string")},
-		{"invalid, no project, no bucket", []byte("")},
-	}
-	for _, tt := range testCases {
-		tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
-		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := orders.SplitBucketID(tt.bucketID)
-			assert.NotNil(t, err)
-			assert.Error(t, err)
-		})
-	}
-}
-
-func TestSplitBucketIDValid(t *testing.T) {
-	var testCases = []struct {
-		name               string
-		project            string
-		bucketName         string
-		expectedBucketName string
-	}{
-		{"valid, no bucket, no objects", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "", ""},
-		{"valid, with bucket", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "testbucket", "testbucket"},
-		{"valid, with object", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "testbucket/foo/bar.txt", "testbucket"},
-	}
-	for _, tt := range testCases {
-		tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
-		t.Run(tt.name, func(t *testing.T) {
-			expectedProjectID, err := uuid.FromString(tt.project)
-			assert.NoError(t, err)
-			bucketID := expectedProjectID.String() + "/" + tt.bucketName
-
-			actualProjectID, actualBucketName, err := orders.SplitBucketID([]byte(bucketID))
-			assert.NoError(t, err)
-			assert.Equal(t, expectedProjectID, actualProjectID)
-			assert.Equal(t, []byte(tt.expectedBucketName), actualBucketName)
-		})
-	}
 }
 
 func BenchmarkOrders(b *testing.B) {
@@ -615,40 +587,6 @@ func TestProcessOrders(t *testing.T) {
 			checkStoragenodeBandwidth(storj.NodeID{2}, 300)
 			checkStoragenodeBandwidth(nodeID, 501)
 		}
-	})
-}
-
-func TestRandomSampleLimits(t *testing.T) {
-	orderlimits := []*pb.AddressedOrderLimit{{}, {}, {}, {}}
-
-	s := orders.NewService(nil, nil, nil, nil, nil, 0, nil)
-	t.Run("sample size is less than the number of order limits", func(t *testing.T) {
-		var nilCount int
-		sampleSize := 2
-		limits, err := s.RandomSampleOfOrderLimits(orderlimits, sampleSize)
-		assert.NoError(t, err)
-		assert.Equal(t, len(orderlimits), len(limits))
-
-		for _, limit := range limits {
-			if limit == nil {
-				nilCount++
-			}
-		}
-		assert.Equal(t, len(orderlimits)-sampleSize, nilCount)
-	})
-
-	t.Run("sample size is greater than the number of order limits", func(t *testing.T) {
-		var nilCount int
-		sampleSize := 6
-		limits, err := s.RandomSampleOfOrderLimits(orderlimits, sampleSize)
-		assert.NoError(t, err)
-		assert.Equal(t, len(orderlimits), len(limits))
-		for _, limit := range limits {
-			if limit == nil {
-				nilCount++
-			}
-		}
-		assert.Equal(t, 0, nilCount)
 	})
 }
 

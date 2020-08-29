@@ -10,14 +10,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/storage"
 )
@@ -64,11 +62,6 @@ func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
 func TestBilling_InlineFiles(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Orders.FlushBatchSize = 1
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const (
 			bucketName = "testbucket"
@@ -112,11 +105,6 @@ func TestBilling_InlineFiles(t *testing.T) {
 func TestBilling_FilesAfterDeletion(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Orders.FlushBatchSize = 1
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const (
 			bucketName = "testbucket"
@@ -182,6 +170,10 @@ func TestBilling_TrafficAfterFileDeletion(t *testing.T) {
 			projectID    = uplink.Projects[0].ID
 		)
 
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		satelliteSys.Orders.Chore.Loop.Pause()
+
 		data := testrand.Bytes(5 * memory.KiB)
 		err := uplink.Upload(ctx, satelliteSys, bucketName, filePath, data)
 		require.NoError(t, err)
@@ -217,6 +209,9 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		satelliteSys.Audit.Worker.Loop.Pause()
 		satelliteSys.Repair.Checker.Loop.Pause()
 		satelliteSys.Repair.Repairer.Loop.Pause()
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		satelliteSys.Orders.Chore.Loop.Pause()
 
 		for _, sn := range planet.StorageNodes {
 			sn.Storage2.Orders.Sender.Pause()
@@ -303,6 +298,9 @@ func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
 		// traffic isn't billed.
 		satelliteSys.Audit.Chore.Loop.Stop()
 		satelliteSys.Repair.Repairer.Loop.Stop()
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		satelliteSys.Orders.Chore.Loop.Pause()
 
 		var (
 			uplnk     = planet.Uplinks[0]
@@ -463,9 +461,9 @@ func getProjectTotalFromStorageNodes(
 	// Wait for the SNs endpoints to finish their work
 	require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
-	// Calculate the usage used for upload
+	// Ensure all nodes have sent up any orders for the time period we're calculating
 	for _, sn := range storageNodes {
-		sn.Storage2.Orders.Sender.TriggerWait()
+		sn.Storage2.Orders.SendOrders(ctx, since.Add(24*time.Hour))
 	}
 
 	sat := planet.Satellites[satelliteIdx]
@@ -475,6 +473,9 @@ func getProjectTotalFromStorageNodes(
 	}
 
 	sat.Accounting.Tally.Loop.TriggerWait()
+
+	// flush rollups write cache
+	sat.Orders.Chore.Loop.TriggerWait()
 
 	usage, err := sat.DB.ProjectAccounting().GetProjectTotal(ctx, projectID, since, time.Now())
 	require.NoError(t, err)

@@ -52,7 +52,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				planetConfig.Name = t.Name()
 			}
 
-			planet, err := NewCustom(zaptest.NewLogger(t), config, satelliteDB)
+			planet, err := NewCustom(zaptest.NewLogger(t), planetConfig, satelliteDB)
 			if err != nil {
 				t.Fatalf("%+v", err)
 			}

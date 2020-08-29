@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/metainfo/objectdeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metainfo/pointerverification"
@@ -42,6 +43,7 @@ import (
 const (
 	satIDExpiration = 48 * time.Hour
 	lastSegment     = -1
+	firstSegment    = 0
 	listLimit       = 1000
 
 	deleteObjectPiecesSuccessThreshold = 0.75
@@ -148,13 +150,6 @@ func calculateSpaceUsed(ptr *pb.Pointer) (segmentSize, totalStored int64) {
 	pieceSize := segmentSize / int64(minReq)
 	pieces := remote.GetRemotePieces()
 	return segmentSize, pieceSize * int64(len(pieces))
-}
-
-func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
-	entries := make([]string, 0)
-	entries = append(entries, projectID.String())
-	entries = append(entries, string(bucket))
-	return []byte(storj.JoinPaths(entries...))
 }
 
 // filterValidPieces filter out the invalid remote pieces held by pointer.
@@ -400,9 +395,12 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	})
 	canList := err == nil
 
-	var bucket storj.Bucket
+	var (
+		bucket     storj.Bucket
+		convBucket *pb.Bucket
+	)
 	if canRead || canList {
-		// Info about deleted bucket is returned only if either Read, or List permission is granted
+		// Info about deleted bucket is returned only if either Read, or List permission is granted.
 		bucket, err = endpoint.metainfo.GetBucket(ctx, req.Name, keyInfo.ProjectID)
 		if err != nil {
 			if storj.ErrBucketNotFound.Has(err) {
@@ -410,28 +408,105 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 			}
 			return nil, err
 		}
+
+		convBucket, err = convertBucketToProto(bucket, endpoint.redundancyScheme())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = endpoint.metainfo.DeleteBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
 		if !canRead && !canList {
-			// No error info is returned if neither Read, nor List permission is granted
+			// No error info is returned if neither Read, nor List permission is granted.
 			return &pb.BucketDeleteResponse{}, nil
 		}
 		if ErrBucketNotEmpty.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
-		} else if storj.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+			// List permission is required to delete all objects in a bucket.
+			if !req.GetDeleteAll() || !canList {
+				return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+			}
+
+			_, deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, keyInfo.ProjectID, req.Name)
+			if err != nil {
+				return nil, err
+			}
+
+			return &pb.BucketDeleteResponse{Bucket: convBucket, DeletedObjectsCount: int64(deletedObjCount)}, nil
+		}
+		if storj.ErrBucketNotFound.Has(err) {
+			return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
 		}
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	convBucket, err := convertBucketToProto(bucket, endpoint.redundancyScheme())
+	return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
+}
+
+// deleteBucketNotEmpty deletes all objects that're complete or have first segment.
+// On success, it returns only the number of complete objects that has been deleted
+// since from the user's perspective, objects without last segment are invisible.
+func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) ([]byte, int, error) {
+	// Delete all objects that has last segment.
+	deletedCount, err := endpoint.deleteByPrefix(ctx, projectID, bucketName, lastSegment)
 	if err != nil {
-		return nil, err
+		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+	// Delete all zombie objects that have first segment.
+	_, err = endpoint.deleteByPrefix(ctx, projectID, bucketName, firstSegment)
+	if err != nil {
+		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
+	err = endpoint.metainfo.DeleteBucket(ctx, bucketName, projectID)
+	if err != nil {
+		if ErrBucketNotEmpty.Has(err) {
+			return nil, 0, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+		}
+		if storj.ErrBucketNotFound.Has(err) {
+			return bucketName, 0, nil
+		}
+		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return bucketName, deletedCount, nil
+}
+
+// deleteByPrefix deletes all objects that matches with a prefix.
+func (endpoint *Endpoint) deleteByPrefix(ctx context.Context, projectID uuid.UUID, bucketName []byte, segmentIdx int64) (deletedCount int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	prefix, err := CreatePath(ctx, projectID, segmentIdx, bucketName, []byte{})
+	if err != nil {
+		return deletedCount, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	for {
+		segments, more, err := endpoint.metainfo.List(ctx, prefix, "", true, 0, meta.None)
+		if err != nil {
+			return deletedCount, err
+		}
+
+		deleteReqs := make([]*objectdeletion.ObjectIdentifier, len(segments))
+		for i, segment := range segments {
+			deleteReqs[i] = &objectdeletion.ObjectIdentifier{
+				ProjectID:     projectID,
+				Bucket:        bucketName,
+				EncryptedPath: []byte(segment.Path),
+			}
+		}
+		rep, err := endpoint.deleteObjectsPieces(ctx, deleteReqs...)
+		if err != nil {
+			return deletedCount, err
+		}
+
+		deletedCount += len(rep.Deleted)
+
+		if !more {
+			break
+		}
+	}
+	return deletedCount, nil
 }
 
 // ListBuckets returns buckets in a project where the bucket name matches the request cursor.
@@ -1096,8 +1171,8 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	bucketID := createBucketID(keyInfo.ProjectID, streamID.Bucket)
-	rootPieceID, addressedLimits, piecePrivateKey, err := endpoint.orders.CreatePutOrderLimits(ctx, bucketID, nodes, streamID.ExpirationDate, maxPieceSize)
+	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
+	rootPieceID, addressedLimits, piecePrivateKey, err := endpoint.orders.CreatePutOrderLimits(ctx, bucket, nodes, streamID.ExpirationDate, maxPieceSize)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1350,7 +1425,8 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		}
 	}
 
-	err = endpoint.orders.UpdatePutInlineOrder(ctx, keyInfo.ProjectID, streamID.Bucket, inlineUsed)
+	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
+	err = endpoint.orders.UpdatePutInlineOrder(ctx, bucket, inlineUsed)
 	if err != nil {
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1388,8 +1464,8 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 	var limits []*pb.AddressedOrderLimit
 	var privateKey storj.PiecePrivateKey
 	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		bucketID := createBucketID(keyInfo.ProjectID, streamID.Bucket)
-		limits, privateKey, err = endpoint.orders.CreateDeleteOrderLimits(ctx, bucketID, pointer)
+		bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
+		limits, privateKey, err = endpoint.orders.CreateDeleteOrderLimits(ctx, bucket, pointer)
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
@@ -1631,9 +1707,9 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, err
 	}
 
-	bucketID := createBucketID(keyInfo.ProjectID, streamID.Bucket)
+	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
 
-	exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID, bucketID)
+	exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("Retrieving project bandwidth total failed.", zap.Error(err))
 	}
@@ -1691,7 +1767,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	if pointer.Type == pb.Pointer_INLINE {
-		err := endpoint.orders.UpdateGetInlineOrder(ctx, keyInfo.ProjectID, streamID.Bucket, int64(len(pointer.InlineSegment)))
+		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, int64(len(pointer.InlineSegment)))
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
@@ -1707,7 +1783,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			EncryptedKey:      encryptedKey,
 		}, nil
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
+		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucket, pointer)
 		if err != nil {
 			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 				endpoint.log.Error("Unable to create order limits.",
@@ -1885,15 +1961,13 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 ) (report objectdeletion.Report, err error) {
 	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
 
-	// We should ignore client cancelling and always try to delete segments.
-	ctx = context2.WithoutCancellation(ctx)
-
 	req := &objectdeletion.ObjectIdentifier{
 		ProjectID:     projectID,
 		Bucket:        bucket,
 		EncryptedPath: encryptedPath,
 	}
-	results, err := endpoint.deleteObjects.Delete(ctx, req)
+
+	report, err = endpoint.deleteObjectsPieces(ctx, req)
 	if err != nil {
 		endpoint.log.Error("failed to delete pointers",
 			zap.Stringer("project_id", projectID),
@@ -1901,9 +1975,26 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 			zap.Binary("encrypted_path", encryptedPath),
 			zap.Error(err),
 		)
-		return report, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		// Only return an error if we failed to delete the pointers. If we failed
+		// to delete pieces, let garbage collector take care of it.
+		if objectdeletion.Error.Has(err) {
+			return report, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
 	}
 
+	return report, nil
+}
+
+func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...*objectdeletion.ObjectIdentifier) (report objectdeletion.Report, err error) {
+	// We should ignore client cancelling and always try to delete segments.
+	ctx = context2.WithoutCancellation(ctx)
+
+	results, err := endpoint.deleteObjects.Delete(ctx, reqs...)
+	if err != nil {
+		return report, err
+	}
+
+	var requests []piecedeletion.Request
 	for _, r := range results {
 		pointers := r.DeletedPointers()
 		report.Deleted = append(report.Deleted, r.Deleted...)
@@ -1915,46 +2006,21 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 			continue
 		}
 
-		nodeIDs := []storj.NodeID{}
-		for nodeID := range nodesPieces {
-			nodeIDs = append(nodeIDs, nodeID)
-		}
-
-		nodes, err := endpoint.overlay.KnownReliable(ctx, nodeIDs)
-		if err != nil {
-			endpoint.log.Warn("unable to look up nodes from overlay",
-				zap.String("object_path",
-					fmt.Sprintf("%s/%s/%q", projectID, bucket, encryptedPath),
-				),
-				zap.Error(err),
-			)
-			// Pieces will be collected by garbage collector
-			continue
-		}
-
-		var requests []piecedeletion.Request
-		for _, node := range nodes {
+		for node, pieces := range nodesPieces {
 			requests = append(requests, piecedeletion.Request{
 				Node: storj.NodeURL{
-					ID:      node.Id,
-					Address: node.Address.Address,
+					ID: node,
 				},
-				Pieces: nodesPieces[node.Id],
+				Pieces: pieces,
 			})
-		}
-
-		if err := endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold); err != nil {
-			endpoint.log.Error("failed to delete pieces",
-				zap.Stringer("project_id", projectID),
-				zap.ByteString("bucket_name", bucket),
-				zap.Binary("encrypted_path", encryptedPath),
-				zap.Error(err),
-			)
 		}
 	}
 
-	return report, nil
+	if err := endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold); err != nil {
+		endpoint.log.Error("failed to delete pieces", zap.Error(err))
+	}
 
+	return report, nil
 }
 
 func (endpoint *Endpoint) redundancyScheme() *pb.RedundancyScheme {

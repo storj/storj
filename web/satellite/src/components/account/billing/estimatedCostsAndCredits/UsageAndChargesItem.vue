@@ -4,7 +4,7 @@
 <template>
     <div class="usage-charges-item-container">
         <div class="usage-charges-item-container__summary" @click="toggleDetailedInfo">
-            <div class="usage-charges-item-container__summary__name-container" >
+            <div class="usage-charges-item-container__summary__name-container">
                 <ChargesExpandIcon v-if="isDetailedInfoShown"/>
                 <ChargesHideIcon v-else/>
                 <span>{{ projectName }}</span>
@@ -204,7 +204,6 @@ export default class UsageAndChargesItem extends Vue {
             }
 
             &__amount {
-                width: 100%;
                 font-size: 16px;
                 line-height: 21px;
                 text-align: right;

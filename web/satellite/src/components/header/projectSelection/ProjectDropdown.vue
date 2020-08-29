@@ -2,25 +2,25 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="project-selection-choice-container" id="projectDropdown">
-        <div class="project-selection-overflow-container">
-            <div class="project-selection-overflow-container__project-choice" @click="closeDropdown">
-                <div class="project-selection-overflow-container__project-choice__mark-container">
+    <div class="project-dropdown">
+        <div class="project-dropdown__wrap">
+            <div class="project-dropdown__wrap__choice" @click.prevent.stop="closeDropdown">
+                <div class="project-dropdown__wrap__choice__mark-container">
                     <ProjectSelectionIcon
-                        class="project-selection-overflow-container__project-choice__mark-container__image"
+                        class="project-dropdown__wrap__choice__mark-container__image"
                     />
                 </div>
-                <p class="project-selection-overflow-container__project-choice__selected">
+                <p class="project-dropdown__wrap__choice__selected">
                     {{ selectedProject.name }}
                 </p>
             </div>
             <div
-                class="project-selection-overflow-container__project-choice"
-                @click="onProjectSelected(project.id)"
+                class="project-dropdown__wrap__choice"
+                @click.prevent.stop="onProjectSelected(project.id)"
                 v-for="project in projects"
                 :key="project.id"
             >
-                <p class="project-selection-overflow-container__project-choice__unselected">{{ project.name }}</p>
+                <p class="project-dropdown__wrap__choice__unselected">{{ project.name }}</p>
             </div>
         </div>
     </div>
@@ -36,17 +36,14 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
-import {
-    APP_STATE_ACTIONS,
-    PM_ACTIONS,
-} from '@/utils/constants/actionNames';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
         ProjectSelectionIcon,
     },
 })
-export default class ProjectSelectionDropdown extends Vue {
+export default class ProjectDropdown extends Vue {
     private FIRST_PAGE = 1;
 
     /**
@@ -107,7 +104,7 @@ export default class ProjectSelectionDropdown extends Vue {
      * Closes dropdown.
      */
     public closeDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
+        this.$emit('close');
     }
 }
 </script>
@@ -120,62 +117,59 @@ export default class ProjectSelectionDropdown extends Vue {
         width: 0;
     }
 
-    .project-selection-choice-container {
+    .project-dropdown {
         position: absolute;
-        top: 65px;
-        left: -5px;
-        background-color: #fff;
-        z-index: 1120;
+        left: -3px;
+        top: 60px;
         border: 1px solid #c5cbdb;
         box-shadow: 0 8px 34px rgba(161, 173, 185, 0.41);
         border-radius: 6px;
-    }
 
-    .project-selection-overflow-container {
-        position: relative;
-        min-width: 226px;
-        width: auto;
-        overflow-y: scroll;
-        height: auto;
-        max-height: 240px;
-        background-color: #fff;
-        font-family: 'font_regular', sans-serif;
-        border-radius: 6px;
+        &__wrap {
+            width: auto;
+            overflow-y: scroll;
+            height: auto;
+            min-width: 195px;
+            max-height: 240px;
+            background-color: #fff;
+            border-radius: 6px;
+            font-family: 'font_regular', sans-serif;
 
-        &__project-choice {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 0 25px;
+            &__choice {
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+                padding: 0 25px;
 
-            &__selected,
-            &__unselected {
-                margin: 12px 0;
-                font-size: 14px;
-                line-height: 20px;
-                color: #7e8b9c;
-                word-break: break-all;
-            }
-
-            &__selected {
-                font-family: 'font_bold', sans-serif;
-                color: #494949;
-            }
-
-            &:hover {
-                background-color: #f2f2f6;
-
-                .project-selection-overflow-container__project-choice__unselected {
-                    color: #354049;
+                &__selected,
+                &__unselected {
+                    margin: 12px 0;
+                    font-size: 14px;
+                    line-height: 20px;
+                    color: #7e8b9c;
+                    word-break: break-all;
                 }
-            }
 
-            &__mark-container {
-                width: 10px;
-                margin-right: 12px;
+                &__selected {
+                    font-family: 'font_bold', sans-serif;
+                    color: #494949;
+                }
 
-                &__image {
-                    object-fit: cover;
+                &:hover {
+                    background-color: #f2f2f6;
+
+                    .project-dropdown__wrap__choice__unselected {
+                        color: #354049;
+                    }
+                }
+
+                &__mark-container {
+                    width: 10px;
+                    margin-right: 12px;
+
+                    &__image {
+                        object-fit: cover;
+                    }
                 }
             }
         }
@@ -183,12 +177,5 @@ export default class ProjectSelectionDropdown extends Vue {
 
     .arrow {
         padding-right: 25px;
-    }
-
-    @media screen and (max-width: 1280px) {
-
-        .project-selection-choice-container {
-            top: 50px;
-        }
     }
 </style>
