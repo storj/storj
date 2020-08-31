@@ -26,6 +26,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
 )
@@ -325,10 +326,12 @@ func TestObserver_processSegment_from_to(t *testing.T) {
 			to:      to,
 		}
 		path := metainfo.ScopedPath{
-			ProjectID:           testrand.UUID(),
-			Segment:             "l",
-			BucketName:          "bucket1",
-			EncryptedObjectPath: "path1",
+			SegmentLocation: metabase.SegmentLocation{
+				ProjectID:  testrand.UUID(),
+				BucketName: "bucket1",
+				Index:      metabase.LastSegmentIndex,
+				ObjectKey:  metabase.ObjectKey("path1"),
+			},
 		}
 		pointer := &pb.Pointer{
 			CreationDate: tt.pointerCreateDate,
@@ -597,21 +600,22 @@ func createNewObjectSegments(
 		objectID        = testrand.UUID().String()
 		projectIDString = projectID.String()
 		references      = make([]segmentRef, 0, numSegments)
-		encryptedPath   = fmt.Sprintf("%s-%s-%s", projectIDString, bucketName, objectID)
 	)
 
 	for i := 0; i < (numSegments - 1); i++ {
-		raw, err := metainfo.CreatePath(ctx, *projectID, int64(i), []byte(bucketName), []byte(objectID))
-		require.NoError(t, err)
+		segmentLocation := metabase.SegmentLocation{
+			ProjectID:  *projectID,
+			BucketName: bucketName,
+			Index:      int64(i),
+			ObjectKey:  metabase.ObjectKey(objectID),
+		}
+		raw := string(segmentLocation.Encode())
 
 		references = append(references, segmentRef{
 			path: metainfo.ScopedPath{
-				ProjectID:           *projectID,
-				ProjectIDString:     projectIDString,
-				BucketName:          bucketName,
-				Segment:             fmt.Sprintf("s%d", i),
-				EncryptedObjectPath: encryptedPath,
-				Raw:                 raw,
+				SegmentLocation: segmentLocation,
+				ProjectIDString: projectIDString,
+				Raw:             raw,
 			},
 			pointer: &pb.Pointer{
 				Type:         pb.Pointer_REMOTE,
@@ -635,17 +639,19 @@ func createNewObjectSegments(
 	})
 	require.NoError(t, err)
 
-	raw, err := metainfo.CreatePath(ctx, *projectID, -1, []byte(bucketName), []byte(objectID))
-	require.NoError(t, err)
+	segmentLocation := metabase.SegmentLocation{
+		ProjectID:  *projectID,
+		BucketName: bucketName,
+		Index:      metabase.LastSegmentIndex,
+		ObjectKey:  metabase.ObjectKey(objectID),
+	}
+	raw := string(segmentLocation.Encode())
 
 	references = append(references, segmentRef{
 		path: metainfo.ScopedPath{
-			ProjectID:           *projectID,
-			ProjectIDString:     projectIDString,
-			BucketName:          bucketName,
-			Segment:             "l",
-			EncryptedObjectPath: encryptedPath,
-			Raw:                 raw,
+			SegmentLocation: segmentLocation,
+			ProjectIDString: projectIDString,
+			Raw:             raw,
 		},
 		pointer: &pb.Pointer{
 			Type:         pointerType,
@@ -654,7 +660,7 @@ func createNewObjectSegments(
 		},
 	})
 
-	return encryptedPath, references
+	return objectID, references
 }
 
 type testdataObjects struct {

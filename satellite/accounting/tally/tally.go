@@ -17,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // Error is a standard error class for this package.
@@ -195,7 +196,7 @@ type Observer struct {
 	Now    time.Time
 	Log    *zap.Logger
 	Node   map[storj.NodeID]float64
-	Bucket map[string]*accounting.BucketTally
+	Bucket map[metabase.BucketLocation]*accounting.BucketTally
 }
 
 // NewObserver returns an metainfo loop observer that adds up totals for buckets and nodes.
@@ -205,7 +206,7 @@ func NewObserver(log *zap.Logger, now time.Time) *Observer {
 		Now:    now,
 		Log:    log,
 		Node:   make(map[storj.NodeID]float64),
-		Bucket: make(map[string]*accounting.BucketTally),
+		Bucket: make(map[metabase.BucketLocation]*accounting.BucketTally),
 	}
 }
 
@@ -215,14 +216,12 @@ func (observer *Observer) pointerExpired(pointer *pb.Pointer) bool {
 
 // ensureBucket returns bucket corresponding to the passed in path.
 func (observer *Observer) ensureBucket(ctx context.Context, path metainfo.ScopedPath) *accounting.BucketTally {
-	bucketID := storj.JoinPaths(path.ProjectIDString, path.BucketName)
-
-	bucket, exists := observer.Bucket[bucketID]
+	bucketLocation := path.Bucket()
+	bucket, exists := observer.Bucket[bucketLocation]
 	if !exists {
 		bucket = &accounting.BucketTally{}
-		bucket.ProjectID = path.ProjectID
-		bucket.BucketName = []byte(path.BucketName)
-		observer.Bucket[bucketID] = bucket
+		bucket.BucketLocation = bucketLocation
+		observer.Bucket[bucketLocation] = bucket
 	}
 
 	return bucket
@@ -282,7 +281,7 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.Scope
 	return nil
 }
 
-func projectTotalsFromBuckets(buckets map[string]*accounting.BucketTally) map[uuid.UUID]int64 {
+func projectTotalsFromBuckets(buckets map[metabase.BucketLocation]*accounting.BucketTally) map[uuid.UUID]int64 {
 	projectTallyTotals := make(map[uuid.UUID]int64)
 	for _, bucket := range buckets {
 		projectTallyTotals[bucket.ProjectID] += (bucket.InlineBytes + bucket.RemoteBytes)

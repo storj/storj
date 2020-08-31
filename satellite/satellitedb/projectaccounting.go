@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -30,7 +31,7 @@ type ProjectAccounting struct {
 }
 
 // SaveTallies saves the latest bucket info.
-func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) (err error) {
+func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[metabase.BucketLocation]*accounting.BucketTally) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(bucketTallies) == 0 {
 		return nil
@@ -39,7 +40,7 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 	var inlineBytes, remoteBytes, metadataSizes []int64
 	var remoteSegments, inlineSegments, objectCounts []int64
 	for _, info := range bucketTallies {
-		bucketNames = append(bucketNames, info.BucketName)
+		bucketNames = append(bucketNames, []byte(info.BucketName))
 		projectIDs = append(projectIDs, info.ProjectID[:])
 		inlineBytes = append(inlineBytes, info.InlineBytes)
 		remoteBytes = append(remoteBytes, info.RemoteBytes)
@@ -86,8 +87,10 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 		}
 
 		tallies = append(tallies, accounting.BucketTally{
-			BucketName:     dbxTally.BucketName,
-			ProjectID:      projectID,
+			BucketLocation: metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: string(dbxTally.BucketName),
+			},
 			ObjectCount:    int64(dbxTally.ObjectCount),
 			InlineSegments: int64(dbxTally.InlineSegmentsCount),
 			RemoteSegments: int64(dbxTally.RemoteSegmentsCount),

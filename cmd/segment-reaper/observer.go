@@ -116,7 +116,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 	}
 
 	obsvr.lastProjectID = path.ProjectIDString
-	isLastSegment := path.Segment == "l"
+	isLastSegment := path.IsLast()
 
 	// collect number of pointers for reporting
 	if pointer.Type == pb.Pointer_INLINE {
@@ -128,7 +128,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		obsvr.remoteSegments++
 	}
 
-	object := findOrCreate(path.BucketName, path.EncryptedObjectPath, obsvr.objects)
+	object := findOrCreate(path.BucketName, string(path.ObjectKey), obsvr.objects)
 	if obsvr.from != nil && pointer.CreationDate.Before(*obsvr.from) {
 		object.skip = true
 		// release the memory consumed by the segments because it won't be used
@@ -156,9 +156,9 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 			object.expectedNumberOfSegments = int(streamMeta.NumberOfSegments)
 		}
 	} else {
-		segmentIndex, err := strconv.Atoi(path.Segment[1:])
-		if err != nil {
-			return err
+		segmentIndex := int(path.Index)
+		if int64(segmentIndex) != path.Index {
+			return errs.New("unsupported segment index: %d", path.Index)
 		}
 		ok, err := object.segments.Has(segmentIndex)
 		if err != nil {

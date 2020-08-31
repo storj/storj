@@ -14,9 +14,9 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
@@ -45,7 +45,7 @@ type durabilityStats struct {
 	newRemoteSegmentsNeedingRepair int64
 	remoteSegmentsLost             int64
 	remoteSegmentsFailedToCheck    int64
-	remoteSegmentInfo              []string
+	remoteSegmentInfo              []metabase.ObjectLocation
 	// remoteSegmentsOverThreshold[0]=# of healthy=rt+1, remoteSegmentsOverThreshold[1]=# of healthy=rt+2, etc...
 	remoteSegmentsOverThreshold [5]int64
 }
@@ -151,8 +151,8 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	return nil
 }
 
-// checks for a string in slice.
-func contains(a []string, x string) bool {
+// checks for a object location in slice.
+func containsObjectLocation(a []metabase.ObjectLocation, x metabase.ObjectLocation) bool {
 	for _, n := range a {
 		if x == n {
 			return true
@@ -311,20 +311,9 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 			return nil
 		}
 	} else if numHealthy < redundancy.MinReq && numHealthy < repairThreshold {
-		// TODO: see whether this can be handled with metainfo.ScopedPath
-		pathElements := storj.SplitPath(path.Raw)
-
-		// check to make sure there are at least *4* path elements. the first three
-		// are project, segment, and bucket name, but we want to make sure we're talking
-		// about an actual object, and that there's an object name specified
-		if len(pathElements) >= 4 {
-			project, bucketName, segmentpath := pathElements[0], pathElements[2], pathElements[3]
-
-			// TODO: is this correct? split splits all path components, but it's only using the third.
-			lostSegInfo := storj.JoinPaths(project, bucketName, segmentpath)
-			if !contains(obs.monStats.remoteSegmentInfo, lostSegInfo) {
-				obs.monStats.remoteSegmentInfo = append(obs.monStats.remoteSegmentInfo, lostSegInfo)
-			}
+		lostSegInfo := path.Object()
+		if !containsObjectLocation(obs.monStats.remoteSegmentInfo, lostSegInfo) {
+			obs.monStats.remoteSegmentInfo = append(obs.monStats.remoteSegmentInfo, lostSegInfo)
 		}
 
 		var segmentAge time.Duration

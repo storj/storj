@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 func TestDeleteTalliesBefore(t *testing.T) {
@@ -81,8 +82,10 @@ func TestOnlyInline(t *testing.T) {
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
 		expectedBucketName := "testbucket"
 		expectedTally := &accounting.BucketTally{
-			BucketName:     []byte(expectedBucketName),
-			ProjectID:      uplink.Projects[0].ID,
+			BucketLocation: metabase.BucketLocation{
+				ProjectID:  uplink.Projects[0].ID,
+				BucketName: expectedBucketName,
+			},
 			ObjectCount:    1,
 			InlineSegments: 1,
 			InlineBytes:    int64(expectedTotalBytes),
@@ -173,7 +176,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
 		redundancyScheme := satelliteRS(satellitePeer)
-		expectedBucketTallies := make(map[string]*accounting.BucketTally)
+		expectedBucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
 		for _, tt := range testCases {
 			tt := tt // avoid scopelint error
 
@@ -188,11 +191,14 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				err = metainfo.Put(ctx, objectPath, pointer)
 				require.NoError(t, err)
 
-				bucketID := fmt.Sprintf("%s/%s", tt.project, tt.bucketName)
-				newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
-				newTally.BucketName = []byte(tt.bucketName)
+				bucketLocation := metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: tt.bucketName,
+				}
+				newTally := addBucketTally(expectedBucketTallies[bucketLocation], tt.inline, tt.last)
+				newTally.BucketName = tt.bucketName
 				newTally.ProjectID = projectID
-				expectedBucketTallies[bucketID] = newTally
+				expectedBucketTallies[bucketLocation] = newTally
 
 				obs := tally.NewObserver(satellitePeer.Log.Named("observer"), time.Now())
 				err = satellitePeer.Metainfo.Loop.Join(ctx, obs)
@@ -227,7 +233,7 @@ func TestTallyIgnoresExpiredPointers(t *testing.T) {
 		require.NoError(t, err)
 
 		// there should be no observed buckets because all of the pointers are expired
-		require.Equal(t, obs.Bucket, map[string]*accounting.BucketTally{})
+		require.Equal(t, obs.Bucket, map[metabase.BucketLocation]*accounting.BucketTally{})
 	})
 }
 
