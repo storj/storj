@@ -370,4 +370,10 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	err = server.payments.CreditCards().RemoveAll(ctx, user.ID)
+	if err != nil {
+		httpJSONError(w, "unable to delete credit card(s) from stripe account",
+			err.Error(), http.StatusInternalServerError)
+	}
 }

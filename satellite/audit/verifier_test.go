@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
@@ -50,10 +51,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: uplink.Projects[0].ID, BucketName: "testbucket"}
 
 		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
@@ -66,7 +64,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
+		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
 		require.NoError(t, err)
 
 		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
@@ -104,10 +102,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: uplink.Projects[0].ID, BucketName: "testbucket"}
 
 		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
@@ -120,7 +115,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
+		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
 		require.NoError(t, err)
 
 		// stop the first node in the pointer
@@ -176,17 +171,14 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: uplink.Projects[0].ID, BucketName: "testbucket"}
 
 		// replace the piece id of the selected stripe with a new random one
 		// to simulate missing piece on the storage nodes
 		pointer.GetRemote().RootPieceId = storj.NewPieceID()
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
+		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
 		require.NoError(t, err)
 
 		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
@@ -234,10 +226,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
 		require.NoError(t, err)
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: upl.Projects[0].ID, BucketName: "testbucket"}
 
 		tlsOptions, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
@@ -263,7 +252,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 			5*time.Second)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
+		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
 		require.NoError(t, err)
 
 		shares, err := verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
@@ -308,10 +297,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		err := upl.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: upl.Projects[0].ID, BucketName: "testbucket"}
 
 		audits.Chore.Loop.TriggerWait()
 		path, err := queue.Next()
@@ -339,7 +325,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			150*time.Millisecond)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucketID, pointer, nil)
+		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
 		require.NoError(t, err)
 
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares

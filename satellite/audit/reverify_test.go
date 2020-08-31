@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
@@ -66,15 +67,12 @@ func TestReverifySuccess(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
 		rootPieceID := pointer.GetRemote().RootPieceId
-		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucket, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
@@ -150,15 +148,12 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
 		rootPieceID := pointer.GetRemote().RootPieceId
-		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucket, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
@@ -236,15 +231,12 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
 		rootPieceID := pointer.GetRemote().RootPieceId
-		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucket, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
@@ -856,14 +848,11 @@ func TestReverifyDifferentShare(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer1.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		rootPieceID := pointer1.GetRemote().RootPieceId
-		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucket, selectedNode, selectedPieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(selectedPieceNum))
@@ -1024,14 +1013,11 @@ func TestReverifyExpired2(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer1.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		rootPieceID := pointer1.GetRemote().RootPieceId
-		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucket, selectedNode, selectedPieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(selectedPieceNum))
@@ -1134,15 +1120,12 @@ func TestReverifySlowDownload(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
 		rootPieceID := pointer.GetRemote().RootPieceId
-		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, slowNode, slowPiece.PieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucket, slowNode, slowPiece.PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))
@@ -1221,15 +1204,12 @@ func TestReverifyUnknownError(t *testing.T) {
 		orders := satellite.Orders.Service
 		containment := satellite.DB.Containment()
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: ul.Projects[0].ID, BucketName: "testbucket"}
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := pointer.GetRemote().GetRemotePieces()
 		rootPieceID := pointer.GetRemote().RootPieceId
-		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, badNode, badPiece.PieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucket, badNode, badPiece.PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, randomIndex, shareSize, int(pieces[0].PieceNum))

@@ -56,10 +56,10 @@ type DB interface {
 	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
-	// BatchUpdateStats updates multiple storagenode's stats in one transaction
-	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int, auditHistoryConfig AuditHistoryConfig) (failed storj.NodeIDList, err error)
+	// BatchUpdateStats updates multiple storagenode's stats in one transaction.
+	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int, now time.Time) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
-	UpdateStats(ctx context.Context, request *UpdateRequest, auditHistoryConfig AuditHistoryConfig) (stats *NodeStats, err error)
+	UpdateStats(ctx context.Context, request *UpdateRequest, now time.Time) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
@@ -169,6 +169,7 @@ type UpdateRequest struct {
 	SuspensionDQEnabled       bool
 	AuditsRequiredForVetting  int64
 	UptimesRequiredForVetting int64
+	AuditHistory              AuditHistoryConfig
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -200,6 +201,8 @@ type NodeDossier struct {
 	Contained             bool
 	Disqualified          *time.Time
 	UnknownAuditSuspended *time.Time
+	OfflineSuspended      *time.Time
+	OfflineUnderReview    *time.Time
 	PieceCount            int64
 	ExitStatus            ExitStatus
 	CreatedAt             time.Time
@@ -429,8 +432,9 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 		request.AuditsRequiredForVetting = service.config.Node.AuditCount
 		request.UptimesRequiredForVetting = service.config.Node.UptimeCount
+		request.AuditHistory = service.config.AuditHistory
 	}
-	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize, service.config.AuditHistory)
+	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize, time.Now())
 }
 
 // UpdateStats all parts of single storagenode's stats.
@@ -444,8 +448,9 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 	request.AuditsRequiredForVetting = service.config.Node.AuditCount
 	request.UptimesRequiredForVetting = service.config.Node.UptimeCount
+	request.AuditHistory = service.config.AuditHistory
 
-	return service.db.UpdateStats(ctx, request, service.config.AuditHistory)
+	return service.db.UpdateStats(ctx, request, time.Now())
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.

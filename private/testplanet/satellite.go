@@ -452,7 +452,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					CacheExpiration: 10 * time.Second,
 				},
 				ProjectLimits: metainfo.ProjectLimitConfig{
-					MaxBuckets:          1000,
+					MaxBuckets:          10,
 					DefaultMaxUsage:     25 * memory.GB,
 					DefaultMaxBandwidth: 25 * memory.GB,
 				},

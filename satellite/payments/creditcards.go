@@ -22,6 +22,10 @@ type CreditCards interface {
 	// Remove is used to detach a credit card from payment account.
 	Remove(ctx context.Context, userID uuid.UUID, cardID string) error
 
+	// RemoveAll is used to detach all credit cards from payment account.
+	// It should only be used in case of a user deletion.
+	RemoveAll(ctx context.Context, userID uuid.UUID) error
+
 	// MakeDefault makes a credit card default payment method.
 	// this credit card should be attached to account before make it default.
 	MakeDefault(ctx context.Context, userID uuid.UUID, cardID string) error

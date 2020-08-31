@@ -21,6 +21,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
@@ -124,10 +125,6 @@ func TestGarbageCollection(t *testing.T) {
 }
 
 func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Satellite, upl *testplanet.Uplink, bucket, path string) (lastSegPath string, pointer *pb.Pointer) {
-	projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-	require.NoError(t, err)
-	require.Len(t, projects, 1)
-
 	access := upl.Access[satellite.ID()]
 
 	serializedAccess, err := access.Serialize()
@@ -139,7 +136,14 @@ func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Sa
 	encryptedPath, err := encryption.EncryptPathWithStoreCipher(bucket, paths.NewUnencrypted(path), store)
 	require.NoError(t, err)
 
-	lastSegPath = storj.JoinPaths(projects[0].ID.String(), "l", bucket, encryptedPath.Raw())
+	segmentLocation := metabase.SegmentLocation{
+		ProjectID:  upl.Projects[0].ID,
+		BucketName: bucket,
+		Index:      metabase.LastSegmentIndex,
+		ObjectKey:  metabase.ObjectKey(encryptedPath.Raw()),
+	}
+
+	lastSegPath = string(segmentLocation.Encode())
 	pointer, err = satellite.Metainfo.Service.Get(ctx, lastSegPath)
 	require.NoError(t, err)
 

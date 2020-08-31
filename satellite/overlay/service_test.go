@@ -200,7 +200,8 @@ func TestRandomizedSelection(t *testing.T) {
 					AuditLambda:  1,
 					AuditWeight:  1,
 					AuditDQ:      0.5,
-				}, testAuditHistoryConfig())
+					AuditHistory: testAuditHistoryConfig(),
+				}, time.Now())
 				require.NoError(t, err)
 			}
 
@@ -321,7 +322,8 @@ func TestRandomizedSelectionCache(t *testing.T) {
 					AuditLambda:  1,
 					AuditWeight:  1,
 					AuditDQ:      0.5,
-				}, testAuditHistoryConfig())
+					AuditHistory: testAuditHistoryConfig(),
+				}, time.Now())
 				require.NoError(t, err)
 			}
 
@@ -778,7 +780,8 @@ func TestSuspendedSelection(t *testing.T) {
 					AuditLambda:  1,
 					AuditWeight:  1,
 					AuditDQ:      0.5,
-				}, testAuditHistoryConfig())
+					AuditHistory: testAuditHistoryConfig(),
+				}, time.Now().UTC())
 				require.NoError(t, err)
 			}
 

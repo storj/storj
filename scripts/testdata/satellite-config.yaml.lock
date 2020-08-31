@@ -152,7 +152,7 @@ contact.external-address: ""
 # db-cleanup.serials-interval: 4h0m0s
 
 # Maximum Database Connection Lifetime, -1ns means the stdlib default
-# db.conn_max_lifetime: -1ns
+# db.conn_max_lifetime: 30m0s
 
 # Maximum Amount of Idle Database connections, -1 means the stdlib default
 # db.max_idle_conns: 1
