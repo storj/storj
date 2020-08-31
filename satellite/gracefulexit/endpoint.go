@@ -21,6 +21,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/eestream"
@@ -395,13 +396,12 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 
 	pieceID := remote.RootPieceId.Derive(nodeID, incomplete.PieceNum)
 
-	parts := storj.SplitPath(storj.Path(incomplete.Path))
-	if len(parts) < 3 {
-		return Error.New("invalid path for node ID %v, piece ID %v", incomplete.NodeID, pieceID)
+	segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(incomplete.Path))
+	if err != nil {
+		return Error.New("invalid path for node ID %v, piece ID %v: %w", incomplete.NodeID, pieceID, err)
 	}
 
-	bucketID := []byte(storj.JoinPaths(parts[0], parts[2]))
-	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, bucketID, newNode.ID, incomplete.PieceNum, remote.RootPieceId, int32(pieceSize))
+	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, segmentLocation.Bucket(), newNode.ID, incomplete.PieceNum, remote.RootPieceId, int32(pieceSize))
 	if err != nil {
 		return Error.Wrap(err)
 	}

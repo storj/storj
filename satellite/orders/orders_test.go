@@ -188,12 +188,9 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		reportedRollupChore := planet.Satellites[0].Core.Accounting.ReportedRollupChore
 		require.NoError(t, reportedRollupChore.RunOnce(ctx, now))
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-
 		ordersDB := planet.Satellites[0].DB.Orders()
 
-		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, projects[0].ID, []byte(bucketName), beforeRollup, afterRollup)
+		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, planet.Uplinks[0].Projects[0].ID, []byte(bucketName), beforeRollup, afterRollup)
 		require.NoError(t, err)
 		require.Equal(t, expectedBucketBandwidth, bucketBandwidth)
 
@@ -272,51 +269,6 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 		require.NoError(t, err)
 		require.Greater(t, rightBucketBandwidth, int64(0))
 	})
-}
-
-func TestSplitBucketIDInvalid(t *testing.T) {
-	var testCases = []struct {
-		name     string
-		bucketID []byte
-	}{
-		{"invalid, not valid UUID", []byte("not UUID string/bucket1")},
-		{"invalid, not valid UUID, no bucket", []byte("not UUID string")},
-		{"invalid, no project, no bucket", []byte("")},
-	}
-	for _, tt := range testCases {
-		tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
-		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := orders.SplitBucketID(tt.bucketID)
-			assert.NotNil(t, err)
-			assert.Error(t, err)
-		})
-	}
-}
-
-func TestSplitBucketIDValid(t *testing.T) {
-	var testCases = []struct {
-		name               string
-		project            string
-		bucketName         string
-		expectedBucketName string
-	}{
-		{"valid, no bucket, no objects", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "", ""},
-		{"valid, with bucket", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "testbucket", "testbucket"},
-		{"valid, with object", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "testbucket/foo/bar.txt", "testbucket"},
-	}
-	for _, tt := range testCases {
-		tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
-		t.Run(tt.name, func(t *testing.T) {
-			expectedProjectID, err := uuid.FromString(tt.project)
-			assert.NoError(t, err)
-			bucketID := expectedProjectID.String() + "/" + tt.bucketName
-
-			actualProjectID, actualBucketName, err := orders.SplitBucketID([]byte(bucketID))
-			assert.NoError(t, err)
-			assert.Equal(t, expectedProjectID, actualProjectID)
-			assert.Equal(t, []byte(tt.expectedBucketName), actualBucketName)
-		})
-	}
 }
 
 func BenchmarkOrders(b *testing.B) {

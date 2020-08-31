@@ -4,6 +4,7 @@
 package main
 
 import (
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 
 	"storj.io/private/process"
@@ -11,6 +12,8 @@ import (
 )
 
 var (
+	mon = monkit.Package()
+
 	rootCmd = &cobra.Command{
 		Use:   "segment-reaper",
 		Short: "A tool for detecting and deleting zombie segments",

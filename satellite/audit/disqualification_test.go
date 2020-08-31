@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/storage/meta"
 )
@@ -121,11 +122,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		err := uplinkPeer.Upload(ctx, satellitePeer, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := satellitePeer.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		require.Len(t, projects, 1)
-
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucket := metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: "testbucket"}
 
 		items, _, err := satellitePeer.Metainfo.Service.List(ctx, "", "", true, 10, meta.All)
 		require.NoError(t, err)
@@ -138,7 +135,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		err = satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode)
 		require.NoError(t, err)
 
-		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucketID, pointer)
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, pointer)
 		require.NoError(t, err)
 		assert.Len(t, limits, len(pointer.GetRemote().GetRemotePieces())-1)
 

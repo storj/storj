@@ -25,6 +25,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/eestream"
@@ -117,7 +118,10 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	}
 
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-	bucketID := createBucketID(path)
+	segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(path))
+	if err != nil {
+		return Report{}, err
+	}
 
 	var offlineNodes storj.NodeIDList
 	var failedNodes storj.NodeIDList
@@ -125,7 +129,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
 
-	orderLimits, privateKey, err := verifier.orders.CreateAuditOrderLimits(ctx, bucketID, pointer, skip)
+	orderLimits, privateKey, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentLocation.Bucket(), pointer, skip)
 	if err != nil {
 		return Report{}, err
 	}
@@ -490,7 +494,13 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				return
 			}
 
-			limit, piecePrivateKey, err := verifier.orders.CreateAuditOrderLimit(ctx, createBucketID(pending.Path), pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
+			segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(pending.Path)) // TODO: this should be parsed in pending
+			if err != nil {
+				ch <- result{nodeID: pending.NodeID, status: skipped}
+				return
+			}
+
+			limit, piecePrivateKey, err := verifier.orders.CreateAuditOrderLimit(ctx, segmentLocation.Bucket(), pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
 			if err != nil {
 				if overlay.ErrNodeDisqualified.Has(err) {
 					_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
@@ -805,15 +815,6 @@ func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, off
 	}
 
 	return successNodes
-}
-
-func createBucketID(path storj.Path) []byte {
-	comps := storj.SplitPath(path)
-	if len(comps) < 3 {
-		return nil
-	}
-	// project_id/bucket_name
-	return []byte(storj.JoinPaths(comps[0], comps[2]))
 }
 
 func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, pointer *pb.Pointer, randomIndex int64, path storj.Path) (pending []*PendingAudit, err error) {
