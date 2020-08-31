@@ -76,16 +76,59 @@ export class UpdateProjectModel {
  * CreateProjectModel is a type, used for creating project.
  */
 export class CreateProjectModel {
-    public name: string;
-    public description: string;
-    public ownerId: string;
+    private readonly MAX_NAME_LENGTH = 20;
+
+    public constructor(
+        public name: string = '',
+        public description: string = '',
+        public ownerId: string = '',
+    ) {}
+
+    /**
+     * checkName checks if project name is valid.
+     */
+    public checkName(): void {
+        try {
+            this.nameIsNotEmpty();
+            this.nameHasNoSlashes();
+            this.nameHasLessThenTwentySymbols();
+        } catch (error) {
+            throw new Error(error.message);
+        }
+    }
+
+    /**
+     * nameHasNoSlashes checks if project name has any characters but 'slash'.
+     */
+    private nameHasNoSlashes(): void {
+        const rgx = /^[^\/]+$/;
+
+        if (!rgx.test(this.name)) throw new Error('Project name can\'t have slashes!');
+    }
+
+    /**
+     * nameIsNotEmpty checks if project name is not empty.
+     */
+    private nameIsNotEmpty(): void {
+        if (this.name.length === 0) throw new Error('Project name can\'t be empty!');
+    }
+
+    /**
+     * nameHasLessThenTwentySymbols checks if project name has less then 20 symbols.
+     */
+    private nameHasLessThenTwentySymbols(): void {
+        if (this.name.length > this.MAX_NAME_LENGTH) throw new Error('Name should be less than 21 character!');
+    }
 }
 
+/**
+ * ProjectLimits is a type, used for describing project limits.
+ */
 export class ProjectLimits {
-    constructor(
-        public bandwidthLimit = 0,
-        public bandwidthUsed = 0,
-        public storageLimit = 0,
-        public storageUsed = 0,
+    public constructor(
+        public bandwidthLimit: number = 0,
+        public bandwidthUsed: number = 0,
+        public storageLimit: number = 0,
+        public storageUsed: number = 0,
     ) {}
 }

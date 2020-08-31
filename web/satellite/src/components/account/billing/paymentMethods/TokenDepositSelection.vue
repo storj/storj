@@ -65,6 +65,7 @@ import {PaymentsHistoryItemType} from "@/types/payments";
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
 import { PaymentAmountOption, PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { ProjectOwning } from '@/utils/projectOwning';
@@ -114,9 +115,11 @@ export default class TokenDepositSelection extends Vue {
      * Indicates if dropdown expands top.
      */
     public get isExpandingTop(): boolean {
-        return !this.$store.state.paymentsModule.paymentsHistory.some((item: PaymentsHistoryItem) => {
-            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
-        });
+        const hasNoTransactionsOrDepositBonuses: boolean =
+            !this.$store.state.paymentsModule.paymentsHistory.some((item: PaymentsHistoryItem) => item.isTransactionOrDeposit(),
+        );
+
+        return hasNoTransactionsOrDepositBonuses && !this.isOnboardingTour;
     }
 
     /**
@@ -190,6 +193,13 @@ export default class TokenDepositSelection extends Vue {
      */
     private get noCreditCards(): boolean {
         return this.$store.state.paymentsModule.creditCards.length === 0;
+    }
+
+    /**
+     * Indicates if app state is in onboarding tour state.
+     */
+    private get isOnboardingTour(): boolean {
+        return this.$route.name === RouteConfig.OnboardingTour.name;
     }
 }
 </script>

@@ -252,7 +252,7 @@ export default class OnboardingTourArea extends Vue {
             &__tardigrade {
                 position: absolute;
                 left: 50%;
-                bottom: 50px;
+                bottom: 0;
                 transform: translate(-50%);
             }
         }

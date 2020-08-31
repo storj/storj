@@ -39,22 +39,4 @@ describe('validation', (): void => {
         expect(Validator.email(testString6)).toBe(false);
         expect(Validator.email(testString7)).toBe(true);
     });
-
-    it('anyCharactersButSlash regex works correctly', () => {
-        const testString1 = 'tGDFst/';
-        const testString2 = '/        ';
-        const testString3 = 'tes/t@';
-        const testString4 = 'test./test';
-        const testString5 = '3gGD!@#$%^&*()-=+.,';
-        const testString6 = '      /';
-        const testString7 = '/teSTt1123';
-
-        expect(Validator.anyCharactersButSlash(testString1)).toBe(false);
-        expect(Validator.anyCharactersButSlash(testString2)).toBe(false);
-        expect(Validator.anyCharactersButSlash(testString3)).toBe(false);
-        expect(Validator.anyCharactersButSlash(testString4)).toBe(false);
-        expect(Validator.anyCharactersButSlash(testString5)).toBe(true);
-        expect(Validator.anyCharactersButSlash(testString6)).toBe(false);
-        expect(Validator.anyCharactersButSlash(testString7)).toBe(false);
-    });
 });

@@ -2,27 +2,15 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="new-project-step">
-        <h1 class="new-project-step__title">Name Your Project</h1>
-        <p class="new-project-step__sub-title">
-            Projects are where buckets are created for storing data. Within a Project, usage is tracked at the bucket
-            level and aggregated for billing.
-        </p>
-        <div class="new-project-step__container">
-            <div class="new-project-step__container__title-area">
-                <h2 class="new-project-step__container__title-area__title">Project Details</h2>
-                <img
-                    v-if="isLoading"
-                    class="new-project-step__container__title-area__loading-image"
-                    src="@/../static/images/account/billing/loading.gif"
-                    alt="loading gif"
-                >
-            </div>
+    <div class="create-project-area">
+        <div class="create-project-area__container">
+            <img src="@/../static/images/project/createProject.png" alt="create project image">
+            <h2 class="create-project-area__title">Create a Project</h2>
             <HeaderedInput
                 label="Project Name"
                 additional-label="Up To 20 Characters"
                 placeholder="Enter Project Name"
-                class="full-input project-name-input"
+                class="full-input"
                 width="100%"
                 is-limit-shown="true"
                 :current-limit="projectName.length"
@@ -36,23 +24,37 @@
                 additional-label="Optional"
                 class="full-input"
                 is-multiline="true"
+                height="60px"
+                width="calc(100% - 42px)"
                 is-limit-shown="true"
                 :current-limit="description.length"
                 :max-symbols="100"
-                height="60px"
-                width="calc(100% - 42px)"
                 @setData="setProjectDescription"
             />
-            <div class="new-project-step__container__blur" v-if="isLoading"/>
+            <div class="create-project-area__container__button-container">
+                <VButton
+                    label="Cancel"
+                    width="210px"
+                    height="48px"
+                    :on-press="onCancelClick"
+                    is-white="true"
+                />
+                <VButton
+                    label="Create Project +"
+                    width="210px"
+                    height="48px"
+                    :on-press="onCreateProjectClick"
+                    :is-disabled="!projectName"
+                />
+            </div>
+            <div class="create-project-area__container__blur" v-if="isLoading">
+                <img
+                    class="create-project-area__container__blur__loading-image"
+                    src="@/../static/images/account/billing/loading.gif"
+                    alt="loading gif"
+                >
+            </div>
         </div>
-        <VButton
-            class="create-project-button"
-            width="156px"
-            height="48px"
-            label="Create Project"
-            :on-press="createProjectClick"
-            :is-disabled="!projectName"
-        />
     </div>
 </template>
 
@@ -62,25 +64,32 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
+import { RouteConfig } from '@/router';
 import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { CreateProjectModel } from '@/types/projects';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import {
+    APP_STATE_ACTIONS,
+    PM_ACTIONS,
+} from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
+import { MetaUtils } from '@/utils/meta';
+import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
     components: {
-        VButton,
         HeaderedInput,
+        VButton,
     },
 })
-export default class CreateProjectStep extends Vue {
+export default class NewProjectPopup extends Vue {
     private description: string = '';
+    private createdProjectId: string = '';
+    private isLoading: boolean = false;
 
     public projectName: string = '';
-    public isLoading: boolean = false;
     public nameError: string = '';
 
     /**
@@ -99,9 +108,18 @@ export default class CreateProjectStep extends Vue {
     }
 
     /**
+     * Redirects to previous route.
+     */
+    public onCancelClick(): void {
+        const PREVIOUS_ROUTE_NUMBER = -1;
+
+        this.$router.go(PREVIOUS_ROUTE_NUMBER);
+    }
+
+    /**
      * Creates project and refreshes store.
      */
-    public async createProjectClick(): Promise<void> {
+    public async onCreateProjectClick(): Promise<void> {
         if (this.isLoading) {
             return;
         }
@@ -124,13 +142,11 @@ export default class CreateProjectStep extends Vue {
             return;
         }
 
-        let createdProjectId: string = '';
-
         try {
             const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
-            createdProjectId = createdProject.id;
+            this.createdProjectId = createdProject.id;
             this.$segment.track(SegmentEvent.PROJECT_CREATED, {
-                project_id: createdProjectId,
+                project_id: this.createdProjectId,
             });
         } catch (error) {
             this.isLoading = false;
@@ -139,14 +155,12 @@ export default class CreateProjectStep extends Vue {
             return;
         }
 
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId);
+        this.selectCreatedProject();
 
         try {
             await this.fetchProjectMembers();
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, createdProjectId);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.createdProjectId);
         } catch (error) {
             await this.$notify.error(`Unable to create project. ${error.message}`);
         }
@@ -159,7 +173,19 @@ export default class CreateProjectStep extends Vue {
 
         this.isLoading = false;
 
-        this.$emit('setApiKeyState');
+        await this.$router.push(RouteConfig.ProjectDashboard.path);
+    }
+
+    /**
+     * Selects just created project.
+     */
+    private selectCreatedProject(): void {
+        this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
+
+        const defaultProjectLimit: number = parseInt(MetaUtils.getMetaContent('default-project-limit'));
+        if (new ProjectOwning(this.$store).usersProjectsCount() >= defaultProjectLimit) {
+            this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
+        }
     }
 
     /**
@@ -188,63 +214,41 @@ export default class CreateProjectStep extends Vue {
 </script>
 
 <style scoped lang="scss">
-    h1,
-    h2,
-    p {
-        margin: 0;
+    .full-input {
+        width: 100%;
     }
 
-    .new-project-step {
-        font-family: 'font_regular', sans-serif;
-        margin-top: 75px;
+    .create-project-area {
         display: flex;
-        flex-direction: column;
         align-items: center;
-        justify-content: space-between;
-        padding: 0 200px;
-
-        &__title {
-            font-size: 32px;
-            line-height: 39px;
-            color: #1b2533;
-            margin-bottom: 25px;
-        }
-
-        &__sub-title {
-            font-size: 16px;
-            line-height: 19px;
-            color: #354049;
-            margin-bottom: 35px;
-            text-align: center;
-            word-break: break-word;
-        }
+        justify-content: center;
+        width: calc(100% - 40px);
+        padding: 100px 20px 70px 20px;
+        font-family: 'font_regular', sans-serif;
 
         &__container {
-            padding: 50px;
-            width: calc(100% - 100px);
-            border-radius: 8px;
+            width: 440px;
             background-color: #fff;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 70px 50px 55px 50px;
             position: relative;
-            margin-bottom: 30px;
 
-            &__title-area {
+            &__title {
+                font-size: 28px;
+                line-height: 34px;
+                color: #384b65;
+                font-family: 'font_bold', sans-serif;
+            }
+
+            &__button-container {
+                width: 100%;
                 display: flex;
                 align-items: center;
-                justify-content: flex-start;
-                margin-bottom: 10px;
-
-                &__title {
-                    font-family: 'font_medium', sans-serif;
-                    font-size: 22px;
-                    line-height: 27px;
-                    color: #354049;
-                    margin-right: 15px;
-                }
-
-                &__loading-image {
-                    width: 18px;
-                    height: 18px;
-                }
+                justify-content: space-between;
+                margin-top: 30px;
             }
 
             &__blur {
@@ -254,27 +258,17 @@ export default class CreateProjectStep extends Vue {
                 height: 100%;
                 width: 100%;
                 background-color: rgba(229, 229, 229, 0.2);
+                border-radius: 8px;
                 z-index: 100;
+
+                &__loading-image {
+                    width: 25px;
+                    height: 25px;
+                    position: absolute;
+                    right: 40px;
+                    top: 40px;
+                }
             }
-        }
-    }
-
-    .full-input {
-        width: 100%;
-        margin-top: 25px;
-    }
-
-    @media screen and (max-width: 1450px) {
-
-        .new-project-step {
-            padding: 0 150px;
-        }
-    }
-
-    @media screen and (max-width: 900px) {
-
-        .new-project-step {
-            padding: 0 50px;
         }
     }
 </style>

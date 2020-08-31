@@ -6,12 +6,11 @@
         <div
             v-if="isButtonShown && !isOnboardingTour"
             class="new-project-button-container"
-            @click="toggleSelection"
+            @click="onCreateProjectClick"
             id="newProjectButton"
         >
             <h1 class="new-project-button-container__label">+ Create Project</h1>
         </div>
-        <NewProjectPopup v-if="isPopupShown"/>
     </div>
 </template>
 
@@ -19,7 +18,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VInfo from '@/components/common/VInfo.vue';
-import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
@@ -29,7 +27,6 @@ import { ProjectOwning } from '@/utils/projectOwning';
 @Component({
     components: {
         VInfo,
-        NewProjectPopup,
     },
 })
 export default class NewProjectArea extends Vue {
@@ -49,17 +46,10 @@ export default class NewProjectArea extends Vue {
     }
 
     /**
-     * Opens new project creation popup.
+     * Redirects to create project page.
      */
-    public toggleSelection(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-    }
-
-    /**
-     * Indicates if new project creation popup should be rendered.
-     */
-    public get isPopupShown(): boolean {
-        return this.$store.state.appStateModule.appState.isNewProjectPopupShown;
+    public onCreateProjectClick(): void {
+        this.$router.push(RouteConfig.CreateProject.path);
     }
 
     /**
