@@ -1164,7 +1164,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	// If we do know the number of segments, we want to run the loop as long as
 	// the numberOfSegmentsToFetch is > 0 and until we have fetched that many
 	// segments.
-	for i := 0; !numSegmentsKnown || (numSegmentsKnown && numberOfSegmentsToFetch > 0 && i+1 >= numberOfSegmentsToFetch); i++ {
+	for i := firstSegment; !numSegmentsKnown || (numSegmentsKnown && numberOfSegmentsToFetch > 0 && i < numberOfSegmentsToFetch); i++ {
 		path, err := CreatePath(ctx, keyInfo.ProjectID, int64(i), req.Bucket, req.EncryptedPath)
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())

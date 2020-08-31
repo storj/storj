@@ -1778,10 +1778,11 @@ func TestGetObjectIPs(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
 		uplnk := planet.Uplinks[0]
+		uplinkCtx := testuplink.WithMaxSegmentSize(ctx, 5*memory.KB)
 		sat := planet.Satellites[0]
 
-		require.NoError(t, uplnk.CreateBucket(ctx, sat, "bob"))
-		require.NoError(t, uplnk.Upload(ctx, sat, "bob", "jones", testrand.Bytes(10*memory.KB)))
+		require.NoError(t, uplnk.CreateBucket(uplinkCtx, sat, "bob"))
+		require.NoError(t, uplnk.Upload(uplinkCtx, sat, "bob", "jones", testrand.Bytes(20*memory.KB)))
 		ips, err := object.GetObjectIPs(ctx, uplink.Config{}, access, "bob", "jones")
 		require.NoError(t, err)
 		require.True(t, len(ips) > 0)
