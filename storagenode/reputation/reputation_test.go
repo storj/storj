@@ -41,10 +41,10 @@ func TestReputationDBGetInsert(t *testing.T) {
 				UnknownBeta:  12,
 				UnknownScore: 13,
 			},
-			Disqualified: &timestamp,
-			Suspended:    &timestamp,
-			UpdatedAt:    timestamp,
-			JoinedAt:     timestamp,
+			DisqualifiedAt: &timestamp,
+			SuspendedAt:    &timestamp,
+			UpdatedAt:      timestamp,
+			JoinedAt:       timestamp,
 		}
 
 		t.Run("insert", func(t *testing.T) {
@@ -57,8 +57,8 @@ func TestReputationDBGetInsert(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Equal(t, res.SatelliteID, stats.SatelliteID)
-			assert.True(t, res.Disqualified.Equal(*stats.Disqualified))
-			assert.True(t, res.Suspended.Equal(*stats.Suspended))
+			assert.True(t, res.DisqualifiedAt.Equal(*stats.DisqualifiedAt))
+			assert.True(t, res.SuspendedAt.Equal(*stats.SuspendedAt))
 			assert.True(t, res.UpdatedAt.Equal(stats.UpdatedAt))
 			assert.True(t, res.JoinedAt.Equal(stats.JoinedAt))
 
@@ -96,10 +96,10 @@ func TestReputationDBGetAll(t *testing.T) {
 					UnknownBeta:  float64(i + 12),
 					UnknownScore: float64(i + 13),
 				},
-				Disqualified: &timestamp,
-				Suspended:    &timestamp,
-				UpdatedAt:    timestamp,
-				JoinedAt:     timestamp,
+				DisqualifiedAt: &timestamp,
+				SuspendedAt:    &timestamp,
+				UpdatedAt:      timestamp,
+				JoinedAt:       timestamp,
 			}
 
 			err := reputationDB.Store(ctx, rep)
@@ -117,8 +117,8 @@ func TestReputationDBGetAll(t *testing.T) {
 			assert.Contains(t, stats, rep)
 
 			if rep.SatelliteID == stats[0].SatelliteID {
-				assert.Equal(t, rep.Disqualified, stats[0].Disqualified)
-				assert.Equal(t, rep.Suspended, stats[0].Suspended)
+				assert.Equal(t, rep.DisqualifiedAt, stats[0].DisqualifiedAt)
+				assert.Equal(t, rep.SuspendedAt, stats[0].SuspendedAt)
 				assert.Equal(t, rep.UpdatedAt, stats[0].UpdatedAt)
 				assert.Equal(t, rep.JoinedAt, stats[0].JoinedAt)
 

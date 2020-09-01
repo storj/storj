@@ -160,8 +160,8 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		data.Satellites = append(data.Satellites,
 			SatelliteInfo{
 				ID:           rep.SatelliteID,
-				Disqualified: rep.Disqualified,
-				Suspended:    rep.Suspended,
+				Disqualified: rep.DisqualifiedAt,
+				Suspended:    rep.SuspendedAt,
 				URL:          url.Address,
 			},
 		)
@@ -229,6 +229,7 @@ type Satellite struct {
 	IngressSummary   int64                   `json:"ingressSummary"`
 	Audit            reputation.Metric       `json:"audit"`
 	Uptime           reputation.Metric       `json:"uptime"`
+	OnlineScore      float64                 `json:"onlineScore"`
 	PriceModel       PriceModel              `json:"priceModel"`
 	NodeJoinedAt     time.Time               `json:"nodeJoinedAt"`
 }
@@ -295,6 +296,7 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		IngressSummary:   ingressSummary.Total(),
 		Audit:            rep.Audit,
 		Uptime:           rep.Uptime,
+		OnlineScore:      rep.OnlineScore,
 		PriceModel:       satellitePricing,
 		NodeJoinedAt:     rep.JoinedAt,
 	}, nil
@@ -312,10 +314,12 @@ type Satellites struct {
 	Audits           []Audits                `json:"audits"`
 }
 
-// Audits represents audit metrics across all satellites.
+// Audits represents audit, suspension and online scores of SNO across all satellites.
 type Audits struct {
-	Audit         reputation.Metric `json:"audit"`
-	SatelliteName string            `json:"satelliteName"`
+	AuditScore      float64 `json:"auditScore"`
+	SuspensionScore float64 `json:"suspensionScore"`
+	OnlineScore     float64 `json:"onlineScore"`
+	SatelliteName   string  `json:"satelliteName"`
 }
 
 // GetAllSatellitesData returns bandwidth and storage daily usage consolidate
@@ -371,8 +375,10 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		}
 
 		audits = append(audits, Audits{
-			Audit:         stats.Audit,
-			SatelliteName: url.Address,
+			AuditScore:      stats.Audit.Score,
+			SuspensionScore: stats.Audit.UnknownScore,
+			OnlineScore:     stats.OnlineScore,
+			SatelliteName:   url.Address,
 		})
 		if !stats.JoinedAt.IsZero() && stats.JoinedAt.Before(joinedAt) {
 			joinedAt = stats.JoinedAt
