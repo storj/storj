@@ -204,13 +204,7 @@ func TestUploadOverAvailable(t *testing.T) {
 		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 		require.NoError(t, err)
 
-		uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
-		require.NoError(t, err)
-
-		_, err = uploader.Write(data)
-		require.Error(t, err)
-
-		pieceHash, err := uploader.Commit(ctx)
+		pieceHash, err := client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(data))
 		if tt.err != "" {
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.err)
