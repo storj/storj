@@ -135,7 +135,7 @@ func (observer *observerContext) Wait() error {
 type LoopConfig struct {
 	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
-	ListLimit        int           `help:"how many items to query in a batch" default:"10000"`
+	ListLimit        int           `help:"how many items to query in a batch" default:"2500"`
 }
 
 // Loop is a metainfo loop service.

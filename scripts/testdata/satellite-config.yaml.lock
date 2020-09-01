@@ -320,7 +320,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.loop.coalesce-duration: 5s
 
 # how many items to query in a batch
-# metainfo.loop.list-limit: 10000
+# metainfo.loop.list-limit: 2500
 
 # rate limit (default is 0 which is unlimited segments per second)
 # metainfo.loop.rate-limit: 0
