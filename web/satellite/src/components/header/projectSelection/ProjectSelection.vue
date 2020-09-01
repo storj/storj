@@ -132,7 +132,7 @@ export default class ProjectSelection extends Vue {
             display: flex;
             flex-direction: row;
             align-items: center;
-            justify-content: flex-start;
+            justify-content: space-between;
             width: 100%;
             height: 50px;
 
