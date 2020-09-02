@@ -297,6 +297,32 @@ func TestService_DeletePieces_AllNodesDown(t *testing.T) {
 	})
 }
 
+func TestService_DeletePieces_DisproportionateNumberOfRequestsAndNodes(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satelliteSys := planet.Satellites[0]
+
+		// make sure that the ratio of number of requests and number of nodes to
+		// be greater than the success threshold
+		percentExp := 0.75
+		numberOfRequests := 20
+		require.Less(t, float64(len(planet.StorageNodes))/float64(numberOfRequests), percentExp)
+
+		// populate requests
+		requests := make([]piecedeletion.Request, numberOfRequests)
+		for i := range requests {
+			requests[i] = piecedeletion.Request{
+				Node:   planet.StorageNodes[i%2].NodeURL(),
+				Pieces: []storj.PieceID{testrand.PieceID()},
+			}
+		}
+
+		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, percentExp)
+		require.NoError(t, err)
+	})
+}
+
 func TestService_DeletePieces_Invalid(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
