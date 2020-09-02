@@ -81,11 +81,12 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 			ReputationScore:        auditScore,
 			UnknownReputationScore: unknownScore,
 		},
-		OnlineScore:      node.Reputation.OnlineScore,
-		Disqualified:     node.Disqualified,
-		Suspended:        node.UnknownAuditSuspended,
-		OfflineSuspended: node.OfflineSuspended,
-		JoinedAt:         node.CreatedAt,
+		OnlineScore:        node.Reputation.OnlineScore,
+		Disqualified:       node.Disqualified,
+		Suspended:          node.UnknownAuditSuspended,
+		OfflineSuspended:   node.OfflineSuspended,
+		OfflineUnderReview: node.OfflineUnderReview,
+		JoinedAt:           node.CreatedAt,
 	}, nil
 }
 

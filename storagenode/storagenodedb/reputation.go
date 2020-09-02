@@ -48,9 +48,10 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 			disqualified_at,
 			suspended_at,
 			offline_suspended_at,
+			offline_under_review_at,
 			updated_at,
 			joined_at
-		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	// ensure we insert utc
 	if stats.DisqualifiedAt != nil {
@@ -64,6 +65,10 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 	if stats.OfflineSuspendedAt != nil {
 		utc := stats.OfflineSuspendedAt.UTC()
 		stats.OfflineSuspendedAt = &utc
+	}
+	if stats.OfflineUnderReviewAt != nil {
+		utc := stats.OfflineUnderReviewAt.UTC()
+		stats.OfflineUnderReviewAt = &utc
 	}
 
 	_, err = db.ExecContext(ctx, query,
@@ -85,6 +90,7 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 		stats.DisqualifiedAt,
 		stats.SuspendedAt,
 		stats.OfflineSuspendedAt,
+		stats.OfflineUnderReviewAt,
 		stats.UpdatedAt.UTC(),
 		stats.JoinedAt.UTC(),
 	)
@@ -118,6 +124,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 			disqualified_at,
 			suspended_at,
 			offline_suspended_at,
+			offline_under_review_at,
 			updated_at,
 			joined_at
 		FROM reputation WHERE satellite_id = ?`,
@@ -142,6 +149,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		&stats.DisqualifiedAt,
 		&stats.SuspendedAt,
 		&stats.OfflineSuspendedAt,
+		&stats.OfflineUnderReviewAt,
 		&stats.UpdatedAt,
 		&stats.JoinedAt,
 	)
@@ -175,6 +183,7 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			disqualified_at,
 			suspended_at,
 			offline_suspended_at,
+			offline_under_review_at,
 			updated_at,
 			joined_at
 		FROM reputation`
@@ -208,6 +217,7 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			&stats.DisqualifiedAt,
 			&stats.SuspendedAt,
 			&stats.OfflineSuspendedAt,
+			&stats.OfflineUnderReviewAt,
 			&stats.UpdatedAt,
 			&stats.JoinedAt,
 		)

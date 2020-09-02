@@ -577,6 +577,11 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: true,
 						},
 						&dbschema.Column{
+							Name:       "offline_under_review_at",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
+						},
+						&dbschema.Column{
 							Name:       "online_score",
 							Type:       "REAL",
 							IsNullable: false,

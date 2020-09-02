@@ -93,12 +93,13 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 			UnknownBeta:  audit.GetUnknownReputationBeta(),
 			UnknownScore: audit.GetUnknownReputationScore(),
 		},
-		OnlineScore:        resp.OnlineScore,
-		DisqualifiedAt:     resp.GetDisqualified(),
-		SuspendedAt:        resp.GetSuspended(),
-		OfflineSuspendedAt: resp.GetOfflineSuspended(),
-		UpdatedAt:          time.Now(),
-		JoinedAt:           resp.JoinedAt,
+		OnlineScore:          resp.OnlineScore,
+		DisqualifiedAt:       resp.GetDisqualified(),
+		SuspendedAt:          resp.GetSuspended(),
+		OfflineSuspendedAt:   resp.GetOfflineSuspended(),
+		OfflineUnderReviewAt: resp.GetOfflineUnderReview(),
+		UpdatedAt:            time.Now(),
+		JoinedAt:             resp.JoinedAt,
 	}, nil
 }
 

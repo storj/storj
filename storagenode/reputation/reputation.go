@@ -30,9 +30,10 @@ type Stats struct {
 	Audit       Metric
 	OnlineScore float64
 
-	DisqualifiedAt     *time.Time
-	SuspendedAt        *time.Time
-	OfflineSuspendedAt *time.Time
+	DisqualifiedAt       *time.Time
+	SuspendedAt          *time.Time
+	OfflineSuspendedAt   *time.Time
+	OfflineUnderReviewAt *time.Time
 
 	UpdatedAt time.Time
 	JoinedAt  time.Time

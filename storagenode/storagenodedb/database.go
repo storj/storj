@@ -1378,7 +1378,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 			},
 			{
 				DB:          db.reputationDB,
-				Description: "Add unknown_audit_reputation_alpha and unknown_audit_reputation_beta fields to satellites db",
+				Description: "Add unknown_audit_reputation_alpha and unknown_audit_reputation_beta fields to reputation db",
 				Version:     39,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
 					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_alpha REAL`)
@@ -1449,7 +1449,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 			},
 			{
 				DB:          db.reputationDB,
-				Description: "Add unknown_audit_reputation_score field to satellites db",
+				Description: "Add unknown_audit_reputation_score field to reputation db",
 				Version:     40,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
 					stx, err := db.satellitesDB.Begin(ctx)
@@ -1597,7 +1597,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 			},
 			{
 				DB:          db.reputationDB,
-				Description: "Add online_score and offline_suspended fields to satellites db, rename disqualified and suspended to disqualified_at and suspended_at",
+				Description: "Add online_score and offline_suspended fields to reputation db, rename disqualified and suspended to disqualified_at and suspended_at",
 				Version:     44,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
 					stx, err := db.satellitesDB.Begin(ctx)
@@ -1682,6 +1682,86 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 							updated_at,
 							suspended_at,
 							offline_suspended_at,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          db.reputationDB,
+				Description: "Add offline_under_review_at field to reputation db",
+				Version:     45,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					stx, err := db.satellitesDB.Begin(ctx)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+					defer func() {
+						if err != nil {
+							err = errs.Combine(err, stx.Rollback())
+						} else {
+							err = errs.Wrap(stx.Commit())
+						}
+					}()
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN offline_under_review_at TIMESTAMP`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							uptime_success_count INTEGER NOT NULL,
+							uptime_total_count INTEGER NOT NULL,
+							uptime_reputation_alpha REAL NOT NULL,
+							uptime_reputation_beta REAL NOT NULL,
+							uptime_reputation_score REAL NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							audit_unknown_reputation_score REAL NOT NULL,
+							online_score REAL NOT NULL,
+							disqualified_at TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended_at TIMESTAMP,
+							offline_suspended_at TIMESTAMP,
+							offline_under_review_at TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							uptime_success_count,
+							uptime_total_count,
+							uptime_reputation_alpha,
+							uptime_reputation_beta,
+							uptime_reputation_score,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
+							audit_unknown_reputation_score,
+							online_score,
+							disqualified_at,
+							updated_at,
+							suspended_at,
+							offline_suspended_at,
+							offline_under_review_at,
 							joined_at
 							FROM reputation;
 						DROP TABLE reputation;
