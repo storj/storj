@@ -25,7 +25,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
@@ -46,14 +45,14 @@ func TestObserver_processSegment(t *testing.T) {
 		testdata1 := generateTestdataObjects(ctx, t, false)
 		// Call processSegment with testadata objects of the first project
 		for _, objSeg := range testdata1.objSegments {
-			err := obsvr.processSegment(ctx, objSeg.path, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
 			require.NoError(t, err)
 		}
 
 		testdata2 := generateTestdataObjects(ctx, t, false)
 		// Call processSegment with testadata objects of the second project
 		for _, objSeg := range testdata2.objSegments {
-			err := obsvr.processSegment(ctx, objSeg.path, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
 			require.NoError(t, err)
 		}
 
@@ -80,7 +79,7 @@ func TestObserver_processSegment(t *testing.T) {
 
 		// Call processSegment with the testdata
 		for _, objSeg := range testdata.objSegments {
-			err := obsvr.processSegment(ctx, objSeg.path, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
 			require.NoError(t, err)
 		}
 
@@ -105,7 +104,7 @@ func TestObserver_processSegment(t *testing.T) {
 		)
 
 		for _, objSeg := range testdata.objSegments {
-			err := obsvr.processSegment(ctx, objSeg.path, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
 			require.NoError(t, err)
 		}
 
@@ -156,7 +155,7 @@ func TestObserver_processSegment(t *testing.T) {
 		}
 
 		numSegmentsObjInDateRange := rand.Intn(50) + 15
-		var pathObjInDateRange storj.Path
+		var pathObjInDateRange metabase.ObjectKey
 		{ // Object with all the segments with creation date between the from/to range
 			var otherObjSegments []segmentRef
 			pathObjInDateRange, otherObjSegments = createNewObjectSegments(
@@ -172,12 +171,12 @@ func TestObserver_processSegment(t *testing.T) {
 		})
 
 		for _, objSeg := range objSegmentsRefs {
-			err := obsvr.processSegment(ctx, objSeg.path, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
 			require.NoError(t, err)
 		}
 
 		// Assert observer internal state
-		assert.Equal(t, projectID.String(), obsvr.lastProjectID, "lastProjectID")
+		assert.Equal(t, projectID, obsvr.lastProjectID, "lastProjectID")
 		assert.Equal(t, 1, len(obsvr.objects), "objects number")
 		require.Contains(t, obsvr.objects, bucketName, "bucket in objects map")
 		require.Equal(t, 2, len(obsvr.objects[bucketName]), "objects in object map")
@@ -237,7 +236,7 @@ func TestObserver_processSegment(t *testing.T) {
 		}
 
 		numSegmentsObjInDateRange := rand.Intn(50) + 15
-		var pathObjInDateRange storj.Path
+		var pathObjInDateRange metabase.ObjectKey
 		{ // Object with all the segments with creation date between the from/to range
 			var otherObjSegments []segmentRef
 			pathObjInDateRange, otherObjSegments = createNewObjectSegments(
@@ -253,12 +252,12 @@ func TestObserver_processSegment(t *testing.T) {
 		})
 
 		for _, objSeg := range objSegmentsRefs {
-			err := obsvr.processSegment(ctx, objSeg.path, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
 			require.NoError(t, err)
 		}
 
 		// Assert observer internal state
-		assert.Equal(t, projectID.String(), obsvr.lastProjectID, "lastProjectID")
+		assert.Equal(t, projectID, obsvr.lastProjectID, "lastProjectID")
 		assert.Equal(t, 1, len(obsvr.objects), "objects number")
 		require.Contains(t, obsvr.objects, bucketName, "bucket in objects map")
 		require.Equal(t, 2, len(obsvr.objects[bucketName]), "objects in object map")
@@ -325,18 +324,16 @@ func TestObserver_processSegment_from_to(t *testing.T) {
 			from:    from,
 			to:      to,
 		}
-		path := metainfo.ScopedPath{
-			SegmentLocation: metabase.SegmentLocation{
-				ProjectID:  testrand.UUID(),
-				BucketName: "bucket1",
-				Index:      metabase.LastSegmentIndex,
-				ObjectKey:  metabase.ObjectKey("path1"),
-			},
+		location := metabase.SegmentLocation{
+			ProjectID:  testrand.UUID(),
+			BucketName: "bucket1",
+			Index:      metabase.LastSegmentIndex,
+			ObjectKey:  metabase.ObjectKey("path1"),
 		}
 		pointer := &pb.Pointer{
 			CreationDate: tt.pointerCreateDate,
 		}
-		err := observer.processSegment(ctx, path, pointer)
+		err := observer.processSegment(ctx, location, pointer)
 		require.NoError(t, err)
 
 		objectsMap, ok := observer.objects["bucket1"]
@@ -463,7 +460,7 @@ func TestObserver_processSegment_single_project(t *testing.T) {
 				objectsMap, ok := observer.objects[ttObject.bucket]
 				require.True(t, ok)
 
-				object, ok := objectsMap["path"+strconv.Itoa(i)]
+				object, ok := objectsMap[metabase.ObjectKey("path"+strconv.Itoa(i))]
 				require.True(t, ok)
 
 				expectedParts := strings.Split(ttObject.expected, "_")
@@ -532,7 +529,7 @@ func TestObserver_findZombieSegments(t *testing.T) {
 		tt := tt
 		t.Run("case_"+strconv.Itoa(testNum), func(t *testing.T) {
 			bucketObjects := make(bucketsObjects)
-			singleObjectMap := make(map[storj.Path]*object)
+			singleObjectMap := make(map[metabase.ObjectKey]*object)
 			segments := bitArray{}
 			for i, char := range tt.segments {
 				if char == '_' {
@@ -554,7 +551,7 @@ func TestObserver_findZombieSegments(t *testing.T) {
 
 			observer := &observer{
 				objects:       bucketObjects,
-				lastProjectID: testrand.UUID().String(),
+				lastProjectID: testrand.UUID(),
 				zombieBuffer:  make([]int, 0),
 			}
 			err := observer.findZombieSegments(object)
@@ -578,8 +575,8 @@ func TestObserver_findZombieSegments(t *testing.T) {
 // segmentRef is an object segment reference to be used for simulating calls to
 // observer.processSegment.
 type segmentRef struct {
-	path    metainfo.ScopedPath
-	pointer *pb.Pointer
+	location metabase.SegmentLocation
+	pointer  *pb.Pointer
 }
 
 // createNewObjectSegments creates a list of segment references which belongs to
@@ -593,29 +590,21 @@ type segmentRef struct {
 // It returns the object path and the list of object segment references.
 func createNewObjectSegments(
 	ctx context.Context, t *testing.T, numSegments int, projectID *uuid.UUID, bucketName string, inline bool, withNumSegments bool,
-) (objectPath string, _ []segmentRef) {
+) (objectKey metabase.ObjectKey, _ []segmentRef) {
 	t.Helper()
 
 	var (
-		objectID        = testrand.UUID().String()
-		projectIDString = projectID.String()
-		references      = make([]segmentRef, 0, numSegments)
+		objectID   = metabase.ObjectKey(testrand.UUID().String())
+		references = make([]segmentRef, 0, numSegments)
 	)
 
 	for i := 0; i < (numSegments - 1); i++ {
-		segmentLocation := metabase.SegmentLocation{
-			ProjectID:  *projectID,
-			BucketName: bucketName,
-			Index:      int64(i),
-			ObjectKey:  metabase.ObjectKey(objectID),
-		}
-		raw := string(segmentLocation.Encode())
-
 		references = append(references, segmentRef{
-			path: metainfo.ScopedPath{
-				SegmentLocation: segmentLocation,
-				ProjectIDString: projectIDString,
-				Raw:             raw,
+			location: metabase.SegmentLocation{
+				ProjectID:  *projectID,
+				BucketName: bucketName,
+				Index:      int64(i),
+				ObjectKey:  objectID,
 			},
 			pointer: &pb.Pointer{
 				Type:         pb.Pointer_REMOTE,
@@ -639,19 +628,12 @@ func createNewObjectSegments(
 	})
 	require.NoError(t, err)
 
-	segmentLocation := metabase.SegmentLocation{
-		ProjectID:  *projectID,
-		BucketName: bucketName,
-		Index:      metabase.LastSegmentIndex,
-		ObjectKey:  metabase.ObjectKey(objectID),
-	}
-	raw := string(segmentLocation.Encode())
-
 	references = append(references, segmentRef{
-		path: metainfo.ScopedPath{
-			SegmentLocation: segmentLocation,
-			ProjectIDString: projectIDString,
-			Raw:             raw,
+		location: metabase.SegmentLocation{
+			ProjectID:  *projectID,
+			BucketName: bucketName,
+			Index:      metabase.LastSegmentIndex,
+			ObjectKey:  objectID,
 		},
 		pointer: &pb.Pointer{
 			Type:         pointerType,
@@ -763,7 +745,7 @@ func generateTestdataObjects(
 func assertObserver(t *testing.T, obsvr *observer, testdata testdataObjects) {
 	t.Helper()
 
-	assert.Equal(t, testdata.projectID.String(), obsvr.lastProjectID, "lastProjectID")
+	assert.Equal(t, *testdata.projectID, obsvr.lastProjectID, "lastProjectID")
 	if assert.Equal(t, len(testdata.expectedObjects), len(obsvr.objects), "objects number") {
 		for bucket, bucketObjs := range obsvr.objects {
 			expBucketObjs, ok := testdata.expectedObjects[bucket]

@@ -13,7 +13,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 )
@@ -29,9 +28,9 @@ var (
 //
 // architecture: Observer
 type Observer interface {
-	Object(context.Context, ScopedPath, *pb.Pointer) error
-	RemoteSegment(context.Context, ScopedPath, *pb.Pointer) error
-	InlineSegment(context.Context, ScopedPath, *pb.Pointer) error
+	Object(context.Context, metabase.SegmentLocation, *pb.Pointer) error
+	RemoteSegment(context.Context, metabase.SegmentLocation, *pb.Pointer) error
+	InlineSegment(context.Context, metabase.SegmentLocation, *pb.Pointer) error
 }
 
 // NullObserver is an observer that does nothing. This is useful for joining
@@ -39,27 +38,18 @@ type Observer interface {
 type NullObserver struct{}
 
 // Object implements the Observer interface.
-func (NullObserver) Object(context.Context, ScopedPath, *pb.Pointer) error {
+func (NullObserver) Object(context.Context, metabase.SegmentLocation, *pb.Pointer) error {
 	return nil
 }
 
 // RemoteSegment implements the Observer interface.
-func (NullObserver) RemoteSegment(context.Context, ScopedPath, *pb.Pointer) error {
+func (NullObserver) RemoteSegment(context.Context, metabase.SegmentLocation, *pb.Pointer) error {
 	return nil
 }
 
 // InlineSegment implements the Observer interface.
-func (NullObserver) InlineSegment(context.Context, ScopedPath, *pb.Pointer) error {
+func (NullObserver) InlineSegment(context.Context, metabase.SegmentLocation, *pb.Pointer) error {
 	return nil
-}
-
-// ScopedPath contains full expanded information about the path.
-type ScopedPath struct {
-	metabase.SegmentLocation
-	ProjectIDString string
-
-	// Raw is the same path as pointerDB is using.
-	Raw storj.Path
 }
 
 type observerContext struct {
@@ -89,25 +79,25 @@ func newObserverContext(ctx context.Context, obs Observer) *observerContext {
 	}
 }
 
-func (observer *observerContext) Object(ctx context.Context, path ScopedPath, pointer *pb.Pointer) error {
+func (observer *observerContext) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
 	start := time.Now()
 	defer func() { observer.object.Insert(time.Since(start)) }()
 
-	return observer.observer.Object(ctx, path, pointer)
+	return observer.observer.Object(ctx, location, pointer)
 }
 
-func (observer *observerContext) RemoteSegment(ctx context.Context, path ScopedPath, pointer *pb.Pointer) error {
+func (observer *observerContext) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
 	start := time.Now()
 	defer func() { observer.remote.Insert(time.Since(start)) }()
 
-	return observer.observer.RemoteSegment(ctx, path, pointer)
+	return observer.observer.RemoteSegment(ctx, location, pointer)
 }
 
-func (observer *observerContext) InlineSegment(ctx context.Context, path ScopedPath, pointer *pb.Pointer) error {
+func (observer *observerContext) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
 	start := time.Now()
 	defer func() { observer.inline.Insert(time.Since(start)) }()
 
-	return observer.observer.InlineSegment(ctx, path, pointer)
+	return observer.observer.InlineSegment(ctx, location, pointer)
 }
 
 func (observer *observerContext) HandleError(err error) bool {
@@ -249,21 +239,21 @@ func IterateDatabase(ctx context.Context, rateLimit float64, db PointerDB, obser
 
 // handlePointer deals with a pointer for a single observer
 // if there is some error on the observer, handles the error and returns false. Otherwise, returns true.
-func handlePointer(ctx context.Context, observer *observerContext, path ScopedPath, isLastSegment bool, pointer *pb.Pointer) bool {
+func handlePointer(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, pointer *pb.Pointer) bool {
 	switch pointer.GetType() {
 	case pb.Pointer_REMOTE:
-		if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
+		if observer.HandleError(observer.RemoteSegment(ctx, location, pointer)) {
 			return false
 		}
 	case pb.Pointer_INLINE:
-		if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
+		if observer.HandleError(observer.InlineSegment(ctx, location, pointer)) {
 			return false
 		}
 	default:
 		return false
 	}
-	if isLastSegment {
-		if observer.HandleError(observer.Object(ctx, path, pointer)) {
+	if location.IsLast() {
+		if observer.HandleError(observer.Object(ctx, location, pointer)) {
 			return false
 		}
 	}
@@ -319,22 +309,15 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 				return LoopError.New("unexpected error unmarshalling pointer %s", err)
 			}
 
-			segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(rawPath))
+			location, err := metabase.ParseSegmentKey(metabase.SegmentKey(rawPath))
 			if err != nil {
-				// We skip this path because it belongs to bucket metadata, not to an
-				// actual object
+				// TODO should we log error here
 				continue nextSegment
-			}
-
-			path := ScopedPath{
-				Raw:             rawPath,
-				SegmentLocation: segmentLocation,
-				ProjectIDString: segmentLocation.ProjectID.String(),
 			}
 
 			nextObservers := observers[:0]
 			for _, observer := range observers {
-				keepObserver := handlePointer(ctx, observer, path, path.IsLast(), pointer)
+				keepObserver := handlePointer(ctx, observer, location, pointer)
 				if keepObserver {
 					nextObservers = append(nextObservers, observer)
 				}

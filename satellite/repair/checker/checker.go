@@ -248,7 +248,7 @@ type checkerObserver struct {
 	log            *zap.Logger
 }
 
-func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// ignore pointer if expired
@@ -285,13 +285,14 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 		repairThreshold = obs.overrideRepair
 	}
 
+	key := location.Encode()
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
 	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
 		obs.monStats.remoteSegmentsNeedingRepair++
 		alreadyInserted, err := obs.repairQueue.Insert(ctx, &pb.InjuredSegment{
-			Path:         []byte(path.Raw),
+			Path:         key,
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
 		}, int(numHealthy))
@@ -305,13 +306,13 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 		}
 
 		// delete always returns nil when something was deleted and also when element didn't exists
-		err = obs.irrdb.Delete(ctx, []byte(path.Raw))
+		err = obs.irrdb.Delete(ctx, key)
 		if err != nil {
 			obs.log.Error("error deleting entry from irreparable db", zap.Error(err))
 			return nil
 		}
 	} else if numHealthy < redundancy.MinReq && numHealthy < repairThreshold {
-		lostSegInfo := path.Object()
+		lostSegInfo := location.Object()
 		if !containsObjectLocation(obs.monStats.remoteSegmentInfo, lostSegInfo) {
 			obs.monStats.remoteSegmentInfo = append(obs.monStats.remoteSegmentInfo, lostSegInfo)
 		}
@@ -327,7 +328,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table
 		segmentInfo := &pb.IrreparableSegment{
-			Path:               []byte(path.Raw),
+			Path:               key,
 			SegmentDetail:      pointer,
 			LostPieces:         int32(len(missingPieces)),
 			LastRepairAttempt:  time.Now().Unix(),
@@ -354,7 +355,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, path metainfo.Sco
 	return nil
 }
 
-func (obs *checkerObserver) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	obs.monStats.objectsChecked++
@@ -362,7 +363,7 @@ func (obs *checkerObserver) Object(ctx context.Context, path metainfo.ScopedPath
 	return nil
 }
 
-func (obs *checkerObserver) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil
 }

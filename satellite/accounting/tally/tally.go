@@ -215,8 +215,8 @@ func (observer *Observer) pointerExpired(pointer *pb.Pointer) bool {
 }
 
 // ensureBucket returns bucket corresponding to the passed in path.
-func (observer *Observer) ensureBucket(ctx context.Context, path metainfo.ScopedPath) *accounting.BucketTally {
-	bucketLocation := path.Bucket()
+func (observer *Observer) ensureBucket(ctx context.Context, location metabase.SegmentLocation) *accounting.BucketTally {
+	bucketLocation := location.Bucket()
 	bucket, exists := observer.Bucket[bucketLocation]
 	if !exists {
 		bucket = &accounting.BucketTally{}
@@ -228,23 +228,23 @@ func (observer *Observer) ensureBucket(ctx context.Context, path metainfo.Scoped
 }
 
 // Object is called for each object once.
-func (observer *Observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (observer *Observer) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	if observer.pointerExpired(pointer) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, path)
+	bucket := observer.ensureBucket(ctx, location)
 	bucket.ObjectCount++
 	return nil
 }
 
 // InlineSegment is called for each inline segment.
-func (observer *Observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (observer *Observer) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	if observer.pointerExpired(pointer) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, path)
+	bucket := observer.ensureBucket(ctx, location)
 	bucket.InlineSegments++
 	bucket.InlineBytes += int64(len(pointer.InlineSegment))
 	bucket.MetadataSize += int64(len(pointer.Metadata))
@@ -253,12 +253,12 @@ func (observer *Observer) InlineSegment(ctx context.Context, path metainfo.Scope
 }
 
 // RemoteSegment is called for each remote segment.
-func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (observer *Observer) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	if observer.pointerExpired(pointer) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, path)
+	bucket := observer.ensureBucket(ctx, location)
 	bucket.RemoteSegments++
 	bucket.RemoteBytes += pointer.GetSegmentSize()
 	bucket.MetadataSize += int64(len(pointer.Metadata))
@@ -270,7 +270,7 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.Scope
 	minimumRequired := redundancy.GetMinReq()
 
 	if remote == nil || redundancy == nil || minimumRequired <= 0 {
-		observer.Log.Error("failed sanity check", zap.String("path", path.Raw))
+		observer.Log.Error("failed sanity check", zap.ByteString("key", location.Encode()))
 		return nil
 	}
 
