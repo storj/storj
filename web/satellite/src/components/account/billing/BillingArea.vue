@@ -76,7 +76,6 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccountBalance } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
     components: {
@@ -108,7 +107,6 @@ export default class BillingArea extends Vue {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
             if (this.$store.getters.canUserCreateFirstProject && !this.userHasOwnProject) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-                await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
             }
         } catch (error) {
             await this.$notify.error(error.message);
@@ -175,7 +173,7 @@ export default class BillingArea extends Vue {
      * Indicates if user has own project.
      */
     public get userHasOwnProject(): boolean {
-        return new ProjectOwning(this.$store).usersProjectsCount() > 0;
+        return this.$store.getters.userProjectsCount > 0;
     }
 
     /**

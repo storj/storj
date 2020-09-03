@@ -6,7 +6,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import ProjectSelection from '@/components/header/projectSelection/ProjectSelection.vue';
+import ProjectSelection from '@/components/project/selection/ProjectSelection.vue';
 
 import ApiKeysIcon from '@/../static/images/navigation/apiKeys.svg';
 import DashboardIcon from '@/../static/images/navigation/dashboard.svg';

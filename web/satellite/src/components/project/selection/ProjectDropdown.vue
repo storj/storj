@@ -22,11 +22,13 @@
             >
                 <p class="project-dropdown__wrap__choice__unselected">{{ project.name }}</p>
             </div>
-						<div @click="toggleSelection" @click.prevent.stop="closeDropdown" class="project-dropdown__wrap__create-project__wrapper">
-							<div class="project-dropdown__wrap__create-project__border"></div>
-							<p class="project-dropdown__wrap__create-project__text">Create Projects</p>
-							<p class="project-dropdown__wrap__create-project__arrow">-></p>
-						</div>
+        </div>
+        <div class="project-dropdown__create-project" v-if="isCreateProjectButtonShown" @click.stop="onCreateProjectsClick">
+            <div class="project-dropdown__create-project__border"/>
+            <div class="project-dropdown__create-project__button-area">
+                <p class="project-dropdown__create-project__button-area__text">Create Projects</p>
+                <p class="project-dropdown__create-project__button-area__arrow">-></p>
+            </div>
         </div>
     </div>
 </template>
@@ -36,12 +38,13 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import ProjectSelectionIcon from '@/../static/images/header/projectSelection.svg';
 
+import { RouteConfig } from '@/router';
 import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
@@ -62,32 +65,12 @@ export default class ProjectDropdown extends Vue {
 
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project usage. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error('Unable to fetch buckets: ' + error.message);
-        }
-
-        try {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch project limits. ${error.message}`);
+            await this.$notify.error(`Unable to select project. ${error.message}`);
         }
     }
 
@@ -105,12 +88,20 @@ export default class ProjectDropdown extends Vue {
         return this.$store.getters.selectedProject;
     }
 
-        /**
-		 * Opens new project creation popup.
-		 */
-        public toggleSelection(): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-        }
+    /**
+     * Indicates if create project button is shown.
+     */
+    public get isCreateProjectButtonShown(): boolean {
+        return this.$store.state.appStateModule.appState.isCreateProjectButtonShown;
+    }
+
+    /**
+     * Redirects to create project page.
+     */
+    public onCreateProjectsClick(): void {
+        this.$router.push(RouteConfig.CreateProject.path);
+        this.closeDropdown();
+    }
 
     /**
      * Closes dropdown.
@@ -136,6 +127,7 @@ export default class ProjectDropdown extends Vue {
         border: 1px solid #c5cbdb;
         box-shadow: 0 8px 34px rgba(161, 173, 185, 0.41);
         border-radius: 6px;
+        background-color: #fff;
 
         &__wrap {
             width: auto;
@@ -184,39 +176,29 @@ export default class ProjectDropdown extends Vue {
                     }
                 }
             }
+        }
 
-            &__create-project {
+        &__create-project {
 
-                &__border {
-                    border-top: 1px solid #c7cdd2;
-                    width: 90%;
-                    float: right;
-                }
+            &__border {
+                border-top: 1px solid #c7cdd2;
+                width: 90%;
+                float: right;
+            }
+
+            &__button-area {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: calc(100% - 50px);
+                padding: 5px 25px;
 
                 &__text,
                 &__arrow {
                     color: #2683ff;
-                    padding-left: 20px;
-                    font-weight: 500;
                     font-size: 14px;
-                }
-
-                &__text {
-                    float: left;
-                    padding: 5px 0 5px 20px;
-                }
-
-                &__arrow {
-                    float: right;
-                    position: relative;
-                    right: 20px;
-                    top: 5px;
                 }
             }
         }
-    }
-
-    .arrow {
-        padding-right: 25px;
     }
 </style>
