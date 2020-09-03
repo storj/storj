@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // ErrSigner is default error class for Signer.
@@ -24,8 +25,9 @@ type Signer struct {
 	// TODO: should this be a ref to the necessary pieces instead of the service?
 	Service *Service
 
-	// TODO: use a Template pb.OrderLimit here?
+	Bucket metabase.BucketLocation
 
+	// TODO: use a Template pb.OrderLimit here?
 	RootPieceID storj.PieceID
 
 	PieceExpiration time.Time
@@ -38,6 +40,9 @@ type Signer struct {
 	Serial storj.SerialNumber
 	Action pb.PieceAction
 	Limit  int64
+
+	EncryptedMetadataKeyID []byte
+	EncryptedMetadata      []byte
 
 	AddressedLimits []*pb.AddressedOrderLimit
 }
@@ -56,9 +61,11 @@ func createSerial(orderExpiration time.Time) (_ storj.SerialNumber, err error) {
 }
 
 // NewSigner creates an order limit signer.
-func NewSigner(service *Service, rootPieceID storj.PieceID, pieceExpiration time.Time, orderCreation time.Time, limit int64, action pb.PieceAction) (*Signer, error) {
+func NewSigner(service *Service, rootPieceID storj.PieceID, pieceExpiration time.Time, orderCreation time.Time, limit int64, action pb.PieceAction, bucket metabase.BucketLocation) (*Signer, error) {
 	signer := &Signer{}
 	signer.Service = service
+
+	signer.Bucket = bucket
 
 	signer.RootPieceID = rootPieceID
 
@@ -84,38 +91,38 @@ func NewSigner(service *Service, rootPieceID storj.PieceID, pieceExpiration time
 }
 
 // NewSignerGet creates a new signer for get orders.
-func NewSignerGet(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, limit int64) (*Signer, error) {
-	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, limit, pb.PieceAction_GET)
+func NewSignerGet(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, limit int64, bucket metabase.BucketLocation) (*Signer, error) {
+	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, limit, pb.PieceAction_GET, bucket)
 }
 
 // NewSignerPut creates a new signer for put orders.
-func NewSignerPut(service *Service, pieceExpiration time.Time, orderCreation time.Time, limit int64) (*Signer, error) {
+func NewSignerPut(service *Service, pieceExpiration time.Time, orderCreation time.Time, limit int64, bucket metabase.BucketLocation) (*Signer, error) {
 	rootPieceID := storj.NewPieceID()
-	return NewSigner(service, rootPieceID, pieceExpiration, orderCreation, limit, pb.PieceAction_PUT)
+	return NewSigner(service, rootPieceID, pieceExpiration, orderCreation, limit, pb.PieceAction_PUT, bucket)
 }
 
 // NewSignerDelete creates a new signer for delete orders.
-func NewSignerDelete(service *Service, rootPieceID storj.PieceID, orderCreation time.Time) (*Signer, error) {
-	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, 0, pb.PieceAction_DELETE)
+func NewSignerDelete(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, bucket metabase.BucketLocation) (*Signer, error) {
+	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, 0, pb.PieceAction_DELETE, bucket)
 }
 
 // NewSignerRepairGet creates a new signer for get repair orders.
-func NewSignerRepairGet(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, pieceSize int64) (*Signer, error) {
-	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, pieceSize, pb.PieceAction_GET_REPAIR)
+func NewSignerRepairGet(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, pieceSize int64, bucket metabase.BucketLocation) (*Signer, error) {
+	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, pieceSize, pb.PieceAction_GET_REPAIR, bucket)
 }
 
 // NewSignerRepairPut creates a new signer for put repair orders.
-func NewSignerRepairPut(service *Service, rootPieceID storj.PieceID, pieceExpiration time.Time, orderCreation time.Time, pieceSize int64) (*Signer, error) {
-	return NewSigner(service, rootPieceID, pieceExpiration, orderCreation, pieceSize, pb.PieceAction_PUT_REPAIR)
+func NewSignerRepairPut(service *Service, rootPieceID storj.PieceID, pieceExpiration time.Time, orderCreation time.Time, pieceSize int64, bucket metabase.BucketLocation) (*Signer, error) {
+	return NewSigner(service, rootPieceID, pieceExpiration, orderCreation, pieceSize, pb.PieceAction_PUT_REPAIR, bucket)
 }
 
 // NewSignerAudit creates a new signer for audit orders.
-func NewSignerAudit(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, pieceSize int64) (*Signer, error) {
-	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, pieceSize, pb.PieceAction_GET_AUDIT)
+func NewSignerAudit(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, pieceSize int64, bucket metabase.BucketLocation) (*Signer, error) {
+	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, pieceSize, pb.PieceAction_GET_AUDIT, bucket)
 }
 
 // NewSignerGracefulExit creates a new signer for graceful exit orders.
-func NewSignerGracefulExit(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, shareSize int32) (*Signer, error) {
+func NewSignerGracefulExit(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, shareSize int32, bucket metabase.BucketLocation) (*Signer, error) {
 	// TODO: we're using zero time.Time for piece expiration for some reason.
 
 	// TODO: we're using `PUT_REPAIR` here even though we should be using `PUT`, such
@@ -126,12 +133,33 @@ func NewSignerGracefulExit(service *Service, rootPieceID storj.PieceID, orderCre
 	// supporting code/tables to aggregate `PUT_GRACEFUL_EXIT` bandwidth into our rollups
 	// and stuff. so, for now, we just use `PUT_REPAIR` because it's the least bad of
 	// our options. this should be fixed.
-	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, int64(shareSize), pb.PieceAction_PUT_REPAIR)
+	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, int64(shareSize), pb.PieceAction_PUT_REPAIR, bucket)
 }
 
 // Sign signs an order limit for the specified node.
 func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int32) (_ *pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if signer.Service.includeEncryptedMetadata && len(signer.EncryptedMetadata) == 0 {
+		encryptionKey := signer.Service.encryptionKeys.Default
+		if encryptionKey.IsZero() {
+			return nil, ErrSigner.New("default encryption key is missing")
+		}
+
+		bucketID, err := signer.Service.buckets.GetBucketID(ctx, signer.Bucket)
+		if err != nil {
+			return nil, ErrSigner.Wrap(err)
+		}
+
+		metadata, err := pb.Marshal(&pb.OrderLimitMetadata{
+			BucketId: bucketID[:],
+		})
+		if err != nil {
+			return nil, ErrSigner.Wrap(err)
+		}
+		signer.EncryptedMetadataKeyID = encryptionKey.ID[:]
+		signer.EncryptedMetadata = encryptionKey.Encrypt(metadata, signer.Serial)
+	}
 
 	limit := &pb.OrderLimit{
 		SerialNumber:    signer.Serial,
@@ -148,6 +176,9 @@ func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int
 		OrderExpiration: signer.OrderExpiration,
 
 		SatelliteAddress: signer.Service.satelliteAddress,
+
+		EncryptedMetadataKeyId: signer.EncryptedMetadataKeyID,
+		EncryptedMetadata:      signer.EncryptedMetadata,
 	}
 
 	signedLimit, err := signing.SignOrderLimit(ctx, signer.Service.satellite, limit)

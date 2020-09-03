@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/crypto/nacl/secretbox"
 
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 )
 
@@ -69,6 +70,31 @@ func (key *EncryptionKey) Decrypt(ciphertext []byte, nonce storj.SerialNumber) (
 	return dec, nil
 }
 
+// EncryptMetadata encrypts order limit metadata.
+func (key *EncryptionKey) EncryptMetadata(serial storj.SerialNumber, metadata *pb.OrderLimitMetadata) ([]byte, error) {
+	marshaled, err := pb.Marshal(metadata)
+	if err != nil {
+		return nil, ErrEncryptionKey.Wrap(err)
+	}
+	return key.Encrypt(marshaled, serial), nil
+}
+
+// DecryptMetadata decrypts order limit metadata.
+func (key *EncryptionKey) DecryptMetadata(serial storj.SerialNumber, encrypted []byte) (*pb.OrderLimitMetadata, error) {
+	decrypted, err := key.Decrypt(encrypted, serial)
+	if err != nil {
+		return nil, ErrEncryptionKey.Wrap(err)
+	}
+
+	metadata := &pb.OrderLimitMetadata{}
+	err = pb.Unmarshal(decrypted, metadata)
+	if err != nil {
+		return nil, ErrEncryptionKey.Wrap(err)
+	}
+
+	return metadata, nil
+}
+
 // IsZero returns whether they key contains some data.
 func (key *EncryptionKey) IsZero() bool {
 	return key.ID.IsZero() || key.Key.IsZero()
@@ -113,6 +139,9 @@ func (EncryptionKeys) Type() string { return "orders.EncryptionKeys" }
 func (keys *EncryptionKeys) Set(s string) error {
 	if keys.KeyByID == nil {
 		keys.KeyByID = map[EncryptionKeyID]storj.Key{}
+	}
+	if s == "" {
+		return nil
 	}
 
 	for _, x := range strings.Split(s, ",") {

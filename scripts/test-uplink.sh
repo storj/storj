@@ -104,6 +104,13 @@ compare_files "$SRC_DIR/put-file"                     "$DST_DIR/put-file-from-ca
 # test deleting non empty bucket with --force flag
 uplink mb "sj://$BUCKET/"
 
-uplink cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/" --progress=false
+for i in $(seq -w 1 16); do
+  uplink cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/small-file-$i" --progress=false
+done
 
 uplink rb "sj://$BUCKET" --force
+
+if [ "$(uplink ls | grep "No buckets" | wc -l)" = "0" ]; then
+  echo "an integration test did not clean up after itself entirely"
+  exit 1
+fi

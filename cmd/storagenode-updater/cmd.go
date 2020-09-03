@@ -19,6 +19,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
+	"storj.io/private/version"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/storagenode"
 )
@@ -52,7 +53,7 @@ var (
 	runCfg struct {
 		storagenode.Config
 
-		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
+		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
 		// deprecated
 		Log string `help:"deprecated, use --log.output" default:""`
@@ -95,6 +96,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if nodeID.IsZero() {
 		zap.L().Fatal("Empty node ID.")
 	}
+
+	zap.L().Info("Running on version", zap.String("version", version.Build.Version.String()))
 
 	ctx, _ := process.Ctx(cmd)
 

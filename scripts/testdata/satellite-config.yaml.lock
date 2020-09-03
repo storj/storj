@@ -320,7 +320,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.loop.coalesce-duration: 5s
 
 # how many items to query in a batch
-# metainfo.loop.list-limit: 10000
+# metainfo.loop.list-limit: 2500
 
 # rate limit (default is 0 which is unlimited segments per second)
 # metainfo.loop.rate-limit: 0
@@ -442,6 +442,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # path to log for oom notices
 # monkit.hw.oomlog: /var/log/kern.log
 
+# encryption keys to encrypt info in orders
+# orders.encryption-keys: ""
+
 # how long until an order expires
 # orders.expiration: 48h0m0s
 
@@ -450,6 +453,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
+
+# include encrypted metadata in the order limit
+# orders.include-encrypted-metadata: false
 
 # how many records to read in a single transaction when calculating billable bandwidth
 # orders.reported-rollups-read-batch-size: 1000

@@ -183,6 +183,14 @@ func (bad *BadBlobs) FreeSpace() (int64, error) {
 	return bad.blobs.FreeSpace()
 }
 
+// CheckWritability tests writability of the storage directory by creating and deleting a file.
+func (bad *BadBlobs) CheckWritability() error {
+	if bad.err != nil {
+		return bad.err
+	}
+	return bad.blobs.CheckWritability()
+}
+
 // SpaceUsedForBlobs adds up how much is used in all namespaces.
 func (bad *BadBlobs) SpaceUsedForBlobs(ctx context.Context) (int64, error) {
 	if bad.err != nil {

@@ -984,6 +984,9 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 		UnknownAuditReputationAlpha: dbNode.UnknownAuditReputationAlpha,
 		UnknownAuditReputationBeta:  dbNode.UnknownAuditReputationBeta,
 		UnknownAuditSuspended:       dbNode.UnknownAuditSuspended,
+		OfflineUnderReview:          dbNode.UnderReview,
+		OfflineSuspended:            dbNode.OfflineSuspended,
+		OnlineScore:                 dbNode.OnlineScore,
 	}
 	return nodeStats
 }
@@ -1108,6 +1111,13 @@ func buildUpdateStatement(update updateNodeStats) string {
 		atLeastOne = true
 		sql += fmt.Sprintf("contained = %t", update.Contained.value)
 	}
+	if update.OnlineScore.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("online_score = %f", update.OnlineScore.value)
+	}
 	if update.OfflineUnderReview.set {
 		if atLeastOne {
 			sql += ","
@@ -1180,6 +1190,7 @@ type updateNodeStats struct {
 	Contained                   boolField
 	OfflineUnderReview          timeField
 	OfflineSuspended            timeField
+	OnlineScore                 float64Field
 }
 
 func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditOnlineScore float64, now time.Time) updateNodeStats {
@@ -1316,6 +1327,8 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	// Updating node stats always exits it from containment mode
 	updateFields.Contained = boolField{set: true, value: false}
 
+	// always update online score
+	updateFields.OnlineScore = float64Field{set: true, value: auditOnlineScore}
 	// Suspension and disqualification for offline nodes
 	goodOnlineScore := auditOnlineScore >= updateReq.AuditHistory.OfflineThreshold
 	if dbNode.UnderReview != nil {
@@ -1409,6 +1422,9 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 		updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
 	}
 
+	if update.OnlineScore.set {
+		updateFields.OnlineScore = dbx.Node_OnlineScore(update.OnlineScore.value)
+	}
 	if update.OfflineSuspended.set {
 		if update.OfflineSuspended.isNil {
 			updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Null()

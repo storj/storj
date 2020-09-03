@@ -588,6 +588,7 @@ func TestUpdateCheckIn(t *testing.T) {
 		expectedNode.Reputation.UnknownAuditReputationAlpha = 1
 		expectedNode.Reputation.AuditReputationBeta = 0
 		expectedNode.Reputation.UnknownAuditReputationBeta = 0
+		expectedNode.Reputation.OnlineScore = 1
 		expectedNode.Version.Timestamp = actualNode.Version.Timestamp
 		expectedNode.CreatedAt = actualNode.CreatedAt
 		require.Equal(t, expectedNode, actualNode)

@@ -9,6 +9,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // BucketsDB is the interface for the database to interact with buckets
@@ -20,7 +21,7 @@ type BucketsDB interface {
 	// Get returns an existing bucket
 	GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket storj.Bucket, err error)
 	// GetBucketID returns an existing bucket id.
-	GetBucketID(ctx context.Context, bucketName []byte, projectID uuid.UUID) (id uuid.UUID, err error)
+	GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (id uuid.UUID, err error)
 	// UpdateBucket updates an existing bucket
 	UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error)
 	// Delete deletes a bucket

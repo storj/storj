@@ -65,7 +65,7 @@ export default class ProjectDashboard extends Vue {
 
 <style scoped lang="scss">
     .dashboard-area {
-        padding: 40px 30px;
+        padding: 40px 30px 70px 30px;
         font-family: 'font_regular', sans-serif;
 
         &__title-area {

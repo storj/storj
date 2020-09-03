@@ -152,6 +152,7 @@ CREATE TABLE nodes (
 	unknown_audit_suspended timestamp with time zone,
 	offline_suspended timestamp with time zone,
 	under_review timestamp with time zone,
+	online_score double precision NOT NULL DEFAULT 1,
 	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
 	audit_reputation_beta double precision NOT NULL DEFAULT 0,
 	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,

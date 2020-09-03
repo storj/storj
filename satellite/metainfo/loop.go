@@ -14,7 +14,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 )
 
@@ -55,13 +55,8 @@ func (NullObserver) InlineSegment(context.Context, ScopedPath, *pb.Pointer) erro
 
 // ScopedPath contains full expanded information about the path.
 type ScopedPath struct {
-	ProjectID           uuid.UUID
-	ProjectIDString     string
-	Segment             string
-	BucketName          string
-	EncryptedObjectPath string
-
-	// TODO: should these be a []byte?
+	metabase.SegmentLocation
+	ProjectIDString string
 
 	// Raw is the same path as pointerDB is using.
 	Raw storj.Path
@@ -140,7 +135,7 @@ func (observer *observerContext) Wait() error {
 type LoopConfig struct {
 	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
-	ListLimit        int           `help:"how many items to query in a batch" default:"10000"`
+	ListLimit        int           `help:"how many items to query in a batch" default:"2500"`
 }
 
 // Loop is a metainfo loop service.
@@ -324,32 +319,22 @@ func iterateDatabase(ctx context.Context, db PointerDB, observers []*observerCon
 				return LoopError.New("unexpected error unmarshalling pointer %s", err)
 			}
 
-			pathElements := storj.SplitPath(rawPath)
-
-			if len(pathElements) < 4 {
+			segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(rawPath))
+			if err != nil {
 				// We skip this path because it belongs to bucket metadata, not to an
 				// actual object
 				continue nextSegment
 			}
 
-			isLastSegment := pathElements[1] == "l"
-
 			path := ScopedPath{
-				Raw:                 rawPath,
-				ProjectIDString:     pathElements[0],
-				Segment:             pathElements[1],
-				BucketName:          pathElements[2],
-				EncryptedObjectPath: storj.JoinPaths(pathElements[3:]...),
-			}
-
-			path.ProjectID, err = uuid.FromString(path.ProjectIDString)
-			if err != nil {
-				return LoopError.Wrap(err)
+				Raw:             rawPath,
+				SegmentLocation: segmentLocation,
+				ProjectIDString: segmentLocation.ProjectID.String(),
 			}
 
 			nextObservers := observers[:0]
 			for _, observer := range observers {
-				keepObserver := handlePointer(ctx, observer, path, isLastSegment, pointer)
+				keepObserver := handlePointer(ctx, observer, path, path.IsLast(), pointer)
 				if keepObserver {
 					nextObservers = append(nextObservers, observer)
 				}

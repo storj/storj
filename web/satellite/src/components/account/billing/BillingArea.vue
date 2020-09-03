@@ -202,6 +202,7 @@ export default class BillingArea extends Vue {
 
 <style scoped lang="scss">
     .account-billing-area {
+        padding-bottom: 40px;
 
         &__title-area {
             display: flex;

@@ -43,7 +43,6 @@ func TestReverifySuccess(t *testing.T) {
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -55,6 +54,7 @@ func TestReverifySuccess(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -124,8 +124,6 @@ func TestReverifyFailMissingShare(t *testing.T) {
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
-
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
 
@@ -136,6 +134,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -207,8 +206,6 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
-
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
 
@@ -219,6 +216,7 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -297,7 +295,6 @@ func TestReverifyFailBadData(t *testing.T) {
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -309,6 +306,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -369,7 +367,6 @@ func TestReverifyOffline(t *testing.T) {
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -381,6 +378,7 @@ func TestReverifyOffline(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -439,7 +437,6 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -451,6 +448,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -536,7 +534,6 @@ func TestReverifyDeletedSegment(t *testing.T) {
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -547,6 +544,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -590,6 +588,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue = audits.Queues.Fetch()
 		path, err = queue.Next()
 		require.NoError(t, err)
 
@@ -621,7 +620,6 @@ func TestReverifyModifiedSegment(t *testing.T) {
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 		metainfo := satellite.Metainfo.Service
 
 		audits.Worker.Loop.Pause()
@@ -633,6 +631,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		pendingPath, err := queue.Next()
 		require.NoError(t, err)
 
@@ -672,6 +671,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 
 		// select the encrypted path that was not used for the pending audit
 		audits.Chore.Loop.TriggerWait()
+		queue = audits.Queues.Fetch()
 		path1, err := queue.Next()
 		require.NoError(t, err)
 		path2, err := queue.Next()
@@ -709,7 +709,6 @@ func TestReverifyReplacedSegment(t *testing.T) {
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -720,6 +719,7 @@ func TestReverifyReplacedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		pendingPath, err := queue.Next()
 		require.NoError(t, err)
 
@@ -756,6 +756,7 @@ func TestReverifyReplacedSegment(t *testing.T) {
 
 		// select the encrypted path that was not used for the pending audit
 		audits.Chore.Loop.TriggerWait()
+		queue = audits.Queues.Fetch()
 		path1, err := queue.Next()
 		require.NoError(t, err)
 		path2, err := queue.Next()
@@ -797,7 +798,6 @@ func TestReverifyDifferentShare(t *testing.T) {
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -813,6 +813,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path1, err := queue.Next()
 		require.NoError(t, err)
 		path2, err := queue.Next()
@@ -905,7 +906,6 @@ func TestReverifyExpired1(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -917,6 +917,7 @@ func TestReverifyExpired1(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -962,7 +963,6 @@ func TestReverifyExpired2(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -978,6 +978,7 @@ func TestReverifyExpired2(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path1, err := queue.Next()
 		require.NoError(t, err)
 		path2, err := queue.Next()
@@ -1094,7 +1095,6 @@ func TestReverifySlowDownload(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -1105,6 +1105,7 @@ func TestReverifySlowDownload(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 
@@ -1178,7 +1179,6 @@ func TestReverifyUnknownError(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		queue := audits.Queue
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -1189,6 +1189,7 @@ func TestReverifyUnknownError(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
 		path, err := queue.Next()
 		require.NoError(t, err)
 

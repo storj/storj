@@ -58,6 +58,8 @@ var States = MultiDBStates{
 		&v41,
 		&v42,
 		&v43,
+		&v44,
+		&v45,
 	},
 }
 

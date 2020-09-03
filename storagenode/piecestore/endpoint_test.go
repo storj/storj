@@ -4,6 +4,7 @@
 package piecestore_test
 
 import (
+	"bytes"
 	"io"
 	"strings"
 	"sync/atomic"
@@ -140,13 +141,7 @@ func TestUpload(t *testing.T) {
 			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 			require.NoError(t, err)
 
-			uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
-			require.NoError(t, err)
-
-			_, err = uploader.Write(data)
-			require.NoError(t, err)
-
-			pieceHash, err := uploader.Commit(ctx)
+			pieceHash, err := client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(data))
 			if tt.err != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.err)
@@ -209,13 +204,7 @@ func TestUploadOverAvailable(t *testing.T) {
 		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 		require.NoError(t, err)
 
-		uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
-		require.NoError(t, err)
-
-		_, err = uploader.Write(data)
-		require.Error(t, err)
-
-		pieceHash, err := uploader.Commit(ctx)
+		pieceHash, err := client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(data))
 		if tt.err != "" {
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.err)
@@ -564,7 +553,6 @@ func TestTooManyRequests(t *testing.T) {
 			uploads.Go(func() (err error) {
 				storageNode := planet.StorageNodes[0]
 				config := piecestore.DefaultConfig
-				config.UploadBufferSize = 0 // disable buffering so we can detect write error early
 
 				client, err := piecestore.DialNodeURL(ctx, uplink.Dialer, storageNode.NodeURL(), uplink.Log, config)
 				if err != nil {
@@ -598,7 +586,7 @@ func TestTooManyRequests(t *testing.T) {
 					return err
 				}
 
-				upload, err := client.Upload(ctx, orderLimit, piecePrivateKey)
+				_, err = client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(make([]byte, orderLimit.Limit)))
 				if err != nil {
 					if errs2.IsRPC(err, rpcstatus.Unavailable) {
 						if atomic.AddInt64(&failedCount, -1) == 0 {
@@ -607,30 +595,6 @@ func TestTooManyRequests(t *testing.T) {
 						return nil
 					}
 					uplink.Log.Error("upload failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
-					return err
-				}
-
-				_, err = upload.Write(make([]byte, orderLimit.Limit))
-				if err != nil {
-					if errs2.IsRPC(err, rpcstatus.Unavailable) {
-						if atomic.AddInt64(&failedCount, -1) == 0 {
-							close(doneWaiting)
-						}
-						return nil
-					}
-					uplink.Log.Error("write failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
-					return err
-				}
-
-				_, err = upload.Commit(ctx)
-				if err != nil {
-					if errs2.IsRPC(err, rpcstatus.Unavailable) {
-						if atomic.AddInt64(&failedCount, -1) == 0 {
-							close(doneWaiting)
-						}
-						return nil
-					}
-					uplink.Log.Error("commit failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
 					return err
 				}
 
@@ -688,13 +652,7 @@ func uploadPiece(
 	orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 	require.NoError(t, err)
 
-	uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
-	require.NoError(t, err)
-
-	_, err = uploader.Write(uploadedData)
-	require.NoError(t, err)
-
-	hash, err := uploader.Commit(ctx)
+	hash, err := client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(uploadedData))
 	require.NoError(t, err)
 
 	return uploadedData, orderLimit, hash

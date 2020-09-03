@@ -21,13 +21,4 @@ export class Validator {
     public static password(password: string): boolean {
         return typeof password !== 'undefined' && password.length >= 6;
     }
-
-    /**
-     * Checks string to not include slash.
-     */
-    public static anyCharactersButSlash(string: string): boolean {
-        const rgx = /^[^\/]+$/;
-
-        return rgx.test(string);
-    }
 }

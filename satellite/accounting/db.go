@@ -11,6 +11,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/compensation"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // RollupStats is a convenience alias.
@@ -162,7 +163,7 @@ type StoragenodeAccounting interface {
 // architecture: Database
 type ProjectAccounting interface {
 	// SaveTallies saves the latest project info
-	SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) error
+	SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[metabase.BucketLocation]*BucketTally) error
 	// GetTallies retrieves all tallies
 	GetTallies(ctx context.Context) ([]BucketTally, error)
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table

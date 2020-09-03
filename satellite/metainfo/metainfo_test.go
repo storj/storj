@@ -6,6 +6,7 @@ package metainfo_test
 import (
 	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"testing"
@@ -31,6 +32,7 @@ import (
 	satMetainfo "storj.io/storj/satellite/metainfo"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/object"
 	"storj.io/uplink/private/storage/meta"
 	"storj.io/uplink/private/testuplink"
 )
@@ -1767,5 +1769,32 @@ func TestImmutableUpload(t *testing.T) {
 
 		err = upload.Commit()
 		require.Error(t, err)
+	})
+}
+
+func TestGetObjectIPs(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+		uplnk := planet.Uplinks[0]
+		uplinkCtx := testuplink.WithMaxSegmentSize(ctx, 5*memory.KB)
+		sat := planet.Satellites[0]
+
+		require.NoError(t, uplnk.CreateBucket(uplinkCtx, sat, "bob"))
+		require.NoError(t, uplnk.Upload(uplinkCtx, sat, "bob", "jones", testrand.Bytes(20*memory.KB)))
+		ips, err := object.GetObjectIPs(ctx, uplink.Config{}, access, "bob", "jones")
+		require.NoError(t, err)
+		require.True(t, len(ips) > 0)
+
+		// verify it's a real IP with valid host and port
+		for _, ip := range ips {
+			host, port, err := net.SplitHostPort(string(ip))
+			require.NoError(t, err)
+			netIP := net.ParseIP(host)
+			require.NotNil(t, netIP)
+			_, err = strconv.Atoi(port)
+			require.NoError(t, err)
+		}
 	})
 }

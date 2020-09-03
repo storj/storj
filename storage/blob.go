@@ -97,6 +97,8 @@ type Blobs interface {
 	StatWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
 	// FreeSpace return how much free space is available to the blobstore.
 	FreeSpace() (int64, error)
+	// CheckWritability tests writability of the storage directory by creating and deleting a file.
+	CheckWritability() error
 	// SpaceUsedForTrash returns the total space used by the trash.
 	SpaceUsedForTrash(ctx context.Context) (int64, error)
 	// SpaceUsedForBlobs adds up how much is used in all namespaces.

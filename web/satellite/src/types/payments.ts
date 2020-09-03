@@ -163,6 +163,13 @@ export class PaymentsHistoryItem {
 
         return `<a class="download-link" target="_blank" href="${this.link}">${downloadLabel}</a>`;
     }
+
+    /**
+     * isTransactionOrDeposit indicates if payments history item type is transaction or deposit bonus.
+     */
+    public isTransactionOrDeposit(): boolean {
+        return this.type === PaymentsHistoryItemType.Transaction || this.type === PaymentsHistoryItemType.DepositBonus;
+    }
 }
 
 /**

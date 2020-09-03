@@ -323,18 +323,22 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Orders.SettlementBatchSize,
 			config.Orders.WindowEndpointRolloutPhase,
 		)
-		peer.Orders.Service = orders.NewService(
+		var err error
+		peer.Orders.Service, err = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
 			peer.DB.Buckets(),
-			config.Orders.Expiration,
+			config.Orders,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Contact.ExternalAddress,
 			},
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

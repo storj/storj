@@ -306,11 +306,12 @@ func TestCheckUsageWithUsage(t *testing.T) {
 		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
 		require.NoError(t, err)
 
-		accTime := time.Now().UTC().AddDate(0, 0, -1)
+		now := time.Now().UTC()
+		// use fixed intervals to avoid issues at the beginning of the month
 		tally := accounting.BucketStorageTally{
 			BucketName:         "test",
 			ProjectID:          projectID,
-			IntervalStart:      accTime,
+			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 1, time.UTC),
 			ObjectCount:        1,
 			InlineSegmentCount: 1,
 			RemoteSegmentCount: 1,
@@ -323,7 +324,7 @@ func TestCheckUsageWithUsage(t *testing.T) {
 		tally = accounting.BucketStorageTally{
 			BucketName:         "test",
 			ProjectID:          projectID,
-			IntervalStart:      accTime.AddDate(0, 0, 1),
+			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 1, 0, 1, time.UTC),
 			ObjectCount:        1,
 			InlineSegmentCount: 1,
 			RemoteSegmentCount: 1,
@@ -373,11 +374,12 @@ func TestDeleteProjectWithUsageCurrentMonth(t *testing.T) {
 		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
 		require.NoError(t, err)
 
-		accTime := time.Now().UTC().AddDate(0, 0, -1)
+		now := time.Now().UTC()
+		// use fixed intervals to avoid issues at the beginning of the month
 		tally := accounting.BucketStorageTally{
 			BucketName:         "test",
 			ProjectID:          projectID,
-			IntervalStart:      accTime,
+			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 1, time.UTC),
 			ObjectCount:        1,
 			InlineSegmentCount: 1,
 			RemoteSegmentCount: 1,
@@ -390,7 +392,7 @@ func TestDeleteProjectWithUsageCurrentMonth(t *testing.T) {
 		tally = accounting.BucketStorageTally{
 			BucketName:         "test",
 			ProjectID:          projectID,
-			IntervalStart:      accTime.AddDate(0, 0, 1),
+			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 1, 0, 1, time.UTC),
 			ObjectCount:        1,
 			InlineSegmentCount: 1,
 			RemoteSegmentCount: 1,
