@@ -170,6 +170,17 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 });
             },
             selectedProject: (state: ProjectsState): Project => state.selectedProject,
+            userProjectsCount: (state: ProjectsState, getters: any): number => {
+                let projectsCount: number = 0;
+
+                state.projects.map((project: Project) => {
+                    if (project.ownerId === getters.user.id) {
+                        projectsCount++;
+                    }
+                });
+
+                return projectsCount;
+            },
         },
     };
 }

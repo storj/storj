@@ -3,13 +3,14 @@
 
 import Vuex from 'vuex';
 
-import ProjectDropdown from '@/components/header/projectSelection/ProjectDropdown.vue';
+import ProjectDropdown from '@/components/project/selection/ProjectDropdown.vue';
 
+import { appStateModule } from '@/store/modules/appState';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectsApiMock } from '../../mock/api/projects';
+import { ProjectsApiMock } from '../mock/api/projects';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -19,7 +20,7 @@ const projectsModule = makeProjectsModule(projectsApi);
 const project1 = new Project('testId1', 'testName1', '');
 const project2 = new Project('testId2', 'testName2', '');
 
-const store = new Vuex.Store({ modules: { projectsModule }});
+const store = new Vuex.Store({ modules: { projectsModule, appStateModule }});
 
 describe('ProjectDropdown', () => {
     it('renders correctly', () => {

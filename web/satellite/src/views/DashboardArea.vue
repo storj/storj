@@ -57,7 +57,6 @@ import {
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
-import { ProjectOwning } from '@/utils/projectOwning';
 
 const {
     GET_PAYWALL_ENABLED_STATUS,
@@ -223,7 +222,7 @@ export default class DashboardArea extends Vue {
     public get isInfoBarShown(): boolean {
         const isBillingPage = this.$route.name === RouteConfig.Billing.name;
 
-        return isBillingPage && new ProjectOwning(this.$store).usersProjectsCount() > 0;
+        return isBillingPage && this.$store.getters.userProjectsCount > 0;
     }
 
     /**

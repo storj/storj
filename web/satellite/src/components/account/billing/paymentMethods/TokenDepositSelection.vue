@@ -66,9 +66,8 @@ import {PaymentsHistoryItemType} from "@/types/payments";
 import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
-import { PaymentAmountOption, PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import { PaymentAmountOption, PaymentsHistoryItem } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component
 export default class TokenDepositSelection extends Vue {
@@ -126,7 +125,7 @@ export default class TokenDepositSelection extends Vue {
      * Returns payment options depending on user having his own project.
      */
     public get options(): PaymentAmountOption[] {
-        if (new ProjectOwning(this.$store).usersProjectsCount() === 0 && this.noCreditCards) {
+        if (this.$store.getters.userProjectsCount === 0 && this.noCreditCards) {
             return this.initialPaymentOptions;
         }
 

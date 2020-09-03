@@ -39,6 +39,8 @@ import HideIcon from '@/../static/images/common/BlueHide.svg';
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { MetaUtils } from '@/utils/meta';
 
 import ProjectDropdown from './ProjectDropdown.vue';
 
@@ -52,6 +54,27 @@ import ProjectDropdown from './ProjectDropdown.vue';
 export default class ProjectSelection extends Vue {
     private isLoading: boolean = false;
     public isDropdownShown: boolean = false;
+
+    /**
+     * Life cycle hook before initial render.
+     * Toggles new project button visibility depending on user reaching project count limit or having payment method.
+     */
+    public beforeMount(): void {
+        if (this.isProjectLimitReached || !this.$store.getters.canUserCreateFirstProject) {
+            this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
+
+            return;
+        }
+
+        this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
+    }
+
+    /**
+     * Indicates if new project creation button is shown.
+     */
+    public get isButtonShown(): boolean {
+        return this.$store.state.appStateModule.appState.isCreateProjectButtonShown;
+    }
 
     /**
      * Fetches projects related information and than toggles selection popup.
@@ -108,6 +131,15 @@ export default class ProjectSelection extends Vue {
      */
     public closeDropdown(): void {
         this.isDropdownShown = false;
+    }
+
+    /**
+     * Indicates if project count limit is reached.
+     */
+    private get isProjectLimitReached(): boolean {
+        const defaultProjectLimit: number = parseInt(MetaUtils.getMetaContent('default-project-limit'));
+
+        return this.$store.getters.userProjectsCount >= defaultProjectLimit;
     }
 }
 </script>
