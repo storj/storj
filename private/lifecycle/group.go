@@ -6,6 +6,7 @@ package lifecycle
 
 import (
 	"context"
+	"errors"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -53,7 +54,14 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 			continue
 		}
 		g.Go(func() error {
-			return errs2.IgnoreCanceled(item.Run(ctx))
+			err := item.Run(ctx)
+			if errors.Is(ctx.Err(), context.Canceled) {
+				err = errs2.IgnoreCanceled(err)
+			}
+			if err != nil {
+				group.log.Error("unexpected shutdown of a runner", zap.String("name", item.Name), zap.Error(err))
+			}
+			return err
 		})
 	}
 
