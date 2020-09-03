@@ -104,7 +104,7 @@
                     <p class="estimation-table-container__net-total-area__text">{{ totalPayout | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__total-area" v-if="!isCurrentPeriod && heldInfo.surgePercent">
+            <div class="estimation-table-container__total-area" v-if="!isCurrentPeriod && !isLastPeriodWithoutPaystub && heldInfo.surgePercent">
                 <p class="estimation-table-container__total-area__text">Total + Surge {{ surgePercent }}</p>
                 <p class="estimation-table-container__total-area__text">{{ heldInfo.paid | centsToDollars }}</p>
             </div>
@@ -263,7 +263,7 @@ export default class EstimationArea extends Vue {
             return this.heldInfo.paid;
         }
 
-        return this.heldInfo.paidWithoutSurge;
+        return this.grossTotal;
     }
 
     /**
