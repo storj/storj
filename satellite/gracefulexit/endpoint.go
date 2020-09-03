@@ -330,7 +330,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 		return nil
 	}
 
-	pointer, err := endpoint.getValidPointer(ctx, string(incomplete.Path), incomplete.PieceNum, incomplete.RootPieceID)
+	pointer, err := endpoint.getValidPointer(ctx, metabase.SegmentKey(incomplete.Path), incomplete.PieceNum, incomplete.RootPieceID)
 	if err != nil {
 		endpoint.log.Warn("invalid pointer", zap.Error(err))
 		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Path, incomplete.PieceNum)
@@ -352,7 +352,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 
 	pieceSize, err := endpoint.calculatePieceSize(ctx, pointer, incomplete, nodePiece)
 	if ErrAboveOptimalThreshold.Has(err) {
-		_, err = endpoint.metainfo.UpdatePieces(ctx, string(incomplete.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
+		_, err = endpoint.metainfo.UpdatePieces(ctx, metabase.SegmentKey(incomplete.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -469,7 +469,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream pb.DRPCSat
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.updatePointer(ctx, transfer.OriginalPointer, exitingNodeID, receivingNodeID, string(transfer.Path), transfer.PieceNum, transferQueueItem.RootPieceID)
+	err = endpoint.updatePointer(ctx, transfer.OriginalPointer, exitingNodeID, receivingNodeID, metabase.SegmentKey(transfer.Path), transfer.PieceNum, transferQueueItem.RootPieceID)
 	if err != nil {
 		// remove the piece from the pending queue so it gets retried
 		deleteErr := pending.Delete(originalPieceID)
@@ -550,7 +550,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 	// If the pointer is not piece hash verified, do not count this as a failure.
 	if pb.TransferFailed_Error(errorCode) == pb.TransferFailed_NOT_FOUND {
 		endpoint.log.Debug("piece not found on node", zap.Stringer("node ID", nodeID), zap.ByteString("path", transfer.Path), zap.Int32("piece num", transfer.PieceNum))
-		pointer, err := endpoint.metainfo.Get(ctx, string(transfer.Path))
+		pointer, err := endpoint.metainfo.Get(ctx, metabase.SegmentKey(transfer.Path))
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -578,7 +578,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 			return pending.Delete(pieceID)
 		}
 
-		_, err = endpoint.metainfo.UpdatePieces(ctx, string(transfer.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
+		_, err = endpoint.metainfo.UpdatePieces(ctx, metabase.SegmentKey(transfer.Path), pointer, nil, []*pb.RemotePiece{nodePiece})
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -714,11 +714,11 @@ func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storj.N
 	return message, nil
 }
 
-func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb.Pointer, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, path string, pieceNum int32, originalRootPieceID storj.PieceID) (err error) {
+func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb.Pointer, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32, originalRootPieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// remove the node from the pointer
-	pointer, err := endpoint.getValidPointer(ctx, path, pieceNum, originalRootPieceID)
+	pointer, err := endpoint.getValidPointer(ctx, key, pieceNum, originalRootPieceID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -751,7 +751,7 @@ func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb
 			NodeId:   receivingNodeID,
 		}}
 	}
-	_, err = endpoint.metainfo.UpdatePiecesCheckDuplicates(ctx, path, originalPointer, toAdd, toRemove, true)
+	_, err = endpoint.metainfo.UpdatePiecesCheckDuplicates(ctx, key, originalPointer, toAdd, toRemove, true)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -870,21 +870,21 @@ func (endpoint *Endpoint) calculatePieceSize(ctx context.Context, pointer *pb.Po
 	return eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy), nil
 }
 
-func (endpoint *Endpoint) getValidPointer(ctx context.Context, path string, pieceNum int32, originalRootPieceID storj.PieceID) (*pb.Pointer, error) {
-	pointer, err := endpoint.metainfo.Get(ctx, path)
+func (endpoint *Endpoint) getValidPointer(ctx context.Context, key metabase.SegmentKey, pieceNum int32, originalRootPieceID storj.PieceID) (*pb.Pointer, error) {
+	pointer, err := endpoint.metainfo.Get(ctx, key)
 	// TODO we don't know the type of error
 	if err != nil {
-		return nil, Error.New("pointer path %v no longer exists.", path)
+		return nil, Error.New("pointer path %s no longer exists.", key)
 	}
 
 	remote := pointer.GetRemote()
 	// no longer a remote segment
 	if remote == nil {
-		return nil, Error.New("pointer path %v is no longer remote.", path)
+		return nil, Error.New("pointer path %s is no longer remote.", key)
 	}
 
 	if !originalRootPieceID.IsZero() && originalRootPieceID != remote.RootPieceId {
-		return nil, Error.New("pointer path %v has changed.", path)
+		return nil, Error.New("pointer path %s has changed.", key)
 	}
 	return pointer, nil
 }

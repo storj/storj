@@ -101,7 +101,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	defer mon.Task()(&ctx, path)(&err)
 
 	// Read the segment pointer from the metainfo
-	pointer, err := repairer.metainfo.Get(ctx, path)
+	pointer, err := repairer.metainfo.Get(ctx, metabase.SegmentKey(path))
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
 			mon.Meter("repair_unnecessary").Mark(1)            //locked
@@ -330,7 +330,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	pointer.RepairCount++
 
 	// Update the segment pointer in the metainfo
-	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
+	_, err = repairer.metainfo.UpdatePieces(ctx, metabase.SegmentKey(path), pointer, repairedPieces, toRemove)
 	if err != nil {
 		return false, metainfoPutError.Wrap(err)
 	}

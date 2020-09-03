@@ -17,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 )
 
@@ -242,7 +243,7 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		key, err := planet.Satellites[0].Metainfo.Database.List(ctx, nil, 10)
 		require.NoError(t, err)
 		require.Len(t, key, 1)
-		ptr, err := satelliteSys.Metainfo.Service.Get(ctx, key[0].String())
+		ptr, err := satelliteSys.Metainfo.Service.Get(ctx, metabase.SegmentKey(key[0]))
 		require.NoError(t, err)
 
 		// Cause repair traffic
@@ -266,7 +267,7 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, key, 1)
 
-		ptr2, err := satelliteSys.Metainfo.Service.Get(ctx, key[0].String())
+		ptr2, err := satelliteSys.Metainfo.Service.Get(ctx, metabase.SegmentKey(key[0]))
 		require.NoError(t, err)
 
 		remotePieces := ptr2.GetRemote().GetRemotePieces()
@@ -425,7 +426,7 @@ func TestBilling_ZombieSegments(t *testing.T) {
 			}
 			require.NotNil(t, lastSegmentKey)
 
-			err = satelliteSys.Metainfo.Service.UnsynchronizedDelete(ctx, lastSegmentKey.String())
+			err = satelliteSys.Metainfo.Service.UnsynchronizedDelete(ctx, metabase.SegmentKey(lastSegmentKey))
 			require.NoError(t, err)
 
 			err = uplnk.DeleteObject(ctx, satelliteSys, bucketName, objectKey)

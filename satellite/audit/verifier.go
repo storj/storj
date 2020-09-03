@@ -87,7 +87,7 @@ func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, dialer rpc.Dialer,
 func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[storj.NodeID]bool) (report Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, path)
+	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(path))
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
 			verifier.log.Debug("segment deleted before Verify")
@@ -96,7 +96,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		return Report{}, err
 	}
 	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
-		errDelete := verifier.metainfo.Delete(ctx, path, pointerBytes)
+		errDelete := verifier.metainfo.Delete(ctx, metabase.SegmentKey(path), pointerBytes)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
 		}
@@ -379,7 +379,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		err          error
 	}
 
-	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, path)
+	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(path))
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
 			verifier.log.Debug("segment deleted before Reverify")
@@ -388,7 +388,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		return Report{}, err
 	}
 	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
-		errDelete := verifier.metainfo.Delete(ctx, path, pointerBytes)
+		errDelete := verifier.metainfo.Delete(ctx, metabase.SegmentKey(path), pointerBytes)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
 		}
@@ -451,7 +451,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		containedInSegment++
 
 		go func(pending *PendingAudit) {
-			pendingPointerBytes, pendingPointer, err := verifier.metainfo.GetWithBytes(ctx, pending.Path)
+			pendingPointerBytes, pendingPointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(pending.Path))
 			if err != nil {
 				if storj.ErrObjectNotFound.Has(err) {
 					ch <- result{nodeID: pending.NodeID, status: skipped}
@@ -463,7 +463,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				return
 			}
 			if pendingPointer.ExpirationDate != (time.Time{}) && pendingPointer.ExpirationDate.Before(time.Now().UTC()) {
-				errDelete := verifier.metainfo.Delete(ctx, pending.Path, pendingPointerBytes)
+				errDelete := verifier.metainfo.Delete(ctx, metabase.SegmentKey(pending.Path), pendingPointerBytes)
 				if errDelete != nil {
 					verifier.log.Debug("Reverify: error deleting expired segment", zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
 				}
@@ -705,27 +705,27 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 }
 
 // checkIfSegmentAltered checks if path's pointer has been altered since path was selected.
-func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, segmentPath string, oldPointer *pb.Pointer, oldPointerBytes []byte) (err error) {
+func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, segmentKey string, oldPointer *pb.Pointer, oldPointerBytes []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if verifier.OnTestingCheckSegmentAlteredHook != nil {
 		verifier.OnTestingCheckSegmentAlteredHook()
 	}
 
-	newPointerBytes, newPointer, err := verifier.metainfo.GetWithBytes(ctx, segmentPath)
+	newPointerBytes, newPointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(segmentKey))
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
-			return ErrSegmentDeleted.New("%q", segmentPath)
+			return ErrSegmentDeleted.New("%q", segmentKey)
 		}
 		return err
 	}
 
 	if oldPointer != nil && oldPointer.CreationDate != newPointer.CreationDate {
-		return ErrSegmentDeleted.New("%q", segmentPath)
+		return ErrSegmentDeleted.New("%q", segmentKey)
 	}
 
 	if !bytes.Equal(oldPointerBytes, newPointerBytes) {
-		return ErrSegmentModified.New("%q", segmentPath)
+		return ErrSegmentModified.New("%q", segmentKey)
 	}
 	return nil
 }

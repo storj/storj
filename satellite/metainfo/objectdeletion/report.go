@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // Report represents the deleteion status report.
@@ -89,7 +90,7 @@ func (r Report) DeletedObjects() ([]*pb.Object, error) {
 }
 
 // GenerateReport returns the result of a delete, success, or failure.
-func GenerateReport(ctx context.Context, log *zap.Logger, requests []*ObjectIdentifier, deletedPaths [][]byte, pointers []*pb.Pointer) Report {
+func GenerateReport(ctx context.Context, log *zap.Logger, requests []*ObjectIdentifier, deletedPaths []metabase.SegmentKey, pointers []*pb.Pointer) Report {
 	defer mon.Task()(&ctx)(nil)
 
 	report := Report{}

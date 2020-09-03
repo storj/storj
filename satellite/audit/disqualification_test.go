@@ -124,11 +124,11 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		bucket := metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: "testbucket"}
 
-		items, _, err := satellitePeer.Metainfo.Service.List(ctx, "", "", true, 10, meta.All)
+		items, _, err := satellitePeer.Metainfo.Service.List(ctx, metabase.SegmentKey{}, "", true, 10, meta.All)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(items))
 
-		pointer, err := satellitePeer.Metainfo.Service.Get(ctx, items[0].Path)
+		pointer, err := satellitePeer.Metainfo.Service.Get(ctx, metabase.SegmentKey(items[0].Path))
 		require.NoError(t, err)
 
 		disqualifiedNode := pointer.GetRemote().GetRemotePieces()[0].NodeId

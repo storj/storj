@@ -58,7 +58,7 @@ func TestReverifySuccess(t *testing.T) {
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
 		require.NoError(t, err)
 
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
@@ -138,7 +138,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
 		require.NoError(t, err)
 
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
@@ -220,7 +220,7 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
 		require.NoError(t, err)
 
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
@@ -254,10 +254,10 @@ func TestReverifyFailMissingShareNotVerified(t *testing.T) {
 		require.NoError(t, err)
 
 		// update pointer to have PieceHashesVerified false
-		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, path)
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, metabase.SegmentKey(path))
 		require.NoError(t, err)
 		pointer.PieceHashesVerified = false
-		err = satellite.Metainfo.Service.Put(ctx, path, pointer)
+		err = satellite.Metainfo.Service.Put(ctx, metabase.SegmentKey(path), pointer)
 		require.NoError(t, err)
 
 		// delete the piece from the first node
@@ -310,7 +310,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
 		require.NoError(t, err)
 
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
@@ -382,7 +382,7 @@ func TestReverifyOffline(t *testing.T) {
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
 		require.NoError(t, err)
 
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
@@ -452,7 +452,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
 		require.NoError(t, err)
 
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
@@ -548,7 +548,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
 		require.NoError(t, err)
 
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
@@ -635,7 +635,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		pendingPath, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, pendingPath)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(pendingPath))
 		require.NoError(t, err)
 
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
@@ -660,7 +660,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		// remove a piece from the file (a piece that the contained node isn't holding)
 		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
 			pieceToRemove := pointer.Remote.RemotePieces[1]
-			_, err = metainfo.UpdatePieces(ctx, pendingPath, pointer, nil, []*pb.RemotePiece{pieceToRemove})
+			_, err = metainfo.UpdatePieces(ctx, metabase.SegmentKey(pendingPath), pointer, nil, []*pb.RemotePiece{pieceToRemove})
 			require.NoError(t, err)
 		}
 
@@ -723,7 +723,7 @@ func TestReverifyReplacedSegment(t *testing.T) {
 		pendingPath, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, pendingPath)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(pendingPath))
 		require.NoError(t, err)
 
 		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
@@ -820,9 +820,9 @@ func TestReverifyDifferentShare(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEqual(t, path1, path2)
 
-		pointer1, err := satellite.Metainfo.Service.Get(ctx, path1)
+		pointer1, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path1))
 		require.NoError(t, err)
-		pointer2, err := satellite.Metainfo.Service.Get(ctx, path2)
+		pointer2, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path2))
 		require.NoError(t, err)
 
 		// find a node that contains a piece for both files
@@ -922,7 +922,7 @@ func TestReverifyExpired1(t *testing.T) {
 		require.NoError(t, err)
 
 		// set pointer's expiration date to be already expired
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
 		require.NoError(t, err)
 		oldPointerBytes, err := pb.Marshal(pointer)
 		require.NoError(t, err)
@@ -940,7 +940,7 @@ func TestReverifyExpired1(t *testing.T) {
 		require.NoError(t, err)
 
 		// Reverify should delete the expired segment
-		pointer, err = satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err = satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
 		require.Error(t, err)
 		require.Nil(t, pointer)
 
@@ -985,9 +985,9 @@ func TestReverifyExpired2(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEqual(t, path1, path2)
 
-		pointer1, err := satellite.Metainfo.Service.Get(ctx, path1)
+		pointer1, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path1))
 		require.NoError(t, err)
-		pointer2, err := satellite.Metainfo.Service.Get(ctx, path2)
+		pointer2, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path2))
 		require.NoError(t, err)
 
 		// find a node that contains a piece for both files
@@ -1062,7 +1062,7 @@ func TestReverifyExpired2(t *testing.T) {
 		require.Len(t, report.Fails, 0)
 
 		// Reverify should delete the expired segment
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path1)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path1))
 		require.Error(t, err)
 		require.Nil(t, pointer)
 
@@ -1109,7 +1109,7 @@ func TestReverifySlowDownload(t *testing.T) {
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
 		require.NoError(t, err)
 
 		slowPiece := pointer.Remote.RemotePieces[0]
@@ -1193,7 +1193,7 @@ func TestReverifyUnknownError(t *testing.T) {
 		path, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
 		require.NoError(t, err)
 
 		badPiece := pointer.Remote.RemotePieces[0]

@@ -159,16 +159,16 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 	var testCases = []struct {
 		name         string
 		project      string
-		segmentIndex string
+		segmentIndex int64
 		bucketName   string
 		objectName   string
 		inline       bool
 		last         bool
 	}{
-		{"inline, same project, same bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "l", "mockBucketName", "mockObjectName", true, true},
-		{"remote, same project, same bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "s0", "mockBucketName", "mockObjectName1", false, false},
-		{"last segment, same project, different bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "l", "mockBucketName1", "mockObjectName2", false, true},
-		{"different project", "9656af6e-2d9c-42fa-91f2-bfd516a722d1", "s0", "mockBucketName", "mockObjectName", false, false},
+		{"inline, same project, same bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", metabase.LastSegmentIndex, "mockBucketName", "mockObjectName", true, true},
+		{"remote, same project, same bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", 0, "mockBucketName", "mockObjectName1", false, false},
+		{"last segment, same project, different bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", metabase.LastSegmentIndex, "mockBucketName1", "mockObjectName2", false, true},
+		{"different project", "9656af6e-2d9c-42fa-91f2-bfd516a722d1", 0, "mockBucketName", "mockObjectName", false, false},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -187,8 +187,13 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				// setup: create a pointer and save it to pointerDB
 				pointer := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
 				metainfo := satellitePeer.Metainfo.Service
-				objectPath := fmt.Sprintf("%s/%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName, tt.objectName)
-				err = metainfo.Put(ctx, objectPath, pointer)
+				location := metabase.SegmentLocation{
+					ProjectID:  projectID,
+					BucketName: tt.bucketName,
+					Index:      tt.segmentIndex,
+					ObjectKey:  metabase.ObjectKey(tt.objectName),
+				}
+				err = metainfo.Put(ctx, location.Encode(), pointer)
 				require.NoError(t, err)
 
 				bucketLocation := metabase.BucketLocation{
@@ -216,7 +221,8 @@ func TestTallyIgnoresExpiredPointers(t *testing.T) {
 		satellitePeer := planet.Satellites[0]
 		redundancyScheme := satelliteRS(satellitePeer)
 
-		project := "9656af6e-2d9c-42fa-91f2-bfd516a722d7"
+		projectID, err := uuid.FromString("9656af6e-2d9c-42fa-91f2-bfd516a722d7")
+		require.NoError(t, err)
 		bucket := "bucket"
 
 		// setup: create an expired pointer and save it to pointerDB
@@ -224,8 +230,13 @@ func TestTallyIgnoresExpiredPointers(t *testing.T) {
 		pointer.ExpirationDate = time.Now().Add(-24 * time.Hour)
 
 		metainfo := satellitePeer.Metainfo.Service
-		objectPath := fmt.Sprintf("%s/%s/%s/%s", project, "l", bucket, "object/name")
-		err := metainfo.Put(ctx, objectPath, pointer)
+		location := metabase.SegmentLocation{
+			ProjectID:  projectID,
+			BucketName: bucket,
+			Index:      metabase.LastSegmentIndex,
+			ObjectKey:  metabase.ObjectKey("object/name"),
+		}
+		err = metainfo.Put(ctx, location.Encode(), pointer)
 		require.NoError(t, err)
 
 		obs := tally.NewObserver(satellitePeer.Log.Named("observer"), time.Now())
@@ -254,7 +265,7 @@ func TestTallyLiveAccounting(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, key, 1)
 
-		ptr, err := planet.Satellites[0].Metainfo.Service.Get(ctx, key[0].String())
+		ptr, err := planet.Satellites[0].Metainfo.Service.Get(ctx, metabase.SegmentKey(key[0]))
 		require.NoError(t, err)
 		require.NotNil(t, ptr)
 

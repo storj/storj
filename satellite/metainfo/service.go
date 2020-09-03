@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/uplink/private/storage/meta"
 )
@@ -38,10 +39,10 @@ func NewService(logger *zap.Logger, db PointerDB, bucketsDB BucketsDB) *Service 
 }
 
 // Put puts pointer to db under specific path.
-func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
+func (s *Service) Put(ctx context.Context, key metabase.SegmentKey, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := sanityCheckPointer(path, pointer); err != nil {
+	if err := sanityCheckPointer(key, pointer); err != nil {
 		return Error.Wrap(err)
 	}
 
@@ -54,15 +55,15 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 	}
 
 	// CompareAndSwap is used instead of Put to avoid overwriting existing pointers
-	err = s.db.CompareAndSwap(ctx, []byte(path), nil, pointerBytes)
+	err = s.db.CompareAndSwap(ctx, storage.Key(key), nil, pointerBytes)
 	return Error.Wrap(err)
 }
 
 // UnsynchronizedPut puts pointer to db under specific path without verifying for existing pointer under the same path.
-func (s *Service) UnsynchronizedPut(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
+func (s *Service) UnsynchronizedPut(ctx context.Context, key metabase.SegmentKey, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := sanityCheckPointer(path, pointer); err != nil {
+	if err := sanityCheckPointer(key, pointer); err != nil {
 		return Error.Wrap(err)
 	}
 
@@ -74,13 +75,13 @@ func (s *Service) UnsynchronizedPut(ctx context.Context, path string, pointer *p
 		return Error.Wrap(err)
 	}
 
-	err = s.db.Put(ctx, []byte(path), pointerBytes)
+	err = s.db.Put(ctx, storage.Key(key), pointerBytes)
 	return Error.Wrap(err)
 }
 
 // UpdatePieces calls UpdatePiecesCheckDuplicates with checkDuplicates equal to false.
-func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece) (pointer *pb.Pointer, err error) {
-	return s.UpdatePiecesCheckDuplicates(ctx, path, ref, toAdd, toRemove, false)
+func (s *Service) UpdatePieces(ctx context.Context, key metabase.SegmentKey, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece) (pointer *pb.Pointer, err error) {
+	return s.UpdatePiecesCheckDuplicates(ctx, key, ref, toAdd, toRemove, false)
 }
 
 // UpdatePiecesCheckDuplicates atomically adds toAdd pieces and removes toRemove pieces from
@@ -93,22 +94,22 @@ func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer
 // Then it will remove the toRemove pieces and then it will add the toAdd pieces.
 // Replacing the node ID and the hash of a piece can be done by adding the
 // piece to both toAdd and toRemove.
-func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece, checkDuplicates bool) (pointer *pb.Pointer, err error) {
+func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, key metabase.SegmentKey, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece, checkDuplicates bool) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := sanityCheckPointer(path, ref); err != nil {
+	if err := sanityCheckPointer(key, ref); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	defer func() {
 		if err == nil {
-			err = sanityCheckPointer(path, pointer)
+			err = sanityCheckPointer(key, pointer)
 		}
 	}()
 
 	for {
 		// read the pointer
-		oldPointerBytes, err := s.db.Get(ctx, []byte(path))
+		oldPointerBytes, err := s.db.Get(ctx, storage.Key(key))
 		if err != nil {
 			if storage.ErrKeyNotFound.Has(err) {
 				err = storj.ErrObjectNotFound.Wrap(err)
@@ -143,7 +144,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 			for _, piece := range toAdd {
 				_, ok := nodePieceMap[piece.NodeId]
 				if ok {
-					return nil, ErrNodeAlreadyExists.New("node id already exists in pointer. Path: %s, NodeID: %s", path, piece.NodeId.String())
+					return nil, ErrNodeAlreadyExists.New("node id already exists in pointer. Key: %s, NodeID: %s", key, piece.NodeId.String())
 				}
 				nodePieceMap[piece.NodeId] = struct{}{}
 			}
@@ -191,7 +192,7 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 		}
 
 		// write the pointer using compare-and-swap
-		err = s.db.CompareAndSwap(ctx, []byte(path), oldPointerBytes, newPointerBytes)
+		err = s.db.CompareAndSwap(ctx, storage.Key(key), oldPointerBytes, newPointerBytes)
 		if storage.ErrValueChanged.Has(err) {
 			continue
 		}
@@ -206,9 +207,9 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, path string, 
 }
 
 // Get gets decoded pointer from DB.
-func (s *Service) Get(ctx context.Context, path string) (_ *pb.Pointer, err error) {
+func (s *Service) Get(ctx context.Context, key metabase.SegmentKey) (_ *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, pointer, err := s.GetWithBytes(ctx, path)
+	_, pointer, err := s.GetWithBytes(ctx, key)
 	if err != nil {
 		return nil, err
 	}
@@ -218,13 +219,13 @@ func (s *Service) Get(ctx context.Context, path string) (_ *pb.Pointer, err erro
 
 // GetItems gets decoded pointers from DB.
 // The return value is in the same order as the argument paths.
-func (s *Service) GetItems(ctx context.Context, paths [][]byte) (_ []*pb.Pointer, err error) {
+func (s *Service) GetItems(ctx context.Context, keys []metabase.SegmentKey) (_ []*pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
-	keys := make(storage.Keys, len(paths))
-	for i := range paths {
-		keys[i] = paths[i]
+	storageKeys := make(storage.Keys, len(keys))
+	for i := range keys {
+		storageKeys[i] = storage.Key(keys[i])
 	}
-	pointerBytes, err := s.db.GetAll(ctx, keys)
+	pointerBytes, err := s.db.GetAll(ctx, storageKeys)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -245,10 +246,10 @@ func (s *Service) GetItems(ctx context.Context, paths [][]byte) (_ []*pb.Pointer
 }
 
 // GetWithBytes gets the protocol buffers encoded and decoded pointer from the DB.
-func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes []byte, pointer *pb.Pointer, err error) {
+func (s *Service) GetWithBytes(ctx context.Context, key metabase.SegmentKey) (pointerBytes []byte, pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pointerBytes, err = s.db.Get(ctx, []byte(path))
+	pointerBytes, err = s.db.Get(ctx, storage.Key(key))
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			err = storj.ErrObjectNotFound.Wrap(err)
@@ -266,12 +267,12 @@ func (s *Service) GetWithBytes(ctx context.Context, path string) (pointerBytes [
 }
 
 // List returns all Path keys in the pointers bucket.
-func (s *Service) List(ctx context.Context, prefix string, startAfter string, recursive bool, limit int32,
+func (s *Service) List(ctx context.Context, prefix metabase.SegmentKey, startAfter string, recursive bool, limit int32,
 	metaFlags uint32) (items []*pb.ListResponse_Item, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var prefixKey storage.Key
-	if prefix != "" {
+	if len(prefix) != 0 {
 		prefixKey = storage.Key(prefix)
 		if prefix[len(prefix)-1] != storage.Delimiter {
 			prefixKey = append(prefixKey, storage.Delimiter)
@@ -347,10 +348,10 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 }
 
 // Delete deletes a pointer bytes when it matches oldPointerBytes, otherwise it'll fail.
-func (s *Service) Delete(ctx context.Context, path string, oldPointerBytes []byte) (err error) {
+func (s *Service) Delete(ctx context.Context, key metabase.SegmentKey, oldPointerBytes []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = s.db.CompareAndSwap(ctx, []byte(path), oldPointerBytes, nil)
+	err = s.db.CompareAndSwap(ctx, storage.Key(key), oldPointerBytes, nil)
 	if storage.ErrKeyNotFound.Has(err) {
 		err = storj.ErrObjectNotFound.Wrap(err)
 	}
@@ -359,18 +360,18 @@ func (s *Service) Delete(ctx context.Context, path string, oldPointerBytes []byt
 
 // UnsynchronizedGetDel deletes items from db without verifying whether the pointers have changed in the database,
 // and it returns deleted items.
-func (s *Service) UnsynchronizedGetDel(ctx context.Context, paths [][]byte) ([][]byte, []*pb.Pointer, error) {
-	keys := make(storage.Keys, len(paths))
-	for i := range paths {
-		keys[i] = paths[i]
+func (s *Service) UnsynchronizedGetDel(ctx context.Context, keys []metabase.SegmentKey) ([]metabase.SegmentKey, []*pb.Pointer, error) {
+	storageKeys := make(storage.Keys, len(keys))
+	for i := range keys {
+		storageKeys[i] = storage.Key(keys[i])
 	}
 
-	items, err := s.db.DeleteMultiple(ctx, keys)
+	items, err := s.db.DeleteMultiple(ctx, storageKeys)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
-	pointerPaths := make([][]byte, 0, len(items))
+	pointerPaths := make([]metabase.SegmentKey, 0, len(items))
 	pointers := make([]*pb.Pointer, 0, len(items))
 
 	for _, item := range items {
@@ -380,7 +381,7 @@ func (s *Service) UnsynchronizedGetDel(ctx context.Context, paths [][]byte) ([][
 			return nil, nil, Error.Wrap(err)
 		}
 
-		pointerPaths = append(pointerPaths, item.Key)
+		pointerPaths = append(pointerPaths, metabase.SegmentKey(item.Key))
 		pointers = append(pointers, data)
 	}
 
@@ -388,10 +389,10 @@ func (s *Service) UnsynchronizedGetDel(ctx context.Context, paths [][]byte) ([][
 }
 
 // UnsynchronizedDelete deletes item from db without verifying whether the pointer has changed in the database.
-func (s *Service) UnsynchronizedDelete(ctx context.Context, path string) (err error) {
+func (s *Service) UnsynchronizedDelete(ctx context.Context, key metabase.SegmentKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = s.db.Delete(ctx, []byte(path))
+	err = s.db.Delete(ctx, storage.Key(key))
 	if storage.ErrKeyNotFound.Has(err) {
 		err = storj.ErrObjectNotFound.Wrap(err)
 	}
@@ -438,7 +439,7 @@ func (s *Service) IsBucketEmpty(ctx context.Context, projectID uuid.UUID, bucket
 		return false, Error.Wrap(err)
 	}
 
-	items, _, err := s.List(ctx, prefix, "", true, 1, 0)
+	items, _, err := s.List(ctx, prefix.Encode(), "", true, 1, 0)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}

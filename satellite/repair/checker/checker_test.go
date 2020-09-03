@@ -16,6 +16,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 )
 
@@ -128,11 +129,11 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		// put test pointer to db
 		metainfo := planet.Satellites[0].Metainfo.Service
-		err := metainfo.Put(ctx, pointerPath, pointer)
+		err := metainfo.Put(ctx, metabase.SegmentKey(pointerPath), pointer)
 		require.NoError(t, err)
 		// modify pointer to make it expired and put to db
 		pointer.ExpirationDate = time.Now().Add(-time.Hour)
-		err = metainfo.Put(ctx, pointerPath+"-expired", pointer)
+		err = metainfo.Put(ctx, metabase.SegmentKey(pointerPath+"-expired"), pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -185,9 +186,9 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			},
 		}
 		// update test pointer in db
-		err = metainfo.UnsynchronizedDelete(ctx, pointerPath)
+		err = metainfo.UnsynchronizedDelete(ctx, metabase.SegmentKey(pointerPath))
 		require.NoError(t, err)
-		err = metainfo.Put(ctx, pointerPath, pointer)
+		err = metainfo.Put(ctx, metabase.SegmentKey(pointerPath), pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -237,6 +238,6 @@ func insertPointer(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 
 	// put test pointer to db
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(ctx, pointerPath, pointer)
+	err := pointerdb.Put(ctx, metabase.SegmentKey(pointerPath), pointer)
 	require.NoError(t, err)
 }

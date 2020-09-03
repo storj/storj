@@ -14,10 +14,9 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/metainfo/objectdeletion"
 )
 
@@ -327,7 +326,7 @@ func newPointerDB(objects []*objectdeletion.ObjectIdentifier, segmentType string
 	return pointerDB, nil
 }
 
-func (db *pointerDBMock) GetItems(ctx context.Context, paths [][]byte) ([]*pb.Pointer, error) {
+func (db *pointerDBMock) GetItems(ctx context.Context, paths []metabase.SegmentKey) ([]*pb.Pointer, error) {
 	if db.hasError {
 		return nil, errs.New("pointerDB failure")
 	}
@@ -338,7 +337,7 @@ func (db *pointerDBMock) GetItems(ctx context.Context, paths [][]byte) ([]*pb.Po
 	return pointers, nil
 }
 
-func (db *pointerDBMock) UnsynchronizedGetDel(ctx context.Context, paths [][]byte) ([][]byte, []*pb.Pointer, error) {
+func (db *pointerDBMock) UnsynchronizedGetDel(ctx context.Context, paths []metabase.SegmentKey) ([]metabase.SegmentKey, []*pb.Pointer, error) {
 	pointers := make([]*pb.Pointer, len(paths))
 	for i, p := range paths {
 		pointers[i] = db.pointers[string(p)]
@@ -429,21 +428,14 @@ func createPaths(object *objectdeletion.ObjectIdentifier, largestSegmentIdx int)
 		if segmentIdx == largestSegmentIdx {
 			segmentIdx = lastSegmentIdx
 		}
-		paths = append(paths, createPath(object.ProjectID, object.Bucket, segmentIdx, object.EncryptedPath))
+
+		location := metabase.SegmentLocation{
+			ProjectID:  object.ProjectID,
+			BucketName: string(object.Bucket),
+			Index:      int64(segmentIdx),
+			ObjectKey:  metabase.ObjectKey(string(object.EncryptedPath)),
+		}
+		paths = append(paths, location.Encode())
 	}
 	return paths
-}
-
-func createPath(projectID uuid.UUID, bucket []byte, segmentIdx int, encryptedPath []byte) []byte {
-	segment := "l"
-	if segmentIdx > lastSegmentIdx {
-		segment = "s" + strconv.Itoa(segmentIdx)
-	}
-
-	entries := make([]string, 0)
-	entries = append(entries, projectID.String())
-	entries = append(entries, segment)
-	entries = append(entries, string(bucket))
-	entries = append(entries, string(encryptedPath))
-	return []byte(storj.JoinPaths(entries...))
 }

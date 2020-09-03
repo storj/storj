@@ -7,10 +7,11 @@ package metainfo
 
 import (
 	"storj.io/common/pb"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // sanityCheckPointer implements sanity checking test data,
 // we don't need this in production code.
-func sanityCheckPointer(path string, pointer *pb.Pointer) (err error) {
+func sanityCheckPointer(key metabase.SegmentKey, pointer *pb.Pointer) (err error) {
 	return nil
 }

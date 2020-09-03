@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"storj.io/common/pb"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // ObjectState determines how an object should be handled during
@@ -53,7 +54,7 @@ const (
 )
 
 // CreateObjectStates creates the current object states.
-func CreateObjectStates(ctx context.Context, requests []*ObjectIdentifier, pointers []*pb.Pointer, paths [][]byte) (map[string]*ObjectState, error) {
+func CreateObjectStates(ctx context.Context, requests []*ObjectIdentifier, pointers []*pb.Pointer, paths []metabase.SegmentKey) (map[string]*ObjectState, error) {
 
 	// Fetch headers to figure out the status of objects.
 	objects := make(map[string]*ObjectState)

@@ -51,7 +51,7 @@ func (ed *expiredDeleter) deleteSegmentIfExpired(ctx context.Context, path metai
 		if err != nil {
 			return err
 		}
-		err = ed.metainfo.Delete(ctx, path.Raw, pointerBytes)
+		err = ed.metainfo.Delete(ctx, path.Encode(), pointerBytes)
 		if storj.ErrObjectNotFound.Has(err) {
 			// segment already deleted
 			return nil

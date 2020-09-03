@@ -29,7 +29,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	satMetainfo "storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
 	"storj.io/uplink/private/object"
@@ -1549,14 +1549,17 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			// we don't know encrypted path
-			prefix, err := satMetainfo.CreatePath(ctx, projectID, -1, []byte("test-bucket-inline"), []byte{})
-			require.NoError(t, err)
-
-			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, prefix, "", false, 0, meta.All)
+			location := metabase.SegmentLocation{
+				ProjectID:  projectID,
+				BucketName: "test-bucket-inline",
+				Index:      metabase.LastSegmentIndex,
+			}
+			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, location.Encode(), "", false, 0, meta.All)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(items))
 
-			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, prefix+"/"+items[0].Path)
+			location.ObjectKey = metabase.ObjectKey(items[0].Path)
+			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, location.Encode())
 			require.NoError(t, err)
 			require.Equal(t, pb.Pointer_INLINE, pointer.Type)
 		}
@@ -1566,14 +1569,19 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			// we don't know encrypted path
-			prefix, err := satMetainfo.CreatePath(ctx, projectID, -1, []byte("test-bucket-remote"), []byte{})
 			require.NoError(t, err)
+			location := metabase.SegmentLocation{
+				ProjectID:  projectID,
+				BucketName: "test-bucket-remote",
+				Index:      metabase.LastSegmentIndex,
+			}
 
-			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, prefix, "", false, 0, meta.All)
+			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, location.Encode(), "", false, 0, meta.All)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(items))
 
-			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, prefix+"/"+items[0].Path)
+			location.ObjectKey = metabase.ObjectKey(items[0].Path)
+			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, location.Encode())
 			require.NoError(t, err)
 			require.Equal(t, pb.Pointer_REMOTE, pointer.Type)
 		}

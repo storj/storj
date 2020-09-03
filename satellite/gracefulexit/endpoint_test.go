@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
@@ -790,7 +791,7 @@ func TestSuccessPointerUpdate(t *testing.T) {
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, string(keys[0]))
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(keys[0]))
 		require.NoError(t, err)
 
 		found := 0
@@ -861,8 +862,8 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 			// update pointer to include the new receiving node before responding to satellite
 			keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
 			require.NoError(t, err)
-			path := string(keys[0])
-			pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+
+			pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(keys[0]))
 			require.NoError(t, err)
 			require.NotNil(t, pointer.GetRemote())
 			require.True(t, len(pointer.GetRemote().GetRemotePieces()) > 0)
@@ -883,7 +884,7 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 				NodeId:   firstRecNodeID,
 			}
 
-			_, err = satellite.Metainfo.Service.UpdatePieces(ctx, path, pointer, pieceToAdd, pieceToRemove)
+			_, err = satellite.Metainfo.Service.UpdatePieces(ctx, metabase.SegmentKey(keys[0]), pointer, pieceToAdd, pieceToRemove)
 			require.NoError(t, err)
 
 			err = processClient.Send(success)
@@ -907,8 +908,8 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 		// check exiting node is still in the pointer
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
 		require.NoError(t, err)
-		path := string(keys[0])
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(keys[0]))
 		require.NoError(t, err)
 		require.NotNil(t, pointer.GetRemote())
 		require.True(t, len(pointer.GetRemote().GetRemotePieces()) > 0)
@@ -1102,7 +1103,7 @@ func TestFailureNotFoundPieceHashVerified(t *testing.T) {
 
 		var pointer *pb.Pointer
 		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
 			require.NoError(t, err)
 
 			if p.GetRemote() != nil {
@@ -1134,7 +1135,7 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 		var oldPointer *pb.Pointer
 		var path []byte
 		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
 			require.NoError(t, err)
 
 			if p.GetRemote() != nil {
@@ -1195,7 +1196,7 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 
 		var pointer *pb.Pointer
 		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
 			require.NoError(t, err)
 
 			if p.GetRemote() != nil {
@@ -1502,7 +1503,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	for _, key := range keys {
-		pointer, err := satellite.Metainfo.Service.Get(ctx, string(key))
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
 		if err != nil {
 			return nil, err
 		}
