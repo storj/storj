@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
@@ -52,6 +53,8 @@ type Server struct {
 
 	db       DB
 	payments payments.Accounts
+
+	nowFn func() time.Time
 }
 
 // NewServer returns a new administration Server.
@@ -64,6 +67,8 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 
 		db:       db,
 		payments: accounts,
+
+		nowFn: time.Now,
 	}
 
 	server.server.Handler = &protectedServer{
@@ -139,6 +144,11 @@ func (server *Server) Run(ctx context.Context) error {
 		return Error.Wrap(err)
 	})
 	return group.Wait()
+}
+
+// SetNow allows tests to have the server act as if the current time is whatever they want.
+func (server *Server) SetNow(nowFn func() time.Time) {
+	server.nowFn = nowFn
 }
 
 // Close closes server and underlying listener.
