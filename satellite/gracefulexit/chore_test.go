@@ -256,7 +256,7 @@ func batch(ctx context.Context, b *testing.B, db gracefulexit.DB, size int) {
 		for j := 0; j < size; j++ {
 			item := gracefulexit.TransferQueueItem{
 				NodeID:          testrand.NodeID(),
-				Path:            testrand.Bytes(memory.B * 256),
+				Key:             testrand.Bytes(memory.B * 256),
 				PieceNum:        0,
 				DurabilityRatio: 1.0,
 			}

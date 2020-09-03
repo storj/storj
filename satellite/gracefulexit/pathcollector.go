@@ -80,7 +80,7 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, location meta
 
 		item := TransferQueueItem{
 			NodeID:          piece.NodeId,
-			Path:            key,
+			Key:             key,
 			PieceNum:        piece.PieceNum,
 			RootPieceID:     pointer.GetRemote().RootPieceId,
 			DurabilityRatio: float64(numPieces) / float64(pointer.GetRemote().GetRedundancy().GetTotal()),
