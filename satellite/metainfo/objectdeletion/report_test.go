@@ -47,31 +47,31 @@ func TestReport(t *testing.T) {
 
 }
 
-func createDeletedItems(requests []*objectdeletion.ObjectIdentifier, numDeleted int) ([]metabase.SegmentKey, []*pb.Pointer, error) {
+func createDeletedItems(requests []*metabase.ObjectLocation, numDeleted int) ([]metabase.SegmentKey, []*pb.Pointer, error) {
 	if numDeleted > len(requests) {
 		return nil, nil, errs.New("invalid argument")
 	}
 	paths := make([]metabase.SegmentKey, 0, numDeleted)
 	pointers := make([]*pb.Pointer, 0, numDeleted)
 	for i := 0; i < numDeleted; i++ {
-		path, err := requests[i].SegmentPath(int64(testrand.Intn(10)))
+		segmentLocation, err := requests[i].Segment(int64(testrand.Intn(10)))
 		if err != nil {
 			return nil, nil, err
 		}
-		paths = append(paths, path)
+		paths = append(paths, segmentLocation.Encode())
 		pointers = append(pointers, &pb.Pointer{})
 	}
 	return paths, pointers, nil
 }
 
-func createRequests(numRequests int) []*objectdeletion.ObjectIdentifier {
-	requests := make([]*objectdeletion.ObjectIdentifier, 0, numRequests)
+func createRequests(numRequests int) []*metabase.ObjectLocation {
+	requests := make([]*metabase.ObjectLocation, 0, numRequests)
 
 	for i := 0; i < numRequests; i++ {
-		obj := objectdeletion.ObjectIdentifier{
-			ProjectID:     testrand.UUID(),
-			Bucket:        []byte("test"),
-			EncryptedPath: []byte(strconv.Itoa(i) + "test"),
+		obj := metabase.ObjectLocation{
+			ProjectID:  testrand.UUID(),
+			BucketName: "test",
+			ObjectKey:  metabase.ObjectKey(strconv.Itoa(i) + "test"),
 		}
 		requests = append(requests, &obj)
 	}

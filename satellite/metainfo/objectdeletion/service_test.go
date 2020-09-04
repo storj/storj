@@ -25,16 +25,16 @@ func TestService_Delete_SingleObject(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// mock the object that we want to delete
-	item := &objectdeletion.ObjectIdentifier{
-		ProjectID:     testrand.UUID(),
-		Bucket:        []byte("bucketname"),
-		EncryptedPath: []byte("encrypted"),
+	item := &metabase.ObjectLocation{
+		ProjectID:  testrand.UUID(),
+		BucketName: "bucketname",
+		ObjectKey:  "encrypted",
 	}
 
-	objectNotFound := &objectdeletion.ObjectIdentifier{
-		ProjectID:     testrand.UUID(),
-		Bucket:        []byte("object-not-found"),
-		EncryptedPath: []byte("object-missing"),
+	objectNotFound := &metabase.ObjectLocation{
+		ProjectID:  testrand.UUID(),
+		BucketName: "object-not-found",
+		ObjectKey:  "object-missing",
 	}
 
 	config := objectdeletion.Config{
@@ -46,10 +46,10 @@ func TestService_Delete_SingleObject(t *testing.T) {
 	var testCases = []struct {
 		segmentType             string
 		isValidObject           bool
-		largestSegmentIdx       int
+		largestSegmentIdx       int64
 		numPiecesPerSegment     int32
 		expectedPointersDeleted int
-		expectedPathDeleted     int
+		expectedKeyDeleted      int
 		expectedPiecesToDelete  int32
 	}{
 		{"single-segment", true, 0, 3, 1, 1, 3},
@@ -63,19 +63,19 @@ func TestService_Delete_SingleObject(t *testing.T) {
 	for _, tt := range testCases {
 		tt := tt // quiet linting
 		t.Run(tt.segmentType, func(t *testing.T) {
-			pointerDBMock, err := newPointerDB([]*objectdeletion.ObjectIdentifier{item}, tt.segmentType, tt.largestSegmentIdx, tt.numPiecesPerSegment, false)
+			pointerDBMock, err := newPointerDB([]*metabase.ObjectLocation{item}, tt.segmentType, tt.largestSegmentIdx, tt.numPiecesPerSegment, false)
 			require.NoError(t, err)
 
 			service, err := objectdeletion.NewService(zaptest.NewLogger(t), pointerDBMock, config)
 			require.NoError(t, err)
 
-			pointers, deletedPaths, err := service.DeletePointers(ctx, []*objectdeletion.ObjectIdentifier{item})
+			pointers, deletedKeys, err := service.DeletePointers(ctx, []*metabase.ObjectLocation{item})
 			if !tt.isValidObject {
-				pointers, deletedPaths, err = service.DeletePointers(ctx, []*objectdeletion.ObjectIdentifier{objectNotFound})
+				pointers, deletedKeys, err = service.DeletePointers(ctx, []*metabase.ObjectLocation{objectNotFound})
 			}
 			require.NoError(t, err)
 			require.Len(t, pointers, tt.expectedPointersDeleted)
-			require.Len(t, deletedPaths, tt.expectedPathDeleted)
+			require.Len(t, deletedKeys, tt.expectedKeyDeleted)
 
 			piecesToDeleteByNodes := objectdeletion.GroupPiecesByNodeID(pointers)
 
@@ -93,10 +93,10 @@ func TestService_Delete_SingleObject_Failure(t *testing.T) {
 	defer ctx.Cleanup()
 
 	// mock the object that we want to delete
-	item := &objectdeletion.ObjectIdentifier{
-		ProjectID:     testrand.UUID(),
-		Bucket:        []byte("bucketname"),
-		EncryptedPath: []byte("encrypted"),
+	item := &metabase.ObjectLocation{
+		ProjectID:  testrand.UUID(),
+		BucketName: "bucketname",
+		ObjectKey:  "encrypted",
 	}
 
 	config := objectdeletion.Config{
@@ -107,7 +107,7 @@ func TestService_Delete_SingleObject_Failure(t *testing.T) {
 
 	var testCases = []struct {
 		segmentType            string
-		largestSegmentIdx      int
+		largestSegmentIdx      int64
 		numPiecesPerSegment    int32
 		expectedPiecesToDelete int32
 	}{
@@ -119,17 +119,17 @@ func TestService_Delete_SingleObject_Failure(t *testing.T) {
 	for _, tt := range testCases {
 		tt := tt // quiet linting
 		t.Run(tt.segmentType, func(t *testing.T) {
-			reqs := []*objectdeletion.ObjectIdentifier{item}
+			reqs := []*metabase.ObjectLocation{item}
 			pointerDBMock, err := newPointerDB(reqs, tt.segmentType, tt.largestSegmentIdx, tt.numPiecesPerSegment, true)
 			require.NoError(t, err)
 
 			service, err := objectdeletion.NewService(zaptest.NewLogger(t), pointerDBMock, config)
 			require.NoError(t, err)
 
-			pointers, deletedPaths, err := service.DeletePointers(ctx, reqs)
+			pointers, deletedKeys, err := service.DeletePointers(ctx, reqs)
 			require.Error(t, err)
 			require.Len(t, pointers, 0)
-			require.Len(t, deletedPaths, 0)
+			require.Len(t, deletedKeys, 0)
 
 			piecesToDeleteByNodes := objectdeletion.GroupPiecesByNodeID(pointers)
 
@@ -146,13 +146,13 @@ func TestService_Delete_MultipleObject(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	items := make([]*objectdeletion.ObjectIdentifier, 0, 100)
+	items := make([]*metabase.ObjectLocation, 0, 100)
 
 	for i := 0; i < 10; i++ {
-		item := &objectdeletion.ObjectIdentifier{
-			ProjectID:     testrand.UUID(),
-			Bucket:        []byte("bucketname"),
-			EncryptedPath: []byte("encrypted" + strconv.Itoa(i)),
+		item := &metabase.ObjectLocation{
+			ProjectID:  testrand.UUID(),
+			BucketName: "bucketname",
+			ObjectKey:  metabase.ObjectKey("encrypted" + strconv.Itoa(i)),
 		}
 		items = append(items, item)
 	}
@@ -165,7 +165,7 @@ func TestService_Delete_MultipleObject(t *testing.T) {
 
 	var testCases = []struct {
 		segmentType             string
-		largestSegmentIdx       int
+		largestSegmentIdx       int64
 		numPiecesPerSegment     int32
 		expectedPointersDeleted int
 		expectedPiecesToDelete  int32
@@ -186,10 +186,10 @@ func TestService_Delete_MultipleObject(t *testing.T) {
 			service, err := objectdeletion.NewService(zaptest.NewLogger(t), pointerDBMock, config)
 			require.NoError(t, err)
 
-			pointers, deletedPaths, err := service.DeletePointers(ctx, items)
+			pointers, deletedKeys, err := service.DeletePointers(ctx, items)
 			require.NoError(t, err)
 			require.Len(t, pointers, tt.expectedPointersDeleted)
-			require.Len(t, deletedPaths, tt.expectedPointersDeleted)
+			require.Len(t, deletedKeys, tt.expectedPointersDeleted)
 
 			piecesToDeleteByNodes := objectdeletion.GroupPiecesByNodeID(pointers)
 			totalPiecesToDelete := 0
@@ -201,8 +201,8 @@ func TestService_Delete_MultipleObject(t *testing.T) {
 	}
 }
 
-func calcExpectedPieces(segmentType string, numRequests int, batchSize int, largestSegmentIdx int, numPiecesPerSegment int) int {
-	numSegments := largestSegmentIdx + 1
+func calcExpectedPieces(segmentType string, numRequests int, batchSize int, largestSegmentIdx int64, numPiecesPerSegment int) int {
+	numSegments := int(largestSegmentIdx) + 1
 
 	totalPieces := numRequests * numSegments * numPiecesPerSegment
 
@@ -210,7 +210,7 @@ func calcExpectedPieces(segmentType string, numRequests int, batchSize int, larg
 	case "mixed-segment":
 		return totalPieces - numPiecesPerSegment
 	case "zombie-segment":
-		return numRequests * largestSegmentIdx * numPiecesPerSegment
+		return numRequests * int(largestSegmentIdx) * numPiecesPerSegment
 	default:
 		return totalPieces
 	}
@@ -226,7 +226,7 @@ func TestService_Delete_Batch(t *testing.T) {
 		segmentType         string
 		numRequests         int
 		batchSize           int
-		largestSegmentIdx   int
+		largestSegmentIdx   int64
 		numPiecesPerSegment int32
 	}{
 		{"single-request", "single-segment", 1, 1, 0, 3},
@@ -276,17 +276,12 @@ func TestService_Delete_Batch(t *testing.T) {
 
 }
 
-const (
-	lastSegmentIdx  = -1
-	firstSegmentIdx = 0
-)
-
 type pointerDBMock struct {
 	pointers map[string]*pb.Pointer
 	hasError bool
 }
 
-func newPointerDB(objects []*objectdeletion.ObjectIdentifier, segmentType string, numSegments int, numPiecesPerSegment int32, hasError bool) (*pointerDBMock, error) {
+func newPointerDB(objects []*metabase.ObjectLocation, segmentType string, numSegments int64, numPiecesPerSegment int32, hasError bool) (*pointerDBMock, error) {
 	var (
 		pointers []*pb.Pointer
 		err      error
@@ -305,50 +300,54 @@ func newPointerDB(objects []*objectdeletion.ObjectIdentifier, segmentType string
 		return nil, errs.New("unsupported segment type")
 	}
 
-	paths := [][]byte{}
+	keys := []metabase.SegmentKey{}
 	for _, obj := range objects {
-		paths = append(paths, createPaths(obj, numSegments)...)
+		newKeys, err := createKeys(obj, numSegments)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, newKeys...)
 	}
 
-	pointers, err = createMockPointers(option.lastSegment, option.firstSegment, option.inlineSegment, paths, numPiecesPerSegment, numSegments)
+	pointers, err = createMockPointers(option.lastSegment, option.firstSegment, option.inlineSegment, keys, numPiecesPerSegment, numSegments)
 	if err != nil {
 		return nil, err
 	}
 
 	pointerDB := &pointerDBMock{
-		pointers: make(map[string]*pb.Pointer, len(paths)),
+		pointers: make(map[string]*pb.Pointer, len(keys)),
 		hasError: hasError,
 	}
-	for i, p := range paths {
+	for i, p := range keys {
 		pointerDB.pointers[string(p)] = pointers[i]
 	}
 
 	return pointerDB, nil
 }
 
-func (db *pointerDBMock) GetItems(ctx context.Context, paths []metabase.SegmentKey) ([]*pb.Pointer, error) {
+func (db *pointerDBMock) GetItems(ctx context.Context, keys []metabase.SegmentKey) ([]*pb.Pointer, error) {
 	if db.hasError {
 		return nil, errs.New("pointerDB failure")
 	}
-	pointers := make([]*pb.Pointer, len(paths))
-	for i, p := range paths {
+	pointers := make([]*pb.Pointer, len(keys))
+	for i, p := range keys {
 		pointers[i] = db.pointers[string(p)]
 	}
 	return pointers, nil
 }
 
-func (db *pointerDBMock) UnsynchronizedGetDel(ctx context.Context, paths []metabase.SegmentKey) ([]metabase.SegmentKey, []*pb.Pointer, error) {
-	pointers := make([]*pb.Pointer, len(paths))
-	for i, p := range paths {
+func (db *pointerDBMock) UnsynchronizedGetDel(ctx context.Context, keys []metabase.SegmentKey) ([]metabase.SegmentKey, []*pb.Pointer, error) {
+	pointers := make([]*pb.Pointer, len(keys))
+	for i, p := range keys {
 		pointers[i] = db.pointers[string(p)]
 	}
 
 	rand.Shuffle(len(pointers), func(i, j int) {
 		pointers[i], pointers[j] = pointers[j], pointers[i]
-		paths[i], paths[j] = paths[j], paths[i]
+		keys[i], keys[j] = keys[j], keys[i]
 	})
 
-	return paths, pointers, nil
+	return keys, pointers, nil
 }
 
 func newPointer(pointerType pb.Pointer_DataType, numPiecesPerSegment int32) *pb.Pointer {
@@ -371,10 +370,10 @@ func newPointer(pointerType pb.Pointer_DataType, numPiecesPerSegment int32) *pb.
 	return pointer
 }
 
-func newLastSegmentPointer(pointerType pb.Pointer_DataType, numSegments int, numPiecesPerSegment int32) (*pb.Pointer, error) {
+func newLastSegmentPointer(pointerType pb.Pointer_DataType, numSegments int64, numPiecesPerSegment int32) (*pb.Pointer, error) {
 	pointer := newPointer(pointerType, numPiecesPerSegment)
 	meta := &pb.StreamMeta{
-		NumberOfSegments: int64(numSegments),
+		NumberOfSegments: numSegments,
 	}
 	metaInBytes, err := pb.Marshal(meta)
 	if err != nil {
@@ -384,17 +383,17 @@ func newLastSegmentPointer(pointerType pb.Pointer_DataType, numSegments int, num
 	return pointer, nil
 }
 
-func createMockPointers(hasLastSegment bool, hasFirstSegment bool, hasInlineSegments bool, paths [][]byte, numPiecesPerSegment int32, numSegments int) ([]*pb.Pointer, error) {
-	pointers := make([]*pb.Pointer, 0, len(paths))
+func createMockPointers(hasLastSegment bool, hasFirstSegment bool, hasInlineSegments bool, keys []metabase.SegmentKey, numPiecesPerSegment int32, numSegments int64) ([]*pb.Pointer, error) {
+	pointers := make([]*pb.Pointer, 0, len(keys))
 
 	isInlineAdded := false
-	for _, p := range paths {
-		_, segment, err := objectdeletion.ParseSegmentPath(p)
+	for _, p := range keys {
+		segmentLocation, err := metabase.ParseSegmentKey(p)
 		if err != nil {
 			return nil, err
 		}
 
-		if segment == lastSegmentIdx {
+		if segmentLocation.IsLast() {
 			if !hasLastSegment {
 				pointers = append(pointers, nil)
 			} else {
@@ -406,7 +405,7 @@ func createMockPointers(hasLastSegment bool, hasFirstSegment bool, hasInlineSegm
 			}
 			continue
 		}
-		if !hasFirstSegment && segment == firstSegmentIdx {
+		if !hasFirstSegment && segmentLocation.IsFirst() {
 			pointers = append(pointers, nil)
 			continue
 		}
@@ -421,21 +420,20 @@ func createMockPointers(hasLastSegment bool, hasFirstSegment bool, hasInlineSegm
 	return pointers, nil
 }
 
-func createPaths(object *objectdeletion.ObjectIdentifier, largestSegmentIdx int) [][]byte {
-	paths := [][]byte{}
-	for i := 0; i <= largestSegmentIdx; i++ {
+func createKeys(object *metabase.ObjectLocation, largestSegmentIdx int64) ([]metabase.SegmentKey, error) {
+	keys := []metabase.SegmentKey{}
+	for i := int64(0); i <= largestSegmentIdx; i++ {
 		segmentIdx := i
 		if segmentIdx == largestSegmentIdx {
-			segmentIdx = lastSegmentIdx
+			segmentIdx = metabase.LastSegmentIndex
 		}
 
-		location := metabase.SegmentLocation{
-			ProjectID:  object.ProjectID,
-			BucketName: string(object.Bucket),
-			Index:      int64(segmentIdx),
-			ObjectKey:  metabase.ObjectKey(string(object.EncryptedPath)),
+		segment, err := object.Segment(segmentIdx)
+		if err != nil {
+			return nil, err
 		}
-		paths = append(paths, location.Encode())
+
+		keys = append(keys, segment.Encode())
 	}
-	return paths
+	return keys, nil
 }

@@ -464,12 +464,12 @@ func (endpoint *Endpoint) deleteByPrefix(ctx context.Context, projectID uuid.UUI
 			return deletedCount, err
 		}
 
-		deleteReqs := make([]*objectdeletion.ObjectIdentifier, len(segments))
+		deleteReqs := make([]*metabase.ObjectLocation, len(segments))
 		for i, segment := range segments {
-			deleteReqs[i] = &objectdeletion.ObjectIdentifier{
-				ProjectID:     projectID,
-				Bucket:        bucketName,
-				EncryptedPath: []byte(segment.Path),
+			deleteReqs[i] = &metabase.ObjectLocation{
+				ProjectID:  projectID,
+				BucketName: string(bucketName),
+				ObjectKey:  metabase.ObjectKey(segment.Path),
 			}
 		}
 		rep, err := endpoint.deleteObjectsPieces(ctx, deleteReqs...)
@@ -2016,10 +2016,10 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 ) (report objectdeletion.Report, err error) {
 	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
 
-	req := &objectdeletion.ObjectIdentifier{
-		ProjectID:     projectID,
-		Bucket:        bucket,
-		EncryptedPath: encryptedPath,
+	req := &metabase.ObjectLocation{
+		ProjectID:  projectID,
+		BucketName: string(bucket),
+		ObjectKey:  metabase.ObjectKey(encryptedPath),
 	}
 
 	report, err = endpoint.deleteObjectsPieces(ctx, req)
@@ -2040,7 +2040,7 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 	return report, nil
 }
 
-func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...*objectdeletion.ObjectIdentifier) (report objectdeletion.Report, err error) {
+func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...*metabase.ObjectLocation) (report objectdeletion.Report, err error) {
 	// We should ignore client cancelling and always try to delete segments.
 	ctx = context2.WithoutCancellation(ctx)
 
