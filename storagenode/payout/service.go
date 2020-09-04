@@ -347,7 +347,7 @@ func parsePeriodRange(periodStart, periodEnd string) (periods []string, err erro
 }
 
 // GetHeldRate returns held rate for specific period from join date of node.
-func GetHeldRate(joinTime time.Time, requestTime time.Time) (heldRate int64) {
+func GetHeldRate(joinTime time.Time, requestTime time.Time) (heldRate float64) {
 	monthsSinceJoin := date.MonthsBetweenDates(joinTime, requestTime)
 	switch monthsSinceJoin {
 	case 0, 1, 2:

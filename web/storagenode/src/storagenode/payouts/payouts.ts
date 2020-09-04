@@ -156,8 +156,8 @@ export class TotalPaystubForPeriod {
             this.owed += this.convertToCents(paystub.owed);
             this.disposed += this.convertToCents(paystub.disposed);
             this.paid += this.convertToCents(paystub.paid);
-            this.surgePercent = this.convertToCents(paystub.surgePercent);
-            this.paidWithoutSurge += this.convertToCents(paystub.paid) / paystub.surgeMultiplier;
+            this.surgePercent = paystub.surgePercent;
+            this.paidWithoutSurge += this.convertToCents(paystub.paid + paystub.held) / paystub.surgeMultiplier;
         });
     }
 
