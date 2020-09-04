@@ -66,18 +66,20 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	ContactInfoURL               string `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors               string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
-	LetUsKnowURL                 string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                          string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName                string `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator            string `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL        string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SegmentIOPublicKey           string `help:"used to initialize segment.io at web satellite console" default:""`
-	AccountActivationRedirectURL string `help:"url link for account activation redirect" default:""`
-	VerificationPageURL          string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
-	PartneredSatelliteNames      string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
-	GoogleTagManagerID           string `help:"id for google tag manager" default:""`
+	ContactInfoURL                  string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors                  string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
+	LetUsKnowURL                    string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                             string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName                   string `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator               string `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
+	SegmentIOPublicKey              string `help:"used to initialize segment.io at web satellite console" default:""`
+	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
+	VerificationPageURL             string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
+	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
+	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
+	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -271,13 +273,15 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		SatelliteName           string
-		SegmentIOPublicKey      string
-		StripePublicKey         string
-		VerificationPageURL     string
-		PartneredSatelliteNames string
-		GoogleTagManagerID      string
-		DefaultProjectLimit     int
+		SatelliteName                   string
+		SegmentIOPublicKey              string
+		StripePublicKey                 string
+		VerificationPageURL             string
+		PartneredSatelliteNames         string
+		GoogleTagManagerID              string
+		DefaultProjectLimit             int
+		GeneralRequestURL               string
+		ProjectLimitsIncreaseRequestURL string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
@@ -287,6 +291,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
 	data.GoogleTagManagerID = server.config.GoogleTagManagerID
 	data.DefaultProjectLimit = server.config.DefaultProjectLimit
+	data.GeneralRequestURL = server.config.GeneralRequestURL
+	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
 
 	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
 		server.log.Error("index template could not be executed")

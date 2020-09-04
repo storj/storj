@@ -14,14 +14,24 @@
                 <div class="dashboard-container__wrap__column__main-area">
                     <div class="dashboard-container__wrap__column__main-area__bar-area">
                         <VInfoBar
-                            v-if="isInfoBarShown"
+                            v-if="isBillingInfoBarShown"
                             :first-value="storageRemaining"
                             :second-value="bandwidthRemaining"
                             first-description="of Storage Remaining"
                             second-description="of Bandwidth Remaining"
                             :path="projectDashboardPath"
-                            link="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                            :link="projectLimitsIncreaseRequestURL"
                             link-label="Request Limit Increase ->"
+                        />
+                        <VInfoBar
+                            v-if="isProjectLimitInfoBarShown"
+                            is-blue="true"
+                            :first-value="`You have used ${userProjectsCount}`"
+                            first-description="of your"
+                            :second-value="defaultProjectLimit"
+                            second-description="available projects."
+                            :link="generalRequestURL"
+                            link-label="Request Project Limit Increase"
                         />
                     </div>
                     <div class="dashboard-container__wrap__column__main-area__content">
@@ -57,6 +67,7 @@ import {
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+import { MetaUtils } from '@/utils/meta';
 
 const {
     GET_PAYWALL_ENABLED_STATUS,
@@ -217,12 +228,47 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Indicates if info bar is shown.
+     * Indicates if billing info bar is shown.
      */
-    public get isInfoBarShown(): boolean {
+    public get isBillingInfoBarShown(): boolean {
         const isBillingPage = this.$route.name === RouteConfig.Billing.name;
 
-        return isBillingPage && this.$store.getters.userProjectsCount > 0;
+        return isBillingPage && this.userProjectsCount > 0;
+    }
+
+    /**
+     * Indicates if project limit info bar is shown.
+     */
+    public get isProjectLimitInfoBarShown(): boolean {
+        return this.userProjectsCount === this.defaultProjectLimit && this.$route.name === RouteConfig.ProjectDashboard.name;
+    }
+
+    /**
+     * Returns user's projects count.
+     */
+    public get userProjectsCount(): number {
+        return this.$store.getters.userProjectsCount;
+    }
+
+    /**
+     * Returns default project limit from config.
+     */
+    public get defaultProjectLimit(): number {
+        return parseInt(MetaUtils.getMetaContent('default-project-limit'));
+    }
+
+    /**
+     * Returns project limits increase request url from config.
+     */
+    public get projectLimitsIncreaseRequestURL(): string {
+        return MetaUtils.getMetaContent('project-limits-increase-request-url');
+    }
+
+    /**
+     * Returns general request url from config.
+     */
+    public get generalRequestURL(): string {
+        return MetaUtils.getMetaContent('general-request-url');
     }
 
     /**
