@@ -179,7 +179,7 @@ func (service *Service) CleanArchive(ctx context.Context, deleteBefore time.Time
 
 // SendOrders sends the orders using now as the current time.
 func (service *Service) SendOrders(ctx context.Context, now time.Time) {
-	defer mon.Task()(&ctx)
+	defer mon.Task()(&ctx)(nil)
 	service.log.Debug("sending")
 
 	// If there are orders in the database, send from there.
@@ -193,7 +193,7 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 }
 
 func (service *Service) sendOrdersFromDB(ctx context.Context) (hasOrders bool) {
-	defer mon.Task()(&ctx)
+	defer mon.Task()(&ctx)(nil)
 
 	const batchSize = 1000
 	hasOrders = true
@@ -388,7 +388,7 @@ func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID
 }
 
 func (service *Service) sendOrdersFromFileStore(ctx context.Context, now time.Time) {
-	defer mon.Task()(&ctx)
+	defer mon.Task()(&ctx)(nil)
 
 	errorSatellites := make(map[storj.NodeID]struct{})
 	var errorSatellitesMu sync.Mutex
