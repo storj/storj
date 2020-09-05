@@ -174,11 +174,11 @@ func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid
 	if err != nil {
 		return 0, ErrProjectUsage.Wrap(err)
 	}
-	if limit == 0 {
+	if limit == nil {
 		return usage.defaultMaxUsage, nil
 	}
 
-	return limit, nil
+	return memory.Size(*limit), nil
 }
 
 // GetProjectBandwidthLimit returns current project bandwidth limit.
@@ -189,11 +189,11 @@ func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uu
 	if err != nil {
 		return 0, ErrProjectUsage.Wrap(err)
 	}
-	if limit == 0 {
+	if limit == nil {
 		return usage.defaultMaxBandwidth, nil
 	}
 
-	return limit, nil
+	return memory.Size(*limit), nil
 }
 
 // UpdateProjectLimits sets new value for project's bandwidth and storage limit.

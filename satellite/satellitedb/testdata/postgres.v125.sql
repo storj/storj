@@ -224,10 +224,10 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint NOT NULL DEFAULT 0,
-	bandwidth_limit bigint NOT NULL DEFAULT 0,
+	usage_limit bigint,
+	bandwidth_limit bigint,
 	rate_limit integer,
-	max_buckets integer NOT NULL DEFAULT 0,
+	max_buckets integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -464,9 +464,9 @@ INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "w
 INSERT INTO "nodes"("id", "address", "last_net", "last_ip_port", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "online_score") VALUES (E'\\154\\313\\233\\074\\327\\177\\136\\070\\346\\002', '127.0.0.1:55516', '127.0.0.0', '127.0.0.1:55516', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 75, 25, 100, 5, false, 1);
 
 INSERT INTO "users"("id", "full_name", "short_name", "email", "normalized_email", "password_hash", "status", "partner_id", "created_at") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'Noahson', 'William', '1email1@mail.test', '1EMAIL1@MAIL.TEST', E'some_readable_hash'::bytea, 1, NULL, '2019-02-14 08:28:24.614594+00');
-INSERT INTO "projects"("id", "name", "description", "usage_limit", "partner_id", "owner_id", "created_at") VALUES (E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, 'ProjectName', 'projects description', 0, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2019-02-14 08:28:24.254934+00');
+INSERT INTO "projects"("id", "name", "description", "usage_limit", "partner_id", "owner_id", "created_at", "bandwidth_limit", "max_buckets") VALUES (E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, 'ProjectName', 'projects description', 0, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2019-02-14 08:28:24.254934+00', 0, 0);
 
-INSERT INTO "projects"("id", "name", "description", "usage_limit", "partner_id", "owner_id", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 'projName1', 'Test project 1', 0, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2019-02-14 08:28:24.636949+00');
+INSERT INTO "projects"("id", "name", "description", "usage_limit", "partner_id", "owner_id", "created_at", "bandwidth_limit", "max_buckets") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 'projName1', 'Test project 1', 0, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2019-02-14 08:28:24.636949+00', 0, 0);
 INSERT INTO "project_members"("member_id", "project_id", "created_at") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, '2019-02-14 08:28:24.677953+00');
 INSERT INTO "project_members"("member_id", "project_id", "created_at") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, '2019-02-13 08:28:24.677953+00');
 
@@ -532,7 +532,7 @@ INSERT INTO "reported_serials" ("expires_at", "storage_node_id", "bucket_id", "a
 
 INSERT INTO "stripecoinpayments_apply_balance_intents" ("tx_id", "state", "created_at") VALUES ('tx_id', 0, '2019-06-01 08:28:24.267934+00');
 
-INSERT INTO "projects"("id", "name", "description", "usage_limit", "rate_limit", "partner_id", "owner_id", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\347'::bytea, 'projName1', 'Test project 1', 0, 2000000, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2020-01-15 08:28:24.636949+00');
+INSERT INTO "projects"("id", "name", "description", "usage_limit", "rate_limit", "partner_id", "owner_id", "created_at", "bandwidth_limit", "max_buckets") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\347'::bytea, 'projName1', 'Test project 1', 0, 2000000, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2020-01-15 08:28:24.636949+00', 0, 0);
 
 INSERT INTO "pending_serial_queue" ("storage_node_id", "bucket_id", "serial_number", "action", "settled", "expires_at") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, E'5123456701234567'::bytea, 1, 100, '2020-01-11 08:00:00.000000+00');
 
@@ -545,7 +545,7 @@ INSERT INTO "injuredsegments" ("path", "data", "num_healthy_pieces", "updated_at
 
 INSERT INTO "project_bandwidth_rollups"("project_id", "interval_month", egress_allocated) VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\347'::bytea, '2020-04-01', 10000);
 
-INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_limit", "rate_limit", "partner_id", "owner_id", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\345'::bytea, 'egress101', 'High Bandwidth Project', 0, 0, 2000000, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2020-05-15 08:46:24.000000+00');
+INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_limit", "rate_limit", "partner_id", "owner_id", "created_at", "max_buckets") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\345'::bytea, 'egress101', 'High Bandwidth Project', 0, 0, 2000000, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2020-05-15 08:46:24.000000+00', 0);
 
 INSERT INTO "storagenode_paystubs"("period", "node_id", "created_at", "codes", "usage_at_rest", "usage_get", "usage_put", "usage_get_repair", "usage_put_repair", "usage_get_audit", "comp_at_rest", "comp_get", "comp_put", "comp_get_repair", "comp_put_repair", "comp_get_audit", "surge_percent", "held", "owed", "disposed", "paid") VALUES ('2020-01', '\xf2a3b4c4dfdf7221310382fd5db5aa73e1d227d6df09734ec4e5305000000000', '2020-04-07T20:14:21.479141Z', '', 1327959864508416, 294054066688, 159031363328, 226751, 0, 836608, 2861984, 5881081, 0, 226751, 0, 8, 300, 0, 26909472, 0, 26909472);
 INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "unknown_audit_suspended", "offline_suspended", "under_review") VALUES (E'\\153\\313\\233\\074\\327\\255\\136\\070\\346\\001', '127.0.0.1:55516', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, 100, 5, false, '2019-02-14 08:07:31.108963+00', '2019-02-14 08:07:31.108963+00', '2019-02-14 08:07:31.108963+00');
@@ -560,4 +560,4 @@ INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_li
 
 -- NEW DATA --
 
-UPDATE "injuredsegments" SET updated_at = '2020-09-01 00:00:00.000000+00';
+INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_limit", "rate_limit", "partner_id", "owner_id", "created_at", "max_buckets") VALUES (E'300\\273|\\342N\\347\\347\\363\\342\\363\\371>+F\\255\\244'::bytea, 'egress103', 'High Bandwidth Project 3', 10000000, 10000000, 2000000, NULL, E'265\\343U\\303\\312\\312\\363\\311\\033w\\222\\303Ci",'::bytea, '2020-05-15 08:46:24.000000+00', 1000);

@@ -939,6 +939,30 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "make limit columns nullable",
+				Version:     125,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ALTER COLUMN max_buckets DROP NOT NULL;`,
+					`ALTER TABLE projects ALTER COLUMN max_buckets DROP DEFAULT;`,
+					`ALTER TABLE projects ALTER COLUMN usage_limit DROP NOT NULL;`,
+					`ALTER TABLE projects ALTER COLUMN usage_limit DROP DEFAULT;`,
+					`ALTER TABLE projects ALTER COLUMN bandwidth_limit DROP NOT NULL;`,
+					`ALTER TABLE projects ALTER COLUMN bandwidth_limit DROP DEFAULT;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "set 0 limits back to default",
+				Version:     126,
+				Action: migrate.SQL{
+					`UPDATE projects SET max_buckets = NULL WHERE max_buckets = 0;`,
+					`UPDATE projects SET usage_limit = NULL WHERE usage_limit = 0;`,
+					`UPDATE projects SET bandwidth_limit = NULL WHERE bandwidth_limit = 0;`,
+				},
+			},
 		},
 	}
 }
