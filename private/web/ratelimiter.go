@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -69,7 +70,7 @@ func (rl *IPRateLimiter) cleanupLimiters() {
 //Limit applies a per IP rate limiting as an HTTP Handler.
 func (rl *IPRateLimiter) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		ip, err := getRequestIP(r)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
@@ -81,6 +82,26 @@ func (rl *IPRateLimiter) Limit(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+//getRequestIP gets the original IP address of the request by handling the request headers.
+func getRequestIP(r *http.Request) (ip string, err error) {
+	realIP := r.Header.Get("X-REAL-IP")
+	if realIP != "" {
+		return realIP, nil
+	}
+
+	forwardedIPs := r.Header.Get("X-FORWARDED-FOR")
+	if forwardedIPs != "" {
+		ips := strings.Split(forwardedIPs, ", ")
+		if len(ips) > 0 {
+			return ips[0], nil
+		}
+	}
+
+	ip, _, err = net.SplitHostPort(r.RemoteAddr)
+
+	return ip, err
 }
 
 //getUserLimit returns a rate limiter for an IP.
