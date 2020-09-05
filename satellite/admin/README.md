@@ -174,6 +174,10 @@ Updates rate limit for a project.
 
 Updates bucket limit for a project.
 
+## GET /api/project/{project-id}
+
+Gets the common information about a project.
+
 ## PUT /api/project/{project-id}
 
 Updates project name or description.
