@@ -176,6 +176,7 @@ model node (
 	field offline_suspended timestamp ( updatable, nullable )
 	// once a node becomes offline_suspended, mark it as under review so we check it again later
 	field under_review timestamp ( updatable, nullable )
+	field online_score float64 ( updatable, default 1 )
 
 	// audit_reputation_fields track information related to successful vs. failed error audits
 	field audit_reputation_alpha  float64 ( updatable, default 1 )

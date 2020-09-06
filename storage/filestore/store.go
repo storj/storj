@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -252,6 +253,18 @@ func (store *blobStore) FreeSpace() (int64, error) {
 		return 0, err
 	}
 	return info.AvailableSpace, nil
+}
+
+// CheckWritability tests writability of the storage directory by creating and deleting a file.
+func (store *blobStore) CheckWritability() error {
+	f, err := ioutil.TempFile(store.dir.Path(), "write-test")
+	if err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.Remove(f.Name())
 }
 
 // ListNamespaces finds all known namespace IDs in use in local storage. They are not

@@ -25,8 +25,8 @@ func (endpoint *Endpoint) validatePendingTransfer(ctx context.Context, transfer 
 	if transfer.SatelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit() == nil {
 		return Error.New("Addressed order limit on transfer piece cannot be nil")
 	}
-	if transfer.Path == nil {
-		return Error.New("Transfer path cannot be nil")
+	if transfer.Key == nil {
+		return Error.New("Transfer key cannot be nil")
 	}
 	if transfer.OriginalPointer == nil || transfer.OriginalPointer.GetRemote() == nil {
 		return Error.New("could not get remote pointer from transfer item")

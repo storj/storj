@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
 )
@@ -89,14 +90,14 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 		// get a remote segment from pointerdb
 		pdb := satellite.Metainfo.Service
-		listResponse, _, err := pdb.List(ctx, "", "", true, 0, 0)
+		listResponse, _, err := pdb.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
 			path = v.GetPath()
-			pointer, err = pdb.Get(ctx, path)
+			pointer, err = pdb.Get(ctx, metabase.SegmentKey(path))
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
@@ -174,14 +175,14 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 
 		// get a remote segment from pointerdb
 		pdb := planet.Satellites[0].Metainfo.Service
-		listResponse, _, err := pdb.List(ctx, "", "", true, 0, 0)
+		listResponse, _, err := pdb.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
 			path = v.GetPath()
-			pointer, err = pdb.Get(ctx, path)
+			pointer, err = pdb.Get(ctx, metabase.SegmentKey(path))
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break

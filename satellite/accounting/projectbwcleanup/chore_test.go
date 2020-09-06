@@ -54,16 +54,16 @@ func testProjectAllocatedBandwidthRetain(t *testing.T, retain int) {
 
 		projectID := testrand.UUID()
 		bucketName := testrand.BucketName()
-		now := time.Now()
-		interval := time.Date(now.Year(), now.Month(), 15, 12, 0, 0, 0, time.UTC)
+		now := time.Now().UTC()
 
 		for i := 0; i <= months; i++ {
-			err := ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), pb.PieceAction_GET, testBytes, interval.AddDate(0, -i, 0))
+			newDate := time.Date(now.Year(), now.Month()-time.Month(i), 15, 12, 0, 0, 0, time.UTC)
+			err := ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), pb.PieceAction_GET, testBytes, newDate)
 			require.NoError(t, err)
 		}
 		for i := 0; i <= months; i++ {
-			m := interval.AddDate(0, -i, 0)
-			bytes, err := satellite.Accounting.ProjectUsage.GetProjectAllocatedBandwidth(ctx, projectID, m.Year(), m.Month())
+			newDate := time.Date(now.Year(), now.Month()-time.Month(i), 15, 12, 0, 0, 0, time.UTC)
+			bytes, err := satellite.Accounting.ProjectUsage.GetProjectAllocatedBandwidth(ctx, projectID, newDate.Year(), newDate.Month())
 			require.NoError(t, err)
 			require.EqualValues(t, testBytes, bytes)
 		}
@@ -71,12 +71,12 @@ func testProjectAllocatedBandwidthRetain(t *testing.T, retain int) {
 		satellite.Accounting.ProjectBWCleanup.Loop.TriggerWait()
 
 		for i := 0; i <= months; i++ {
-			m := interval.AddDate(0, -i, 0)
-			bytes, err := satellite.Accounting.ProjectUsage.GetProjectAllocatedBandwidth(ctx, projectID, m.Year(), m.Month())
+			newDate := time.Date(now.Year(), now.Month()-time.Month(i), 15, 12, 0, 0, 0, time.UTC)
+			bytes, err := satellite.Accounting.ProjectUsage.GetProjectAllocatedBandwidth(ctx, projectID, newDate.Year(), newDate.Month())
 
 			if i < months || retain < 0 { // there should always be the current month
 				require.NoError(t, err)
-				require.EqualValues(t, testBytes, bytes)
+				require.EqualValues(t, testBytes, bytes, "Month: %d", i)
 			} else {
 				require.NoError(t, err)
 				require.EqualValues(t, 0, bytes)

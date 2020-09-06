@@ -124,7 +124,7 @@ func TestGarbageCollection(t *testing.T) {
 	})
 }
 
-func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Satellite, upl *testplanet.Uplink, bucket, path string) (lastSegPath string, pointer *pb.Pointer) {
+func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Satellite, upl *testplanet.Uplink, bucket, path string) (_ metabase.SegmentKey, pointer *pb.Pointer) {
 	access := upl.Access[satellite.ID()]
 
 	serializedAccess, err := access.Serialize()
@@ -143,11 +143,11 @@ func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Sa
 		ObjectKey:  metabase.ObjectKey(encryptedPath.Raw()),
 	}
 
-	lastSegPath = string(segmentLocation.Encode())
-	pointer, err = satellite.Metainfo.Service.Get(ctx, lastSegPath)
+	key := segmentLocation.Encode()
+	pointer, err = satellite.Metainfo.Service.Get(ctx, key)
 	require.NoError(t, err)
 
-	return lastSegPath, pointer
+	return key, pointer
 }
 
 func encryptionAccess(access string) (*encryption.Store, error) {

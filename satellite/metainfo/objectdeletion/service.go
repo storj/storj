@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 const (
@@ -54,8 +55,8 @@ func (config *Config) Verify() errs.Group {
 
 // PointerDB stores pointers.
 type PointerDB interface {
-	GetItems(ctx context.Context, paths [][]byte) ([]*pb.Pointer, error)
-	UnsynchronizedGetDel(ctx context.Context, paths [][]byte) (deletedPaths [][]byte, _ []*pb.Pointer, _ error)
+	GetItems(ctx context.Context, keys []metabase.SegmentKey) ([]*pb.Pointer, error)
+	UnsynchronizedGetDel(ctx context.Context, keys []metabase.SegmentKey) (deletedKeys []metabase.SegmentKey, _ []*pb.Pointer, _ error)
 }
 
 // Service implements the object deletion service
@@ -119,11 +120,11 @@ func (service *Service) Delete(ctx context.Context, requests ...*ObjectIdentifie
 
 // DeletePointers returns a list of pointers and their paths that are deleted.
 // If a object is not found, we will consider it as a successful delete.
-func (service *Service) DeletePointers(ctx context.Context, requests []*ObjectIdentifier) (_ []*pb.Pointer, _ [][]byte, err error) {
+func (service *Service) DeletePointers(ctx context.Context, requests []*ObjectIdentifier) (_ []*pb.Pointer, _ []metabase.SegmentKey, err error) {
 	defer mon.Task()(&ctx, len(requests))(&err)
 
 	// get first and last segment to determine the object state
-	lastAndFirstSegmentsPath := [][]byte{}
+	lastAndFirstSegmentsPath := []metabase.SegmentKey{}
 	for _, req := range requests {
 		lastSegmentPath, err := req.SegmentPath(lastSegmentIndex)
 		if err != nil {
@@ -208,10 +209,10 @@ func GroupPiecesByNodeID(pointers []*pb.Pointer) map[storj.NodeID][]storj.PieceI
 }
 
 // generateSegmentPathsForCompleteObjects collects segment paths for objects that has last segment found in pointerDB.
-func (service *Service) generateSegmentPathsForCompleteObjects(ctx context.Context, states map[string]*ObjectState) (_ [][]byte, err error) {
+func (service *Service) generateSegmentPathsForCompleteObjects(ctx context.Context, states map[string]*ObjectState) (_ []metabase.SegmentKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segmentPaths := [][]byte{}
+	segmentPaths := []metabase.SegmentKey{}
 
 	for _, state := range states {
 		switch state.Status() {
@@ -259,13 +260,13 @@ func (service *Service) generateSegmentPathsForCompleteObjects(ctx context.Conte
 }
 
 // collectSegmentPathsForZombieObjects collects segment paths for objects that has no last segment found in pointerDB.
-func (service *Service) collectSegmentPathsForZombieObjects(ctx context.Context, states map[string]*ObjectState) (_ [][]byte, err error) {
+func (service *Service) collectSegmentPathsForZombieObjects(ctx context.Context, states map[string]*ObjectState) (_ []metabase.SegmentKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	zombies := map[string]ObjectIdentifier{}
 	largestLoaded := map[string]int64{}
 
-	segmentsToDel := [][]byte{}
+	segmentsToDel := []metabase.SegmentKey{}
 
 	for _, state := range states {
 		if state.Status() == ObjectActiveOrZombie {
@@ -298,7 +299,7 @@ func (service *Service) collectSegmentPathsForZombieObjects(ctx context.Context,
 		startFrom := largestKnownSegment + 1
 		largestKnownSegment += int64(service.config.ZombieSegmentsPerRequest)
 
-		var zombieSegmentPaths [][]byte
+		var zombieSegmentPaths []metabase.SegmentKey
 		for _, id := range zombies {
 			for i := startFrom; i <= largestKnownSegment; i++ {
 				path, err := id.SegmentPath(i)

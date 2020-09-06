@@ -84,21 +84,29 @@
                 <p class="estimation-table-container__held-area__text">Held back</p>
                 <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
             </div>
-            <div class="estimation-table-container__total-area">
+            <div class="estimation-table-container__held-area" v-if="!isCurrentPeriod && disposed > 0">
+                <p class="estimation-table-container__held-area__text">Held returned</p>
+                <p class="estimation-table-container__held-area__text">{{ disposed | centsToDollars }}</p>
+            </div>
+            <div class="estimation-table-container__net-total-area">
                 <div class="column justify-start column-1">
-                    <p class="estimation-table-container__total-area__text">TOTAL</p>
+                    <p class="estimation-table-container__net-total-area__text">NET TOTAL</p>
                 </div>
                 <div class="column justify-start column-2"></div>
                 <div class="column justify-start column-3"></div>
                 <div class="column justify-start column-4">
-                    <p class="estimation-table-container__total-area__text">{{ totalDiskSpace + 'm' }}</p>
+                    <p class="estimation-table-container__net-total-area__text">{{ totalDiskSpace + 'm' }}</p>
                 </div>
                 <div class="column justify-start column-5">
-                    <p class="estimation-table-container__total-area__text">{{ totalBandwidth }}</p>
+                    <p class="estimation-table-container__net-total-area__text">{{ totalBandwidth }}</p>
                 </div>
                 <div class="column justify-end column-6">
-                    <p class="estimation-table-container__total-area__text">{{ totalPayout | centsToDollars }}</p>
+                    <p class="estimation-table-container__net-total-area__text">{{ totalPayout | centsToDollars }}</p>
                 </div>
+            </div>
+            <div class="estimation-table-container__total-area" v-if="!isCurrentPeriod && !isLastPeriodWithoutPaystub && heldInfo.surgePercent">
+                <p class="estimation-table-container__total-area__text">Total + Surge {{ surgePercent }}</p>
+                <p class="estimation-table-container__total-area__text">{{ heldInfo.paid | centsToDollars }}</p>
             </div>
         </div>
         <div class="no-data-container" v-else>
@@ -202,6 +210,13 @@ export default class EstimationArea extends Vue {
     }
 
     /**
+     * Returns surge percent if single month selected.
+     */
+    public get surgePercent(): string {
+        return !this.$store.state.payoutModule.periodRange.start ? `(${this.heldInfo.surgePercent}%)` : '';
+    }
+
+    /**
      * Indicates if payout data is unavailable.
      */
     public get isPayoutNoDataState(): boolean {
@@ -234,6 +249,13 @@ export default class EstimationArea extends Vue {
     }
 
     /**
+     * Returns calculated or stored returned held amount.
+     */
+    public get disposed(): number {
+        return this.heldInfo.disposed;
+    }
+
+    /**
      * Returns calculated or stored total payout by selected period.
      */
     public get totalPayout(): number {
@@ -241,7 +263,7 @@ export default class EstimationArea extends Vue {
             return this.heldInfo.paid;
         }
 
-        return this.grossTotal - this.held;
+        return this.grossTotal;
     }
 
     /**
@@ -517,6 +539,23 @@ export default class EstimationArea extends Vue {
             flex-direction: row;
             align-items: center;
             justify-content: space-between;
+            border-bottom: 1px solid #a9b5c1;
+
+            &__text {
+                font-family: 'font_regular', sans-serif;
+                font-size: 14px;
+                color: var(--regular-text-color);
+            }
+        }
+
+        &__net-total-area,
+        &__total-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 16px;
+            width: calc(100% - 32px);
+            height: 56px;
 
             &__text {
                 font-family: 'font_bold', sans-serif;
@@ -526,19 +565,9 @@ export default class EstimationArea extends Vue {
         }
 
         &__total-area {
-            display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 0 16px;
-            width: calc(100% - 32px);
-            height: 56px;
+            justify-content: space-between;
             background-color: var(--estimation-table-total-container-color);
-
-            &__text {
-                font-family: 'font_bold', sans-serif;
-                font-size: 14px;
-                color: var(--regular-text-color);
-            }
         }
     }
 

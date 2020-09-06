@@ -338,6 +338,7 @@ func TestOfflineSuspend(t *testing.T) {
 		require.Nil(t, node.OfflineSuspended)
 		require.Nil(t, node.OfflineUnderReview)
 		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, 1, node.Reputation.OnlineScore)
 
 		nextWindowTime := time.Now()
 		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, time.Hour, nextWindowTime, oc)
@@ -349,6 +350,7 @@ func TestOfflineSuspend(t *testing.T) {
 		require.NotNil(t, node.OfflineSuspended)
 		require.NotNil(t, node.OfflineUnderReview)
 		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
 
 		// set online score to be good, but use a long grace period so that node remains under review
 		nextWindowTime, err = setOnlineScore(ctx, nodeID, 1, 100*time.Hour, nextWindowTime, oc)
@@ -360,6 +362,7 @@ func TestOfflineSuspend(t *testing.T) {
 		require.NotNil(t, node.OfflineUnderReview)
 		require.Nil(t, node.Disqualified)
 		oldUnderReview := node.OfflineUnderReview
+		require.EqualValues(t, 1, node.Reputation.OnlineScore)
 
 		// suspend again, under review should be the same
 		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, 100*time.Hour, nextWindowTime, oc)
@@ -371,6 +374,7 @@ func TestOfflineSuspend(t *testing.T) {
 		require.NotNil(t, node.OfflineUnderReview)
 		require.Nil(t, node.Disqualified)
 		require.Equal(t, oldUnderReview, node.OfflineUnderReview)
+		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
 
 		// node will exit review after grace period + 1 tracking window, so set grace period to be time since put under review
 		// subtract one hour so that review window ends when setOnlineScore adds the last window
@@ -383,6 +387,7 @@ func TestOfflineSuspend(t *testing.T) {
 		require.Nil(t, node.OfflineSuspended)
 		require.Nil(t, node.OfflineUnderReview)
 		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, 1, node.Reputation.OnlineScore)
 
 		// put into suspension and under review again
 		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, 100*time.Hour, nextWindowTime, oc)
@@ -393,6 +398,7 @@ func TestOfflineSuspend(t *testing.T) {
 		require.NotNil(t, node.OfflineSuspended)
 		require.NotNil(t, node.OfflineUnderReview)
 		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
 
 		// if grace period + 1 tracking window passes and online score is still bad, expect node to be DQed
 		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, 0, nextWindowTime, oc)
@@ -403,11 +409,13 @@ func TestOfflineSuspend(t *testing.T) {
 		require.NotNil(t, node.OfflineSuspended)
 		require.NotNil(t, node.OfflineUnderReview)
 		require.Nil(t, node.Disqualified)
-		// TODO uncomment and remove above 3 lines when dq is enabled
+		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
+		// TODO uncomment and remove above 4 lines when dq is enabled
 		/*
 			require.NotNil(t, node.OfflineSuspended)
 			require.NotNil(t, node.OfflineUnderReview)
 			require.NotNil(t, node.Disqualified)
+			require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
 		*/
 	})
 }

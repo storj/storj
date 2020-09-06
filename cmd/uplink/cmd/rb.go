@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
-	"storj.io/uplink"
 )
 
 var (
@@ -53,51 +52,25 @@ func deleteBucket(cmd *cobra.Command, args []string) (err error) {
 	}
 	defer closeProject(project)
 
-	successes := 0
-	failures := 0
 	defer func() {
-		if successes > 0 {
-			fmt.Printf("(%d) files from bucket %s have been deleted\n", successes, dst.Bucket())
-		}
-		if failures > 0 {
-			fmt.Printf("(%d) files from bucket %s have NOT been deleted\n", failures, dst.Bucket())
-		}
-		if err == nil && failures == 0 {
-			fmt.Printf("Bucket %s have been deleted\n", dst.Bucket())
+		if err != nil {
+			fmt.Printf("Bucket %s has NOT been deleted\n %+v", dst.Bucket(), err.Error())
 		} else {
-			fmt.Printf("Bucket %s have NOT been deleted\n", dst.Bucket())
+			fmt.Printf("Bucket %s has been deleted\n", dst.Bucket())
 		}
 	}()
 
 	if *rbForceFlag {
-		// TODO add retry in case of failures
-		objects := project.ListObjects(ctx, dst.Bucket(), &uplink.ListObjectsOptions{
-			Recursive: true,
-		})
-
-		for objects.Next() {
-			object := objects.Item()
-			path := object.Key
-			_, err := project.DeleteObject(ctx, dst.Bucket(), path)
-			if err != nil {
-				fmt.Printf("failed to delete encrypted object, cannot empty bucket %q: %+v\n", dst.Bucket(), err)
-				failures++
-				continue
-			}
-			successes++
-			if successes%10 == 0 {
-				fmt.Printf("(%d) files from bucket %s have been deleted\n", successes, dst.Bucket())
-			}
-		}
-		if err := objects.Err(); err != nil {
-			return err
-		}
-	}
-
-	if failures == 0 {
-		if _, err := project.DeleteBucket(ctx, dst.Bucket()); err != nil {
+		//TODO: Do we need to have retry here?
+		if _, err := project.DeleteBucketWithObjects(ctx, dst.Bucket()); err != nil {
 			return convertError(err, dst)
 		}
+
+		return nil
+	}
+
+	if _, err := project.DeleteBucket(ctx, dst.Bucket()); err != nil {
+		return convertError(err, dst)
 	}
 
 	return nil

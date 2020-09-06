@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
@@ -143,13 +144,15 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 			// we need at least two tallies across time to calculate storage
 			projectsStorage[i] = int64(i+1) * memory.TiB.Int64()
 			tally := &accounting.BucketTally{
-				BucketName:  []byte("testbucket"),
-				ProjectID:   projects[i].ID,
+				BucketLocation: metabase.BucketLocation{
+					ProjectID:  projects[i].ID,
+					BucketName: "testbucket",
+				},
 				RemoteBytes: projectsStorage[i],
 				ObjectCount: int64(i + 1),
 			}
-			tallies := map[string]*accounting.BucketTally{
-				"0": tally,
+			tallies := map[metabase.BucketLocation]*accounting.BucketTally{
+				{}: tally,
 			}
 			err = satellite.DB.ProjectAccounting().SaveTallies(ctx, period, tallies)
 			require.NoError(t, err)
@@ -251,13 +254,15 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 			// generate storage
 			// we need at least two tallies across time to calculate storage
 			tally := &accounting.BucketTally{
-				BucketName:  []byte("testbucket"),
-				ProjectID:   project.ID,
+				BucketLocation: metabase.BucketLocation{
+					ProjectID:  project.ID,
+					BucketName: "testbucket",
+				},
 				RemoteBytes: memory.TiB.Int64(),
 				ObjectCount: 45,
 			}
-			tallies := map[string]*accounting.BucketTally{
-				"0": tally,
+			tallies := map[metabase.BucketLocation]*accounting.BucketTally{
+				{}: tally,
 			}
 			err = satellite.DB.ProjectAccounting().SaveTallies(ctx, period, tallies)
 			require.NoError(t, err)

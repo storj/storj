@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -211,18 +212,23 @@ func TestProjectLimits(t *testing.T) {
 	})
 }
 
-func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.BucketTally, []accounting.BucketTally, error) {
-	bucketTallies := make(map[string]*accounting.BucketTally)
+func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocation]*accounting.BucketTally, []accounting.BucketTally, error) {
+	bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
 	var expectedTallies []accounting.BucketTally
 
 	for i := 0; i < 4; i++ {
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
-		bucketID := storj.JoinPaths(projectID.String(), bucketName)
+		bucketLocation := metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: bucketName,
+		}
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
 		tally := accounting.BucketTally{
-			BucketName:     []byte(bucketName),
-			ProjectID:      projectID,
+			BucketLocation: metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+			},
 			ObjectCount:    int64(1),
 			InlineSegments: int64(1),
 			RemoteSegments: int64(1),
@@ -230,7 +236,7 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.Buc
 			RemoteBytes:    int64(1),
 			MetadataSize:   int64(1),
 		}
-		bucketTallies[bucketID] = &tally
+		bucketTallies[bucketLocation] = &tally
 		expectedTallies = append(expectedTallies, tally)
 
 	}

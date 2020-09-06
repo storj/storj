@@ -296,6 +296,8 @@ export class PayoutHttpApi implements PayoutApi {
         let owed: number = 0;
         let disposed: number = 0;
         let paid: number = 0;
+        let surgePercent: number = 0;
+        let paidWithoutSurge: number = 0;
 
         data.forEach((paystub: any) => {
             const surge = paystub.surgePercent === 0 ? 1 : paystub.surgePercent / 100;
@@ -306,16 +308,18 @@ export class PayoutHttpApi implements PayoutApi {
             usageGetRepair += paystub.usageGetRepair;
             usagePutRepair += paystub.usagePutRepair;
             usageGetAudit += paystub.usageGetAudit;
-            compAtRest += paystub.compAtRest / this.PRICE_DIVIDER * surge;
-            compGet += paystub.compGet / this.PRICE_DIVIDER * surge;
+            compAtRest += paystub.compAtRest / this.PRICE_DIVIDER;
+            compGet += paystub.compGet / this.PRICE_DIVIDER;
             compPut += paystub.compPut / this.PRICE_DIVIDER;
-            compGetRepair += paystub.compGetRepair / this.PRICE_DIVIDER * surge;
+            compGetRepair += paystub.compGetRepair / this.PRICE_DIVIDER;
             compPutRepair += paystub.compPutRepair / this.PRICE_DIVIDER;
-            compGetAudit += paystub.compGetAudit / this.PRICE_DIVIDER * surge;
+            compGetAudit += paystub.compGetAudit / this.PRICE_DIVIDER;
             held += paystub.held / this.PRICE_DIVIDER;
             owed += paystub.owed / this.PRICE_DIVIDER;
             disposed += paystub.disposed / this.PRICE_DIVIDER;
             paid += paystub.paid / this.PRICE_DIVIDER;
+            surgePercent = paystub.surgePercent;
+            paidWithoutSurge += paystub.paid / this.PRICE_DIVIDER / surge;
         });
 
         return new HeldInfo(
@@ -331,11 +335,12 @@ export class PayoutHttpApi implements PayoutApi {
             compGetRepair,
             compPutRepair,
             compGetAudit,
-            0,
+            surgePercent,
             held,
             owed,
             disposed,
             paid,
+            paidWithoutSurge,
         );
     }
 }

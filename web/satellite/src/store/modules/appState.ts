@@ -12,13 +12,11 @@ export const appStateModule = {
         appState: {
             fetchState: AppState.LOADING,
             isAddTeamMembersPopupShown: false,
-            isNewProjectPopupShown: false,
             isAccountDropdownShown: false,
             isDeleteProjectPopupShown: false,
             isDeleteAccountPopupShown: false,
             isSortProjectMembersByPopupShown: false,
             isSuccessfulRegistrationShown: false,
-            isSuccessfulProjectCreationPopupShown: false,
             isEditProfilePopupShown: false,
             isChangePasswordPopupShown: false,
             isPaymentSelectionShown: false,
@@ -31,11 +29,6 @@ export const appStateModule = {
         // Mutation changing add projectMembers members popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP](state: any): void {
             state.appState.isAddTeamMembersPopupShown = !state.appState.isAddTeamMembersPopupShown;
-        },
-
-        // Mutation changing new project popup visibility
-        [APP_STATE_MUTATIONS.TOGGLE_NEW_PROJECT_POPUP](state: any): void {
-            state.appState.isNewProjectPopupShown = !state.appState.isNewProjectPopupShown;
         },
 
         // Mutation changing save api key modal visibility
@@ -63,10 +56,6 @@ export const appStateModule = {
         // Mutation changing 'successful registration' area visibility.
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION](state: any): void {
             state.appState.isSuccessfulRegistrationShown = !state.appState.isSuccessfulRegistrationShown;
-        },
-        // Mutation changing 'successful project creation' popup visibility.
-        [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP](state: any): void {
-            state.appState.isSuccessfulProjectCreationPopupShown = !state.appState.isSuccessfulProjectCreationPopupShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_POPUP](state: any): void {
             state.appState.isChangePasswordPopupShown = !state.appState.isChangePasswordPopupShown;
@@ -112,13 +101,6 @@ export const appStateModule = {
 
             commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP);
         },
-        [APP_STATE_ACTIONS.TOGGLE_NEW_PROJ]: function ({commit, state}: any): void {
-            if (!state.appState.isNewProjectPopupShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_NEW_PROJECT_POPUP);
-        },
         [APP_STATE_ACTIONS.TOGGLE_SAVE_API_KEY_MODAL]: function ({commit, state}: any): void {
             if (!state.appState.isSaveApiKeyModalShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
@@ -160,13 +142,6 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP]: function ({commit, state}: any): void {
-            if (!state.appState.isSuccessfulProjectCreationPopupShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
         },
         [APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_POPUP);

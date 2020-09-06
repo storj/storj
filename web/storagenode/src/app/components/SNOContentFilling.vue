@@ -119,12 +119,9 @@
                 <DiskStatChart />
             </section>
         </section>
-        <div class="info-area__blurred-checks" v-if="!selectedSatellite.id">
-            <p class="info-area__blurred-checks__title">Select a Specific Satellite to View Audit and Uptime Percentages</p>
-        </div>
-        <div v-if="selectedSatellite.id">
+        <div>
             <p class="info-area__title">Suspension & Audit</p>
-            <div class="info-area__checks-area">
+            <div class="info-area__checks-area" v-if="selectedSatellite.id">
                 <ChecksArea
                     label="Suspension Score"
                     :amount="checks.suspension"
@@ -136,6 +133,7 @@
                     info-text="Percentage of successful pings/communication between the node & satellite."
                 />
             </div>
+            <AllSatellitesAuditsArea v-else />
         </div>
         <div class="info-area__payout-header">
             <p class="info-area__title">Payout</p>
@@ -155,6 +153,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 import BandwidthChart from '@/app/components/BandwidthChart.vue';
 import BarInfo from '@/app/components/BarInfo.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
@@ -191,6 +190,7 @@ class Checks {
 
 @Component ({
     components: {
+        AllSatellitesAuditsArea,
         DiskStatChart,
         TotalPayoutArea,
         EstimationArea,

@@ -121,7 +121,7 @@ type Satellite struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Queue    *audit.Queue
+		Queues   *audit.Queues
 		Worker   *audit.Worker
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
@@ -397,7 +397,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				Node: overlay.NodeSelectionConfig{
 					UptimeCount:      0,
 					AuditCount:       0,
-					NewNodeFraction:  0,
+					NewNodeFraction:  1,
 					OnlineWindow:     time.Minute,
 					DistinctIP:       false,
 					MinimumDiskSpace: 100 * memory.MB,
@@ -712,7 +712,7 @@ func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.C
 	system.Repair.Repairer = repairerPeer.Repairer
 	system.Repair.Inspector = api.Repair.Inspector
 
-	system.Audit.Queue = peer.Audit.Queue
+	system.Audit.Queues = peer.Audit.Queues
 	system.Audit.Worker = peer.Audit.Worker
 	system.Audit.Chore = peer.Audit.Chore
 	system.Audit.Verifier = peer.Audit.Verifier

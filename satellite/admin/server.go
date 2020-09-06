@@ -82,6 +82,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 	server.mux.HandleFunc("/api/project/{project}/usage", server.checkProjectUsage).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.getProjectLimit).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
+	server.mux.HandleFunc("/api/project/{project}", server.getProject).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}", server.renameProject).Methods("PUT")
 	server.mux.HandleFunc("/api/project/{project}", server.deleteProject).Methods("DELETE")
 	server.mux.HandleFunc("/api/project", server.addProject).Methods("POST")

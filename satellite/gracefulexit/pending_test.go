@@ -18,6 +18,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 func TestPendingBasic(t *testing.T) {
@@ -25,7 +26,7 @@ func TestPendingBasic(t *testing.T) {
 	defer ctx.Cleanup()
 
 	newWork := &gracefulexit.PendingTransfer{
-		Path:             []byte("testbucket/testfile"),
+		Key:              metabase.SegmentKey("testbucket/testfile"),
 		PieceSize:        10,
 		SatelliteMessage: &pb.SatelliteMessage{},
 		OriginalPointer:  &pb.Pointer{},
@@ -47,7 +48,7 @@ func TestPendingBasic(t *testing.T) {
 	// get should work
 	w, ok := pending.Get(pieceID)
 	require.True(t, ok)
-	require.True(t, bytes.Equal(newWork.Path, w.Path))
+	require.True(t, bytes.Equal(newWork.Key, w.Key))
 
 	invalidPieceID := testrand.PieceID()
 	_, ok = pending.Get(invalidPieceID)
@@ -100,7 +101,7 @@ func TestPendingIsFinishedWorkAdded(t *testing.T) {
 	defer ctx.Cleanup()
 
 	newWork := &gracefulexit.PendingTransfer{
-		Path:             []byte("testbucket/testfile"),
+		Key:              metabase.SegmentKey("testbucket/testfile"),
 		PieceSize:        10,
 		SatelliteMessage: &pb.SatelliteMessage{},
 		OriginalPointer:  &pb.Pointer{},

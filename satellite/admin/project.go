@@ -49,6 +49,47 @@ func (server *Server) checkProjectUsage(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+func (server *Server) getProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		httpJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	projectUUID, err := uuid.FromString(projectUUIDString)
+	if err != nil {
+		httpJSONError(w, "invalid project-uuid",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		httpJSONError(w, "invalid form",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
+	if err != nil {
+		httpJSONError(w, "unable to fetch project details",
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	data, err := json.Marshal(project)
+	if err != nil {
+		httpJSONError(w, "json encoding failed",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+}
+
 func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

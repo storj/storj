@@ -19,6 +19,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 )
 
@@ -95,14 +96,14 @@ func TestGetItems_ReturnValueOrder(t *testing.T) {
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, numItems)
 		require.NoError(t, err)
 
-		var paths = make([][]byte, 0, numItems+1)
+		var segmentKeys = make([]metabase.SegmentKey, 0, numItems+1)
 		var lastSegmentPathIndices []int
 
 		// Random nil pointer
 		nilPointerIndex := testrand.Intn(numItems + 1)
 
 		for i, key := range keys {
-			paths = append(paths, []byte(key.String()))
+			segmentKeys = append(segmentKeys, metabase.SegmentKey(key))
 			segmentIdx, err := parseSegmentPath([]byte(key.String()))
 			require.NoError(t, err)
 
@@ -112,11 +113,11 @@ func TestGetItems_ReturnValueOrder(t *testing.T) {
 
 			// set a random path to be nil.
 			if nilPointerIndex == i {
-				paths[nilPointerIndex] = nil
+				segmentKeys[nilPointerIndex] = nil
 			}
 		}
 
-		pointers, err := satellite.Metainfo.Service.GetItems(ctx, paths)
+		pointers, err := satellite.Metainfo.Service.GetItems(ctx, segmentKeys)
 		require.NoError(t, err)
 
 		for i, p := range pointers {
@@ -154,17 +155,12 @@ func TestUpdatePiecesCheckDuplicates(t *testing.T) {
 
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
 		require.NoError(t, err)
+		require.Equal(t, 1, len(keys))
 
-		var pointer *pb.Pointer
-		var encPath string
-		for _, key := range keys {
-			encPath = string(key)
-			pointer, err = satellite.Metainfo.Service.Get(ctx, encPath)
-			require.NoError(t, err)
-			break
-		}
-		require.NotNil(t, pointer)
-		require.NotNil(t, encPath)
+		encPath, err := metabase.ParseSegmentKey(metabase.SegmentKey(keys[0]))
+		require.NoError(t, err)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, encPath.Encode())
+		require.NoError(t, err)
 
 		pieces := pointer.GetRemote().GetRemotePieces()
 		require.False(t, hasDuplicates(pointer.GetRemote().GetRemotePieces()))
@@ -182,12 +178,12 @@ func TestUpdatePiecesCheckDuplicates(t *testing.T) {
 		}
 
 		// test no duplicates
-		updPointer, err := satellite.Metainfo.Service.UpdatePiecesCheckDuplicates(ctx, encPath, pointer, []*pb.RemotePiece{addPiece}, []*pb.RemotePiece{removePiece}, true)
+		updPointer, err := satellite.Metainfo.Service.UpdatePiecesCheckDuplicates(ctx, encPath.Encode(), pointer, []*pb.RemotePiece{addPiece}, []*pb.RemotePiece{removePiece}, true)
 		require.True(t, metainfo.ErrNodeAlreadyExists.Has(err))
 		require.False(t, hasDuplicates(updPointer.GetRemote().GetRemotePieces()))
 
 		// test allow duplicates
-		updPointer, err = satellite.Metainfo.Service.UpdatePieces(ctx, encPath, pointer, []*pb.RemotePiece{addPiece}, []*pb.RemotePiece{removePiece})
+		updPointer, err = satellite.Metainfo.Service.UpdatePieces(ctx, encPath.Encode(), pointer, []*pb.RemotePiece{addPiece}, []*pb.RemotePiece{removePiece})
 		require.NoError(t, err)
 		require.True(t, hasDuplicates(updPointer.GetRemote().GetRemotePieces()))
 	})

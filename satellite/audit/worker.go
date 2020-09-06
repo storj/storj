@@ -34,7 +34,7 @@ type Config struct {
 // Worker contains information for populating audit queue and processing audits.
 type Worker struct {
 	log      *zap.Logger
-	queue    *Queue
+	queues   *Queues
 	verifier *Verifier
 	reporter *Reporter
 	Loop     *sync2.Cycle
@@ -42,11 +42,11 @@ type Worker struct {
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, queue *Queue, verifier *Verifier, reporter *Reporter, config Config) (*Worker, error) {
+func NewWorker(log *zap.Logger, queues *Queues, verifier *Verifier, reporter *Reporter, config Config) (*Worker, error) {
 	return &Worker{
 		log: log,
 
-		queue:    queue,
+		queues:   queues,
 		verifier: verifier,
 		reporter: reporter,
 		Loop:     sync2.NewCycle(config.QueueInterval),
@@ -81,12 +81,20 @@ func (worker *Worker) Close() error {
 func (worker *Worker) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// get the current queue
+	queue := worker.queues.Fetch()
+
 	worker.limiter.Wait()
 	for {
-		path, err := worker.queue.Next()
+		path, err := queue.Next()
 		if err != nil {
 			if ErrEmptyQueue.Has(err) {
-				return nil
+				// get a new queue and return if empty; otherwise continue working.
+				queue = worker.queues.Fetch()
+				if queue.Size() == 0 {
+					return nil
+				}
+				continue
 			}
 			return err
 		}

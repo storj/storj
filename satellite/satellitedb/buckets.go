@@ -12,6 +12,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -79,15 +80,15 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 }
 
 // GetBucketID returns an existing bucket id.
-func (db *bucketsDB) GetBucketID(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ uuid.UUID, err error) {
+func (db *bucketsDB) GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (_ uuid.UUID, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxID, err := db.db.Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx,
-		dbx.BucketMetainfo_ProjectId(projectID[:]),
-		dbx.BucketMetainfo_Name(bucketName),
+		dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]),
+		dbx.BucketMetainfo_Name([]byte(bucket.BucketName)),
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return uuid.UUID{}, storj.ErrBucketNotFound.New("%s", bucketName)
+			return uuid.UUID{}, storj.ErrBucketNotFound.New("%s", bucket.BucketName)
 		}
 		return uuid.UUID{}, storj.ErrBucket.Wrap(err)
 	}

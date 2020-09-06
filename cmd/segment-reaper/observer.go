@@ -13,8 +13,10 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/storage"
 )
 
 const (
@@ -34,7 +36,7 @@ type object struct {
 
 // bucketsObjects keeps a list of objects associated with their path per bucket
 // name.
-type bucketsObjects map[string]map[storj.Path]*object
+type bucketsObjects map[string]map[metabase.ObjectKey]*object
 
 func newObserver(db metainfo.PointerDB, w *csv.Writer, from, to *time.Time) (*observer, error) {
 	headers := []string{
@@ -68,7 +70,7 @@ type observer struct {
 	from   *time.Time
 	to     *time.Time
 
-	lastProjectID string
+	lastProjectID uuid.UUID
 	zombieBuffer  []int
 
 	objects            bucketsObjects
@@ -79,17 +81,17 @@ type observer struct {
 }
 
 // RemoteSegment processes a segment to collect data needed to detect zombie segment.
-func (obsvr *observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	return obsvr.processSegment(ctx, path, pointer)
+func (obsvr *observer) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+	return obsvr.processSegment(ctx, location, pointer)
 }
 
 // InlineSegment processes a segment to collect data needed to detect zombie segment.
-func (obsvr *observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	return obsvr.processSegment(ctx, path, pointer)
+func (obsvr *observer) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+	return obsvr.processSegment(ctx, location, pointer)
 }
 
 // Object not used in this implementation.
-func (obsvr *observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (obsvr *observer) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
@@ -104,8 +106,8 @@ func (obsvr *observer) Object(ctx context.Context, path metainfo.ScopedPath, poi
 // NOTE it's expected that this method is called continually for the objects
 // which belong to a same project before calling it with objects of another
 // project.
-func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
-	if obsvr.lastProjectID != "" && obsvr.lastProjectID != path.ProjectIDString {
+func (obsvr *observer) processSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
+	if !obsvr.lastProjectID.IsZero() && obsvr.lastProjectID != location.ProjectID {
 		err := obsvr.analyzeProject(ctx)
 		if err != nil {
 			return err
@@ -115,8 +117,8 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		obsvr.clearBucketsObjects()
 	}
 
-	obsvr.lastProjectID = path.ProjectIDString
-	isLastSegment := path.Segment == "l"
+	obsvr.lastProjectID = location.ProjectID
+	isLastSegment := location.IsLast()
 
 	// collect number of pointers for reporting
 	if pointer.Type == pb.Pointer_INLINE {
@@ -128,7 +130,7 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 		obsvr.remoteSegments++
 	}
 
-	object := findOrCreate(path.BucketName, path.EncryptedObjectPath, obsvr.objects)
+	object := findOrCreate(location.BucketName, location.ObjectKey, obsvr.objects)
 	if obsvr.from != nil && pointer.CreationDate.Before(*obsvr.from) {
 		object.skip = true
 		// release the memory consumed by the segments because it won't be used
@@ -156,17 +158,17 @@ func (obsvr *observer) processSegment(ctx context.Context, path metainfo.ScopedP
 			object.expectedNumberOfSegments = int(streamMeta.NumberOfSegments)
 		}
 	} else {
-		segmentIndex, err := strconv.Atoi(path.Segment[1:])
-		if err != nil {
-			return err
+		segmentIndex := int(location.Index)
+		if int64(segmentIndex) != location.Index {
+			return errs.New("unsupported segment index: %d", location.Index)
 		}
 		ok, err := object.segments.Has(segmentIndex)
 		if err != nil {
 			return err
 		}
 		if ok {
-			// TODO make path displayable
-			return errs.New("fatal error this segment is duplicated: %s", path.Raw)
+			// TODO make location displayable
+			return errs.New("fatal error this segment is duplicated: %s", location.Encode())
 		}
 
 		err = object.segments.Set(segmentIndex)
@@ -191,7 +193,7 @@ func (obsvr *observer) detectZombieSegments(ctx context.Context) error {
 // segments and writing them to objs.writer.
 func (obsvr *observer) analyzeProject(ctx context.Context) error {
 	for bucket, objects := range obsvr.objects {
-		for path, object := range objects {
+		for key, object := range objects {
 			if object.skip {
 				continue
 			}
@@ -202,7 +204,7 @@ func (obsvr *observer) analyzeProject(ctx context.Context) error {
 			}
 
 			for _, segmentIndex := range obsvr.zombieBuffer {
-				err = obsvr.printSegment(ctx, segmentIndex, bucket, path)
+				err = obsvr.printSegment(ctx, segmentIndex, bucket, key)
 				if err != nil {
 					return err
 				}
@@ -264,20 +266,27 @@ func (obsvr *observer) findZombieSegments(object *object) error {
 	return nil
 }
 
-func (obsvr *observer) printSegment(ctx context.Context, segmentIndex int, bucket, path string) error {
+func (obsvr *observer) printSegment(ctx context.Context, segmentIndex int, bucket string, key metabase.ObjectKey) error {
 	var segmentIndexStr string
 	if segmentIndex == lastSegment {
 		segmentIndexStr = "l"
 	} else {
 		segmentIndexStr = "s" + strconv.Itoa(segmentIndex)
 	}
-	creationDate, size, err := pointerCreationDateAndSize(ctx, obsvr.db, obsvr.lastProjectID, segmentIndexStr, bucket, path)
+
+	segmentKey := metabase.SegmentLocation{
+		ProjectID:  obsvr.lastProjectID,
+		BucketName: bucket,
+		Index:      int64(segmentIndex),
+		ObjectKey:  key,
+	}.Encode()
+	creationDate, size, err := pointerCreationDateAndSize(ctx, obsvr.db, segmentKey)
 	if err != nil {
 		return err
 	}
-	encodedPath := base64.StdEncoding.EncodeToString([]byte(path))
+	encodedPath := base64.StdEncoding.EncodeToString([]byte(key))
 	err = obsvr.writer.Write([]string{
-		obsvr.lastProjectID,
+		obsvr.lastProjectID.String(),
 		segmentIndexStr,
 		bucket,
 		encodedPath,
@@ -291,11 +300,9 @@ func (obsvr *observer) printSegment(ctx context.Context, segmentIndex int, bucke
 	return nil
 }
 
-func pointerCreationDateAndSize(
-	ctx context.Context, db metainfo.PointerDB, projectID, segmentIndex, bucket, path string,
+func pointerCreationDateAndSize(ctx context.Context, db metainfo.PointerDB, key metabase.SegmentKey,
 ) (creationDate string, size int64, _ error) {
-	key := []byte(storj.JoinPaths(projectID, segmentIndex, bucket, path))
-	pointerBytes, err := db.Get(ctx, key)
+	pointerBytes, err := db.Get(ctx, storage.Key(key))
 	if err != nil {
 		return "", 0, err
 	}
@@ -339,17 +346,17 @@ func (obsvr *observer) clearBucketsObjects() {
 	}
 }
 
-func findOrCreate(bucketName string, path string, buckets bucketsObjects) *object {
+func findOrCreate(bucketName string, key metabase.ObjectKey, buckets bucketsObjects) *object {
 	objects, ok := buckets[bucketName]
 	if !ok {
-		objects = make(map[storj.Path]*object)
+		objects = make(map[metabase.ObjectKey]*object)
 		buckets[bucketName] = objects
 	}
 
-	obj, ok := objects[path]
+	obj, ok := objects[key]
 	if !ok {
 		obj = &object{segments: bitArray{}}
-		objects[path] = obj
+		objects[key] = obj
 	}
 
 	return obj

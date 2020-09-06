@@ -193,5 +193,41 @@ export class Satellites {
         public egressSummary: number = 0,
         public ingressSummary: number = 0,
         public joinDate: Date = new Date(),
+        public satellitesScores: SatelliteScores[] = [],
     ) {}
+}
+
+/**
+ * Holds information about audit and suspension scores by satellite.
+ */
+export class SatelliteScores {
+    public auditScore: string;
+    public suspensionScore: string;
+    public statusClassName: string;
+    private readonly WARNING_MINIMUM_SCORE: number = 0.76;
+    private readonly WARNING_CLASSNAME: string = 'warning';
+    private readonly DISQUALIFICATION_MINIMUM_SCORE: number = 0.6;
+    private readonly DISQUALIFICATION_CLASSNAME: string = 'disqualification';
+
+    public constructor(
+        public satelliteName: string = 'satellite-name',
+        score: number = 0,
+        unknownScore: number = 0,
+    ) {
+        this.auditScore = `${score * 100} %`;
+        this.suspensionScore = `${unknownScore * 100} %`;
+
+        switch (true) {
+            case (score < this.DISQUALIFICATION_MINIMUM_SCORE || unknownScore < this.DISQUALIFICATION_MINIMUM_SCORE):
+                this.statusClassName = this.DISQUALIFICATION_CLASSNAME;
+
+                break;
+            case (score < this.WARNING_MINIMUM_SCORE || unknownScore < this.WARNING_MINIMUM_SCORE):
+                this.statusClassName = this.WARNING_CLASSNAME;
+
+                break;
+            default:
+                this.statusClassName = '';
+        }
+    }
 }

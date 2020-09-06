@@ -6,9 +6,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import NewProjectArea from '@/components/header/NewProjectArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
 
 import LogoIcon from '@/../static/images/header/logo.svg';
 import NavigationCloseIcon from '@/../static/images/header/navigationClose.svg';
@@ -18,8 +16,6 @@ import AccountButton from './AccountButton.vue';
 
 @Component({
     components: {
-        ProjectCreationSuccessPopup,
-        NewProjectArea,
         AccountButton,
         NavigationArea,
         NavigationMenuIcon,

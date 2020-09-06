@@ -18,6 +18,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/uplink/private/testuplink"
 )
@@ -311,7 +312,7 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					require.NoError(t, err)
 
 					// confirm that the object was deleted
-					listResponse, more, err := satelliteSys.Metainfo.Service.List(ctx, "", "", true, 0, 0)
+					listResponse, more, err := satelliteSys.Metainfo.Service.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
 					require.NoError(t, err)
 					require.False(t, more)
 					require.Len(t, listResponse, 0)
@@ -423,7 +424,7 @@ func TestEndpoint_DeleteObjectPieces_ObjectWithoutLastSegment(t *testing.T) {
 					require.NoError(t, err)
 
 					// check segment state after deletion
-					listResponse, more, err := satelliteSys.Metainfo.Service.List(ctx, "", "", true, 0, 0)
+					listResponse, more, err := satelliteSys.Metainfo.Service.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
 					require.NoError(t, err)
 					require.False(t, more)
 					// since the segments are sparsed, we are only able to delete
@@ -570,9 +571,9 @@ func uploadFirstObjectWithoutSomeSegmentsPointers(
 
 	projectID, encryptedPath = getProjectIDAndEncPathFirstObject(ctx, t, satelliteSys)
 	for _, segIndx := range noSegmentsIndexes {
-		path, err := metainfo.CreatePath(ctx, projectID, segIndx, []byte(bucketName), encryptedPath)
+		location, err := metainfo.CreatePath(ctx, projectID, segIndx, []byte(bucketName), encryptedPath)
 		require.NoError(t, err)
-		err = satelliteSys.Metainfo.Service.UnsynchronizedDelete(ctx, path)
+		err = satelliteSys.Metainfo.Service.UnsynchronizedDelete(ctx, location.Encode())
 		require.NoError(t, err)
 	}
 

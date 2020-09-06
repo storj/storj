@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/metainfo/objectdeletion"
 )
 
@@ -46,11 +47,11 @@ func TestReport(t *testing.T) {
 
 }
 
-func createDeletedItems(requests []*objectdeletion.ObjectIdentifier, numDeleted int) ([][]byte, []*pb.Pointer, error) {
+func createDeletedItems(requests []*objectdeletion.ObjectIdentifier, numDeleted int) ([]metabase.SegmentKey, []*pb.Pointer, error) {
 	if numDeleted > len(requests) {
 		return nil, nil, errs.New("invalid argument")
 	}
-	paths := make([][]byte, 0, numDeleted)
+	paths := make([]metabase.SegmentKey, 0, numDeleted)
 	pointers := make([]*pb.Pointer, 0, numDeleted)
 	for i := 0; i < numDeleted; i++ {
 		path, err := requests[i].SegmentPath(int64(testrand.Intn(10)))

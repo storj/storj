@@ -153,6 +153,12 @@ func (slow *SlowBlobs) FreeSpace() (int64, error) {
 	return slow.blobs.FreeSpace()
 }
 
+// CheckWritability tests writability of the storage directory by creating and deleting a file.
+func (slow *SlowBlobs) CheckWritability() error {
+	slow.sleep()
+	return slow.blobs.CheckWritability()
+}
+
 // SpaceUsedForBlobs adds up how much is used in all namespaces.
 func (slow *SlowBlobs) SpaceUsedForBlobs(ctx context.Context) (int64, error) {
 	slow.sleep()

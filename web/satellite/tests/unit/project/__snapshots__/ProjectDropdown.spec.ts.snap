@@ -15,5 +15,6 @@ exports[`ProjectDropdown renders correctly 1`] = `
       <p class="project-dropdown__wrap__choice__unselected">testName2</p>
     </div>
   </div>
+  <!---->
 </div>
 `;

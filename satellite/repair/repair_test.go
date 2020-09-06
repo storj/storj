@@ -20,6 +20,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
@@ -462,14 +463,15 @@ func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 
 		// get encrypted path of segment with audit service
 		satellite.Audit.Chore.Loop.TriggerWait()
-		require.EqualValues(t, satellite.Audit.Queue.Size(), 1)
-		encryptedPath, err := satellite.Audit.Queue.Next()
+		queue := satellite.Audit.Queues.Fetch()
+		require.EqualValues(t, queue.Size(), 1)
+		encryptedPath, err := queue.Next()
 		require.NoError(t, err)
 		// replace pointer with one that is already expired
 		pointer.ExpirationDate = time.Now().Add(-time.Hour)
-		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, encryptedPath)
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, metabase.SegmentKey(encryptedPath))
 		require.NoError(t, err)
-		err = satellite.Metainfo.Service.UnsynchronizedPut(ctx, encryptedPath, pointer)
+		err = satellite.Metainfo.Service.UnsynchronizedPut(ctx, metabase.SegmentKey(encryptedPath), pointer)
 		require.NoError(t, err)
 
 		// Verify that the segment is on the repair queue
@@ -652,7 +654,7 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		// Verify that the segment _is_ in the irreparable db
 		irreparableSegment, err = satellite.DB.Irreparable().Get(ctx, []byte(encryptedPath))
 		require.NoError(t, err)
-		require.Equal(t, encryptedPath, string(irreparableSegment.Path))
+		require.Equal(t, encryptedPath, metabase.SegmentKey(irreparableSegment.Path))
 		lastAttemptTime := time.Unix(irreparableSegment.LastRepairAttempt, 0)
 		require.Falsef(t, lastAttemptTime.Before(beforeRepair), "%s is before %s", lastAttemptTime, beforeRepair)
 		require.Falsef(t, lastAttemptTime.After(afterRepair), "%s is after %s", lastAttemptTime, afterRepair)
@@ -769,7 +771,7 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 		// Verify that the segment _is_ in the irreparable db
 		irreparableSegment, err = satellite.DB.Irreparable().Get(ctx, []byte(encryptedPath))
 		require.NoError(t, err)
-		require.Equal(t, encryptedPath, string(irreparableSegment.Path))
+		require.Equal(t, encryptedPath, metabase.SegmentKey(irreparableSegment.Path))
 		lastAttemptTime := time.Unix(irreparableSegment.LastRepairAttempt, 0)
 		require.Falsef(t, lastAttemptTime.Before(beforeRepair), "%s is before %s", lastAttemptTime, beforeRepair)
 		require.Falsef(t, lastAttemptTime.After(afterRepair), "%s is after %s", lastAttemptTime, afterRepair)
@@ -821,14 +823,14 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 
 		// get a remote segment from metainfo
 		metainfo := satellite.Metainfo.Service
-		listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
+		listResponse, _, err := metainfo.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
 		require.NoError(t, err)
 
-		var path string
+		var key metabase.SegmentKey
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
-			path = v.GetPath()
-			pointer, err = metainfo.Get(ctx, path)
+			key = metabase.SegmentKey(v.GetPath())
+			pointer, err = metainfo.Get(ctx, key)
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
@@ -887,7 +889,7 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 		require.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the disqualified or suspended nodes
-		pointer, err = metainfo.Get(ctx, path)
+		pointer, err = metainfo.Get(ctx, key)
 		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
@@ -1288,15 +1290,15 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 
 		// get a remote segment from metainfo
 		metainfo := satellite.Metainfo.Service
-		listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
+		listResponse, _, err := metainfo.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
 		require.NoError(t, err)
 		require.NotNil(t, listResponse)
 
-		var path string
+		var key metabase.SegmentKey
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
-			path = v.GetPath()
-			pointer, err = metainfo.Get(ctx, path)
+			key = metabase.SegmentKey(v.GetPath())
+			pointer, err = metainfo.Get(ctx, key)
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
@@ -1352,7 +1354,7 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 		require.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the gracefully exited nodes
-		pointer, err = metainfo.Get(ctx, path)
+		pointer, err = metainfo.Get(ctx, key)
 		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
@@ -1366,25 +1368,25 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 // nolint:golint
 func getRemoteSegment(
 	t *testing.T, ctx context.Context, satellite *testplanet.Satellite,
-) (_ *pb.Pointer, path string) {
+) (_ *pb.Pointer, key metabase.SegmentKey) {
 	t.Helper()
 
 	// get a remote segment from metainfo
 	metainfo := satellite.Metainfo.Service
-	listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
+	listResponse, _, err := metainfo.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
 	require.NoError(t, err)
 
 	for _, v := range listResponse {
-		path := v.GetPath()
-		pointer, err := metainfo.Get(ctx, path)
+		key := metabase.SegmentKey(v.GetPath())
+		pointer, err := metainfo.Get(ctx, key)
 		require.NoError(t, err)
 		if pointer.GetType() == pb.Pointer_REMOTE {
-			return pointer, path
+			return pointer, key
 		}
 	}
 
 	t.Fatal("satellite doesn't have any remote segment")
-	return nil, ""
+	return nil, key
 }
 
 // corruptPieceData manipulates piece data on a storage node.

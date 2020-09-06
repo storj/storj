@@ -562,7 +562,7 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
-							Name:       "disqualified",
+							Name:       "disqualified_at",
 							Type:       "TIMESTAMP",
 							IsNullable: true,
 						},
@@ -572,12 +572,27 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
+							Name:       "offline_suspended_at",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "offline_under_review_at",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "online_score",
+							Type:       "REAL",
+							IsNullable: false,
+						},
+						&dbschema.Column{
 							Name:       "satellite_id",
 							Type:       "BLOB",
 							IsNullable: false,
 						},
 						&dbschema.Column{
-							Name:       "suspended",
+							Name:       "suspended_at",
 							Type:       "TIMESTAMP",
 							IsNullable: true,
 						},
@@ -704,4 +719,3 @@ func Schema() map[string]*dbschema.Schema {
 		"used_serial": &dbschema.Schema{},
 	}
 }
-
