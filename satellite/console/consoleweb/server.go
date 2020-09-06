@@ -203,7 +203,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	}
 
 	server.server = http.Server{
-		Handler:        router,
+		Handler:        server.withRequest(router),
 		MaxHeaderBytes: ContentLengthLimit.Int(),
 	}
 
@@ -321,6 +321,13 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 		ctx = ctxWithAuth(r.Context())
 
 		handler.ServeHTTP(w, r.Clone(ctx))
+	})
+}
+
+// withRequest ensures the http request itself is reachable from the context.
+func (server *Server) withRequest(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.ServeHTTP(w, r.Clone(console.WithRequest(r.Context(), r)))
 	})
 }
 
