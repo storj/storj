@@ -12,6 +12,7 @@ import { makeNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
 import { makePayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
 import { SNOApi } from '@/storagenode/api/storagenode';
+import { PayoutService } from '@/storagenode/payouts/service';
 import { Satellites } from '@/storagenode/satellite';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
@@ -40,7 +41,8 @@ localVue.directive('click-outside', {
 });
 
 const payoutApi = new PayoutHttpApi();
-const payoutModule = makePayoutModule(payoutApi);
+const payoutService = new PayoutService(payoutApi);
+const payoutModule = makePayoutModule(payoutApi, payoutService);
 const nodeApi = new SNOApi();
 const nodeModule = makeNodeModule(nodeApi);
 

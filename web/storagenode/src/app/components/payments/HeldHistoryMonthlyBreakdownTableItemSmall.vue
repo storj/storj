@@ -6,7 +6,7 @@
         <div class="held-history-table-container--small__item__satellite-info">
             <div>
                 <p class="held-history-table-container--small__item__satellite-info__name">{{ heldHistoryItem.satelliteName }}</p>
-                <p class="held-history-table-container--small__item__satellite-info__months">{{ heldHistoryItem.age }} month</p>
+                <p class="held-history-table-container--small__item__satellite-info__months">{{ heldHistoryItem.monthsWithNode }} month</p>
             </div>
             <div class="held-history-table-container--small__item__satellite-info__button">
                 <div class="icon hide" @click="hide" v-if="isExpanded">
@@ -41,11 +41,11 @@ import { Component, Prop } from 'vue-property-decorator';
 
 import BaseSmallHeldHistoryTable from '@/app/components/payments/BaseSmallHeldHistoryTable.vue';
 
-import { HeldHistoryMonthlyBreakdownItem } from '@/app/types/payout';
+import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 
 @Component
 export default class HeldHistoryMonthlyBreakdownTableSmall extends BaseSmallHeldHistoryTable {
-    @Prop({default: () => new HeldHistoryMonthlyBreakdownItem()})
-    public readonly heldHistoryItem: HeldHistoryMonthlyBreakdownItem;
+    @Prop({default: () => new SatelliteHeldHistory()})
+    public readonly heldHistoryItem: SatelliteHeldHistory;
 }
 </script>

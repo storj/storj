@@ -54,8 +54,8 @@ import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { NotificationsCursor } from '@/app/types/notifications';
-import { PayoutPeriod } from '@/app/types/payout';
 import { SatelliteInfo } from '@/storagenode/dashboard';
+import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 
 @Component ({
     components: {
@@ -111,7 +111,7 @@ export default class PayoutArea extends Vue {
     }
 
     public get totalHeld(): number {
-        return this.$store.state.payoutModule.totalHeldAmount;
+        return this.$store.state.payoutModule.totalHeldAndPaid.held;
     }
 
     public get heldPercentage(): number {

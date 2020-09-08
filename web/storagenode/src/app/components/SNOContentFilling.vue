@@ -530,6 +530,7 @@ export default class SNOContentFilling extends Vue {
                 flex-direction: row;
                 align-items: center;
                 justify-content: flex-end;
+                text-decoration: none;
 
                 &__text {
                     font-size: 16px;

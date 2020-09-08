@@ -6,8 +6,9 @@ import Vuex from 'vuex';
 import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
 
 import { makePayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
-import { TotalPayoutInfo } from '@/app/types/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
+import { Paystub, TotalHeldAndPaid } from '@/storagenode/payouts/payouts';
+import { PayoutService } from '@/storagenode/payouts/service';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
@@ -18,11 +19,12 @@ localVue.filter('centsToDollars', (cents: number): string => {
 });
 
 const payoutApi = new PayoutHttpApi();
-const payoutModule = makePayoutModule(payoutApi);
+const payoutService = new PayoutService(payoutApi);
+const payoutModule = makePayoutModule(payoutApi, payoutService);
 
 const store = new Vuex.Store({ modules: { payoutModule }});
 
-describe('TotalPayoutInfo', (): void => {
+describe('TotalPayoutArea', (): void => {
     it('renders correctly', (): void => {
         const wrapper = shallowMount(TotalPayoutArea, {
             store,
@@ -37,8 +39,21 @@ describe('TotalPayoutInfo', (): void => {
             store,
             localVue,
         });
+        const paystub = new Paystub();
+        paystub.held = 600000;
+        paystub.disposed = 100000;
+        paystub.paid = 1000000;
 
-        await store.commit(PAYOUT_MUTATIONS.SET_TOTAL, new TotalPayoutInfo(2100, 5000, 8000));
+        const totalHeldAndPaid = new TotalHeldAndPaid([paystub]);
+        totalHeldAndPaid.setCurrentMonthEarnings(40000);
+
+        await store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalHeldAndPaid);
+
+        expect(wrapper).toMatchSnapshot();
+
+        totalHeldAndPaid.held = 400000;
+
+        await store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalHeldAndPaid);
 
         expect(wrapper).toMatchSnapshot();
     });
