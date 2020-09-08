@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/storagenode/console/consoleassets"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/estimatedpayout"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/inspector"
@@ -216,6 +217,10 @@ type Peer struct {
 		Chore     *contact.Chore
 		Endpoint  *contact.Endpoint
 		PingStats *contact.PingStats
+	}
+
+	Estimation struct {
+		Service *estimatedpayout.Service
 	}
 
 	Storage2 struct {
@@ -585,6 +590,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Node Stats Cache Storage", peer.NodeStats.Cache.Storage))
 	}
 
+	{ // setup estimation service
+		peer.Estimation.Service = estimatedpayout.NewService(
+			peer.DB.Bandwidth(),
+			peer.DB.Reputation(),
+			peer.DB.StorageUsage(),
+			peer.DB.Pricing(),
+			peer.DB.Satellites(),
+			peer.Storage2.Trust,
+		)
+	}
+
 	{ // setup storage node operator dashboard
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
@@ -601,6 +617,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Satellites(),
 			peer.Contact.PingStats,
 			peer.Contact.Service,
+			peer.Estimation.Service,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

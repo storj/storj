@@ -5,7 +5,6 @@ package console
 
 import (
 	"context"
-	"math"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -19,7 +18,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/heldamount"
+	"storj.io/storj/storagenode/estimatedpayout"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -49,8 +48,9 @@ type Service struct {
 	pieceStore     *pieces.Store
 	contact        *contact.Service
 
-	version   *checker.Service
-	pingStats *contact.PingStats
+	estimation *estimatedpayout.Service
+	version    *checker.Service
+	pingStats  *contact.PingStats
 
 	allocatedDiskSpace memory.Size
 
@@ -62,7 +62,7 @@ type Service struct {
 // NewService returns new instance of Service.
 func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *checker.Service,
 	allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
-	reputationDB reputation.DB, storageUsageDB storageusage.DB, pricingDB pricing.DB, satelliteDB satellites.DB, pingStats *contact.PingStats, contact *contact.Service) (*Service, error) {
+	reputationDB reputation.DB, storageUsageDB storageusage.DB, pricingDB pricing.DB, satelliteDB satellites.DB, pingStats *contact.PingStats, contact *contact.Service, estimation *estimatedpayout.Service) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -87,6 +87,10 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		return nil, errs.New("contact service can't be nil")
 	}
 
+	if estimation == nil {
+		return nil, errs.New("estimation service can't be nil")
+	}
+
 	return &Service{
 		log:                log,
 		trust:              trust,
@@ -100,6 +104,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		pingStats:          pingStats,
 		allocatedDiskSpace: allocatedDiskSpace,
 		contact:            contact,
+		estimation:         estimation,
 		walletAddress:      walletAddress,
 		startedAt:          time.Now(),
 		versionInfo:        versionInfo,
@@ -397,6 +402,26 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 	}, nil
 }
 
+// GetSatelliteEstimatedPayout returns estimated payout for current and previous months for selected satellite.
+func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID) (estimatedPayout estimatedpayout.EstimatedPayout, err error) {
+	estimatedPayout, err = s.estimation.GetSatelliteEstimatedPayout(ctx, satelliteID)
+	if err != nil {
+		return estimatedpayout.EstimatedPayout{}, SNOServiceErr.Wrap(err)
+	}
+
+	return estimatedPayout, nil
+}
+
+// GetAllSatellitesEstimatedPayout returns estimated payout for current and previous months for all satellites.
+func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context) (estimatedPayout estimatedpayout.EstimatedPayout, err error) {
+	estimatedPayout, err = s.estimation.GetAllSatellitesEstimatedPayout(ctx)
+	if err != nil {
+		return estimatedpayout.EstimatedPayout{}, SNOServiceErr.Wrap(err)
+	}
+
+	return estimatedPayout, nil
+}
+
 // VerifySatelliteID verifies if the satellite belongs to the trust pool.
 func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -407,126 +432,4 @@ func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeI
 	}
 
 	return nil
-}
-
-// GetSatelliteEstimatedPayout returns estimated payout for current and previous months from specific satellite with current level of load.
-func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID) (payout heldamount.EstimatedPayout, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	currentMonthPayout, err := s.estimatedPayoutMonthly(ctx, satelliteID, time.Now().UTC())
-	if err != nil {
-		return heldamount.EstimatedPayout{}, SNOServiceErr.Wrap(err)
-	}
-
-	previousMonthPayout, err := s.estimatedPayoutMonthly(ctx, satelliteID, time.Now().UTC().AddDate(0, -1, 0).UTC())
-	if err != nil {
-		return heldamount.EstimatedPayout{}, SNOServiceErr.Wrap(err)
-	}
-
-	payout.CurrentMonth = currentMonthPayout
-	payout.PreviousMonth = previousMonthPayout
-
-	return payout, nil
-}
-
-// GetAllSatellitesEstimatedPayout returns estimated payout for current and previous months from all satellites with current level of load.
-func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context) (payout heldamount.EstimatedPayout, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	satelliteIDs := s.trust.GetSatellites(ctx)
-	for i := 0; i < len(satelliteIDs); i++ {
-		current, err := s.estimatedPayoutMonthly(ctx, satelliteIDs[i], time.Now().UTC())
-		if err != nil {
-			return heldamount.EstimatedPayout{}, SNOServiceErr.Wrap(err)
-		}
-
-		previous, err := s.estimatedPayoutMonthly(ctx, satelliteIDs[i], time.Now().UTC().AddDate(0, -1, 0).UTC())
-		if err != nil {
-			return heldamount.EstimatedPayout{}, SNOServiceErr.Wrap(err)
-		}
-
-		payout.CurrentMonth.Payout += current.Payout
-		payout.CurrentMonth.EgressRepairAuditPayout += current.EgressRepairAuditPayout
-		payout.CurrentMonth.DiskSpacePayout += current.DiskSpacePayout
-		payout.CurrentMonth.DiskSpace += current.DiskSpace
-		payout.CurrentMonth.EgressBandwidth += current.EgressBandwidth
-		payout.CurrentMonth.EgressBandwidthPayout += current.EgressBandwidthPayout
-		payout.CurrentMonth.EgressRepairAudit += current.EgressRepairAudit
-		payout.CurrentMonth.Held += current.Held
-		payout.PreviousMonth.Payout += previous.Payout
-		payout.PreviousMonth.DiskSpacePayout += previous.DiskSpacePayout
-		payout.PreviousMonth.DiskSpace += previous.DiskSpace
-		payout.PreviousMonth.EgressBandwidth += previous.EgressBandwidth
-		payout.PreviousMonth.EgressBandwidthPayout += previous.EgressBandwidthPayout
-		payout.PreviousMonth.EgressRepairAuditPayout += previous.EgressRepairAuditPayout
-		payout.PreviousMonth.EgressRepairAudit += previous.EgressRepairAudit
-		payout.PreviousMonth.Held += previous.Held
-	}
-
-	return payout, nil
-}
-
-// estimatedPayoutMonthly returns estimated payout data monthly from specific satellite.
-func (s *Service) estimatedPayoutMonthly(ctx context.Context, satelliteID storj.NodeID, month time.Time) (payoutData heldamount.PayoutMonthly, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	priceModel, err := s.pricingDB.Get(ctx, satelliteID)
-	if err != nil {
-		return heldamount.PayoutMonthly{}, SNOServiceErr.Wrap(err)
-	}
-
-	stats, err := s.reputationDB.Get(ctx, satelliteID)
-	if err != nil {
-		return heldamount.PayoutMonthly{}, SNOServiceErr.Wrap(err)
-	}
-
-	heldRate := s.getHeldRate(stats.JoinedAt)
-	payoutData.HeldRate = heldRate
-
-	from, to := date.MonthBoundary(month)
-
-	bandwidthDaily, err := s.bandwidthDB.GetDailySatelliteRollups(ctx, satelliteID, from, to)
-	if err != nil {
-		return heldamount.PayoutMonthly{}, SNOServiceErr.Wrap(err)
-	}
-
-	for i := 0; i < len(bandwidthDaily); i++ {
-		payoutData.EgressBandwidth += bandwidthDaily[i].Egress.Usage
-		payoutData.EgressRepairAudit += bandwidthDaily[i].Egress.Audit + bandwidthDaily[i].Egress.Repair
-	}
-	payoutData.EgressBandwidthPayout += int64(float64(payoutData.EgressBandwidth*priceModel.EgressBandwidth) / math.Pow10(12))
-	payoutData.EgressRepairAuditPayout += int64(float64(payoutData.EgressRepairAudit*priceModel.AuditBandwidth) / math.Pow10(12))
-
-	storageDaily, err := s.storageUsageDB.GetDaily(ctx, satelliteID, from, to)
-	if err != nil {
-		return heldamount.PayoutMonthly{}, SNOServiceErr.Wrap(err)
-	}
-
-	for j := 0; j < len(storageDaily); j++ {
-		payoutData.DiskSpace += storageDaily[j].AtRestTotal
-	}
-	// dividing by 720 to show tbm instead of tbh.
-	payoutData.DiskSpace /= 720
-	payoutData.DiskSpacePayout += int64(payoutData.DiskSpace * float64(priceModel.DiskSpace) / math.Pow10(12))
-
-	payoutData.Held = (payoutData.DiskSpacePayout + payoutData.EgressBandwidthPayout + payoutData.EgressRepairAuditPayout) * heldRate / 100
-	payoutData.Payout = payoutData.DiskSpacePayout + payoutData.EgressBandwidthPayout + payoutData.EgressRepairAuditPayout - payoutData.Held
-
-	return payoutData, nil
-}
-
-func (s *Service) getHeldRate(joinTime time.Time) (heldRate int64) {
-	monthsSinceJoin := date.MonthsCountSince(joinTime)
-	switch monthsSinceJoin {
-	case 0, 1, 2:
-		heldRate = 75
-	case 3, 4, 5:
-		heldRate = 50
-	case 6, 7, 8:
-		heldRate = 25
-	default:
-		heldRate = 0
-	}
-
-	return heldRate
 }

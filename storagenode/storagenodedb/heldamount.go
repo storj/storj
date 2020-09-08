@@ -83,7 +83,7 @@ func (db *heldamountDB) StorePayStub(ctx context.Context, paystub heldamount.Pay
 	return ErrHeldAmount.Wrap(err)
 }
 
-// GetPayStub retrieves paystub data for a specific satellite.
+// GetPayStub retrieves paystub data for a specific satellite and period.
 func (db *heldamountDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID, period string) (_ *heldamount.PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -140,19 +140,6 @@ func (db *heldamountDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, heldamount.ErrNoPayStubForPeriod.Wrap(err)
-		}
-		return nil, ErrHeldAmount.Wrap(err)
-	}
-
-	rowPayment := db.QueryRowContext(ctx,
-		`SELECT receipt FROM payments WHERE satellite_id = ? AND period = ?`,
-		satelliteID, period,
-	)
-
-	err = rowPayment.Scan(&result.Receipt)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return &result, nil
 		}
 		return nil, ErrHeldAmount.Wrap(err)
 	}
@@ -385,4 +372,24 @@ func (db *heldamountDB) SatellitesDisposedHistory(ctx context.Context, satellite
 	}
 
 	return totalDisposed, nil
+}
+
+// GetReceipt retrieves receipt data for a specific satellite and period.
+func (db *heldamountDB) GetReceipt(ctx context.Context, satelliteID storj.NodeID, period string) (receipt string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT receipt FROM payments WHERE satellite_id = ? AND period = ?`,
+		satelliteID, period,
+	)
+
+	err = rowPayment.Scan(&receipt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", heldamount.ErrNoPayStubForPeriod.Wrap(err)
+		}
+		return "", ErrHeldAmount.Wrap(err)
+	}
+
+	return receipt, nil
 }

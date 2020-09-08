@@ -16,11 +16,11 @@ import (
 //
 // architecture: Database
 type DB interface {
-	// StorePayStub inserts or updates held amount into the DB
+	// StorePayStub inserts or updates paystub into the DB.
 	StorePayStub(ctx context.Context, paystub PayStub) error
-	// GetPayStub retrieves paystub stats for specific satellite
+	// GetPayStub retrieves paystub for specific satellite and period.
 	GetPayStub(ctx context.Context, satelliteID storj.NodeID, period string) (*PayStub, error)
-	// AllPayStubs retrieves paystub data from all satellites in specific period from DB.
+	// AllPayStubs retrieves paystubs from all satellites in specific period from DB.
 	AllPayStubs(ctx context.Context, period string) ([]PayStub, error)
 	// SatellitesHeldbackHistory retrieves heldback history for specific satellite from DB.
 	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]AmountPeriod, error)
@@ -32,6 +32,8 @@ type DB interface {
 	AllPeriods(ctx context.Context) ([]string, error)
 	// StorePayment inserts or updates payment into the DB
 	StorePayment(ctx context.Context, payment Payment) error
+	// GetReceipt retrieves receipt for specific satellite and period.
+	GetReceipt(ctx context.Context, satelliteID storj.NodeID, period string) (string, error)
 }
 
 // ErrNoPayStubForPeriod represents errors from the heldamount database.
@@ -60,32 +62,12 @@ type PayStub struct {
 	Owed           int64        `json:"owed"`
 	Disposed       int64        `json:"disposed"`
 	Paid           int64        `json:"paid"`
-	Receipt        string       `json:"receipt"`
 }
 
 // AmountPeriod is node's held amount for period.
 type AmountPeriod struct {
 	Period string `json:"period"`
 	Held   int64  `json:"held"`
-}
-
-// EstimatedPayout contains usage and estimated payout data for current and previous months.
-type EstimatedPayout struct {
-	CurrentMonth  PayoutMonthly `json:"currentMonth"`
-	PreviousMonth PayoutMonthly `json:"previousMonth"`
-}
-
-// PayoutMonthly contains usage and estimated payout date.
-type PayoutMonthly struct {
-	EgressBandwidth         int64   `json:"egressBandwidth"`
-	EgressBandwidthPayout   int64   `json:"egressBandwidthPayout"`
-	EgressRepairAudit       int64   `json:"egressRepairAudit"`
-	EgressRepairAuditPayout int64   `json:"egressRepairAuditPayout"`
-	DiskSpace               float64 `json:"diskSpace"`
-	DiskSpacePayout         int64   `json:"diskSpacePayout"`
-	HeldRate                int64   `json:"heldRate"`
-	Payout                  int64   `json:"payout"`
-	Held                    int64   `json:"held"`
 }
 
 // Payment is node payment data for specific period.

@@ -258,6 +258,14 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 			return nil, ErrHeldAmountService.Wrap(err)
 		}
 
+		receipt, err := service.db.GetReceipt(ctx, satelliteIDs[i], period)
+		if err != nil {
+			if ErrNoPayStubForPeriod.Has(err) {
+				continue
+			}
+			return nil, ErrHeldAmountService.Wrap(err)
+		}
+
 		stats, err := service.reputationDB.Get(ctx, satelliteIDs[i])
 		if err != nil {
 			return nil, ErrHeldAmountService.Wrap(err)
@@ -294,7 +302,7 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 		}
 
 		payoutHistory.Held = paystub.Held
-		payoutHistory.Receipt = paystub.Receipt
+		payoutHistory.Receipt = receipt
 		payoutHistory.Surge = surge
 		payoutHistory.AfterHeld = surge - paystub.Held
 		payoutHistory.Age = int64(date.MonthsCountSince(stats.JoinedAt))
