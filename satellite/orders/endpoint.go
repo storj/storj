@@ -255,13 +255,6 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
-	ok, err := endpoint.nodeAPIVersionDB.VersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
-	if err != nil {
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
-	} else if ok {
-		return rpcstatus.Error(rpcstatus.PermissionDenied, "node api version too new")
-	}
-
 	formatError := func(err error) error {
 		if errors.Is(err, io.EOF) {
 			return nil
