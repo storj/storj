@@ -350,6 +350,10 @@ read one (
     select project.max_buckets
     where project.id = ?
 )
+read one (
+    select project.bandwidth_limit project.usage_limit
+    where  project.id = ?
+)
 
 read all (
     select project

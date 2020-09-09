@@ -118,6 +118,10 @@ type API struct {
 		Cache accounting.Cache
 	}
 
+	ProjectLimits struct {
+		Cache *accounting.ProjectLimitCache
+	}
+
 	Mail struct {
 		Service *mailservice.Service
 	}
@@ -293,12 +297,19 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.LiveAccounting.Cache = liveAccounting
 	}
 
+	{ // setup project limits
+		peer.ProjectLimits.Cache = accounting.NewProjectLimitCache(peer.DB.ProjectAccounting(),
+			config.Metainfo.ProjectLimits.DefaultMaxUsage,
+			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
+			config.ProjectLimit,
+		)
+	}
+
 	{ // setup accounting project usage
 		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
-			config.Metainfo.ProjectLimits.DefaultMaxUsage,
-			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
+			peer.ProjectLimits.Cache,
 			config.LiveAccounting.BandwidthCacheTTL,
 		)
 	}

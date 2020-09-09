@@ -29,19 +29,17 @@ var (
 type Service struct {
 	projectAccountingDB ProjectAccounting
 	liveAccounting      Cache
-	defaultMaxUsage     memory.Size
-	defaultMaxBandwidth memory.Size
+	projectLimitCache   *ProjectLimitCache
 	bandwidthCacheTTL   time.Duration
 	nowFn               func() time.Time
 }
 
 // NewService created new instance of project usage service.
-func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, defaultMaxUsage, defaultMaxBandwidth memory.Size, bandwidthCacheTTL time.Duration) *Service {
+func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, limitCache *ProjectLimitCache, bandwidthCacheTTL time.Duration) *Service {
 	return &Service{
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,
-		defaultMaxUsage:     defaultMaxUsage,
-		defaultMaxBandwidth: defaultMaxBandwidth,
+		projectLimitCache:   limitCache,
 		bandwidthCacheTTL:   bandwidthCacheTTL,
 		nowFn:               time.Now,
 	}
@@ -50,7 +48,6 @@ func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, def
 // ExceedsBandwidthUsage returns true if the bandwidth usage limits have been exceeded
 // for a project in the past month (30 days). The usage limit is (e.g 25GB) multiplied by the redundancy
 // expansion factor, so that the uplinks have a raw limit.
-// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -58,10 +55,9 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 	var bandwidthGetTotal int64
 	var bandwidthUsage int64
 
-	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
 		var err error
-		limit, err = usage.GetProjectBandwidthLimit(ctx, projectID)
+		limit, err = usage.projectLimitCache.GetProjectBandwidthLimit(ctx, projectID)
 		return err
 	})
 	group.Go(func() error {
@@ -113,10 +109,9 @@ func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UU
 	var group errgroup.Group
 	var totalUsed int64
 
-	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
 		var err error
-		limit, err = usage.GetProjectStorageLimit(ctx, projectID)
+		limit, err = usage.projectLimitCache.GetProjectStorageLimit(ctx, projectID)
 		return err
 	})
 	group.Go(func() error {
@@ -169,31 +164,13 @@ func (usage *Service) GetProjectAllocatedBandwidth(ctx context.Context, projectI
 // GetProjectStorageLimit returns current project storage limit.
 func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
-
-	limit, err := usage.projectAccountingDB.GetProjectStorageLimit(ctx, projectID)
-	if err != nil {
-		return 0, ErrProjectUsage.Wrap(err)
-	}
-	if limit == nil {
-		return usage.defaultMaxUsage, nil
-	}
-
-	return memory.Size(*limit), nil
+	return usage.projectLimitCache.GetProjectStorageLimit(ctx, projectID)
 }
 
 // GetProjectBandwidthLimit returns current project bandwidth limit.
 func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
-
-	limit, err := usage.projectAccountingDB.GetProjectBandwidthLimit(ctx, projectID)
-	if err != nil {
-		return 0, ErrProjectUsage.Wrap(err)
-	}
-	if limit == nil {
-		return usage.defaultMaxBandwidth, nil
-	}
-
-	return memory.Size(*limit), nil
+	return usage.projectLimitCache.GetProjectBandwidthLimit(ctx, projectID)
 }
 
 // UpdateProjectLimits sets new value for project's bandwidth and storage limit.

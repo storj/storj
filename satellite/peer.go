@@ -159,4 +159,6 @@ type Config struct {
 	Downtime downtime.Config
 
 	Compensation compensation.Config
+
+	ProjectLimit accounting.ProjectLimitConfig
 }

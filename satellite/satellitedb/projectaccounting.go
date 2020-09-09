@@ -656,3 +656,20 @@ func (db *ProjectAccounting) getBuckets(ctx context.Context, projectID uuid.UUID
 func timeTruncateDown(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 }
+
+// GetProjectLimits returns current project limit for both storage and bandwidth.
+func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uuid.UUID) (_ accounting.ProjectLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
+	)
+	if err != nil {
+		return accounting.ProjectLimits{}, err
+	}
+
+	return accounting.ProjectLimits{
+		Usage:     &row.UsageLimit,
+		Bandwidth: &row.BandwidthLimit,
+	}, nil
+}
