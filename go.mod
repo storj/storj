@@ -22,6 +22,7 @@ require (
 	github.com/jackc/pgx/v4 v4.9.0
 	github.com/jinzhu/now v1.1.1
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
+	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
