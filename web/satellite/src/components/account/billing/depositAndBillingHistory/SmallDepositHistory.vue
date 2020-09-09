@@ -58,7 +58,6 @@ export default class SmallDepositHistory extends Vue {
     }
 
     .deposit-area {
-        margin-bottom: 32px;
         padding: 40px 40px 10px 40px;
         background-color: #fff;
         border-radius: 8px;
@@ -93,20 +92,6 @@ export default class SmallDepositHistory extends Vue {
                     color: #fff;
                 }
             }
-        }
-    }
-
-    @media screen and (max-height: 850px) {
-
-        .deposit-area {
-            margin-bottom: 50px;
-        }
-    }
-
-    @media screen and (max-height: 650px) {
-
-        .deposit-area {
-            margin-bottom: 75px;
         }
     }
 </style>

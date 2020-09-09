@@ -2,17 +2,17 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="dashboard-container">
+    <div class="dashboard">
         <div v-if="isLoading" class="loading-overlay active">
             <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Company logo loading gif">
         </div>
         <NoPaywallInfoBar v-if="isNoPaywallInfoBarShown && !isLoading"/>
-        <div v-if="!isLoading" class="dashboard-container__wrap">
-            <NavigationArea class="dashboard-container__wrap__regular-navigation"/>
-            <div class="dashboard-container__wrap__column">
-                <DashboardHeader/>
-                <div class="dashboard-container__wrap__column__main-area">
-                    <div class="dashboard-container__wrap__column__main-area__bar-area">
+        <div v-if="!isLoading" class="dashboard__wrap">
+            <DashboardHeader/>
+            <div class="dashboard__wrap__main-area">
+                <NavigationArea class="regular-navigation"/>
+                <div class="dashboard__wrap__main-area__content">
+                    <div class="dashboard__wrap__main-area__content__bar-area">
                         <VInfoBar
                             v-if="isBillingInfoBarShown"
                             :first-value="storageRemaining"
@@ -34,9 +34,7 @@
                             link-label="Request Project Limit Increase"
                         />
                     </div>
-                    <div class="dashboard-container__wrap__column__main-area__content">
-                        <router-view/>
-                    </div>
+                    <router-view/>
                 </div>
             </div>
         </div>
@@ -345,43 +343,28 @@ export default class DashboardArea extends Vue {
         opacity: 1;
     }
 
-    .dashboard-container {
-        position: fixed;
-        max-width: 100%;
-        width: 100%;
+    .dashboard {
         height: 100%;
-        left: 0;
-        top: 0;
-        right: 0;
-        bottom: 0;
         background-color: #f5f6fa;
         display: flex;
         flex-direction: column;
 
         &__wrap {
             display: flex;
+            flex-direction: column;
             height: 100%;
 
-            &__column {
+            &__main-area {
                 display: flex;
-                flex-direction: column;
-                width: 100%;
                 height: 100%;
 
-                &__main-area {
-                    position: relative;
-                    width: 100%;
-                    height: calc(100vh - 50px);
+                &__content {
                     overflow-y: scroll;
-                    display: flex;
-                    flex-direction: column;
+                    height: calc(100vh - 62px);
+                    width: 100%;
 
                     &__bar-area {
-                        flex: 0 0 auto;
-                    }
-
-                    &__content {
-                        flex: 0 0 auto;
+                        position: relative;
                     }
                 }
             }
@@ -390,7 +373,7 @@ export default class DashboardArea extends Vue {
 
     @media screen and (max-width: 1280px) {
 
-        .dashboard-container__wrap__regular-navigation {
+        .regular-navigation {
             display: none;
         }
     }

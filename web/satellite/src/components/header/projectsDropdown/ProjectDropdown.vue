@@ -6,7 +6,7 @@
         <div class="project-dropdown__wrap">
             <div class="project-dropdown__wrap__choice" @click.prevent.stop="closeDropdown">
                 <div class="project-dropdown__wrap__choice__mark-container">
-                    <ProjectSelectionIcon
+                    <SelectionIcon
                         class="project-dropdown__wrap__choice__mark-container__image"
                     />
                 </div>
@@ -36,7 +36,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import ProjectSelectionIcon from '@/../static/images/header/projectSelection.svg';
+import SelectionIcon from '@/../static/images/header/selection.svg';
 
 import { RouteConfig } from '@/router';
 import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
@@ -48,7 +48,7 @@ import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
-        ProjectSelectionIcon,
+        SelectionIcon,
     },
 })
 export default class ProjectDropdown extends Vue {
@@ -122,24 +122,25 @@ export default class ProjectDropdown extends Vue {
 
     .project-dropdown {
         position: absolute;
-        left: -3px;
-        top: 60px;
-        border: 1px solid #c5cbdb;
-        box-shadow: 0 8px 34px rgba(161, 173, 185, 0.41);
+        z-index: 1120;
+        left: 0;
+        top: 50px;
+        box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
         border-radius: 6px;
         background-color: #fff;
+        padding-top: 6px;
 
         &__wrap {
-            width: auto;
             overflow-y: scroll;
             height: auto;
-            min-width: 195px;
-            max-height: 240px;
+            min-width: 300px;
+            max-height: 250px;
             background-color: #fff;
             border-radius: 6px;
             font-family: 'font_regular', sans-serif;
 
             &__choice {
+                width: auto;
                 display: flex;
                 align-items: center;
                 justify-content: flex-start;

@@ -36,7 +36,7 @@ export abstract class RouteConfig {
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
-    public static Team = new NavigationLink('/project-members', 'Members');
+    public static Users = new NavigationLink('/project-members', 'Users');
     public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
@@ -139,8 +139,8 @@ export const router = new Router({
                     component: ProjectDashboard,
                 },
                 {
-                    path: RouteConfig.Team.path,
-                    name: RouteConfig.Team.name,
+                    path: RouteConfig.Users.path,
+                    name: RouteConfig.Users.name,
                     component: ProjectMembersArea,
                 },
                 {

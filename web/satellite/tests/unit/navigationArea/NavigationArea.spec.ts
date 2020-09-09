@@ -14,7 +14,7 @@ import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectsApiMock } from '../../mock/api/projects';
+import { ProjectsApiMock } from '../mock/api/projects';
 
 const api = new ProjectsApiMock();
 api.setMockProjects([new Project('1')]);
@@ -29,11 +29,11 @@ const store = new Vuex.Store({ modules: { projectsModule } });
 const expectedLinks: NavigationLink[] = [
     RouteConfig.ProjectDashboard,
     RouteConfig.ApiKeys,
-    RouteConfig.Team,
+    RouteConfig.Users,
 ];
 
 describe('NavigationArea', () => {
-    it('snapshot not changed without project', (): void => {
+    it('snapshot not changed during onboarding tour', (): void => {
         const router = new Router({
             mode: 'history',
             routes: [{
@@ -49,11 +49,8 @@ describe('NavigationArea', () => {
         });
 
         const navigationElements = wrapper.findAll('.navigation-area__item-container');
-        const disabledElements = wrapper.findAll('.navigation-area__item-container.disabled');
 
-        expect(navigationElements.length).toBe(7);
-        expect(disabledElements.length).toBe(7);
-
+        expect(navigationElements.length).toBe(0);
         expect(wrapper).toMatchSnapshot();
     });
 
@@ -77,11 +74,8 @@ describe('NavigationArea', () => {
         });
 
         const navigationElements = wrapper.findAll('.navigation-area__item-container');
-        const disabledElements = wrapper.findAll('.navigation-area__item-container.disabled');
 
-        expect(navigationElements.length).toBe(7);
-        expect(disabledElements.length).toBe(0);
-
+        expect(navigationElements.length).toBe(3);
         expect(wrapper).toMatchSnapshot();
     });
 

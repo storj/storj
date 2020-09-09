@@ -90,7 +90,7 @@ describe('Dashboard', () => {
 
         expect(wrapper).toMatchSnapshot();
         expect(wrapper.findAll('.loading-overlay active').length).toBe(0);
-        expect(wrapper.findAll('.dashboard-container__wrap').length).toBe(1);
+        expect(wrapper.findAll('.dashboard__wrap').length).toBe(1);
     });
 
     it('loads routes correctly when authorithed without project with available routes', async () => {
@@ -115,7 +115,7 @@ describe('Dashboard', () => {
     it('loads routes correctly when authorithed without project with unavailable routes', async () => {
         const unavailableWithoutProject = [
             RouteConfig.ApiKeys.path,
-            RouteConfig.Team.path,
+            RouteConfig.Users.path,
             RouteConfig.ProjectDashboard.path,
         ];
 
