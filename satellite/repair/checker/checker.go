@@ -114,6 +114,8 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	startTime := time.Now()
+
 	observer := &checkerObserver{
 		repairQueue:    checker.repairQueue,
 		irrdb:          checker.irrdb,
@@ -130,6 +132,12 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		return err
 	}
 
+	// remove all segments which were not seen as unhealthy by this checker iteration
+	healthyDeleted, err := checker.repairQueue.Clean(ctx, startTime)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	mon.IntVal("remote_files_checked").Observe(observer.monStats.objectsChecked)                               //locked
 	mon.IntVal("remote_segments_checked").Observe(observer.monStats.remoteSegmentsChecked)                     //locked
 	mon.IntVal("remote_segments_failed_to_check").Observe(observer.monStats.remoteSegmentsFailedToCheck)       //locked
@@ -142,6 +150,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	mon.IntVal("remote_segments_over_threshold_3").Observe(observer.monStats.remoteSegmentsOverThreshold[2])   //locked
 	mon.IntVal("remote_segments_over_threshold_4").Observe(observer.monStats.remoteSegmentsOverThreshold[3])   //locked
 	mon.IntVal("remote_segments_over_threshold_5").Observe(observer.monStats.remoteSegmentsOverThreshold[4])   //locked
+	mon.IntVal("healthy_segments_removed_from_queue").Observe(healthyDeleted)                                  //locked
 
 	allUnhealthy := observer.monStats.remoteSegmentsNeedingRepair + observer.monStats.remoteSegmentsFailedToCheck
 	allChecked := observer.monStats.remoteSegmentsChecked

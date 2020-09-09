@@ -4,6 +4,7 @@
 package checker_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -205,6 +206,81 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		_, err = irreparable.Get(ctx, pointerKey)
 		require.Error(t, err)
+	})
+}
+
+func TestCleanRepairQueue(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		checker := planet.Satellites[0].Repair.Checker
+		repairQueue := planet.Satellites[0].DB.RepairQueue()
+
+		checker.Loop.Pause()
+		planet.Satellites[0].Repair.Repairer.Loop.Pause()
+
+		rs := &pb.RedundancyScheme{
+			MinReq:           int32(2),
+			RepairThreshold:  int32(3),
+			SuccessThreshold: int32(4),
+			Total:            int32(4),
+			ErasureShareSize: int32(256),
+		}
+
+		projectID := testrand.UUID()
+		pointerPathPrefix := storj.JoinPaths(projectID.String(), "l", "bucket") + "/"
+
+		healthyCount := 5
+		for i := 0; i < healthyCount; i++ {
+			insertPointer(ctx, t, planet, rs, pointerPathPrefix+fmt.Sprintf("healthy-%d", i), false, time.Time{})
+		}
+		unhealthyCount := 5
+		for i := 0; i < unhealthyCount; i++ {
+			insertPointer(ctx, t, planet, rs, pointerPathPrefix+fmt.Sprintf("unhealthy-%d", i), true, time.Time{})
+		}
+
+		// suspend enough nodes to make healthy pointers unhealthy
+		for i := rs.MinReq; i < rs.SuccessThreshold; i++ {
+			require.NoError(t, planet.Satellites[0].Overlay.DB.SuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID(), time.Now()))
+		}
+
+		require.NoError(t, planet.Satellites[0].Repair.Checker.RefreshReliabilityCache(ctx))
+
+		// check that repair queue is empty to avoid false positive
+		count, err := repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+
+		checker.Loop.TriggerWait()
+
+		// check that the pointers were put into the repair queue
+		// and not cleaned up at the end of the checker iteration
+		count, err = repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, healthyCount+unhealthyCount, count)
+
+		// unsuspend nodes to make the previously healthy pointers healthy again
+		for i := rs.MinReq; i < rs.SuccessThreshold; i++ {
+			require.NoError(t, planet.Satellites[0].Overlay.DB.UnsuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID()))
+		}
+
+		require.NoError(t, planet.Satellites[0].Repair.Checker.RefreshReliabilityCache(ctx))
+
+		// The checker will not insert/update the now healthy segments causing
+		// them to be removed from the queue at the end of the checker iteration
+		checker.Loop.TriggerWait()
+
+		// only unhealthy segments should remain
+		count, err = repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, unhealthyCount, count)
+
+		segs, err := repairQueue.SelectN(ctx, count)
+		require.NoError(t, err)
+
+		for _, s := range segs {
+			require.True(t, bytes.Contains(s.GetPath(), []byte("unhealthy")))
+		}
 	})
 }
 
