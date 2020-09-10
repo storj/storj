@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package heldamount
+package payout
 
 import (
 	"context"
@@ -55,13 +55,13 @@ func (endpoint *Endpoint) GetPaystub(ctx context.Context, satelliteID storj.Node
 
 	client, err := endpoint.dial(ctx, satelliteID)
 	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+		return nil, ErrPayoutService.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	requestedPeriod, err := date.PeriodToTime(period)
 	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+		return nil, ErrPayoutService.Wrap(err)
 	}
 
 	resp, err := client.GetPayStub(ctx, &pb.GetHeldAmountRequest{Period: requestedPeriod})
@@ -70,7 +70,7 @@ func (endpoint *Endpoint) GetPaystub(ctx context.Context, satelliteID storj.Node
 			return nil, ErrNoPayStubForPeriod.Wrap(err)
 		}
 
-		return nil, ErrHeldAmountService.Wrap(err)
+		return nil, ErrPayoutService.Wrap(err)
 	}
 
 	return &PayStub{
@@ -104,13 +104,13 @@ func (endpoint *Endpoint) GetAllPaystubs(ctx context.Context, satelliteID storj.
 
 	client, err := endpoint.dial(ctx, satelliteID)
 	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+		return nil, ErrPayoutService.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	resp, err := client.GetAllPaystubs(ctx, &pb.GetAllPaystubsRequest{})
 	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+		return nil, ErrPayoutService.Wrap(err)
 	}
 
 	var payStubs []PayStub
@@ -152,13 +152,13 @@ func (endpoint *Endpoint) GetPayment(ctx context.Context, satelliteID storj.Node
 
 	client, err := endpoint.dial(ctx, satelliteID)
 	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+		return nil, ErrPayoutService.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	requestedPeriod, err := date.PeriodToTime(period)
 	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+		return nil, ErrPayoutService.Wrap(err)
 	}
 
 	resp, err := client.GetPayment(ctx, &pb.GetPaymentRequest{Period: requestedPeriod})
@@ -167,7 +167,7 @@ func (endpoint *Endpoint) GetPayment(ctx context.Context, satelliteID storj.Node
 			return nil, nil
 		}
 
-		return nil, ErrHeldAmountService.Wrap(err)
+		return nil, ErrPayoutService.Wrap(err)
 	}
 
 	return &Payment{
@@ -187,13 +187,13 @@ func (endpoint *Endpoint) GetAllPayments(ctx context.Context, satelliteID storj.
 
 	client, err := endpoint.dial(ctx, satelliteID)
 	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+		return nil, ErrPayoutService.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
 	resp, err := client.GetAllPayments(ctx, &pb.GetAllPaymentsRequest{})
 	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+		return nil, ErrPayoutService.Wrap(err)
 	}
 
 	var payments []Payment
@@ -215,7 +215,7 @@ func (endpoint *Endpoint) GetAllPayments(ctx context.Context, satelliteID storj.
 	return payments, nil
 }
 
-// dial dials the HeldAmount client for the satellite by id.
+// dial dials the SnoPayout client for the satellite by id.
 func (endpoint *Endpoint) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 

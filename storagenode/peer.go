@@ -37,14 +37,14 @@ import (
 	"storj.io/storj/storagenode/console/consoleassets"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/estimatedpayout"
 	"storj.io/storj/storagenode/gracefulexit"
-	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/payout"
+	"storj.io/storj/storagenode/payout/estimatedpayout"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/piecestore/usedserials"
@@ -83,7 +83,7 @@ type DB interface {
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
 	Notifications() notifications.DB
-	HeldAmount() heldamount.DB
+	Payout() payout.DB
 	Pricing() pricing.DB
 
 	Preflight(ctx context.Context) error
@@ -262,9 +262,9 @@ type Peer struct {
 		Service *notifications.Service
 	}
 
-	Heldamount struct {
-		Service  *heldamount.Service
-		Endpoint *heldamount.Endpoint
+	Payout struct {
+		Service  *payout.Service
+		Endpoint *payout.Endpoint
 	}
 
 	Bandwidth *bandwidth.Service
@@ -543,16 +543,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Orders Cleanup", peer.Storage2.Orders.Cleanup))
 	}
 
-	{ // setup heldamount service.
-		peer.Heldamount.Service = heldamount.NewService(
-			peer.Log.Named("heldamount:service"),
-			peer.DB.HeldAmount(),
+	{ // setup payout service.
+		peer.Payout.Service = payout.NewService(
+			peer.Log.Named("payout:service"),
+			peer.DB.Payout(),
 			peer.DB.Reputation(),
 			peer.DB.Satellites(),
 			peer.Storage2.Trust,
 		)
-		peer.Heldamount.Endpoint = heldamount.NewEndpoint(
-			peer.Log.Named("heldamount:endpoint"),
+		peer.Payout.Endpoint = payout.NewEndpoint(
+			peer.Log.Named("payout:endpoint"),
 			peer.Dialer,
 			peer.Storage2.Trust,
 		)
@@ -571,13 +571,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			nodestats.CacheStorage{
 				Reputation:   peer.DB.Reputation(),
 				StorageUsage: peer.DB.StorageUsage(),
-				HeldAmount:   peer.DB.HeldAmount(),
+				Payout:       peer.DB.Payout(),
 				Pricing:      peer.DB.Pricing(),
 				Satellites:   peer.DB.Satellites(),
 			},
 			peer.NodeStats.Service,
-			peer.Heldamount.Endpoint,
-			peer.Heldamount.Service,
+			peer.Payout.Endpoint,
+			peer.Payout.Service,
 			peer.Storage2.Trust,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -640,7 +640,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			assets,
 			peer.Notifications.Service,
 			peer.Console.Service,
-			peer.Heldamount.Service,
+			peer.Payout.Service,
 			peer.Console.Listener,
 		)
 		peer.Services.Add(lifecycle.Item{

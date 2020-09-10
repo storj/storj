@@ -13,6 +13,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/private/date"
 	"storj.io/storj/storagenode/bandwidth"
+	payout2 "storj.io/storj/storagenode/payout"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
@@ -122,7 +123,7 @@ func (s *Service) estimatedPayout(ctx context.Context, satelliteID storj.NodeID)
 func (s *Service) estimationUsagePeriod(ctx context.Context, period time.Time, joinedAt time.Time, priceModel *pricing.Pricing) (payout PayoutMonthly, err error) {
 	var from, to time.Time
 
-	heldRate := getHeldRate(joinedAt, period)
+	heldRate := payout2.GetHeldRate(joinedAt, period)
 	payout.HeldRate = heldRate
 
 	from, to = date.MonthBoundary(period)
@@ -154,21 +155,4 @@ func (s *Service) estimationUsagePeriod(ctx context.Context, period time.Time, j
 	payout.SetPayout()
 
 	return payout, EstimationServiceErr.Wrap(err)
-}
-
-// getHeldRate returns held rate for specific period from join date of node.
-func getHeldRate(joinTime time.Time, requestTime time.Time) (heldRate int64) {
-	monthsSinceJoin := date.MonthsBetweenDates(joinTime, requestTime)
-	switch monthsSinceJoin {
-	case 0, 1, 2:
-		heldRate = 75
-	case 3, 4, 5:
-		heldRate = 50
-	case 6, 7, 8:
-		heldRate = 25
-	default:
-		heldRate = 0
-	}
-
-	return heldRate
 }

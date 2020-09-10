@@ -101,6 +101,7 @@ describe('mutations', (): void => {
 
         expect(state.payoutModule.heldHistory.length).toBe(testHeldHistory.length);
         expect(state.payoutModule.heldHistory[1].satelliteName).toBe(testHeldHistory[1].satelliteName);
+        expect(state.payoutModule.heldHistory[1].holdForFirstPeriod).toBe(testHeldHistory[1].holdForFirstPeriod);
         expect(state.payoutModule.heldHistory[0].joinedAt).toBe(testJoinAt);
         expect(state.payoutModule.heldHistory[2].totalHeld).toBe(785.2235);
     });

@@ -21,15 +21,18 @@
             <div class="held-history-table-container--small__item__held-info" v-if="isExpanded">
                 <div class="held-history-table-container--small__item__held-info__item">
                     <p class="held-history-table-container--small__item__held-info__item__label">Month 1-3</p>
-                    <p class="held-history-table-container--small__item__held-info__item__value">{{ heldHistoryItem.firstPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--small__item__held-info__item__value">{{
+                        heldHistoryItem.holdForFirstPeriod | centsToDollars }}</p>
                 </div>
                 <div class="held-history-table-container--small__item__held-info__item">
                     <p class="held-history-table-container--small__item__held-info__item__label">Month 4-6</p>
-                    <p class="held-history-table-container--small__item__held-info__item__value">{{ heldHistoryItem.secondPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--small__item__held-info__item__value">{{
+                        heldHistoryItem.holdForSecondPeriod | centsToDollars }}</p>
                 </div>
                 <div class="held-history-table-container--small__item__held-info__item">
                     <p class="held-history-table-container--small__item__held-info__item__label">Month 7-9</p>
-                    <p class="held-history-table-container--small__item__held-info__item__value">{{ heldHistoryItem.thirdPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--small__item__held-info__item__value">{{
+                        heldHistoryItem.holdForThirdPeriod | centsToDollars }}</p>
                 </div>
             </div>
         </transition>

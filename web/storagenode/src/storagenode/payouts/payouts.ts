@@ -200,18 +200,18 @@ export class SatelliteHeldHistory {
     public constructor(
         public satelliteID: string = '',
         public satelliteName: string = '',
-        public firstPeriod: number = 0,
-        public secondPeriod: number = 0,
-        public thirdPeriod: number = 0,
+        public holdForFirstPeriod: number = 0,
+        public holdForSecondPeriod: number = 0,
+        public holdForThirdPeriod: number = 0,
         public totalHeld: number = 0,
         public totalDisposed: number = 0,
         public joinedAt: Date = new Date(),
     ) {
         this.totalHeld = this.totalHeld / PRICE_DIVIDER;
         this.totalDisposed = this.totalDisposed / PRICE_DIVIDER;
-        this.firstPeriod = this.firstPeriod / PRICE_DIVIDER;
-        this.secondPeriod = this.secondPeriod / PRICE_DIVIDER;
-        this.thirdPeriod = this.thirdPeriod / PRICE_DIVIDER;
+        this.holdForFirstPeriod = this.holdForFirstPeriod / PRICE_DIVIDER;
+        this.holdForSecondPeriod = this.holdForSecondPeriod / PRICE_DIVIDER;
+        this.holdForThirdPeriod = this.holdForThirdPeriod / PRICE_DIVIDER;
     }
 
     public get monthsWithNode(): number {

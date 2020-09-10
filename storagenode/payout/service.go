@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package heldamount
+package payout
 
 import (
 	"context"
@@ -24,8 +24,8 @@ import (
 )
 
 var (
-	// ErrHeldAmountService defines held amount service error.
-	ErrHeldAmountService = errs.Class("heldamount service error")
+	// ErrPayoutService defines held amount service error.
+	ErrPayoutService = errs.Class("payout service error")
 
 	// ErrBadPeriod defines that period has wrong format.
 	ErrBadPeriod = errs.Class("wrong period format")
@@ -62,7 +62,7 @@ func (service *Service) SatellitePayStubMonthly(ctx context.Context, satelliteID
 
 	payStub, err = service.db.GetPayStub(ctx, satelliteID, period)
 	if err != nil {
-		return nil, ErrHeldAmountService.Wrap(err)
+		return nil, ErrPayoutService.Wrap(err)
 	}
 
 	payStub.UsageAtRestTbM()
@@ -76,7 +76,7 @@ func (service *Service) AllPayStubsMonthly(ctx context.Context, period string) (
 
 	payStubs, err = service.db.AllPayStubs(ctx, period)
 	if err != nil {
-		return payStubs, ErrHeldAmountService.Wrap(err)
+		return payStubs, ErrPayoutService.Wrap(err)
 	}
 
 	for i := 0; i < len(payStubs); i++ {
@@ -102,7 +102,7 @@ func (service *Service) SatellitePayStubPeriod(ctx context.Context, satelliteID 
 				continue
 			}
 
-			return []PayStub{}, ErrHeldAmountService.Wrap(err)
+			return []PayStub{}, ErrPayoutService.Wrap(err)
 		}
 
 		payStubs = append(payStubs, *payStub)
@@ -131,7 +131,7 @@ func (service *Service) AllPayStubsPeriod(ctx context.Context, periodStart, peri
 				continue
 			}
 
-			return []PayStub{}, ErrHeldAmountService.Wrap(err)
+			return []PayStub{}, ErrPayoutService.Wrap(err)
 		}
 
 		payStubs = append(payStubs, payStub...)
@@ -144,62 +144,49 @@ func (service *Service) AllPayStubsPeriod(ctx context.Context, periodStart, peri
 	return payStubs, nil
 }
 
-// SatellitePeriods retrieves all periods for concrete satellite in which we have some heldamount data.
+// SatellitePeriods retrieves all periods for concrete satellite in which we have some payout data.
 func (service *Service) SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.SatellitePeriods(ctx, satelliteID)
 }
 
-// AllPeriods retrieves all periods in which we have some heldamount data.
+// AllPeriods retrieves all periods in which we have some payout data.
 func (service *Service) AllPeriods(ctx context.Context) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.AllPeriods(ctx)
 }
 
-// HeldHistory amount of held for specific percent rate period.
-type HeldHistory struct {
-	SatelliteID   storj.NodeID `json:"satelliteID"`
-	SatelliteName string       `json:"satelliteName"`
-	Age           int64        `json:"age"`
-	FirstPeriod   int64        `json:"firstPeriod"`
-	SecondPeriod  int64        `json:"secondPeriod"`
-	ThirdPeriod   int64        `json:"thirdPeriod"`
-	TotalHeld     int64        `json:"totalHeld"`
-	TotalDisposed int64        `json:"totalDisposed"`
-	JoinedAt      time.Time    `json:"joinedAt"`
-}
-
 // AllHeldbackHistory retrieves heldback history for all satellites from storagenode database.
-func (service *Service) AllHeldbackHistory(ctx context.Context) (result []HeldHistory, err error) {
+func (service *Service) AllHeldbackHistory(ctx context.Context) (result []SatelliteHeldHistory, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	satellites := service.trust.GetSatellites(ctx)
 	for i := 0; i < len(satellites); i++ {
-		var history HeldHistory
+		var history SatelliteHeldHistory
 
-		heldback, err := service.db.SatellitesHeldbackHistory(ctx, satellites[i])
+		helds, err := service.db.SatellitesHeldbackHistory(ctx, satellites[i])
 		if err != nil {
-			return nil, ErrHeldAmountService.Wrap(err)
+			return nil, ErrPayoutService.Wrap(err)
 		}
 
 		disposed, err := service.db.SatellitesDisposedHistory(ctx, satellites[i])
 		if err != nil {
-			return nil, ErrHeldAmountService.Wrap(err)
+			return nil, ErrPayoutService.Wrap(err)
 		}
 
-		for i, t := range heldback {
+		for i, amountPeriod := range helds {
 			switch i {
 			case 0, 1, 2:
-				history.FirstPeriod += t.Held
-				history.TotalHeld += t.Held
+				history.HoldForFirstPeriod += amountPeriod.Amount
+				history.TotalHeld += amountPeriod.Amount
 			case 3, 4, 5:
-				history.SecondPeriod += t.Held
-				history.TotalHeld += t.Held
+				history.HoldForSecondPeriod += amountPeriod.Amount
+				history.TotalHeld += amountPeriod.Amount
 			case 6, 7, 8:
-				history.ThirdPeriod += t.Held
-				history.TotalHeld += t.Held
+				history.HoldForThirdPeriod += amountPeriod.Amount
+				history.TotalHeld += amountPeriod.Amount
 			default:
 			}
 		}
@@ -208,15 +195,14 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []HeldHi
 		history.SatelliteID = satellites[i]
 		url, err := service.trust.GetNodeURL(ctx, satellites[i])
 		if err != nil {
-			return nil, ErrHeldAmountService.Wrap(err)
+			return nil, ErrPayoutService.Wrap(err)
 		}
 
 		stats, err := service.reputationDB.Get(ctx, satellites[i])
 		if err != nil {
-			return nil, ErrHeldAmountService.Wrap(err)
+			return nil, ErrPayoutService.Wrap(err)
 		}
 
-		history.Age = int64(date.MonthsCountSince(stats.JoinedAt))
 		history.SatelliteName = url.Address
 		history.JoinedAt = stats.JoinedAt
 
@@ -226,67 +212,50 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []HeldHi
 	return result, nil
 }
 
-// PayoutHistory contains payout information for specific period for specific satellite.
-type PayoutHistory struct {
-	SatelliteID    string `json:"satelliteID"`
-	SatelliteURL   string `json:"satelliteURL"`
-	Age            int64  `json:"age"`
-	Earned         int64  `json:"earned"`
-	Surge          int64  `json:"surge"`
-	SurgePercent   int64  `json:"surgePercent"`
-	Held           int64  `json:"held"`
-	HeldPercent    int64  `json:"heldPercent"`
-	AfterHeld      int64  `json:"afterHeld"`
-	Disposed       int64  `json:"disposed"`
-	Paid           int64  `json:"paid"`
-	Receipt        string `json:"receipt"`
-	IsExitComplete bool   `json:"isExitComplete"`
-}
-
-// PayoutHistoryMonthly retrieves paystub and payment receipt for specific month from all satellites.
-func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string) (result []PayoutHistory, err error) {
+// AllSatellitesPayoutPeriod retrieves paystub and payment receipt for specific month from all satellites.
+func (service *Service) AllSatellitesPayoutPeriod(ctx context.Context, period string) (result []SatellitePayoutForPeriod, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	satelliteIDs := service.trust.GetSatellites(ctx)
 	for i := 0; i < len(satelliteIDs); i++ {
-		var payoutHistory PayoutHistory
+		var payoutForPeriod SatellitePayoutForPeriod
 		paystub, err := service.db.GetPayStub(ctx, satelliteIDs[i], period)
 		if err != nil {
 			if ErrNoPayStubForPeriod.Has(err) {
 				continue
 			}
-			return nil, ErrHeldAmountService.Wrap(err)
+			return nil, ErrPayoutService.Wrap(err)
 		}
 
 		receipt, err := service.db.GetReceipt(ctx, satelliteIDs[i], period)
 		if err != nil {
 			if !ErrNoPayStubForPeriod.Has(err) {
-				return nil, ErrHeldAmountService.Wrap(err)
+				return nil, ErrPayoutService.Wrap(err)
 			}
 			receipt = "no receipt for this period"
 		}
 
 		stats, err := service.reputationDB.Get(ctx, satelliteIDs[i])
 		if err != nil {
-			return nil, ErrHeldAmountService.Wrap(err)
+			return nil, ErrPayoutService.Wrap(err)
 		}
 
 		satellite, err := service.satellitesDB.GetSatellite(ctx, satelliteIDs[i])
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				payoutHistory.IsExitComplete = false
+				payoutForPeriod.IsExitComplete = false
 			}
 
-			return nil, ErrHeldAmountService.Wrap(err)
+			return nil, ErrPayoutService.Wrap(err)
 		}
 
 		url, err := service.trust.GetNodeURL(ctx, satelliteIDs[i])
 		if err != nil {
-			return nil, ErrHeldAmountService.Wrap(err)
+			return nil, ErrPayoutService.Wrap(err)
 		}
 
 		if satellite.Status == satellites.ExitSucceeded {
-			payoutHistory.IsExitComplete = true
+			payoutForPeriod.IsExitComplete = true
 		}
 
 		if paystub.SurgePercent == 0 {
@@ -295,25 +264,28 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 
 		earned, surge := paystub.GetEarnedWithSurge()
 
-		heldPercent, err := service.getHeldRate(stats.JoinedAt, paystub.Period)
+		periodTime := Period(paystub.Period)
+
+		heldPeriod, err := periodTime.Time()
 		if err != nil {
-			return nil, ErrHeldAmountService.Wrap(err)
+			return nil, ErrPayoutService.Wrap(err)
 		}
 
-		payoutHistory.Held = paystub.Held
-		payoutHistory.Receipt = receipt
-		payoutHistory.Surge = surge
-		payoutHistory.AfterHeld = payoutHistory.Surge - paystub.Held
-		payoutHistory.Age = int64(date.MonthsCountSince(stats.JoinedAt))
-		payoutHistory.Disposed = paystub.Disposed
-		payoutHistory.Earned = earned
-		payoutHistory.SatelliteID = satelliteIDs[i].String()
-		payoutHistory.SurgePercent = paystub.SurgePercent
-		payoutHistory.SatelliteURL = url.Address
-		payoutHistory.Paid = paystub.Paid
-		payoutHistory.HeldPercent = heldPercent
+		heldPercent := GetHeldRate(stats.JoinedAt, heldPeriod)
+		payoutForPeriod.Held = paystub.Held
+		payoutForPeriod.Receipt = receipt
+		payoutForPeriod.Surge = surge
+		payoutForPeriod.AfterHeld = surge - paystub.Held
+		payoutForPeriod.Age = int64(date.MonthsCountSince(stats.JoinedAt))
+		payoutForPeriod.Disposed = paystub.Disposed
+		payoutForPeriod.Earned = earned
+		payoutForPeriod.SatelliteID = satelliteIDs[i].String()
+		payoutForPeriod.SurgePercent = paystub.SurgePercent
+		payoutForPeriod.SatelliteURL = url.Address
+		payoutForPeriod.Paid = paystub.Paid
+		payoutForPeriod.HeldPercent = heldPercent
 
-		result = append(result, payoutHistory)
+		result = append(result, payoutForPeriod)
 	}
 
 	return result, nil
@@ -374,15 +346,10 @@ func parsePeriodRange(periodStart, periodEnd string) (periods []string, err erro
 	return periods, nil
 }
 
-func (service *Service) getHeldRate(joinedAt time.Time, period string) (heldRate int64, err error) {
-	layout := "2006-01-02T15:04:05.000Z"
-	periodTime, err := time.Parse(layout, period+"-12T11:45:26.371Z")
-	if err != nil {
-		return 0, err
-	}
-
-	months := date.MonthsBetweenDates(joinedAt, periodTime)
-	switch months {
+// GetHeldRate returns held rate for specific period from join date of node.
+func GetHeldRate(joinTime time.Time, requestTime time.Time) (heldRate int64) {
+	monthsSinceJoin := date.MonthsBetweenDates(joinTime, requestTime)
+	switch monthsSinceJoin {
 	case 0, 1, 2:
 		heldRate = 75
 	case 3, 4, 5:
@@ -393,5 +360,5 @@ func (service *Service) getHeldRate(joinedAt time.Time, period string) (heldRate
 		heldRate = 0
 	}
 
-	return heldRate, nil
+	return heldRate
 }

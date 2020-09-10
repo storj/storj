@@ -11,25 +11,25 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/heldamount"
+	"storj.io/storj/storagenode/payout"
 )
 
-// ensures that heldamountDB implements heldamount.DB interface.
-var _ heldamount.DB = (*heldamountDB)(nil)
+// ensures that payoutDB implements payout.DB interface.
+var _ payout.DB = (*payoutDB)(nil)
 
-// ErrHeldAmount represents errors from the heldamount database.
-var ErrHeldAmount = errs.Class("heldamount error")
+// ErrPayout represents errors from the payouts database.
+var ErrPayout = errs.Class("payout error")
 
 // HeldAmountDBName represents the database name.
 const HeldAmountDBName = "heldamount"
 
-// heldamountDB works with node heldamount DB.
-type heldamountDB struct {
+// payoutDB works with node payouts DB.
+type payoutDB struct {
 	dbContainerImpl
 }
 
 // StorePayStub inserts or updates paystub data into the db.
-func (db *heldamountDB) StorePayStub(ctx context.Context, paystub heldamount.PayStub) (err error) {
+func (db *payoutDB) StorePayStub(ctx context.Context, paystub payout.PayStub) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `INSERT OR REPLACE INTO paystubs (
@@ -80,14 +80,14 @@ func (db *heldamountDB) StorePayStub(ctx context.Context, paystub heldamount.Pay
 		paystub.Paid,
 	)
 
-	return ErrHeldAmount.Wrap(err)
+	return ErrPayout.Wrap(err)
 }
 
 // GetPayStub retrieves paystub data for a specific satellite and period.
-func (db *heldamountDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID, period string) (_ *heldamount.PayStub, err error) {
+func (db *payoutDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID, period string) (_ *payout.PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	result := heldamount.PayStub{
+	result := payout.PayStub{
 		SatelliteID: satelliteID,
 		Period:      period,
 	}
@@ -139,16 +139,16 @@ func (db *heldamountDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, heldamount.ErrNoPayStubForPeriod.Wrap(err)
+			return nil, payout.ErrNoPayStubForPeriod.Wrap(err)
 		}
-		return nil, ErrHeldAmount.Wrap(err)
+		return nil, ErrPayout.Wrap(err)
 	}
 
 	return &result, nil
 }
 
 // AllPayStubs retrieves all paystub stats from DB for specific period.
-func (db *heldamountDB) AllPayStubs(ctx context.Context, period string) (_ []heldamount.PayStub, err error) {
+func (db *payoutDB) AllPayStubs(ctx context.Context, period string) (_ []payout.PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT 
@@ -181,9 +181,9 @@ func (db *heldamountDB) AllPayStubs(ctx context.Context, period string) (_ []hel
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var paystubList []heldamount.PayStub
+	var paystubList []payout.PayStub
 	for rows.Next() {
-		var paystub heldamount.PayStub
+		var paystub payout.PayStub
 		paystub.Period = period
 
 		err := rows.Scan(&paystub.SatelliteID,
@@ -208,20 +208,20 @@ func (db *heldamountDB) AllPayStubs(ctx context.Context, period string) (_ []hel
 			&paystub.Paid,
 		)
 		if err != nil {
-			return nil, ErrHeldAmount.Wrap(err)
+			return nil, ErrPayout.Wrap(err)
 		}
 
 		paystubList = append(paystubList, paystub)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, ErrHeldAmount.Wrap(err)
+		return nil, ErrPayout.Wrap(err)
 	}
 
 	return paystubList, nil
 }
 
 // SatellitesHeldbackHistory retrieves heldback history for specific satellite.
-func (db *heldamountDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []heldamount.AmountPeriod, err error) {
+func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []payout.HoldForPeriod, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT 
@@ -236,33 +236,33 @@ func (db *heldamountDB) SatellitesHeldbackHistory(ctx context.Context, id storj.
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var heldback []heldamount.AmountPeriod
+	var heldback []payout.HoldForPeriod
 	for rows.Next() {
-		var held heldamount.AmountPeriod
+		var held payout.HoldForPeriod
 
-		err := rows.Scan(&held.Period, &held.Held)
+		err := rows.Scan(&held.Period, &held.Amount)
 		if err != nil {
-			return nil, ErrHeldAmount.Wrap(err)
+			return nil, ErrPayout.Wrap(err)
 		}
 
 		heldback = append(heldback, held)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, ErrHeldAmount.Wrap(err)
+		return nil, ErrPayout.Wrap(err)
 	}
 
 	return heldback, nil
 }
 
-// SatellitePeriods retrieves all periods for concrete satellite in which we have some heldamount data.
-func (db *heldamountDB) SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) (_ []string, err error) {
+// SatellitePeriods retrieves all periods for concrete satellite in which we have some payouts data.
+func (db *payoutDB) SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT distinct period FROM paystubs WHERE satellite_id = ? ORDER BY created_at`
 
 	rows, err := db.QueryContext(ctx, query, satelliteID[:])
 	if err != nil {
-		return nil, ErrHeldAmount.Wrap(err)
+		return nil, ErrPayout.Wrap(err)
 	}
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
@@ -272,20 +272,20 @@ func (db *heldamountDB) SatellitePeriods(ctx context.Context, satelliteID storj.
 		var period string
 		err := rows.Scan(&period)
 		if err != nil {
-			return nil, ErrHeldAmount.Wrap(err)
+			return nil, ErrPayout.Wrap(err)
 		}
 
 		periodList = append(periodList, period)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, ErrHeldAmount.Wrap(err)
+		return nil, ErrPayout.Wrap(err)
 	}
 
 	return periodList, nil
 }
 
-// AllPeriods retrieves all periods in which we have some heldamount data.
-func (db *heldamountDB) AllPeriods(ctx context.Context) (_ []string, err error) {
+// AllPeriods retrieves all periods in which we have some payouts data.
+func (db *payoutDB) AllPeriods(ctx context.Context) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT distinct period FROM paystubs ORDER BY created_at`
@@ -302,20 +302,20 @@ func (db *heldamountDB) AllPeriods(ctx context.Context) (_ []string, err error) 
 		var period string
 		err := rows.Scan(&period)
 		if err != nil {
-			return nil, ErrHeldAmount.Wrap(err)
+			return nil, ErrPayout.Wrap(err)
 		}
 
 		periodList = append(periodList, period)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, ErrHeldAmount.Wrap(err)
+		return nil, ErrPayout.Wrap(err)
 	}
 
 	return periodList, nil
 }
 
 // StorePayment inserts or updates payment data into the db.
-func (db *heldamountDB) StorePayment(ctx context.Context, payment heldamount.Payment) (err error) {
+func (db *payoutDB) StorePayment(ctx context.Context, payment payout.Payment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `INSERT OR REPLACE INTO payments (
@@ -338,11 +338,11 @@ func (db *heldamountDB) StorePayment(ctx context.Context, payment heldamount.Pay
 		payment.Notes,
 	)
 
-	return ErrHeldAmount.Wrap(err)
+	return ErrPayout.Wrap(err)
 }
 
 // SatellitesDisposedHistory returns all disposed amount for specific satellite from DB.
-func (db *heldamountDB) SatellitesDisposedHistory(ctx context.Context, satelliteID storj.NodeID) (_ int64, err error) {
+func (db *payoutDB) SatellitesDisposedHistory(ctx context.Context, satelliteID storj.NodeID) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT 
@@ -362,20 +362,20 @@ func (db *heldamountDB) SatellitesDisposedHistory(ctx context.Context, satellite
 
 		err := rows.Scan(&disposed)
 		if err != nil {
-			return 0, ErrHeldAmount.Wrap(err)
+			return 0, ErrPayout.Wrap(err)
 		}
 
 		totalDisposed += disposed
 	}
 	if err = rows.Err(); err != nil {
-		return 0, ErrHeldAmount.Wrap(err)
+		return 0, ErrPayout.Wrap(err)
 	}
 
 	return totalDisposed, nil
 }
 
 // GetReceipt retrieves receipt data for a specific satellite and period.
-func (db *heldamountDB) GetReceipt(ctx context.Context, satelliteID storj.NodeID, period string) (receipt string, err error) {
+func (db *payoutDB) GetReceipt(ctx context.Context, satelliteID storj.NodeID, period string) (receipt string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rowPayment := db.QueryRowContext(ctx,
@@ -386,9 +386,9 @@ func (db *heldamountDB) GetReceipt(ctx context.Context, satelliteID storj.NodeID
 	err = rowPayment.Scan(&receipt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", heldamount.ErrNoPayStubForPeriod.Wrap(err)
+			return "", payout.ErrNoPayStubForPeriod.Wrap(err)
 		}
-		return "", ErrHeldAmount.Wrap(err)
+		return "", ErrPayout.Wrap(err)
 	}
 
 	return receipt, nil

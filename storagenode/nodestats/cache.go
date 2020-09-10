@@ -15,7 +15,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/heldamount"
+	"storj.io/storj/storagenode/payout"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
@@ -34,7 +34,7 @@ type Config struct {
 type CacheStorage struct {
 	Reputation   reputation.DB
 	StorageUsage storageusage.DB
-	HeldAmount   heldamount.DB
+	Payout       payout.DB
 	Pricing      pricing.DB
 	Satellites   satellites.DB
 }
@@ -46,11 +46,11 @@ type CacheStorage struct {
 type Cache struct {
 	log *zap.Logger
 
-	db                 CacheStorage
-	service            *Service
-	heldamountEndpoint *heldamount.Endpoint
-	heldamountService  *heldamount.Service
-	trust              *trust.Pool
+	db             CacheStorage
+	service        *Service
+	payoutEndpoint *payout.Endpoint
+	payoutService  *payout.Service
+	trust          *trust.Pool
 
 	maxSleep   time.Duration
 	Reputation *sync2.Cycle
@@ -58,17 +58,17 @@ type Cache struct {
 }
 
 // NewCache creates new caching service instance.
-func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, heldamountEndpoint *heldamount.Endpoint, heldamountService *heldamount.Service, trust *trust.Pool) *Cache {
+func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, heldamountEndpoint *payout.Endpoint, heldamountService *payout.Service, trust *trust.Pool) *Cache {
 	return &Cache{
-		log:                log,
-		db:                 db,
-		service:            service,
-		heldamountEndpoint: heldamountEndpoint,
-		heldamountService:  heldamountService,
-		trust:              trust,
-		maxSleep:           config.MaxSleep,
-		Reputation:         sync2.NewCycle(config.ReputationSync),
-		Storage:            sync2.NewCycle(config.StorageSync),
+		log:            log,
+		db:             db,
+		service:        service,
+		payoutEndpoint: heldamountEndpoint,
+		payoutService:  heldamountService,
+		trust:          trust,
+		maxSleep:       config.MaxSleep,
+		Reputation:     sync2.NewCycle(config.ReputationSync),
+		Storage:        sync2.NewCycle(config.StorageSync),
 	}
 }
 
@@ -77,25 +77,25 @@ func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
 	err := cache.satelliteLoop(ctx, func(satelliteID storj.NodeID) error {
-		stubHistory, err := cache.heldamountEndpoint.GetAllPaystubs(ctx, satelliteID)
+		stubHistory, err := cache.payoutEndpoint.GetAllPaystubs(ctx, satelliteID)
 		if err != nil {
 			return err
 		}
 
 		for i := 0; i < len(stubHistory); i++ {
-			err := cache.db.HeldAmount.StorePayStub(ctx, stubHistory[i])
+			err := cache.db.Payout.StorePayStub(ctx, stubHistory[i])
 			if err != nil {
 				return err
 			}
 		}
 
-		paymentHistory, err := cache.heldamountEndpoint.GetAllPayments(ctx, satelliteID)
+		paymentHistory, err := cache.payoutEndpoint.GetAllPayments(ctx, satelliteID)
 		if err != nil {
 			return err
 		}
 
 		for j := 0; j < len(paymentHistory); j++ {
-			err := cache.db.HeldAmount.StorePayment(ctx, paymentHistory[j])
+			err := cache.db.Payout.StorePayment(ctx, paymentHistory[j])
 			if err != nil {
 				return err
 			}
@@ -199,29 +199,29 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 		}
 
 		previousMonth := yearAndMonth.AddDate(0, -1, 0).String()
-		payStub, err := cache.heldamountEndpoint.GetPaystub(ctx, satellite, previousMonth)
+		payStub, err := cache.payoutEndpoint.GetPaystub(ctx, satellite, previousMonth)
 		if err != nil {
-			if heldamount.ErrNoPayStubForPeriod.Has(err) {
+			if payout.ErrNoPayStubForPeriod.Has(err) {
 				return nil
 			}
 
-			cache.log.Error("heldamount err", zap.String("satellite", satellite.String()))
+			cache.log.Error("payout err", zap.String("satellite", satellite.String()))
 			return err
 		}
 
 		if payStub != nil {
-			if err = cache.db.HeldAmount.StorePayStub(ctx, *payStub); err != nil {
+			if err = cache.db.Payout.StorePayStub(ctx, *payStub); err != nil {
 				return err
 			}
 		}
 
-		payment, err := cache.heldamountEndpoint.GetPayment(ctx, satellite, previousMonth)
+		payment, err := cache.payoutEndpoint.GetPayment(ctx, satellite, previousMonth)
 		if err != nil {
 			return err
 		}
 
 		if payment != nil {
-			if err = cache.db.HeldAmount.StorePayment(ctx, *payment); err != nil {
+			if err = cache.db.Payout.StorePayment(ctx, *payment); err != nil {
 				return err
 			}
 		}

@@ -24,13 +24,16 @@
                     <p class="held-history-table-container--large__info-area__months">{{ item.monthsWithNode }} month</p>
                 </div>
                 <div class="column justify-end column-2">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.firstPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ item.holdForFirstPeriod |
+                        centsToDollars }}</p>
                 </div>
                 <div class="column justify-end column-3">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.secondPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ item.holdForSecondPeriod |
+                        centsToDollars }}</p>
                 </div>
                 <div class="column justify-end column-4">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.thirdPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ item.holdForThirdPeriod |
+                        centsToDollars }}</p>
                 </div>
             </div>
         </div>
