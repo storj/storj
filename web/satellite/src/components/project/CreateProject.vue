@@ -69,7 +69,7 @@ import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { CreateProjectModel } from '@/types/projects';
+import { CreateProjectFields } from '@/types/projects';
 import {
     APP_STATE_ACTIONS,
     PM_ACTIONS,
@@ -126,7 +126,7 @@ export default class NewProjectPopup extends Vue {
         this.isLoading = true;
         this.projectName = this.projectName.trim();
 
-        const project = new CreateProjectModel(
+        const project = new CreateProjectFields(
             this.projectName,
             this.description,
             this.$store.getters.user.id,

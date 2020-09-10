@@ -66,7 +66,7 @@ import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { CreateProjectModel } from '@/types/projects';
+import { CreateProjectFields } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
@@ -109,7 +109,7 @@ export default class CreateProjectStep extends Vue {
         this.isLoading = true;
         this.projectName = this.projectName.trim();
 
-        const project = new CreateProjectModel(
+        const project = new CreateProjectFields(
             this.projectName,
             this.description,
             this.$store.getters.user.id,
