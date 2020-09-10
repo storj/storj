@@ -4,10 +4,13 @@
 package orders_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -23,7 +26,7 @@ func TestOrdersStore_Enqueue_GracePeriodFailure(t *testing.T) {
 	now := time.Now()
 
 	// make order limit grace period 24 hours
-	ordersStore, err := orders.NewFileStore(dirName, 24*time.Hour)
+	ordersStore, err := orders.NewFileStore(zaptest.NewLogger(t), dirName, 24*time.Hour)
 	require.NoError(t, err)
 
 	// adding order before grace period should result in an error
@@ -52,7 +55,7 @@ func TestOrdersStore_ListUnsentBySatellite(t *testing.T) {
 	now := time.Now()
 
 	// make order limit grace period 12 hours
-	ordersStore, err := orders.NewFileStore(dirName, 12*time.Hour)
+	ordersStore, err := orders.NewFileStore(zaptest.NewLogger(t), dirName, 12*time.Hour)
 	require.NoError(t, err)
 
 	// for each satellite, make three orders from four hours ago, three from two hours ago, and three from now.
@@ -181,7 +184,7 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 	tomorrow := now.Add(24 * time.Hour)
 
 	// make order limit grace period 1 hour
-	ordersStore, err := orders.NewFileStore(dirName, time.Hour)
+	ordersStore, err := orders.NewFileStore(zaptest.NewLogger(t), dirName, time.Hour)
 	require.NoError(t, err)
 
 	// empty store means no orders can be listed
@@ -237,6 +240,64 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
+}
+
+func TestOrdersStore_CorruptUnsent(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	dirName := ctx.Dir("test-orders")
+	now := time.Now()
+	satellite := testrand.NodeID()
+	tomorrow := now.Add(24 * time.Hour)
+
+	// make order limit grace period 1 hour
+	ordersStore, err := orders.NewFileStore(zaptest.NewLogger(t), dirName, time.Hour)
+	require.NoError(t, err)
+
+	// empty store means no orders can be listed
+	unsent, err := ordersStore.ListUnsentBySatellite(tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 0)
+
+	sn := testrand.SerialNumber()
+	info := &orders.Info{
+		Limit: &pb.OrderLimit{
+			SerialNumber:  sn,
+			SatelliteId:   satellite,
+			Action:        pb.PieceAction_GET,
+			OrderCreation: now,
+		},
+		Order: &pb.Order{
+			SerialNumber: sn,
+			Amount:       1,
+		},
+	}
+	// store two orders for the same window
+	require.NoError(t, ordersStore.Enqueue(info))
+	require.NoError(t, ordersStore.Enqueue(info))
+
+	// check that we can see both orders tomorrow
+	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 1)
+	require.Len(t, unsent[satellite].InfoList, 2)
+
+	// corrupt unsent orders file by removing the last byte
+	err = filepath.Walk(filepath.Join(dirName, "unsent"), func(path string, info os.FileInfo, err error) error {
+		require.NoError(t, err)
+		if info.IsDir() {
+			return nil
+		}
+		err = os.Truncate(path, info.Size()-1)
+		return err
+	})
+	require.NoError(t, err)
+
+	// only the second order should be corrupted, so we should still see one order
+	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 1)
+	require.Len(t, unsent[satellite].InfoList, 1)
 }
 
 func verifyInfosEqual(t *testing.T, a, b *orders.Info) {
