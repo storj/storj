@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -35,6 +36,8 @@ type activeWindow struct {
 
 // FileStore implements the orders.Store interface by appending orders to flat files.
 type FileStore struct {
+	log *zap.Logger
+
 	ordersDir  string
 	unsentDir  string
 	archiveDir string
@@ -57,8 +60,9 @@ type FileStore struct {
 }
 
 // NewFileStore creates a new orders file store, and the directories necessary for its use.
-func NewFileStore(ordersDir string, orderLimitGracePeriod time.Duration) (*FileStore, error) {
+func NewFileStore(log *zap.Logger, ordersDir string, orderLimitGracePeriod time.Duration) (*FileStore, error) {
 	fs := &FileStore{
+		log:                   log,
 		ordersDir:             ordersDir,
 		unsentDir:             filepath.Join(ordersDir, "unsent"),
 		archiveDir:            filepath.Join(ordersDir, "archive"),
@@ -235,15 +239,27 @@ func (store *FileStore) ListUnsentBySatellite(now time.Time) (infoMap map[storj.
 		}()
 
 		for {
+			// if at any point we see an unexpected EOF error, return what orders we could read successfully with no error
+			// this behavior ensures that we will attempt to archive corrupted files instead of continually failing to read them
 			limit, err := readLimit(f)
 			if err != nil {
 				if errs.Is(err, io.EOF) {
+					break
+				}
+				if errs.Is(err, io.ErrUnexpectedEOF) {
+					store.log.Warn("Unexpected EOF while reading unsent order file", zap.Error(err))
+					mon.Meter("orders_unsent_file_corrupted").Mark64(1)
 					break
 				}
 				return err
 			}
 			order, err := readOrder(f)
 			if err != nil {
+				if errs.Is(err, io.ErrUnexpectedEOF) {
+					store.log.Warn("Unexpected EOF while reading unsent order file", zap.Error(err))
+					mon.Meter("orders_unsent_file_corrupted").Mark64(1)
+					break
+				}
 				return err
 			}
 
@@ -331,10 +347,20 @@ func (store *FileStore) ListArchived() ([]*ArchivedInfo, error) {
 				if errs.Is(err, io.EOF) {
 					break
 				}
+				if errs.Is(err, io.ErrUnexpectedEOF) {
+					store.log.Warn("Unexpected EOF while reading archived order file", zap.Error(err))
+					mon.Meter("orders_archive_file_corrupted").Mark64(1)
+					break
+				}
 				return err
 			}
 			order, err := readOrder(f)
 			if err != nil {
+				if errs.Is(err, io.ErrUnexpectedEOF) {
+					store.log.Warn("Unexpected EOF while reading archived order file", zap.Error(err))
+					mon.Meter("orders_archive_file_corrupted").Mark64(1)
+					break
+				}
 				return err
 			}
 

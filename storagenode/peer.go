@@ -478,6 +478,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.UsedSerials = usedserials.NewTable(config.Storage2.MaxUsedSerialsSize)
 
 		peer.OrdersStore, err = orders.NewFileStore(
+			peer.Log.Named("ordersfilestore"),
 			config.Storage2.Orders.Path,
 			config.Storage2.OrderLimitGracePeriod,
 		)
