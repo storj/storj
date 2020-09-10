@@ -8,6 +8,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/uuid"
+	"storj.io/storj/cmd/metainfo-migration/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
@@ -18,7 +19,7 @@ const segmentsArgs = 9
 
 type Migrator struct {
 	PointerDB metainfo.PointerDB
-	Metabase  *Metabase
+	Metabase  *metabase.Metabase
 
 	ProjectID  uuid.UUID
 	BucketName []byte
@@ -34,7 +35,7 @@ type Migrator struct {
 	SegmentsCreated int
 }
 
-func NewMigrator(db metainfo.PointerDB, metabase *Metabase, projectID uuid.UUID, bucketName []byte) *Migrator {
+func NewMigrator(db metainfo.PointerDB, metabase *metabase.Metabase, projectID uuid.UUID, bucketName []byte) *Migrator {
 	return &Migrator{
 		PointerDB: db,
 		Metabase:  metabase,
@@ -61,9 +62,10 @@ func (m *Migrator) MigrateBucket(ctx context.Context) error {
 	more := true
 	lastKey := storage.Key{}
 	pointer := &pb.Pointer{}
+	key := path.Encode()
 	for more {
 		more, err = storage.ListV2Iterate(ctx, m.PointerDB, storage.ListOptions{
-			Prefix:       storage.Key(path),
+			Prefix:       storage.Key(key),
 			StartAfter:   lastKey,
 			Recursive:    true,
 			Limit:        int(0),
@@ -125,14 +127,14 @@ func (m *Migrator) insertObject(ctx context.Context, encryptedPath []byte, point
 		return errors.New("unsupported case")
 	}
 
-	streamID, err := NewUUID()
+	streamID, err := uuid.New()
 	if err != nil {
 		return err
 	}
 
 	m.Objects = append(m.Objects, m.ProjectID, m.BucketName, encryptedPath, -1, streamID,
 		pointer.CreationDate, pointer.ExpirationDate,
-		Committed, segmentsCount,
+		metabase.Committed, segmentsCount,
 		pointer.Metadata)
 
 	if len(m.Objects)/objectsArgs >= m.BatchSize {
@@ -154,7 +156,7 @@ func (m *Migrator) insertObject(ctx context.Context, encryptedPath []byte, point
 			return err
 		}
 
-		value, err := m.PointerDB.Get(ctx, storage.Key(path))
+		value, err := m.PointerDB.Get(ctx, storage.Key(path.Encode()))
 		if err != nil {
 			// TODO drop whole object if one segment is missing (zombie segment)
 			return err
@@ -174,8 +176,8 @@ func (m *Migrator) insertObject(ctx context.Context, encryptedPath []byte, point
 	return nil
 }
 
-func (m *Migrator) insertSegment(ctx context.Context, streamID UUID, segmentIndex int64, pointer *pb.Pointer, streamMeta *pb.StreamMeta) error {
-	segmentPosition := SegmentPosition{
+func (m *Migrator) insertSegment(ctx context.Context, streamID uuid.UUID, segmentIndex int64, pointer *pb.Pointer, streamMeta *pb.StreamMeta) error {
+	segmentPosition := metabase.SegmentPosition{
 		Part:    0,
 		Segment: uint32(segmentIndex),
 	}
@@ -203,7 +205,7 @@ func (m *Migrator) insertSegment(ctx context.Context, streamID UUID, segmentInde
 	m.Segments = append(m.Segments, streamID, segmentPosition.Encode(), rootPieceID,
 		encryptedKey, encryptedKeyNonce,
 		int32(pointer.SegmentSize), 0, pointer.InlineSegment,
-		NodeAliases{1}.Encode())
+		metabase.NodeAliases{1}.Encode())
 
 	if len(m.Segments)/segmentsArgs >= m.BatchSize {
 		err := m.sendSegments(ctx)
@@ -250,7 +252,7 @@ func (m *Migrator) sendSegments(ctx context.Context) error {
 func preparObjectsSQL(batchSize int) string {
 	sql := `
 		INSERT INTO objects (
-				project_id, bucket_name, encrypted_path, version, stream_id,
+				project_id, bucket_name, object_key, version, stream_id,
 				created_at, expires_at,
 				status, segment_count,
 				encrypted_metadata_nonce

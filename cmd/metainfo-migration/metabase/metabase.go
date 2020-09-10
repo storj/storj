@@ -1,4 +1,7 @@
-package main
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package metabase
 
 import (
 	"context"
@@ -6,14 +9,19 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v4"
+	"storj.io/common/uuid"
 )
 
 type BucketName = string
-type EncryptedPath []byte
+type ObjectKey []byte
 
 type SegmentPosition struct {
 	Part    uint32
 	Segment uint32
+}
+
+func EncodeSegmentPosition(partNumber, segmentPosition uint32) uint64 {
+	return uint64(partNumber)<<32 | uint64(segmentPosition)
 }
 
 type NodeAlias int32
@@ -47,7 +55,7 @@ type Metabase struct {
 	conn *pgx.Conn
 }
 
-func DialMetainfo(ctx context.Context, connstr string) (*Metabase, error) {
+func Dial(ctx context.Context, connstr string) (*Metabase, error) {
 	conn, err := pgx.Connect(ctx, connstr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect %q: %w", connstr, err)
@@ -118,12 +126,13 @@ func (mb *Metabase) Migrate(ctx context.Context) error {
 		CREATE TABLE objects (
 			project_id     BYTEA NOT NULL,
 			bucket_name    BYTEA NOT NULL,
-			encrypted_path BYTEA NOT NULL,
+			object_key BYTEA NOT NULL,
 			version        INT4  NOT NULL default 0,
 			stream_id      BYTEA NOT NULL,
 
 			created_at TIMESTAMP NOT NULL default now(),
 			expires_at TIMESTAMP, -- TODO: should we send this to storage nodes at all?
+			                      -- TODO: should we send this to storage nodes at all?
 
 			status         INT2 NOT NULL default 0,
 			segment_count  INT4 NOT NULL default 0,
@@ -141,7 +150,7 @@ func (mb *Metabase) Migrate(ctx context.Context) error {
 
 			-- FIX: we should have first segment here
 
-			PRIMARY KEY (project_id, bucket_name, encrypted_path, version)
+			PRIMARY KEY (project_id, bucket_name, object_key, version)
 		);
 		`)
 	if err != nil {
@@ -149,7 +158,7 @@ func (mb *Metabase) Migrate(ctx context.Context) error {
 	}
 	_, err = mb.conn.Exec(ctx, `
 		CREATE TABLE segments (
-			-- TODO: how to reverse lookup stream_id -> project_id, bucket_name, encrypted_path?
+			-- TODO: how to reverse lookup stream_id -> project_id, bucket_name, object_key?
 
 			stream_id        BYTEA NOT NULL,
 			segment_position INT8  NOT NULL,
@@ -170,16 +179,30 @@ func (mb *Metabase) Migrate(ctx context.Context) error {
 	return wrapf("failed create segments table: %w", err)
 }
 
-func (mb *Metabase) CreateBucket(ctx context.Context, projectID UUID, bucketName BucketName, bucketID UUID) error {
+type CreateBucket struct {
+	ProjectID  uuid.UUID
+	BucketName BucketName
+	BucketID   uuid.UUID
+}
+
+func (mb *Metabase) CreateBucket(ctx context.Context, opts CreateBucket) error {
 	_, err := mb.conn.Exec(ctx, `
 		INSERT INTO buckets (
 			project_id, bucket_id, bucket_name
 		) VALUES ($1, $2, $3)
-	`, projectID, bucketID, []byte(bucketName))
+	`, opts.ProjectID, opts.BucketID, []byte(opts.BucketName))
 	return wrapf("failed to BeginObject: %w", err)
 }
 
-func (mb *Metabase) BeginObject(ctx context.Context, projectID UUID, bucketName BucketName, path EncryptedPath, version Version, streamID UUID) error {
+type BeginObject struct {
+	ProjectID  uuid.UUID
+	BucketName BucketName
+	ObjectKey  ObjectKey
+	Version    Version
+	StreamID   uuid.UUID
+}
+
+func (mb *Metabase) BeginObject(ctx context.Context, opts BeginObject) error {
 	// if version == NextVersion, use a for loop without tx max + insert query
 
 	// TODO: verify existence of bucket somehow
@@ -188,23 +211,30 @@ func (mb *Metabase) BeginObject(ctx context.Context, projectID UUID, bucketName 
 	// TODO: if <key> + version exists then should fail
 	r, err := mb.conn.Exec(ctx, `
 		INSERT INTO objects (
-			project_id, bucket_name, encrypted_path, version, stream_id
+			project_id, bucket_name, object_key, version, stream_id
 		) VALUES ($1, $2, $3, $4, $5)
-	`, projectID, bucketName, string(path), version, streamID)
+	`, opts.ProjectID, opts.BucketName, string(opts.ObjectKey), opts.Version, opts.StreamID)
 	if err != nil {
 		return wrapf("failed to BeginObject: %w", err)
 	}
 	if r.RowsAffected() == 0 {
-		return fmt.Errorf("bucket does not exist %q/%q", projectID, bucketName)
+		return fmt.Errorf("bucket does not exist %q/%q", opts.ProjectID, opts.BucketName)
 	}
 
 	return nil
 }
 
-func (mb *Metabase) BeginSegment(ctx context.Context,
-	projectID UUID, bucketName BucketName, path EncryptedPath, streamID UUID,
-	segmentPosition SegmentPosition, rootPieceID []byte, aliases NodeAliases) error {
+type BeginSegment struct {
+	ProjectID       uuid.UUID
+	BucketName      BucketName
+	ObjectKey       ObjectKey
+	StreamID        uuid.UUID
+	SegmentPosition SegmentPosition
+	RootPieceID     []byte
+	NodeAliases     NodeAliases
+}
 
+func (mb *Metabase) BeginSegment(ctx context.Context, opts BeginSegment) error {
 	// NOTE: this isn't strictly necessary, since we can also fail this in CommitSegment.
 	//       however, we should prevent creating segements for non-partial objects.
 
@@ -217,11 +247,11 @@ func (mb *Metabase) BeginSegment(ctx context.Context,
 		FROM objects WHERE
 			project_id     = $1 AND
 			bucket_name    = $2 AND
-			encrypted_path = $3 AND
+			object_key = $3 AND
 			stream_id      = $4 AND
 			-- version     = $5 AND
 			status         = 0
-	`, projectID, bucketName, path, streamID).Scan(&value)
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.StreamID).Scan(&value)
 	if err != nil {
 		return wrapf("object is not partial: %w", err)
 	}
@@ -232,7 +262,7 @@ func (mb *Metabase) BeginSegment(ctx context.Context,
 		FROM segments WHERE
 			stream_id        = $1 AND
 			segment_position = $2
-	`, streamID, segmentPosition.Encode()).Scan(&value)
+	`, opts.StreamID, opts.SegmentPosition.Encode()).Scan(&value)
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return wrapf("segment already exists: %w", err)
 	}
@@ -240,25 +270,33 @@ func (mb *Metabase) BeginSegment(ctx context.Context,
 	return nil
 }
 
-func (mb *Metabase) CommitSegment(ctx context.Context,
-	projectID UUID, bucketName BucketName, path EncryptedPath, streamID UUID,
-	segmentPosition SegmentPosition, rootPieceID []byte,
-	encryptedKey, encryptedKeyNonce []byte,
-	encryptedSize, unencryptedSize int32,
-	aliases NodeAliases) error {
+type CommitSegment struct {
+	ProjectID         uuid.UUID
+	BucketName        BucketName
+	ObjectKey         ObjectKey
+	StreamID          uuid.UUID
+	SegmentPosition   SegmentPosition
+	RootPieceID       []byte
+	EncryptedKey      []byte
+	EncryptedKeyNonce []byte
+	EncryptedSize     int32
+	UnencryptedSize   int32
+	NodeAliases       NodeAliases
+}
 
+func (mb *Metabase) CommitSegment(ctx context.Context, opts CommitSegment) error {
 	// Verify that object exists and is partial, how can we do this without transactions?
 	var value int
 	err := mb.conn.QueryRow(ctx, `
 		SELECT 1
 		FROM objects WHERE
-			project_id     = $1 AND
-			bucket_name    = $2 AND
-			encrypted_path = $3 AND
-			stream_id      = $4 AND
-			-- version     = $5 AND
-			status         = 0
-	`, projectID, bucketName, path, streamID).Scan(&value)
+			project_id   = $1 AND
+			bucket_name  = $2 AND
+			object_key   = $3 AND
+			stream_id    = $4 AND
+			-- version   = $5 AND
+			status       = 0
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.StreamID).Scan(&value)
 	if err != nil {
 		return wrapf("object is not partial: %w", err)
 	}
@@ -276,21 +314,27 @@ func (mb *Metabase) CommitSegment(ctx context.Context,
 			$6, $7,
 			$8
 		)
-	`, streamID, segmentPosition.Encode(), rootPieceID,
-		encryptedKey, encryptedKeyNonce,
-		encryptedSize, unencryptedSize,
-		aliases.Encode(),
+	`, opts.StreamID, opts.SegmentPosition.Encode(), opts.RootPieceID,
+		opts.EncryptedKey, opts.EncryptedKeyNonce,
+		opts.EncryptedSize, opts.UnencryptedSize,
+		opts.NodeAliases.Encode(),
 	)
 
 	// TODO: error wrapping for concurrency errors
 	return wrapf("failed CommitSegment: %w", err)
 }
 
-func (mb *Metabase) CommitObject(ctx context.Context,
-	projectID UUID, bucketName BucketName, path EncryptedPath, version int64, streamID UUID,
-	segmentPositions []SegmentPosition) error {
+type CommitObject struct {
+	ProjectID        uuid.UUID
+	BucketName       BucketName
+	ObjectKey        ObjectKey
+	Version          int64
+	StreamID         uuid.UUID
+	SegmentPositions []SegmentPosition
+}
 
-	if len(segmentPositions) == 0 {
+func (mb *Metabase) CommitObject(ctx context.Context, opts CommitObject) error {
+	if len(opts.SegmentPositions) == 0 {
 		// TODO: derive segmentPositions from database by querying the ID
 	}
 
@@ -303,17 +347,24 @@ func (mb *Metabase) CommitObject(ctx context.Context,
 			-- calculate total size of segments
 			-- calculate fixed segment size
 		WHERE
-			project_id     = $1 AND
-			bucket_name      = $2 AND
-			encrypted_path = $3 AND
-			version        = $4 AND
-			stream_id      = $5 AND
-			status         = 0;
-	`, projectID, bucketName, path, version, streamID)
+			project_id   = $1 AND
+			bucket_name  = $2 AND
+			object_key   = $3 AND
+			version      = $4 AND
+			stream_id    = $5 AND
+			status       = 0;
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID)
 
 	// TODO: previously was using `segments_pending = segments_done AND` as a protection
 
 	// TODO: error wrapping for concurrency errors
 
 	return wrapf("failed CommitObject: %w", err)
+}
+
+func wrapf(message string, err error) error {
+	if err != nil {
+		return fmt.Errorf(message, err)
+	}
+	return nil
 }
