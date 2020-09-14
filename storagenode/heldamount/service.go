@@ -260,10 +260,10 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 
 		receipt, err := service.db.GetReceipt(ctx, satelliteIDs[i], period)
 		if err != nil {
-			if ErrNoPayStubForPeriod.Has(err) {
-				continue
+			if !ErrNoPayStubForPeriod.Has(err) {
+				return nil, ErrHeldAmountService.Wrap(err)
 			}
-			return nil, ErrHeldAmountService.Wrap(err)
+			receipt = "no receipt for this period"
 		}
 
 		stats, err := service.reputationDB.Get(ctx, satelliteIDs[i])
@@ -293,8 +293,7 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 			paystub.SurgePercent = 100
 		}
 
-		surge := paystub.CompGetAudit + paystub.CompGet + paystub.CompGetRepair + paystub.CompAtRest
-		earned := surge / paystub.SurgePercent * 100
+		earned, surge := paystub.GetEarnedWithSurge()
 
 		heldPercent, err := service.getHeldRate(stats.JoinedAt, paystub.Period)
 		if err != nil {
@@ -304,7 +303,7 @@ func (service *Service) PayoutHistoryMonthly(ctx context.Context, period string)
 		payoutHistory.Held = paystub.Held
 		payoutHistory.Receipt = receipt
 		payoutHistory.Surge = surge
-		payoutHistory.AfterHeld = surge - paystub.Held
+		payoutHistory.AfterHeld = payoutHistory.Surge - paystub.Held
 		payoutHistory.Age = int64(date.MonthsCountSince(stats.JoinedAt))
 		payoutHistory.Disposed = paystub.Disposed
 		payoutHistory.Earned = earned
@@ -373,11 +372,6 @@ func parsePeriodRange(periodStart, periodEnd string) (periods []string, err erro
 	}
 
 	return periods, nil
-}
-
-// UsageAtRestTbM converts paystub's usage_at_rest from tbh to tbm.
-func (paystub *PayStub) UsageAtRestTbM() {
-	paystub.UsageAtRest /= 720
 }
 
 func (service *Service) getHeldRate(joinedAt time.Time, period string) (heldRate int64, err error) {
