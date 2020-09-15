@@ -74,7 +74,7 @@ export default class VSearch extends Vue {
         this.inputWidth = '56px';
     }
 
-    private async processSearchQuery() {
+    public async processSearchQuery() {
         await this.search(this.searchQuery);
     }
 }

@@ -25,7 +25,7 @@ notificationModule.actions[NOTIFICATION_ACTIONS.DELETE] = deleteSpy;
 
 const store = new Vuex.Store(notificationModule);
 
-describe('Notification.vue', () => {
+describe('NotificationItem', () => {
 
     it('renders correctly', () => {
         const wrapper = shallowMount(NotificationItem);
@@ -33,7 +33,7 @@ describe('Notification.vue', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('renders correctly with props', () => {
+    it('renders correctly with success props', () => {
         const testMessage = 'testMessage';
 
         const wrapper = mount(NotificationItem, {
@@ -48,36 +48,57 @@ describe('Notification.vue', () => {
 
         expect(wrapper).toMatchSnapshot();
         expect(wrapper.find('.notification-wrap__text-area__message').text()).toMatch(testMessage);
+    });
 
-        wrapper.setProps({
-            notification: new DelayedNotification(
-                jest.fn(),
-                NOTIFICATION_TYPES.ERROR,
-                testMessage,
-            ),
+    it('renders correctly with error props', () => {
+        const testMessage = 'testMessage';
+
+        const wrapper = mount(NotificationItem, {
+            propsData: {
+                notification: new DelayedNotification(
+                    jest.fn(),
+                    NOTIFICATION_TYPES.ERROR,
+                    testMessage,
+                ),
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
+        expect(wrapper.find('.notification-wrap__text-area__message').text()).toMatch(testMessage);
+    });
 
-        wrapper.setProps({
-            notification: new DelayedNotification(
-                jest.fn(),
-                NOTIFICATION_TYPES.NOTIFICATION,
-                testMessage,
-            ),
+    it('renders correctly with notification props', () => {
+        const testMessage = 'testMessage';
+
+        const wrapper = mount(NotificationItem, {
+            propsData: {
+                notification: new DelayedNotification(
+                    jest.fn(),
+                    NOTIFICATION_TYPES.NOTIFICATION,
+                    testMessage,
+                ),
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
+        expect(wrapper.find('.notification-wrap__text-area__message').text()).toMatch(testMessage);
+    });
 
-        wrapper.setProps({
-            notification: new DelayedNotification(
-                jest.fn(),
-                NOTIFICATION_TYPES.WARNING,
-                testMessage,
-            ),
+    it('renders correctly with warning props', () => {
+        const testMessage = 'testMessage';
+
+        const wrapper = mount(NotificationItem, {
+            propsData: {
+                notification: new DelayedNotification(
+                    jest.fn(),
+                    NOTIFICATION_TYPES.WARNING,
+                    testMessage,
+                ),
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
+        expect(wrapper.find('.notification-wrap__text-area__message').text()).toMatch(testMessage);
     });
 
     it('trigger pause correctly', () => {

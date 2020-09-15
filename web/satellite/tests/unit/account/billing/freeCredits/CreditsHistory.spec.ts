@@ -55,10 +55,9 @@ describe('CreditsHistory', (): void => {
             localVue,
             store,
             router,
-            methods: {
-                onBackToBillingClick: clickSpy,
-            },
         });
+
+        wrapper.vm.onBackToBillingClick = clickSpy;
 
         await wrapper.find('.credit-history__back-area').trigger('click');
 

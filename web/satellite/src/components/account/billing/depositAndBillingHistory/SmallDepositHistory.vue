@@ -5,7 +5,7 @@
     <div class="deposit-area" v-if="depositHistoryItems.length > 0">
         <div class="deposit-area__header">
             <h1 class="deposit-area__header__title">Short Balance History</h1>
-            <div class="button" @click="onViewAllClick">View All</div>
+            <div class="deposit-area__header__button" @click.stop="onViewAllClick">View All</div>
         </div>
         <SortingHeader/>
         <PaymentsItem
@@ -75,7 +75,7 @@ export default class SmallDepositHistory extends Vue {
                 line-height: 42px;
             }
 
-            .button {
+            &__button {
                 display: flex;
                 width: 120px;
                 height: 48px;

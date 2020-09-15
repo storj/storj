@@ -3,7 +3,7 @@
 
 <template>
     <div class="history-area">
-        <div class="history-area__back-area" @click="onBackToBillingClick">
+        <div class="history-area__back-area" @click.stop="onBackToBillingClick">
             <BackImage/>
             <p class="history-area__back-area__title">Back to Billing</p>
         </div>
