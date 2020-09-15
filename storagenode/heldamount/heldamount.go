@@ -80,3 +80,16 @@ type Payment struct {
 	Receipt     string       `json:"receipt"`
 	Notes       string       `json:"notes"`
 }
+
+// GetEarnedWithSurge returns paystub's total earned and surge.
+func (paystub *PayStub) GetEarnedWithSurge() (earned int64, surge int64) {
+	earned = paystub.CompGetAudit + paystub.CompGet + paystub.CompGetRepair + paystub.CompAtRest
+	surge = earned * paystub.SurgePercent / 100
+
+	return earned, surge
+}
+
+// UsageAtRestTbM converts paystub's usage_at_rest from tbh to tbm.
+func (paystub *PayStub) UsageAtRestTbM() {
+	paystub.UsageAtRest /= 720
+}

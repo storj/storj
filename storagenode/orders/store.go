@@ -159,9 +159,11 @@ func (store *FileStore) enqueueFinishedLocked(satelliteID storj.NodeID, createdA
 	}
 }
 
-// hasActiveEnqueueLocked returns true if there are active orders enqueued for the requested
-// window.
-func (store *FileStore) hasActiveEnqueueLocked(satelliteID storj.NodeID, createdAt time.Time) bool {
+// hasActiveEnqueue returns true if there are active orders enqueued for the requested window.
+func (store *FileStore) hasActiveEnqueue(satelliteID storj.NodeID, createdAt time.Time) bool {
+	store.activeMu.Lock()
+	defer store.activeMu.Unlock()
+
 	return store.active[activeWindow{
 		satelliteID: satelliteID,
 		timestamp:   date.TruncateToHourInNano(createdAt),
@@ -189,10 +191,9 @@ type UnsentInfo struct {
 // There is a separate window for each created at hour, so if a satellite has 2 windows, `ListUnsentBySatellite`
 // needs to be called twice, with calls to `Archive` in between each call, to see all unsent orders.
 func (store *FileStore) ListUnsentBySatellite(now time.Time) (infoMap map[storj.NodeID]UnsentInfo, err error) {
-	store.unsentMu.Lock()
-	defer store.unsentMu.Unlock()
-	store.activeMu.Lock()
-	defer store.activeMu.Unlock()
+	// shouldn't be necessary, but acquire archiveMu to ensure we do not attempt to archive files during list
+	store.archiveMu.Lock()
+	defer store.archiveMu.Unlock()
 
 	var errList error
 	infoMap = make(map[storj.NodeID]UnsentInfo)
@@ -217,12 +218,12 @@ func (store *FileStore) ListUnsentBySatellite(now time.Time) (infoMap map[storj.
 
 		// if orders can still be added to file, ignore it. We add an hour because that's
 		// the newest order that could be added to that window.
-		if now.Sub(createdAtHour.Add(time.Hour)) < store.orderLimitGracePeriod {
+		if now.Sub(createdAtHour.Add(time.Hour)) <= store.orderLimitGracePeriod {
 			return nil
 		}
 
 		// if there are still active orders for the time, ignore it.
-		if store.hasActiveEnqueueLocked(satelliteID, createdAtHour) {
+		if store.hasActiveEnqueue(satelliteID, createdAtHour) {
 			return nil
 		}
 

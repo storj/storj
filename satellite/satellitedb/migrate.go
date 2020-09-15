@@ -930,6 +930,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN online_score double precision NOT NULL DEFAULT 1;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "add column and index updated_at to injuredsegments",
+				Version:     124,
+				Action: migrate.SQL{
+					`ALTER TABLE injuredsegments ADD COLUMN updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp;`,
+					`CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );`,
+				},
+			},
 		},
 	}
 }
