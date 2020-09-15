@@ -3,11 +3,10 @@
 
 import { StoreModule } from '@/store';
 import {
-    CreateProjectFields,
     Project,
+    ProjectFields,
     ProjectLimits,
     ProjectsApi,
-    UpdateProjectFields,
 } from '@/types/projects';
 
 export const PROJECTS_ACTIONS = {
@@ -101,10 +100,10 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 state.selectedProject = selected;
             },
-            [UPDATE_PROJECT_NAME](state: ProjectsState, fieldsToUpdate: UpdateProjectFields): void {
+            [UPDATE_PROJECT_NAME](state: ProjectsState, fieldsToUpdate: ProjectFields): void {
                 state.selectedProject.name = fieldsToUpdate.name;
             },
-            [UPDATE_PROJECT_DESCRIPTION](state: ProjectsState, fieldsToUpdate: UpdateProjectFields): void {
+            [UPDATE_PROJECT_DESCRIPTION](state: ProjectsState, fieldsToUpdate: ProjectFields): void {
                 state.selectedProject.description = fieldsToUpdate.description;
             },
             [REMOVE](state: ProjectsState, projectID: string): void {
@@ -131,8 +130,8 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 return projects;
             },
-            [CREATE]: async function ({commit}: any, createProjectModel: CreateProjectFields): Promise<Project> {
-                const project = await api.create(createProjectModel);
+            [CREATE]: async function ({commit}: any, createProjectFields: ProjectFields): Promise<Project> {
+                const project = await api.create(createProjectFields);
 
                 commit(ADD, project);
 
@@ -141,12 +140,12 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             [SELECT]: function ({commit}: any, projectID: string): void {
                 commit(SELECT_PROJECT, projectID);
             },
-            [UPDATE_NAME]: async function ({commit, state}: any, fieldsToUpdate: UpdateProjectFields): Promise<void> {
+            [UPDATE_NAME]: async function ({commit, state}: any, fieldsToUpdate: ProjectFields): Promise<void> {
                 await api.update(state.selectedProject.id, fieldsToUpdate.name, state.selectedProject.description);
 
                 commit(UPDATE_PROJECT_NAME, fieldsToUpdate);
             },
-            [UPDATE_DESCRIPTION]: async function ({commit, state}: any, fieldsToUpdate: UpdateProjectFields): Promise<void> {
+            [UPDATE_DESCRIPTION]: async function ({commit, state}: any, fieldsToUpdate: ProjectFields): Promise<void> {
                 await api.update(state.selectedProject.id, state.selectedProject.name, fieldsToUpdate.description);
 
                 commit(UPDATE_PROJECT_DESCRIPTION, fieldsToUpdate);

@@ -11,7 +11,7 @@ export interface ProjectsApi {
      * @param createProjectFields - contains project information
      * @throws Error
      */
-    create(createProjectFields: CreateProjectFields): Promise<Project>;
+    create(createProjectFields: ProjectFields): Promise<Project>;
     /**
      * Fetch projects.
      *
@@ -47,6 +47,16 @@ export interface ProjectsApi {
 }
 
 /**
+ * MAX_NAME_LENGTH defines maximum amount of symbols for project name.
+ */
+export const MAX_NAME_LENGTH = 20;
+
+/**
+ * MAX_DESCRIPTION_LENGTH defines maximum amount of symbols for project description.
+ */
+export const MAX_DESCRIPTION_LENGTH = 100;
+
+/**
  * Project is a type, used for creating new project in backend.
  */
 export class Project {
@@ -61,21 +71,9 @@ export class Project {
 }
 
 /**
- * UpdateProjectFields is a type, used for updating project name or description.
+ * ProjectFields is a type, used for creating and updating project.
  */
-export class UpdateProjectFields {
-    public constructor(
-        public name: string,
-        public description: string,
-    ) {}
-}
-
-/**
- * CreateProjectFields is a type, used for creating project.
- */
-export class CreateProjectFields {
-    private readonly MAX_NAME_LENGTH = 20;
-
+export class ProjectFields {
     public constructor(
         public name: string = '',
         public description: string = '',
@@ -105,7 +103,7 @@ export class CreateProjectFields {
      * nameHasLessThenTwentySymbols checks if project name has less then 20 symbols.
      */
     private nameHasLessThenTwentySymbols(): void {
-        if (this.name.length > this.MAX_NAME_LENGTH) throw new Error('Name should be less than 21 character!');
+        if (this.name.length > MAX_NAME_LENGTH) throw new Error('Name should be less than 21 character!');
     }
 }
 

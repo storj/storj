@@ -46,7 +46,7 @@
                             width='205px'
                             height='48px'
                             :on-press="onClose"
-                            is-white="true"
+                            is-transparent="true"
                         />
                         <VButton
                             label='Add Team Members'

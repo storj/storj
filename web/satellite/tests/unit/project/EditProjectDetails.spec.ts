@@ -3,7 +3,7 @@
 
 import Vuex from 'vuex';
 
-import ProjectDetails from '@/components/project/ProjectDetails.vue';
+import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
@@ -24,12 +24,12 @@ const projectsModule = makeProjectsModule(projectsApi);
 const store = new Vuex.Store({ modules: { projectsModule }});
 const project = new Project('id', 'test', 'test', 'test', 'ownedId', false);
 
-describe('ProjectDetails.vue', () => {
+describe('EditProjectDetails.vue', () => {
     it('renders correctly', (): void => {
         store.commit(PROJECTS_MUTATIONS.ADD, project);
         store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
 
-        const wrapper = mount(ProjectDetails, {
+        const wrapper = mount(EditProjectDetails, {
             store,
             localVue,
         });
@@ -37,20 +37,41 @@ describe('ProjectDetails.vue', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('editing works correctly', async (): Promise<void> => {
-        const wrapper = mount(ProjectDetails, {
+    it('editing name works correctly', async (): Promise<void> => {
+        const wrapper = mount(EditProjectDetails, {
             store,
             localVue,
         });
 
-        await wrapper.vm.toggleEditing();
+        await wrapper.vm.toggleNameEditing();
 
         expect(wrapper).toMatchSnapshot();
 
-        wrapper.vm.$data.value = 'new description';
-        await wrapper.vm.onSaveButtonClick();
+        const newName = 'new name';
+
+        wrapper.vm.$data.nameValue = newName;
+        await wrapper.vm.onSaveNameButtonClick();
 
         expect(wrapper).toMatchSnapshot();
-        await expect(wrapper.vm.storedDescription).toMatch('new description');
+        await expect(store.getters.selectedProject.name).toMatch(newName);
+    });
+
+    it('editing description works correctly', async (): Promise<void> => {
+        const wrapper = mount(EditProjectDetails, {
+            store,
+            localVue,
+        });
+
+        await wrapper.vm.toggleDescriptionEditing();
+
+        expect(wrapper).toMatchSnapshot();
+
+        const newDescription = 'new description';
+
+        wrapper.vm.$data.descriptionValue = newDescription;
+        await wrapper.vm.onSaveDescriptionButtonClick();
+
+        expect(wrapper).toMatchSnapshot();
+        await expect(store.getters.selectedProject.description).toMatch(newDescription);
     });
 });

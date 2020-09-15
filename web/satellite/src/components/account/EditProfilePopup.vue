@@ -36,7 +36,7 @@
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
-                        is-white="true"
+                        is-transparent="true"
                     />
                     <VButton
                         label="Update"
