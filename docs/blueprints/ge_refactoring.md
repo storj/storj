@@ -31,7 +31,7 @@ type GracefulExit interface {
 	DeleteAllPieces(ctx context.Context, satelliteID storj.NodeID) error
 	Fail(ctx context.Context, satelliteID storj.NodeID, reason pb.ExitFailed_Reason, exitFailedBytes []byte) error
 	Complete(ctx context.Context, satelliteID storj.NodeID, exitFailedBytes []byte, wait func()) error
-	CancelGracefulExit(ctx context.Context, satelliteID storj.NodeID) error
+	Cancel(ctx context.Context, satelliteID storj.NodeID) error
 }
 ```
 its implementation could have all db related dependencies 
@@ -65,3 +65,5 @@ type Worker struct {
 
 the very initial refactoring you can find in this pull request
 https://review.dev.storj.io/c/storj/storj/+/2499
+
+In this pull request `eecclient` is a part of GEService, but it should not be part of it.
