@@ -19,7 +19,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/storagenode/estimatedpayout"
+	"storj.io/storj/storagenode/payout/estimatedpayout"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"

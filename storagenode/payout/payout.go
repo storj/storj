@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package heldamount
+package payout
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// DB works with heldamount database
+// DB works with payout database
 //
 // architecture: Database
 type DB interface {
@@ -23,12 +23,12 @@ type DB interface {
 	// AllPayStubs retrieves paystubs from all satellites in specific period from DB.
 	AllPayStubs(ctx context.Context, period string) ([]PayStub, error)
 	// SatellitesHeldbackHistory retrieves heldback history for specific satellite from DB.
-	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]AmountPeriod, error)
+	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]HoldForPeriod, error)
 	// SatellitesDisposedHistory returns all disposed amount for specific satellite from DB.
 	SatellitesDisposedHistory(ctx context.Context, satelliteID storj.NodeID) (int64, error)
-	// SatellitePeriods retrieves all periods for concrete satellite in which we have some heldamount data.
+	// SatellitePeriods retrieves all periods for concrete satellite in which we have some payout data.
 	SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) ([]string, error)
-	// AllPeriods retrieves all periods in which we have some heldamount data.
+	// AllPeriods retrieves all periods in which we have some payout data.
 	AllPeriods(ctx context.Context) ([]string, error)
 	// StorePayment inserts or updates payment into the DB
 	StorePayment(ctx context.Context, payment Payment) error
@@ -36,10 +36,10 @@ type DB interface {
 	GetReceipt(ctx context.Context, satelliteID storj.NodeID, period string) (string, error)
 }
 
-// ErrNoPayStubForPeriod represents errors from the heldamount database.
+// ErrNoPayStubForPeriod represents errors from the payout database.
 var ErrNoPayStubForPeriod = errs.Class("no payStub for period error")
 
-// PayStub is node heldamount data for satellite by specific period.
+// PayStub is node payout data for satellite by specific period.
 type PayStub struct {
 	SatelliteID    storj.NodeID `json:"satelliteId"`
 	Period         string       `json:"period"`
@@ -64,10 +64,10 @@ type PayStub struct {
 	Paid           int64        `json:"paid"`
 }
 
-// AmountPeriod is node's held amount for period.
-type AmountPeriod struct {
+// HoldForPeriod is node's held amount for period.
+type HoldForPeriod struct {
 	Period string `json:"period"`
-	Held   int64  `json:"held"`
+	Amount int64  `json:"amount"`
 }
 
 // Payment is node payment data for specific period.
@@ -79,6 +79,43 @@ type Payment struct {
 	Amount      int64        `json:"amount"`
 	Receipt     string       `json:"receipt"`
 	Notes       string       `json:"notes"`
+}
+
+// SatelliteHeldHistory amount of held for specific satellite for all time since join.
+type SatelliteHeldHistory struct {
+	SatelliteID         storj.NodeID `json:"satelliteID"`
+	SatelliteName       string       `json:"satelliteName"`
+	HoldForFirstPeriod  int64        `json:"holdForFirstPeriod"`
+	HoldForSecondPeriod int64        `json:"holdForSecondPeriod"`
+	HoldForThirdPeriod  int64        `json:"holdForThirdPeriod"`
+	TotalHeld           int64        `json:"totalHeld"`
+	TotalDisposed       int64        `json:"totalDisposed"`
+	JoinedAt            time.Time    `json:"joinedAt"`
+}
+
+// SatellitePayoutForPeriod contains payout information for specific period for specific satellite.
+type SatellitePayoutForPeriod struct {
+	SatelliteID    string `json:"satelliteID"`
+	SatelliteURL   string `json:"satelliteURL"`
+	Age            int64  `json:"age"`
+	Earned         int64  `json:"earned"`
+	Surge          int64  `json:"surge"`
+	SurgePercent   int64  `json:"surgePercent"`
+	Held           int64  `json:"held"`
+	HeldPercent    int64  `json:"heldPercent"`
+	AfterHeld      int64  `json:"afterHeld"`
+	Disposed       int64  `json:"disposed"`
+	Paid           int64  `json:"paid"`
+	Receipt        string `json:"receipt"`
+	IsExitComplete bool   `json:"isExitComplete"`
+}
+
+// Period is a string that represents paystub period type in format yyyy-mm.
+type Period string
+
+// Time returns period in time.Time type from string.
+func (p Period) Time() (time.Time, error) {
+	return time.Parse("2006-01", string(p))
 }
 
 // GetEarnedWithSurge returns paystub's total earned and surge.

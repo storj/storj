@@ -26,9 +26,9 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/payout"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -104,7 +104,7 @@ type DB struct {
 	usedSerialsDB     *usedSerialsDB
 	satellitesDB      *satellitesDB
 	notificationsDB   *notificationDB
-	heldamountDB      *heldamountDB
+	payoutDB          *payoutDB
 	pricingDB         *pricingDB
 
 	SQLDBs map[string]DBContainer
@@ -130,7 +130,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	usedSerialsDB := &usedSerialsDB{}
 	satellitesDB := &satellitesDB{}
 	notificationsDB := &notificationDB{}
-	heldamountDB := &heldamountDB{}
+	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
 
 	db := &DB{
@@ -152,7 +152,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		usedSerialsDB:     usedSerialsDB,
 		satellitesDB:      satellitesDB,
 		notificationsDB:   notificationsDB,
-		heldamountDB:      heldamountDB,
+		payoutDB:          payoutDB,
 		pricingDB:         pricingDB,
 
 		SQLDBs: map[string]DBContainer{
@@ -167,7 +167,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 			UsedSerialsDBName:     usedSerialsDB,
 			SatellitesDBName:      satellitesDB,
 			NotificationsDBName:   notificationsDB,
-			HeldAmountDBName:      heldamountDB,
+			HeldAmountDBName:      payoutDB,
 			PricingDBName:         pricingDB,
 		},
 	}
@@ -200,7 +200,7 @@ func Open(log *zap.Logger, config Config) (*DB, error) {
 	usedSerialsDB := &usedSerialsDB{}
 	satellitesDB := &satellitesDB{}
 	notificationsDB := &notificationDB{}
-	heldamountDB := &heldamountDB{}
+	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
 
 	db := &DB{
@@ -222,7 +222,7 @@ func Open(log *zap.Logger, config Config) (*DB, error) {
 		usedSerialsDB:     usedSerialsDB,
 		satellitesDB:      satellitesDB,
 		notificationsDB:   notificationsDB,
-		heldamountDB:      heldamountDB,
+		payoutDB:          payoutDB,
 		pricingDB:         pricingDB,
 
 		SQLDBs: map[string]DBContainer{
@@ -237,7 +237,7 @@ func Open(log *zap.Logger, config Config) (*DB, error) {
 			UsedSerialsDBName:     usedSerialsDB,
 			SatellitesDBName:      satellitesDB,
 			NotificationsDBName:   notificationsDB,
-			HeldAmountDBName:      heldamountDB,
+			HeldAmountDBName:      payoutDB,
 			PricingDBName:         pricingDB,
 		},
 	}
@@ -565,9 +565,9 @@ func (db *DB) Notifications() notifications.DB {
 	return db.notificationsDB
 }
 
-// HeldAmount returns instance of the HeldAmount database.
-func (db *DB) HeldAmount() heldamount.DB {
-	return db.heldamountDB
+// Payout returns instance of the SnoPayout database.
+func (db *DB) Payout() payout.DB {
+	return db.payoutDB
 }
 
 // Pricing returns instance of the Pricing database.
@@ -1193,7 +1193,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.heldamountDB,
+				DB:          db.payoutDB,
 				Description: "Create paystubs table and payments table",
 				Version:     32,
 				Action: migrate.SQL{
@@ -1234,7 +1234,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.heldamountDB,
+				DB:          db.payoutDB,
 				Description: "Remove time zone from created_at in paystubs and payments",
 				Version:     33,
 				Action: migrate.SQL{
@@ -1308,7 +1308,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.heldamountDB,
+				DB:          db.payoutDB,
 				Description: "Drop payments table as unused",
 				Version:     37,
 				Action: migrate.SQL{
@@ -1579,7 +1579,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.heldamountDB,
+				DB:          db.payoutDB,
 				Description: "Add table payments",
 				Version:     43,
 				Action: migrate.SQL{

@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
@@ -48,6 +47,7 @@ import (
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
+	"storj.io/storj/satellite/snopayout"
 )
 
 var mon = monkit.Package()
@@ -100,8 +100,8 @@ type DB interface {
 	StripeCoinPayments() stripecoinpayments.DB
 	// DowntimeTracking returns database for downtime tracking
 	DowntimeTracking() downtime.DB
-	// Heldamount returns database for heldamount.
-	HeldAmount() heldamount.DB
+	// SnoPayout returns database for payout.
+	SnoPayout() snopayout.DB
 	// Compoensation tracks storage node compensation
 	Compensation() compensation.DB
 	// Revocation tracks revoked macaroons

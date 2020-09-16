@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package heldamount_test
+package payout_test
 
 import (
 	"fmt"
@@ -14,16 +14,16 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/heldamount"
+	"storj.io/storj/storagenode/payout"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestHeldAmountDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		heldAmount := db.HeldAmount()
+		payouts := db.Payout()
 		satelliteID := storj.NodeID{}
 		period := "2020-01"
-		paystub := heldamount.PayStub{
+		paystub := payout.PayStub{
 			SatelliteID:    satelliteID,
 			Period:         "2020-01",
 			Created:        time.Now().UTC(),
@@ -50,23 +50,23 @@ func TestHeldAmountDB(t *testing.T) {
 		paystub2.Created = paystub.Created.Add(time.Hour * 24 * 30)
 
 		t.Run("Test StorePayStub", func(t *testing.T) {
-			err := heldAmount.StorePayStub(ctx, paystub)
+			err := payouts.StorePayStub(ctx, paystub)
 			assert.NoError(t, err)
 		})
 
-		payment := heldamount.Payment{
+		payment := payout.Payment{
 			SatelliteID: satelliteID,
 			Period:      period,
 			Receipt:     "test",
 		}
 
 		t.Run("Test GetPayStub", func(t *testing.T) {
-			err := heldAmount.StorePayment(ctx, payment)
+			err := payouts.StorePayment(ctx, payment)
 			assert.NoError(t, err)
 
-			stub, err := heldAmount.GetPayStub(ctx, satelliteID, period)
+			stub, err := payouts.GetPayStub(ctx, satelliteID, period)
 			assert.NoError(t, err)
-			receipt, err := heldAmount.GetReceipt(ctx, satelliteID, period)
+			receipt, err := payouts.GetReceipt(ctx, satelliteID, period)
 			assert.NoError(t, err)
 			assert.Equal(t, stub.Period, paystub.Period)
 			assert.Equal(t, stub.Created, paystub.Created)
@@ -91,24 +91,24 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.Equal(t, stub.UsagePutRepair, paystub.UsagePutRepair)
 			assert.Equal(t, receipt, payment.Receipt)
 
-			stub, err = heldAmount.GetPayStub(ctx, satelliteID, "")
+			stub, err = payouts.GetPayStub(ctx, satelliteID, "")
 			assert.Error(t, err)
-			assert.Equal(t, true, heldamount.ErrNoPayStubForPeriod.Has(err))
+			assert.Equal(t, true, payout.ErrNoPayStubForPeriod.Has(err))
 			assert.Nil(t, stub)
 			assert.NotNil(t, receipt)
-			receipt, err = heldAmount.GetReceipt(ctx, satelliteID, "")
+			receipt, err = payouts.GetReceipt(ctx, satelliteID, "")
 			assert.Error(t, err)
-			assert.Equal(t, true, heldamount.ErrNoPayStubForPeriod.Has(err))
+			assert.Equal(t, true, payout.ErrNoPayStubForPeriod.Has(err))
 
-			stub, err = heldAmount.GetPayStub(ctx, storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, period)
+			stub, err = payouts.GetPayStub(ctx, storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, period)
 			assert.Error(t, err)
-			assert.Equal(t, true, heldamount.ErrNoPayStubForPeriod.Has(err))
+			assert.Equal(t, true, payout.ErrNoPayStubForPeriod.Has(err))
 			assert.Nil(t, stub)
 			assert.NotNil(t, receipt)
 		})
 
 		t.Run("Test AllPayStubs", func(t *testing.T) {
-			stubs, err := heldAmount.AllPayStubs(ctx, period)
+			stubs, err := payouts.AllPayStubs(ctx, period)
 			assert.NoError(t, err)
 			assert.NotNil(t, stubs)
 			assert.Equal(t, 1, len(stubs))
@@ -134,12 +134,12 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.Equal(t, stubs[0].UsagePut, paystub.UsagePut)
 			assert.Equal(t, stubs[0].UsagePutRepair, paystub.UsagePutRepair)
 
-			stubs, err = heldAmount.AllPayStubs(ctx, "")
+			stubs, err = payouts.AllPayStubs(ctx, "")
 			assert.Equal(t, len(stubs), 0)
 			assert.NoError(t, err)
 		})
 
-		payment = heldamount.Payment{
+		payment = payout.Payment{
 			ID:          1,
 			Created:     time.Now().UTC(),
 			SatelliteID: satelliteID,
@@ -150,28 +150,28 @@ func TestHeldAmountDB(t *testing.T) {
 		}
 
 		t.Run("Test StorePayment", func(t *testing.T) {
-			err := heldAmount.StorePayment(ctx, payment)
+			err := payouts.StorePayment(ctx, payment)
 			assert.NoError(t, err)
 		})
 
 		t.Run("Test SatellitesHeldbackHistory", func(t *testing.T) {
-			heldback, err := heldAmount.SatellitesHeldbackHistory(ctx, satelliteID)
+			heldback, err := payouts.SatellitesHeldbackHistory(ctx, satelliteID)
 			assert.NoError(t, err)
-			assert.Equal(t, heldback[0].Held, paystub.Held)
+			assert.Equal(t, heldback[0].Amount, paystub.Held)
 			assert.Equal(t, heldback[0].Period, paystub.Period)
 		})
 
 		t.Run("Test SatellitePeriods", func(t *testing.T) {
-			periods, err := heldAmount.SatellitePeriods(ctx, paystub.SatelliteID)
+			periods, err := payouts.SatellitePeriods(ctx, paystub.SatelliteID)
 			assert.NoError(t, err)
 			assert.NotNil(t, periods)
 			assert.Equal(t, 1, len(periods))
 			assert.Equal(t, paystub.Period, periods[0])
 
-			err = heldAmount.StorePayStub(ctx, paystub2)
+			err = payouts.StorePayStub(ctx, paystub2)
 			require.NoError(t, err)
 
-			periods, err = heldAmount.SatellitePeriods(ctx, paystub.SatelliteID)
+			periods, err = payouts.SatellitePeriods(ctx, paystub.SatelliteID)
 			assert.NoError(t, err)
 			assert.NotNil(t, periods)
 			assert.Equal(t, 2, len(periods))
@@ -180,7 +180,7 @@ func TestHeldAmountDB(t *testing.T) {
 		})
 
 		t.Run("Test AllPeriods", func(t *testing.T) {
-			periods, err := heldAmount.AllPeriods(ctx)
+			periods, err := payouts.AllPeriods(ctx)
 			assert.NoError(t, err)
 			assert.NotNil(t, periods)
 			assert.Equal(t, 2, len(periods))
@@ -192,10 +192,10 @@ func TestHeldAmountDB(t *testing.T) {
 			paystub3.Period = "2020-03"
 			paystub3.Created = paystub2.Created.Add(time.Hour * 24 * 30)
 
-			err = heldAmount.StorePayStub(ctx, paystub3)
+			err = payouts.StorePayStub(ctx, paystub3)
 			require.NoError(t, err)
 
-			periods, err = heldAmount.AllPeriods(ctx)
+			periods, err = payouts.AllPeriods(ctx)
 			assert.NoError(t, err)
 			assert.NotNil(t, periods)
 			assert.Equal(t, 3, len(periods))
@@ -208,12 +208,12 @@ func TestHeldAmountDB(t *testing.T) {
 
 func TestSatellitePayStubPeriodCached(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		heldAmountDB := db.HeldAmount()
+		heldAmountDB := db.Payout()
 		reputationDB := db.Reputation()
 		satellitesDB := db.Satellites()
-		service := heldamount.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
+		service := payout.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
 
-		payStub := heldamount.PayStub{
+		payStub := payout.PayStub{
 			SatelliteID:    storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 			Created:        time.Now().UTC(),
 			Codes:          "code",
@@ -258,12 +258,12 @@ func TestSatellitePayStubPeriodCached(t *testing.T) {
 
 func TestAllPayStubPeriodCached(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		heldAmountDB := db.HeldAmount()
+		heldAmountDB := db.Payout()
 		reputationDB := db.Reputation()
 		satellitesDB := db.Satellites()
-		service := heldamount.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
+		service := payout.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
 
-		payStub := heldamount.PayStub{
+		payStub := payout.PayStub{
 			SatelliteID:    storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 			Created:        time.Now().UTC(),
 			Codes:          "code",

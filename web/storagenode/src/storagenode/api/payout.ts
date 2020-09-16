@@ -154,9 +154,9 @@ export class PayoutHttpApi implements PayoutApi {
             return new SatelliteHeldHistory(
                 historyItem.satelliteID,
                 historyItem.satelliteName,
-                historyItem.firstPeriod,
-                historyItem.secondPeriod,
-                historyItem.thirdPeriod,
+                historyItem.holdForFirstPeriod,
+                historyItem.holdForSecondPeriod,
+                historyItem.holdForThirdPeriod,
                 historyItem.totalHeld,
                 historyItem.totalDisposed,
                 new Date(historyItem.joinedAt),

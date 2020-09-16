@@ -14,7 +14,6 @@
                 Request Limit Increase ->
             </a>
         </div>
-        <ProjectDetails/>
         <ProjectUsage/>
         <BucketArea/>
     </div>
@@ -24,7 +23,6 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import BucketArea from '@/components/project/buckets/BucketArea.vue';
-import ProjectDetails from '@/components/project/ProjectDetails.vue';
 import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 
 import { RouteConfig } from '@/router';
@@ -35,7 +33,6 @@ import { MetaUtils } from '@/utils/meta';
 @Component({
     components: {
         BucketArea,
-        ProjectDetails,
         ProjectUsage,
     },
 })
