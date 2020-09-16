@@ -12,12 +12,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/heldamount"
+	"storj.io/storj/satellite"
+	"storj.io/storj/storagenode/payout/estimatedpayout"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
@@ -48,6 +50,14 @@ func TestStorageNodeApi(t *testing.T) {
 		testplanet.Config{
 			SatelliteCount:   1,
 			StorageNodeCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Payments.NodeEgressBandwidthPrice = 2000
+					config.Payments.NodeAuditBandwidthPrice = 1000
+					config.Payments.NodeRepairBandwidthPrice = 1000
+					config.Payments.NodeDiskSpacePrice = 150
+				},
+			},
 		},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			satellite := planet.Satellites[0]
@@ -107,8 +117,7 @@ func TestStorageNodeApi(t *testing.T) {
 
 				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx)
 				require.NoError(t, err)
-
-				expected, err := json.Marshal(heldamount.EstimatedPayout{
+				expected, err := json.Marshal(estimatedpayout.EstimatedPayout{
 					CurrentMonth:  estimation.CurrentMonth,
 					PreviousMonth: estimation.PreviousMonth,
 				})

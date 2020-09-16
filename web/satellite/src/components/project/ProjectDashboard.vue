@@ -7,7 +7,7 @@
             <h1 class="dashboard-area__title-area__title">Project Dashboard</h1>
             <a
                 class="dashboard-area__title-area__link"
-                href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                :href="projectLimitsIncreaseRequestURL"
                 target="_blank"
                 rel="noopener noreferrer"
             >
@@ -60,12 +60,19 @@ export default class ProjectDashboard extends Vue {
             project_id: this.$store.getters.selectedProject.id,
         });
     }
+
+    /**
+     * Returns project limits increase request url from config.
+     */
+    public get projectLimitsIncreaseRequestURL(): string {
+        return MetaUtils.getMetaContent('project-limits-increase-request-url');
+    }
 }
 </script>
 
 <style scoped lang="scss">
     .dashboard-area {
-        padding: 40px 30px 70px 30px;
+        padding: 50px 30px 30px 30px;
         font-family: 'font_regular', sans-serif;
 
         &__title-area {

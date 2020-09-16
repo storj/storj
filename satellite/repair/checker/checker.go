@@ -161,7 +161,7 @@ func containsObjectLocation(a []metabase.ObjectLocation, x metabase.ObjectLocati
 	return false
 }
 
-func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string) (err error) {
+func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, pointer *pb.Pointer, key metabase.SegmentKey) (err error) {
 	// TODO figure out how to reduce duplicate code between here and checkerObs.RemoteSegment
 	defer mon.Task()(&ctx)(&err)
 	remote := pointer.GetRemote()
@@ -196,7 +196,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	// keep it in the irreparabledb queue either.
 	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
 		_, err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
-			Path:         []byte(path),
+			Path:         key,
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
 		}, int(numHealthy))
@@ -205,7 +205,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 		}
 
 		// delete always returns nil when something was deleted and also when element didn't exists
-		err = checker.irrdb.Delete(ctx, []byte(path))
+		err = checker.irrdb.Delete(ctx, key)
 		if err != nil {
 			checker.logger.Error("error deleting entry from irreparable db: ", zap.Error(err))
 		}
@@ -213,7 +213,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 
 		// make an entry into the irreparable table
 		segmentInfo := &pb.IrreparableSegment{
-			Path:               []byte(path),
+			Path:               key,
 			SegmentDetail:      pointer,
 			LostPieces:         int32(len(missingPieces)),
 			LastRepairAttempt:  time.Now().Unix(),
@@ -226,7 +226,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 			return errs.Combine(Error.New("error handling irreparable segment to queue"), err)
 		}
 	} else if numHealthy > repairThreshold || numHealthy >= redundancy.SuccessThreshold {
-		err = checker.irrdb.Delete(ctx, []byte(path))
+		err = checker.irrdb.Delete(ctx, key)
 		if err != nil {
 			return Error.New("error removing segment from irreparable queue: %v", err)
 		}
@@ -373,10 +373,10 @@ func (obs *checkerObserver) InlineSegment(ctx context.Context, location metabase
 func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	const limit = 1000
-	lastSeenSegmentPath := []byte{}
+	var lastSeenSegmentKey metabase.SegmentKey
 
 	for {
-		segments, err := checker.irrdb.GetLimited(ctx, limit, lastSeenSegmentPath)
+		segments, err := checker.irrdb.GetLimited(ctx, limit, lastSeenSegmentKey)
 		if err != nil {
 			return errs.Combine(Error.New("error reading segment from the queue"), err)
 		}
@@ -386,10 +386,10 @@ func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 			break
 		}
 
-		lastSeenSegmentPath = segments[len(segments)-1].Path
+		lastSeenSegmentKey = metabase.SegmentKey(segments[len(segments)-1].Path)
 
 		for _, segment := range segments {
-			err = checker.updateIrreparableSegmentStatus(ctx, segment.GetSegmentDetail(), string(segment.GetPath()))
+			err = checker.updateIrreparableSegmentStatus(ctx, segment.GetSegmentDetail(), metabase.SegmentKey(segment.GetPath()))
 			if err != nil {
 				checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
 			}

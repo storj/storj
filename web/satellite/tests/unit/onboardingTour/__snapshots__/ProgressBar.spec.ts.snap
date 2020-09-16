@@ -24,7 +24,8 @@ exports[`ProgressBar.vue renders correctly if paywall is disabled 1`] = `
             Create an API Key
         </span> <span class="progress-bar-container__titles-area__title">
             Upload Data
-        </span></div>
+        </span>
+  </div>
 </div>
 `;
 

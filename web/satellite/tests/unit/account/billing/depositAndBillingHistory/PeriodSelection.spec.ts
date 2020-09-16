@@ -74,12 +74,11 @@ describe('PeriodSelection', (): void => {
         const wrapper = mount(PeriodSelection, {
             localVue,
             store,
-            methods: {
-                onCurrentPeriodClick: currentClickSpy,
-                onPreviousPeriodClick: previousClickSpy,
-                redirect: historyClickSpy,
-            },
         });
+
+        wrapper.vm.onCurrentPeriodClick = currentClickSpy;
+        wrapper.vm.onPreviousPeriodClick = previousClickSpy;
+        wrapper.vm.redirect = historyClickSpy;
 
         await wrapper.find('.period-selection').trigger('click');
         await wrapper.findAll('.period-selection__dropdown__item').at(0).trigger('click');

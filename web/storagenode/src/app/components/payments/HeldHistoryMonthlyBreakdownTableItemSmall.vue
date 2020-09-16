@@ -6,7 +6,7 @@
         <div class="held-history-table-container--small__item__satellite-info">
             <div>
                 <p class="held-history-table-container--small__item__satellite-info__name">{{ heldHistoryItem.satelliteName }}</p>
-                <p class="held-history-table-container--small__item__satellite-info__months">{{ heldHistoryItem.age }} month</p>
+                <p class="held-history-table-container--small__item__satellite-info__months">{{ heldHistoryItem.monthsWithNode }} month</p>
             </div>
             <div class="held-history-table-container--small__item__satellite-info__button">
                 <div class="icon hide" @click="hide" v-if="isExpanded">
@@ -21,15 +21,18 @@
             <div class="held-history-table-container--small__item__held-info" v-if="isExpanded">
                 <div class="held-history-table-container--small__item__held-info__item">
                     <p class="held-history-table-container--small__item__held-info__item__label">Month 1-3</p>
-                    <p class="held-history-table-container--small__item__held-info__item__value">{{ heldHistoryItem.firstPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--small__item__held-info__item__value">{{
+                        heldHistoryItem.holdForFirstPeriod | centsToDollars }}</p>
                 </div>
                 <div class="held-history-table-container--small__item__held-info__item">
                     <p class="held-history-table-container--small__item__held-info__item__label">Month 4-6</p>
-                    <p class="held-history-table-container--small__item__held-info__item__value">{{ heldHistoryItem.secondPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--small__item__held-info__item__value">{{
+                        heldHistoryItem.holdForSecondPeriod | centsToDollars }}</p>
                 </div>
                 <div class="held-history-table-container--small__item__held-info__item">
                     <p class="held-history-table-container--small__item__held-info__item__label">Month 7-9</p>
-                    <p class="held-history-table-container--small__item__held-info__item__value">{{ heldHistoryItem.thirdPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--small__item__held-info__item__value">{{
+                        heldHistoryItem.holdForThirdPeriod | centsToDollars }}</p>
                 </div>
             </div>
         </transition>
@@ -41,11 +44,11 @@ import { Component, Prop } from 'vue-property-decorator';
 
 import BaseSmallHeldHistoryTable from '@/app/components/payments/BaseSmallHeldHistoryTable.vue';
 
-import { HeldHistoryMonthlyBreakdownItem } from '@/app/types/payout';
+import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 
 @Component
 export default class HeldHistoryMonthlyBreakdownTableSmall extends BaseSmallHeldHistoryTable {
-    @Prop({default: () => new HeldHistoryMonthlyBreakdownItem()})
-    public readonly heldHistoryItem: HeldHistoryMonthlyBreakdownItem;
+    @Prop({default: () => new SatelliteHeldHistory()})
+    public readonly heldHistoryItem: SatelliteHeldHistory;
 }
 </script>

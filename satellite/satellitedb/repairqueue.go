@@ -42,13 +42,13 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment, numHea
 			)
 			ON CONFLICT (path)
 			DO UPDATE
-			SET num_healthy_pieces=$3
+			SET num_healthy_pieces=$3, updated_at=current_timestamp
 			RETURNING (xmax != 0) AS alreadyInserted
 		`
 	case dbutil.Cockroach:
 		query = `
 			WITH updater AS (
-				UPDATE injuredsegments SET num_healthy_pieces = $3 WHERE path = $1
+				UPDATE injuredsegments SET num_healthy_pieces = $3, updated_at = current_timestamp WHERE path = $1
 				RETURNING *
 			)
 			INSERT INTO injuredsegments (path, data, num_healthy_pieces)

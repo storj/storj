@@ -3,7 +3,7 @@
 
 import Vuex from 'vuex';
 
-import ProjectDropdown from '@/components/project/selection/ProjectDropdown.vue';
+import ProjectDropdown from '@/components/header/projectsDropdown/ProjectDropdown.vue';
 
 import { appStateModule } from '@/store/modules/appState';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';

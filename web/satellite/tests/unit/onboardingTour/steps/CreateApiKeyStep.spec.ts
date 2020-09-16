@@ -58,19 +58,4 @@ describe('CreateApiKeyStep.vue', () => {
         expect(wrapper.findAll('.disabled').length).toBe(0);
         expect(wrapper).toMatchSnapshot();
     });
-
-    it('done click works correctly correctly', async (): Promise<void> => {
-        const spy = sinon.spy();
-        const wrapper = mount(CreateApiKeyStep, {
-            store,
-            localVue,
-            methods: {
-                onDoneClick: spy,
-            },
-        });
-
-        await wrapper.find('.done-button').trigger('click');
-
-        expect(spy.callCount).toBe(1);
-    });
 });

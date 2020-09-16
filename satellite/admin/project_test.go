@@ -365,6 +365,86 @@ func TestCheckUsageWithUsage(t *testing.T) {
 	})
 }
 
+func TestCheckUsageLastMonthUnappliedInvoice(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		apiKeys, err := planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
+			Page:   1,
+			Limit:  2,
+			Search: "",
+		})
+		require.NoError(t, err)
+		require.Len(t, apiKeys.APIKeys, 1)
+
+		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
+		require.NoError(t, err)
+
+		now := time.Date(2020, time.Month(9), 1, 0, 0, 0, 0, time.UTC)
+
+		oneMonthAhead := now.AddDate(0, 1, 0)
+		planet.Satellites[0].Admin.Admin.Server.SetNow(func() time.Time {
+			return oneMonthAhead
+		})
+
+		// use fixed intervals to avoid issues at the beginning of the month
+		tally := accounting.BucketStorageTally{
+			BucketName:         "test",
+			ProjectID:          projectID,
+			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 1, time.UTC),
+			ObjectCount:        1,
+			InlineSegmentCount: 1,
+			RemoteSegmentCount: 1,
+			InlineBytes:        10,
+			RemoteBytes:        640000,
+			MetadataSize:       2,
+		}
+		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
+		require.NoError(t, err)
+		tally = accounting.BucketStorageTally{
+			BucketName:         "test",
+			ProjectID:          projectID,
+			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 1, 0, 1, time.UTC),
+			ObjectCount:        1,
+			InlineSegmentCount: 1,
+			RemoteSegmentCount: 1,
+			InlineBytes:        10,
+			RemoteBytes:        640000,
+			MetadataSize:       2,
+		}
+		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
+		require.NoError(t, err)
+
+		planet.Satellites[0].API.Payments.Service.SetNow(func() time.Time {
+			return oneMonthAhead
+		})
+		err = planet.Satellites[0].API.Payments.Service.PrepareInvoiceProjectRecords(ctx, now)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://"+address.String()+"/api/project/%s/usage", projectID), nil)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		responseBody, err := ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.Equal(t, "{\"error\":\"unapplied project invoice record exist\",\"detail\":\"\"}", string(responseBody))
+		require.NoError(t, response.Body.Close())
+		require.Equal(t, http.StatusConflict, response.StatusCode)
+	})
+}
+
 func TestDeleteProjectWithUsageCurrentMonth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,

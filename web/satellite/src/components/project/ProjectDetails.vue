@@ -45,7 +45,7 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { UpdateProjectModel } from '@/types/projects';
+import { UpdateProjectFields } from '@/types/projects';
 
 @Component({
     components: {
@@ -100,8 +100,8 @@ export default class ProjectDetails extends Vue {
      */
     public async onSaveButtonClick(): Promise<void> {
         try {
-            const updatedProject = new UpdateProjectModel(this.$store.getters.selectedProject.id, this.value);
-            await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE, updatedProject);
+            const updatedProject = new UpdateProjectFields('', this.value);
+            await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_DESCRIPTION, updatedProject);
         } catch (error) {
             await this.$notify.error(`Unable to update project description. ${error.message}`);
 

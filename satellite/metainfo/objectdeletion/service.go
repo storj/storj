@@ -16,11 +16,6 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 )
 
-const (
-	lastSegmentIndex  = -1
-	firstSegmentIndex = 0
-)
-
 var (
 	mon = monkit.Package()
 	// Error is a general object deletion error.
@@ -86,7 +81,7 @@ func NewService(log *zap.Logger, pointerDB PointerDB, config Config) (*Service, 
 }
 
 // Delete ensures that all pointers belongs to an object no longer exists.
-func (service *Service) Delete(ctx context.Context, requests ...*ObjectIdentifier) (reports []Report, err error) {
+func (service *Service) Delete(ctx context.Context, requests ...*metabase.ObjectLocation) (reports []Report, err error) {
 	defer mon.Task()(&ctx, len(requests))(&err)
 
 	// When number of requests are more than the maximum limit, we let it overflow,
@@ -105,12 +100,12 @@ func (service *Service) Delete(ctx context.Context, requests ...*ObjectIdentifie
 		if batchSize > service.config.MaxObjectsPerRequest {
 			batchSize = service.config.MaxObjectsPerRequest
 		}
-		pointers, paths, err := service.DeletePointers(ctx, requests[:batchSize])
+		pointers, keys, err := service.DeletePointers(ctx, requests[:batchSize])
 		if err != nil {
 			return reports, Error.Wrap(err)
 		}
 
-		report := GenerateReport(ctx, service.log, requests[:batchSize], paths, pointers)
+		report := GenerateReport(ctx, service.log, requests[:batchSize], keys, pointers)
 		reports = append(reports, report)
 		requests = requests[batchSize:]
 	}
@@ -118,49 +113,41 @@ func (service *Service) Delete(ctx context.Context, requests ...*ObjectIdentifie
 	return reports, nil
 }
 
-// DeletePointers returns a list of pointers and their paths that are deleted.
+// DeletePointers returns a list of pointers and their keys that are deleted.
 // If a object is not found, we will consider it as a successful delete.
-func (service *Service) DeletePointers(ctx context.Context, requests []*ObjectIdentifier) (_ []*pb.Pointer, _ []metabase.SegmentKey, err error) {
+func (service *Service) DeletePointers(ctx context.Context, requests []*metabase.ObjectLocation) (_ []*pb.Pointer, _ []metabase.SegmentKey, err error) {
 	defer mon.Task()(&ctx, len(requests))(&err)
 
 	// get first and last segment to determine the object state
-	lastAndFirstSegmentsPath := []metabase.SegmentKey{}
+	lastAndFirstSegmentsKey := []metabase.SegmentKey{}
 	for _, req := range requests {
-		lastSegmentPath, err := req.SegmentPath(lastSegmentIndex)
-		if err != nil {
-			return nil, nil, Error.Wrap(err)
-		}
-		firstSegmentPath, err := req.SegmentPath(firstSegmentIndex)
-		if err != nil {
-			return nil, nil, Error.Wrap(err)
-		}
-		lastAndFirstSegmentsPath = append(lastAndFirstSegmentsPath,
-			lastSegmentPath,
-			firstSegmentPath,
+		lastAndFirstSegmentsKey = append(lastAndFirstSegmentsKey,
+			req.LastSegment().Encode(),
+			req.FirstSegment().Encode(),
 		)
 	}
 
 	// Get pointers from the database
-	pointers, err := service.pointers.GetItems(ctx, lastAndFirstSegmentsPath)
+	pointers, err := service.pointers.GetItems(ctx, lastAndFirstSegmentsKey)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
-	states, err := CreateObjectStates(ctx, requests, pointers, lastAndFirstSegmentsPath)
+	states, err := CreateObjectStates(ctx, requests, pointers, lastAndFirstSegmentsKey)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
-	pathsToDel, err := service.generateSegmentPathsForCompleteObjects(ctx, states)
+	keysToDel, err := service.generateSegmentKeysForCompleteObjects(ctx, states)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
-	zombiePaths, err := service.collectSegmentPathsForZombieObjects(ctx, states)
+	zombieKeys, err := service.collectSegmentKeysForZombieObjects(ctx, states)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
-	pathsToDel = append(pathsToDel, zombiePaths...)
+	keysToDel = append(keysToDel, zombieKeys...)
 
 	// Delete pointers and fetch the piece ids.
 	//
@@ -171,19 +158,19 @@ func (service *Service) DeletePointers(ctx context.Context, requests []*ObjectId
 	// while the database is sending a response -- in that case we won't send
 	// the piecedeletion requests and and let garbage collection clean up those
 	// pieces.
-	paths, pointers, err := service.pointers.UnsynchronizedGetDel(ctx, pathsToDel)
+	keys, pointers, err := service.pointers.UnsynchronizedGetDel(ctx, keysToDel)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
 	// if object is missing, we can consider it as a successful delete
-	objectMissingPaths := service.extractSegmentPathsForMissingObjects(ctx, states)
-	for _, p := range objectMissingPaths {
-		paths = append(paths, p)
+	objectMissingKeys := service.extractSegmentKeysForMissingObjects(ctx, states)
+	for _, p := range objectMissingKeys {
+		keys = append(keys, p)
 		pointers = append(pointers, nil)
 	}
 
-	return pointers, paths, nil
+	return pointers, keys, nil
 }
 
 // GroupPiecesByNodeID returns a map that contains pieces with node id as the key.
@@ -208,90 +195,72 @@ func GroupPiecesByNodeID(pointers []*pb.Pointer) map[storj.NodeID][]storj.PieceI
 	return piecesToDelete
 }
 
-// generateSegmentPathsForCompleteObjects collects segment paths for objects that has last segment found in pointerDB.
-func (service *Service) generateSegmentPathsForCompleteObjects(ctx context.Context, states map[string]*ObjectState) (_ []metabase.SegmentKey, err error) {
+// generateSegmentKeysForCompleteObjects collects segment keys for objects that has last segment found in pointerDB.
+func (service *Service) generateSegmentKeysForCompleteObjects(ctx context.Context, states map[metabase.ObjectLocation]*ObjectState) (_ []metabase.SegmentKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segmentPaths := []metabase.SegmentKey{}
+	segmentKeys := []metabase.SegmentKey{}
 
 	for _, state := range states {
 		switch state.Status() {
 		case ObjectMissing:
 			// nothing to do here
 		case ObjectMultiSegment:
-			// just delete the starting things, we already have the necessary information
-			lastSegmentPath, err := state.SegmentPath(lastSegmentIndex)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-			firstSegmentPath, err := state.SegmentPath(firstSegmentIndex)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-
-			segmentPaths = append(segmentPaths, lastSegmentPath)
-			segmentPaths = append(segmentPaths, firstSegmentPath)
+			segmentKeys = append(segmentKeys,
+				state.ObjectLocation.LastSegment().Encode(),
+				state.ObjectLocation.FirstSegment().Encode())
 
 			largestSegmentIdx, err := numberOfSegmentsFromPointer(state.LastSegment)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
-			// gather all segment paths that're not first or last segments
-			for index := largestSegmentIdx - 1; index > firstSegmentIndex; index-- {
-				path, err := state.SegmentPath(index)
+
+			// gather all segment keys that're not first or last segments
+			for index := largestSegmentIdx - 1; index > metabase.FirstSegmentIndex; index-- {
+				location, err := state.Segment(index)
 				if err != nil {
 					return nil, Error.Wrap(err)
 				}
-				segmentPaths = append(segmentPaths, path)
+				segmentKeys = append(segmentKeys, location.Encode())
 			}
+
 		case ObjectSingleSegment:
-			// just add to segment path, we already have the necessary information
-			lastSegmentPath, err := state.SegmentPath(lastSegmentIndex)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-			segmentPaths = append(segmentPaths, lastSegmentPath)
+			// just add to segment key, we already have the necessary information
+			segmentKeys = append(segmentKeys, state.ObjectLocation.LastSegment().Encode())
 		case ObjectActiveOrZombie:
 			// we will handle it in a separate method
 		}
 	}
 
-	return segmentPaths, nil
+	return segmentKeys, nil
 }
 
-// collectSegmentPathsForZombieObjects collects segment paths for objects that has no last segment found in pointerDB.
-func (service *Service) collectSegmentPathsForZombieObjects(ctx context.Context, states map[string]*ObjectState) (_ []metabase.SegmentKey, err error) {
+// collectSegmentKeysForZombieObjects collects segment keys for objects that has no last segment found in pointerDB.
+func (service *Service) collectSegmentKeysForZombieObjects(ctx context.Context, states map[metabase.ObjectLocation]*ObjectState) (_ []metabase.SegmentKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	zombies := map[string]ObjectIdentifier{}
-	largestLoaded := map[string]int64{}
+	largestLoaded := map[metabase.ObjectLocation]int64{}
 
 	segmentsToDel := []metabase.SegmentKey{}
 
 	for _, state := range states {
 		if state.Status() == ObjectActiveOrZombie {
-			firstSegmentPath, err := state.SegmentPath(firstSegmentIndex)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-			segmentsToDel = append(segmentsToDel, firstSegmentPath)
+			segmentsToDel = append(segmentsToDel, state.ObjectLocation.FirstSegment().Encode())
 
-			zombies[state.Key()] = state.ObjectIdentifier
-			largestLoaded[state.Key()] = int64(firstSegmentIndex)
+			largestLoaded[state.ObjectLocation] = metabase.FirstSegmentIndex
 		}
 	}
 
-	largestKnownSegment := int64(firstSegmentIndex)
-	for len(zombies) > 0 {
+	largestKnownSegment := int64(metabase.FirstSegmentIndex)
+	for len(largestLoaded) > 0 {
 		// Don't make requests for segments where we found the final segment.
 		for key, largest := range largestLoaded {
 			if largest != largestKnownSegment {
 				delete(largestLoaded, key)
-				delete(zombies, key)
 			}
 		}
 		// found all segments
-		if len(zombies) == 0 {
+		if len(largestLoaded) == 0 {
 			break
 		}
 
@@ -299,60 +268,50 @@ func (service *Service) collectSegmentPathsForZombieObjects(ctx context.Context,
 		startFrom := largestKnownSegment + 1
 		largestKnownSegment += int64(service.config.ZombieSegmentsPerRequest)
 
-		var zombieSegmentPaths []metabase.SegmentKey
-		for _, id := range zombies {
+		var zombieSegmentKeys []metabase.SegmentKey
+		for location := range largestLoaded {
 			for i := startFrom; i <= largestKnownSegment; i++ {
-				path, err := id.SegmentPath(i)
+				location, err := location.Segment(i)
 				if err != nil {
 					return nil, Error.Wrap(err)
 				}
-				zombieSegmentPaths = append(zombieSegmentPaths, path)
+				zombieSegmentKeys = append(zombieSegmentKeys, location.Encode())
 			}
 		}
 
 		// We are relying on the database to return the pointers in the same
-		// order as the paths we requested.
-		pointers, err := service.pointers.GetItems(ctx, zombieSegmentPaths)
+		// order as the keys we requested.
+		pointers, err := service.pointers.GetItems(ctx, zombieSegmentKeys)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
 
-		for i, p := range zombieSegmentPaths {
+		for i, p := range zombieSegmentKeys {
 			if pointers[i] == nil {
 				continue
 			}
-			id, segmentIdx, err := ParseSegmentPath(p)
+			segmentLocation, err := metabase.ParseSegmentKey(p)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
 
 			segmentsToDel = append(segmentsToDel, p)
-			largestLoaded[id.Key()] = max(largestLoaded[id.Key()], segmentIdx)
+			objectKey := segmentLocation.Object()
+			largestLoaded[objectKey] = max(largestLoaded[objectKey], segmentLocation.Index)
 		}
 	}
 
 	return segmentsToDel, nil
 }
 
-func (service *Service) extractSegmentPathsForMissingObjects(ctx context.Context, states map[string]*ObjectState) [][]byte {
-	paths := make([][]byte, 0, len(states))
+func (service *Service) extractSegmentKeysForMissingObjects(ctx context.Context, states map[metabase.ObjectLocation]*ObjectState) []metabase.SegmentKey {
+	keys := make([]metabase.SegmentKey, 0, len(states))
 	for _, state := range states {
 		if state.Status() == ObjectMissing {
-			lastSegmentPath, err := state.ObjectIdentifier.SegmentPath(lastSegmentIndex)
-			if err != nil {
-				// it shouldn't happen
-				service.log.Debug("failed to get segment path for missing object",
-					zap.Stringer("Project ID", state.ObjectIdentifier.ProjectID),
-					zap.String("Bucket", string(state.ObjectIdentifier.Bucket)),
-					zap.String("Encrypted Path", string(state.ObjectIdentifier.EncryptedPath)),
-				)
-				continue
-			}
-			paths = append(paths, lastSegmentPath)
+			keys = append(keys, state.ObjectLocation.LastSegment().Encode())
 		}
 	}
-
-	return paths
+	return keys
 }
 
 func max(a, b int64) int64 {

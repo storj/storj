@@ -312,6 +312,7 @@ export default class CreateApiKeyStep extends Vue {
                     background-color: #0c2546;
                     display: flex;
                     align-items: center;
+                    justify-content: space-between;
                     padding: 20px 25px;
                     width: calc(100% - 50px);
                     border-radius: 0 0 8px 8px;

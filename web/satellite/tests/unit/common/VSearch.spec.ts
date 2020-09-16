@@ -37,12 +37,9 @@ describe('SearchComponent.vue', () => {
     it('function clearSearch works correctly', () => {
         const processSearchQuerySpy = sinon.spy();
 
-        const wrapper = mount(SearchComponent, {
-            methods: {
-                processSearchQuery: processSearchQuerySpy,
-            },
-        });
+        const wrapper = mount(SearchComponent);
 
+        wrapper.vm.processSearchQuery = processSearchQuerySpy;
         wrapper.vm.clearSearch();
 
         expect(processSearchQuerySpy.callCount).toBe(1);

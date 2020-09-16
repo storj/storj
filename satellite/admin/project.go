@@ -77,6 +77,7 @@ func (server *Server) getProject(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpJSONError(w, "unable to fetch project details",
 			err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	data, err := json.Marshal(project)
@@ -460,10 +461,10 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, projectID uuid.UUID) (hasUsage bool) {
 	// do not delete projects that have usage for the current month.
-	year, month, _ := time.Now().UTC().Date()
+	year, month, _ := server.nowFn().UTC().Date()
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
-	currentUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth, time.Now())
+	currentUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth, server.nowFn())
 	if err != nil {
 		httpJSONError(w, "unable to list project usage",
 			err.Error(), http.StatusInternalServerError)
@@ -484,10 +485,11 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	}
 
 	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
-		err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour))
+		//time passed into the check function need to be the UTC midnight dates of the first and last day of the month
+		err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
 		switch err {
 		case stripecoinpayments.ErrProjectRecordExists:
-			record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour))
+			record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
 			if err != nil {
 				httpJSONError(w, "unable to get project records",
 					err.Error(), http.StatusInternalServerError)

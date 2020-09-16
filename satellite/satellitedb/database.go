@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -30,6 +29,7 @@ import (
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/snopayout"
 )
 
 var (
@@ -197,8 +197,8 @@ func (db *satelliteDB) DowntimeTracking() downtime.DB {
 	return &downtimeTrackingDB{db: db}
 }
 
-// HeldAmount returns database for storagenode payStubs and payments info.
-func (db *satelliteDB) HeldAmount() heldamount.DB {
+// SnoPayout returns database for storagenode payStubs and payments info.
+func (db *satelliteDB) SnoPayout() snopayout.DB {
 	return &paymentStubs{db: db}
 }
 

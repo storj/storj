@@ -21,8 +21,8 @@ const (
 	CreateProjectMutation = "createProject"
 	// DeleteProjectMutation is a mutation name for project deletion.
 	DeleteProjectMutation = "deleteProject"
-	// UpdateProjectDescriptionMutation is a mutation name for project updating.
-	UpdateProjectDescriptionMutation = "updateProjectDescription"
+	// UpdateProjectMutation is a mutation name for project name and description updating.
+	UpdateProjectMutation = "updateProject"
 
 	// AddProjectMembersMutation is a mutation name for adding new project members.
 	AddProjectMembersMutation = "addProjectMembers"
@@ -104,11 +104,14 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					return project, nil
 				},
 			},
-			// updates project description
-			UpdateProjectDescriptionMutation: &graphql.Field{
+			// updates project name and description.
+			UpdateProjectMutation: &graphql.Field{
 				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					FieldName: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 					FieldDescription: &graphql.ArgumentConfig{
@@ -116,6 +119,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					name := p.Args[FieldName].(string)
 					description := p.Args[FieldDescription].(string)
 
 					inputID := p.Args[FieldID].(string)
@@ -124,7 +128,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
-					project, err := service.UpdateProject(p.Context, projectID, description)
+					project, err := service.UpdateProject(p.Context, projectID, name, description)
 					if err != nil {
 						return nil, err
 					}

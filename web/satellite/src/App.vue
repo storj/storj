@@ -67,10 +67,15 @@ export default class App extends Vue {
 </script>
 
 <style lang="scss">
+    html {
+        overflow: hidden;
+    }
+
     body {
         margin: 0 !important;
         height: 100vh;
         zoom: 100%;
+        overflow: hidden;
     }
 
     img,
@@ -97,6 +102,8 @@ export default class App extends Vue {
     }
 
     a {
+        text-decoration: none;
+        outline: none;
         cursor: pointer;
     }
 
@@ -109,19 +116,13 @@ export default class App extends Vue {
         caret-color: #2683ff;
     }
 
-    /* width */
-
     ::-webkit-scrollbar {
         width: 4px;
     }
 
-    /* Track */
-
     ::-webkit-scrollbar-track {
         box-shadow: inset 0 0 5px #fff;
     }
-
-    /* Handle */
 
     ::-webkit-scrollbar-thumb {
         background: #afb7c1;

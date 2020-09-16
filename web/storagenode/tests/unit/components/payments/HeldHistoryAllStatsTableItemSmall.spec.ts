@@ -3,7 +3,7 @@
 
 import HeldHistoryAllStatsTableItemSmall from '@/app/components/payments/HeldHistoryAllStatsTableItemSmall.vue';
 
-import { HeldHistoryAllStatItem } from '@/app/types/payout';
+import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
@@ -18,12 +18,14 @@ describe('HeldHistoryAllStatsTableItemSmall', (): void => {
 
         const wrapper = shallowMount(HeldHistoryAllStatsTableItemSmall, {
             propsData: {
-                heldHistoryItem: new HeldHistoryAllStatItem(
+                heldHistoryItem: new SatelliteHeldHistory(
                     '1',
                     'name1',
-                    7,
-                    45000,
-                    8000,
+                    6,
+                    50000,
+                    7333880,
+                    7852235,
+                    757576,
                     testJoinAt,
                 ),
             },

@@ -77,7 +77,7 @@ var (
 type Service struct {
 	Signer
 
-	log               *zap.Logger
+	log, auditLogger  *zap.Logger
 	store             DB
 	projectAccounting accounting.ProjectAccounting
 	projectUsage      *accounting.Service
@@ -119,6 +119,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 
 	return &Service{
 		log:               log,
+		auditLogger:       log.Named("auditlog"),
 		Signer:            signer,
 		store:             store,
 		projectAccounting: projectAccounting,
@@ -131,6 +132,49 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 	}, nil
 }
 
+func getRequestingIP(ctx context.Context) (source, forwardedFor string) {
+	if req := GetRequest(ctx); req != nil {
+		return req.RemoteAddr, req.Header.Get("X-Forwarded-For")
+	}
+	return "", ""
+}
+
+func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.UUID, email string, extra ...zap.Field) {
+	sourceIP, forwardedForIP := getRequestingIP(ctx)
+	fields := append(
+		make([]zap.Field, 0, len(extra)+5),
+		zap.String("operation", operation),
+		zap.String("source-ip", sourceIP),
+		zap.String("forwarded-for-ip", forwardedForIP),
+	)
+	if userID != nil {
+		fields = append(fields, zap.String("userID", userID.String()))
+	}
+	if email != "" {
+		fields = append(fields, zap.String("email", email))
+	}
+	fields = append(fields, fields...)
+	s.auditLogger.Info("console activity", fields...)
+}
+
+func (s *Service) getAuthAndAuditLog(ctx context.Context, operation string, extra ...zap.Field) (Authorization, error) {
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		sourceIP, forwardedForIP := getRequestingIP(ctx)
+		s.auditLogger.Info("console activity unauthorized",
+			append(append(
+				make([]zap.Field, 0, len(extra)+4),
+				zap.String("operation", operation),
+				zap.Error(err),
+				zap.String("source-ip", sourceIP),
+				zap.String("forwarded-for-ip", forwardedForIP),
+			), extra...)...)
+		return Authorization{}, err
+	}
+	s.auditLog(ctx, operation, &auth.User.ID, auth.User.Email, extra...)
+	return auth, nil
+}
+
 // Payments separates all payment related functionality.
 func (s *Service) Payments() PaymentsService {
 	return PaymentsService{service: s}
@@ -140,7 +184,7 @@ func (s *Service) Payments() PaymentsService {
 func (paymentService PaymentsService) SetupAccount(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "setup payment account")
 	if err != nil {
 		return err
 	}
@@ -152,7 +196,7 @@ func (paymentService PaymentsService) SetupAccount(ctx context.Context) (err err
 func (paymentService PaymentsService) AccountBalance(ctx context.Context) (balance payments.Balance, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "get account balance")
 	if err != nil {
 		return payments.Balance{}, err
 	}
@@ -164,7 +208,7 @@ func (paymentService PaymentsService) AccountBalance(ctx context.Context) (balan
 func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
 	defer mon.Task()(&ctx, creditCardToken)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "add credit card")
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -190,7 +234,7 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 func (paymentService PaymentsService) MakeCreditCardDefault(ctx context.Context, cardID string) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "make credit card default")
 	if err != nil {
 		return err
 	}
@@ -202,7 +246,7 @@ func (paymentService PaymentsService) MakeCreditCardDefault(ctx context.Context,
 func (paymentService PaymentsService) ProjectsCharges(ctx context.Context, since, before time.Time) (_ []payments.ProjectCharge, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "project charges")
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +258,7 @@ func (paymentService PaymentsService) ProjectsCharges(ctx context.Context, since
 func (paymentService PaymentsService) ListCreditCards(ctx context.Context) (_ []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "list credit cards")
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +270,7 @@ func (paymentService PaymentsService) ListCreditCards(ctx context.Context) (_ []
 func (paymentService PaymentsService) RemoveCreditCard(ctx context.Context, cardID string) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "remove credit card")
 	if err != nil {
 		return err
 	}
@@ -238,7 +282,7 @@ func (paymentService PaymentsService) RemoveCreditCard(ctx context.Context, card
 func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billingHistory []*BillingHistoryItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "get billing history")
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +413,7 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 func (paymentService PaymentsService) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "token deposit")
 	if err != nil {
 		return nil, err
 	}
@@ -538,6 +582,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, err
 	}
 
+	s.auditLog(ctx, "create user", nil, user.Email)
+
 	return u, nil
 }
 
@@ -571,6 +617,8 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUI
 	if err != nil {
 		return "", err
 	}
+
+	s.auditLog(ctx, "generate password recovery token", &id, "")
 
 	return resetPasswordToken.Secret.String(), nil
 }
@@ -610,6 +658,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	s.auditLog(ctx, "activate account", &user.ID, user.Email)
 
 	err = s.store.UserCredits().UpdateEarnedCredits(ctx, user.ID)
 	if err != nil && !NoCreditForUpdateErr.Has(err) {
@@ -665,6 +714,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	if err != nil {
 		return err
 	}
+	s.auditLog(ctx, "password reset", &user.ID, user.Email)
 
 	if err = s.store.ResetPasswordTokens().Delete(ctx, token.Secret); err != nil {
 		return Error.Wrap(err)
@@ -708,6 +758,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 	if err != nil {
 		return "", err
 	}
+	s.auditLog(ctx, "login", &user.ID, user.Email)
 
 	return token, nil
 }
@@ -739,7 +790,7 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (u *User, er
 // UpdateAccount updates User.
 func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "update account")
 	if err != nil {
 		return err
 	}
@@ -768,7 +819,7 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 // ChangePassword updates password for a given user.
 func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "change password")
 	if err != nil {
 		return err
 	}
@@ -799,7 +850,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 // DeleteAccount deletes User.
 func (s *Service) DeleteAccount(ctx context.Context, password string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "delete account")
 	if err != nil {
 		return err
 	}
@@ -820,7 +871,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) (err error
 // GetProject is a method for querying project by id.
 func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
+	_, err = s.getAuthAndAuditLog(ctx, "get project", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -836,7 +887,7 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 // GetUsersProjects is a method for querying all projects.
 func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "get users projects")
 	if err != nil {
 		return nil, err
 	}
@@ -870,7 +921,7 @@ func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.
 // GetUserCreditUsage is a method for querying users' credit information up until now.
 func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "get credit card usage")
 	if err != nil {
 		return nil, err
 	}
@@ -886,7 +937,7 @@ func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsag
 // CreateProject is a method for creating new project.
 func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "create project")
 	if err != nil {
 		return nil, err
 	}
@@ -951,7 +1002,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 // DeleteProject is a method for deleting project by id.
 func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "delete project", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return err
 	}
@@ -968,10 +1019,16 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 	return nil
 }
 
-// UpdateProject is a method for updating project description by id.
-func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, description string) (p *Project, err error) {
+// UpdateProject is a method for updating project name and description by id.
+func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, name string, description string) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+
+	err = ValidateNameAndDescription(name, description)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	auth, err := s.getAuthAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -986,6 +1043,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 	}
 
 	project := isMember.project
+	project.Name = name
 	project.Description = description
 
 	err = s.store.Projects().Update(ctx, project)
@@ -999,7 +1057,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 // AddProjectMembers adds users by email to given project.
 func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (users []*User, err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "add project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
 	if err != nil {
 		return nil, err
 	}
@@ -1048,7 +1106,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 // DeleteProjectMembers removes users by email from given project.
 func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
+	_, err = s.getAuthAndAuditLog(ctx, "delete project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
 	if err != nil {
 		return err
 	}
@@ -1098,7 +1156,8 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 // GetProjectMembers returns ProjectMembers for given Project.
 func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (pmp *ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "get project members", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -1128,7 +1187,7 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cu
 func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "create api key", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1172,7 +1231,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (_ *APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "get api key info", zap.String("apiKeyID", id.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -1193,7 +1252,13 @@ func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (_ *APIKeyInf
 // DeleteAPIKeys deletes api key by id.
 func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := GetAuth(ctx)
+
+	idStrings := make([]string, 0, len(ids))
+	for _, id := range ids {
+		idStrings = append(idStrings, id.String())
+	}
+
+	auth, err := s.getAuthAndAuditLog(ctx, "delete api keys", zap.Strings("apiKeyIDs", idStrings))
 	if err != nil {
 		return err
 	}
@@ -1235,7 +1300,7 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor) (page *APIKeyPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "get api keys", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -1261,7 +1326,7 @@ func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor AP
 func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "get project usage", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -1283,7 +1348,7 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "get bucket totals", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -1305,7 +1370,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []accounting.BucketUsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := GetAuth(ctx)
+	auth, err := s.getAuthAndAuditLog(ctx, "get bucket usage rollups", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -1327,7 +1392,7 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = GetAuth(ctx)
+	_, err = s.getAuthAndAuditLog(ctx, "get project usage limits", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, err
 	}
