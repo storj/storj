@@ -34,7 +34,7 @@ type GracefulExit interface {
 	CancelGracefulExit(ctx context.Context, satelliteID storj.NodeID) error
 }
 ```
-its implementation could have all db related depenncies 
+its implementation could have all db related dependencies 
 ```go
 var _ GracefulExit = (*Service)(nil)
 type Service struct {
@@ -42,7 +42,6 @@ type Service struct {
 
 	store       *pieces.Store
 	trust       *trust.Pool
-	ecclient    ecclient.Client
 	satelliteDB satellites.DB
 
 	minDownloadTimeout time.Duration
@@ -50,12 +49,13 @@ type Service struct {
 }
 ```
 
-The Worker after that worker will have less dependencies
+The Worker after that will have less dependencies
 ```go
 type Worker struct {
 	log   *zap.Logger
 
 	dialer       rpc.Dialer
+	ecclient     ecclient.Client
 	limiter      *sync2.Limiter
 	satelliteURL storj.NodeURL
 
@@ -63,5 +63,5 @@ type Worker struct {
 }
 ```
 
-the very initial refactoring you could find in this pull request
+the very initial refactoring you can find in this pull request
 https://review.dev.storj.io/c/storj/storj/+/2499
