@@ -5,8 +5,8 @@
     <div class="notification-popup-container">
         <div class="notification-popup-container__header">
             <p class="notification-popup-container__header__title">Notifications</p>
-            <router-link :to="notificationsPath">
-                <p class="notification-popup-container__header__link">See All</p>
+            <router-link :to="notificationsPath" class="notification-popup-container__header__link">
+                <p>See All</p>
             </router-link>
         </div>
         <div
@@ -92,6 +92,7 @@ export default class NotificationsPopup extends Vue {
                 font-size: 14px;
                 color: var(--navigation-link-color);
                 margin-right: 20px;
+                text-decoration: none;
             }
         }
 

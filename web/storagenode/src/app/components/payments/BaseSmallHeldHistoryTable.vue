@@ -7,6 +7,8 @@ import { Component, Vue } from 'vue-property-decorator';
 import BlueHideIcon from '@/../static/images/common/BlueMinus.svg';
 import BlueExpandIcon from '@/../static/images/common/BluePlus.svg';
 
+import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
+
 @Component({
     components: {
         BlueExpandIcon,
@@ -14,6 +16,13 @@ import BlueExpandIcon from '@/../static/images/common/BluePlus.svg';
     },
 })
 export default class BaseSmallHeldHistoryTable extends Vue {
+    /**
+     * Indicates if held info should be rendered.
+     */
+    public get allSatellitesHeldHistory(): SatelliteHeldHistory[] {
+        return this.$store.state.payoutModule.heldHistory;
+    }
+
     /**
      * Indicates if held info should be rendered.
      */

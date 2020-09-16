@@ -6,8 +6,9 @@ import Vuex from 'vuex';
 import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';
 
 import { makePayoutModule } from '@/app/store/modules/payout';
-import { PayoutHistoryItem } from '@/app/types/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
+import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
+import { PayoutService } from '@/storagenode/payouts/service';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
@@ -18,7 +19,8 @@ localVue.filter('centsToDollars', (cents: number): string => {
 });
 
 const payoutApi = new PayoutHttpApi();
-const payoutModule = makePayoutModule(payoutApi);
+const payoutService = new PayoutService(payoutApi);
+const payoutModule = makePayoutModule(payoutApi, payoutService);
 
 const store = new Vuex.Store({ modules: { payoutModule }});
 
@@ -28,7 +30,7 @@ describe('PayoutHistoryTableItem', (): void => {
             store,
             localVue,
             propsData: {
-                historyItem: new PayoutHistoryItem('1', 'name1', 1, 100000, 1200000, 140,
+                historyItem: new SatellitePayoutForPeriod('1', 'name1', 1, 100000, 1200000, 140,
                     500000, 600000, 200000, 800000, 'receipt1', false, 75,
                 ),
             },

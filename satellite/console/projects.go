@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"storj.io/common/uuid"
@@ -70,4 +71,23 @@ type ProjectsPage struct {
 	Projects   []Project
 	Next       bool
 	NextOffset int64
+}
+
+// ValidateNameAndDescription validates project name and description strings.
+// Project name must have more than 0 and less than 21 symbols.
+// Project description can't have more than hundred symbols.
+func ValidateNameAndDescription(name string, description string) error {
+	if len(name) == 0 {
+		return errors.New("project name can't be empty")
+	}
+
+	if len(name) > 20 {
+		return errors.New("project name can't have more than 20 symbols")
+	}
+
+	if len(description) > 100 {
+		return errors.New("project description can't have more than 100 symbols")
+	}
+
+	return nil
 }

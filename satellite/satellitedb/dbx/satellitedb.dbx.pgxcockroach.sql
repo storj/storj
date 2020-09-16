@@ -108,6 +108,7 @@ CREATE TABLE injuredsegments (
 	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp with time zone,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	num_healthy_pieces integer NOT NULL DEFAULT 52,
 	PRIMARY KEY ( path )
 );
@@ -438,6 +439,7 @@ CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
+CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );

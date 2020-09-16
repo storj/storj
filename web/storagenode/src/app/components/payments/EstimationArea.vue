@@ -81,7 +81,7 @@
                 </div>
             </div>
             <div class="estimation-table-container__held-area">
-                <p class="estimation-table-container__held-area__text">Held back</p>
+                <p class="estimation-table-container__held-area__text">Held Back</p>
                 <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
             </div>
             <div class="estimation-table-container__held-area" v-if="!isCurrentPeriod && disposed > 0">
@@ -104,9 +104,9 @@
                     <p class="estimation-table-container__net-total-area__text">{{ totalPayout | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__total-area" v-if="!isCurrentPeriod && !isLastPeriodWithoutPaystub && heldInfo.surgePercent">
+            <div class="estimation-table-container__total-area" v-if="!isCurrentPeriod && !isLastPeriodWithoutPaystub && totalPaystubForPeriod.surgePercent">
                 <p class="estimation-table-container__total-area__text">Total + Surge {{ surgePercent }}</p>
-                <p class="estimation-table-container__total-area__text">{{ heldInfo.paid | centsToDollars }}</p>
+                <p class="estimation-table-container__total-area__text">{{ totalPaystubForPeriod.paid | centsToDollars }}</p>
             </div>
         </div>
         <div class="no-data-container" v-else>
@@ -129,13 +129,11 @@ import {
     DISK_SPACE_PRICE_PER_TB, PAYOUT_ACTIONS,
 } from '@/app/store/modules/payout';
 import {
-    EstimatedPayout,
-    HeldInfo,
     monthNames,
     PayoutInfoRange,
-    PayoutPeriod,
 } from '@/app/types/payout';
-import { formatBytes, TB } from '@/app/utils/converter';
+import { formatBytes } from '@/app/utils/converter';
+import { EstimatedPayout, PayoutPeriod, TotalPaystubForPeriod } from '@/storagenode/payouts/payouts';
 
 /**
  * Describes table row data item.
@@ -213,7 +211,7 @@ export default class EstimationArea extends Vue {
      * Returns surge percent if single month selected.
      */
     public get surgePercent(): string {
-        return !this.$store.state.payoutModule.periodRange.start ? `(${this.heldInfo.surgePercent}%)` : '';
+        return !this.$store.state.payoutModule.periodRange.start ? `(${this.totalPaystubForPeriod.surgePercent}%)` : '';
     }
 
     /**
@@ -224,10 +222,10 @@ export default class EstimationArea extends Vue {
     }
 
     /**
-     * Returns held info from store.
+     * Returns payout info from store.
      */
-    public get heldInfo(): HeldInfo {
-        return this.$store.state.payoutModule.heldInfo;
+    public get totalPaystubForPeriod(): TotalPaystubForPeriod {
+        return this.$store.state.payoutModule.totalPaystubForPeriod;
     }
 
     /**
@@ -242,7 +240,7 @@ export default class EstimationArea extends Vue {
      */
     public get held(): number {
         if (!this.isCurrentPeriod && !this.isLastPeriodWithoutPaystub) {
-            return this.heldInfo.held;
+            return this.totalPaystubForPeriod.held;
         }
 
         return this.estimatedHeld();
@@ -252,7 +250,7 @@ export default class EstimationArea extends Vue {
      * Returns calculated or stored returned held amount.
      */
     public get disposed(): number {
-        return this.heldInfo.disposed;
+        return this.totalPaystubForPeriod.disposed;
     }
 
     /**
@@ -260,7 +258,7 @@ export default class EstimationArea extends Vue {
      */
     public get totalPayout(): number {
         if (!this.isCurrentPeriod && !this.isLastPeriodWithoutPaystub) {
-            return this.heldInfo.paid;
+            return this.totalPaystubForPeriod.paid;
         }
 
         return this.grossTotal;
@@ -281,7 +279,7 @@ export default class EstimationArea extends Vue {
             return formatBytes(this.currentDiskSpace);
         }
 
-        return formatBytes(this.heldInfo.usageAtRest);
+        return formatBytes(this.totalPaystubForPeriod.usageAtRest);
     }
 
     /**
@@ -292,7 +290,7 @@ export default class EstimationArea extends Vue {
             return formatBytes((this.currentBandwidthAuditAndRepair + this.currentBandwidthDownload));
         }
 
-        const bandwidthSum = this.heldInfo.usageGet + this.heldInfo.usageGetRepair + this.heldInfo.usageGetAudit;
+        const bandwidthSum = this.totalPaystubForPeriod.usageGet + this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit;
 
         return formatBytes(bandwidthSum);
     }
@@ -324,9 +322,9 @@ export default class EstimationArea extends Vue {
     public get tableData(): EstimationTableRow[] {
         if (!this.isCurrentPeriod && !this.isLastPeriodWithoutPaystub) {
             return [
-                new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGet), this.heldInfo.compGet),
-                new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGetRepair + this.heldInfo.usageGetAudit), this.heldInfo.compGetRepair + this.heldInfo.compGetAudit),
-                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, formatBytes(this.heldInfo.usageAtRest) + 'm', '--', this.heldInfo.compAtRest),
+                new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.totalPaystubForPeriod.usageGet), this.totalPaystubForPeriod.compGet),
+                new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit), this.totalPaystubForPeriod.compGetRepair + this.totalPaystubForPeriod.compGetAudit),
+                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, formatBytes(this.totalPaystubForPeriod.usageAtRest) + 'm', '--', this.totalPaystubForPeriod.compAtRest),
             ];
         }
 

@@ -8,10 +8,10 @@ export interface ProjectsApi {
     /**
      * Creates project.
      *
-     * @param createProjectModel - contains project information
+     * @param createProjectFields - contains project information
      * @throws Error
      */
-    create(createProjectModel: CreateProjectModel): Promise<Project>;
+    create(createProjectFields: CreateProjectFields): Promise<Project>;
     /**
      * Fetch projects.
      *
@@ -20,14 +20,15 @@ export interface ProjectsApi {
      */
     get(): Promise<Project[]>;
     /**
-     * Update project.
+     * Update project name and description.
      *
      * @param projectId - project ID
+     * @param name - project name
      * @param description - project description
      * @returns Project[]
      * @throws Error
      */
-    update(projectId: string, description: string): Promise<void>;
+    update(projectId: string, name: string, description: string): Promise<void>;
     /**
      * Delete project.
      *
@@ -60,22 +61,19 @@ export class Project {
 }
 
 /**
- * UpdateProjectModel is a type, used for updating project description.
+ * UpdateProjectFields is a type, used for updating project name or description.
  */
-export class UpdateProjectModel {
-    public id: string;
-    public description: string;
-
-    public constructor(id: string, description: string) {
-        this.id = id;
-        this.description = description;
-    }
+export class UpdateProjectFields {
+    public constructor(
+        public name: string,
+        public description: string,
+    ) {}
 }
 
 /**
- * CreateProjectModel is a type, used for creating project.
+ * CreateProjectFields is a type, used for creating project.
  */
-export class CreateProjectModel {
+export class CreateProjectFields {
     private readonly MAX_NAME_LENGTH = 20;
 
     public constructor(
@@ -90,20 +88,10 @@ export class CreateProjectModel {
     public checkName(): void {
         try {
             this.nameIsNotEmpty();
-            this.nameHasNoSlashes();
             this.nameHasLessThenTwentySymbols();
         } catch (error) {
             throw new Error(error.message);
         }
-    }
-
-    /**
-     * nameHasNoSlashes checks if project name has any characters but 'slash'.
-     */
-    private nameHasNoSlashes(): void {
-        const rgx = /^[^\/]+$/;
-
-        if (!rgx.test(this.name)) throw new Error('Project name can\'t have slashes!');
     }
 
     /**

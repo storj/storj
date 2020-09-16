@@ -12,7 +12,7 @@ import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { Project } from '@/types/projects';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../../../mock/api/projects';
 
@@ -26,7 +26,6 @@ const itemCharge = new PaymentsHistoryItem('testId1', 'Charge', 500, 500, 'test'
 const itemTransaction = new PaymentsHistoryItem('testId2', 'Transaction', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Transaction);
 const itemTransaction1 = new PaymentsHistoryItem('testId3', 'Transaction', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Transaction);
 const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', false);
-const clickSpy = sinon.spy();
 
 localVue.use(Vuex);
 
@@ -57,36 +56,15 @@ describe('DetailedHistory', (): void => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    // TODO: use when vue-test-utils $route mocking feature is implemented.
-    // it('renders correctly with billing items', (): void => {
-    //     const $route = {
-    //         path: RouteConfig.BillingHistory.path,
-    //     };
-    //
-    //     store.commit(PAYMENTS_MUTATIONS.CLEAR);
-    //     store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [itemCharge, itemInvoice]);
-    //
-    //     const wrapper = shallowMount(DetailedHistory, {
-    //         localVue,
-    //         store,
-    //         router,
-    //         mocks: {
-    //             $route,
-    //         },
-    //     });
-    //
-    //     expect(wrapper).toMatchSnapshot();
-    // });
-
     it('click on back works correctly', async (): Promise<void> => {
-        const wrapper = shallowMount(DetailedHistory, {
+        const clickSpy = sinon.spy();
+        const wrapper = mount(DetailedHistory, {
             localVue,
             store,
             router,
-            methods: {
-                onBackToBillingClick: clickSpy,
-            },
         });
+
+        wrapper.vm.onBackToBillingClick = clickSpy;
 
         await wrapper.find('.history-area__back-area').trigger('click');
 

@@ -1,13 +1,12 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import sinon from 'sinon';
 import { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 
 import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 
-import { RouteConfig } from '@/router';
+import { RouteConfig, router } from '@/router';
 import { createLocalVue, mount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
@@ -40,7 +39,7 @@ describe('HistoryDropdown', (): void => {
             localVue,
             propsData: {
                 label: 'Credits History',
-                link: creditsHistory,
+                route: creditsHistory,
             },
         });
 
@@ -53,24 +52,26 @@ describe('HistoryDropdown', (): void => {
             localVue,
             propsData: {
                 label: 'Balance History',
-                link: balanceHistory,
+                route: balanceHistory,
             },
         });
 
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('clicks work correctly', async (): Promise<void> => {
-        const clickSpy = sinon.spy();
+    it('click works correctly', async (): Promise<void> => {
+        const balanceHistory: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
         const wrapper = mount(HistoryDropdown, {
             localVue,
-            methods: {
-                redirect: clickSpy,
+            propsData: {
+                label: 'Balance History',
+                route: balanceHistory,
             },
+            router,
         });
 
         await wrapper.find('.history-dropdown__link-container').trigger('click');
 
-        expect(clickSpy.callCount).toBe(1);
+        expect(wrapper.vm.$route.name).toBe(RouteConfig.DepositHistory.name);
     });
 });

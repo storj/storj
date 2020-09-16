@@ -13,7 +13,8 @@ exports[`PeriodSelection renders correctly 1`] = `
       <selectedicon-stub class="selected-image"></selectedicon-stub> <span class="period-selection__dropdown__item__label">Current Billing Period</span>
     </div>
     <div class="period-selection__dropdown__item">
-      <!----> <span class="period-selection__dropdown__item__label">Previous Billing Period</span></div>
+      <!----> <span class="period-selection__dropdown__item__label">Previous Billing Period</span>
+    </div>
     <div class="period-selection__dropdown__link-container"><span class="period-selection__dropdown__link-container__link">Billing History</span></div>
   </div>
 </div>
@@ -34,7 +35,8 @@ exports[`PeriodSelection renders correctly with dropdown 1`] = `
         <path d="M6.87406 9.53082C6.21353 10.1564 5.14259 10.1564 4.48206 9.53082C3.82153 8.90524 3.82153 7.89098 4.48206 7.26541L11.6581 0.469182C12.3186 -0.156394 13.3895 -0.156394 14.0501 0.469182C14.7106 1.09476 14.7106 2.10902 14.0501 2.73459L6.87406 9.53082Z" fill="#2683FF"></path>
       </svg> <span class="period-selection__dropdown__item__label">Current Billing Period</span></div>
     <div class="period-selection__dropdown__item">
-      <!----> <span class="period-selection__dropdown__item__label">Previous Billing Period</span></div>
+      <!----> <span class="period-selection__dropdown__item__label">Previous Billing Period</span>
+    </div>
     <div class="period-selection__dropdown__link-container"><span class="period-selection__dropdown__link-container__link">Billing History</span></div>
   </div>
 </div>

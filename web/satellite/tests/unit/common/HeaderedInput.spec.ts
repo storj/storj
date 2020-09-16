@@ -20,8 +20,8 @@ describe('HeaderedInput.vue', () => {
         });
 
         expect(wrapper).toMatchSnapshot();
-        expect(wrapper.contains('textarea')).toBe(true);
-        expect(wrapper.contains('input')).toBe(false);
+        expect(wrapper.findAll('textarea').length).toBe(1);
+        expect(wrapper.findAll('input').length).toBe(0);
     });
 
     it('renders correctly with props', () => {
@@ -71,11 +71,13 @@ describe('HeaderedInput.vue', () => {
 
         await wrapper.find('input').trigger('input');
 
-        expect(wrapper.emitted('setData').length).toEqual(1);
+        let emittedSetData = wrapper.emitted('setData');
+        if (emittedSetData) expect(emittedSetData.length).toEqual(1);
 
         await wrapper.vm.$emit('setData', testData);
 
-        expect(wrapper.emitted('setData')[1][0]).toEqual(testData);
+        emittedSetData = wrapper.emitted('setData');
+        if (emittedSetData) expect(emittedSetData[1][0]).toEqual(testData);
     });
 
 });

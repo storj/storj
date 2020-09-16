@@ -1019,10 +1019,16 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 	return nil
 }
 
-// UpdateProject is a method for updating project description by id.
-func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, description string) (p *Project, err error) {
+// UpdateProject is a method for updating project name and description by id.
+func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, name string, description string) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
-	auth, err := s.getAuthAndAuditLog(ctx, "update project", zap.String("projectID", projectID.String()))
+
+	err = ValidateNameAndDescription(name, description)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	auth, err := s.getAuthAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -1037,6 +1043,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, descri
 	}
 
 	project := isMember.project
+	project.Name = name
 	project.Description = description
 
 	err = s.store.Projects().Update(ctx, project)

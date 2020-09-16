@@ -211,23 +211,6 @@ func TestGrapqhlMutation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, rootUser.PartnerID, project.PartnerID)
 
-		t.Run("Update project description mutation", func(t *testing.T) {
-			query := fmt.Sprintf(
-				"mutation {updateProjectDescription(id:\"%s\",description:\"%s\"){id,name,description}}",
-				project.ID.String(),
-				"",
-			)
-
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			proj := data[consoleql.UpdateProjectDescriptionMutation].(map[string]interface{})
-
-			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
-			assert.Equal(t, project.Name, proj[consoleql.FieldName])
-			assert.Equal(t, "", proj[consoleql.FieldDescription])
-		})
-
 		regTokenUser1, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
@@ -371,6 +354,27 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 		})
 
+		const testName = "testName"
+		const testDescription = "test description"
+
+		t.Run("Update project mutation", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {updateProject(id:\"%s\",name:\"%s\",description:\"%s\"){id,name,description}}",
+				project.ID.String(),
+				testName,
+				testDescription,
+			)
+
+			result := testQuery(t, query)
+
+			data := result.(map[string]interface{})
+			proj := data[consoleql.UpdateProjectMutation].(map[string]interface{})
+
+			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
+			assert.Equal(t, testName, proj[consoleql.FieldName])
+			assert.Equal(t, testDescription, proj[consoleql.FieldDescription])
+		})
+
 		t.Run("Delete project mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
 				"mutation {deleteProject(id:\"%s\"){id,name}}",
@@ -382,7 +386,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			data := result.(map[string]interface{})
 			proj := data[consoleql.DeleteProjectMutation].(map[string]interface{})
 
-			assert.Equal(t, project.Name, proj[consoleql.FieldName])
+			assert.Equal(t, testName, proj[consoleql.FieldName])
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 
 			_, err := service.GetProject(authCtx, project.ID)

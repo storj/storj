@@ -44,9 +44,9 @@ import {
     MonthButton,
     monthNames,
     PayoutInfoRange,
-    PayoutPeriod,
     StoredMonthsByYear,
 } from '@/app/types/payout';
+import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 
 @Component({
     components: {
@@ -95,7 +95,7 @@ export default class PayoutPeriodCalendar extends Vue {
         );
 
         try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, this.$store.state.node.selectedSatellite.id);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, this.$store.state.node.selectedSatellite.id);
             await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
         } catch (error) {
             const lastMonthDate = new Date();
