@@ -125,14 +125,11 @@ func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Ti
 			err = errs.Combine(err, OrderError.Wrap(f.Close()))
 		}()
 
-		err = writeLimit(f, info.Limit)
+		err = writeLimitAndOrder(f, info.Limit, info.Order)
 		if err != nil {
 			return err
 		}
-		err = writeOrder(f, info.Order)
-		if err != nil {
-			return err
-		}
+
 		return nil
 	}, nil
 }
@@ -242,20 +239,11 @@ func (store *FileStore) ListUnsentBySatellite(now time.Time) (infoMap map[storj.
 		for {
 			// if at any point we see an unexpected EOF error, return what orders we could read successfully with no error
 			// this behavior ensures that we will attempt to archive corrupted files instead of continually failing to read them
-			limit, err := readLimit(f)
+			limit, order, err := readLimitAndOrder(f)
 			if err != nil {
 				if errs.Is(err, io.EOF) {
 					break
 				}
-				if errs.Is(err, io.ErrUnexpectedEOF) {
-					store.log.Warn("Unexpected EOF while reading unsent order file", zap.Error(err))
-					mon.Meter("orders_unsent_file_corrupted").Mark64(1)
-					break
-				}
-				return err
-			}
-			order, err := readOrder(f)
-			if err != nil {
 				if errs.Is(err, io.ErrUnexpectedEOF) {
 					store.log.Warn("Unexpected EOF while reading unsent order file", zap.Error(err))
 					mon.Meter("orders_unsent_file_corrupted").Mark64(1)
@@ -343,20 +331,11 @@ func (store *FileStore) ListArchived() ([]*ArchivedInfo, error) {
 		}()
 
 		for {
-			limit, err := readLimit(f)
+			limit, order, err := readLimitAndOrder(f)
 			if err != nil {
 				if errs.Is(err, io.EOF) {
 					break
 				}
-				if errs.Is(err, io.ErrUnexpectedEOF) {
-					store.log.Warn("Unexpected EOF while reading archived order file", zap.Error(err))
-					mon.Meter("orders_archive_file_corrupted").Mark64(1)
-					break
-				}
-				return err
-			}
-			order, err := readOrder(f)
-			if err != nil {
 				if errs.Is(err, io.ErrUnexpectedEOF) {
 					store.log.Warn("Unexpected EOF while reading archived order file", zap.Error(err))
 					mon.Meter("orders_archive_file_corrupted").Mark64(1)
@@ -514,83 +493,72 @@ func getArchivedFileInfo(name string) (satelliteID storj.NodeID, createdAtHour, 
 	return satelliteID, createdAtHour, archivedAt, status, nil
 }
 
-// writeLimit writes the size of the order limit bytes, followed by the order limit bytes.
-// it expects the caller to have locked the mutex.
-func writeLimit(f io.Writer, limit *pb.OrderLimit) error {
+// writeLimitAndOrder writes limit and order to the file as
+// [limitSize][limitBytes][orderSize][orderBytes]
+// It expects the caller to have locked the mutex.
+func writeLimitAndOrder(f io.Writer, limit *pb.OrderLimit, order *pb.Order) error {
+	toWrite := []byte{}
+
 	limitSerialized, err := pb.Marshal(limit)
 	if err != nil {
 		return OrderError.Wrap(err)
 	}
-
-	sizeBytes := [4]byte{}
-	binary.LittleEndian.PutUint32(sizeBytes[:], uint32(len(limitSerialized)))
-	if _, err = f.Write(sizeBytes[:]); err != nil {
-		return OrderError.New("Error writing serialized limit size: %w", err)
-	}
-
-	if _, err = f.Write(limitSerialized); err != nil {
-		return OrderError.New("Error writing serialized limit: %w", err)
-	}
-	return nil
-}
-
-// readLimit reads the size of the limit followed by the serialized limit, and returns the unmarshalled limit.
-func readLimit(f io.Reader) (*pb.OrderLimit, error) {
-	sizeBytes := [4]byte{}
-	_, err := io.ReadFull(f, sizeBytes[:])
-	if err != nil {
-		return nil, OrderError.Wrap(err)
-	}
-	limitSize := binary.LittleEndian.Uint32(sizeBytes[:])
-	limitSerialized := make([]byte, limitSize)
-	_, err = io.ReadFull(f, limitSerialized)
-	if err != nil {
-		return nil, OrderError.Wrap(err)
-	}
-	limit := &pb.OrderLimit{}
-	err = pb.Unmarshal(limitSerialized, limit)
-	if err != nil {
-		return nil, OrderError.Wrap(err)
-	}
-	return limit, nil
-}
-
-// writeOrder writes the size of the order bytes, followed by the order bytes.
-// it expects the caller to have locked the mutex.
-func writeOrder(f io.Writer, order *pb.Order) error {
 	orderSerialized, err := pb.Marshal(order)
 	if err != nil {
 		return OrderError.Wrap(err)
 	}
 
-	sizeBytes := [4]byte{}
-	binary.LittleEndian.PutUint32(sizeBytes[:], uint32(len(orderSerialized)))
-	if _, err = f.Write(sizeBytes[:]); err != nil {
+	limitSizeBytes := [4]byte{}
+	binary.LittleEndian.PutUint32(limitSizeBytes[:], uint32(len(limitSerialized)))
+
+	orderSizeBytes := [4]byte{}
+	binary.LittleEndian.PutUint32(orderSizeBytes[:], uint32(len(orderSerialized)))
+
+	toWrite = append(toWrite, limitSizeBytes[:]...)
+	toWrite = append(toWrite, limitSerialized...)
+	toWrite = append(toWrite, orderSizeBytes[:]...)
+	toWrite = append(toWrite, orderSerialized...)
+
+	if _, err = f.Write(toWrite); err != nil {
 		return OrderError.New("Error writing serialized order size: %w", err)
-	}
-	if _, err = f.Write(orderSerialized); err != nil {
-		return OrderError.New("Error writing serialized order: %w", err)
 	}
 	return nil
 }
 
-// readOrder reads the size of the order followed by the serialized order, and returns the unmarshalled order.
-func readOrder(f io.Reader) (*pb.Order, error) {
+// readLimitAndOrder reads the next limit and order from the file and returns them.
+func readLimitAndOrder(f io.Reader) (*pb.OrderLimit, *pb.Order, error) {
 	sizeBytes := [4]byte{}
 	_, err := io.ReadFull(f, sizeBytes[:])
 	if err != nil {
-		return nil, OrderError.Wrap(err)
+		return nil, nil, OrderError.Wrap(err)
+	}
+	limitSize := binary.LittleEndian.Uint32(sizeBytes[:])
+	limitSerialized := make([]byte, limitSize)
+	_, err = io.ReadFull(f, limitSerialized)
+	if err != nil {
+		return nil, nil, OrderError.Wrap(err)
+	}
+	limit := &pb.OrderLimit{}
+	err = pb.Unmarshal(limitSerialized, limit)
+	if err != nil {
+		return nil, nil, OrderError.Wrap(err)
+	}
+
+	_, err = io.ReadFull(f, sizeBytes[:])
+	if err != nil {
+		return nil, nil, OrderError.Wrap(err)
 	}
 	orderSize := binary.LittleEndian.Uint32(sizeBytes[:])
 	orderSerialized := make([]byte, orderSize)
 	_, err = io.ReadFull(f, orderSerialized)
 	if err != nil {
-		return nil, OrderError.Wrap(err)
+		return nil, nil, OrderError.Wrap(err)
 	}
 	order := &pb.Order{}
 	err = pb.Unmarshal(orderSerialized, order)
 	if err != nil {
-		return nil, OrderError.Wrap(err)
+		return nil, nil, OrderError.Wrap(err)
 	}
-	return order, nil
+
+	return limit, order, nil
 }
