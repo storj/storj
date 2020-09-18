@@ -159,7 +159,9 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	for _, rep := range stats {
 		url, err := s.trust.GetNodeURL(ctx, rep.SatelliteID)
 		if err != nil {
-			return nil, SNOServiceErr.Wrap(err)
+			s.log.Warn("unable to get Satellite URL", zap.String("Satellite ID", rep.SatelliteID.String()),
+				zap.Error(SNOServiceErr.Wrap(err)))
+			continue
 		}
 
 		data.Satellites = append(data.Satellites,
@@ -376,7 +378,9 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 
 		url, err := s.trust.GetNodeURL(ctx, satellitesIDs[i])
 		if err != nil {
-			return nil, SNOServiceErr.Wrap(err)
+			s.log.Warn("unable to get Satellite URL", zap.String("Satellite ID", satellitesIDs[i].String()),
+				zap.Error(SNOServiceErr.Wrap(err)))
+			continue
 		}
 
 		audits = append(audits, Audits{
