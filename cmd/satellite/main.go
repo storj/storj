@@ -218,6 +218,16 @@ var (
 		Long:  "Ensures that we have a stripe customer for every satellite user.",
 		RunE:  cmdStripeCustomer,
 	}
+	metainfoCmd = &cobra.Command{
+		Use:   "metainfo",
+		Short: "Metainfo commands",
+	}
+	fixOldStyleObjectsCmd = &cobra.Command{
+		Use:   "fix-old-style-objects",
+		Short: "Fixes old-style objects",
+		Long:  "Fixes the old-style objects by adding the number of segments to the metadata.",
+		RunE:  cmdFixOldStyleObjects,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -253,6 +263,9 @@ var (
 	}
 	verifyGracefulExitReceiptCfg struct {
 	}
+	fixOldStyleObjectsCfg struct {
+		DryRun bool `help:"only prints logs for the changes to be made without apply them" default:"true"`
+	}
 	confDir     string
 	identityDir string
 )
@@ -274,6 +287,7 @@ func init() {
 	rootCmd.AddCommand(reportsCmd)
 	rootCmd.AddCommand(compensationCmd)
 	rootCmd.AddCommand(billingCmd)
+	rootCmd.AddCommand(metainfoCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(gracefulExitCmd)
@@ -287,6 +301,7 @@ func init() {
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
+	metainfoCmd.AddCommand(fixOldStyleObjectsCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -308,6 +323,7 @@ func init() {
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(fixOldStyleObjectsCmd, &fixOldStyleObjectsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -691,6 +707,12 @@ func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	return generateStripeCustomers(ctx)
+}
+
+func cmdFixOldStyleObjects(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return fixOldStyleObjects(ctx, fixOldStyleObjectsCfg.DryRun)
 }
 
 func main() {
