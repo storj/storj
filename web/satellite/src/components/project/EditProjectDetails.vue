@@ -255,6 +255,7 @@ export default class EditProjectDetails extends Vue {
                         line-height: 19px;
                         color: #384b65;
                         margin: 0;
+                        word-break: break-all;
                     }
 
                     &__name {

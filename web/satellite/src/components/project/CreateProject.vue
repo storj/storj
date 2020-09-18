@@ -75,6 +75,7 @@ import {
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
+import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 
 @Component({
@@ -180,6 +181,7 @@ export default class NewProjectPopup extends Vue {
      */
     private selectCreatedProject(): void {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
+        LocalData.setSelectedProjectId(this.createdProjectId);
 
         const defaultProjectLimit: number = parseInt(MetaUtils.getMetaContent('default-project-limit'));
         if (this.$store.getters.userProjectsCount >= defaultProjectLimit) {

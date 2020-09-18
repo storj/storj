@@ -65,6 +65,7 @@ import {
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 
 const {
@@ -170,7 +171,7 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+        this.selectProject(projects);
 
         let apiKeysPage: ApiKeysPage = new ApiKeysPage();
 
@@ -315,6 +316,33 @@ export default class DashboardArea extends Vue {
      */
     private get isPaywallEnabled(): boolean {
         return this.$store.state.paymentsModule.isPaywallEnabled;
+    }
+
+    /**
+     * Checks if stored project is in fetched projects array and selects it.
+     * Selects first fetched project if check is not successful.
+     * @param fetchedProjects - fetched projects array
+     */
+    private selectProject(fetchedProjects: Project[]): void {
+        const storedProjectID = LocalData.getSelectedProjectId();
+        const isProjectInFetchedProjects = fetchedProjects.some(project => project.id === storedProjectID);
+        if (storedProjectID && isProjectInFetchedProjects) {
+            this.storeProject(storedProjectID);
+
+            return;
+        }
+
+        // Length of fetchedProjects array is checked before selectProject() function call.
+        this.storeProject(fetchedProjects[0].id);
+    }
+
+    /**
+     * Stores project to vuex store and browser's local storage.
+     * @param projectID - project id string
+     */
+    private storeProject(projectID: string): void {
+        this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+        LocalData.setSelectedProjectId(projectID);
     }
 }
 </script>
