@@ -37,7 +37,7 @@
                     width="210px"
                     height="48px"
                     :on-press="onCancelClick"
-                    is-white="true"
+                    is-transparent="true"
                 />
                 <VButton
                     label="Create Project +"
@@ -69,7 +69,7 @@ import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { CreateProjectFields } from '@/types/projects';
+import { ProjectFields } from '@/types/projects';
 import {
     APP_STATE_ACTIONS,
     PM_ACTIONS,
@@ -126,7 +126,7 @@ export default class NewProjectPopup extends Vue {
         this.isLoading = true;
         this.projectName = this.projectName.trim();
 
-        const project = new CreateProjectFields(
+        const project = new ProjectFields(
             this.projectName,
             this.description,
             this.$store.getters.user.id,

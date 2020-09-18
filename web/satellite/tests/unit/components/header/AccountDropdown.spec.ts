@@ -44,11 +44,10 @@ describe('AccountDropdown', () => {
             store,
             localVue,
             router,
-            methods: {
-                onAccountSettingsClick: routerSpy,
-                onLogoutClick: routerSpy,
-            },
         });
+
+        wrapper.vm.onAccountSettingsClick = routerSpy;
+        wrapper.vm.onLogoutClick = routerSpy;
 
         await router.push(RouteConfig.ProjectDashboard.path);
         await wrapper.find('.settings').trigger('click');

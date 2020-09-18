@@ -7,13 +7,15 @@ import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
 
 import { makePayoutModule } from '@/app/store/modules/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
+import { PayoutService } from '@/storagenode/payouts/service';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
 const payoutApi = new PayoutHttpApi();
-const payoutModule = makePayoutModule(payoutApi);
+const payoutService = new PayoutService(payoutApi);
+const payoutModule = makePayoutModule(payoutApi, payoutService);
 
 const store = new Vuex.Store({ modules: { payoutModule }});
 

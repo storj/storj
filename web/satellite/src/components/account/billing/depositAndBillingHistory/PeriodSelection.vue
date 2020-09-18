@@ -137,7 +137,7 @@ export default class PeriodSelection extends Vue {
     /**
      * Sets billing state to previous billing period.
      */
-    private async onPreviousPeriodClick(): Promise<void> {
+    public async onPreviousPeriodClick(): Promise<void> {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
             this.$segment.track(SegmentEvent.REPORT_VIEWED, {
@@ -153,7 +153,7 @@ export default class PeriodSelection extends Vue {
     /**
      * Sets billing state to current billing period.
      */
-    private async onCurrentPeriodClick(): Promise<void> {
+    public async onCurrentPeriodClick(): Promise<void> {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
             this.$segment.track(SegmentEvent.REPORT_VIEWED, {

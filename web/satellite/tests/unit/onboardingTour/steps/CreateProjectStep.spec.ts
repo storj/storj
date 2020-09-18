@@ -37,10 +37,9 @@ describe('CreateProjectStep.vue', () => {
         const wrapper = mount(CreateProjectStep, {
             store,
             localVue,
-            methods: {
-                createProjectClick: clickSpy,
-            },
         });
+
+        wrapper.vm.createProjectClick = clickSpy;
 
         expect(wrapper.findAll('.disabled').length).toBe(1);
 

@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package heldamount_test
+package snopayout_test
 
 import (
 	"testing"
@@ -11,17 +11,18 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/satellite/snopayout"
 )
 
-func TestHeldAmountDB(t *testing.T) {
+func TestPayoutDB(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		heldAmount := db.HeldAmount()
+		snoPayout := db.SnoPayout()
 		NodeID := storj.NodeID{}
 		period := "2020-01"
-		paystub := heldamount.PayStub{
+		paystub := snopayout.PayStub{
 			Period:         "2020-01",
 			NodeID:         NodeID,
 			Created:        time.Now().UTC(),
@@ -45,7 +46,7 @@ func TestHeldAmountDB(t *testing.T) {
 			Paid:           17,
 		}
 
-		paystub2 := heldamount.PayStub{
+		paystub2 := snopayout.PayStub{
 			Period:         "2020-02",
 			NodeID:         NodeID,
 			Created:        time.Now().UTC(),
@@ -69,7 +70,7 @@ func TestHeldAmountDB(t *testing.T) {
 			Paid:           20,
 		}
 
-		paystub3 := heldamount.PayStub{
+		paystub3 := snopayout.PayStub{
 			Period:         "2020-03",
 			NodeID:         NodeID,
 			Created:        time.Now().UTC(),
@@ -94,16 +95,16 @@ func TestHeldAmountDB(t *testing.T) {
 		}
 
 		t.Run("Test StorePayStub", func(t *testing.T) {
-			err := heldAmount.CreatePaystub(ctx, paystub)
+			err := snoPayout.CreatePaystub(ctx, paystub)
 			assert.NoError(t, err)
-			err = heldAmount.CreatePaystub(ctx, paystub2)
+			err = snoPayout.CreatePaystub(ctx, paystub2)
 			assert.NoError(t, err)
-			err = heldAmount.CreatePaystub(ctx, paystub3)
+			err = snoPayout.CreatePaystub(ctx, paystub3)
 			assert.NoError(t, err)
 		})
 
 		t.Run("Test GetPayStub", func(t *testing.T) {
-			stub, err := heldAmount.GetPaystub(ctx, NodeID, period)
+			stub, err := snoPayout.GetPaystub(ctx, NodeID, period)
 			assert.NoError(t, err)
 			assert.Equal(t, stub.Period, paystub.Period)
 			assert.Equal(t, stub.Codes, paystub.Codes)
@@ -126,15 +127,15 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.Equal(t, stub.UsagePut, paystub.UsagePut)
 			assert.Equal(t, stub.UsagePutRepair, paystub.UsagePutRepair)
 
-			stub, err = heldAmount.GetPaystub(ctx, NodeID, "")
+			stub, err = snoPayout.GetPaystub(ctx, NodeID, "")
 			assert.Error(t, err)
 
-			stub, err = heldAmount.GetPaystub(ctx, storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, period)
+			stub, err = snoPayout.GetPaystub(ctx, storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, period)
 			assert.Error(t, err)
 		})
 
 		t.Run("Test GetAllPaystubs", func(t *testing.T) {
-			stubs, err := heldAmount.GetAllPaystubs(ctx, NodeID)
+			stubs, err := snoPayout.GetAllPaystubs(ctx, NodeID)
 			assert.NoError(t, err)
 			for i := 0; i < len(stubs); i++ {
 				if stubs[i].Period == "2020-01" {
@@ -206,7 +207,7 @@ func TestHeldAmountDB(t *testing.T) {
 			}
 		})
 
-		payment := heldamount.StoragenodePayment{
+		payment := snopayout.StoragenodePayment{
 			ID:      1,
 			Created: time.Now().UTC(),
 			NodeID:  NodeID,
@@ -217,12 +218,12 @@ func TestHeldAmountDB(t *testing.T) {
 		}
 
 		t.Run("Test StorePayment", func(t *testing.T) {
-			err := heldAmount.CreatePayment(ctx, payment)
+			err := snoPayout.CreatePayment(ctx, payment)
 			assert.NoError(t, err)
 		})
 
 		t.Run("Test GetPayment", func(t *testing.T) {
-			paym, err := heldAmount.GetPayment(ctx, NodeID, period)
+			paym, err := snoPayout.GetPayment(ctx, NodeID, period)
 			assert.NoError(t, err)
 			assert.Equal(t, paym.NodeID, payment.NodeID)
 			assert.Equal(t, paym.Period, payment.Period)
@@ -230,10 +231,10 @@ func TestHeldAmountDB(t *testing.T) {
 			assert.Equal(t, paym.Notes, payment.Notes)
 			assert.Equal(t, paym.Receipt, payment.Receipt)
 
-			paym, err = heldAmount.GetPayment(ctx, NodeID, "")
+			paym, err = snoPayout.GetPayment(ctx, NodeID, "")
 			assert.Error(t, err)
 
-			paym, err = heldAmount.GetPayment(ctx, storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, period)
+			paym, err = snoPayout.GetPayment(ctx, testrand.NodeID(), period)
 			assert.Error(t, err)
 		})
 	})

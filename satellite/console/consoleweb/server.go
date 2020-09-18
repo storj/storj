@@ -294,8 +294,13 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.GeneralRequestURL = server.config.GeneralRequestURL
 	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
 
-	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
-		server.log.Error("index template could not be executed")
+	if server.templates.index == nil {
+		server.log.Error("index template is not set")
+		return
+	}
+
+	if err := server.templates.index.Execute(w, data); err != nil {
+		server.log.Error("index template could not be executed", zap.Error(err))
 		return
 	}
 }

@@ -7,7 +7,6 @@ exports[`ProjectDashboard.vue renders correctly 1`] = `
       Request Limit Increase -&gt;
     </a>
   </div>
-  <projectdetails-stub></projectdetails-stub>
   <projectusage-stub></projectusage-stub>
   <bucketarea-stub></bucketarea-stub>
 </div>

@@ -31,7 +31,7 @@ import PayoutHistoryPeriodDropdown from '@/app/components/payments/PayoutHistory
 import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';
 
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { PayoutHistoryItem } from '@/app/types/payout';
+import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 
 @Component ({
     components: {
@@ -40,7 +40,7 @@ import { PayoutHistoryItem } from '@/app/types/payout';
     },
 })
 export default class PayoutHistoryTable extends Vue {
-    public get payoutHistory(): PayoutHistoryItem[] {
+    public get payoutHistory(): SatellitePayoutForPeriod[] {
         return this.$store.state.payoutModule.payoutHistory;
     }
 
@@ -62,7 +62,7 @@ export default class PayoutHistoryTable extends Vue {
             return;
         }
 
-        const lastPeriod = payoutPeriods[0];
+        const lastPeriod = payoutPeriods[payoutPeriods.length - 1];
         await this.$store.dispatch(PAYOUT_ACTIONS.SET_PAYOUT_HISTORY_PERIOD, lastPeriod.period);
 
         try {

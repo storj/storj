@@ -91,7 +91,8 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 2`] =
     <!---->
     <div class="add-card-button">
       <!---->
-      <!----> <span>Add Card</span></div>
+      <!----> <span>Add Card</span>
+    </div>
   </div>
   <!---->
   <!---->
@@ -115,7 +116,8 @@ exports[`PaymentMethods renders correctly after add card and cancel click 1`] = 
     <addcardform-stub></addcardform-stub>
     <div class="add-card-button button-moved">
       <!---->
-      <!----> <span>Add Card</span></div>
+      <!----> <span>Add Card</span>
+    </div>
   </div>
   <div class="payment-methods-area__security-info-container">
     <lockimage-stub></lockimage-stub> <span class="payment-methods-area__security-info-container__info">
@@ -143,7 +145,8 @@ exports[`PaymentMethods renders correctly after add card and cancel click 2`] = 
     <!---->
     <div class="add-card-button">
       <!---->
-      <!----> <span>Add Card</span></div>
+      <!----> <span>Add Card</span>
+    </div>
   </div>
   <!---->
   <!---->
@@ -185,7 +188,8 @@ exports[`PaymentMethods renders correctly with card 1`] = `
     <!---->
     <div class="add-card-button">
       <!---->
-      <!----> <span>Add Card</span></div>
+      <!----> <span>Add Card</span>
+    </div>
   </div>
   <!---->
   <div class="payment-methods-area__existing-cards-container">
@@ -249,7 +253,8 @@ exports[`PaymentMethods renders correctly without card 1`] = `
     <!---->
     <div class="add-card-button">
       <!---->
-      <!----> <span>Add Card</span></div>
+      <!----> <span>Add Card</span>
+    </div>
   </div>
   <!---->
   <!---->

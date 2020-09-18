@@ -3,6 +3,7 @@
 
 <template>
     <div class="navigation-area" v-if="!isOnboardingTour">
+        <EditProjectDropdown/>
         <router-link
             :aria-label="navItem.name"
             class="navigation-area__item-container"
@@ -21,6 +22,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import EditProjectDropdown from '@/components/navigation/EditProjectDropdown.vue';
+
 import ApiKeysIcon from '@/../static/images/navigation/apiKeys.svg';
 import DashboardIcon from '@/../static/images/navigation/dashboard.svg';
 import TeamIcon from '@/../static/images/navigation/team.svg';
@@ -33,6 +36,7 @@ import { NavigationLink } from '@/types/navigation';
         DashboardIcon,
         ApiKeysIcon,
         TeamIcon,
+        EditProjectDropdown,
     },
 })
 export default class NavigationArea extends Vue {

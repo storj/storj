@@ -184,7 +184,7 @@ export default class SNOHeader extends Vue {
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
 
         try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO, selectedSatellite);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, selectedSatellite);
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {
             console.error(error.message);

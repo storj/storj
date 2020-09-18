@@ -51,12 +51,11 @@ describe('SmallDepositHistory', (): void => {
         const wrapper = shallowMount(SmallDepositHistory, {
             localVue,
             store,
-            methods: {
-                onViewAllClick: clickSpy,
-            },
         });
 
-        await wrapper.find('.button').trigger('click');
+        wrapper.vm.onViewAllClick = clickSpy;
+
+        await wrapper.find('.deposit-area__header__button').trigger('click');
 
         expect(clickSpy.callCount).toBe(1);
     });

@@ -12,6 +12,7 @@ exports[`AddCardState.vue renders correctly 1`] = `
         </span>
   </div>
   <div class="add-card-state__button">
-    <!----> <span class="add-card-state__button__label">Add Payment</span></div>
+    <!----> <span class="add-card-state__button__label">Add Payment</span>
+  </div>
 </div>
 `;

@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/estimatedpayout"
+	"storj.io/storj/storagenode/payout/estimatedpayout"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"

@@ -36,7 +36,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -51,6 +50,7 @@ import (
 	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
+	"storj.io/storj/satellite/snopayout"
 )
 
 // API is the satellite API process
@@ -150,10 +150,10 @@ type API struct {
 		Endpoint *nodestats.Endpoint
 	}
 
-	HeldAmount struct {
-		Endpoint *heldamount.Endpoint
-		Service  *heldamount.Service
-		DB       heldamount.DB
+	SnoPayout struct {
+		Endpoint *snopayout.Endpoint
+		Service  *snopayout.Service
+		DB       snopayout.DB
 	}
 
 	GracefulExit struct {
@@ -630,17 +630,17 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup heldamount endpoint
-		peer.HeldAmount.DB = peer.DB.HeldAmount()
-		peer.HeldAmount.Service = heldamount.NewService(
-			peer.Log.Named("heldamount:service"),
-			peer.HeldAmount.DB)
-		peer.HeldAmount.Endpoint = heldamount.NewEndpoint(
-			peer.Log.Named("heldamount:endpoint"),
+	{ // setup SnoPayout endpoint
+		peer.SnoPayout.DB = peer.DB.SnoPayout()
+		peer.SnoPayout.Service = snopayout.NewService(
+			peer.Log.Named("payout:service"),
+			peer.SnoPayout.DB)
+		peer.SnoPayout.Endpoint = snopayout.NewEndpoint(
+			peer.Log.Named("payout:endpoint"),
 			peer.DB.StoragenodeAccounting(),
 			peer.Overlay.DB,
-			peer.HeldAmount.Service)
-		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.HeldAmount.Endpoint); err != nil {
+			peer.SnoPayout.Service)
+		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.SnoPayout.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
