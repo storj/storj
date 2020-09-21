@@ -41,17 +41,14 @@ export default class Login extends Vue {
     // Tardigrade logic
     public isDropdownShown: boolean = false;
 
+    /**
+     * Lifecycle hook after initial render.
+     * Makes activated banner visible on successful account activation.
+     */
     public mounted(): void {
         if (this.$route.query.activated === 'true') {
             this.isActivatedBannerShown = true;
         }
-    }
-
-    /**
-     * Checks if page is inside iframe
-     */
-    public get isInsideIframe(): boolean {
-        return window.self !== window.top;
     }
 
     /**
@@ -61,11 +58,17 @@ export default class Login extends Vue {
         location.reload();
     }
 
+    /**
+     * Sets email string on change.
+     */
     public setEmail(value: string): void {
         this.email = value;
         this.emailError = '';
     }
 
+    /**
+     * Sets password string on change.
+     */
     public setPassword(value: string): void {
         this.password = value;
         this.passwordError = '';
@@ -121,15 +124,14 @@ export default class Login extends Vue {
             return;
         }
 
-        if (this.isInsideIframe) {
-            window.top.location.href = window.self.location.origin + '/account/billing';
-        }
-
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
         this.isLoading = false;
         await this.$router.push(RouteConfig.ProjectDashboard.path);
     }
 
+    /**
+     * Validates email and password input strings.
+     */
     private validateFields(): boolean {
         let isNoErrors = true;
 
