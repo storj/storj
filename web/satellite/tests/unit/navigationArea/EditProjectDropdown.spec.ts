@@ -7,6 +7,7 @@ import Vuex from 'vuex';
 
 import EditProjectDropdown from '@/components/navigation/EditProjectDropdown.vue';
 
+import { router } from '@/router';
 import { appStateModule } from '@/store/modules/appState';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
@@ -52,6 +53,7 @@ describe('EditProjectDropdown', () => {
         const wrapper = mount(EditProjectDropdown, {
             store,
             localVue,
+            router,
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -61,6 +63,7 @@ describe('EditProjectDropdown', () => {
         const wrapper = mount(EditProjectDropdown, {
             store,
             localVue,
+            router,
         });
 
         await wrapper.find('.edit-project__selection-area').trigger('click');

@@ -3,7 +3,7 @@
 
 <template>
     <div class="edit-project">
-        <div class="edit-project__selection-area" :class="{ active: isDropdownShown }" @click.stop.prevent="toggleDropdown">
+        <div class="edit-project__selection-area" :class="{ active: isDropdownShown, 'on-edit': isEditPage }" @click.stop.prevent="toggleDropdown">
             <h1 class="edit-project__selection-area__name">{{ projectName }}</h1>
             <DotsImage class="edit-project__selection-area__image"/>
         </div>
@@ -47,6 +47,13 @@ export default class EditProjectDropdown extends Vue {
     }
 
     /**
+     * Indicates if current route name equals "edit project details" route name.
+     */
+    public get isEditPage(): boolean {
+        return this.$route.name === RouteConfig.EditProjectDetails.name;
+    }
+
+    /**
      * Redirects to edit project details page.
      */
     public onEditProjectClick(): void {
@@ -75,16 +82,16 @@ export default class EditProjectDropdown extends Vue {
 <style scoped lang="scss">
     .edit-project {
         font-family: 'font_regular', sans-serif;
-        width: 190px;
         position: relative;
-        margin: 0 0 30px 13px;
+        width: 185px;
+        margin: 0 0 30px 15px;
 
         &__selection-area {
-            width: calc(100% - 25px);
+            width: calc(100% - 15px);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 15px 10px 10px;
+            padding: 10px;
             border-radius: 6px;
             cursor: pointer;
 
@@ -94,7 +101,9 @@ export default class EditProjectDropdown extends Vue {
                 line-height: 22px;
                 color: #000;
                 margin: 0 5px 0 0;
-                word-break: break-all;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             &__image {
@@ -110,7 +119,7 @@ export default class EditProjectDropdown extends Vue {
             box-shadow: 0 8px 34px rgba(161, 173, 185, 0.41);
             border-radius: 6px;
             padding: 5px 0;
-            width: 190px;
+            width: calc(100% + 5px);
             z-index: 1;
 
             &__choice {
@@ -131,12 +140,29 @@ export default class EditProjectDropdown extends Vue {
 
                 &:hover {
                     background-color: #f5f5f7;
+
+                    .edit-project__dropdown__choice__label {
+                        font-weight: unset;
+                        font-family: 'font_bold', sans-serif;
+                    }
                 }
             }
         }
     }
 
     .active {
-        background-color: rgba(245, 246, 250, 0.7);
+        background-color: #fff;
+    }
+
+    .on-edit {
+        background-color: #0068dc;
+
+        .edit-project__selection-area__name {
+            color: #fff;
+        }
+
+        .edit-dots-svg-path {
+            fill: #fff;
+        }
     }
 </style>

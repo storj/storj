@@ -78,9 +78,10 @@ export default class NavigationArea extends Vue {
     }
 
     .navigation-area {
-        padding: 25px 30px;
-        min-width: 160px;
-        background: rgba(118, 131, 148, 0.3);
+        padding: 25px;
+        min-width: 170px;
+        max-width: 170px;
+        background: #e6e9ef;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -104,7 +105,7 @@ export default class NavigationArea extends Vue {
                 &__title {
                     font-size: 16px;
                     line-height: 23px;
-                    color: #354049;
+                    color: #1b2533;
                     margin: 0 0 0 15px;
                 }
             }
@@ -112,11 +113,16 @@ export default class NavigationArea extends Vue {
             &.router-link-active,
             &:hover {
                 font-family: 'font_bold', sans-serif;
-                background: rgba(245, 246, 250, 0.7);
+                background: #0068dc;
                 border-radius: 6px;
 
+                .navigation-area__item-container__link__title {
+                    color: #fff;
+                }
+
                 .svg .navigation-svg-path:not(.white) {
-                    fill: #2683ff !important;
+                    fill: #fff !important;
+                    opacity: 1;
                 }
             }
         }

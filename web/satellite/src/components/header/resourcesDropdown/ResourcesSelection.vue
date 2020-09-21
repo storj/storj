@@ -72,10 +72,19 @@ export default class ResourcesSelection extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .expanded {
+
+        .black-arrow-expand-path {
+            fill: #fff !important;
+        }
+    }
+
     .resources-selection {
         background-color: #fff;
         cursor: pointer;
         margin-right: 20px;
+        border-radius: 6px;
+        min-width: 140px;
 
         &__toggle-container {
             position: relative;
@@ -101,6 +110,19 @@ export default class ResourcesSelection extends Vue {
                 margin-left: 15px;
             }
         }
+
+        &:hover {
+            background-color: #f5f6fa;
+
+            .resources-selection__toggle-container__name {
+                font-family: 'font_bold', sans-serif;
+                color: #0068dc;
+            }
+
+            .black-arrow-expand-path {
+                fill: #0068dc;
+            }
+        }
     }
 
     .disabled {
@@ -109,19 +131,12 @@ export default class ResourcesSelection extends Vue {
         cursor: default;
     }
 
-    .expanded {
-
-        .black-arrow-expand-path {
-            fill: #fff;
-        }
-    }
-
     .active {
-        background: #2582ff;
-        border-radius: 6px;
+        background: #2582ff !important;
     }
 
     .white {
-        color: #fff;
+        font-family: 'font_bold', sans-serif;
+        color: #fff !important;
     }
 </style>

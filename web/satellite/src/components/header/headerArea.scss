@@ -48,12 +48,12 @@
     left: 0;
     z-index: 100;
     height: 100vh;
-    background: #e2eaf3;
+    background: #e6e9ef;
 }
 
 .navigation-blur {
     height: 100vh;
-    width: 1000px;
+    width: 100%;
     position: absolute;
     top: 62px;
     left: 220px;
@@ -94,5 +94,9 @@
 
     .logo {
         display: none;
+    }
+
+    /deep/ .edit-project {
+        margin-left: 0;
     }
 }

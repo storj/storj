@@ -119,11 +119,19 @@ export default class ProjectSelection extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .expanded {
+
+        .black-arrow-expand-path {
+            fill: #fff !important;
+        }
+    }
+
     .project-selection {
         background-color: #fff;
         cursor: pointer;
         margin-right: 20px;
         min-width: 130px;
+        border-radius: 6px;
 
         &__toggle-container {
             position: relative;
@@ -148,6 +156,19 @@ export default class ProjectSelection extends Vue {
                 margin-left: 15px;
             }
         }
+
+        &:hover {
+            background-color: #f5f6fa;
+
+            .project-selection__toggle-container__name {
+                font-family: 'font_bold', sans-serif;
+                color: #0068dc;
+            }
+
+            .black-arrow-expand-path {
+                fill: #0068dc;
+            }
+        }
     }
 
     .disabled {
@@ -156,31 +177,12 @@ export default class ProjectSelection extends Vue {
         cursor: default;
     }
 
-    .expanded {
-
-        .black-arrow-expand-path {
-            fill: #fff;
-        }
-    }
-
     .active {
-        background: #2582ff;
-        border-radius: 6px;
+        background: #2582ff !important;
     }
 
     .white {
-        color: #fff;
-    }
-
-    @media screen and (max-width: 1280px) {
-
-        .project-selection {
-            margin-right: 30px;
-
-            &__toggle-container {
-                justify-content: space-between;
-                padding-left: 10px;
-            }
-        }
+        font-family: 'font_bold', sans-serif;
+        color: #fff !important;
     }
 </style>
