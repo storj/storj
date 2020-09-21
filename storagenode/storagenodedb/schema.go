@@ -691,6 +691,26 @@ func Schema() map[string]*dbschema.Schema {
 				},
 			},
 		},
+		"secret": &dbschema.Schema{
+			Tables: []*dbschema.Table{
+				&dbschema.Table{
+					Name:       "secret",
+					PrimaryKey: []string{"token"},
+					Columns: []*dbschema.Column{
+						&dbschema.Column{
+							Name:       "created_at",
+							Type:       "timestamp with time zone",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "token",
+							Type:       "bytea",
+							IsNullable: false,
+						},
+					},
+				},
+			},
+		},
 		"storage_usage": &dbschema.Schema{
 			Tables: []*dbschema.Table{
 				&dbschema.Table{
@@ -719,3 +739,4 @@ func Schema() map[string]*dbschema.Schema {
 		"used_serial": &dbschema.Schema{},
 	}
 }
+
