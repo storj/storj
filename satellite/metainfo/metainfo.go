@@ -296,14 +296,15 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if err != nil {
 		return nil, err
 	}
-	if maxBuckets == 0 {
-		maxBuckets = endpoint.config.ProjectLimits.MaxBuckets
+	if maxBuckets == nil {
+		defaultMaxBuckets := endpoint.config.ProjectLimits.MaxBuckets
+		maxBuckets = &defaultMaxBuckets
 	}
 	bucketCount, err := endpoint.metainfo.CountBuckets(ctx, keyInfo.ProjectID)
 	if err != nil {
 		return nil, err
 	}
-	if bucketCount >= maxBuckets {
+	if bucketCount >= *maxBuckets {
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, fmt.Sprintf("number of allocated buckets (%d) exceeded", endpoint.config.ProjectLimits.MaxBuckets))
 	}
 

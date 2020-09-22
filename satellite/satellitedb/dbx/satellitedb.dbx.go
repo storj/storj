@@ -497,10 +497,10 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint NOT NULL DEFAULT 0,
-	bandwidth_limit bigint NOT NULL DEFAULT 0,
+	usage_limit bigint,
+	bandwidth_limit bigint,
 	rate_limit integer,
-	max_buckets integer NOT NULL DEFAULT 0,
+	max_buckets integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -1008,10 +1008,10 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint NOT NULL DEFAULT 0,
-	bandwidth_limit bigint NOT NULL DEFAULT 0,
+	usage_limit bigint,
+	bandwidth_limit bigint,
 	rate_limit integer,
-	max_buckets integer NOT NULL DEFAULT 0,
+	max_buckets integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -5078,10 +5078,10 @@ type Project struct {
 	Id             []byte
 	Name           string
 	Description    string
-	UsageLimit     int64
-	BandwidthLimit int64
+	UsageLimit     *int64
+	BandwidthLimit *int64
 	RateLimit      *int
-	MaxBuckets     int
+	MaxBuckets     *int
 	PartnerId      []byte
 	OwnerId        []byte
 	CreatedAt      time.Time
@@ -5166,12 +5166,25 @@ func (Project_Description_Field) _Column() string { return "description" }
 type Project_UsageLimit_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value *int64
 }
 
 func Project_UsageLimit(v int64) Project_UsageLimit_Field {
-	return Project_UsageLimit_Field{_set: true, _value: v}
+	return Project_UsageLimit_Field{_set: true, _value: &v}
 }
+
+func Project_UsageLimit_Raw(v *int64) Project_UsageLimit_Field {
+	if v == nil {
+		return Project_UsageLimit_Null()
+	}
+	return Project_UsageLimit(*v)
+}
+
+func Project_UsageLimit_Null() Project_UsageLimit_Field {
+	return Project_UsageLimit_Field{_set: true, _null: true}
+}
+
+func (f Project_UsageLimit_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Project_UsageLimit_Field) value() interface{} {
 	if !f._set || f._null {
@@ -5185,12 +5198,25 @@ func (Project_UsageLimit_Field) _Column() string { return "usage_limit" }
 type Project_BandwidthLimit_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value *int64
 }
 
 func Project_BandwidthLimit(v int64) Project_BandwidthLimit_Field {
-	return Project_BandwidthLimit_Field{_set: true, _value: v}
+	return Project_BandwidthLimit_Field{_set: true, _value: &v}
 }
+
+func Project_BandwidthLimit_Raw(v *int64) Project_BandwidthLimit_Field {
+	if v == nil {
+		return Project_BandwidthLimit_Null()
+	}
+	return Project_BandwidthLimit(*v)
+}
+
+func Project_BandwidthLimit_Null() Project_BandwidthLimit_Field {
+	return Project_BandwidthLimit_Field{_set: true, _null: true}
+}
+
+func (f Project_BandwidthLimit_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Project_BandwidthLimit_Field) value() interface{} {
 	if !f._set || f._null {
@@ -5236,12 +5262,25 @@ func (Project_RateLimit_Field) _Column() string { return "rate_limit" }
 type Project_MaxBuckets_Field struct {
 	_set   bool
 	_null  bool
-	_value int
+	_value *int
 }
 
 func Project_MaxBuckets(v int) Project_MaxBuckets_Field {
-	return Project_MaxBuckets_Field{_set: true, _value: v}
+	return Project_MaxBuckets_Field{_set: true, _value: &v}
 }
+
+func Project_MaxBuckets_Raw(v *int) Project_MaxBuckets_Field {
+	if v == nil {
+		return Project_MaxBuckets_Null()
+	}
+	return Project_MaxBuckets(*v)
+}
+
+func Project_MaxBuckets_Null() Project_MaxBuckets_Field {
+	return Project_MaxBuckets_Field{_set: true, _null: true}
+}
+
+func (f Project_MaxBuckets_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Project_MaxBuckets_Field) value() interface{} {
 	if !f._set || f._null {
@@ -8673,7 +8712,7 @@ func (h *__sqlbundle_Hole) Render() string {
 //
 
 type BandwidthLimit_Row struct {
-	BandwidthLimit int64
+	BandwidthLimit *int64
 }
 
 type BucketId_Row struct {
@@ -8706,7 +8745,7 @@ type LeafSerialNumber_Row struct {
 }
 
 type MaxBuckets_Row struct {
-	MaxBuckets int
+	MaxBuckets *int
 }
 
 type Paged_PendingSerialQueue_Continuation struct {
@@ -8721,7 +8760,7 @@ type ProjectLimit_Row struct {
 }
 
 type UsageLimit_Row struct {
-	UsageLimit int64
+	UsageLimit *int64
 }
 
 type Value_Row struct {
@@ -9182,49 +9221,19 @@ func (obj *pgxImpl) Create_Project(ctx context.Context,
 	__id_val := project_id.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
+	__usage_limit_val := optional.UsageLimit.value()
+	__bandwidth_limit_val := optional.BandwidthLimit.value()
 	__rate_limit_val := optional.RateLimit.value()
+	__max_buckets_val := optional.MaxBuckets.value()
 	__partner_id_val := optional.PartnerId.value()
 	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, name, description, rate_limit, partner_id, owner_id, created_at")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
-	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __name_val, __description_val, __rate_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
+	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
 
-	__optional_columns := __sqlbundle_Literals{Join: ", "}
-	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
-
-	if optional.UsageLimit._set {
-		__values = append(__values, optional.UsageLimit.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("usage_limit"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.BandwidthLimit._set {
-		__values = append(__values, optional.BandwidthLimit.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("bandwidth_limit"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.MaxBuckets._set {
-		__values = append(__values, optional.MaxBuckets.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("max_buckets"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if len(__optional_columns.SQLs) == 0 {
-		if __columns.SQL == nil {
-			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
-		}
-	} else {
-		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
-		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
-	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -15449,49 +15458,19 @@ func (obj *pgxcockroachImpl) Create_Project(ctx context.Context,
 	__id_val := project_id.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
+	__usage_limit_val := optional.UsageLimit.value()
+	__bandwidth_limit_val := optional.BandwidthLimit.value()
 	__rate_limit_val := optional.RateLimit.value()
+	__max_buckets_val := optional.MaxBuckets.value()
 	__partner_id_val := optional.PartnerId.value()
 	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, name, description, rate_limit, partner_id, owner_id, created_at")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
-	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __name_val, __description_val, __rate_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
+	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
 
-	__optional_columns := __sqlbundle_Literals{Join: ", "}
-	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
-
-	if optional.UsageLimit._set {
-		__values = append(__values, optional.UsageLimit.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("usage_limit"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.BandwidthLimit._set {
-		__values = append(__values, optional.BandwidthLimit.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("bandwidth_limit"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.MaxBuckets._set {
-		__values = append(__values, optional.MaxBuckets.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("max_buckets"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if len(__optional_columns.SQLs) == 0 {
-		if __columns.SQL == nil {
-			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
-		}
-	} else {
-		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
-		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
-	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 

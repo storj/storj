@@ -144,11 +144,17 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		} `json:"rate"`
 		Buckets int `json:"maxBuckets"`
 	}
-	output.Usage.Amount = usagelimit
-	output.Usage.Bytes = usagelimit.Int64()
-	output.Bandwidth.Amount = bandwidthlimit
-	output.Bandwidth.Bytes = bandwidthlimit.Int64()
-	output.Buckets = project.MaxBuckets
+	if usagelimit != nil {
+		output.Usage.Amount = memory.Size(*usagelimit)
+		output.Usage.Bytes = *usagelimit
+	}
+	if bandwidthlimit != nil {
+		output.Bandwidth.Amount = memory.Size(*bandwidthlimit)
+		output.Bandwidth.Bytes = *bandwidthlimit
+	}
+	if project.MaxBuckets != nil {
+		output.Buckets = *project.MaxBuckets
+	}
 	if project.RateLimit != nil {
 		output.Rate.RPS = *project.RateLimit
 	}

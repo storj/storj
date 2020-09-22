@@ -320,11 +320,11 @@ model project (
 
     field name            text      ( updatable )
     field description     text      ( updatable )
-    field usage_limit     int64     ( updatable, default 0 )
-    field bandwidth_limit int64     ( updatable, default 0 )
+    field usage_limit     int64     ( nullable, updatable )
+    field bandwidth_limit int64     ( nullable, updatable )
     field rate_limit      int       ( nullable, updatable )
-    field max_buckets     int       ( updatable, default 0 )
-    field partner_id      blob      ( nullable  )
+    field max_buckets     int       ( nullable, updatable )
+    field partner_id      blob      ( nullable )
     field owner_id        blob
 
     field created_at      timestamp ( autoinsert )
