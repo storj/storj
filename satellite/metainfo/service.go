@@ -95,6 +95,14 @@ func (s *Service) UpdatePieces(ctx context.Context, key metabase.SegmentKey, ref
 // Replacing the node ID and the hash of a piece can be done by adding the
 // piece to both toAdd and toRemove.
 func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, key metabase.SegmentKey, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece, checkDuplicates bool) (pointer *pb.Pointer, err error) {
+	return s.UpdatePiecesCheckDuplicatesVerifyHashes(ctx, key, ref, toAdd, toRemove, checkDuplicates, false)
+}
+
+// UpdatePiecesCheckDuplicatesVerifyHashes atomically adds toAdd pieces,
+// removes toRemove pieces, and sets PieceHashesVerified to verifyHashes in
+// the pointer under path. ref is the pointer that caller received via Get
+// prior to calling this method.
+func (s *Service) UpdatePiecesCheckDuplicatesVerifyHashes(ctx context.Context, key metabase.SegmentKey, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece, checkDuplicates, verifyHashes bool) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := sanityCheckPointer(key, ref); err != nil {
@@ -184,6 +192,10 @@ func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, key metabase.
 
 		pointer.LastRepaired = ref.LastRepaired
 		pointer.RepairCount = ref.RepairCount
+
+		if verifyHashes {
+			pointer.PieceHashesVerified = true
+		}
 
 		// marshal the pointer
 		newPointerBytes, err := pb.Marshal(pointer)
