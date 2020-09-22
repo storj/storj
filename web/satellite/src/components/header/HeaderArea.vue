@@ -15,7 +15,7 @@ import LogoIcon from '@/../static/images/header/logo.svg';
 import NavigationCloseIcon from '@/../static/images/header/navigationClose.svg';
 import NavigationMenuIcon from '@/../static/images/header/navigationMenu.svg';
 
-import AccountButton from './AccountButton.vue';
+import AccountButton from './accountDropdown/AccountButton.vue';
 
 @Component({
     components: {

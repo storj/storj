@@ -30,17 +30,14 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP](state: any): void {
             state.appState.isAddTeamMembersPopupShown = !state.appState.isAddTeamMembersPopupShown;
         },
-
         // Mutation changing save api key modal visibility
         [APP_STATE_MUTATIONS.TOGGLE_SAVE_API_KEY_MODAL](state: any): void {
             state.appState.isSaveApiKeyModalShown = !state.appState.isSaveApiKeyModalShown;
         },
-
         // Mutation changing account dropdown visibility
         [APP_STATE_MUTATIONS.TOGGLE_ACCOUNT_DROPDOWN](state: any): void {
             state.appState.isAccountDropdownShown = !state.appState.isAccountDropdownShown;
         },
-
         // Mutation changing delete project popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_DELETE_PROJECT_DROPDOWN](state: any): void {
             state.appState.isDeleteProjectPopupShown = !state.appState.isDeleteProjectPopupShown;
@@ -83,7 +80,6 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: any, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;
         },
-
         // Mutation changing payment selection visibility
         [APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION](state: any, value: boolean): void {
             state.appState.isPaymentSelectionShown = value;
