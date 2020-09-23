@@ -77,7 +77,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.contact-info-url: https://forum.storj.io
 
 # default project limits for users
-# console.default-project-limit: 1
+# console.default-project-limit: 10
 
 # external endpoint of the satellite if hosted
 # console.external-address: ""

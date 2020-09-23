@@ -94,7 +94,7 @@ type Service struct {
 type Config struct {
 	PasswordCost            int  `help:"password hashing cost (0=automatic)" internal:"true" default:"0"`
 	OpenRegistrationEnabled bool `help:"enable open registration" default:"false"`
-	DefaultProjectLimit     int  `help:"default project limits for users" default:"1"`
+	DefaultProjectLimit     int  `help:"default project limits for users" default:"10"`
 }
 
 // PaymentsService separates all payment related functionality.
