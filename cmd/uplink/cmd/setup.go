@@ -146,7 +146,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println(`
 Your Uplink CLI is configured and ready to use!
 
-* See http://documentation.tardigrade.io/api-reference/uplink-cli for some example commands`)
+* See https://documentation.tardigrade.io/api-reference/uplink-cli for some example commands`)
 
 	return nil
 }
