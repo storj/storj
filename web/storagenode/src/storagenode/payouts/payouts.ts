@@ -180,9 +180,9 @@ export class TotalHeldAndPaid {
         paystubs: Paystub[] = [],
     ) {
         paystubs.forEach(paystub => {
-            this.held += this.convertToCents(paystub.held - paystub.disposed);
             this.paid += this.convertToCents(paystub.paid);
             this.disposed += this.convertToCents(paystub.disposed);
+            this.held += this.convertToCents(paystub.held - paystub.disposed);
         });
     }
 
@@ -209,15 +209,19 @@ export class SatelliteHeldHistory {
         public totalDisposed: number = 0,
         public joinedAt: Date = new Date(),
     ) {
-        this.totalHeld = this.totalHeld / PRICE_DIVIDER;
-        this.totalDisposed = this.totalDisposed / PRICE_DIVIDER;
-        this.holdForFirstPeriod = this.holdForFirstPeriod / PRICE_DIVIDER;
-        this.holdForSecondPeriod = this.holdForSecondPeriod / PRICE_DIVIDER;
-        this.holdForThirdPeriod = this.holdForThirdPeriod / PRICE_DIVIDER;
+        this.totalHeld = this.convertToCents(this.totalHeld - this.totalDisposed);
+        this.totalDisposed = this.convertToCents(this.totalDisposed);
+        this.holdForFirstPeriod = this.convertToCents(this.holdForFirstPeriod);
+        this.holdForSecondPeriod = this.convertToCents(this.holdForSecondPeriod);
+        this.holdForThirdPeriod = this.convertToCents(this.holdForThirdPeriod);
     }
 
     public get monthsWithNode(): number {
         return getMonthsBeforeNow(this.joinedAt);
+    }
+
+    private convertToCents(value: number): number {
+        return value / PRICE_DIVIDER;
     }
 }
 
