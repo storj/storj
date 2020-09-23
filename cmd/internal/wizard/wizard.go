@@ -136,8 +136,7 @@ func PromptForAPIKey() (string, error) {
 
 // PromptForEncryptionPassphrase handles user input for an encryption passphrase to be used with wizards
 func PromptForEncryptionPassphrase() (string, error) {
-	_, err := fmt.Print(`
-Data is encrypted on the network, with an encryption passphrase
+	_, err := fmt.Print(`Data is encrypted on the network, with an encryption passphrase
 stored on your local machine. Enter a passphrase you'd like to use.
 Enter your encryption passphrase: `)
 	if err != nil {
