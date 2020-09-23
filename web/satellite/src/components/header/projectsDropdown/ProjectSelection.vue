@@ -42,7 +42,6 @@ import ProjectDropdown from './ProjectDropdown.vue';
 })
 export default class ProjectSelection extends Vue {
     private isLoading: boolean = false;
-    public isDropdownShown: boolean = false;
 
     /**
      * Life cycle hook before initial render.
@@ -56,6 +55,20 @@ export default class ProjectSelection extends Vue {
         }
 
         this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.name === RouteConfig.OnboardingTour.name;
+    }
+
+    /**
+     * Indicates select project dropdown shown.
+     */
+    public get isDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isSelectProjectDropdownShown;
     }
 
     /**
@@ -79,24 +92,19 @@ export default class ProjectSelection extends Vue {
     }
 
     /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.name === RouteConfig.OnboardingTour.name;
-    }
-
-    /**
      * Toggles project dropdown visibility.
      */
     public toggleDropdown(): void {
-        this.isDropdownShown = !this.isDropdownShown;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PROJECT_DROPDOWN);
     }
 
     /**
-     * Closes project dropdown.
+     * Closes select project dropdown.
      */
     public closeDropdown(): void {
-        this.isDropdownShown = false;
+        if (!this.isDropdownShown) return;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 
     /**

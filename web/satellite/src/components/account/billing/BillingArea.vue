@@ -93,8 +93,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class BillingArea extends Vue {
-    public isCreditsDropdownShown: boolean = false;
-    public isBalanceDropdownShown: boolean = false;
     public readonly creditHistoryRoute: string = RouteConfig.Account.with(RouteConfig.CreditsHistory).path;
     public readonly balanceHistoryRoute: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
 
@@ -124,6 +122,20 @@ export default class BillingArea extends Vue {
      * If balance is lower - yellow notification should appear.
      */
     private readonly CRITICAL_AMOUNT: number = 1000;
+
+    /**
+     * Indicates if free credits dropdown shown.
+     */
+    public get isCreditsDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isFreeCreditsDropdownShown;
+    }
+
+    /**
+     * Indicates if available balance dropdown shown.
+     */
+    public get isBalanceDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isAvailableBalanceDropdownShown;
+    }
 
     /**
      * Returns account balance from store.
@@ -180,22 +192,23 @@ export default class BillingArea extends Vue {
      * Toggles free credits dropdown visibility.
      */
     public toggleCreditsDropdown(): void {
-        this.isCreditsDropdownShown = !this.isCreditsDropdownShown;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_FREE_CREDITS_DROPDOWN);
     }
 
     /**
      * Toggles available balance dropdown visibility.
      */
     public toggleBalanceDropdown(): void {
-        this.isBalanceDropdownShown = !this.isBalanceDropdownShown;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_AVAILABLE_BALANCE_DROPDOWN);
     }
 
     /**
-     * Closes free credits dropdown.
+     * Closes free credits and balance dropdowns.
      */
     public closeDropdown(): void {
-        this.isCreditsDropdownShown = false;
-        this.isBalanceDropdownShown = false;
+        if (!this.isCreditsDropdownShown && !this.isBalanceDropdownShown) return;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 }
 </script>

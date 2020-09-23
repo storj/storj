@@ -5,7 +5,7 @@ import {PaymentsHistoryItemType} from "@/types/payments";
 <template>
     <div class="form-container">
         <div class="selected-container" v-if="!isCustomAmount">
-            <div id="paymentSelectButton" class="selected-container__label-container" @click="open">
+            <div class="selected-container__label-container" @click="open">
                 <p class="selected-container__label-container__label">{{current.label}}</p>
                 <div class="selected-container__label-container__svg">
                     <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -30,7 +30,6 @@ import {PaymentsHistoryItemType} from "@/types/payments";
             </div>
         </label>
         <div
-            id="paymentSelect"
             class="options-container"
             :class="{ 'top-expand': isExpandingTop }"
             v-if="isSelectionShown"
@@ -150,7 +149,9 @@ export default class TokenDepositSelection extends Vue {
      * closes token amount selection.
      */
     public close(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION, false);
+        if (!this.isSelectionShown) return;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 
     /**

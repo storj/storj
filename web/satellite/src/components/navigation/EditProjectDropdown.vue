@@ -23,6 +23,7 @@ import DotsImage from '@/../static/images/navigation/dots.svg';
 import EditImage from '@/../static/images/navigation/edit.svg';
 
 import { RouteConfig } from '@/router';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
     components: {
@@ -31,13 +32,18 @@ import { RouteConfig } from '@/router';
     },
 })
 export default class EditProjectDropdown extends Vue {
-    public isDropdownShown: boolean = false;
-
     /**
      * Returns selected project's name.
      */
     public get projectName(): string {
         return this.$store.getters.selectedProject.name;
+    }
+
+    /**
+     * Indicates if dropdown is shown.
+     */
+    public get isDropdownShown(): string {
+        return this.$store.state.appStateModule.appState.isEditProjectDropdownShown;
     }
 
     /**
@@ -52,14 +58,16 @@ export default class EditProjectDropdown extends Vue {
      * Toggles dropdown visibility.
      */
     public toggleDropdown(): void {
-        this.isDropdownShown = !this.isDropdownShown;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROJECT_DROPDOWN);
     }
 
     /**
      * Closes dropdown.
      */
     public closeDropdown(): void {
-        this.isDropdownShown = false;
+        if (!this.isDropdownShown) return;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 }
 </script>

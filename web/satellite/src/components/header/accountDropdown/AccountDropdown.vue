@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="account-dropdown" id="accountDropdown" v-click-outside="closeDropdown">
+    <div class="account-dropdown">
         <div class="account-dropdown__wrap">
             <div class="account-dropdown__wrap__name-container">
                 <p class="account-dropdown__wrap__name-container__name">{{ userName }}</p>
@@ -65,13 +65,6 @@ export default class AccountDropdown extends Vue {
 
         LocalData.removeUserId();
     }
-
-    /**
-     * Closes account dropdown.
-     */
-    public closeDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-    }
 }
 </script>
 
@@ -96,16 +89,16 @@ export default class AccountDropdown extends Vue {
             &__name-container {
                 width: calc(100% - 45px);
                 margin-left: 30px;
-                border-bottom: 1px solid #c7cdd2;
                 padding: 0 15px 15px 0;
 
                 &__name {
                     font-size: 14px;
                     line-height: 19px;
-                    color: #494949;
+                    color: #1b2533;
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
+                    margin: 15px 0 0 0;
                 }
             }
 
@@ -113,15 +106,16 @@ export default class AccountDropdown extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding: 0 20px 0 30px;
+                padding: 20px 20px 20px 30px;
                 cursor: pointer;
 
                 &__title,
                 &__arrow {
                     font-size: 14px;
                     line-height: 19px;
-                    color: #2582ff;
+                    color: #0068dc;
                     font-weight: 500;
+                    margin: 0;
                 }
             }
         }

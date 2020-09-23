@@ -13,7 +13,10 @@
                 </h1>
             </div>
         </div>
-        <AccountDropdown v-if="isDropdownShown"/>
+        <AccountDropdown
+            v-if="isDropdownShown"
+            v-click-outside="closeDropdown"
+        />
     </div>
 </template>
 
@@ -49,6 +52,15 @@ export default class AccountButton extends Vue {
      */
     public toggleDropdown(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
+    }
+
+    /**
+     * Closes account dropdown.
+     */
+    public closeDropdown(): void {
+        if (!this.isDropdownShown) return;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 }
 </script>

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="app" @click="onClick">
+    <div id="app">
         <router-view/>
         <!-- Area for displaying notification -->
         <NotificationArea/>
@@ -23,14 +23,6 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class App extends Vue {
-    private ids: string[] = [
-                'accountDropdown',
-                'accountDropdownButton',
-                'notificationArea',
-                'paymentSelectButton',
-                'paymentSelect',
-            ];
-
     /**
      * Lifecycle hook after initial render.
      * Sets up variables from meta tags from config such satellite name, etc.
@@ -46,22 +38,6 @@ export default class App extends Vue {
         if (segmentioId) {
             this.$segment.init(segmentioId);
         }
-    }
-
-    /**
-     * Uses for closing dropdowns on click outside them.
-     * @param e
-     */
-    public onClick(e: Event): void {
-        let target: any = e.target;
-        while (target) {
-            if (this.ids.includes(target.id)) {
-                return;
-            }
-            target = target.parentNode;
-        }
-
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 }
 </script>

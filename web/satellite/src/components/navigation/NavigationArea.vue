@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="navigation-area" v-if="!isOnboardingTour">
+    <div class="navigation-area" v-if="!isNavigationHidden">
         <EditProjectDropdown/>
         <router-link
             :aria-label="navItem.name"
@@ -50,9 +50,23 @@ export default class NavigationArea extends Vue {
     ];
 
     /**
+     * Indicates if navigation side bar is hidden.
+     */
+    public get isNavigationHidden(): boolean {
+        return this.isOnboardingTour || this.isCreateProjectPage;
+    }
+
+    /**
+     * Indicates if current route is create project page.
+     */
+    private get isCreateProjectPage(): boolean {
+        return this.$route.name === RouteConfig.CreateProject.name;
+    }
+
+    /**
      * Indicates if current route is onboarding tour.
      */
-    public get isOnboardingTour(): boolean {
+    private get isOnboardingTour(): boolean {
         return this.$route.name === RouteConfig.OnboardingTour.name;
     }
 }

@@ -28,6 +28,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
 import { RouteConfig } from '@/router';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import SettingsDropdown from './SettingsDropdown.vue';
 
@@ -38,8 +39,6 @@ import SettingsDropdown from './SettingsDropdown.vue';
     },
 })
 export default class SettingsSelection extends Vue {
-    public isDropdownShown: boolean = false;
-
     /**
      * Indicates if current route is onboarding tour.
      */
@@ -48,17 +47,26 @@ export default class SettingsSelection extends Vue {
     }
 
     /**
+     * Indicates if settings dropdown shown.
+     */
+    public get isDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isSettingsDropdownShown;
+    }
+
+    /**
      * Toggles project dropdown visibility.
      */
     public toggleDropdown(): void {
-        this.isDropdownShown = !this.isDropdownShown;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SETTINGS_DROPDOWN);
     }
 
     /**
      * Closes project dropdown.
      */
     public closeDropdown(): void {
-        this.isDropdownShown = false;
+        if (!this.isDropdownShown) return;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 }
 </script>

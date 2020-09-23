@@ -7,6 +7,7 @@ import Vuex from 'vuex';
 
 import EditProjectDropdown from '@/components/navigation/EditProjectDropdown.vue';
 
+import { appStateModule } from '@/store/modules/appState';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import { createLocalVue, mount } from '@vue/test-utils';
@@ -16,7 +17,7 @@ import { ProjectsApiMock } from '../mock/api/projects';
 const localVue = createLocalVue();
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
-const store = new Vuex.Store({ modules: { projectsModule }});
+const store = new Vuex.Store({ modules: { projectsModule, appStateModule }});
 const project = new Project('id', 'test', 'test', 'test', 'ownedId', false);
 
 let clickOutsideEvent: EventListener;
