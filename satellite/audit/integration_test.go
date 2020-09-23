@@ -37,14 +37,15 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		}
 
 		audits.Chore.Loop.TriggerWait()
-		require.EqualValues(t, 2, audits.Queue.Size(), "audit queue")
+		queue := audits.Queues.Fetch()
+		require.EqualValues(t, 2, queue.Size(), "audit queue")
 
 		uniquePaths := make(map[storj.Path]struct{})
 		var err error
 		var path storj.Path
 		var pathCount int
 		for {
-			path, err = audits.Queue.Next()
+			path, err = queue.Next()
 			if err != nil {
 				break
 			}
@@ -56,14 +57,14 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		}
 		require.True(t, audit.ErrEmptyQueue.Has(err))
 		require.Equal(t, 2, pathCount)
-		require.Equal(t, 0, audits.Queue.Size())
+		require.Equal(t, 0, queue.Size())
 
 		// Repopulate the queue for the worker.
 		audits.Chore.Loop.TriggerWait()
-		require.EqualValues(t, 2, audits.Queue.Size(), "audit queue")
 
-		// Make sure the worker processes all the items in the audit queue.
+		// Make sure the worker processes the audit queue.
 		audits.Worker.Loop.TriggerWait()
-		require.EqualValues(t, 0, audits.Queue.Size(), "audit queue")
+		queue = audits.Queues.Fetch()
+		require.EqualValues(t, 0, queue.Size(), "audit queue")
 	})
 }

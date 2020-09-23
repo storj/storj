@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -20,7 +21,7 @@ type peerIdentities struct {
 	db *satelliteDB
 }
 
-// Set adds a peer identity entry
+// Set adds a peer identity entry.
 func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, ident *identity.PeerIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -31,7 +32,7 @@ func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, iden
 	err = idents.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		serial, err := tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
 		if serial == nil || err != nil {
-			if serial == nil || err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) || serial == nil {
 				return tx.CreateNoReturn_PeerIdentity(ctx,
 					dbx.PeerIdentity_NodeId(nodeID.Bytes()),
 					dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
@@ -54,7 +55,7 @@ func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, iden
 	return Error.Wrap(err)
 }
 
-// Get gets the peer identity based on the certificate's nodeID
+// Get gets the peer identity based on the certificate's nodeID.
 func (idents *peerIdentities) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxIdent, err := idents.db.Get_PeerIdentity_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
@@ -69,7 +70,7 @@ func (idents *peerIdentities) Get(ctx context.Context, nodeID storj.NodeID) (_ *
 	return ident, Error.Wrap(err)
 }
 
-// BatchGet gets the peer idenities based on the certificate's nodeID
+// BatchGet gets the peer idenities based on the certificate's nodeID.
 func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (peerIdents []*identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodeIDs) == 0 {

@@ -13,19 +13,19 @@ import (
 )
 
 const (
-	// Query is immutable graphql request
+	// Query is immutable graphql request.
 	Query = "query"
-	// ProjectQuery is a query name for project
+	// ProjectQuery is a query name for project.
 	ProjectQuery = "project"
-	// MyProjectsQuery is a query name for projects related to account
+	// MyProjectsQuery is a query name for projects related to account.
 	MyProjectsQuery = "myProjects"
-	// ActiveRewardQuery is a query name for current active reward offer
+	// ActiveRewardQuery is a query name for current active reward offer.
 	ActiveRewardQuery = "activeReward"
-	// CreditUsageQuery is a query name for credit usage related to an user
+	// CreditUsageQuery is a query name for credit usage related to an user.
 	CreditUsageQuery = "creditUsage"
 )
 
-// rootQuery creates query for graphql populated by AccountsClient
+// rootQuery creates query for graphql populated by AccountsClient.
 func rootQuery(service *console.Service, mailService *mailservice.Service, types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Query,

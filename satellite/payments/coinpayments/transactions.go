@@ -285,25 +285,32 @@ func (t Transactions) Info(ctx context.Context, id TransactionID) (*TransactionI
 	return txInfo, nil
 }
 
-// ListInfos returns up to 25 transaction infos.
+// ListInfos returns transaction infos.
 func (t Transactions) ListInfos(ctx context.Context, ids TransactionIDList) (TransactionInfos, error) {
-	if len(ids) > 25 {
-		return nil, Error.New("only up to 25 transactions can be queried")
+	// The service supports a max batch size of 25 items
+	const batchSize = 25
+	var allErrors error
+	numIds := len(ids)
+	txInfos := make(TransactionInfos, numIds)
+
+	for i := 0; i < len(ids); i += batchSize {
+		j := i + batchSize
+		if j > numIds {
+			j = numIds
+		}
+		batchInfos := make(TransactionInfos, j-i)
+		values := make(url.Values, j-i)
+		values.Set("txid", ids[i:j].Encode())
+		res, err := t.client.do(ctx, cmdGetTransactionInfoList, values)
+		if err != nil {
+			allErrors = errs.Combine(allErrors, err)
+		}
+		if err = json.Unmarshal(res, &batchInfos); err != nil {
+			allErrors = errs.Combine(allErrors, err)
+		}
+		for k, v := range batchInfos {
+			txInfos[k] = v
+		}
 	}
-
-	values := make(url.Values)
-	values.Set("txid", ids.Encode())
-
-	txInfos := make(TransactionInfos, len(ids))
-
-	res, err := t.client.do(ctx, cmdGetTransactionInfoList, values)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	if err = json.Unmarshal(res, &txInfos); err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return txInfos, nil
+	return txInfos, allErrors
 }

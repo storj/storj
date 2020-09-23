@@ -32,9 +32,6 @@ type Accounts interface {
 	// Charges returns list of all credit card charges related to account.
 	Charges(ctx context.Context, userID uuid.UUID) ([]Charge, error)
 
-	// Credits exposes all needed functionality to manage credits.
-	Credits() Credits
-
 	// CreditCards exposes all needed functionality to manage account credit cards.
 	CreditCards() CreditCards
 
@@ -46,4 +43,8 @@ type Accounts interface {
 
 	// Coupons exposes all needed functionality to manage coupons.
 	Coupons() Coupons
+
+	// PaywallEnabled returns a true if a credit card or account
+	// balance is required to create projects
+	PaywallEnabled(uuid.UUID) bool
 }

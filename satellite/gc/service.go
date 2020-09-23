@@ -22,12 +22,12 @@ import (
 )
 
 var (
-	// Error defines the gc service errors class
+	// Error defines the gc service errors class.
 	Error = errs.Class("gc service error")
 	mon   = monkit.Package()
 )
 
-// Config contains configurable values for garbage collection
+// Config contains configurable values for garbage collection.
 type Config struct {
 	Interval  time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m"`
 	Enabled   bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
@@ -53,14 +53,14 @@ type Service struct {
 	metainfoLoop *metainfo.Loop
 }
 
-// RetainInfo contains info needed for a storage node to retain important data and delete garbage data
+// RetainInfo contains info needed for a storage node to retain important data and delete garbage data.
 type RetainInfo struct {
 	Filter       *bloomfilter.Filter
 	CreationDate time.Time
 	Count        int
 }
 
-// NewService creates a new instance of the gc service
+// NewService creates a new instance of the gc service.
 func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overlay.DB, loop *metainfo.Loop) *Service {
 	return &Service{
 		log:          log,
@@ -72,7 +72,7 @@ func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overl
 	}
 }
 
-// Run starts the gc loop service
+// Run starts the gc loop service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

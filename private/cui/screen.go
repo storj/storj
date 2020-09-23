@@ -22,10 +22,10 @@ const padding = 2
 //   Y is the row
 type Point struct{ X, Y int }
 
-// Rect is a 2D rectangle in console, excluding Max edge
+// Rect is a 2D rectangle in console, excluding Max edge.
 type Rect struct{ Min, Max Point }
 
-// Screen is a writable area on screen
+// Screen is a writable area on screen.
 type Screen struct {
 	rendering sync.Mutex
 
@@ -81,7 +81,7 @@ func (screen *Screen) Close() error {
 	return nil
 }
 
-// Run runs the event loop
+// Run runs the event loop.
 func (screen *Screen) Run() error {
 	defer screen.markClosed()
 
@@ -124,10 +124,10 @@ func (screen *Screen) Size() (width, height int) {
 	return width, height
 }
 
-// Lock screen for exclusive rendering
+// Lock screen for exclusive rendering.
 func (screen *Screen) Lock() { screen.rendering.Lock() }
 
-// Unlock screen
+// Unlock screen.
 func (screen *Screen) Unlock() { screen.rendering.Unlock() }
 
 // Write writes to the screen.
@@ -152,7 +152,7 @@ func (screen *Screen) Flush() error {
 	return err
 }
 
-// blit writes content to the console
+// blit writes content to the console.
 func (screen *Screen) blit(frame *frame) error {
 	screen.flushed.content = frame.content
 	size := screen.flushed.size
@@ -191,7 +191,7 @@ var lightStyle = rectStyle{
 	{'└', '─', '┘'},
 }
 
-// drawRect draws a rectangle using termbox
+// drawRect draws a rectangle using termbox.
 func drawRect(r Rect, style rectStyle) {
 	attr := termbox.ColorDefault
 

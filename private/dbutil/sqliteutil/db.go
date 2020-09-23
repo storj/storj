@@ -53,7 +53,7 @@ func LoadSnapshotFromSQL(ctx context.Context, script string) (_ *dbschema.Snapsh
 	return snapshot, nil
 }
 
-// QuerySnapshot loads snapshot from database
+// QuerySnapshot loads snapshot from database.
 func QuerySnapshot(ctx context.Context, db dbschema.Queryer) (*dbschema.Snapshot, error) {
 	schema, err := QuerySchema(ctx, db)
 	if err != nil {
@@ -72,7 +72,7 @@ func QuerySnapshot(ctx context.Context, db dbschema.Queryer) (*dbschema.Snapshot
 	}, err
 }
 
-// QueryData loads all data from tables
+// QueryData loads all data from tables.
 func QueryData(ctx context.Context, db dbschema.Queryer, schema *dbschema.Schema) (*dbschema.Data, error) {
 	return dbschema.QueryData(ctx, db, schema, func(columnName string) string {
 		quoted := strconv.Quote(columnName)
@@ -80,7 +80,7 @@ func QueryData(ctx context.Context, db dbschema.Queryer, schema *dbschema.Schema
 	})
 }
 
-// IsConstraintError checks if given error is about constraint violation
+// IsConstraintError checks if given error is about constraint violation.
 func IsConstraintError(err error) bool {
 	return errs.IsFunc(err, func(err error) bool {
 		if e, ok := err.(sqlite3.Error); ok {

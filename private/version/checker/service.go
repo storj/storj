@@ -15,7 +15,7 @@ import (
 	"storj.io/private/version"
 )
 
-// Config contains the necessary Information to check the Software Version
+// Config contains the necessary Information to check the Software Version.
 type Config struct {
 	ClientConfig
 
@@ -38,7 +38,7 @@ type Service struct {
 	acceptedVersion version.SemVer
 }
 
-// NewService creates a Version Check Client with default configuration
+// NewService creates a Version Check Client with default configuration.
 func NewService(log *zap.Logger, config Config, info version.Info, service string) (client *Service) {
 	return &Service{
 		log:     log,
@@ -51,7 +51,7 @@ func NewService(log *zap.Logger, config Config, info version.Info, service strin
 }
 
 // CheckProcessVersion is not meant to be used for peers but is meant to be
-// used for other utilities
+// used for other utilities.
 func CheckProcessVersion(ctx context.Context, log *zap.Logger, config Config, info version.Info, service string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = NewService(log, config, info, service).CheckVersion(ctx)
@@ -80,7 +80,7 @@ func (service *Service) CheckVersion(ctx context.Context) (latest version.SemVer
 }
 
 // checkVersion checks if the client is running latest/allowed version.
-func (service *Service) checkVersion(ctx context.Context) (latestVersion version.SemVer, allowed bool) {
+func (service *Service) checkVersion(ctx context.Context) (_ version.SemVer, allowed bool) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -90,7 +90,9 @@ func (service *Service) checkVersion(ctx context.Context) (latestVersion version
 		service.mu.Lock()
 		service.allowed = allowed
 		if err == nil {
-			service.acceptedVersion = minimum
+			if minimum.Compare(service.acceptedVersion) >= 0 {
+				service.acceptedVersion = minimum
+			}
 		}
 		service.mu.Unlock()
 		service.checked.Release()
@@ -102,6 +104,15 @@ func (service *Service) checkVersion(ctx context.Context) (latestVersion version
 	}
 	suggestedVersion, err := allowedVersions.Processes.Storagenode.Suggested.SemVer()
 	if err != nil {
+		return service.acceptedVersion, true
+	}
+
+	service.mu.Lock()
+	isVersionActual := suggestedVersion.Compare(service.acceptedVersion)
+	service.mu.Unlock()
+
+	if isVersionActual < 0 {
+		minimum = service.Info.Version
 		return service.acceptedVersion, true
 	}
 
@@ -136,12 +147,29 @@ func (service *Service) checkVersion(ctx context.Context) (latestVersion version
 	return suggestedVersion, false
 }
 
+// GetCursor returns storagenode rollout cursor value.
+func (service *Service) GetCursor(ctx context.Context) (_ version.RolloutBytes, err error) {
+	allowedVersions, err := service.client.All(ctx)
+	if err != nil {
+		return version.RolloutBytes{}, err
+	}
+	return allowedVersions.Processes.Storagenode.Rollout.Cursor, nil
+}
+
+// SetAcceptedVersion changes accepted version to specific for tests.
+func (service *Service) SetAcceptedVersion(version version.SemVer) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	service.acceptedVersion = version
+}
+
 // Checked returns whether the version has been updated.
 func (service *Service) Checked() bool {
 	return service.checked.Released()
 }
 
-// isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version
+// isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version.
 func isAcceptedVersion(test version.SemVer, target version.OldSemVer) bool {
 	return test.Major > uint64(target.Major) || (test.Major == uint64(target.Major) && (test.Minor > uint64(target.Minor) || (test.Minor == uint64(target.Minor) && test.Patch >= uint64(target.Patch))))
 }

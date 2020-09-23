@@ -5,10 +5,13 @@ package stripecoinpayments
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/stripe/stripe-go"
+	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
@@ -172,6 +175,39 @@ func (tokens *storjTokens) ListDepositBonuses(ctx context.Context, userID uuid.U
 	}
 
 	var bonuses []payments.DepositBonus
+
+	customer, err := tokens.service.stripeClient.Customers().Get(cusID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	for key, value := range customer.Metadata {
+		if !strings.HasPrefix(key, "credit_") {
+			continue
+		}
+
+		var credit payments.Credit
+		err = json.Unmarshal([]byte(value), &credit)
+		if err != nil {
+			tokens.service.log.Error("Error unmarshaling credit history from Stripe metadata",
+				zap.String("Customer ID", cusID),
+				zap.String("Metadata Key", key),
+				zap.String("Metadata Value", value),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		bonuses = append(bonuses,
+			payments.DepositBonus{
+				TransactionID: payments.TransactionID(credit.TransactionID),
+				AmountCents:   credit.Amount,
+				Percentage:    10,
+				CreatedAt:     credit.Created,
+			},
+		)
+	}
+
 	it := tokens.service.stripeClient.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{Customer: stripe.String(cusID)})
 	for it.Next() {
 		tx := it.CustomerBalanceTransaction()

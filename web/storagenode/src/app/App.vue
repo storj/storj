@@ -10,12 +10,14 @@
                 <SNOFooter />
             </div>
         </div>
+        <LoadingScreen v-if="isLoading" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import LoadingScreen from '@/app/components/LoadingScreen.vue';
 import SNOFooter from '@/app/components/SNOFooter.vue';
 import SNOHeader from '@/app/components/SNOHeader.vue';
 
@@ -42,15 +44,27 @@ const elementsClassesToRemoveOnScroll: string[] = [
 
 @Component({
     components: {
+        LoadingScreen,
         SNOHeader,
         SNOFooter,
     },
 })
 export default class App extends Vue {
-    public async beforeCreate(): Promise<void> {
-        // TODO: place key to server config.
-        await this.$telemetry.init('DTEcoJRlUAN2VylCWMiLrqoknW800GNO');
+
+    /**
+     * Indicates if loading screen is active.
+     */
+    public get isLoading(): boolean {
+        return this.$store.state.appStateModule.isLoading;
     }
+
+    public beforeCreate(): void {
+        document.body.classList.add('js-loading');
+        window.onload = () => {
+            document.body.classList.remove('js-loading');
+        };
+    }
+
     public onScroll(): void {
         elementsIdsToRemoveOnScroll.forEach(id => {
             this.removeElementById(id);
@@ -118,6 +132,12 @@ export default class App extends Vue {
         path {
             fill: var(--regular-icon-color) !important;
         }
+    }
+
+    .js-loading *,
+    .js-loading *:before,
+    .js-loading *:after {
+        animation-play-state: paused !important;
     }
 
     @font-face {

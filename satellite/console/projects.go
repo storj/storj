@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"storj.io/common/uuid"
@@ -35,9 +36,14 @@ type Projects interface {
 
 	// UpdateRateLimit is a method for updating projects rate limit.
 	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit int) error
+
+	// GetMaxBuckets is a method to get the maximum number of buckets allowed for the project
+	GetMaxBuckets(ctx context.Context, id uuid.UUID) (*int, error)
+	// UpdateBucketLimit is a method for updating projects bucket limit.
+	UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit int) error
 }
 
-// Project is a database object that describes Project entity
+// Project is a database object that describes Project entity.
 type Project struct {
 	ID uuid.UUID `json:"id"`
 
@@ -46,11 +52,11 @@ type Project struct {
 	PartnerID   uuid.UUID `json:"partnerId"`
 	OwnerID     uuid.UUID `json:"ownerId"`
 	RateLimit   *int      `json:"rateLimit"`
-
-	CreatedAt time.Time `json:"createdAt"`
+	MaxBuckets  *int      `json:"maxBuckets"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
-// ProjectInfo holds data needed to create/update Project
+// ProjectInfo holds data needed to create/update Project.
 type ProjectInfo struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -65,4 +71,23 @@ type ProjectsPage struct {
 	Projects   []Project
 	Next       bool
 	NextOffset int64
+}
+
+// ValidateNameAndDescription validates project name and description strings.
+// Project name must have more than 0 and less than 21 symbols.
+// Project description can't have more than hundred symbols.
+func ValidateNameAndDescription(name string, description string) error {
+	if len(name) == 0 {
+		return errors.New("project name can't be empty")
+	}
+
+	if len(name) > 20 {
+		return errors.New("project name can't have more than 20 symbols")
+	}
+
+	if len(description) > 100 {
+		return errors.New("project description can't have more than 100 symbols")
+	}
+
+	return nil
 }

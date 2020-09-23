@@ -15,12 +15,12 @@ import (
 	"storj.io/storj/pkg/server"
 )
 
-// DefaultReferralManagerServer implements the default behavior of a mock referral manager
+// DefaultReferralManagerServer implements the default behavior of a mock referral manager.
 type DefaultReferralManagerServer struct {
 	tokenCount int
 }
 
-// newReferralManager initializes a referral manager server
+// newReferralManager initializes a referral manager server.
 func (planet *Planet) newReferralManager() (*server.Server, error) {
 	prefix := "referralmanager"
 	log := planet.log.Named(prefix)

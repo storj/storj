@@ -11,6 +11,6 @@ import (
 
 var (
 	mon = monkit.Package()
-	// Error represents an nodeselection error
+	// Error represents an nodeselection error.
 	Error = errs.Class("nodeselection")
 )

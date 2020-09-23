@@ -19,7 +19,7 @@ import (
 var mon = monkit.Package()
 
 var (
-	// ErrProjectUsage general error for project usage
+	// ErrProjectUsage general error for project usage.
 	ErrProjectUsage = errs.Class("project usage error")
 )
 
@@ -51,7 +51,7 @@ func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, def
 // for a project in the past month (30 days). The usage limit is (e.g 25GB) multiplied by the redundancy
 // expansion factor, so that the uplinks have a raw limit.
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
-func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID, bucketID []byte) (_ bool, limit memory.Size, err error) {
+func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
@@ -174,11 +174,11 @@ func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid
 	if err != nil {
 		return 0, ErrProjectUsage.Wrap(err)
 	}
-	if limit == 0 {
+	if limit == nil {
 		return usage.defaultMaxUsage, nil
 	}
 
-	return limit, nil
+	return memory.Size(*limit), nil
 }
 
 // GetProjectBandwidthLimit returns current project bandwidth limit.
@@ -189,11 +189,11 @@ func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uu
 	if err != nil {
 		return 0, ErrProjectUsage.Wrap(err)
 	}
-	if limit == 0 {
+	if limit == nil {
 		return usage.defaultMaxBandwidth, nil
 	}
 
-	return limit, nil
+	return memory.Size(*limit), nil
 }
 
 // UpdateProjectLimits sets new value for project's bandwidth and storage limit.

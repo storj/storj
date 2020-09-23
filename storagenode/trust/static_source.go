@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	// ErrStaticSource is an error class for static source errors
+	// ErrStaticSource is an error class for static source errors.
 	ErrStaticSource = errs.Class("static source")
 )
 
-// StaticURLSource is a trust source that returns an explicitly trusted URL
+// StaticURLSource is a trust source that returns an explicitly trusted URL.
 type StaticURLSource struct {
 	URL SatelliteURL
 }
@@ -28,7 +28,7 @@ func NewStaticURLSource(satelliteURL string) (*StaticURLSource, error) {
 	return &StaticURLSource{URL: url}, nil
 }
 
-// String implements the Source interface and returns the static trusted URL
+// String implements the Source interface and returns the static trusted URL.
 func (source *StaticURLSource) String() string {
 	return source.URL.String()
 }

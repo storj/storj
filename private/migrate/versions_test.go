@@ -147,7 +147,7 @@ func TestMultipleMigrationSqlite(t *testing.T) {
 func TestMultipleMigrationPostgres(t *testing.T) {
 	connstr := pgtest.PickPostgres(t)
 
-	db, err := tagsql.Open("postgres", connstr)
+	db, err := tagsql.Open("pgx", connstr)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -223,7 +223,7 @@ func TestFailedMigrationSqlite(t *testing.T) {
 func TestFailedMigrationPostgres(t *testing.T) {
 	connstr := pgtest.PickPostgres(t)
 
-	db, err := tagsql.Open("postgres", connstr)
+	db, err := tagsql.Open("pgx", connstr)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 

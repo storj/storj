@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build windows,!unittest
+// +build windows,service
 
 package main
 
@@ -20,7 +20,7 @@ import (
 	"storj.io/private/process"
 )
 
-var unrecoverableErr = errs.Class("unable to recoverrecover binary from backup")
+var unrecoverableErr = errs.Class("unable to recover binary from backup")
 
 func cmdRestart(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)

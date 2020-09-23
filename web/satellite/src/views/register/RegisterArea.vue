@@ -106,6 +106,10 @@ export default class RegisterArea extends Vue {
             this.referralToken = this.$route.query.referralToken.toString();
         }
 
+        if (this.$route.query.partner) {
+            this.user.partner = this.$route.query.partner.toString();
+        }
+
         const { ids = '' } = this.$route.params;
         let decoded = '';
         try {

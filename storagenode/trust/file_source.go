@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	// ErrFileSource is an error class for file source errors
+	// ErrFileSource is an error class for file source errors.
 	ErrFileSource = errs.Class("file source")
 )
 
-// FileSource represents a trust source contained in a file on disk
+// FileSource represents a trust source contained in a file on disk.
 type FileSource struct {
 	path string
 }
@@ -28,7 +28,7 @@ func NewFileSource(path string) *FileSource {
 	}
 }
 
-// String implements the Source interface and returns the FileSource URL
+// String implements the Source interface and returns the FileSource URL.
 func (source *FileSource) String() string {
 	return source.path
 }
@@ -54,7 +54,7 @@ func (source *FileSource) FetchEntries(ctx context.Context) (_ []Entry, err erro
 	return entries, nil
 }
 
-// LoadSatelliteURLList loads a list of Satellite URLs from a path on disk
+// LoadSatelliteURLList loads a list of Satellite URLs from a path on disk.
 func LoadSatelliteURLList(ctx context.Context, path string) (_ []SatelliteURL, err error) {
 	defer mon.Task()(&ctx)(&err)
 

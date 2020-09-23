@@ -25,7 +25,7 @@ type ReliabilityCache struct {
 	state     atomic.Value // contains immutable *reliabilityState
 }
 
-// reliabilityState
+// reliabilityState.
 type reliabilityState struct {
 	reliable map[storj.NodeID]struct{}
 	created  time.Time

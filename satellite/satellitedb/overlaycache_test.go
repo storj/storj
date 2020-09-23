@@ -5,6 +5,7 @@ package satellitedb_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,53 +23,71 @@ func TestUpdateStats(t *testing.T) {
 		nodeB := planet.StorageNodes[1]
 		nodeA.Contact.Chore.Pause(ctx)
 		nodeB.Contact.Chore.Pause(ctx)
+
 		cache := planet.Satellites[0].DB.OverlayCache()
 		numAudits := int64(2)
 		numUptimes := int64(3)
 
 		// nodeA: 1 audit, 2 uptime -> unvetted
-		updateReq := &overlay.UpdateRequest{NodeID: nodeA.ID(), AuditOutcome: overlay.AuditFailure, IsUp: false, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
-		nodeStats, err := cache.UpdateStats(ctx, updateReq)
+		updateReq := &overlay.UpdateRequest{
+			NodeID:                    nodeA.ID(),
+			AuditOutcome:              overlay.AuditFailure,
+			IsUp:                      false,
+			AuditsRequiredForVetting:  numAudits,
+			UptimesRequiredForVetting: numUptimes,
+			AuditHistory:              testAuditHistoryConfig(),
+		}
+		nodeStats, err := cache.UpdateStats(ctx, updateReq, time.Now())
 		require.NoError(t, err)
 		assert.Nil(t, nodeStats.VettedAt)
 		assert.EqualValues(t, 1, nodeStats.AuditCount)
 		assert.EqualValues(t, 2, nodeStats.UptimeCount)
 
 		// nodeA: 2 audits, 2 uptimes -> unvetted
-		updateReq = &overlay.UpdateRequest{NodeID: nodeA.ID(), AuditOutcome: overlay.AuditFailure, IsUp: false, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
-		nodeStats, err = cache.UpdateStats(ctx, updateReq)
+		updateReq.NodeID = nodeA.ID()
+		updateReq.AuditOutcome = overlay.AuditFailure
+		updateReq.IsUp = false
+		nodeStats, err = cache.UpdateStats(ctx, updateReq, time.Now())
 		require.NoError(t, err)
 		assert.Nil(t, nodeStats.VettedAt)
 		assert.EqualValues(t, 2, nodeStats.AuditCount)
 		assert.EqualValues(t, 2, nodeStats.UptimeCount)
 
 		// nodeA: 3 audits, 3 uptimes -> vetted
-		updateReq = &overlay.UpdateRequest{NodeID: nodeA.ID(), AuditOutcome: overlay.AuditSuccess, IsUp: true, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
-		nodeStats, err = cache.UpdateStats(ctx, updateReq)
+		updateReq.NodeID = nodeA.ID()
+		updateReq.AuditOutcome = overlay.AuditSuccess
+		updateReq.IsUp = true
+		nodeStats, err = cache.UpdateStats(ctx, updateReq, time.Now())
 		require.NoError(t, err)
 		assert.NotNil(t, nodeStats.VettedAt)
 		assert.EqualValues(t, 3, nodeStats.AuditCount)
 		assert.EqualValues(t, 3, nodeStats.UptimeCount)
 
 		// nodeB: 1 audit, 3 uptimes -> unvetted
-		updateReq = &overlay.UpdateRequest{NodeID: nodeB.ID(), AuditOutcome: overlay.AuditSuccess, IsUp: true, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
-		nodeStats, err = cache.UpdateStats(ctx, updateReq)
+		updateReq.NodeID = nodeB.ID()
+		updateReq.AuditOutcome = overlay.AuditSuccess
+		updateReq.IsUp = true
+		nodeStats, err = cache.UpdateStats(ctx, updateReq, time.Now())
 		require.NoError(t, err)
 		assert.Nil(t, nodeStats.VettedAt)
 		assert.EqualValues(t, 1, nodeStats.AuditCount)
 		assert.EqualValues(t, 3, nodeStats.UptimeCount)
 
 		// nodeB: 2 audits, 3 uptimes -> vetted
-		updateReq = &overlay.UpdateRequest{NodeID: nodeB.ID(), AuditOutcome: overlay.AuditFailure, IsUp: false, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
-		nodeStats, err = cache.UpdateStats(ctx, updateReq)
+		updateReq.NodeID = nodeB.ID()
+		updateReq.AuditOutcome = overlay.AuditFailure
+		updateReq.IsUp = false
+		nodeStats, err = cache.UpdateStats(ctx, updateReq, time.Now())
 		require.NoError(t, err)
 		assert.NotNil(t, nodeStats.VettedAt)
 		assert.EqualValues(t, 2, nodeStats.AuditCount)
 		assert.EqualValues(t, 3, nodeStats.UptimeCount)
 
 		// Don't overwrite node b's vetted_at timestamp
-		updateReq = &overlay.UpdateRequest{NodeID: nodeB.ID(), AuditOutcome: overlay.AuditSuccess, IsUp: true, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
-		nodeStats2, err := cache.UpdateStats(ctx, updateReq)
+		updateReq.NodeID = nodeB.ID()
+		updateReq.AuditOutcome = overlay.AuditSuccess
+		updateReq.IsUp = true
+		nodeStats2, err := cache.UpdateStats(ctx, updateReq, time.Now())
 		require.NoError(t, err)
 		assert.NotNil(t, nodeStats2.VettedAt)
 		assert.Equal(t, nodeStats.VettedAt, nodeStats2.VettedAt)
@@ -85,16 +104,17 @@ func TestBatchUpdateStats(t *testing.T) {
 		nodeB := planet.StorageNodes[1]
 		nodeA.Contact.Chore.Pause(ctx)
 		nodeB.Contact.Chore.Pause(ctx)
+
 		cache := planet.Satellites[0].DB.OverlayCache()
 		numAudits := int64(2)
 		numUptimes := int64(3)
 		batchSize := 2
 
 		// both nodeA and nodeB unvetted
-		updateReqA := &overlay.UpdateRequest{NodeID: nodeA.ID(), AuditOutcome: overlay.AuditFailure, IsUp: false, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
-		updateReqB := &overlay.UpdateRequest{NodeID: nodeB.ID(), AuditOutcome: overlay.AuditSuccess, IsUp: true, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
+		updateReqA := &overlay.UpdateRequest{NodeID: nodeA.ID(), AuditOutcome: overlay.AuditFailure, IsUp: false, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes, AuditHistory: testAuditHistoryConfig()}
+		updateReqB := &overlay.UpdateRequest{NodeID: nodeB.ID(), AuditOutcome: overlay.AuditSuccess, IsUp: true, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes, AuditHistory: testAuditHistoryConfig()}
 		updateReqs := []*overlay.UpdateRequest{updateReqA, updateReqB}
-		failed, err := cache.BatchUpdateStats(ctx, updateReqs, batchSize)
+		failed, err := cache.BatchUpdateStats(ctx, updateReqs, batchSize, time.Now())
 		require.NoError(t, err)
 		assert.Len(t, failed, 0)
 
@@ -111,10 +131,10 @@ func TestBatchUpdateStats(t *testing.T) {
 		assert.EqualValues(t, 3, nB.Reputation.UptimeCount)
 
 		// nodeA unvetted, nodeB vetted
-		updateReqA = &overlay.UpdateRequest{NodeID: nodeA.ID(), AuditOutcome: overlay.AuditFailure, IsUp: false, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
-		updateReqB = &overlay.UpdateRequest{NodeID: nodeB.ID(), AuditOutcome: overlay.AuditFailure, IsUp: false, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
+		updateReqA = &overlay.UpdateRequest{NodeID: nodeA.ID(), AuditOutcome: overlay.AuditFailure, IsUp: false, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes, AuditHistory: testAuditHistoryConfig()}
+		updateReqB = &overlay.UpdateRequest{NodeID: nodeB.ID(), AuditOutcome: overlay.AuditFailure, IsUp: false, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes, AuditHistory: testAuditHistoryConfig()}
 		updateReqs = []*overlay.UpdateRequest{updateReqA, updateReqB}
-		failed, err = cache.BatchUpdateStats(ctx, updateReqs, batchSize)
+		failed, err = cache.BatchUpdateStats(ctx, updateReqs, batchSize, time.Now())
 		require.NoError(t, err)
 		assert.Len(t, failed, 0)
 
@@ -131,10 +151,10 @@ func TestBatchUpdateStats(t *testing.T) {
 		assert.EqualValues(t, 3, nB.Reputation.UptimeCount)
 
 		// both nodeA and nodeB vetted (don't overwrite timestamp)
-		updateReqA = &overlay.UpdateRequest{NodeID: nodeA.ID(), AuditOutcome: overlay.AuditSuccess, IsUp: true, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
-		updateReqB = &overlay.UpdateRequest{NodeID: nodeB.ID(), AuditOutcome: overlay.AuditSuccess, IsUp: true, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes}
+		updateReqA = &overlay.UpdateRequest{NodeID: nodeA.ID(), AuditOutcome: overlay.AuditSuccess, IsUp: true, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes, AuditHistory: testAuditHistoryConfig()}
+		updateReqB = &overlay.UpdateRequest{NodeID: nodeB.ID(), AuditOutcome: overlay.AuditSuccess, IsUp: true, AuditsRequiredForVetting: numAudits, UptimesRequiredForVetting: numUptimes, AuditHistory: testAuditHistoryConfig()}
 		updateReqs = []*overlay.UpdateRequest{updateReqA, updateReqB}
-		failed, err = cache.BatchUpdateStats(ctx, updateReqs, batchSize)
+		failed, err = cache.BatchUpdateStats(ctx, updateReqs, batchSize, time.Now())
 		require.NoError(t, err)
 		assert.Len(t, failed, 0)
 
@@ -151,4 +171,14 @@ func TestBatchUpdateStats(t *testing.T) {
 		assert.EqualValues(t, 3, nB2.Reputation.AuditCount)
 		assert.EqualValues(t, 4, nB2.Reputation.UptimeCount)
 	})
+}
+
+// returns an AuditHistoryConfig with sensible test values.
+func testAuditHistoryConfig() overlay.AuditHistoryConfig {
+	return overlay.AuditHistoryConfig{
+		WindowSize:       time.Hour,
+		TrackingPeriod:   time.Hour,
+		GracePeriod:      time.Hour,
+		OfflineThreshold: 0,
+	}
 }

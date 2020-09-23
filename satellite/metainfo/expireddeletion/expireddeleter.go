@@ -12,6 +12,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 )
 
@@ -25,33 +26,33 @@ type expiredDeleter struct {
 	metainfo *metainfo.Service
 }
 
-// RemoteSegment deletes the segment if it is expired
-func (ed *expiredDeleter) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	defer mon.Task()(&ctx, path.Raw)(&err)
+// RemoteSegment deletes the segment if it is expired.
+func (ed *expiredDeleter) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	return ed.deleteSegmentIfExpired(ctx, path, pointer)
+	return ed.deleteSegmentIfExpired(ctx, location, pointer)
 }
 
-// InlineSegment deletes the segment if it is expired
-func (ed *expiredDeleter) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	defer mon.Task()(&ctx, path.Raw)(&err)
+// InlineSegment deletes the segment if it is expired.
+func (ed *expiredDeleter) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	return ed.deleteSegmentIfExpired(ctx, path, pointer)
+	return ed.deleteSegmentIfExpired(ctx, location, pointer)
 }
 
-// Object returns nil because the expired deleter only cares about segments
-func (ed *expiredDeleter) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+// Object returns nil because the expired deleter only cares about segments.
+func (ed *expiredDeleter) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
-func (ed *expiredDeleter) deleteSegmentIfExpired(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
+func (ed *expiredDeleter) deleteSegmentIfExpired(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
 	// delete segment if expired
 	if !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(time.Now().UTC()) {
 		pointerBytes, err := pb.Marshal(pointer)
 		if err != nil {
 			return err
 		}
-		err = ed.metainfo.Delete(ctx, path.Raw, pointerBytes)
+		err = ed.metainfo.Delete(ctx, location.Encode(), pointerBytes)
 		if storj.ErrObjectNotFound.Has(err) {
 			// segment already deleted
 			return nil

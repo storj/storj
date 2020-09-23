@@ -30,7 +30,7 @@
                         width="205px"
                         height="48px"
                         :on-press="onCloseClick"
-                        is-white="true"
+                        is-transparent="true"
                     />
                     <VButton
                         label="Delete"
@@ -58,10 +58,10 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import DeleteProjectIcon from '@/../static/images/project/deleteProject.svg';
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 
+import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import {
-    API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';

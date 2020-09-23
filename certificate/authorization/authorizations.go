@@ -167,7 +167,7 @@ func (a Authorization) String() string {
 	return fmt.Sprintf("%."+fmtLen+"s..", a.Token.String())
 }
 
-// Equal checks if two tokens have equal user IDs and data
+// Equal checks if two tokens have equal user IDs and data.
 func (t *Token) Equal(cmpToken *Token) bool {
 	return t.UserID == cmpToken.UserID && bytes.Equal(t.Data[:], cmpToken.Data[:])
 }

@@ -122,8 +122,8 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		selectedSatellite = append(selectedSatellite, inputs...)
 		break
 	}
-	if err != scanner.Err() || err != nil {
-		return errs.Wrap(err)
+	if scanErr := scanner.Err(); scanErr != nil {
+		return errs.Wrap(scanErr)
 	}
 
 	// validate user input

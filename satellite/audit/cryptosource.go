@@ -8,7 +8,7 @@ import (
 	"encoding/binary"
 )
 
-// cryptoSource implements the math/rand Source interface using crypto/rand
+// cryptoSource implements the math/rand Source interface using crypto/rand.
 type cryptoSource struct{}
 
 func (s cryptoSource) Seed(seed int64) {}

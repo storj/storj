@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/private/version"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -179,17 +179,15 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 
 	conds.add(`type = ?`, int(pb.NodeType_STORAGE))
 	conds.add(`free_disk >= ?`, criteria.FreeDisk)
-	conds.add(`last_contact_success > ?`, time.Now().Add(-criteria.OnlineWindow))
+	conds.add(`last_contact_success > ?`, time.Now().UTC().Add(-criteria.OnlineWindow))
 
 	if isNewNodeQuery {
 		conds.add(
-			`(total_audit_count < ? OR total_uptime_count < ?)`,
-			criteria.AuditCount, criteria.UptimeCount,
+			`vetted_at IS NULL`,
 		)
 	} else {
 		conds.add(
-			`total_audit_count >= ? AND total_uptime_count >= ?`,
-			criteria.AuditCount, criteria.UptimeCount,
+			`vetted_at is NOT NULL`,
 		)
 	}
 
@@ -207,14 +205,14 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 	if len(excludedIDs) > 0 {
 		conds.add(
 			`not (id = any(?::bytea[]))`,
-			postgresNodeIDList(excludedIDs),
+			pgutil.NodeIDArray(excludedIDs),
 		)
 	}
 	if criteria.DistinctIP {
 		if len(excludedNetworks) > 0 {
 			conds.add(
 				`not (last_net = any(?::text[]))`,
-				pq.Array(excludedNetworks),
+				pgutil.StringArray(excludedNetworks),
 			)
 		}
 		conds.add(`last_net <> ''`)

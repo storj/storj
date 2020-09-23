@@ -63,9 +63,7 @@ func BenchmarkOverlay(b *testing.B) {
 
 		b.Run("KnownUnreliableOrOffline", func(b *testing.B) {
 			criteria := &overlay.NodeCriteria{
-				AuditCount:   0,
 				OnlineWindow: 1000 * time.Hour,
-				UptimeCount:  0,
 			}
 			for i := 0; i < b.N; i++ {
 				badNodes, err := overlaydb.KnownUnreliableOrOffline(ctx, criteria, check)
@@ -102,7 +100,8 @@ func BenchmarkOverlay(b *testing.B) {
 					NodeID:       id,
 					AuditOutcome: outcome,
 					IsUp:         i&2 == 0,
-				})
+					AuditHistory: testAuditHistoryConfig(),
+				}, time.Now())
 				require.NoError(b, err)
 			}
 		})
@@ -119,10 +118,11 @@ func BenchmarkOverlay(b *testing.B) {
 					NodeID:       id,
 					AuditOutcome: outcome,
 					IsUp:         i&2 == 0,
+					AuditHistory: testAuditHistoryConfig(),
 				})
 
 			}
-			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100)
+			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100, time.Now())
 			require.NoError(b, err)
 		})
 
@@ -193,7 +193,7 @@ func BenchmarkOverlay(b *testing.B) {
 
 func BenchmarkNodeSelection(b *testing.B) {
 	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
-		const (
+		var (
 			Total       = 10000
 			Offline     = 1000
 			NodesPerNet = 2
@@ -203,6 +203,13 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 			newNodeFraction = 0.05
 		)
+
+		if testing.Short() {
+			Total /= 10
+			Offline /= 10
+			SelectCount /= 10
+			ExcludedCount /= 10
+		}
 
 		SelectNewCount := int(100 * newNodeFraction)
 
@@ -270,7 +277,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 						AuditLambda:  1,
 						AuditWeight:  1,
 						AuditDQ:      0.5,
-					})
+						AuditHistory: testAuditHistoryConfig(),
+					}, time.Now())
 					require.NoError(b, err)
 				}
 
@@ -300,8 +308,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		criteria := &overlay.NodeCriteria{
 			FreeDisk:         0,
-			AuditCount:       1,
-			UptimeCount:      0,
 			ExcludedIDs:      nil,
 			ExcludedNetworks: nil,
 			MinimumVersion:   "v1.0.0",
@@ -310,8 +316,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 		}
 		excludedCriteria := &overlay.NodeCriteria{
 			FreeDisk:         0,
-			AuditCount:       1,
-			UptimeCount:      0,
 			ExcludedIDs:      excludedIDs,
 			ExcludedNetworks: excludedNets,
 			MinimumVersion:   "v1.0.0",

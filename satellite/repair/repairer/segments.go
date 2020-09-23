@@ -17,6 +17,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/eestream"
@@ -46,7 +47,7 @@ func (ie *irreparableError) Error() string {
 	return fmt.Sprintf("%d available pieces < %d required", ie.piecesAvailable, ie.piecesRequired)
 }
 
-// SegmentRepairer for segments
+// SegmentRepairer for segments.
 type SegmentRepairer struct {
 	log      *zap.Logger
 	metainfo *metainfo.Service
@@ -95,12 +96,12 @@ func NewSegmentRepairer(
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
 // note that shouldDelete is used even in the case where err is not null
-// note that it will update audit status as failed for nodes that failed piece hash verification during repair downloading
+// note that it will update audit status as failed for nodes that failed piece hash verification during repair downloading.
 func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (shouldDelete bool, err error) {
 	defer mon.Task()(&ctx, path)(&err)
 
 	// Read the segment pointer from the metainfo
-	pointer, err := repairer.metainfo.Get(ctx, path)
+	pointer, err := repairer.metainfo.Get(ctx, metabase.SegmentKey(path))
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
 			mon.Meter("repair_unnecessary").Mark(1)            //locked
@@ -180,23 +181,34 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		}
 	}
 
-	bucketID, err := createBucketID(path)
+	segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(path))
 	if err != nil {
-		return true, invalidRepairError.New("invalid path; cannot repair segment: %w", err)
+		return false, invalidRepairError.New("could not parse segment key: %w", err)
 	}
+	bucket := segmentLocation.Bucket()
 
 	// Create the order limits for the GET_REPAIR action
-	getOrderLimits, getPrivateKey, err := repairer.orders.CreateGetRepairOrderLimits(ctx, bucketID, pointer, healthyPieces)
+	getOrderLimits, getPrivateKey, err := repairer.orders.CreateGetRepairOrderLimits(ctx, bucket, pointer, healthyPieces)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create GET_REPAIR order limits: %w", err)
 	}
 
+	// Double check for healthy pieces which became unhealthy inside CreateGetRepairOrderLimits
+	// Remove them from healthyPieces and add them to unhealthyPieces
+	var newHealthyPieces []*pb.RemotePiece
+	for _, piece := range healthyPieces {
+		if getOrderLimits[piece.GetPieceNum()] == nil {
+			unhealthyPieces = append(unhealthyPieces, piece)
+		} else {
+			newHealthyPieces = append(newHealthyPieces, piece)
+		}
+	}
+	healthyPieces = newHealthyPieces
+
 	var requestCount int
 	var minSuccessfulNeeded int
 	{
-		totalNeeded := math.Ceil(float64(redundancy.OptimalThreshold()) *
-			repairer.multiplierOptimalThreshold,
-		)
+		totalNeeded := math.Ceil(float64(redundancy.OptimalThreshold()) * repairer.multiplierOptimalThreshold)
 		requestCount = int(totalNeeded) - len(healthyPieces)
 		minSuccessfulNeeded = redundancy.OptimalThreshold() - len(healthyPieces)
 	}
@@ -206,13 +218,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		RequestedCount: requestCount,
 		ExcludedIDs:    excludeNodeIDs,
 	}
-	newNodes, err := repairer.overlay.FindStorageNodesForRepair(ctx, request)
+	newNodes, err := repairer.overlay.FindStorageNodesForUpload(ctx, request)
 	if err != nil {
 		return false, overlayQueryError.Wrap(err)
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucketID, pointer, getOrderLimits, newNodes)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucket, pointer, getOrderLimits, newNodes, repairer.multiplierOptimalThreshold)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}
@@ -318,7 +330,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	pointer.RepairCount++
 
 	// Update the segment pointer in the metainfo
-	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
+	_, err = repairer.metainfo.UpdatePieces(ctx, metabase.SegmentKey(path), pointer, repairedPieces, toRemove)
 	if err != nil {
 		return false, metainfoPutError.Wrap(err)
 	}
@@ -347,19 +359,11 @@ func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, fail
 	return 0, nil
 }
 
-// sliceToSet converts the given slice to a set
+// sliceToSet converts the given slice to a set.
 func sliceToSet(slice []int32) map[int32]bool {
 	set := make(map[int32]bool, len(slice))
 	for _, value := range slice {
 		set[value] = true
 	}
 	return set
-}
-
-func createBucketID(path storj.Path) ([]byte, error) {
-	comps := storj.SplitPath(path)
-	if len(comps) < 3 {
-		return nil, Error.New("no bucket component in path: %s", path)
-	}
-	return []byte(storj.JoinPaths(comps[0], comps[2])), nil
 }

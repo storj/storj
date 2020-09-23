@@ -4,6 +4,7 @@
 package piecestore_test
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"testing"
@@ -107,7 +108,7 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			orderExpiration: oneWeek,
 			limit:           10 * memory.KiB.Int64(),
 			availableSpace:  5 * memory.KiB.Int64(),
-			err:             "out of space",
+			err:             "not enough available disk space",
 		},
 	} {
 		tt := tt
@@ -147,20 +148,10 @@ func TestOrderLimitPutValidation(t *testing.T) {
 				orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 				require.NoError(t, err)
 
-				uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
-				require.NoError(t, err)
+				buffer := make([]byte, 10*memory.KiB)
+				testrand.Read(buffer)
 
-				var writeErr error
-				buffer := make([]byte, memory.KiB)
-				for i := 0; i < 10; i++ {
-					testrand.Read(buffer)
-					_, writeErr = uploader.Write(buffer)
-					if writeErr != nil {
-						break
-					}
-				}
-				_, commitErr := uploader.Commit(ctx)
-				err = errs.Combine(writeErr, commitErr)
+				_, err = client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(buffer))
 				if tt.err != "" {
 					require.Error(t, err)
 					require.Contains(t, err.Error(), tt.err)
@@ -207,14 +198,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 			require.NoError(t, err)
 
-			uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
-			require.NoError(t, err)
-
-			data := testrand.Bytes(defaultPieceSize)
-
-			_, err = uploader.Write(data)
-			require.NoError(t, err)
-			_, err = uploader.Commit(ctx)
+			_, err = client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(testrand.Bytes(defaultPieceSize)))
 			require.NoError(t, err)
 		}
 

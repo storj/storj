@@ -32,7 +32,7 @@ import (
 
 const defaultInterval = 15 * time.Second
 
-// Peer represents one of StorageNode or Satellite
+// Peer represents one of StorageNode or Satellite.
 type Peer interface {
 	ID() storj.NodeID
 	Addr() string
@@ -43,7 +43,7 @@ type Peer interface {
 	Close() error
 }
 
-// Config describes planet configuration
+// Config describes planet configuration.
 type Config struct {
 	SatelliteCount   int
 	StorageNodeCount int
@@ -224,7 +224,7 @@ func (planet *Planet) Start(ctx context.Context) {
 	planet.started = true
 }
 
-// StopPeer stops a single peer in the planet
+// StopPeer stops a single peer in the planet.
 func (planet *Planet) StopPeer(peer Peer) error {
 	if peer == nil {
 		return errors.New("peer is nil")
@@ -265,7 +265,7 @@ func (planet *Planet) StopNodeAndUpdate(ctx context.Context, node *StorageNode) 
 	return nil
 }
 
-// Size returns number of nodes in the network
+// Size returns number of nodes in the network.
 func (planet *Planet) Size() int { return len(planet.uplinks) + len(planet.peers) }
 
 // FindNode is a helper to retrieve a storage node record by its node ID.
@@ -336,12 +336,12 @@ func (planet *Planet) Identities() *testidentity.Identities {
 	return planet.identities
 }
 
-// NewIdentity creates a new identity for a node
+// NewIdentity creates a new identity for a node.
 func (planet *Planet) NewIdentity() (*identity.FullIdentity, error) {
 	return planet.identities.NewIdentity()
 }
 
-// NewListener creates a new listener
+// NewListener creates a new listener.
 func (planet *Planet) NewListener() (net.Listener, error) {
 	return net.Listen("tcp", "127.0.0.1:0")
 }

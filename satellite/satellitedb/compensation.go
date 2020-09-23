@@ -42,7 +42,7 @@ func (comp *compensationDB) QueryPaidInYear(ctx context.Context, nodeID storj.No
 	return currency.NewMicroUnit(sumPaid), nil
 }
 
-// QueryWithheldAmounts returns withheld data for the given node
+// QueryWithheldAmounts returns withheld data for the given node.
 func (comp *compensationDB) QueryWithheldAmounts(ctx context.Context, nodeID storj.NodeID) (_ compensation.WithheldAmounts, err error) {
 	defer mon.Task()(&ctx)(&err)
 

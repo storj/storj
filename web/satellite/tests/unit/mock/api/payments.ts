@@ -49,4 +49,8 @@ export class PaymentsMock implements PaymentsApi {
     makeTokenDeposit(amount: number): Promise<TokenDeposit> {
         return Promise.resolve(new TokenDeposit(amount, 'testAddress', 'testLink'));
     }
+
+    getPaywallStatus(userId: string): Promise<boolean> {
+        throw new Error('Method not implemented');
+    }
 }

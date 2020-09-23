@@ -5,31 +5,73 @@
     <section class="held-history-container">
         <div class="held-history-container__header">
             <p class="held-history-container__header__title">Held Amount History</p>
+            <div class="held-history-container__header__selection-area">
+                <div
+                    class="held-history-container__header__selection-area__item"
+                    :class="{ active: isAllStatsShown }"
+                    @click="showAllStats"
+                >
+                    <p class="held-history-container__header__selection-area__item__label">
+                        All Stats
+                    </p>
+                </div>
+                <div
+                    class="held-history-container__header__selection-area__item"
+                    :class="{ active: !isAllStatsShown }"
+                    @click="showMonthlyBreakdown"
+                >
+                    <p class="held-history-container__header__selection-area__item__label">
+                        Monthly Breakdown
+                    </p>
+                </div>
+            </div>
         </div>
         <div class="held-history-container__divider"></div>
-        <HeldHistoryMonthlyBreakdownTable />
+        <HeldHistoryAllStatsTable v-if="isAllStatsShown"/>
+        <HeldHistoryMonthlyBreakdownTable v-else/>
     </section>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import HeldHistoryAllStatsTable from '@/app/components/payments/HeldHistoryAllStatsTable.vue';
 import HeldHistoryMonthlyBreakdownTable from '@/app/components/payments/HeldHistoryMonthlyBreakdownTable.vue';
 
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 
 @Component({
     components: {
+        HeldHistoryAllStatsTable,
         HeldHistoryMonthlyBreakdownTable,
     },
 })
 export default class HeldHistoryArea extends Vue {
+    /**
+     * Indicates if All Stats state is active.
+     */
+    public isAllStatsShown: boolean = true;
+
     /**
      * Lifecycle hook before component render.
      * Fetches held history information.
      */
     public beforeMount(): void {
         this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
+    }
+
+    /**
+     * Sets held history table state to All Stats.
+     */
+    public showAllStats(): void {
+        this.isAllStatsShown = true;
+    }
+
+    /**
+     * Sets held history table state to Monthly Breakdown.
+     */
+    public showMonthlyBreakdown(): void {
+        this.isAllStatsShown = false;
     }
 }
 </script>
@@ -48,21 +90,88 @@ export default class HeldHistoryArea extends Vue {
         &__header {
             display: flex;
             flex-direction: row;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
+            height: 40px;
 
             &__title {
                 font-family: 'font_medium', sans-serif;
                 font-size: 18px;
                 color: var(--regular-text-color);
             }
+
+            &__selection-area {
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                height: 100%;
+
+                &__item {
+                    display: flex;
+                    align-items: flex-start;
+                    justify-content: center;
+                    cursor: pointer;
+                    height: 100%;
+                    padding: 0 20px;
+                    border-bottom: 3px solid transparent;
+                    z-index: 102;
+
+                    &__label {
+                        text-align: center;
+                        font-size: 16px;
+                        color: var(--regular-text-color);
+                    }
+
+                    &.active {
+                        border-bottom: 3px solid var(--navigation-link-color);
+
+                        &__label {
+                            font-size: 16px;
+                            color: var(--regular-text-color);
+                        }
+                    }
+                }
+            }
         }
 
         &__divider {
             width: 100%;
             height: 1px;
-            margin-top: 18px;
             background-color: #eaeaea;
+        }
+    }
+
+    @media screen and (max-width: 870px) {
+
+        .held-history-container {
+
+            &__divider {
+                display: none;
+            }
+
+            &__header {
+                flex-direction: column;
+                align-items: flex-start;
+                height: auto;
+
+                &__selection-area {
+                    width: 100%;
+                    height: 41px;
+                    margin: 20px 0;
+
+                    &__item {
+                        width: calc(50% - 40px);
+                        border-bottom: 3px solid #eaeaea;
+                    }
+                }
+            }
+        }
+    }
+
+    @media screen and (max-width: 600px) {
+
+        .held-history-container {
+            padding: 28px 20px 10px 20px;
         }
     }
 </style>

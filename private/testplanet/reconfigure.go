@@ -15,9 +15,10 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/versioncontrol"
 )
 
-// Reconfigure allows to change node configurations
+// Reconfigure allows to change node configurations.
 type Reconfigure struct {
 	SatelliteDB        func(log *zap.Logger, index int, db satellite.DB) (satellite.DB, error)
 	SatellitePointerDB func(log *zap.Logger, index int, db metainfo.PointerDB) (metainfo.PointerDB, error)
@@ -28,6 +29,8 @@ type Reconfigure struct {
 	StorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
 	StorageNode   func(index int, config *storagenode.Config)
 	UniqueIPCount int
+
+	VersionControl func(config *versioncontrol.Config)
 
 	Identities func(log *zap.Logger, version storj.IDVersion) *testidentity.Identities
 }
@@ -44,7 +47,7 @@ var DisablePeerCAWhitelist = Reconfigure{
 }
 
 // ShortenOnlineWindow returns a `Reconfigure` that sets the NodeSelection
-// OnlineWindow to 1 second, meaning a connection failure leads to marking the nodes as offline
+// OnlineWindow to 1 second, meaning a connection failure leads to marking the nodes as offline.
 var ShortenOnlineWindow = Reconfigure{
 	Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 		config.Overlay.Node.OnlineWindow = 1 * time.Second
@@ -60,7 +63,7 @@ var Combine = func(elements ...func(log *zap.Logger, index int, config *satellit
 	}
 }
 
-// ReconfigureRS returns function to change satellite redundancy scheme values
+// ReconfigureRS returns function to change satellite redundancy scheme values.
 var ReconfigureRS = func(minThreshold, repairThreshold, successThreshold, totalThreshold int) func(log *zap.Logger, index int, config *satellite.Config) {
 	return func(log *zap.Logger, index int, config *satellite.Config) {
 		config.Metainfo.RS.MinThreshold = minThreshold

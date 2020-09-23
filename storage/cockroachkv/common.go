@@ -7,5 +7,5 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Error is the default postgreskv errs class
+// Error is the default postgreskv errs class.
 var Error = errs.Class("cockroachkv error")

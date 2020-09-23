@@ -6,6 +6,7 @@
 package filestore
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -14,7 +15,7 @@ import (
 
 func isBusy(err error) bool {
 	err = underlyingError(err)
-	return err == unix.EBUSY
+	return errors.Is(err, unix.EBUSY)
 }
 
 func diskInfoFromPath(path string) (info DiskInfo, err error) {
@@ -31,12 +32,12 @@ func diskInfoFromPath(path string) (info DiskInfo, err error) {
 	return DiskInfo{filesystemID, availableSpace}, nil
 }
 
-// rename renames oldpath to newpath
+// rename renames oldpath to newpath.
 func rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
 }
 
-// openFileReadOnly opens the file with read only
+// openFileReadOnly opens the file with read only.
 func openFileReadOnly(path string, perm os.FileMode) (*os.File, error) {
 	return os.OpenFile(path, os.O_RDONLY, perm)
 }

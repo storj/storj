@@ -4,6 +4,7 @@
 package overlay_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -18,8 +19,8 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-// TestSuspendBasic ensures that we can suspend a node using overlayService.SuspendNode and that we can unsuspend a node using overlayservice.UnsuspendNode
-func TestSuspendBasic(t *testing.T) {
+// TestAuditSuspendBasic ensures that we can suspend a node using overlayService.SuspendNode and that we can unsuspend a node using overlayservice.UnsuspendNode.
+func TestAuditSuspendBasic(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -48,8 +49,8 @@ func TestSuspendBasic(t *testing.T) {
 	})
 }
 
-// TestSuspendWithUpdateStats ensures that a node goes into suspension node from getting enough unknown audits, and gets removed from getting enough successful audits.
-func TestSuspendWithUpdateStats(t *testing.T) {
+// TestAuditSuspendWithUpdateStats ensures that a node goes into suspension node from getting enough unknown audits, and gets removed from getting enough successful audits.
+func TestAuditSuspendWithUpdateStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -102,8 +103,8 @@ func TestSuspendWithUpdateStats(t *testing.T) {
 	})
 }
 
-// TestSuspendFailedAudit ensures that a node is not suspended for a failed audit.
-func TestSuspendFailedAudit(t *testing.T) {
+// TestAuditSuspendFailedAudit ensures that a node is not suspended for a failed audit.
+func TestAuditSuspendFailedAudit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -124,7 +125,8 @@ func TestSuspendFailedAudit(t *testing.T) {
 			AuditLambda:  1,
 			AuditWeight:  1,
 			AuditDQ:      0.6,
-		})
+			AuditHistory: testAuditHistoryConfig(),
+		}, time.Now())
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
@@ -136,8 +138,8 @@ func TestSuspendFailedAudit(t *testing.T) {
 	})
 }
 
-// TestSuspendExceedGracePeriod ensures that a node is disqualified when it receives a failing or unknown audit after the grace period expires.
-func TestSuspendExceedGracePeriod(t *testing.T) {
+// TestAuditSuspendExceedGracePeriod ensures that a node is disqualified when it receives a failing or unknown audit after the grace period expires.
+func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
@@ -191,8 +193,8 @@ func TestSuspendExceedGracePeriod(t *testing.T) {
 	})
 }
 
-// TestSuspendDQDisabled ensures that a node is not disqualified from suspended mode if the suspension DQ enabled flag is false.
-func TestSuspendDQDisabled(t *testing.T) {
+// TestAuditSuspendDQDisabled ensures that a node is not disqualified from suspended mode if the suspension DQ enabled flag is false.
+func TestAuditSuspendDQDisabled(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
@@ -259,8 +261,8 @@ func TestSuspendDQDisabled(t *testing.T) {
 	})
 }
 
-// TestSuspendBatchUpdateStats ensures that suspension and alpha/beta fields are properly updated from batch update stats
-func TestSuspendBatchUpdateStats(t *testing.T) {
+// TestAuditSuspendBatchUpdateStats ensures that suspension and alpha/beta fields are properly updated from batch update stats.
+func TestAuditSuspendBatchUpdateStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -318,4 +320,150 @@ func TestSuspendBatchUpdateStats(t *testing.T) {
 		require.EqualValues(t, node.Reputation.AuditReputationBeta, oldReputation.AuditReputationBeta)
 		require.Nil(t, node.Disqualified)
 	})
+}
+
+// TestOfflineSuspend tests that a node enters offline suspension and "under review" when online score passes below threshold.
+// The node should be able to enter and exit suspension while remaining under review.
+// The node should be reinstated if it has a good online score after the review period.
+// (TODO) The node should be disqualified if it has a bad online score after the review period.
+func TestOfflineSuspend(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		nodeID := planet.StorageNodes[0].ID()
+		oc := planet.Satellites[0].Overlay.DB
+
+		node, err := oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Nil(t, node.OfflineSuspended)
+		require.Nil(t, node.OfflineUnderReview)
+		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, 1, node.Reputation.OnlineScore)
+
+		nextWindowTime := time.Now()
+		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, time.Hour, nextWindowTime, oc)
+		require.NoError(t, err)
+
+		// node should be offline suspended and under review
+		node, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.NotNil(t, node.OfflineSuspended)
+		require.NotNil(t, node.OfflineUnderReview)
+		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
+
+		// set online score to be good, but use a long grace period so that node remains under review
+		nextWindowTime, err = setOnlineScore(ctx, nodeID, 1, 100*time.Hour, nextWindowTime, oc)
+		require.NoError(t, err)
+
+		node, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Nil(t, node.OfflineSuspended)
+		require.NotNil(t, node.OfflineUnderReview)
+		require.Nil(t, node.Disqualified)
+		oldUnderReview := node.OfflineUnderReview
+		require.EqualValues(t, 1, node.Reputation.OnlineScore)
+
+		// suspend again, under review should be the same
+		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, 100*time.Hour, nextWindowTime, oc)
+		require.NoError(t, err)
+
+		node, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.NotNil(t, node.OfflineSuspended)
+		require.NotNil(t, node.OfflineUnderReview)
+		require.Nil(t, node.Disqualified)
+		require.Equal(t, oldUnderReview, node.OfflineUnderReview)
+		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
+
+		// node will exit review after grace period + 1 tracking window, so set grace period to be time since put under review
+		// subtract one hour so that review window ends when setOnlineScore adds the last window
+		gracePeriod := nextWindowTime.Sub(*node.OfflineUnderReview) - time.Hour
+		nextWindowTime, err = setOnlineScore(ctx, nodeID, 1, gracePeriod, nextWindowTime, oc)
+		require.NoError(t, err)
+
+		node, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Nil(t, node.OfflineSuspended)
+		require.Nil(t, node.OfflineUnderReview)
+		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, 1, node.Reputation.OnlineScore)
+
+		// put into suspension and under review again
+		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, 100*time.Hour, nextWindowTime, oc)
+		require.NoError(t, err)
+
+		node, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.NotNil(t, node.OfflineSuspended)
+		require.NotNil(t, node.OfflineUnderReview)
+		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
+
+		// if grace period + 1 tracking window passes and online score is still bad, expect node to be DQed
+		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, 0, nextWindowTime, oc)
+		require.NoError(t, err)
+
+		node, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.NotNil(t, node.OfflineSuspended)
+		require.NotNil(t, node.OfflineUnderReview)
+		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
+		// TODO uncomment and remove above 4 lines when dq is enabled
+		/*
+			require.NotNil(t, node.OfflineSuspended)
+			require.NotNil(t, node.OfflineUnderReview)
+			require.NotNil(t, node.Disqualified)
+			require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
+		*/
+	})
+}
+
+func setOnlineScore(ctx context.Context, id storj.NodeID, desiredScore float64, gracePeriod time.Duration, startTime time.Time, oc overlay.DB) (nextWindowTime time.Time, err error) {
+	// for our tests, we are only using values of 1 and 0.5, so two audits per window is sufficient
+	totalAudits := 2
+	onlineAudits := int(float64(totalAudits) * desiredScore)
+	nextWindowTime = startTime
+
+	windowSize := time.Hour
+	trackingPeriod := 2 * time.Hour
+	windowsPerTrackingPeriod := 2
+	for window := 0; window < windowsPerTrackingPeriod+1; window++ {
+		updateReqs := []*overlay.UpdateRequest{}
+		for i := 0; i < totalAudits; i++ {
+			isUp := true
+			if i >= onlineAudits {
+				isUp = false
+			}
+			updateReq := &overlay.UpdateRequest{
+				NodeID:       id,
+				AuditOutcome: overlay.AuditSuccess,
+				IsUp:         isUp,
+				AuditHistory: overlay.AuditHistoryConfig{
+					WindowSize:       windowSize,
+					TrackingPeriod:   trackingPeriod,
+					GracePeriod:      gracePeriod,
+					OfflineThreshold: 0.6,
+				},
+
+				// default values
+				AuditLambda:               0.95,
+				AuditWeight:               1,
+				AuditDQ:                   0.6,
+				SuspensionGracePeriod:     time.Hour,
+				SuspensionDQEnabled:       true,
+				AuditsRequiredForVetting:  0,
+				UptimesRequiredForVetting: 0,
+			}
+			updateReqs = append(updateReqs, updateReq)
+		}
+		_, err = oc.BatchUpdateStats(ctx, updateReqs, 100, nextWindowTime)
+		if err != nil {
+			return nextWindowTime, err
+		}
+		// increment nextWindowTime so in the next iteration, we are adding to a different window
+		nextWindowTime = nextWindowTime.Add(time.Hour)
+	}
+	return nextWindowTime, err
 }

@@ -2,15 +2,23 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="info-bar">
+    <div class="info-bar" :class="{ blue: isBlue }">
         <div class="info-bar__info-area">
             <b class="info-bar__info-area__first-value">{{ firstValue }}</b>
             <span class="info-bar__info-area__first-description">{{ firstDescription }}</span>
             <b class="info-bar__info-area__second-value">{{ secondValue }}</b>
             <span class="info-bar__info-area__second-description">{{ secondDescription }}</span>
-            <router-link class="info-bar__info-area__button" :to="path">Details</router-link>
+            <router-link v-if="path" class="info-bar__info-area__button" :to="path">Details</router-link>
         </div>
-        <a class="info-bar__link" :href="link" target="_blank">{{ linkLabel }}</a>
+        <a
+            class="info-bar__link"
+            :class="{ blue: isBlue }"
+            :href="link"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            {{ linkLabel }}
+        </a>
     </div>
 </template>
 
@@ -34,8 +42,10 @@ export default class VInfoBar extends Vue {
     private readonly link: string;
     @Prop({default: ''})
     private readonly linkLabel: string;
-    @Prop({default: '/'})
+    @Prop({default: ''})
     private readonly path: string;
+    @Prop({default: false})
+    private readonly isBlue: boolean;
 }
 </script>
 
@@ -82,9 +92,13 @@ export default class VInfoBar extends Vue {
         &__link {
             font-size: 14px;
             line-height: 17px;
-            opacity: 0.75;
             font-family: 'font_medium', sans-serif;
             color: #2683ff;
         }
+    }
+
+    .blue {
+        background-color: #2582ff;
+        color: #fff;
     }
 </style>

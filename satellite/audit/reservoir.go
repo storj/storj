@@ -11,14 +11,14 @@ import (
 
 const maxReservoirSize = 3
 
-// Reservoir holds a certain number of segments to reflect a random sample
+// Reservoir holds a certain number of segments to reflect a random sample.
 type Reservoir struct {
 	Paths [maxReservoirSize]storj.Path
 	size  int8
 	index int64
 }
 
-// NewReservoir instantiates a Reservoir
+// NewReservoir instantiates a Reservoir.
 func NewReservoir(size int) *Reservoir {
 	if size < 1 {
 		size = 1
@@ -32,7 +32,7 @@ func NewReservoir(size int) *Reservoir {
 }
 
 // Sample makes sure that for every segment in metainfo from index i=size..n-1,
-// pick a random number r = rand(0..i), and if r < size, replace reservoir.Segments[r] with segment
+// pick a random number r = rand(0..i), and if r < size, replace reservoir.Segments[r] with segment.
 func (reservoir *Reservoir) Sample(r *rand.Rand, path storj.Path) {
 	reservoir.index++
 	if reservoir.index < int64(reservoir.size) {

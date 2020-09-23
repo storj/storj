@@ -18,7 +18,7 @@ type Inspector struct {
 	service *Service
 }
 
-// NewInspector creates an Inspector
+// NewInspector creates an Inspector.
 func NewInspector(service *Service) *Inspector {
 	return &Inspector{service: service}
 }

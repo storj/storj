@@ -16,6 +16,7 @@
                         class="add-storj-state__container__deposit-area__info__request-link"
                         href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
                         target="_blank"
+                        rel="noopener noreferrer"
                     >
                         per request.
                     </a>
@@ -72,7 +73,7 @@ export default class AddStorjState extends Vue {
      */
     public beforeMount(): void {
         switch (true) {
-            case this.$store.getters.isTransactionCompleted:
+            case this.$store.getters.isBalancePositive:
                 this.setVerifiedState();
 
                 return;
@@ -164,6 +165,7 @@ export default class AddStorjState extends Vue {
         flex-direction: column;
         align-items: center;
         justify-content: space-between;
+        margin-bottom: 20px;
 
         &__container {
             width: calc(100% - 90px);

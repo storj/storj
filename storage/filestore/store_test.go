@@ -20,6 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -869,4 +870,51 @@ func TestBlobMemoryBuffer(t *testing.T) {
 		require.Equal(t, byte(i), buf[i])
 	}
 	require.Equal(t, size, len(buf))
+}
+
+func TestStorageDirVerification(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+
+	dir, err := filestore.NewDir(log, ctx.Dir("store"))
+	require.NoError(t, err)
+
+	ident0, err := testidentity.NewTestIdentity(ctx)
+	require.NoError(t, err)
+
+	ident1, err := testidentity.NewTestIdentity(ctx)
+	require.NoError(t, err)
+
+	store := filestore.New(log, dir, filestore.Config{
+		WriteBufferSize: 1 * memory.KiB,
+	})
+
+	// test nonexistent file returns error
+	require.Error(t, store.VerifyStorageDir(ident0.ID))
+
+	require.NoError(t, dir.CreateVerificationFile(ident0.ID))
+
+	// test correct ID returns no error
+	require.NoError(t, store.VerifyStorageDir(ident0.ID))
+
+	// test incorrect ID returns error
+	err = store.VerifyStorageDir(ident1.ID)
+	require.Contains(t, err.Error(), "does not match running node's ID")
+
+	// test invalid node ID returns error
+	f, err := os.Create(filepath.Join(dir.Path(), "storage-dir-verification"))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, f.Close())
+	}()
+	_, err = f.Write([]byte{0, 1, 2, 3})
+	require.NoError(t, err)
+	err = store.VerifyStorageDir(ident0.ID)
+	require.Contains(t, err.Error(), "content of file is not a valid node ID")
+
+	// test file overwrite returns no error
+	require.NoError(t, dir.CreateVerificationFile(ident0.ID))
+	require.NoError(t, store.VerifyStorageDir(ident0.ID))
 }

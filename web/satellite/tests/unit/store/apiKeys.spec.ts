@@ -5,18 +5,23 @@ import Vuex from 'vuex';
 
 import { ApiKeysApiGql } from '@/api/apiKeys';
 import { ProjectsApiGql } from '@/api/projects';
-import { API_KEYS_MUTATIONS, makeApiKeysModule } from '@/store/modules/apiKeys';
+import { API_KEYS_ACTIONS, API_KEYS_MUTATIONS, makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ApiKey, ApiKeyOrderBy, ApiKeysPage } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
 import { Project } from '@/types/projects';
-import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const apiKeysApi = new ApiKeysApiGql();
 const apiKeysModule = makeApiKeysModule(apiKeysApi);
-const {FETCH, CREATE, CLEAR_SELECTION, DELETE, CLEAR} = API_KEYS_ACTIONS;
+const {
+    FETCH,
+    CREATE,
+    CLEAR_SELECTION,
+    DELETE,
+    CLEAR,
+} = API_KEYS_ACTIONS;
 
 const projectsApi = new ProjectsApiGql();
 const projectsModule = makeProjectsModule(projectsApi);
@@ -37,8 +42,8 @@ const store = new Vuex.Store({modules: {projectsModule, apiKeysModule}});
 
 const state = (store.state as any).apiKeysModule;
 
-describe('mutations', () => {
-    it('fetch api keys', function () {
+describe('mutations', (): void => {
+    it('fetch api keys', (): void => {
         const testApiKeysPage = new ApiKeysPage();
         testApiKeysPage.apiKeys = [apiKey];
         testApiKeysPage.totalCount = 1;
@@ -56,31 +61,31 @@ describe('mutations', () => {
         expect(state.page.totalCount).toBe(1);
     });
 
-    it('set api keys page', function () {
+    it('set api keys page', (): void => {
         store.commit(API_KEYS_MUTATIONS.SET_PAGE_NUMBER, 2);
 
         expect(state.cursor.page).toBe(2);
     });
 
-    it('set search query', function () {
+    it('set search query', (): void => {
         store.commit(API_KEYS_MUTATIONS.SET_SEARCH_QUERY, 'testSearchQuery');
 
         expect(state.cursor.search).toBe('testSearchQuery');
     });
 
-    it('set sort order', function () {
+    it('set sort order', (): void => {
         store.commit(API_KEYS_MUTATIONS.CHANGE_SORT_ORDER, ApiKeyOrderBy.CREATED_AT);
 
         expect(state.cursor.order).toBe(ApiKeyOrderBy.CREATED_AT);
     });
 
-    it('set sort direction', function () {
+    it('set sort direction', (): void => {
         store.commit(API_KEYS_MUTATIONS.CHANGE_SORT_ORDER_DIRECTION, SortDirection.DESCENDING);
 
         expect(state.cursor.orderDirection).toBe(SortDirection.DESCENDING);
     });
 
-    it('toggle selection', function () {
+    it('toggle selection', (): void => {
         store.commit(API_KEYS_MUTATIONS.TOGGLE_SELECTION, apiKey);
 
         expect(state.page.apiKeys[0].isSelected).toBe(true);
@@ -92,7 +97,7 @@ describe('mutations', () => {
         expect(state.selectedApiKeysIds.length).toBe(0);
     });
 
-    it('clear selection', function () {
+    it('clear selection', (): void => {
         store.commit(API_KEYS_MUTATIONS.CLEAR_SELECTION);
 
         state.page.apiKeys.forEach((key: ApiKey) => {
@@ -102,7 +107,7 @@ describe('mutations', () => {
         expect(state.selectedApiKeysIds.length).toBe(0);
     });
 
-    it('clear store', function () {
+    it('clear store', (): void => {
         store.commit(API_KEYS_MUTATIONS.CLEAR);
 
         expect(state.cursor.page).toBe(1);
@@ -114,12 +119,12 @@ describe('mutations', () => {
     });
 });
 
-describe('actions', () => {
-    beforeEach(() => {
+describe('actions', (): void => {
+    beforeEach((): void => {
         jest.resetAllMocks();
     });
 
-    it('success fetch apiKeys', async () => {
+    it('success fetch apiKeys', async (): Promise<void> => {
         const testApiKeysPage = new ApiKeysPage();
         testApiKeysPage.apiKeys = [apiKey];
         testApiKeysPage.totalCount = 1;
@@ -137,7 +142,7 @@ describe('actions', () => {
         expect(state.page.apiKeys[0].secret).toBe(apiKey.secret);
     });
 
-    it('fetch throws an error when api call fails', async () => {
+    it('fetch throws an error when api call fails', async (): Promise<void> => {
         jest.spyOn(apiKeysApi, 'get').mockImplementation(() => {
             throw new Error(TEST_ERROR);
         });
@@ -154,7 +159,7 @@ describe('actions', () => {
         fail(UNREACHABLE_ERROR);
     });
 
-    it('success create apiKeys', async () => {
+    it('success create apiKeys', async (): Promise<void> => {
         jest.spyOn(apiKeysApi, 'create').mockReturnValue(Promise.resolve(apiKey));
 
         try {
@@ -165,7 +170,7 @@ describe('actions', () => {
         }
     });
 
-    it('create throws an error when api call fails', async () => {
+    it('create throws an error when api call fails', async (): Promise<void> => {
         jest.spyOn(apiKeysApi, 'create').mockImplementation(() => {
             throw new Error(TEST_ERROR);
         });
@@ -181,7 +186,7 @@ describe('actions', () => {
         fail(UNREACHABLE_ERROR);
     });
 
-    it('success delete apiKeys', async () => {
+    it('success delete apiKeys', async (): Promise<void> => {
         jest.spyOn(apiKeysApi, 'delete').mockReturnValue(
             Promise.resolve(),
         );
@@ -194,7 +199,7 @@ describe('actions', () => {
         }
     });
 
-    it('delete throws an error when api call fails', async () => {
+    it('delete throws an error when api call fails', async (): Promise<void> => {
         jest.spyOn(apiKeysApi, 'delete').mockImplementation(() => {
             throw new Error(TEST_ERROR);
         });
@@ -210,25 +215,25 @@ describe('actions', () => {
         fail(UNREACHABLE_ERROR);
     });
 
-    it('set api keys search query', async function () {
+    it('set api keys search query', async (): Promise<void> => {
         await store.dispatch(API_KEYS_ACTIONS.SET_SEARCH_QUERY, 'search');
 
         expect(state.cursor.search).toBe('search');
     });
 
-    it('set api keys sort by', async function () {
+    it('set api keys sort by', async (): Promise<void> => {
         await store.dispatch(API_KEYS_ACTIONS.SET_SORT_BY, ApiKeyOrderBy.CREATED_AT);
 
         expect(state.cursor.order).toBe(ApiKeyOrderBy.CREATED_AT);
     });
 
-    it('set sort direction', async function () {
+    it('set sort direction', async (): Promise<void> => {
         await store.dispatch(API_KEYS_ACTIONS.SET_SORT_DIRECTION, SortDirection.DESCENDING);
 
         expect(state.cursor.orderDirection).toBe(SortDirection.DESCENDING);
     });
 
-    it('success toggleAPIKeySelection apiKeys', async () => {
+    it('success toggleAPIKeySelection apiKeys', async (): Promise<void> => {
         jest.spyOn(apiKeysApi, 'get').mockReturnValue(
             Promise.resolve(new ApiKeysPage([apiKey, apiKey2],
                 '',
@@ -264,7 +269,7 @@ describe('actions', () => {
         expect(state.selectedApiKeysIds.length).toBe(1);
     });
 
-    it('success clearSelection apiKeys', async () => {
+    it('success clearSelection apiKeys', async (): Promise<void> => {
         await store.dispatch(CLEAR_SELECTION);
 
         state.page.apiKeys.forEach((key: ApiKey) => {
@@ -272,7 +277,7 @@ describe('actions', () => {
         });
     });
 
-    it('success clearAPIKeys', async () => {
+    it('success clearAPIKeys', async (): Promise<void> => {
         await store.dispatch(CLEAR);
 
         expect(state.cursor.search).toBe('');
@@ -296,10 +301,10 @@ describe('actions', () => {
     });
 });
 
-describe('getters', () => {
+describe('getters', (): void => {
     const selectedApiKey = new ApiKey('testtestId', 'testtestName', 'testtestCreatedAt', 'testtestSecret');
 
-    it('selected apiKeys', () => {
+    it('selected apiKeys', (): void => {
         const testApiKeysPage = new ApiKeysPage();
         testApiKeysPage.apiKeys = [selectedApiKey];
         testApiKeysPage.totalCount = 1;
@@ -313,7 +318,7 @@ describe('getters', () => {
         expect(retrievedApiKeys[0].id).toBe('testtestId');
     });
 
-    it('apiKeys array', () => {
+    it('apiKeys array', (): void => {
         const retrievedApiKeys = store.getters.selectedApiKeys;
 
         expect(retrievedApiKeys).toEqual([selectedApiKey]);

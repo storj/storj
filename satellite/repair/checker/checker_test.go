@@ -16,6 +16,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 )
 
@@ -104,8 +105,6 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			expectedLostPieces[int32(i)] = true
 		}
 
-		projectID := testrand.UUID()
-		pointerPath := storj.JoinPaths(projectID.String(), "l", "bucket", "piece")
 		pieceID := testrand.PieceID()
 
 		// when number of healthy piece is less than minimum required number of piece in redundancy,
@@ -126,13 +125,24 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			},
 		}
 
+		projectID := testrand.UUID()
+		pointerLocation := metabase.SegmentLocation{
+			ProjectID:  projectID,
+			BucketName: "bucket",
+			Index:      metabase.LastSegmentIndex,
+			ObjectKey:  "piece",
+		}
+
+		pointerKey := pointerLocation.Encode()
+		pointerLocation.ObjectKey += "-expired"
+		pointerExpiredKey := pointerLocation.Encode()
 		// put test pointer to db
 		metainfo := planet.Satellites[0].Metainfo.Service
-		err := metainfo.Put(ctx, pointerPath, pointer)
+		err := metainfo.Put(ctx, pointerKey, pointer)
 		require.NoError(t, err)
 		// modify pointer to make it expired and put to db
 		pointer.ExpirationDate = time.Now().Add(-time.Hour)
-		err = metainfo.Put(ctx, pointerPath+"-expired", pointer)
+		err = metainfo.Put(ctx, pointerExpiredKey, pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -145,10 +155,10 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		//check if the expected segments were added to the irreparable DB
 		irreparable := planet.Satellites[0].DB.Irreparable()
-		remoteSegmentInfo, err := irreparable.Get(ctx, []byte(pointerPath))
+		remoteSegmentInfo, err := irreparable.Get(ctx, pointerKey)
 		require.NoError(t, err)
 		// check that the expired segment was not added to the irreparable DB
-		_, err = irreparable.Get(ctx, []byte(pointerPath+"-expired"))
+		_, err = irreparable.Get(ctx, pointerExpiredKey)
 		require.Error(t, err)
 
 		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
@@ -160,7 +170,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		remoteSegmentInfo, err = irreparable.Get(ctx, []byte(pointerPath))
+		remoteSegmentInfo, err = irreparable.Get(ctx, pointerKey)
 		require.NoError(t, err)
 
 		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
@@ -185,15 +195,15 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			},
 		}
 		// update test pointer in db
-		err = metainfo.UnsynchronizedDelete(ctx, pointerPath)
+		err = metainfo.UnsynchronizedDelete(ctx, pointerKey)
 		require.NoError(t, err)
-		err = metainfo.Put(ctx, pointerPath, pointer)
+		err = metainfo.Put(ctx, pointerKey, pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		_, err = irreparable.Get(ctx, []byte(pointerPath))
+		_, err = irreparable.Get(ctx, pointerKey)
 		require.Error(t, err)
 	})
 }
@@ -237,6 +247,6 @@ func insertPointer(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 
 	// put test pointer to db
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(ctx, pointerPath, pointer)
+	err := pointerdb.Put(ctx, metabase.SegmentKey(pointerPath), pointer)
 	require.NoError(t, err)
 }

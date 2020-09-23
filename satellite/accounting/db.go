@@ -11,12 +11,13 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/compensation"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
-// RollupStats is a convenience alias
+// RollupStats is a convenience alias.
 type RollupStats map[time.Time]map[storj.NodeID]*Rollup
 
-// StoragenodeStorageTally mirrors dbx.StoragenodeStorageTally, allowing us to use that struct without leaking dbx
+// StoragenodeStorageTally mirrors dbx.StoragenodeStorageTally, allowing us to use that struct without leaking dbx.
 type StoragenodeStorageTally struct {
 	ID              int64
 	NodeID          storj.NodeID
@@ -24,7 +25,7 @@ type StoragenodeStorageTally struct {
 	DataTotal       float64
 }
 
-// StoragenodeBandwidthRollup mirrors dbx.StoragenodeBandwidthRollup, allowing us to use the struct without leaking dbx
+// StoragenodeBandwidthRollup mirrors dbx.StoragenodeBandwidthRollup, allowing us to use the struct without leaking dbx.
 type StoragenodeBandwidthRollup struct {
 	NodeID        storj.NodeID
 	IntervalStart time.Time
@@ -32,7 +33,7 @@ type StoragenodeBandwidthRollup struct {
 	Settled       uint64
 }
 
-// Rollup mirrors dbx.AccountingRollup, allowing us to use that struct without leaking dbx
+// Rollup mirrors dbx.AccountingRollup, allowing us to use that struct without leaking dbx.
 type Rollup struct {
 	ID             int64
 	NodeID         storj.NodeID
@@ -45,7 +46,7 @@ type Rollup struct {
 	AtRestTotal    float64
 }
 
-// StorageNodePeriodUsage represents a statement for a node for a compensation period
+// StorageNodePeriodUsage represents a statement for a node for a compensation period.
 type StorageNodePeriodUsage struct {
 	NodeID         storj.NodeID
 	AtRestTotal    float64
@@ -56,7 +57,7 @@ type StorageNodePeriodUsage struct {
 	GetAuditTotal  int64
 }
 
-// StorageNodeUsage is node at rest space usage over a period of time
+// StorageNodeUsage is node at rest space usage over a period of time.
 type StorageNodeUsage struct {
 	NodeID      storj.NodeID
 	StorageUsed float64
@@ -65,7 +66,7 @@ type StorageNodeUsage struct {
 }
 
 // ProjectUsage consist of period total storage, egress
-// and objects count per hour for certain Project in bytes
+// and objects count per hour for certain Project in bytes.
 type ProjectUsage struct {
 	Storage     float64 `json:"storage"`
 	Egress      int64   `json:"egress"`
@@ -75,7 +76,7 @@ type ProjectUsage struct {
 	Before time.Time `json:"before"`
 }
 
-// BucketUsage consist of total bucket usage for period
+// BucketUsage consist of total bucket usage for period.
 type BucketUsage struct {
 	ProjectID  uuid.UUID
 	BucketName string
@@ -89,14 +90,14 @@ type BucketUsage struct {
 }
 
 // BucketUsageCursor holds info for bucket usage
-// cursor pagination
+// cursor pagination.
 type BucketUsageCursor struct {
 	Search string
 	Limit  uint
 	Page   uint
 }
 
-// BucketUsagePage represents bucket usage page result
+// BucketUsagePage represents bucket usage page result.
 type BucketUsagePage struct {
 	BucketUsages []BucketUsage
 
@@ -110,7 +111,7 @@ type BucketUsagePage struct {
 }
 
 // BucketUsageRollup is total bucket usage info
-// for certain period
+// for certain period.
 type BucketUsageRollup struct {
 	ProjectID  uuid.UUID
 	BucketName []byte
@@ -162,7 +163,7 @@ type StoragenodeAccounting interface {
 // architecture: Database
 type ProjectAccounting interface {
 	// SaveTallies saves the latest project info
-	SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*BucketTally) error
+	SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[metabase.BucketLocation]*BucketTally) error
 	// GetTallies retrieves all tallies
 	GetTallies(ctx context.Context) ([]BucketTally, error)
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table
@@ -171,6 +172,9 @@ type ProjectAccounting interface {
 	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
 	// GetProjectAllocatedBandwidth returns project allocated bandwidth for the specified year and month.
 	GetProjectAllocatedBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month) (int64, error)
+	// DeleteProjectAllocatedBandwidthBefore deletes project bandwidth rollups before the given time
+	DeleteProjectAllocatedBandwidthBefore(ctx context.Context, before time.Time) error
+
 	// GetStorageTotals returns the current inline and remote storage usage for a projectID
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	// UpdateProjectUsageLimit updates project usage limit.
@@ -178,9 +182,9 @@ type ProjectAccounting interface {
 	// UpdateProjectBandwidthLimit updates project bandwidth limit.
 	UpdateProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
 	// GetProjectStorageLimit returns project storage usage limit.
-	GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
+	GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (*int64, error)
 	// GetProjectBandwidthLimit returns project bandwidth usage limit.
-	GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
+	GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (*int64, error)
 	// GetProjectTotal returns project usage summary for specified period of time.
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
 	// GetBucketUsageRollups returns usage rollup per each bucket for specified period of time.

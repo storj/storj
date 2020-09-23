@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-// RunTests runs common storage.KeyValueStore tests
+// RunTests runs common storage.KeyValueStore tests.
 func RunTests(t *testing.T, store storage.KeyValueStore) {
 	// store = storelogger.NewTest(t, store)
 	ctx := testcontext.New(t)
@@ -77,7 +77,7 @@ func testConstraints(t *testing.T, ctx *testcontext.Context, store storage.KeyVa
 		}
 
 		_, err = store.GetAll(ctx, items[:lookupLimit+1].GetKeys())
-		if err == nil && err == storage.ErrLimitExceeded {
+		if !storage.ErrLimitExceeded.Has(err) {
 			t.Fatalf("GetAll LookupLimit+1 should fail: %v", err)
 		}
 	})

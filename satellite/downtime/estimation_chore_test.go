@@ -19,8 +19,9 @@ import (
 )
 
 // TestEstimationChoreBasic tests the basic functionality of the downtime estimation chore:
-// 1. Test that when a node that had one failed ping, and one successful ping >1s later does not have recorded downtime
-// 2. Test that when a node that had one failed ping, and another failed ping >1s later has at least 1s of recorded downtime
+//
+//  1. Test that when a node that had one failed ping, and one successful ping >1s later does not have recorded downtime.
+//  2. Test that when a node that had one failed ping, and another failed ping >1s later has at least 1s of recorded downtime.
 func TestEstimationChoreBasic(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,

@@ -84,7 +84,7 @@ func (ur *uplinkRunner) Run(ctx context.Context, args ...string) ([]byte, error)
 	return cmd.CombinedOutput()
 }
 
-// skip the first four whitespace-delimited fields and keep the rest
+// skip the first four whitespace-delimited fields and keep the rest.
 var lsOutputRegexp = regexp.MustCompile(`(?m)^\s*(?:\S+\s+){4}(.*)$`)
 
 func (ur *uplinkRunner) doesRemoteExist(remotePath string) (bool, error) {

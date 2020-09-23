@@ -10,7 +10,7 @@ import (
 	"storj.io/storj/private/dbutil/dbschema"
 )
 
-// QueryData loads all data from tables
+// QueryData loads all data from tables.
 func QueryData(ctx context.Context, db dbschema.Queryer, schema *dbschema.Schema) (*dbschema.Data, error) {
 	return dbschema.QueryData(ctx, db, schema, func(columnName string) string {
 		quoted := strconv.Quote(columnName)

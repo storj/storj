@@ -14,6 +14,7 @@
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
+                    rel="noopener noreferrer"
                     target="_blank"
                 >
                     thread
@@ -30,6 +31,7 @@
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
+                    rel="noopener noreferrer"
                     target="_blank"
                 >
                     thread
@@ -46,6 +48,7 @@
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
+                    rel="noopener noreferrer"
                     target="_blank"
                 >
                     thread
@@ -62,6 +65,7 @@
                 <a
                     class="info-area__disqualified-info__info__link"
                     href="https://forum.storj.io/c/sno-category"
+                    rel="noopener noreferrer"
                     target="_blank"
                 >
                     thread
@@ -115,16 +119,13 @@
                 <DiskStatChart />
             </section>
         </section>
-        <div class="info-area__blurred-checks" v-if="!selectedSatellite.id">
-            <p class="info-area__blurred-checks__title">Select a Specific Satellite to View Audit and Uptime Percentages</p>
-        </div>
-        <div v-if="selectedSatellite.id">
+        <div>
             <p class="info-area__title">Suspension & Audit</p>
-            <div class="info-area__checks-area">
+            <div class="info-area__checks-area" v-if="selectedSatellite.id">
                 <ChecksArea
                     label="Suspension Score"
                     :amount="checks.suspension"
-                    info-text="Uptime checks occur to make sure your node is still online. This is the percentage of uptime checks you’ve passed."
+                    info-text="This score shows how close your node is to getting suspended on a satellite. A score of 60% or below will result in suspension. If your node stays suspended for more than one week you will be disqualified from this satellite, so please correct the errors that lead to suspension asap."
                 />
                 <ChecksArea
                     label="Audit Score"
@@ -132,6 +133,7 @@
                     info-text="Percentage of successful pings/communication between the node & satellite."
                 />
             </div>
+            <AllSatellitesAuditsArea v-else />
         </div>
         <div class="info-area__payout-header">
             <p class="info-area__title">Payout</p>
@@ -151,6 +153,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 import BandwidthChart from '@/app/components/BandwidthChart.vue';
 import BarInfo from '@/app/components/BarInfo.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
@@ -187,6 +190,7 @@ class Checks {
 
 @Component ({
     components: {
+        AllSatellitesAuditsArea,
         DiskStatChart,
         TotalPayoutArea,
         EstimationArea,
@@ -526,6 +530,7 @@ export default class SNOContentFilling extends Vue {
                 flex-direction: row;
                 align-items: center;
                 justify-content: flex-end;
+                text-decoration: none;
 
                 &__text {
                     font-size: 16px;

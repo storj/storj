@@ -70,6 +70,47 @@ func Schema() map[string]*dbschema.Schema {
 		"heldamount": &dbschema.Schema{
 			Tables: []*dbschema.Table{
 				&dbschema.Table{
+					Name:       "payments",
+					PrimaryKey: []string{"id"},
+					Columns: []*dbschema.Column{
+						&dbschema.Column{
+							Name:       "amount",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "created_at",
+							Type:       "timestamp",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "id",
+							Type:       "bigserial",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "notes",
+							Type:       "text",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "period",
+							Type:       "text",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "receipt",
+							Type:       "text",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "satellite_id",
+							Type:       "bytea",
+							IsNullable: false,
+						},
+					},
+				},
+				&dbschema.Table{
 					Name:       "paystubs",
 					PrimaryKey: []string{"period", "satellite_id"},
 					Columns: []*dbschema.Column{
@@ -521,7 +562,7 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
-							Name:       "disqualified",
+							Name:       "disqualified_at",
 							Type:       "TIMESTAMP",
 							IsNullable: true,
 						},
@@ -531,12 +572,27 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
+							Name:       "offline_suspended_at",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "offline_under_review_at",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "online_score",
+							Type:       "REAL",
+							IsNullable: false,
+						},
+						&dbschema.Column{
 							Name:       "satellite_id",
 							Type:       "BLOB",
 							IsNullable: false,
 						},
 						&dbschema.Column{
-							Name:       "suspended",
+							Name:       "suspended_at",
 							Type:       "TIMESTAMP",
 							IsNullable: true,
 						},

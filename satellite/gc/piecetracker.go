@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 var _ metainfo.Observer = (*PieceTracker)(nil)
@@ -31,7 +32,7 @@ type PieceTracker struct {
 	retainInfos map[storj.NodeID]*RetainInfo
 }
 
-// NewPieceTracker instantiates a new gc piece tracker to be subscribed to the metainfo loop
+// NewPieceTracker instantiates a new gc piece tracker to be subscribed to the metainfo loop.
 func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeID]int) *PieceTracker {
 	return &PieceTracker{
 		log:          log,
@@ -43,9 +44,9 @@ func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeI
 	}
 }
 
-// RemoteSegment takes a remote segment found in metainfo and adds pieces to bloom filters
-func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
-	defer mon.Task()(&ctx, path.Raw)(&err)
+// RemoteSegment takes a remote segment found in metainfo and adds pieces to bloom filters.
+func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	remote := pointer.GetRemote()
 	pieces := remote.GetRemotePieces()
@@ -57,17 +58,17 @@ func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, path metain
 	return nil
 }
 
-// Object returns nil because gc does not interact with remote objects
-func (pieceTracker *PieceTracker) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+// Object returns nil because gc does not interact with remote objects.
+func (pieceTracker *PieceTracker) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
-// InlineSegment returns nil because we're only doing gc for storage nodes for now
-func (pieceTracker *PieceTracker) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+// InlineSegment returns nil because we're only doing gc for storage nodes for now.
+func (pieceTracker *PieceTracker) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
-// adds a pieceID to the relevant node's RetainInfo
+// adds a pieceID to the relevant node's RetainInfo.
 func (pieceTracker *PieceTracker) add(nodeID storj.NodeID, pieceID storj.PieceID) {
 	if _, ok := pieceTracker.retainInfos[nodeID]; !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.

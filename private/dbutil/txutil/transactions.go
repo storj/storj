@@ -10,10 +10,10 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
 )
 
@@ -40,7 +40,7 @@ func WithTx(ctx context.Context, db tagsql.DB, txOpts *sql.TxOptions, fn func(co
 			if dur := time.Since(start); dur < 5*time.Minute && i < 10 {
 				// even though the resources (duration and count) allow us to issue a retry,
 				// we only should if the error claims we should.
-				if code := errCode(err); code == "CR000" || code == "40001" {
+				if code := pgutil.ErrorCode(err); code == "CR000" || code == "40001" {
 					continue
 				}
 			} else {
@@ -73,17 +73,4 @@ func withTxOnce(ctx context.Context, db tagsql.DB, txOpts *sql.TxOptions, fn fun
 	}()
 
 	return fn(ctx, tx), nil
-}
-
-// errCode returns the error code associated with any postgres error in the chain of
-// errors walked by unwrapping.
-func errCode(err error) (code string) {
-	errs.IsFunc(err, func(err error) bool {
-		if pgerr, ok := err.(*pq.Error); ok {
-			code = string(pgerr.Code)
-			return true
-		}
-		return false
-	})
-	return code
 }

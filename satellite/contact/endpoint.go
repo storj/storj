@@ -104,7 +104,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	}, nil
 }
 
-// GetTime returns current timestamp
+// GetTime returns current timestamp.
 func (endpoint *Endpoint) GetTime(ctx context.Context, req *pb.GetTimeRequest) (_ *pb.GetTimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -103,7 +104,7 @@ func TestPieces(t *testing.T) {
 		for {
 			_, err := reader.Read(data)
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				require.NoError(t, err)

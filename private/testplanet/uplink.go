@@ -21,17 +21,20 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
 	"storj.io/uplink/private/piecestore"
 	"storj.io/uplink/private/testuplink"
 )
 
-// Uplink is a general purpose
+// Uplink is a registered user on all satellites,
+// which contains the necessary accesses and project info.
 type Uplink struct {
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
 	Dialer   rpc.Dialer
+	Config   uplink.Config
 
 	APIKey map[storj.NodeID]*macaroon.APIKey
 	Access map[storj.NodeID]*uplink.Access
@@ -106,15 +109,13 @@ func (planet *Planet) newUplink(name string) (*Uplink, error) {
 	planetUplink.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
 	for j, satellite := range planet.Satellites {
-		console := satellite.API.Console
+		consoleAPI := satellite.API.Console
 
 		projectName := fmt.Sprintf("%s_%d", name, j)
-		user, err := satellite.AddUser(
-			ctx,
-			fmt.Sprintf("User %s", projectName),
-			fmt.Sprintf("user@%s.test", projectName),
-			10,
-		)
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: fmt.Sprintf("User %s", projectName),
+			Email:    fmt.Sprintf("user@%s.test", projectName),
+		}, 10)
 		if err != nil {
 			return nil, err
 		}
@@ -124,11 +125,11 @@ func (planet *Planet) newUplink(name string) (*Uplink, error) {
 			return nil, err
 		}
 
-		authCtx, err := satellite.authenticatedContext(ctx, user.ID)
+		authCtx, err := satellite.AuthenticatedContext(ctx, user.ID)
 		if err != nil {
 			return nil, err
 		}
-		_, apiKey, err := console.Service.CreateAPIKey(authCtx, project.ID, "root")
+		_, apiKey, err := consoleAPI.Service.CreateAPIKey(authCtx, project.ID, "root")
 		if err != nil {
 			return nil, err
 		}
@@ -156,16 +157,16 @@ func (planet *Planet) newUplink(name string) (*Uplink, error) {
 	return planetUplink, nil
 }
 
-// ID returns uplink id
+// ID returns uplink id.
 func (client *Uplink) ID() storj.NodeID { return client.Identity.ID }
 
-// Addr returns uplink address
+// Addr returns uplink address.
 func (client *Uplink) Addr() string { return "" }
 
-// Shutdown shuts down all uplink dependencies
+// Shutdown shuts down all uplink dependencies.
 func (client *Uplink) Shutdown() error { return nil }
 
-// DialMetainfo dials destination with apikey and returns metainfo Client
+// DialMetainfo dials destination with apikey and returns metainfo Client.
 func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey *macaroon.APIKey) (*metainfo.Client, error) {
 	return metainfo.DialNodeURL(ctx, client.Dialer, destination.NodeURL().String(), apikey, "Test/1.0")
 }
@@ -175,12 +176,12 @@ func (client *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 	return piecestore.DialNodeURL(ctx, client.Dialer, destination.NodeURL(), client.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
 }
 
-// Upload data to specific satellite
+// Upload data to specific satellite.
 func (client *Uplink) Upload(ctx context.Context, satellite *Satellite, bucket string, path storj.Path, data []byte) error {
 	return client.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{})
 }
 
-// UploadWithExpiration data to specific satellite and expiration time
+// UploadWithExpiration data to specific satellite and expiration time.
 func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path, data []byte, expiration time.Time) error {
 	_, found := testuplink.GetMaxSegmentSize(ctx)
 	if !found {
@@ -215,7 +216,7 @@ func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satel
 	return upload.Commit()
 }
 
-// Download data from specific satellite
+// Download data from specific satellite.
 func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) ([]byte, error) {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
@@ -236,7 +237,7 @@ func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucket
 	return data, nil
 }
 
-// DownloadStream returns stream for downloading data
+// DownloadStream returns stream for downloading data.
 func (client *Uplink) DownloadStream(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) (_ io.ReadCloser, cleanup func() error, err error) {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
@@ -254,7 +255,7 @@ func (client *Uplink) DownloadStream(ctx context.Context, satellite *Satellite, 
 	return downloader, cleanup, err
 }
 
-// DownloadStreamRange returns stream for downloading data
+// DownloadStreamRange returns stream for downloading data.
 func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path, start, limit int64) (_ io.ReadCloser, cleanup func() error, err error) {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
@@ -275,7 +276,7 @@ func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satell
 	return downloader, cleanup, err
 }
 
-// DeleteObject deletes an object at the path in a bucket
+// DeleteObject deletes an object at the path in a bucket.
 func (client *Uplink) DeleteObject(ctx context.Context, satellite *Satellite, bucketName string, path storj.Path) error {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
@@ -290,7 +291,7 @@ func (client *Uplink) DeleteObject(ctx context.Context, satellite *Satellite, bu
 	return err
 }
 
-// CreateBucket creates a new bucket
+// CreateBucket creates a new bucket.
 func (client *Uplink) CreateBucket(ctx context.Context, satellite *Satellite, bucketName string) error {
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
@@ -324,7 +325,7 @@ func (client *Uplink) DeleteBucket(ctx context.Context, satellite *Satellite, bu
 func (client *Uplink) GetProject(ctx context.Context, satellite *Satellite) (*uplink.Project, error) {
 	access := client.Access[satellite.ID()]
 
-	project, err := uplink.OpenProject(ctx, access)
+	project, err := client.Config.OpenProject(ctx, access)
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,0 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
-
-exports[`CreditsDropdown renders correctly 1`] = `
-<div class="credits-dropdown">
-  <div class="credits-dropdown__link-container"><span class="credits-dropdown__link-container__link">Credits History</span></div>
-</div>
-`;

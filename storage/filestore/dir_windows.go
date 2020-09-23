@@ -6,6 +6,7 @@
 package filestore
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,7 +19,7 @@ var errSharingViolation = windows.Errno(32)
 
 func isBusy(err error) bool {
 	err = underlyingError(err)
-	return err == errSharingViolation
+	return errors.Is(err, errSharingViolation)
 }
 
 func diskInfoFromPath(path string) (info DiskInfo, err error) {
@@ -89,9 +90,9 @@ func getVolumeSerialNumber(path string) (string, error) {
 	return fmt.Sprintf("%08x", volumeSerial), nil
 }
 
-// windows api occasionally returns
+// windows api occasionally returns.
 func ignoreSuccess(err error) error {
-	if err == windows.Errno(0) {
+	if errors.Is(err, windows.Errno(0)) {
 		return nil
 	}
 	return err
@@ -107,7 +108,7 @@ func tryFixLongPath(path string) string {
 	return `\\?\` + abspath
 }
 
-// rename implements atomic file rename on windows
+// rename implements atomic file rename on windows.
 func rename(oldpath, newpath string) error {
 	oldpathp, err := windows.UTF16PtrFromString(tryFixLongPath(oldpath))
 	if err != nil {
@@ -126,8 +127,8 @@ func rename(oldpath, newpath string) error {
 	return nil
 }
 
-// openFileReadOnly opens the file with read only
-// a custom implementation, because os.Open doesn't support specifying FILE_SHARE_DELETE
+// openFileReadOnly opens the file with read only.
+// Custom implementation, because os.Open doesn't support specifying FILE_SHARE_DELETE.
 func openFileReadOnly(path string, perm os.FileMode) (*os.File, error) {
 	pathp, err := windows.UTF16PtrFromString(tryFixLongPath(path))
 	if err != nil {

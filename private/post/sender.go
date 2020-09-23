@@ -15,12 +15,12 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Address is alias of net/mail.Address
+// Address is alias of net/mail.Address.
 type Address = mail.Address
 
 var mon = monkit.Package()
 
-// SMTPSender is smtp sender
+// SMTPSender is smtp sender.
 type SMTPSender struct {
 	ServerAddress string
 
@@ -28,12 +28,12 @@ type SMTPSender struct {
 	Auth smtp.Auth
 }
 
-// FromAddress implements satellite/mail.SMTPSender
+// FromAddress implements satellite/mail.SMTPSender.
 func (sender *SMTPSender) FromAddress() Address {
 	return sender.From
 }
 
-// SendEmail sends email message to the given recipient
+// SendEmail sends email message to the given recipient.
 func (sender *SMTPSender) SendEmail(ctx context.Context, msg *Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -49,7 +49,7 @@ func (sender *SMTPSender) SendEmail(ctx context.Context, msg *Message) (err erro
 	return nil
 }
 
-// communicate sends mail via SMTP using provided client and message
+// communicate sends mail via SMTP using provided client and message.
 func (sender *SMTPSender) communicate(ctx context.Context, client *smtp.Client, msg *Message) error {
 	// suppress error because address should be validated
 	// before creating SMTPSender
@@ -98,7 +98,7 @@ func (sender *SMTPSender) communicate(ctx context.Context, client *smtp.Client, 
 	return client.Quit()
 }
 
-// writeData ensures that writer will be closed after data is written
+// writeData ensures that writer will be closed after data is written.
 func writeData(writer io.WriteCloser, data []byte) (err error) {
 	defer func() {
 		err = errs.Combine(err, writer.Close())

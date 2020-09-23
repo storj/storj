@@ -37,7 +37,6 @@ import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
-import { ProjectOwning } from '@/utils/projectOwning';
 
 const {
     MAKE_TOKEN_DEPOSIT,
@@ -106,7 +105,7 @@ export default class AddStorjForm extends Vue {
      * Indicates if user has own project.
      */
     private get userHasOwnProject(): boolean {
-        return new ProjectOwning(this.$store).userHasOwnProject();
+        return this.$store.getters.userProjectsCount > 0;
     }
 
     /**

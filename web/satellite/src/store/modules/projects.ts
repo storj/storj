@@ -2,13 +2,19 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { CreateProjectModel, Project, ProjectLimits, ProjectsApi, UpdateProjectModel } from '@/types/projects';
+import {
+    Project,
+    ProjectFields,
+    ProjectLimits,
+    ProjectsApi,
+} from '@/types/projects';
 
 export const PROJECTS_ACTIONS = {
     FETCH: 'fetchProjects',
     CREATE: 'createProject',
     SELECT: 'selectProject',
-    UPDATE: 'updateProject',
+    UPDATE_NAME: 'updateProjectName',
+    UPDATE_DESCRIPTION: 'updateProjectDescription',
     DELETE: 'deleteProject',
     CLEAR: 'clearProjects',
     GET_LIMITS: 'getProjectLimits',
@@ -17,7 +23,8 @@ export const PROJECTS_ACTIONS = {
 export const PROJECTS_MUTATIONS = {
     ADD: 'CREATE_PROJECT',
     REMOVE: 'DELETE_PROJECT',
-    UPDATE_PROJECT: 'UPDATE_PROJECT',
+    UPDATE_PROJECT_NAME: 'UPDATE_PROJECT_NAME',
+    UPDATE_PROJECT_DESCRIPTION: 'UPDATE_PROJECT_DESCRIPTION',
     SET_PROJECTS: 'SET_PROJECTS',
     SELECT_PROJECT: 'SELECT_PROJECT',
     CLEAR_PROJECTS: 'CLEAR_PROJECTS',
@@ -36,7 +43,8 @@ const {
     FETCH,
     CREATE,
     SELECT,
-    UPDATE,
+    UPDATE_NAME,
+    UPDATE_DESCRIPTION,
     DELETE,
     CLEAR,
     GET_LIMITS,
@@ -45,7 +53,8 @@ const {
 const {
     ADD,
     REMOVE,
-    UPDATE_PROJECT,
+    UPDATE_PROJECT_NAME,
+    UPDATE_PROJECT_DESCRIPTION,
     SET_PROJECTS,
     SELECT_PROJECT,
     CLEAR_PROJECTS,
@@ -91,13 +100,11 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 state.selectedProject = selected;
             },
-            [UPDATE_PROJECT](state: ProjectsState, updateProjectModel: UpdateProjectModel): void {
-                const selected = state.projects.find((project: Project) => project.id === updateProjectModel.id);
-                if (!selected) {
-                    return;
-                }
-
-                selected.description = updateProjectModel.description;
+            [UPDATE_PROJECT_NAME](state: ProjectsState, fieldsToUpdate: ProjectFields): void {
+                state.selectedProject.name = fieldsToUpdate.name;
+            },
+            [UPDATE_PROJECT_DESCRIPTION](state: ProjectsState, fieldsToUpdate: ProjectFields): void {
+                state.selectedProject.description = fieldsToUpdate.description;
             },
             [REMOVE](state: ProjectsState, projectID: string): void {
                 state.projects = state.projects.filter(project => project.id !== projectID);
@@ -123,8 +130,8 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 return projects;
             },
-            [CREATE]: async function ({commit}: any, createProjectModel: CreateProjectModel): Promise<Project> {
-                const project = await api.create(createProjectModel);
+            [CREATE]: async function ({commit}: any, createProjectFields: ProjectFields): Promise<Project> {
+                const project = await api.create(createProjectFields);
 
                 commit(ADD, project);
 
@@ -133,10 +140,15 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             [SELECT]: function ({commit}: any, projectID: string): void {
                 commit(SELECT_PROJECT, projectID);
             },
-            [UPDATE]: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<void> {
-                await api.update(updateProjectModel.id, updateProjectModel.description);
+            [UPDATE_NAME]: async function ({commit, state}: any, fieldsToUpdate: ProjectFields): Promise<void> {
+                await api.update(state.selectedProject.id, fieldsToUpdate.name, state.selectedProject.description);
 
-                commit(UPDATE_PROJECT, updateProjectModel);
+                commit(UPDATE_PROJECT_NAME, fieldsToUpdate);
+            },
+            [UPDATE_DESCRIPTION]: async function ({commit, state}: any, fieldsToUpdate: ProjectFields): Promise<void> {
+                await api.update(state.selectedProject.id, state.selectedProject.name, fieldsToUpdate.description);
+
+                commit(UPDATE_PROJECT_DESCRIPTION, fieldsToUpdate);
             },
             [DELETE]: async function ({commit}: any, projectID: string): Promise<void> {
                 await api.delete(projectID);
@@ -170,6 +182,17 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 });
             },
             selectedProject: (state: ProjectsState): Project => state.selectedProject,
+            userProjectsCount: (state: ProjectsState, getters: any): number => {
+                let projectsCount: number = 0;
+
+                state.projects.map((project: Project) => {
+                    if (project.ownerId === getters.user.id) {
+                        projectsCount++;
+                    }
+                });
+
+                return projectsCount;
+            },
         },
     };
 }

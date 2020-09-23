@@ -1,0 +1,73 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`TotalPayoutArea renders correctly 1`] = `
+<section class="total-payout-area">
+  <div class="total-payout-area__united-info-area">
+    <div class="total-payout-area__united-info-area__item">
+      <p class="total-payout-area__united-info-area__item__label">Current Month Earnings</p>
+      <p class="total-payout-area__united-info-area__item__amount">$0.00</p>
+    </div>
+    <div class="total-payout-area__united-info-area__item align-center">
+      <p class="total-payout-area__united-info-area__item__label">Total Earned</p>
+      <p class="total-payout-area__united-info-area__item__amount">$0.00</p>
+    </div>
+    <div class="total-payout-area__united-info-area__item align-end">
+      <p class="total-payout-area__united-info-area__item__label">Total Held Amount</p>
+      <p class="total-payout-area__united-info-area__item__amount">$0.00</p>
+    </div>
+  </div>
+  <div class="total-payout-area__info-area">
+    <singleinfo-stub width="100%" label="Current Month Earnings" value="$0.00"></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Earnings" value="$0.00"></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Held Amount" value="$0.00"></singleinfo-stub>
+  </div>
+</section>
+`;
+
+exports[`TotalPayoutArea renders correctly with actual values 1`] = `
+<section class="total-payout-area">
+  <div class="total-payout-area__united-info-area">
+    <div class="total-payout-area__united-info-area__item">
+      <p class="total-payout-area__united-info-area__item__label">Current Month Earnings</p>
+      <p class="total-payout-area__united-info-area__item__amount">$400.00</p>
+    </div>
+    <div class="total-payout-area__united-info-area__item align-center">
+      <p class="total-payout-area__united-info-area__item__label">Total Earned</p>
+      <p class="total-payout-area__united-info-area__item__amount">$1.00</p>
+    </div>
+    <div class="total-payout-area__united-info-area__item align-end">
+      <p class="total-payout-area__united-info-area__item__label">Total Held Amount</p>
+      <p class="total-payout-area__united-info-area__item__amount">$0.50</p>
+    </div>
+  </div>
+  <div class="total-payout-area__info-area">
+    <singleinfo-stub width="100%" label="Current Month Earnings" value="$400.00"></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Earnings" value="$1.00"></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Held Amount" value="$0.50"></singleinfo-stub>
+  </div>
+</section>
+`;
+
+exports[`TotalPayoutArea renders correctly with actual values 2`] = `
+<section class="total-payout-area">
+  <div class="total-payout-area__united-info-area">
+    <div class="total-payout-area__united-info-area__item">
+      <p class="total-payout-area__united-info-area__item__label">Current Month Earnings</p>
+      <p class="total-payout-area__united-info-area__item__amount">$400.00</p>
+    </div>
+    <div class="total-payout-area__united-info-area__item align-center">
+      <p class="total-payout-area__united-info-area__item__label">Total Earned</p>
+      <p class="total-payout-area__united-info-area__item__amount">$1.00</p>
+    </div>
+    <div class="total-payout-area__united-info-area__item align-end">
+      <p class="total-payout-area__united-info-area__item__label">Total Held Amount</p>
+      <p class="total-payout-area__united-info-area__item__amount">$4000.00</p>
+    </div>
+  </div>
+  <div class="total-payout-area__info-area">
+    <singleinfo-stub width="100%" label="Current Month Earnings" value="$400.00"></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Earnings" value="$1.00"></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Held Amount" value="$4000.00"></singleinfo-stub>
+  </div>
+</section>
+`;

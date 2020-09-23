@@ -13,22 +13,27 @@
             <SatelliteSelection />
             <p class="payout-area-container__section-title">Payout</p>
             <EstimationArea class="payout-area-container__estimation"/>
+            <PayoutHistoryTable class="payout-area-container__payout-history-table" v-if="payoutPeriods.length > 0" />
             <p class="payout-area-container__section-title">Held Amount</p>
             <p class="additional-text">
                 Learn more about held back
                 <a
-                        class="additional-text__link"
-                        href="https://documentation.storj.io/resources/faq/held-back-amount"
-                        target="_blank"
+                    class="additional-text__link"
+                    href="https://documentation.storj.io/resources/faq/held-back-amount"
+                    target="_blank"
+                    rel="noopener noreferrer"
                 >
                     here
                 </a>
             </p>
             <section class="payout-area-container__held-info-area">
-                <SingleInfo v-if="selectedSatellite" width="48%" label="Held Amount Rate" :value="heldPercentage + '%'" />
-                <SingleInfo width="48%" label="Total Held Amount" :value="totalHeld | centsToDollars" />
+                <TotalHeldArea v-if="isSatelliteSelected" />
+                <div class="row" v-else >
+                    <SingleInfo width="48%" label="Total Held Amount" :value="totalHeldAndPaid.held | centsToDollars" />
+                    <SingleInfo width="48%" label="Total Held Returned" :value="totalHeldAndPaid.disposed | centsToDollars" />
+                </div>
             </section>
-            <HeldProgress v-if="selectedSatellite" class="payout-area-container__process-area" />
+            <HeldProgress v-if="isSatelliteSelected" class="payout-area-container__process-area" />
             <HeldHistoryArea />
         </div>
     </div>
@@ -41,19 +46,24 @@ import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
 import HeldHistoryTable from '@/app/components/payments/HeldHistoryMonthlyBreakdownTable.vue';
 import HeldProgress from '@/app/components/payments/HeldProgress.vue';
+import PayoutHistoryTable from '@/app/components/payments/PayoutHistoryTable.vue';
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
+import TotalHeldArea from '@/app/components/payments/TotalHeldArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { NotificationsCursor } from '@/app/types/notifications';
-import { SatelliteInfo } from '@/storagenode/dashboard';
+import { PayoutPeriod, TotalHeldAndPaid } from '@/storagenode/payouts/payouts';
 
 @Component ({
     components: {
+        TotalHeldArea,
+        PayoutHistoryTable,
         HeldHistoryArea,
         HeldProgress,
         HeldHistoryTable,
@@ -69,6 +79,8 @@ export default class PayoutArea extends Vue {
      * Fetches payout information.
      */
     public async mounted(): Promise<any> {
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
         try {
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
         } catch (error) {
@@ -82,26 +94,39 @@ export default class PayoutArea extends Vue {
         }
 
         try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, this.$store.state.node.selectedSatellite.id);
+        } catch (error) {
+            console.error(error);
+        }
+
+        try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {
             console.error(error);
         }
+
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
+        } catch (error) {
+            console.error(error);
+        }
+
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
     }
 
-    public get totalHeld(): number {
-        return this.$store.state.payoutModule.totalHeldAmount;
-    }
-
-    public get heldPercentage(): number {
-        return this.$store.state.payoutModule.heldPercentage;
+    public get totalHeldAndPaid(): TotalHeldAndPaid {
+        return this.$store.state.payoutModule.totalHeldAndPaid;
     }
 
     /**
-     * selectedSatellite - current selected satellite from store.
-     * @return SatelliteInfo - current selected satellite
+     * Indicates if satellite is selected.
      */
-    public get selectedSatellite(): SatelliteInfo {
-        return this.$store.state.node.selectedSatellite.id;
+    public get isSatelliteSelected(): boolean {
+        return !!this.$store.state.node.selectedSatellite.id;
+    }
+
+    public get payoutPeriods(): PayoutPeriod[] {
+        return this.$store.state.payoutModule.payoutPeriods;
     }
 }
 </script>
@@ -166,6 +191,10 @@ export default class PayoutArea extends Vue {
             border-radius: 12px;
         }
 
+        &__payout-history-table {
+            margin-top: 20px;
+        }
+
         &__held-info-area {
             display: flex;
             flex-direction: row;
@@ -190,6 +219,12 @@ export default class PayoutArea extends Vue {
             cursor: pointer;
             text-decoration: underline;
         }
+    }
+
+    .row {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
     }
 
     @media screen and (max-width: 890px) {
@@ -228,6 +263,10 @@ export default class PayoutArea extends Vue {
                     }
                 }
             }
+        }
+
+        .row {
+            flex-direction: column;
         }
     }
 </style>

@@ -21,7 +21,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -30,6 +29,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/uplink/private/storage/meta"
@@ -40,8 +40,8 @@ func TestProjectUsageStorage(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Rollup.DefaultMaxUsage = 1 * memory.MB
-				config.Rollup.DefaultMaxBandwidth = 1 * memory.MB
+				config.Metainfo.ProjectLimits.DefaultMaxUsage = 1 * memory.MB
+				config.Metainfo.ProjectLimits.DefaultMaxBandwidth = 1 * memory.MB
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -117,19 +117,13 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				saDB := planet.Satellites[0].DB
 				orderDB := saDB.Orders()
 
-				// Setup: get projectID and create bucketID
-				projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-				projectID := projects[0].ID
-				require.NoError(t, err)
-				bucketName := "testbucket"
-				bucketID := createBucketID(projectID, []byte(bucketName))
-
+				bucket := metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: "testbucket"}
 				projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if testCase.expectedResource == "bandwidth" {
 					now := time.Now()
-					err := setUpBucketBandwidthAllocations(ctx, projectID, orderDB, now)
+					err := setUpBucketBandwidthAllocations(ctx, bucket.ProjectID, orderDB, now)
 					require.NoError(t, err)
 				}
 
@@ -137,15 +131,15 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				expectedData := testrand.Bytes(50 * memory.KiB)
 
 				filePath := "test/path"
-				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, filePath, expectedData)
+				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.BucketName, filePath, expectedData)
 				require.NoError(t, err)
 
-				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, projectID, bucketID)
+				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
 				require.NoError(t, err)
 				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
 				// Execute test: check that the uplink gets an error when they have exceeded bandwidth limits and try to download a file
-				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, filePath)
+				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucket.BucketName, filePath)
 				if testCase.expectedResource == "bandwidth" {
 					require.True(t, errs2.IsRPC(actualErr, testCase.expectedStatus))
 				} else {
@@ -234,13 +228,6 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 4000, alloc)
 	})
-}
-
-func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
-	entries := make([]string, 0)
-	entries = append(entries, projectID.String())
-	entries = append(entries, string(bucket))
-	return []byte(storj.JoinPaths(entries...))
 }
 
 func createBucketBandwidthRollupsForPast4Days(ctx *testcontext.Context, satelliteDB satellite.DB, projectID uuid.UUID) (int64, error) {
@@ -437,16 +424,21 @@ func TestUsageRollups(t *testing.T) {
 		for i := 0; i < tallyIntervals; i++ {
 			interval := start.Add(tallyInterval * time.Duration(i))
 
-			bucketTallies := make(map[string]*accounting.BucketTally)
+			bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
 			for j, bucket := range buckets {
-				bucketID1 := project1.String() + "/" + bucket
-				bucketID2 := project2.String() + "/" + bucket
+				bucketLoc1 := metabase.BucketLocation{
+					ProjectID:  project1,
+					BucketName: bucket,
+				}
+				bucketLoc2 := metabase.BucketLocation{
+					ProjectID:  project2,
+					BucketName: bucket,
+				}
 				value1 := getValue(i, j, p1base) * 10
 				value2 := getValue(i, j, p2base) * 10
 
 				tally1 := &accounting.BucketTally{
-					BucketName:     []byte(bucket),
-					ProjectID:      project1,
+					BucketLocation: bucketLoc1,
 					ObjectCount:    value1,
 					InlineSegments: value1,
 					RemoteSegments: value1,
@@ -456,8 +448,7 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				tally2 := &accounting.BucketTally{
-					BucketName:     []byte(bucket),
-					ProjectID:      project2,
+					BucketLocation: bucketLoc2,
 					ObjectCount:    value2,
 					InlineSegments: value2,
 					RemoteSegments: value2,
@@ -466,8 +457,8 @@ func TestUsageRollups(t *testing.T) {
 					MetadataSize:   value2,
 				}
 
-				bucketTallies[bucketID1] = tally1
-				bucketTallies[bucketID2] = tally2
+				bucketTallies[bucketLoc1] = tally1
+				bucketTallies[bucketLoc2] = tally2
 			}
 
 			err := db.ProjectAccounting().SaveTallies(ctx, interval, bucketTallies)
@@ -586,7 +577,7 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		// check if usage is equal to first uploaded file
 		prefix, err := metainfo.CreatePath(ctx, project.ID, -1, []byte("testbucket"), []byte{})
 		require.NoError(t, err)
-		items, _, err := satMetainfo.Service.List(ctx, prefix, "", true, 1, meta.All)
+		items, _, err := satMetainfo.Service.List(ctx, prefix.Encode(), "", true, 1, meta.All)
 		require.NoError(t, err)
 
 		usage, err := accounting.ProjectUsage.GetProjectStorageTotals(ctx, project.ID)

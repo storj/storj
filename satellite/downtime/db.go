@@ -10,7 +10,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// NodeOfflineTime represents a record in the nodes_offline_time table
+// NodeOfflineTime represents a record in the nodes_offline_time table.
 type NodeOfflineTime struct {
 	NodeID      storj.NodeID
 	TrackedAt   time.Time

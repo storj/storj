@@ -18,10 +18,10 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 
+import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
-import { ProjectOwning } from '@/utils/projectOwning';
 
 const {
     ADD_CREDIT_CARD,
@@ -81,7 +81,7 @@ export default class AddCardForm extends Vue {
 
             setTimeout(() => {
                 if (!this.userHasOwnProject) {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+                    this.$router.push(RouteConfig.CreateProject.path);
                     this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
                 }
             }, 500);
@@ -103,7 +103,7 @@ export default class AddCardForm extends Vue {
      * Indicates if user has own project.
      */
     private get userHasOwnProject(): boolean {
-        return new ProjectOwning(this.$store).userHasOwnProject();
+        return this.$store.getters.userProjectsCount > 0;
     }
 }
 </script>

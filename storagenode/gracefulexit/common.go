@@ -19,9 +19,9 @@ var (
 	mon = monkit.Package()
 )
 
-// Config for graceful exit
+// Config for graceful exit.
 type Config struct {
-	ChoreInterval          time.Duration `help:"how often to run the chore to check for satellites for the node to exit." releaseDefault:"15m" devDefault:"10s"`
+	ChoreInterval          time.Duration `help:"how often to run the chore to check for satellites for the node to exit." releaseDefault:"1m" devDefault:"10s"`
 	NumWorkers             int           `help:"number of workers to handle satellite exits" default:"4"`
 	NumConcurrentTransfers int           `help:"number of concurrent transfers per graceful exit worker" default:"5"`
 	MinBytesPerSecond      memory.Size   `help:"the minimum acceptable bytes that an exiting node can transfer per second to the new node" default:"5KB"`

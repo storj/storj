@@ -18,10 +18,10 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
-// ErrClockOutOfSyncMinor is the error class for system clock is off by more than 10m
+// ErrClockOutOfSyncMinor is the error class for system clock is off by more than 10m.
 var ErrClockOutOfSyncMinor = errs.Class("system clock is off")
 
-// ErrClockOutOfSyncMajor is the error class for system clock is out of sync by more than 30m
+// ErrClockOutOfSyncMajor is the error class for system clock is out of sync by more than 30m.
 var ErrClockOutOfSyncMajor = errs.Class("system clock is out of sync")
 
 // LocalTime checks local system clock against all trusted satellites.

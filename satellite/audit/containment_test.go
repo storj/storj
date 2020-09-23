@@ -63,17 +63,6 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 		err := containment.IncrementPending(ctx, info1)
 		require.NoError(t, err)
 
-		info2 := &audit.PendingAudit{
-			NodeID:            info1.NodeID,
-			StripeIndex:       1,
-			ShareSize:         1,
-			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
-		}
-
-		// expect failure when an entry with the same nodeID but different expected share data already exists
-		err = containment.IncrementPending(ctx, info2)
-		assert.True(t, audit.ErrAlreadyExists.Has(err))
-
 		// expect reverify count for an entry to be 0 after first IncrementPending call
 		pending, err := containment.Get(ctx, info1.NodeID)
 		require.NoError(t, err)

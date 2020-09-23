@@ -48,20 +48,20 @@ const (
 	// The following values of peer class and endpoints are used
 	// to create a port with a consistent format for storj-sim services.
 
-	// Peer class
+	// Peer classes.
 	satellitePeer      = 0
 	gatewayPeer        = 1
 	versioncontrolPeer = 2
 	storagenodePeer    = 3
 
-	// Endpoint
+	// Endpoints.
 	publicRPC   = 0
 	privateRPC  = 1
 	publicHTTP  = 2
 	privateHTTP = 3
 	debugHTTP   = 9
 
-	// satellite specific constants
+	// Satellite specific constants.
 	redisPort         = 4
 	adminHTTP         = 5
 	debugAdminHTTP    = 6
@@ -203,7 +203,7 @@ func networkDestroy(flags *Flags, args []string) error {
 	return os.RemoveAll(flags.Directory)
 }
 
-// newNetwork creates a default network
+// newNetwork creates a default network.
 func newNetwork(flags *Flags) (*Processes, error) {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
@@ -667,7 +667,7 @@ func identitySetup(network *Processes) (*Processes, error) {
 	return processes, nil
 }
 
-// readConfigString reads from dir/config.yaml flagName returns the value in `into`
+// readConfigString reads from dir/config.yaml flagName returns the value in `into`.
 func readConfigString(into *string, dir, flagName string) error {
 	vip := viper.New()
 	vip.AddConfigPath(dir)

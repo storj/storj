@@ -20,20 +20,32 @@
         </div>
         <div class="account-billing-area__title-area" v-if="userHasOwnProject" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
             <div class="account-billing-area__title-area__balance-area">
-                <div @click.stop="toggleDropdown" class="account-billing-area__title-area__balance-area__free-credits">
+                <div @click.stop="toggleCreditsDropdown" class="account-billing-area__title-area__balance-area__free-credits">
                     <span class="account-billing-area__title-area__balance-area__free-credits__amount">
                         Free Credits: {{ balance.freeCredits | centsToDollars }}
                     </span>
                     <HideIcon v-if="isCreditsDropdownShown"/>
                     <ExpandIcon v-else/>
-                    <CreditsDropdown
+                    <HistoryDropdown
                         v-show="isCreditsDropdownShown"
                         @close="closeDropdown"
+                        label="Credits History"
+                        :route="creditHistoryRoute"
                     />
                 </div>
-                <span class="account-billing-area__title-area__balance-area__tokens" :style="{ color: balanceColor }">
-                    STORJ Balance: {{ balance.coins | centsToDollars }}
-                </span>
+                <div @click.stop="toggleBalanceDropdown" class="account-billing-area__title-area__balance-area__tokens-area">
+                    <span class="account-billing-area__title-area__balance-area__tokens-area__amount" :style="{ color: balanceColor }">
+                        Available Balance: {{ balance.coins | centsToDollars }}
+                    </span>
+                    <HideIcon v-if="isBalanceDropdownShown"/>
+                    <ExpandIcon v-else/>
+                    <HistoryDropdown
+                        v-show="isBalanceDropdownShown"
+                        @close="closeDropdown"
+                        label="Balance History"
+                        :route="balanceHistoryRoute"
+                    />
+                </div>
             </div>
             <PeriodSelection v-if="userHasOwnProject"/>
         </div>
@@ -49,7 +61,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
 import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
-import CreditsDropdown from '@/components/account/billing/freeCredits/CreditsDropdown.vue';
+import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 import VDatepicker from '@/components/common/VDatePicker.vue';
 
@@ -59,11 +71,11 @@ import HideIcon from '@/../static/images/account/billing/hide.svg';
 import LowBalanceIcon from '@/../static/images/account/billing/lowBalance.svg';
 import NegativeBalanceIcon from '@/../static/images/account/billing/negativeBalance.svg';
 
+import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccountBalance } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
     components: {
@@ -75,13 +87,16 @@ import { ProjectOwning } from '@/utils/projectOwning';
         DatePickerIcon,
         LowBalanceIcon,
         NegativeBalanceIcon,
-        CreditsDropdown,
+        HistoryDropdown,
         ExpandIcon,
         HideIcon,
     },
 })
 export default class BillingArea extends Vue {
     public isCreditsDropdownShown: boolean = false;
+    public isBalanceDropdownShown: boolean = false;
+    public readonly creditHistoryRoute: string = RouteConfig.Account.with(RouteConfig.CreditsHistory).path;
+    public readonly balanceHistoryRoute: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
 
     /**
      * Mounted lifecycle hook before initial render.
@@ -92,7 +107,6 @@ export default class BillingArea extends Vue {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
             if (this.$store.getters.canUserCreateFirstProject && !this.userHasOwnProject) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-                await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
             }
         } catch (error) {
             await this.$notify.error(error.message);
@@ -145,7 +159,7 @@ export default class BillingArea extends Vue {
      * Indicates if balance is not below zero but lower then CRITICAL_AMOUNT.
      */
     public get isBalanceLow(): boolean {
-        return this.balance.sum > 0 && this.balance.sum < this.CRITICAL_AMOUNT;
+        return this.balance.coins > 0 && this.balance.sum < this.CRITICAL_AMOUNT;
     }
 
     /**
@@ -159,14 +173,21 @@ export default class BillingArea extends Vue {
      * Indicates if user has own project.
      */
     public get userHasOwnProject(): boolean {
-        return new ProjectOwning(this.$store).userHasOwnProject();
+        return this.$store.getters.userProjectsCount > 0;
     }
 
     /**
      * Toggles free credits dropdown visibility.
      */
-    public toggleDropdown(): void {
+    public toggleCreditsDropdown(): void {
         this.isCreditsDropdownShown = !this.isCreditsDropdownShown;
+    }
+
+    /**
+     * Toggles available balance dropdown visibility.
+     */
+    public toggleBalanceDropdown(): void {
+        this.isBalanceDropdownShown = !this.isBalanceDropdownShown;
     }
 
     /**
@@ -174,13 +195,14 @@ export default class BillingArea extends Vue {
      */
     public closeDropdown(): void {
         this.isCreditsDropdownShown = false;
+        this.isBalanceDropdownShown = false;
     }
 }
 </script>
 
 <style scoped lang="scss">
     .account-billing-area {
-        padding-bottom: 55px;
+        padding-bottom: 40px;
 
         &__title-area {
             display: flex;
@@ -194,9 +216,19 @@ export default class BillingArea extends Vue {
                 justify-content: space-between;
                 font-family: 'font_regular', sans-serif;
 
-                &__tokens {
-                    font-size: 16px;
-                    line-height: 19px;
+                &__tokens-area {
+                    display: flex;
+                    align-items: center;
+                    position: relative;
+                    cursor: pointer;
+                    margin-right: 50px;
+                    color: #768394;
+
+                    &__amount {
+                        margin-right: 10px;
+                        font-size: 16px;
+                        line-height: 19px;
+                    }
                 }
 
                 &__free-credits {

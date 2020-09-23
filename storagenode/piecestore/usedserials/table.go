@@ -49,9 +49,10 @@ func (a Full) Less(b Full) bool {
 	return binary.BigEndian.Uint64(a[:]) < binary.BigEndian.Uint64(b[:])
 }
 
-// serialsList is a structure that contains a list of partial serials and a list of full serials
-// if the satellite puts the expiration time as the first 8 bytes, the partial serials list will be used
-// otherwise, the full serials list will be used
+// serialsList is a structure that contains a list of partial serials and a list of full serials.
+//
+// For serials where expiration time is the first 8 bytes, it uses partialSerials.
+// It uses fullSerials otherwise.
 type serialsList struct {
 	partialSerials []Partial
 	fullSerials    []storj.SerialNumber

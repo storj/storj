@@ -6,7 +6,6 @@ package overlay_test
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"net"
 	"runtime"
 	"strings"
@@ -192,14 +191,15 @@ func TestEnsureMinimumRequested(t *testing.T) {
 				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-			})
+				AuditHistory: testAuditHistoryConfig(),
+			}, time.Now())
 			require.NoError(t, err)
 		}
 
 		t.Run("request 5, where 1 new", func(t *testing.T) {
 			requestedCount, newCount := 5, 1
 			newNodeFraction := float64(newCount) / float64(requestedCount)
-			preferences := testNodeSelectionConfig(1, newNodeFraction, false)
+			preferences := testNodeSelectionConfig(newNodeFraction, false)
 			req := overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
 			}
@@ -212,7 +212,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		t.Run("request 5, all new", func(t *testing.T) {
 			requestedCount, newCount := 5, 5
 			newNodeFraction := float64(newCount) / float64(requestedCount)
-			preferences := testNodeSelectionConfig(1, newNodeFraction, false)
+			preferences := testNodeSelectionConfig(newNodeFraction, false)
 			req := overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
 			}
@@ -235,15 +235,16 @@ func TestEnsureMinimumRequested(t *testing.T) {
 				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-			})
+				AuditHistory: testAuditHistoryConfig(),
+			}, time.Now())
 			require.NoError(t, err)
 		}
 
 		t.Run("no new nodes", func(t *testing.T) {
 			requestedCount, newCount := 5, 1.0
 			newNodeFraction := newCount / float64(requestedCount)
-			preferences := testNodeSelectionConfig(1, newNodeFraction, false)
-			satellite.Config.Overlay.Node = testNodeSelectionConfig(1, newNodeFraction, false)
+			preferences := testNodeSelectionConfig(newNodeFraction, false)
+			satellite.Config.Overlay.Node = testNodeSelectionConfig(newNodeFraction, false)
 
 			nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
@@ -258,189 +259,126 @@ func TestEnsureMinimumRequested(t *testing.T) {
 
 func TestNodeSelection(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-
-		// This sets audit counts of 0, 1, 2, 3, ... 9
-		// so that we can fine-tune how many nodes are considered new or reputable
-		// by modifying the audit count cutoff passed into FindStorageNodesWithPreferences
-		for i, node := range planet.StorageNodes {
-			for k := 0; k < i; k++ {
-				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
-					NodeID:       node.ID(),
-					IsUp:         true,
-					AuditOutcome: overlay.AuditSuccess,
-					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-				})
-				require.NoError(t, err)
-			}
-		}
-		testNodeSelection(t, ctx, planet)
-	})
-}
-
-func TestNodeSelectionWithBatch(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.UpdateStatsBatchSize = 1
+				config.Overlay.AuditHistory = testAuditHistoryConfig()
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
+		service := satellite.Overlay.Service
+		errNotEnoughNodes := &overlay.ErrNotEnoughNodes
+		tests := []struct {
+			description     string
+			requestCount    int
+			newNodeFraction float64
+			reputableNodes  int
+			expectedCount   int
+			shouldFailWith  *errs.Class
+			exclude         func() (excludedNodes []storj.NodeID)
+		}{
+			{
+				description:     "all reputable nodes, only reputable nodes requested",
+				requestCount:    6,
+				newNodeFraction: 0,
+				reputableNodes:  6,
+				expectedCount:   6,
+			},
+			{
+				description:     "all reputable nodes, up to 100% new nodes requested",
+				requestCount:    5,
+				newNodeFraction: 1,
+				reputableNodes:  6,
+				expectedCount:   5,
+			},
+			{
+				description:     "3 reputable and 3 new nodes, 6 reputable nodes requested, not enough reputable nodes",
+				requestCount:    6,
+				newNodeFraction: 0,
+				reputableNodes:  3,
+				expectedCount:   3,
+				shouldFailWith:  errNotEnoughNodes,
+			},
+			{
+				description:     "50-50 reputable and new nodes, reputable and new nodes requested, not enough reputable nodes",
+				requestCount:    5,
+				newNodeFraction: 0.2,
+				reputableNodes:  3,
+				expectedCount:   4,
+				shouldFailWith:  errNotEnoughNodes,
+			},
+			{
+				description:     "all new nodes except one, reputable and new nodes requested (happy path)",
+				requestCount:    2,
+				newNodeFraction: 0.5,
+				reputableNodes:  1,
+				expectedCount:   2,
+			},
+			{
+				description:     "all new nodes except one, reputable and new nodes requested (not happy path)",
+				requestCount:    4,
+				newNodeFraction: 0.5,
+				reputableNodes:  1,
+				expectedCount:   3,
+				shouldFailWith:  errNotEnoughNodes,
+			},
+			{
+				description:     "all new nodes, reputable and new nodes requested",
+				requestCount:    6,
+				newNodeFraction: 1,
+				reputableNodes:  0,
+				expectedCount:   6,
+			},
+			{
+				description:     "excluded node ids",
+				requestCount:    6,
+				newNodeFraction: 0,
+				reputableNodes:  6,
+				expectedCount:   1,
+				shouldFailWith:  errNotEnoughNodes,
+				exclude: func() (excludedNodes []storj.NodeID) {
+					for _, storageNode := range planet.StorageNodes[:5] {
+						excludedNodes = append(excludedNodes, storageNode.ID())
+					}
+					return excludedNodes
+				},
+			},
+		}
 
-		// This sets audit counts of 0, 1, 2, 3, ... 9
-		// so that we can fine-tune how many nodes are considered new or reputable
-		// by modifying the audit count cutoff passed into FindStorageNodesWithPreferences
-		for i, node := range planet.StorageNodes {
-			for k := 0; k < i; k++ {
-				// These are done individually b/c the previous stat data is important
-				_, err := satellite.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
-					NodeID:       node.ID(),
-					IsUp:         true,
-					AuditOutcome: overlay.AuditSuccess,
-					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-				}})
+		for _, tt := range tests {
+			t.Log(tt.description)
+			var excludedNodes []storj.NodeID
+			if tt.exclude != nil {
+				excludedNodes = tt.exclude()
+			}
+			for i, node := range planet.StorageNodes {
+				if i < tt.reputableNodes {
+					_, err := satellite.Overlay.Service.TestVetNode(ctx, node.ID())
+					require.NoError(t, err)
+				} else {
+					err := satellite.Overlay.Service.TestUnvetNode(ctx, node.ID())
+					require.NoError(t, err)
+				}
+			}
+			config := testNodeSelectionConfig(tt.newNodeFraction, false)
+			response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{RequestedCount: tt.requestCount, ExcludedIDs: excludedNodes}, &config)
+			if tt.shouldFailWith != nil {
+				require.Error(t, err)
+				assert.True(t, tt.shouldFailWith.Has(err))
+			} else {
 				require.NoError(t, err)
 			}
+			if len(excludedNodes) > 0 {
+				for _, n := range response {
+					for _, m := range excludedNodes {
+						require.NotEqual(t, n.ID, m)
+					}
+				}
+			}
+			require.Equal(t, tt.expectedCount, len(response))
 		}
-		testNodeSelection(t, ctx, planet)
 	})
-}
-
-func testNodeSelection(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-	satellite := planet.Satellites[0]
-	// ensure all storagenodes are in overlay
-	for _, storageNode := range planet.StorageNodes {
-		n := storageNode.Contact.Service.Local()
-
-		lastNet, err := ipToLastNet(n.Address)
-		require.NoError(t, err)
-
-		d := overlay.NodeCheckInInfo{
-			NodeID: storageNode.ID(),
-			Address: &pb.NodeAddress{
-				Address: n.Address,
-			},
-			LastIPPort: storageNode.Addr(),
-			LastNet:    lastNet,
-			Version:    &n.Version,
-		}
-		err = satellite.Overlay.DB.UpdateCheckIn(ctx, d, time.Now().UTC(), satellite.Config.Overlay.Node)
-		require.NoError(t, err)
-	}
-
-	type test struct {
-		Preferences    overlay.NodeSelectionConfig
-		ExcludeCount   int
-		RequestCount   int
-		ExpectedCount  int
-		ShouldFailWith *errs.Class
-	}
-
-	for i, tt := range []test{
-		{ // all reputable nodes, only reputable nodes requested
-			Preferences:   testNodeSelectionConfig(0, 0, false),
-			RequestCount:  5,
-			ExpectedCount: 5,
-		},
-		{ // all reputable nodes, reputable and new nodes requested
-			Preferences:   testNodeSelectionConfig(0, 1, false),
-			RequestCount:  5,
-			ExpectedCount: 5,
-		},
-		{ // 50-50 reputable and new nodes, not enough reputable nodes
-			Preferences:    testNodeSelectionConfig(5, 0, false),
-			RequestCount:   10,
-			ExpectedCount:  5,
-			ShouldFailWith: &overlay.ErrNotEnoughNodes,
-		},
-		{ // 50-50 reputable and new nodes, reputable and new nodes requested, not enough reputable nodes
-			Preferences:    testNodeSelectionConfig(5, 0.2, false),
-			RequestCount:   10,
-			ExpectedCount:  7,
-			ShouldFailWith: &overlay.ErrNotEnoughNodes,
-		},
-		{ // all new nodes except one, reputable and new nodes requested (happy path)
-			Preferences:   testNodeSelectionConfig(9, 0.5, false),
-			RequestCount:  2,
-			ExpectedCount: 2,
-		},
-		{ // all new nodes except one, reputable and new nodes requested (not happy path)
-			Preferences:    testNodeSelectionConfig(9, 0.5, false),
-			RequestCount:   4,
-			ExpectedCount:  3,
-			ShouldFailWith: &overlay.ErrNotEnoughNodes,
-		},
-		{ // all new nodes, reputable and new nodes requested
-			Preferences:   testNodeSelectionConfig(50, 1, false),
-			RequestCount:  2,
-			ExpectedCount: 2,
-		},
-		{ // audit threshold edge case (1)
-			Preferences:   testNodeSelectionConfig(9, 0, false),
-			RequestCount:  1,
-			ExpectedCount: 1,
-		},
-		{ // excluded node ids being excluded
-			Preferences:    testNodeSelectionConfig(5, 0, false),
-			ExcludeCount:   7,
-			RequestCount:   5,
-			ExpectedCount:  3,
-			ShouldFailWith: &overlay.ErrNotEnoughNodes,
-		},
-	} {
-		t.Logf("#%2d. %+v", i, tt)
-		service := planet.Satellites[0].Overlay.Service
-
-		var excludedNodes []storj.NodeID
-		for _, storageNode := range planet.StorageNodes[:tt.ExcludeCount] {
-			excludedNodes = append(excludedNodes, storageNode.ID())
-		}
-
-		response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
-			RequestedCount: tt.RequestCount,
-			ExcludedIDs:    excludedNodes,
-		}, &tt.Preferences)
-
-		t.Log(len(response), err)
-		if tt.ShouldFailWith != nil {
-			assert.Error(t, err)
-			assert.True(t, tt.ShouldFailWith.Has(err))
-		} else {
-			assert.NoError(t, err)
-		}
-
-		assert.Equal(t, tt.ExpectedCount, len(response))
-	}
-}
-
-// ipToLastNet converts target address to its IP and /24 subnet IPv4 or /64 subnet IPv6
-func ipToLastNet(target string) (network string, err error) {
-	host, _, err := net.SplitHostPort(target)
-	if err != nil {
-		return "", err
-	}
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return "", errors.New("invalid ip " + host)
-	}
-
-	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
-	if ipv4 := ip.To4(); ipv4 != nil {
-		//Filter all IPv4 Addresses into /24 Subnet's
-		mask := net.CIDRMask(24, 32)
-		return ipv4.Mask(mask).String(), nil
-	}
-	if ipv6 := ip.To16(); ipv6 != nil {
-		//Filter all IPv6 Addresses into /64 Subnet's
-		mask := net.CIDRMask(64, 128)
-		return ipv6.Mask(mask).String(), nil
-	}
-
-	return "", errors.New("unable to get network for address " + ip.String())
 }
 
 func TestNodeSelectionGracefulExit(t *testing.T) {
@@ -462,7 +400,8 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 					IsUp:         true,
 					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-				})
+					AuditHistory: testAuditHistoryConfig(),
+				}, time.Now())
 				require.NoError(t, err)
 			}
 
@@ -487,34 +426,34 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 
 		for i, tt := range []test{
 			{ // reputable and new nodes, happy path
-				Preferences:   testNodeSelectionConfig(5, 0.5, false),
+				Preferences:   testNodeSelectionConfig(0.5, false),
 				RequestCount:  5,
 				ExpectedCount: 5,
 			},
 			{ // all reputable nodes, happy path
-				Preferences:   testNodeSelectionConfig(0, 1, false),
+				Preferences:   testNodeSelectionConfig(1, false),
 				RequestCount:  5,
 				ExpectedCount: 5,
 			},
 			{ // all new nodes, happy path
-				Preferences:   testNodeSelectionConfig(50, 1, false),
+				Preferences:   testNodeSelectionConfig(1, false),
 				RequestCount:  5,
 				ExpectedCount: 5,
 			},
 			{ // reputable and new nodes, requested too many
-				Preferences:    testNodeSelectionConfig(5, 0.5, false),
+				Preferences:    testNodeSelectionConfig(0.5, false),
 				RequestCount:   10,
 				ExpectedCount:  5,
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 			{ // all reputable nodes, requested too many
-				Preferences:    testNodeSelectionConfig(0, 1, false),
+				Preferences:    testNodeSelectionConfig(1, false),
 				RequestCount:   10,
 				ExpectedCount:  5,
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 			{ // all new nodes, requested too many
-				Preferences:    testNodeSelectionConfig(50, 1, false),
+				Preferences:    testNodeSelectionConfig(1, false),
 				RequestCount:   10,
 				ExpectedCount:  5,
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
@@ -685,7 +624,7 @@ func TestDistinctIPs(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		// This sets a reputable audit count for nodes[8] and nodes[9].
+		// Vets nodes[8] and nodes[9].
 		for i := 9; i > 7; i-- {
 			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       planet.StorageNodes[i].ID(),
@@ -694,7 +633,8 @@ func TestDistinctIPs(t *testing.T) {
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.5,
-			})
+				AuditHistory: testAuditHistoryConfig(),
+			}, time.Now())
 			assert.NoError(t, err)
 		}
 		testDistinctIPs(t, ctx, planet)
@@ -708,14 +648,14 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			UniqueIPCount: 3,
+			UniqueIPCount: 3, // creates 3 additional unique ip addresses, totaling to 4 IPs
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.UpdateStatsBatchSize = 1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		// This sets a reputable audit count for nodes[8] and nodes[9].
+		// Vets nodes[8] and nodes[9].
 		for i := 9; i > 7; i-- {
 			// These are done individually b/c the previous stat data is important
 			_, err := satellite.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
@@ -737,24 +677,23 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 	service := satellite.Overlay.Service
 
 	tests := []struct {
-		duplicateCount int
 		requestCount   int
 		preferences    overlay.NodeSelectionConfig
 		shouldFailWith *errs.Class
 	}{
 		{ // test only distinct IPs with half new nodes
+			// expect 2 new and 2 vetted
 			requestCount: 4,
-			preferences:  testNodeSelectionConfig(1, 0.5, true),
+			preferences:  testNodeSelectionConfig(0.5, true),
 		},
 		{ // test not enough distinct IPs
-			requestCount:   7,
-			preferences:    testNodeSelectionConfig(0, 0, true),
+			requestCount:   5, // expect 3 new, 2 old but fails because only 4 distinct IPs, not 5
+			preferences:    testNodeSelectionConfig(0.6, true),
 			shouldFailWith: &overlay.ErrNotEnoughNodes,
 		},
-		{ // test distinct flag false allows duplicates
-			duplicateCount: 10,
-			requestCount:   5,
-			preferences:    testNodeSelectionConfig(0, 0.5, false),
+		{ // test distinct flag false allows duplicate IP addresses
+			requestCount: 5, // expect 3 new, 2 old
+			preferences:  testNodeSelectionConfig(0.6, false),
 		},
 	}
 

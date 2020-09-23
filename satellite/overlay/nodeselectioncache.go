@@ -43,7 +43,7 @@ type NodeSelectionCache struct {
 	state       *nodeselection.State
 }
 
-// NewNodeSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data
+// NewNodeSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data.
 func NewNodeSelectionCache(log *zap.Logger, db CacheDB, staleness time.Duration, config NodeSelectionConfig) *NodeSelectionCache {
 	return &NodeSelectionCache{
 		log:             log,
@@ -54,7 +54,7 @@ func NewNodeSelectionCache(log *zap.Logger, db CacheDB, staleness time.Duration,
 }
 
 // Refresh populates the cache with all of the reputableNodes and newNode nodes
-// This method is useful for tests
+// This method is useful for tests.
 func (cache *NodeSelectionCache) Refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = cache.refresh(ctx)
@@ -63,7 +63,7 @@ func (cache *NodeSelectionCache) Refresh(ctx context.Context) (err error) {
 
 // refresh calls out to the database and refreshes the cache with the most up-to-date
 // data from the nodes table, then sets time that the last refresh occurred so we know when
-// to refresh again in the future
+// to refresh again in the future.
 func (cache *NodeSelectionCache) refresh(ctx context.Context) (state *nodeselection.State, err error) {
 	defer mon.Task()(&ctx)(&err)
 	cache.mu.Lock()
@@ -118,7 +118,7 @@ func (cache *NodeSelectionCache) GetNodes(ctx context.Context, req FindStorageNo
 	return convNodesToSelectedNodes(selected), err
 }
 
-// Size returns how many reputable nodes and new nodes are in the cache
+// Size returns how many reputable nodes and new nodes are in the cache.
 func (cache *NodeSelectionCache) Size() (reputableNodeCount int, newNodeCount int) {
 	cache.mu.RLock()
 	state := cache.state

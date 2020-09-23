@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
@@ -106,7 +107,7 @@ func (bad *BadBlobs) RestoreTrash(ctx context.Context, namespace []byte) ([][]by
 	return bad.blobs.RestoreTrash(ctx, namespace)
 }
 
-// EmptyTrash empties the trash
+// EmptyTrash empties the trash.
 func (bad *BadBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error) {
 	if bad.err != nil {
 		return 0, nil, bad.err
@@ -128,6 +129,14 @@ func (bad *BadBlobs) DeleteWithStorageFormat(ctx context.Context, ref storage.Bl
 		return bad.err
 	}
 	return bad.blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
+}
+
+// DeleteNamespace deletes blobs of specific satellite, used after successful GE only.
+func (bad *BadBlobs) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
+	if bad.err != nil {
+		return bad.err
+	}
+	return bad.blobs.DeleteNamespace(ctx, ref)
 }
 
 // Stat looks up disk metadata on the blob file.
@@ -174,6 +183,14 @@ func (bad *BadBlobs) FreeSpace() (int64, error) {
 	return bad.blobs.FreeSpace()
 }
 
+// CheckWritability tests writability of the storage directory by creating and deleting a file.
+func (bad *BadBlobs) CheckWritability() error {
+	if bad.err != nil {
+		return bad.err
+	}
+	return bad.blobs.CheckWritability()
+}
+
 // SpaceUsedForBlobs adds up how much is used in all namespaces.
 func (bad *BadBlobs) SpaceUsedForBlobs(ctx context.Context) (int64, error) {
 	if bad.err != nil {
@@ -196,6 +213,23 @@ func (bad *BadBlobs) SpaceUsedForTrash(ctx context.Context) (int64, error) {
 		return 0, bad.err
 	}
 	return bad.blobs.SpaceUsedForTrash(ctx)
+}
+
+// CreateVerificationFile creates a file to be used for storage directory verification.
+func (bad *BadBlobs) CreateVerificationFile(id storj.NodeID) error {
+	if bad.err != nil {
+		return bad.err
+	}
+	return bad.blobs.CreateVerificationFile(id)
+}
+
+// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
+// of the verification file.
+func (bad *BadBlobs) VerifyStorageDir(id storj.NodeID) error {
+	if bad.err != nil {
+		return bad.err
+	}
+	return bad.blobs.VerifyStorageDir(id)
 }
 
 // SetError configures the blob store to return a specific error for all operations.

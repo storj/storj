@@ -9,7 +9,9 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 
+	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -17,7 +19,8 @@ import (
 
 // Config defines configuration options for Service.
 type Config struct {
-	MaxConcurrency int `help:"maximum number of concurrent requests to storage nodes" default:"100"`
+	MaxConcurrency      int `help:"maximum number of concurrent requests to storage nodes" default:"100"`
+	MaxConcurrentPieces int `help:"maximum number of concurrent pieces can be processed" default:"1000000"`
 
 	MaxPiecesPerBatch   int `help:"maximum number of pieces per batch" default:"5000"`
 	MaxPiecesPerRequest int `help:"maximum number pieces per single request" default:"1000"`
@@ -38,6 +41,9 @@ func (config *Config) Verify() errs.Group {
 	if config.MaxConcurrency <= 0 {
 		errlist.Add(Error.New("concurrency %d must be greater than 0", config.MaxConcurrency))
 	}
+	if config.MaxConcurrentPieces <= 0 {
+		errlist.Add(Error.New("max concurrent pieces %d must be greater than 0", config.MaxConcurrentPieces))
+	}
 	if config.MaxPiecesPerBatch < config.MaxPiecesPerRequest {
 		errlist.Add(Error.New("max pieces per batch %d should be larger than max pieces per request %d", config.MaxPiecesPerBatch, config.MaxPiecesPerRequest))
 	}
@@ -56,6 +62,11 @@ func (config *Config) Verify() errs.Group {
 	return errlist
 }
 
+// Nodes stores reliable nodes information.
+type Nodes interface {
+	KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
+}
+
 // Service handles combining piece deletion requests.
 //
 // architecture: Service
@@ -63,7 +74,10 @@ type Service struct {
 	log    *zap.Logger
 	config Config
 
+	concurrentRequests *semaphore.Weighted
+
 	rpcDialer rpc.Dialer
+	nodesDB   Nodes
 
 	running  sync2.Fence
 	combiner *Combiner
@@ -72,13 +86,16 @@ type Service struct {
 }
 
 // NewService creates a new service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, config Config) (*Service, error) {
+func NewService(log *zap.Logger, dialer rpc.Dialer, nodesDB Nodes, config Config) (*Service, error) {
 	var errlist errs.Group
 	if log == nil {
 		errlist.Add(Error.New("log is nil"))
 	}
 	if dialer == (rpc.Dialer{}) {
 		errlist.Add(Error.New("dialer is zero"))
+	}
+	if nodesDB == nil {
+		errlist.Add(Error.New("nodesDB is nil"))
 	}
 	if errs := config.Verify(); len(errs) > 0 {
 		errlist.Add(errs...)
@@ -93,9 +110,11 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, config Config) (*Service, er
 	}
 
 	return &Service{
-		log:       log,
-		config:    config,
-		rpcDialer: dialerClone,
+		log:                log,
+		config:             config,
+		concurrentRequests: semaphore.NewWeighted(int64(config.MaxConcurrentPieces)),
+		rpcDialer:          dialerClone,
+		nodesDB:            nodesDB,
 	}, nil
 }
 
@@ -142,12 +161,55 @@ func (service *Service) Delete(ctx context.Context, requests []Request, successT
 		}
 	}
 
-	threshold, err := sync2.NewSuccessThreshold(len(requests), successThreshold)
+	// When number of pieces are more than the maximum limit, we let it overflow,
+	// so we don't have to split requests in to separate batches.
+	totalPieceCount := requestsPieceCount(requests)
+	if totalPieceCount > service.config.MaxConcurrentPieces {
+		totalPieceCount = service.config.MaxConcurrentPieces
+	}
+
+	if err := service.concurrentRequests.Acquire(ctx, int64(totalPieceCount)); err != nil {
+		return Error.Wrap(err)
+	}
+	defer service.concurrentRequests.Release(int64(totalPieceCount))
+
+	// Create a map for matching node information with the corresponding
+	// request.
+	nodesReqs := make(map[storj.NodeID]Request, len(requests))
+	nodeIDs := []storj.NodeID{}
+	for _, req := range requests {
+		if req.Node.Address == "" {
+			nodeIDs = append(nodeIDs, req.Node.ID)
+		}
+		nodesReqs[req.Node.ID] = req
+	}
+
+	if len(nodeIDs) > 0 {
+		nodes, err := service.nodesDB.KnownReliable(ctx, nodeIDs)
+		if err != nil {
+			// Pieces will be collected by garbage collector
+			return Error.Wrap(err)
+		}
+
+		for _, node := range nodes {
+			req := nodesReqs[node.Id]
+
+			nodesReqs[node.Id] = Request{
+				Node: storj.NodeURL{
+					ID:      node.Id,
+					Address: node.Address.Address,
+				},
+				Pieces: req.Pieces,
+			}
+		}
+	}
+
+	threshold, err := sync2.NewSuccessThreshold(len(nodesReqs), successThreshold)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	for _, req := range requests {
+	for _, req := range nodesReqs {
 		service.combiner.Enqueue(req.Node, Job{
 			Pieces:  req.Pieces,
 			Resolve: threshold,

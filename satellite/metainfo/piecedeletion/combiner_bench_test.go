@@ -59,8 +59,17 @@ func BenchmarkCombiner(b *testing.B) {
 		minWait = 1 * time.Millisecond
 		maxWait = 20 * time.Millisecond
 	)
-	activeLimits := []int{8, 32, 64, -1}
-	queueSizes := []int{1, 8, 64, 128, -1}
+
+	var activeLimits []int
+	var queueSizes []int
+
+	if testing.Short() {
+		activeLimits = []int{8, 64, -1}
+		queueSizes = []int{8, 128, -1}
+	} else {
+		activeLimits = []int{8, 32, 64, -1}
+		queueSizes = []int{1, 8, 64, 128, -1}
+	}
 
 	nodes := []storj.NodeURL{}
 	for i := 0; i < nodeCount; i++ {

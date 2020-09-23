@@ -9,14 +9,14 @@ import { ApiKeyOrderBy } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
 import { mount } from '@vue/test-utils';
 
-describe('SortingHeader.vue', () => {
-    it('should render correctly', function () {
+describe('SortingHeader.vue', (): void => {
+    it('should render correctly', (): void => {
         const wrapper = mount(SortingHeader);
 
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('should retrieve callback', function () {
+    it('should retrieve callback', (): void => {
         const onPressSpy = sinon.spy();
 
         const wrapper = mount(SortingHeader, {
@@ -28,7 +28,7 @@ describe('SortingHeader.vue', () => {
         expect(onPressSpy.callCount).toBe(1);
     });
 
-    it('should change sort direction', function () {
+    it('should change sort direction', (): void => {
         const onPressSpy = sinon.spy();
 
         const wrapper = mount(SortingHeader, {
@@ -37,17 +37,17 @@ describe('SortingHeader.vue', () => {
             },
         });
 
-        expect(wrapper.vm.sortBy).toBe(ApiKeyOrderBy.NAME);
-        expect(wrapper.vm.sortDirection).toBe(SortDirection.ASCENDING);
+        expect(wrapper.vm.$data.sortBy).toBe(ApiKeyOrderBy.NAME);
+        expect(wrapper.vm.$data.sortDirection).toBe(SortDirection.ASCENDING);
 
         wrapper.find('.sort-header-container__name-item').trigger('click');
         expect(onPressSpy.callCount).toBe(1);
 
-        expect(wrapper.vm.sortBy).toBe(ApiKeyOrderBy.NAME);
-        expect(wrapper.vm.sortDirection).toBe(SortDirection.DESCENDING);
+        expect(wrapper.vm.$data.sortBy).toBe(ApiKeyOrderBy.NAME);
+        expect(wrapper.vm.$data.sortDirection).toBe(SortDirection.DESCENDING);
     });
 
-    it('should change sort by value', function () {
+    it('should change sort by value', (): void => {
         const onPressSpy = sinon.spy();
 
         const wrapper = mount(SortingHeader, {
@@ -56,13 +56,13 @@ describe('SortingHeader.vue', () => {
             },
         });
 
-        expect(wrapper.vm.sortBy).toBe(ApiKeyOrderBy.NAME);
-        expect(wrapper.vm.sortDirection).toBe(SortDirection.ASCENDING);
+        expect(wrapper.vm.$data.sortBy).toBe(ApiKeyOrderBy.NAME);
+        expect(wrapper.vm.$data.sortDirection).toBe(SortDirection.ASCENDING);
 
         wrapper.find('.sort-header-container__date-item').trigger('click');
         expect(onPressSpy.callCount).toBe(1);
 
-        expect(wrapper.vm.sortBy).toBe(ApiKeyOrderBy.CREATED_AT);
-        expect(wrapper.vm.sortDirection).toBe(SortDirection.ASCENDING);
+        expect(wrapper.vm.$data.sortBy).toBe(ApiKeyOrderBy.CREATED_AT);
+        expect(wrapper.vm.$data.sortDirection).toBe(SortDirection.ASCENDING);
     });
 });

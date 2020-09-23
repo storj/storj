@@ -6,15 +6,16 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -86,7 +87,7 @@ func (coupons *coupons) Get(ctx context.Context, couponID uuid.UUID) (_ payments
 	return fromDBXCoupon(dbxCoupon)
 }
 
-// Delete removes a coupon from the database by its ID
+// Delete removes a coupon from the database by its ID.
 func (coupons *coupons) Delete(ctx context.Context, couponID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, couponID)(&err)
 
@@ -271,7 +272,7 @@ func (coupons *coupons) GetLatest(ctx context.Context, couponID uuid.UUID) (_ ti
 
 	var created time.Time
 	err = amountRow.Scan(&created)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return created, stripecoinpayments.ErrNoCouponUsages.Wrap(err)
 	}
 
@@ -435,7 +436,7 @@ func (coupons *coupons) activeUserWithProjectAndWithoutCoupon(ctx context.Contex
 		WHERE users_with_projects.id NOT IN (
 			SELECT user_id FROM coupons WHERE type = ?
 		)
-	`), pq.ByteaArray(userIDs), console.Active, payments.CouponTypePromotional)
+	`), pgutil.ByteaArray(userIDs), console.Active, payments.CouponTypePromotional)
 	if err != nil {
 		return nil, err
 	}

@@ -9,59 +9,70 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
-	"reflect"
 	"strings"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v4/stdlib"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/private/dbutil/pgutil"
 )
 
-// Driver is the type for the "cockroach" sql/database driver.
-// It uses github.com/lib/pq under the covers because of Cockroach's
-// PostgreSQL compatibility, but allows differentiation between pg and
-// crdb connections.
+// Driver is the type for the "cockroach" sql/database driver. It uses
+// github.com/jackc/pgx/v4/stdlib under the covers because of Cockroach's
+// PostgreSQL compatibility, but allows differentiation between pg and crdb
+// connections.
 type Driver struct {
-	pq.Driver
+	pgxDriver stdlib.Driver
 }
 
 // Open opens a new cockroachDB connection.
 func (cd *Driver) Open(name string) (driver.Conn, error) {
 	name = translateName(name)
-	return pq.Open(name)
+	conn, err := cd.pgxDriver.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	pgxStdlibConn, ok := conn.(*stdlib.Conn)
+	if !ok {
+		return nil, errs.New("Conn from pgx is not a *stdlib.Conn??? T: %T", conn)
+	}
+	return &cockroachConn{pgxStdlibConn}, nil
 }
 
 // OpenConnector obtains a new db Connector, which sql.DB can use to
 // obtain each needed connection at the appropriate time.
 func (cd *Driver) OpenConnector(name string) (driver.Connector, error) {
 	name = translateName(name)
-	pgConnector, err := pq.NewConnector(name)
+	pgxConnector, err := cd.pgxDriver.OpenConnector(name)
 	if err != nil {
 		return nil, err
 	}
-	return &cockroachConnector{pgConnector}, nil
+	return &cockroachConnector{driver: cd, pgxConnector: pgxConnector}, nil
 }
 
 // cockroachConnector is a thin wrapper around a pq-based connector. This allows
 // Driver to supply our custom cockroachConn type for connections.
 type cockroachConnector struct {
-	pgConnector driver.Connector
+	driver       *Driver
+	pgxConnector driver.Connector
 }
 
 // Driver returns the driver being used for this connector.
 func (c *cockroachConnector) Driver() driver.Driver {
-	return &Driver{}
+	return c.driver
 }
 
 // Connect creates a new connection using the connector.
 func (c *cockroachConnector) Connect(ctx context.Context) (driver.Conn, error) {
-	pgConn, err := c.pgConnector.Connect(ctx)
+	pgxConn, err := c.pgxConnector.Connect(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if pgConnAll, ok := pgConn.(connAll); ok {
-		return &cockroachConn{pgConnAll}, nil
+	pgxStdlibConn, ok := pgxConn.(*stdlib.Conn)
+	if !ok {
+		return nil, errs.New("Conn from pgx is not a *stdlib.Conn??? T: %T", pgxConn)
 	}
-	return nil, errs.New("Underlying connector type %T does not implement connAll?!", pgConn)
+	return &cockroachConn{pgxStdlibConn}, nil
 }
 
 type connAll interface {
@@ -73,7 +84,7 @@ type connAll interface {
 
 // cockroachConn is a connection to a database. It is not used concurrently by multiple goroutines.
 type cockroachConn struct {
-	underlying connAll
+	underlying *stdlib.Conn
 }
 
 // Assert that cockroachConn fulfills connAll.
@@ -130,7 +141,7 @@ func wrapRows(rows driver.Rows) (crdbRows *cockroachRows, err error) {
 	dest := make([]driver.Value, len(columns))
 	err = rows.Next(dest)
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return &cockroachRows{rows: rows, firstResults: nil, eof: true}, nil
 		}
 		return nil, err
@@ -205,11 +216,8 @@ const (
 )
 
 func (c *cockroachConn) txnStatus() transactionStatus {
-	// access c.underlying -> c.underlying.(*pq.conn) -> (*c.underlying.(*pq.conn)).txnStatus
-	//
-	// this is of course brittle if lib/pq internals change, so a test is necessary to make
-	// sure we stay on the same page.
-	return transactionStatus(reflect.ValueOf(c.underlying).Elem().Field(4).Uint())
+	pgConn := c.underlying.Conn().PgConn()
+	return transactionStatus(pgConn.TxStatus())
 }
 
 func (c *cockroachConn) isInTransaction() bool {
@@ -312,7 +320,7 @@ func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.Named
 }
 
 // translateName changes the scheme name in a `cockroach://` URL to
-// `postgres://`, as that is what lib/pq will expect.
+// `postgres://`, as that is what jackc/pgx will expect.
 func translateName(name string) string {
 	if strings.HasPrefix(name, "cockroach://") {
 		name = "postgres://" + name[12:]
@@ -323,7 +331,7 @@ func translateName(name string) string {
 // NeedsRetry checks if the error code means a retry is needed,
 // borrowed from code in crdb.
 func NeedsRetry(err error) bool {
-	code := errCode(err)
+	code := pgutil.ErrorCode(err)
 
 	// 57P01 occurs when a CRDB node rejoins the cluster but is not ready to accept connections
 	// CRDB support recommended a retry at this point
@@ -332,30 +340,8 @@ func NeedsRetry(err error) bool {
 	return code == "40001" || code == "CR000" || code == "57P01"
 }
 
-// borrowed from crdb
-func errCode(err error) string {
-	switch t := errorCause(err).(type) {
-	case *pq.Error:
-		return string(t.Code)
-	default:
-		return ""
-	}
-}
-
-func errorCause(err error) error {
-	for err != nil {
-		cause := errors.Unwrap(err)
-		if cause == nil {
-			break
-		}
-		err = cause
-	}
-	return err
-}
-
-// Assert that Driver satisfies DriverContext.
-var _ driver.DriverContext = &Driver{}
+var defaultDriver = &Driver{}
 
 func init() {
-	sql.Register("cockroach", &Driver{})
+	sql.Register("cockroach", defaultDriver)
 }

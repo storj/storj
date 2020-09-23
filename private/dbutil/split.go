@@ -19,8 +19,13 @@ func SplitConnStr(s string) (driver string, source string, implementation Implem
 	source = parts[1]
 	implementation = ImplementationForScheme(parts[0])
 
-	if implementation == Postgres || implementation == Cockroach {
-		source = s // postgres and cockroach want full URLS for their DSNs
+	switch implementation {
+	case Postgres:
+		source = s // postgres wants full URLS for its DSN
+		driver = "pgx"
+	case Cockroach:
+		source = s // cockroach wants full URLS for its DSN
+		driver = "pgxcockroach"
 	}
 	return driver, source, implementation, nil
 }

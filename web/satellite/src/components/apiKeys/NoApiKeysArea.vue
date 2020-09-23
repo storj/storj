@@ -72,7 +72,7 @@ export default class NoApiKeysArea extends Vue {
     .no-api-keys-area {
         width: auto;
         height: calc(100% - 130px);
-        padding: 65px;
+        padding: 65px 65px 0 65px;
         display: flex;
         flex-direction: column;
         align-items: center;

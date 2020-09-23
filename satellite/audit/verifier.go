@@ -25,6 +25,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/eestream"
@@ -34,17 +35,15 @@ import (
 var (
 	mon = monkit.Package()
 
-	// ErrNotEnoughShares is the errs class for when not enough shares are available to do an audit
+	// ErrNotEnoughShares is the errs class for when not enough shares are available to do an audit.
 	ErrNotEnoughShares = errs.Class("not enough shares for successful audit")
-	// ErrSegmentDeleted is the errs class when the audited segment was deleted during the audit
+	// ErrSegmentDeleted is the errs class when the audited segment was deleted during the audit.
 	ErrSegmentDeleted = errs.Class("segment deleted during audit")
-	// ErrSegmentExpired is the errs class used when a segment to audit has already expired.
-	ErrSegmentExpired = errs.Class("segment expired before audit")
-	// ErrSegmentModified is the errs class used when a segment has been changed in any way
+	// ErrSegmentModified is the errs class used when a segment has been changed in any way.
 	ErrSegmentModified = errs.Class("segment has been modified")
 )
 
-// Share represents required information about an audited share
+// Share represents required information about an audited share.
 type Share struct {
 	Error    error
 	PieceNum int
@@ -69,7 +68,7 @@ type Verifier struct {
 	OnTestingCheckSegmentAlteredHook func()
 }
 
-// NewVerifier creates a Verifier
+// NewVerifier creates a Verifier.
 func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, dialer rpc.Dialer, overlay *overlay.Service, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
 		log:                log,
@@ -88,19 +87,21 @@ func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, dialer rpc.Dialer,
 func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[storj.NodeID]bool) (report Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, path)
+	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(path))
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
-			return Report{}, ErrSegmentDeleted.New("%q", path)
+			verifier.log.Debug("segment deleted before Verify")
+			return Report{}, nil
 		}
 		return Report{}, err
 	}
 	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
-		errDelete := verifier.metainfo.Delete(ctx, path, pointerBytes)
+		errDelete := verifier.metainfo.Delete(ctx, metabase.SegmentKey(path), pointerBytes)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
 		}
-		return Report{}, ErrSegmentExpired.New("segment expired before Verify")
+		verifier.log.Debug("segment expired before Verify")
+		return Report{}, nil
 	}
 
 	defer func() {
@@ -117,7 +118,10 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	}
 
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-	bucketID := createBucketID(path)
+	segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(path))
+	if err != nil {
+		return Report{}, err
+	}
 
 	var offlineNodes storj.NodeIDList
 	var failedNodes storj.NodeIDList
@@ -125,7 +129,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
 
-	orderLimits, privateKey, err := verifier.orders.CreateAuditOrderLimits(ctx, bucketID, pointer, skip)
+	orderLimits, privateKey, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentLocation.Bucket(), pointer, skip)
 	if err != nil {
 		return Report{}, err
 	}
@@ -148,6 +152,14 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 
 	err = verifier.checkIfSegmentAltered(ctx, path, pointer, pointerBytes)
 	if err != nil {
+		if ErrSegmentDeleted.Has(err) {
+			verifier.log.Debug("segment deleted during Verify")
+			return Report{}, nil
+		}
+		if ErrSegmentModified.Has(err) {
+			verifier.log.Debug("segment modified during Verify")
+			return Report{}, nil
+		}
 		return Report{
 			Offlines: offlineNodes,
 		}, err
@@ -308,7 +320,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	}, nil
 }
 
-// DownloadShares downloads shares from the nodes where remote pieces are located
+// DownloadShares downloads shares from the nodes where remote pieces are located.
 func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, stripeIndex int64, shareSize int32) (shares map[int]Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -345,7 +357,7 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 	return shares, nil
 }
 
-// Reverify reverifies the contained nodes in the stripe
+// Reverify reverifies the contained nodes in the stripe.
 func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -367,19 +379,21 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		err          error
 	}
 
-	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, path)
+	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(path))
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
-			return Report{}, ErrSegmentDeleted.New("%q", path)
+			verifier.log.Debug("segment deleted before Reverify")
+			return Report{}, nil
 		}
 		return Report{}, err
 	}
 	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
-		errDelete := verifier.metainfo.Delete(ctx, path, pointerBytes)
+		errDelete := verifier.metainfo.Delete(ctx, metabase.SegmentKey(path), pointerBytes)
 		if errDelete != nil {
 			return Report{}, Error.Wrap(errDelete)
 		}
-		return Report{}, ErrSegmentExpired.New("Segment expired before Reverify")
+		verifier.log.Debug("Segment expired before Reverify")
+		return Report{}, nil
 	}
 
 	pieceHashesVerified := make(map[storj.NodeID]bool)
@@ -437,7 +451,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		containedInSegment++
 
 		go func(pending *PendingAudit) {
-			pendingPointerBytes, pendingPointer, err := verifier.metainfo.GetWithBytes(ctx, pending.Path)
+			pendingPointerBytes, pendingPointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(pending.Path))
 			if err != nil {
 				if storj.ErrObjectNotFound.Has(err) {
 					ch <- result{nodeID: pending.NodeID, status: skipped}
@@ -449,7 +463,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				return
 			}
 			if pendingPointer.ExpirationDate != (time.Time{}) && pendingPointer.ExpirationDate.Before(time.Now().UTC()) {
-				errDelete := verifier.metainfo.Delete(ctx, pending.Path, pendingPointerBytes)
+				errDelete := verifier.metainfo.Delete(ctx, metabase.SegmentKey(pending.Path), pendingPointerBytes)
 				if errDelete != nil {
 					verifier.log.Debug("Reverify: error deleting expired segment", zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
 				}
@@ -480,7 +494,13 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				return
 			}
 
-			limit, piecePrivateKey, err := verifier.orders.CreateAuditOrderLimit(ctx, createBucketID(pending.Path), pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
+			segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(pending.Path)) // TODO: this should be parsed in pending
+			if err != nil {
+				ch <- result{nodeID: pending.NodeID, status: skipped}
+				return
+			}
+
+			limit, piecePrivateKey, err := verifier.orders.CreateAuditOrderLimit(ctx, segmentLocation.Bucket(), pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
 			if err != nil {
 				if overlay.ErrNodeDisqualified.Has(err) {
 					_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
@@ -489,6 +509,15 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 					}
 					ch <- result{nodeID: pending.NodeID, status: erred, err: err}
 					verifier.log.Debug("Reverify: order limit not created (disqualified)", zap.Stringer("Node ID", pending.NodeID))
+					return
+				}
+				if overlay.ErrNodeFinishedGE.Has(err) {
+					_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
+					if errDelete != nil {
+						verifier.log.Debug("Error deleting gracefully exited node from containment db", zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
+					}
+					ch <- result{nodeID: pending.NodeID, status: erred, err: err}
+					verifier.log.Debug("Reverify: order limit not created (completed graceful exit)", zap.Stringer("Node ID", pending.NodeID))
 					return
 				}
 				if overlay.ErrNodeOffline.Has(err) {
@@ -619,7 +648,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 	return report, err
 }
 
-// GetShare use piece store client to download shares from nodes
+// GetShare use piece store client to download shares from nodes.
 func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -676,27 +705,27 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 }
 
 // checkIfSegmentAltered checks if path's pointer has been altered since path was selected.
-func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, segmentPath string, oldPointer *pb.Pointer, oldPointerBytes []byte) (err error) {
+func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, segmentKey string, oldPointer *pb.Pointer, oldPointerBytes []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if verifier.OnTestingCheckSegmentAlteredHook != nil {
 		verifier.OnTestingCheckSegmentAlteredHook()
 	}
 
-	newPointerBytes, newPointer, err := verifier.metainfo.GetWithBytes(ctx, segmentPath)
+	newPointerBytes, newPointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(segmentKey))
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
-			return ErrSegmentDeleted.New("%q", segmentPath)
+			return ErrSegmentDeleted.New("%q", segmentKey)
 		}
 		return err
 	}
 
 	if oldPointer != nil && oldPointer.CreationDate != newPointer.CreationDate {
-		return ErrSegmentDeleted.New("%q", segmentPath)
+		return ErrSegmentDeleted.New("%q", segmentKey)
 	}
 
 	if !bytes.Equal(oldPointerBytes, newPointerBytes) {
-		return ErrSegmentModified.New("%q", segmentPath)
+		return ErrSegmentModified.New("%q", segmentKey)
 	}
 	return nil
 }
@@ -729,7 +758,7 @@ func auditShares(ctx context.Context, required, total int, originals map[int]Sha
 	return pieceNums, copies, nil
 }
 
-// makeCopies takes in a map of audit Shares and deep copies their data to a slice of infectious Shares
+// makeCopies takes in a map of audit Shares and deep copies their data to a slice of infectious Shares.
 func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectious.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 	copies = make([]infectious.Share, 0, len(originals))
@@ -762,7 +791,7 @@ func getOfflineNodes(pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, skip
 	return offlines
 }
 
-// getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit
+// getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit.
 func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, offlineNodes, unknownNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
 	defer mon.Task()(&ctx)(nil)
 	fails := make(map[storj.NodeID]bool)
@@ -786,15 +815,6 @@ func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, off
 	}
 
 	return successNodes
-}
-
-func createBucketID(path storj.Path) []byte {
-	comps := storj.SplitPath(path)
-	if len(comps) < 3 {
-		return nil
-	}
-	// project_id/bucket_name
-	return []byte(storj.JoinPaths(comps[0], comps[2]))
 }
 
 func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, pointer *pb.Pointer, randomIndex int64, path storj.Path) (pending []*PendingAudit, err error) {

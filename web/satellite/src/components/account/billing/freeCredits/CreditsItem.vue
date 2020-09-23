@@ -4,7 +4,7 @@
 <template>
     <div class="container">
         <p class="container__item">{{ creditType }}</p>
-        <p class="container__item">{{ creditsItem.status }}</p>
+        <p class="container__item">{{ expiration }}</p>
         <p class="container__item">{{ memoryAmount }} GB ({{ creditsItem.amount | centsToDollars }})</p>
         <p class="container__item available">{{ creditsItem.remaining | centsToDollars }}</p>
     </div>
@@ -16,6 +16,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import PaymentsHistoryItemDate from '@/components/account/billing/depositAndBillingHistory/PaymentsHistoryItemDate.vue';
 
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import { MONTHS_NAMES } from '@/utils/constants/date';
 
 @Component({
     components: {
@@ -48,6 +49,16 @@ export default class CreditsItem extends Vue {
 
         return Math.floor(this.creditsItem.amount / gbPrice);
     }
+
+    /**
+     * Returns formatted string of expiration date.
+     */
+    public get expiration(): string {
+        const monthNumber = this.creditsItem.end.getUTCMonth();
+        const year = this.creditsItem.end.getUTCFullYear();
+
+        return `${MONTHS_NAMES[monthNumber]} ${year}`;
+    }
 }
 </script>
 
@@ -62,7 +73,7 @@ export default class CreditsItem extends Vue {
             font-family: 'font_regular', sans-serif;
             text-align: left;
             margin: 10px 0;
-            font-size: 14px;
+            font-size: 16px;
             line-height: 19px;
             color: #354049;
         }

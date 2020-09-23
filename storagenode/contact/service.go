@@ -23,7 +23,7 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is the default error class for contact package
+	// Error is the default error class for contact package.
 	Error = errs.Class("contact")
 
 	errPingSatellite = errs.Class("ping satellite error")
@@ -31,7 +31,7 @@ var (
 
 const initialBackOff = time.Second
 
-// Config contains configurable values for contact service
+// Config contains configurable values for contact service.
 type Config struct {
 	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 
@@ -48,7 +48,7 @@ type NodeInfo struct {
 	Operator pb.NodeOperator
 }
 
-// Service is the contact service between storage nodes and satellites
+// Service is the contact service between storage nodes and satellites.
 type Service struct {
 	log    *zap.Logger
 	dialer rpc.Dialer
@@ -61,7 +61,7 @@ type Service struct {
 	initialized sync2.Fence
 }
 
-// NewService creates a new contact service
+// NewService creates a new contact service.
 func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool) *Service {
 	return &Service{
 		log:    log,
@@ -71,7 +71,7 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.
 	}
 }
 
-// PingSatellites attempts to ping all satellites in trusted list until backoff reaches maxInterval
+// PingSatellites attempts to ping all satellites in trusted list until backoff reaches maxInterval.
 func (service *Service) PingSatellites(ctx context.Context, maxInterval time.Duration) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	satellites := service.trust.GetSatellites(ctx)
@@ -147,7 +147,7 @@ func (service *Service) Local() NodeInfo {
 	return service.self
 }
 
-// UpdateSelf updates the local node with the capacity
+// UpdateSelf updates the local node with the capacity.
 func (service *Service) UpdateSelf(capacity *pb.NodeCapacity) {
 	service.mu.Lock()
 	defer service.mu.Unlock()

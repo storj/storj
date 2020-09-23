@@ -39,6 +39,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/referrals"
+	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -49,13 +50,13 @@ const (
 )
 
 var (
-	// Error is satellite console error type
+	// Error is satellite console error type.
 	Error = errs.Class("satellite console error")
 
 	mon = monkit.Package()
 )
 
-// Config contains configuration for console web server
+// Config contains configuration for console web server.
 type Config struct {
 	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:8081" releaseDefault:":10100"`
 	StaticDir       string `help:"path to static resources" default:""`
@@ -65,18 +66,20 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	ContactInfoURL               string `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors               string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
-	LetUsKnowURL                 string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                          string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName                string `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator            string `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL        string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SegmentIOPublicKey           string `help:"used to initialize segment.io at web satellite console" default:""`
-	AccountActivationRedirectURL string `help:"url link for account activation redirect" default:""`
-	VerificationPageURL          string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
-	PartneredSatelliteNames      string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
-	GoogleTagManagerID           string `help:"id for google tag manager" default:""`
+	ContactInfoURL                  string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors                  string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
+	LetUsKnowURL                    string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                             string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName                   string `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator               string `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
+	SegmentIOPublicKey              string `help:"used to initialize segment.io at web satellite console" default:""`
+	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
+	VerificationPageURL             string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
+	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
+	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
+	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -93,6 +96,7 @@ type Server struct {
 	service          *console.Service
 	mailService      *mailservice.Service
 	referralsService *referrals.Service
+	partners         *rewards.PartnersService
 
 	listener    net.Listener
 	server      http.Server
@@ -114,7 +118,7 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, listener net.Listener, stripePublicKey string) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, partners *rewards.PartnersService, listener net.Listener, stripePublicKey string) *Server {
 	server := Server{
 		log:              logger,
 		config:           config,
@@ -122,6 +126,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		service:          service,
 		mailService:      mailService,
 		referralsService: referralsService,
+		partners:         partners,
 		stripePublicKey:  stripePublicKey,
 		rateLimiter:      web.NewIPRateLimiter(config.RateLimit),
 	}
@@ -164,7 +169,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	referralsRouter.Handle("/tokens", server.withAuth(http.HandlerFunc(referralsController.GetTokens))).Methods(http.MethodGet)
 	referralsRouter.HandleFunc("/register", referralsController.Register).Methods(http.MethodPost)
 
-	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
@@ -188,6 +193,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
+	paymentsRouter.HandleFunc("/paywall-enabled/{userId}", paymentController.PaywallEnabled).Methods(http.MethodGet)
 
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
@@ -199,7 +205,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	}
 
 	server.server = http.Server{
-		Handler:        router,
+		Handler:        server.withRequest(router),
 		MaxHeaderBytes: ContentLengthLimit.Int(),
 	}
 
@@ -243,12 +249,12 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
-// Close closes server and underlying listener
+// Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return server.server.Close()
 }
 
-// appHandler is web app http handler function
+// appHandler is web app http handler function.
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 
@@ -267,12 +273,15 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		SatelliteName           string
-		SegmentIOPublicKey      string
-		StripePublicKey         string
-		VerificationPageURL     string
-		PartneredSatelliteNames string
-		GoogleTagManagerID      string
+		SatelliteName                   string
+		SegmentIOPublicKey              string
+		StripePublicKey                 string
+		VerificationPageURL             string
+		PartneredSatelliteNames         string
+		GoogleTagManagerID              string
+		DefaultProjectLimit             int
+		GeneralRequestURL               string
+		ProjectLimitsIncreaseRequestURL string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
@@ -281,9 +290,17 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.VerificationPageURL = server.config.VerificationPageURL
 	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
 	data.GoogleTagManagerID = server.config.GoogleTagManagerID
+	data.DefaultProjectLimit = server.config.DefaultProjectLimit
+	data.GeneralRequestURL = server.config.GeneralRequestURL
+	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
 
-	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
-		server.log.Error("index template could not be executed")
+	if server.templates.index == nil {
+		server.log.Error("index template is not set")
+		return
+	}
+
+	if err := server.templates.index.Execute(w, data); err != nil {
+		server.log.Error("index template could not be executed", zap.Error(err))
 		return
 	}
 }
@@ -315,6 +332,13 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 		ctx = ctxWithAuth(r.Context())
 
 		handler.ServeHTTP(w, r.Clone(ctx))
+	})
+}
+
+// withRequest ensures the http request itself is reachable from the context.
+func (server *Server) withRequest(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.ServeHTTP(w, r.Clone(console.WithRequest(r.Context(), r)))
 	})
 }
 
@@ -459,7 +483,7 @@ func (server *Server) populatePromotionalCoupons(w http.ResponseWriter, r *http.
 	}
 }
 
-// accountActivationHandler is web app http handler function
+// accountActivationHandler is web app http handler function.
 func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -610,7 +634,7 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 	}
 }
 
-// grapqlHandler is graphql endpoint http handler function
+// grapqlHandler is graphql endpoint http handler function.
 func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -746,7 +770,7 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 	}
 }
 
-// seoHandler used to communicate with web crawlers and other web robots
+// seoHandler used to communicate with web crawlers and other web robots.
 func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	header := w.Header()
 
@@ -791,7 +815,7 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 	})
 }
 
-// initializeTemplates is used to initialize all templates
+// initializeTemplates is used to initialize all templates.
 func (server *Server) initializeTemplates() (err error) {
 	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
 	if err != nil {

@@ -48,7 +48,7 @@ func init() {
 	cfgstruct.SetBoolAnnotation(importCmd.Flags(), "access", cfgstruct.BasicHelpAnnotationName, false)
 }
 
-// importMain is the function executed when importCmd is called
+// importMain is the function executed when importCmd is called.
 func importMain(cmd *cobra.Command, args []string) (err error) {
 	if cmd.Flag("access").Changed {
 		return ErrAccessFlag
@@ -108,7 +108,7 @@ func importMain(cmd *cobra.Command, args []string) (err error) {
 
 		// This is a little hacky but viper deserializes accesses into a map[string]interface{}
 		// and complains if we try and override with map[string]string{}.
-		accesses := toStringMapE(importCfg.Accesses)
+		accesses := convertAccessesForViper(importCfg.Accesses)
 
 		overwritten := false
 		if _, ok := accesses[name]; ok {

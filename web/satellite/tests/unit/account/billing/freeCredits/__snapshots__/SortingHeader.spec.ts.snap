@@ -6,7 +6,7 @@ exports[`SortingHeader renders correctly 1`] = `
     <p class="sort-header-container__item__name">CREDIT TYPE</p>
   </div>
   <div class="sort-header-container__item">
-    <p class="sort-header-container__item__name">STATUS</p>
+    <p class="sort-header-container__item__name">EXPIRATION</p>
   </div>
   <div class="sort-header-container__item">
     <p class="sort-header-container__item__name">EARNED AMOUNT</p>

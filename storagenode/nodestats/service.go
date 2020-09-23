@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	// NodeStatsServiceErr defines node stats service error
+	// NodeStatsServiceErr defines node stats service error.
 	NodeStatsServiceErr = errs.Class("node stats service error")
 
 	mon = monkit.Package()
@@ -35,7 +35,7 @@ type Client struct {
 	pb.DRPCNodeStatsClient
 }
 
-// Close closes underlying client connection
+// Close closes underlying client connection.
 func (c *Client) Close() error {
 	return c.conn.Close()
 }
@@ -50,7 +50,7 @@ type Service struct {
 	trust  *trust.Pool
 }
 
-// NewService creates new instance of service
+// NewService creates new instance of service.
 func NewService(log *zap.Logger, dialer rpc.Dialer, trust *trust.Pool) *Service {
 	return &Service{
 		log:    log,
@@ -59,7 +59,7 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, trust *trust.Pool) *Service 
 	}
 }
 
-// GetReputationStats retrieves reputation stats from particular satellite
+// GetReputationStats retrieves reputation stats from particular satellite.
 func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.NodeID) (_ *reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -93,14 +93,17 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 			UnknownBeta:  audit.GetUnknownReputationBeta(),
 			UnknownScore: audit.GetUnknownReputationScore(),
 		},
-		Disqualified: resp.GetDisqualified(),
-		Suspended:    resp.GetSuspended(),
-		UpdatedAt:    time.Now(),
-		JoinedAt:     resp.JoinedAt,
+		OnlineScore:          resp.OnlineScore,
+		DisqualifiedAt:       resp.GetDisqualified(),
+		SuspendedAt:          resp.GetSuspended(),
+		OfflineSuspendedAt:   resp.GetOfflineSuspended(),
+		OfflineUnderReviewAt: resp.GetOfflineUnderReview(),
+		UpdatedAt:            time.Now(),
+		JoinedAt:             resp.JoinedAt,
 	}, nil
 }
 
-// GetDailyStorageUsage returns daily storage usage over a period of time for a particular satellite
+// GetDailyStorageUsage returns daily storage usage over a period of time for a particular satellite.
 func (s *Service) GetDailyStorageUsage(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -142,7 +145,7 @@ func (s *Service) GetPricingModel(ctx context.Context, satelliteID storj.NodeID)
 	}, nil
 }
 
-// dial dials the NodeStats client for the satellite by id
+// dial dials the NodeStats client for the satellite by id.
 func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -162,7 +165,7 @@ func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client
 	}, nil
 }
 
-// fromSpaceUsageResponse get DiskSpaceUsage slice from pb.SpaceUsageResponse
+// fromSpaceUsageResponse get DiskSpaceUsage slice from pb.SpaceUsageResponse.
 func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []storageusage.Stamp {
 	var stamps []storageusage.Stamp
 

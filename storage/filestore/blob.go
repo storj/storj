@@ -18,7 +18,7 @@ const (
 	// FormatV0 is the identifier for storage format v0, which also corresponds to an absence of
 	// format version information.
 	FormatV0 storage.FormatVersion = 0
-	// FormatV1 is the identifier for storage format v1
+	// FormatV1 is the identifier for storage format v1.
 	FormatV1 storage.FormatVersion = 1
 
 	// Note: New FormatVersion values should be consecutive, as certain parts of this blob store
@@ -39,7 +39,7 @@ const (
 	MinFormatVersionSupported = FormatV0
 )
 
-// blobReader implements reading blobs
+// blobReader implements reading blobs.
 type blobReader struct {
 	*os.File
 	formatVersion storage.FormatVersion
@@ -63,7 +63,7 @@ func (blob *blobReader) StorageFormatVersion() storage.FormatVersion {
 	return blob.formatVersion
 }
 
-// blobWriter implements writing blobs
+// blobWriter implements writing blobs.
 type blobWriter struct {
 	ref           storage.BlobRef
 	store         *blobStore

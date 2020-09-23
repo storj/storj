@@ -23,7 +23,7 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is the default error class for piecestore monitor errors
+	// Error is the default error class for piecestore monitor errors.
 	Error = errs.Class("piecestore inspector")
 )
 
@@ -43,7 +43,7 @@ type Endpoint struct {
 	externalAddress  string
 }
 
-// NewEndpoint creates piecestore inspector instance
+// NewEndpoint creates piecestore inspector instance.
 func NewEndpoint(
 	log *zap.Logger,
 	pieceStore *pieces.Store,
@@ -67,7 +67,7 @@ func NewEndpoint(
 	}
 }
 
-// Stats returns current statistics about the storage node
+// Stats returns current statistics about the storage node.
 func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out *pb.StatSummaryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return inspector.retrieveStats(ctx)
@@ -89,17 +89,28 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	egress := usage.Get + usage.GetAudit + usage.GetRepair
 
 	totalUsedBandwidth := usage.Total()
+	availableSpace := inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - piecesContentSize
+	// temporary solution: in case we receive negative amount of free space we recalculate dir disk available space.
+	// TODO: find real reason of negative space, garbage collector calculates trash correctly.
+	if availableSpace < 0 {
+		status, err := inspector.pieceStore.StorageStatus(ctx)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+
+		availableSpace = status.DiskFree
+	}
 
 	return &pb.StatSummaryResponse{
 		UsedSpace:      piecesContentSize,
-		AvailableSpace: inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - piecesContentSize,
+		AvailableSpace: availableSpace,
 		UsedIngress:    ingress,
 		UsedEgress:     egress,
 		UsedBandwidth:  totalUsedBandwidth,
 	}, nil
 }
 
-// Dashboard returns dashboard information
+// Dashboard returns dashboard information.
 func (inspector *Endpoint) Dashboard(ctx context.Context, in *pb.DashboardRequest) (out *pb.DashboardResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return inspector.getDashboardData(ctx)

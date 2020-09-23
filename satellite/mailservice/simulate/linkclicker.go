@@ -26,12 +26,12 @@ var _ mailservice.Sender = (*LinkClicker)(nil)
 // architecture: Service
 type LinkClicker struct{}
 
-// FromAddress return empty mail address
+// FromAddress return empty mail address.
 func (clicker *LinkClicker) FromAddress() post.Address {
 	return post.Address{}
 }
 
-// SendEmail click all links from email html parts
+// SendEmail click all links from email html parts.
 func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

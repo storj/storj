@@ -8,27 +8,27 @@ import (
 )
 
 const (
-	// UserType is a graphql type for user
+	// UserType is a graphql type for user.
 	UserType = "user"
-	// UserInputType is a graphql type for user input
+	// UserInputType is a graphql type for user input.
 	UserInputType = "userInput"
-	// FieldID is a field name for id
+	// FieldID is a field name for id.
 	FieldID = "id"
-	// FieldEmail is a field name for email
+	// FieldEmail is a field name for email.
 	FieldEmail = "email"
-	// FieldPassword is a field name for password
+	// FieldPassword is a field name for password.
 	FieldPassword = "password"
-	// FieldFullName is a field name for "first name"
+	// FieldFullName is a field name for "first name".
 	FieldFullName = "fullName"
-	// FieldShortName is a field name for "last name"
+	// FieldShortName is a field name for "last name".
 	FieldShortName = "shortName"
-	// FieldCreatedAt is a field name for created at timestamp
+	// FieldCreatedAt is a field name for created at timestamp.
 	FieldCreatedAt = "createdAt"
-	// FieldPartnerID is a field name for partnerID
+	// FieldPartnerID is a field name for partnerID.
 	FieldPartnerID = "partnerId"
 )
 
-// base graphql config for user
+// base graphql config for user.
 func baseUserConfig() graphql.ObjectConfig {
 	return graphql.ObjectConfig{
 		Name: UserType,
@@ -55,13 +55,13 @@ func baseUserConfig() graphql.ObjectConfig {
 	}
 }
 
-// graphqlUser creates *graphql.Object type representation of satellite.User
-// TODO: simplify
+// graphqlUser creates *graphql.Object type representation of satellite.User.
 func graphqlUser() *graphql.Object {
+	// TODO: simplify
 	return graphql.NewObject(baseUserConfig())
 }
 
-// graphqlUserInput creates graphql.InputObject type needed to register/update satellite.User
+// graphqlUserInput creates graphql.InputObject type needed to register/update satellite.User.
 func graphqlUserInput() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: UserInputType,

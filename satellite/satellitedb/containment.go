@@ -7,6 +7,9 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
+
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -18,7 +21,7 @@ type containment struct {
 	db *satelliteDB
 }
 
-// Get gets the pending audit by node id
+// Get gets the pending audit by node id.
 func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit.PendingAudit, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if id.IsZero() {
@@ -27,7 +30,7 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit
 
 	pending, err := containment.db.Get_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, audit.ErrContainedNotFound.New("%v", id)
 		}
 		return nil, audit.ContainError.Wrap(err)
@@ -36,7 +39,7 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit
 	return convertDBPending(ctx, pending)
 }
 
-// IncrementPending creates a new pending audit entry, or increases its reverify count if it already exists
+// IncrementPending creates a new pending audit entry, or increases its reverify count if it already exists.
 func (containment *containment) IncrementPending(ctx context.Context, pendingAudit *audit.PendingAudit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = containment.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
@@ -54,7 +57,8 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 			}
 		case nil:
 			if !bytes.Equal(existingAudit.ExpectedShareHash, pendingAudit.ExpectedShareHash) {
-				return audit.ErrAlreadyExists.New("%v", pendingAudit.NodeID)
+				containment.db.log.Info("pending audit already exists", zap.String("node id", pendingAudit.NodeID.String()), zap.Binary("segment", []byte(pendingAudit.Path)))
+				return nil
 			}
 			statement := containment.db.Rebind(
 				`UPDATE pending_audits SET reverify_count = pending_audits.reverify_count + 1
@@ -77,7 +81,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 	return audit.ContainError.Wrap(err)
 }
 
-// Delete deletes the pending audit
+// Delete deletes the pending audit.
 func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (isDeleted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if id.IsZero() {

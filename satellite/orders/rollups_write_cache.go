@@ -16,23 +16,24 @@ import (
 )
 
 // CacheData stores the amount of inline and allocated data
-// for a bucket bandwidth rollup
+// for a bucket bandwidth rollup.
 type CacheData struct {
 	Inline    int64
 	Allocated int64
+	Settled   int64
 }
 
-// CacheKey is the key information for the cached map below
+// CacheKey is the key information for the cached map below.
 type CacheKey struct {
 	ProjectID  uuid.UUID
 	BucketName string
 	Action     pb.PieceAction
 }
 
-// RollupData contains the pending rollups waiting to be flushed to the db
+// RollupData contains the pending rollups waiting to be flushed to the db.
 type RollupData map[CacheKey]CacheData
 
-// RollupsWriteCache stores information needed to update bucket bandwidth rollups
+// RollupsWriteCache stores information needed to update bucket bandwidth rollups.
 type RollupsWriteCache struct {
 	DB
 	batchSize int
@@ -48,7 +49,7 @@ type RollupsWriteCache struct {
 	nextFlushCompletion *sync2.Fence
 }
 
-// NewRollupsWriteCache creates an RollupsWriteCache
+// NewRollupsWriteCache creates an RollupsWriteCache.
 func NewRollupsWriteCache(log *zap.Logger, db DB, batchSize int) *RollupsWriteCache {
 	return &RollupsWriteCache{
 		DB:                  db,
@@ -59,19 +60,24 @@ func NewRollupsWriteCache(log *zap.Logger, db DB, batchSize int) *RollupsWriteCa
 	}
 }
 
-// UpdateBucketBandwidthAllocation updates the rollups cache adding allocated data for a bucket bandwidth rollup
+// UpdateBucketBandwidthAllocation updates the rollups cache adding allocated data for a bucket bandwidth rollup.
 func (cache *RollupsWriteCache) UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
-	return cache.updateCacheValue(ctx, projectID, bucketName, action, amount, 0, intervalStart.UTC())
+	return cache.updateCacheValue(ctx, projectID, bucketName, action, amount, 0, 0, intervalStart.UTC())
 }
 
-// UpdateBucketBandwidthInline updates the rollups cache adding inline data for a bucket bandwidth rollup
+// UpdateBucketBandwidthInline updates the rollups cache adding inline data for a bucket bandwidth rollup.
 func (cache *RollupsWriteCache) UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
-	return cache.updateCacheValue(ctx, projectID, bucketName, action, 0, amount, intervalStart.UTC())
+	return cache.updateCacheValue(ctx, projectID, bucketName, action, 0, amount, 0, intervalStart.UTC())
+}
+
+// UpdateBucketBandwidthSettle updates the rollups cache adding settled data for a bucket bandwidth rollup.
+func (cache *RollupsWriteCache) UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+	return cache.updateCacheValue(ctx, projectID, bucketName, action, 0, 0, amount, intervalStart.UTC())
 }
 
 // resetCache should only be called after you have acquired the cache lock. It
 // will reset the various cache values and return the pendingRollups,
-// latestTime, and currentSize
+// latestTime, and currentSize.
 func (cache *RollupsWriteCache) resetCache() (RollupData, time.Time, int) {
 	pendingRollups := cache.pendingRollups
 	cache.pendingRollups = make(RollupData)
@@ -82,7 +88,7 @@ func (cache *RollupsWriteCache) resetCache() (RollupData, time.Time, int) {
 	return pendingRollups, latestTime, oldSize
 }
 
-// Flush resets cache then flushes the everything in the rollups write cache to the database
+// Flush resets cache then flushes the everything in the rollups write cache to the database.
 func (cache *RollupsWriteCache) Flush(ctx context.Context) {
 	defer mon.Task()(&ctx)(nil)
 	cache.mu.Lock()
@@ -102,7 +108,7 @@ func (cache *RollupsWriteCache) CloseAndFlush(ctx context.Context) error {
 	return nil
 }
 
-// flush flushes the everything in the rollups write cache to the database
+// flush flushes the everything in the rollups write cache to the database.
 func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups RollupData, latestTime time.Time, oldSize int) {
 	defer mon.Task()(&ctx)(nil)
 
@@ -114,6 +120,7 @@ func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups Rollup
 			Action:     cacheKey.Action,
 			Inline:     cacheData.Inline,
 			Allocated:  cacheData.Allocated,
+			Settled:    cacheData.Settled,
 		})
 	}
 
@@ -131,7 +138,7 @@ func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups Rollup
 	completion.Release()
 }
 
-func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, allocated, inline int64, intervalStart time.Time) error {
+func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, allocated, inline, settled int64, intervalStart time.Time) error {
 	defer mon.Task()(&ctx)(nil)
 
 	cache.mu.Lock()
@@ -157,6 +164,7 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 	}
 	data.Allocated += allocated
 	data.Inline += inline
+	data.Settled += settled
 	cache.pendingRollups[key] = data
 
 	if cache.currentSize < cache.batchSize {

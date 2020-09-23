@@ -69,6 +69,14 @@ export interface PaymentsApi {
      * @throws Error
      */
     makeTokenDeposit(amount: number): Promise<TokenDeposit>;
+
+    /**
+     * Indicates if paywall is enabled.
+     *
+     * @param userId
+     * @throws Error
+    */
+    getPaywallStatus(userId: string): Promise<boolean>;
 }
 
 export class AccountBalance {
@@ -102,7 +110,9 @@ export class PaymentAmountOption {
     ) {}
 }
 
-// BillingHistoryItem holds all public information about billing history line.
+/**
+ * PaymentsHistoryItem holds all public information about payments history line.
+ */
 export class PaymentsHistoryItem {
     public constructor(
         public readonly id: string = '',
@@ -129,6 +139,17 @@ export class PaymentsHistoryItem {
         return this.status.charAt(0).toUpperCase() + this.status.substring(1);
     }
 
+    /**
+     * RemainingAmountPercentage will return remaining amount of item in percentage.
+     */
+    public remainingAmountPercentage(): number {
+        if (this.amount === 0) {
+            return 0;
+        }
+
+        return this.remaining / this.amount * 100;
+    }
+
     private amountDollars(amount): number {
         return amount / 100;
     }
@@ -141,6 +162,13 @@ export class PaymentsHistoryItem {
         const downloadLabel = this.type === PaymentsHistoryItemType.Transaction ? 'Checkout' : 'Invoice PDF';
 
         return `<a class="download-link" target="_blank" href="${this.link}">${downloadLabel}</a>`;
+    }
+
+    /**
+     * isTransactionOrDeposit indicates if payments history item type is transaction or deposit bonus.
+     */
+    public isTransactionOrDeposit(): boolean {
+        return this.type === PaymentsHistoryItemType.Transaction || this.type === PaymentsHistoryItemType.DepositBonus;
     }
 }
 

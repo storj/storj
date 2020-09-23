@@ -5,6 +5,7 @@ package stripecoinpayments
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -19,7 +20,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -81,12 +81,13 @@ type Service struct {
 	rates    coinpayments.CurrencyRateInfos
 	ratesErr error
 
-	listingLimit int
-	nowFn        func() time.Time
+	listingLimit      int
+	nowFn             func() time.Time
+	PaywallProportion float64
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64, paywallProportion float64) (*Service, error) {
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -131,6 +132,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		AutoAdvance:              config.AutoAdvance,
 		listingLimit:             config.ListingLimit,
 		nowFn:                    time.Now,
+		PaywallProportion:        paywallProportion,
 	}, nil
 }
 
@@ -150,7 +152,7 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 		return err
 	}
 
-	if err := service.updateTransactions(ctx, txsPage.IDList()); err != nil {
+	if err := service.updateTransactions(ctx, txsPage.IDList(), txsPage.CreationTimes()); err != nil {
 		return err
 	}
 
@@ -164,7 +166,7 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 			return err
 		}
 
-		if err := service.updateTransactions(ctx, txsPage.IDList()); err != nil {
+		if err := service.updateTransactions(ctx, txsPage.IDList(), txsPage.CreationTimes()); err != nil {
 			return err
 		}
 	}
@@ -173,7 +175,7 @@ func (service *Service) updateTransactionsLoop(ctx context.Context) (err error) 
 }
 
 // updateTransactions updates statuses and received amount for given transactions.
-func (service *Service) updateTransactions(ctx context.Context, ids TransactionAndUserList) (err error) {
+func (service *Service) updateTransactions(ctx context.Context, ids TransactionAndUserList, creationTimes map[coinpayments.TransactionID]time.Time) (err error) {
 	defer mon.Task()(&ctx, ids)(&err)
 
 	if len(ids) == 0 {
@@ -190,6 +192,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 	var applies coinpayments.TransactionIDList
 
 	for id, info := range infos {
+		service.log.Debug("Coinpayments results: ", zap.String("status", info.Status.String()), zap.String("id", id.String()))
 		updates = append(updates,
 			TransactionUpdate{
 				TransactionID: id,
@@ -198,15 +201,19 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 			},
 		)
 
-		// moment of transition to completed state, which indicates
-		// that customer funds were accepted and transferred to our
-		// account, so we can apply this amount to customer balance.
-		// Therefore, create intent to update customer balance in the future.
-		if info.Status == coinpayments.StatusCompleted {
+		// moment of CoinPayments receives funds, not when STORJ does
+		// this was a business decision to not wait until StatusCompleted
+		if info.Status >= coinpayments.StatusReceived {
+			//monkit currently does not have a DurationVal
+			mon.IntVal("coinpayment_duration").Observe(int64(time.Since(creationTimes[id])))
 			applies = append(applies, id)
 		}
 
 		userID := ids[id]
+
+		if !service.Accounts().PaywallEnabled(userID) {
+			continue
+		}
 
 		rate, err := service.db.Transactions().GetLockedRate(ctx, id)
 		if err != nil {
@@ -334,6 +341,8 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 			Description: stripe.String(StripeDepositTransactionDescription),
 		}
 		params.AddMetadata("txID", tx.ID.String())
+		params.AddMetadata("storj_amount", tx.Amount.String())
+		params.AddMetadata("storj_usd_rate", rate.String())
 		_, err = service.stripeClient.CustomerBalanceTransactions().New(params)
 		if err != nil {
 			return err
@@ -457,7 +466,6 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 func (service *Service) processCustomers(ctx context.Context, customers []Customer, start, end time.Time) (int, int, error) {
 	var allRecords []CreateProjectRecord
 	var usages []CouponUsage
-	var creditsSpendings []CreditsSpending
 	for _, customer := range customers {
 		projects, err := service.projectsDB.GetOwn(ctx, customer.UserID)
 		if err != nil {
@@ -521,41 +529,9 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 				}
 			}
 		}
-
-		if leftToCharge == 0 {
-			continue
-		}
-
-		// Last, apply any credits from STORJ deposit bonuses on the remainder.
-		userBonuses, err := service.db.Credits().Balance(ctx, customer.UserID)
-		if err != nil {
-			return 0, 0, err
-		}
-
-		if userBonuses > 0 {
-			amountChargedFromBonuses := leftToCharge
-			if amountChargedFromBonuses >= userBonuses {
-				amountChargedFromBonuses = userBonuses
-			}
-
-			creditSpendingID, err := uuid.New()
-			if err != nil {
-				return 0, 0, err
-			}
-
-			if amountChargedFromBonuses > 0 {
-				creditsSpendings = append(creditsSpendings, CreditsSpending{
-					ID:     creditSpendingID,
-					Amount: amountChargedFromBonuses,
-					UserID: customer.UserID,
-					Status: CreditsSpendingStatusUnapplied,
-					Period: start,
-				})
-			}
-		}
 	}
 
-	return len(allRecords), len(usages), service.db.ProjectRecords().Create(ctx, allRecords, usages, creditsSpendings, start, end)
+	return len(allRecords), len(usages), service.db.ProjectRecords().Create(ctx, allRecords, usages, start, end)
 }
 
 // createProjectRecords creates invoice project record if none exists.
@@ -570,7 +546,7 @@ func (service *Service) createProjectRecords(ctx context.Context, customerID str
 		}
 
 		if err = service.db.ProjectRecords().Check(ctx, project.ID, start, end); err != nil {
-			if err == ErrProjectRecordExists {
+			if errors.Is(err, ErrProjectRecordExists) {
 				service.log.Warn("Record for this project already exists.", zap.String("Customer ID", customerID), zap.String("Project ID", project.ID.String()))
 				continue
 			}
@@ -677,7 +653,7 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 
 		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
 		if err != nil {
-			if err == ErrNoCustomer {
+			if errors.Is(err, ErrNoCustomer) {
 				service.log.Warn("Stripe customer does not exist for project owner.", zap.Stringer("Owner ID", proj.OwnerID), zap.Stringer("Project ID", proj.ID))
 				continue
 			}
@@ -701,36 +677,45 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 		return err
 	}
 
-	projectItem := &stripe.InvoiceItemParams{
-		Currency: stripe.String(string(stripe.CurrencyUSD)),
-		Customer: stripe.String(cusID),
-	}
-	projectItem.AddMetadata("projectID", record.ProjectID.String())
+	items := service.InvoiceItemsFromProjectRecord(projName, record)
+	for _, item := range items {
+		item.Currency = stripe.String(string(stripe.CurrencyUSD))
+		item.Customer = stripe.String(cusID)
+		item.AddMetadata("projectID", record.ProjectID.String())
 
+		_, err = service.stripeClient.InvoiceItems().New(item)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// InvoiceItemsFromProjectRecord calculates Stripe invoice item from project record.
+func (service *Service) InvoiceItemsFromProjectRecord(projName string, record ProjectRecord) (result []*stripe.InvoiceItemParams) {
+	projectItem := &stripe.InvoiceItemParams{}
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Storage (MB-Month)", projName))
 	projectItem.Quantity = stripe.Int64(storageMBMonthDecimal(record.Storage).IntPart())
 	storagePrice, _ := service.StorageMBMonthPriceCents.Float64()
 	projectItem.UnitAmountDecimal = stripe.Float64(storagePrice)
-	_, err = service.stripeClient.InvoiceItems().New(projectItem)
-	if err != nil {
-		return err
-	}
+	result = append(result, projectItem)
 
+	projectItem = &stripe.InvoiceItemParams{}
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth (MB)", projName))
 	projectItem.Quantity = stripe.Int64(egressMBDecimal(record.Egress).IntPart())
 	egressPrice, _ := service.EgressMBPriceCents.Float64()
 	projectItem.UnitAmountDecimal = stripe.Float64(egressPrice)
-	_, err = service.stripeClient.InvoiceItems().New(projectItem)
-	if err != nil {
-		return err
-	}
+	result = append(result, projectItem)
 
+	projectItem = &stripe.InvoiceItemParams{}
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Object Fee (Object-Month)", projName))
 	projectItem.Quantity = stripe.Int64(objectMonthDecimal(record.Objects).IntPart())
 	objectPrice, _ := service.ObjectMonthPriceCents.Float64()
 	projectItem.UnitAmountDecimal = stripe.Float64(objectPrice)
-	_, err = service.stripeClient.InvoiceItems().New(projectItem)
-	return err
+	result = append(result, projectItem)
+
+	return result
 }
 
 // InvoiceApplyCoupons iterates through unapplied project coupons and creates invoice line items
@@ -798,7 +783,7 @@ func (service *Service) applyCoupons(ctx context.Context, usages []CouponUsage) 
 
 		customerID, err := service.db.Customers().GetCustomerID(ctx, coupon.UserID)
 		if err != nil {
-			if err == ErrNoCustomer {
+			if errors.Is(err, ErrNoCustomer) {
 				service.log.Warn("Stripe customer does not exist for coupon owner.", zap.Stringer("User ID", coupon.UserID), zap.Stringer("Coupon ID", coupon.ID))
 				continue
 			}
@@ -842,91 +827,6 @@ func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon pay
 	}
 
 	projectItem.AddMetadata("couponID", coupon.ID.String())
-
-	_, err = service.stripeClient.InvoiceItems().New(projectItem)
-
-	return err
-}
-
-// InvoiceApplyCredits iterates through credits with status false of project and creates invoice line items
-// for stripe customer.
-func (service *Service) InvoiceApplyCredits(ctx context.Context, period time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	now := service.nowFn().UTC()
-	utc := period.UTC()
-
-	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 0, 0, 0, 0, 0, time.UTC)
-
-	if end.After(now) {
-		return Error.New("allowed for past periods only")
-	}
-
-	spendingsPage, err := service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, service.listingLimit, start)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	if err = service.applySpendings(ctx, spendingsPage.Spendings); err != nil {
-		return Error.Wrap(err)
-	}
-
-	for spendingsPage.Next {
-		if err = ctx.Err(); err != nil {
-			return Error.Wrap(err)
-		}
-
-		// we are always starting from offset 0 because applySpendings is changing credits spendings state to applied
-		spendingsPage, err = service.db.Credits().ListCreditsSpendingsPaged(ctx, int(CreditsSpendingStatusUnapplied), 0, service.listingLimit, start)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		if err = service.applySpendings(ctx, spendingsPage.Spendings); err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	return nil
-}
-
-// applyCredits applies concrete spending as invoice line item.
-func (service *Service) applySpendings(ctx context.Context, spendings []CreditsSpending) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	for _, spending := range spendings {
-		if err = ctx.Err(); err != nil {
-			return err
-		}
-
-		if err = service.createInvoiceCreditItem(ctx, spending); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// createInvoiceCreditItem consumes invoice project record and creates invoice line items for stripe customer.
-func (service *Service) createInvoiceCreditItem(ctx context.Context, spending CreditsSpending) (err error) {
-	defer mon.Task()(&ctx, spending)(&err)
-
-	err = service.db.Credits().ApplyCreditsSpending(ctx, spending.ID)
-	if err != nil {
-		return err
-	}
-	customerID, err := service.db.Customers().GetCustomerID(ctx, spending.UserID)
-
-	projectItem := &stripe.InvoiceItemParams{
-		Amount:      stripe.Int64(-spending.Amount),
-		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Customer:    stripe.String(customerID),
-		Description: stripe.String("Credits from STORJ deposit bonus"),
-	}
-
-	projectItem.AddMetadata("projectID", spending.ProjectID.String())
-	projectItem.AddMetadata("userID", spending.UserID.String())
 
 	_, err = service.stripeClient.InvoiceItems().New(projectItem)
 

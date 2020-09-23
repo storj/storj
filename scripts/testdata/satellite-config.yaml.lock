@@ -76,11 +76,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to contacts page
 # console.contact-info-url: https://forum.storj.io
 
+# default project limits for users
+# console.default-project-limit: 1
+
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io
+
+# url link to general request page
+# console.general-request-url: https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291
 
 # id for google tag manager
 # console.google-tag-manager-id: ""
@@ -93,6 +99,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # names of partnered satellites
 # console.partnered-satellite-names: US-Central-1,Europe-West-1,Asia-East-1
+
+# url link to project limit increase request page
+# console.project-limits-increase-request-url: https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212
 
 # number of events before the limit kicks in
 # console.rate-limit.burst: 5
@@ -149,13 +158,13 @@ contact.external-address: ""
 # db-cleanup.serials-interval: 4h0m0s
 
 # Maximum Database Connection Lifetime, -1ns means the stdlib default
-# db.conn_max_lifetime: -1ns
+# db.conn_max_lifetime: 30m0s
 
 # Maximum Amount of Idle Database connections, -1 means the stdlib default
-# db.max_idle_conns: 20
+# db.max_idle_conns: 1
 
 # Maximum Amount of Open Database connections, -1 means the stdlib default
-# db.max_open_conns: 25
+# db.max_open_conns: 5
 
 # address to listen on for debug endpoints
 # debug.addr: 127.0.0.1:0
@@ -239,7 +248,7 @@ contact.external-address: ""
 # graceful-exit.overall-max-failures-percentage: 10
 
 # the minimum duration for receiving a stream from a storage node before timing out
-# graceful-exit.recv-timeout: 10m0s
+# graceful-exit.recv-timeout: 2h0m0s
 
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
@@ -317,7 +326,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.loop.coalesce-duration: 5s
 
 # how many items to query in a batch
-# metainfo.loop.list-limit: 10000
+# metainfo.loop.list-limit: 2500
 
 # rate limit (default is 0 which is unlimited segments per second)
 # metainfo.loop.rate-limit: 0
@@ -337,6 +346,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
+# maximum number of concurrent requests
+# metainfo.object-deletion.max-concurrent-requests: 10000
+
+# maximum number of requests per batch
+# metainfo.object-deletion.max-objects-per-request: 100
+
+# number of segments per request when looking for zombie segments
+# metainfo.object-deletion.zombie-segments-per-request: 3
+
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
@@ -349,6 +367,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum number of concurrent requests to storage nodes
 # metainfo.piece-deletion.max-concurrency: 100
 
+# maximum number of concurrent pieces can be processed
+# metainfo.piece-deletion.max-concurrent-pieces: 1000000
+
 # maximum number of pieces per batch
 # metainfo.piece-deletion.max-pieces-per-batch: 5000
 
@@ -357,6 +378,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # timeout for a single delete request
 # metainfo.piece-deletion.request-timeout: 1m0s
+
+# the default bandwidth usage limit
+# metainfo.project-limits.default-max-bandwidth: 50.00 GB
+
+# the default storage usage limit
+# metainfo.project-limits.default-max-usage: 50.00 GB
+
+# max bucket count for a project.
+# metainfo.project-limits.max-buckets: 100
 
 # number of projects to cache.
 # metainfo.rate-limiter.cache-capacity: 10000
@@ -418,6 +448,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # path to log for oom notices
 # monkit.hw.oomlog: /var/log/kern.log
 
+# encryption keys to encrypt info in orders
+# orders.encryption-keys: ""
+
 # how long until an order expires
 # orders.expiration: 48h0m0s
 
@@ -427,14 +460,29 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
 
-# log the offline/disqualification status of nodes
-# orders.node-status-logging: false
+# include encrypted metadata in the order limit
+# orders.include-encrypted-metadata: false
 
 # how many records to read in a single transaction when calculating billable bandwidth
 # orders.reported-rollups-read-batch-size: 1000
 
 # how many orders to batch per transaction
 # orders.settlement-batch-size: 250
+
+# rollout phase for the windowed endpoint
+# orders.window-endpoint-rollout-phase: phase1
+
+# The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification
+# overlay.audit-history.grace-period: 168h0m0s
+
+# The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period.
+# overlay.audit-history.offline-threshold: 0.6
+
+# The length of time to track audit windows for node suspension and disqualification
+# overlay.audit-history.tracking-period: 720h0m0s
+
+# The length of time spanning a single audit window
+# overlay.audit-history.window-size: 12h0m0s
 
 # disable node cache
 # overlay.node-selection-cache.disabled: false
@@ -464,7 +512,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.node.distinct-ip: true
 
 # how much disk space a node at minimum must have to be selected for upload
-# overlay.node.minimum-disk-space: 500.0 MB
+# overlay.node.minimum-disk-space: 500.00 MB
 
 # the minimum node software version for node selection queries
 # overlay.node.minimum-version: ""
@@ -520,6 +568,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price user should pay for each object stored in network per month
 # payments.object-price: "0.0000022"
 
+# proportion of users which require a balance to create projects [0-1]
+# payments.paywall-proportion: 1
+
 # payments provider to use
 # payments.provider: ""
 
@@ -550,6 +601,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of time we wait before running next transaction update loop
 # payments.stripe-coin-payments.transaction-update-interval: 2m0s
 
+# how often to remove unused project bandwidth rollups
+# project-bw-cleanup.interval: 168h0m0s
+
+# number of months of project bandwidth rollups to retain, not including the current month
+# project-bw-cleanup.retain-months: 2
+
 # the URL for referral manager
 # referrals.referral-manager-url: ""
 
@@ -563,7 +620,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.interval: 5m0s
 
 # maximum buffer memory (in bytes) to be allocated for read buffers
-# repairer.max-buffer-mem: 4.0 MB
+# repairer.max-buffer-mem: 4.00 MB
 
 # ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload
 # repairer.max-excess-rate-optimal-threshold: 0.05
@@ -582,12 +639,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # default queue batch size
 # reported-rollup.queue-batch-size: 10000
-
-# the default bandwidth usage limit
-# rollup.default-max-bandwidth: 50.0 GB
-
-# the default storage usage limit
-# rollup.default-max-usage: 50.0 GB
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true

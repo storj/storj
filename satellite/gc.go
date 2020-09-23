@@ -69,7 +69,7 @@ type GarbageCollection struct {
 	}
 }
 
-// NewGarbageCollection creates a new satellite garbage collection process
+// NewGarbageCollection creates a new satellite garbage collection process.
 func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*GarbageCollection, error) {

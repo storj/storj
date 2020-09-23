@@ -5,7 +5,15 @@ import { Duration, millisecondsInSecond, secondsInMinute } from '@/app/utils/dur
 import { getMonthsBeforeNow } from '@/app/utils/payout';
 import { SNOApi } from '@/storagenode/api/storagenode';
 import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
-import { BandwidthUsed, EgressUsed, IngressUsed, Satellite, Satellites, Stamp } from '@/storagenode/satellite';
+import {
+    BandwidthUsed,
+    EgressUsed,
+    IngressUsed,
+    Satellite,
+    Satellites,
+    SatelliteScores,
+    Stamp,
+} from '@/storagenode/satellite';
 
 export const NODE_MUTATIONS = {
     POPULATE_STORE: 'POPULATE_STORE',
@@ -70,6 +78,7 @@ export function makeNodeModule(api: SNOApi) {
             bandwidthSummary: 0,
             egressSummary: 0,
             ingressSummary: 0,
+            satellitesScores: new Array<SatelliteScores>(),
             checks: {
                 uptime: 0,
                 audit: 0,
@@ -125,6 +134,7 @@ export function makeNodeModule(api: SNOApi) {
                     disqualified: null,
                     joinDate: satelliteInfo.joinDate,
                 };
+                state.satellitesScores = satelliteInfo.satellitesScores;
             },
             [SET_DAILY_DATA](state: any, satelliteInfo: Satellite): void {
                 state.bandwidthChartData = satelliteInfo.bandwidthDaily;

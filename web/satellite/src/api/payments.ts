@@ -253,4 +253,25 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         return new TokenDeposit(result.amount, result.address, result.link);
     }
+
+    /**
+     * Indicates if paywall is enabled.
+     *
+     * @param userId
+     * @throws Error
+     */
+    public async getPaywallStatus(userId: string): Promise<boolean> {
+        const path = `${this.ROOT_PATH}/paywall-enabled/${userId}`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('can not get paywall status');
+        }
+
+        return await response.json();
+    }
 }

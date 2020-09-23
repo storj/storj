@@ -16,6 +16,7 @@
                 class="save-api-popup__next-step-area__link"
                 href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli"
                 target="_blank"
+                rel="noopener noreferrer"
                 @click.self.stop="segmentTrack"
             >
                 Set Up Uplink CLI

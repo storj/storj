@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite"
@@ -63,7 +64,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 	var stripeClient stripecoinpayments.StripeClient
 	switch pc.Provider {
 	default:
-		stripeClient = stripecoinpayments.NewStripeMock()
+		stripeClient = stripecoinpayments.NewStripeMock(storj.NodeID{})
 	case "stripecoinpayments":
 		stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 	}
@@ -82,7 +83,8 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		pc.CouponValue,
 		pc.CouponDuration,
 		pc.CouponProjectLimit,
-		pc.MinCoinPayment)
+		pc.MinCoinPayment,
+		pc.PaywallProportion)
 }
 
 // parseBillingPeriodFromString parses provided date string and returns corresponding time.Time.

@@ -5,6 +5,7 @@ package stripecoinpayments_test
 
 import (
 	"encoding/base64"
+	"errors"
 	"math/big"
 	"sync"
 	"testing"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/stripe/stripe-go"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/errs2"
@@ -19,6 +21,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -167,7 +170,7 @@ func TestConcurrentConsume(t *testing.T) {
 				if err == nil {
 					return nil
 				}
-				if err == stripecoinpayments.ErrTransactionConsumed {
+				if errors.Is(err, stripecoinpayments.ErrTransactionConsumed) {
 					appendError(err)
 					return nil
 				}
@@ -337,4 +340,72 @@ func compareTransactions(t *testing.T, exp, act stripecoinpayments.Transaction) 
 	assert.Equal(t, exp.Key, act.Key)
 	assert.Equal(t, exp.Timeout, act.Timeout)
 	assert.False(t, act.CreatedAt.IsZero())
+}
+
+func TestTransactions_ApplyTransactionBalance(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		transactions := satellite.API.DB.StripeCoinPayments().Transactions()
+		userID := planet.Uplinks[0].Projects[0].Owner.ID
+
+		satellite.Core.Payments.Chore.TransactionCycle.Pause()
+		satellite.Core.Payments.Chore.AccountBalanceCycle.Pause()
+
+		// Emulate a deposit through CoinPayments.
+		txID := coinpayments.TransactionID("testID")
+		storjAmount, ok := new(big.Float).SetString("100")
+		require.True(t, ok)
+		storjUSDRate, ok := new(big.Float).SetString("0.2")
+		require.True(t, ok)
+
+		createTx := stripecoinpayments.Transaction{
+			ID:        txID,
+			AccountID: userID,
+			Address:   "testAddress",
+			Amount:    *storjAmount,
+			Received:  *storjAmount,
+			Status:    coinpayments.StatusPending,
+			Key:       "testKey",
+			Timeout:   time.Second * 60,
+		}
+
+		tx, err := transactions.Insert(ctx, createTx)
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+
+		update := stripecoinpayments.TransactionUpdate{
+			TransactionID: createTx.ID,
+			Status:        coinpayments.StatusReceived,
+			Received:      *storjAmount,
+		}
+
+		err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{update}, coinpayments.TransactionIDList{createTx.ID})
+		require.NoError(t, err)
+
+		// Check that the CoinPayments transaction is waiting to be applied to the Stripe customer balance.
+		page, err := transactions.ListUnapplied(ctx, 0, 1, time.Now())
+		require.NoError(t, err)
+		require.Len(t, page.Transactions, 1)
+
+		err = transactions.LockRate(ctx, txID, storjUSDRate)
+		require.NoError(t, err)
+
+		// Trigger the AccountBalanceCycle. This calls Service.applyTransactionBalance()
+		satellite.Core.Payments.Chore.AccountBalanceCycle.TriggerWait()
+
+		cusID, err := satellite.API.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, userID)
+		require.NoError(t, err)
+
+		// Check that the CoinPayments deposit is reflected in the Stripe customer balance.
+		it := satellite.API.Payments.Stripe.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{Customer: stripe.String(cusID)})
+		require.NoError(t, it.Err())
+		require.True(t, it.Next())
+		cbt := it.CustomerBalanceTransaction()
+		require.EqualValues(t, -2000, cbt.Amount)
+		require.EqualValues(t, txID, cbt.Metadata["txID"])
+		require.EqualValues(t, "100", cbt.Metadata["storj_amount"])
+		require.EqualValues(t, "0.2", cbt.Metadata["storj_usd_rate"])
+	})
 }

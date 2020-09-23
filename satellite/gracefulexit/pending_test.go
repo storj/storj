@@ -18,6 +18,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 func TestPendingBasic(t *testing.T) {
@@ -25,7 +26,7 @@ func TestPendingBasic(t *testing.T) {
 	defer ctx.Cleanup()
 
 	newWork := &gracefulexit.PendingTransfer{
-		Path:             []byte("testbucket/testfile"),
+		Key:              metabase.SegmentKey("testbucket/testfile"),
 		PieceSize:        10,
 		SatelliteMessage: &pb.SatelliteMessage{},
 		OriginalPointer:  &pb.Pointer{},
@@ -47,7 +48,7 @@ func TestPendingBasic(t *testing.T) {
 	// get should work
 	w, ok := pending.Get(pieceID)
 	require.True(t, ok)
-	require.True(t, bytes.Equal(newWork.Path, w.Path))
+	require.True(t, bytes.Equal(newWork.Key, w.Key))
 
 	invalidPieceID := testrand.PieceID()
 	_, ok = pending.Get(invalidPieceID)
@@ -94,13 +95,13 @@ func TestPendingBasic(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestPendingIsFinishedWorkAdded ensures that pending.IsFinished blocks if there is no work, then returns false when new work is added
+// TestPendingIsFinishedWorkAdded ensures that pending.IsFinished blocks if there is no work, then returns false when new work is added.
 func TestPendingIsFinishedWorkAdded(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	newWork := &gracefulexit.PendingTransfer{
-		Path:             []byte("testbucket/testfile"),
+		Key:              metabase.SegmentKey("testbucket/testfile"),
 		PieceSize:        10,
 		SatelliteMessage: &pb.SatelliteMessage{},
 		OriginalPointer:  &pb.Pointer{},
@@ -142,7 +143,7 @@ func TestPendingIsFinishedWorkAdded(t *testing.T) {
 	require.NoError(t, group.Wait())
 }
 
-// TestPendingIsFinishedDoneSendingCalled ensures that pending.IsFinished blocks if there is no work, then returns true when DoneSending is called
+// TestPendingIsFinishedDoneSendingCalled ensures that pending.IsFinished blocks if there is no work, then returns true when DoneSending is called.
 func TestPendingIsFinishedDoneSendingCalled(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -173,7 +174,7 @@ func TestPendingIsFinishedDoneSendingCalled(t *testing.T) {
 	require.NoError(t, group.Wait())
 }
 
-// TestPendingIsFinishedCtxCanceled ensures that pending.IsFinished blocks if there is no work, then returns true when context is canceled
+// TestPendingIsFinishedCtxCanceled ensures that pending.IsFinished blocks if there is no work, then returns true when context is canceled.
 func TestPendingIsFinishedCtxCanceled(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -205,7 +206,7 @@ func TestPendingIsFinishedCtxCanceled(t *testing.T) {
 	require.NoError(t, group.Wait())
 }
 
-// TestPendingIsFinishedDoneSendingCalledError ensures that pending.IsFinished blocks if there is no work, then returns true with an error when DoneSending is called with an error
+// TestPendingIsFinishedDoneSendingCalledError ensures that pending.IsFinished blocks if there is no work, then returns true with an error when DoneSending is called with an error.
 func TestPendingIsFinishedDoneSendingCalledError(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

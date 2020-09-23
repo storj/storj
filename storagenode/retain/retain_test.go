@@ -202,7 +202,7 @@ func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.No
 	return pieceIDs, err
 }
 
-// generateTestIDs generates n piece ids
+// generateTestIDs generates n piece ids.
 func generateTestIDs(n int) []storj.PieceID {
 	ids := make([]storj.PieceID, n)
 	for i := range ids {

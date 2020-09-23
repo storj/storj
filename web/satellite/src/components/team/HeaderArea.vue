@@ -38,7 +38,7 @@
                         label="Cancel"
                         width="122px"
                         height="48px"
-                        is-white="true"
+                        is-transparent="true"
                         :on-press="onClearSelection"
                     />
                     <span class="header-selected-members__info-text"><b>{{selectedProjectMembersCount}}</b> users selected</span>
@@ -58,7 +58,7 @@
                             label="Cancel"
                             width="122px"
                             height="48px"
-                            is-white="true"
+                            is-transparent="true"
                             :on-press="onClearSelection"
                         />
                     </div>

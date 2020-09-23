@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/zeebo/errs"
@@ -83,7 +84,7 @@ func (opi *orderedPostgresIterator) Next(ctx context.Context, item *storage.List
 			result := func() bool {
 				defer mon.TaskNamed("acquire_new_query")(nil)(nil)
 
-				if err := opi.curRows.Err(); err != nil && err != sql.ErrNoRows {
+				if err := opi.curRows.Err(); err != nil && !errors.Is(err, sql.ErrNoRows) {
 					opi.errEncountered = errs.Wrap(err)
 					return false
 				}
@@ -156,6 +157,13 @@ func (opi *orderedPostgresIterator) doNextQuery(ctx context.Context) (_ tagsql.R
 		start = storage.AfterPrefix(start)
 		gt = ">="
 	}
+	var endLimitKey = opi.largestKey
+	if endLimitKey == nil {
+		// jackc/pgx will treat nil as a NULL value, while lib/pq treats it as
+		// an empty string. We'll remove the ambiguity by making it a zero-length
+		// byte slice instead
+		endLimitKey = []byte{}
+	}
 
 	return opi.client.db.Query(ctx, fmt.Sprintf(`
 		SELECT pd.fullpath, pd.metadata
@@ -164,5 +172,5 @@ func (opi *orderedPostgresIterator) doNextQuery(ctx context.Context) (_ tagsql.R
 			AND ($2::BYTEA = ''::BYTEA OR pd.fullpath < $2::BYTEA)
 		ORDER BY pd.fullpath
 		LIMIT $3
-	`, gt), start, []byte(opi.largestKey), opi.batchSize)
+	`, gt), start, endLimitKey, opi.batchSize)
 }

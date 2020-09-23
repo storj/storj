@@ -99,9 +99,9 @@ func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripe
 		}
 
 		for _, txID := range applies {
-			_, err := tx.Create_StripecoinpaymentsApplyBalanceIntent(ctx,
-				dbx.StripecoinpaymentsApplyBalanceIntent_TxId(txID.String()),
-				dbx.StripecoinpaymentsApplyBalanceIntent_State(applyBalanceIntentStateUnapplied.Int()))
+			query := db.db.Rebind(`INSERT INTO stripecoinpayments_apply_balance_intents ( tx_id, state, created_at )
+			VALUES ( ?, ?, ? ) ON CONFLICT DO NOTHING`)
+			_, err = tx.Tx.ExecContext(ctx, query, txID.String(), applyBalanceIntentStateUnapplied.Int(), db.db.Hooks.Now().UTC())
 			if err != nil {
 				return err
 			}
@@ -283,7 +283,7 @@ func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int6
 	return page, nil
 }
 
-// List Unapplied returns TransactionsPage with transactions completed transaction that should be applied to account balance.
+// List Unapplied returns TransactionsPage with a pending or completed status, that should be applied to account balance.
 func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.TransactionsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -299,13 +299,13 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 			FROM coinpayments_transactions as txs 
 			INNER JOIN stripecoinpayments_apply_balance_intents as ints
 			ON txs.id = ints.tx_id
-			WHERE txs.status = ?
+			WHERE txs.status >= ?
 			AND txs.created_at <= ?
 			AND ints.state = ?
 			ORDER by txs.created_at DESC
 			LIMIT ? OFFSET ?`)
 
-	rows, err := db.db.QueryContext(ctx, query, coinpayments.StatusCompleted, before, applyBalanceIntentStateUnapplied, limit+1, offset)
+	rows, err := db.db.QueryContext(ctx, query, coinpayments.StatusReceived, before, applyBalanceIntentStateUnapplied, limit+1, offset)
 	if err != nil {
 		return stripecoinpayments.TransactionsPage{}, err
 	}

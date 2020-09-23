@@ -6,8 +6,9 @@
         <div class="account-dropdown__link-container" v-if="!isOnboardingTour">
             <a
                 class="account-dropdown__link-container__link"
-                href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                :href="projectLimitsIncreaseRequestURL"
                 target="_blank"
+                rel="noopener noreferrer"
             >
                 Request Limit Increase
             </a>
@@ -31,16 +32,17 @@ import AccountSettingsIcon from '@/../static/images/header/accountSettings.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
+import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import {
-    API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     NOTIFICATION_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
+import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
@@ -87,6 +89,13 @@ export default class AccountDropdown extends Vue {
         await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
 
         LocalData.removeUserId();
+    }
+
+    /**
+     * Returns project limits increase request url from config.
+     */
+    public get projectLimitsIncreaseRequestURL(): string {
+        return MetaUtils.getMetaContent('project-limits-increase-request-url');
     }
 }
 </script>

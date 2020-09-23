@@ -25,7 +25,7 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 )
 
-// generateGracefulExitCSV creates a report with graceful exit data for exiting or exited nodes in a given period
+// generateGracefulExitCSV creates a report with graceful exit data for exiting or exited nodes in a given period.
 func generateGracefulExitCSV(ctx context.Context, completed bool, start time.Time, end time.Time, output io.Writer) error {
 	db, err := satellitedb.New(zap.L().Named("db"), gracefulExitCfg.Database, satellitedb.Options{})
 	if err != nil {

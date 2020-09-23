@@ -24,13 +24,13 @@ type Endpoint struct {
 	pingStats *PingStats
 }
 
-// PingStats contains information regarding when the node was last pinged
+// PingStats contains information regarding when the node was last pinged.
 type PingStats struct {
 	mu         sync.Mutex
 	lastPinged time.Time
 }
 
-// NewEndpoint returns a new contact service endpoint
+// NewEndpoint returns a new contact service endpoint.
 func NewEndpoint(log *zap.Logger, pingStats *PingStats) *Endpoint {
 	return &Endpoint{
 		log:       log,
@@ -38,7 +38,7 @@ func NewEndpoint(log *zap.Logger, pingStats *PingStats) *Endpoint {
 	}
 }
 
-// PingNode provides an easy way to verify a node is online and accepting requests
+// PingNode provides an easy way to verify a node is online and accepting requests.
 func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingRequest) (_ *pb.ContactPingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	peer, err := rpcpeer.FromContext(ctx)

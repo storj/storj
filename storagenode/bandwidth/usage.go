@@ -40,7 +40,7 @@ type DB interface {
 	GetDailySatelliteRollups(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]UsageRollup, error)
 }
 
-// Usage contains bandwidth usage information based on the type
+// Usage contains bandwidth usage information based on the type.
 type Usage struct {
 	Invalid int64
 	Unknown int64
@@ -108,7 +108,7 @@ func (usage *Usage) Add(b *Usage) {
 	usage.Delete += b.Delete
 }
 
-// Total sums all type of bandwidths
+// Total sums all type of bandwidths.
 func (usage *Usage) Total() int64 {
 	return usage.Invalid +
 		usage.Unknown +
@@ -120,7 +120,7 @@ func (usage *Usage) Total() int64 {
 		usage.Delete
 }
 
-// TotalMonthlySummary returns total bandwidth usage for current month
+// TotalMonthlySummary returns total bandwidth usage for current month.
 func TotalMonthlySummary(ctx context.Context, db DB) (*Usage, error) {
 	return db.Summary(ctx, getBeginningOfMonth(), time.Now())
 }

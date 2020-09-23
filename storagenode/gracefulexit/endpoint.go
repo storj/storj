@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
-// Endpoint is
+// Endpoint implements private inspector for Graceful Exit.
 type Endpoint struct {
 	log        *zap.Logger
 	usageCache *pieces.BlobsUsageCache

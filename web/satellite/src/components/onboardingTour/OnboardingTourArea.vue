@@ -3,28 +3,49 @@
 
 <template>
     <div class="tour-area">
-        <ProgressBar
-            :is-create-project-step="isCreateProjectState"
-            :is-create-api-key-step="isCreatApiKeyState"
-            :is-upload-data-step="isUploadDataState"
-        />
-        <OverviewStep
-            v-if="isDefaultState"
-            @setAddPaymentState="setAddPaymentState"
-        />
-        <AddPaymentStep
-            v-if="isAddPaymentState"
-            @setProjectState="setCreateProjectState"
-        />
-        <CreateProjectStep
-            v-if="isCreateProjectState"
-            @setApiKeyState="setCreateApiKeyState"
-        />
-        <CreateApiKeyStep
-            v-if="isCreatApiKeyState"
-            @setUploadDataState="setUploadDataState"
-        />
-        <UploadDataStep v-if="isUploadDataState"/>
+        <div class="tour-area__info-bar" v-show="isInfoBarVisible && isPaywallEnabled">
+            <div class="tour-area__info-bar__message">
+                <b class="tour-area__info-bar__message__bold">Try Tardigrade with 50 GB Free after adding a payment method.</b>
+                <p class="tour-area__info-bar__message__regular"> Cancel before your credit runs out and you’ll never be billed.</p>
+            </div>
+            <CloseImage class="tour-area__info-bar__close-img" @click="disableInfoBar"/>
+        </div>
+        <div class="tour-area__content">
+            <ProgressBar
+                :is-paywall-enabled="isPaywallEnabled"
+                :is-add-payment-step="isAddPaymentState"
+                :is-create-project-step="isCreateProjectState"
+                :is-create-api-key-step="isCreatApiKeyState"
+                :is-upload-data-step="isUploadDataState"
+            />
+            <OverviewStep
+                v-if="isDefaultState && isPaywallEnabled"
+                @setAddPaymentState="setAddPaymentState"
+            />
+            <OverviewStepNoPaywall
+                v-if="isDefaultState && !isPaywallEnabled"
+                @setCreateProjectState="setCreateProjectState"
+            />
+            <AddPaymentStep
+                v-if="isAddPaymentState"
+                @setProjectState="setCreateProjectState"
+            />
+            <CreateProjectStep
+                v-if="isCreateProjectState"
+                @setApiKeyState="setCreateApiKeyState"
+            />
+            <CreateApiKeyStep
+                v-if="isCreatApiKeyState"
+                @setUploadDataState="setUploadDataState"
+            />
+            <UploadDataStep v-if="isUploadDataState"/>
+            <img
+                v-if="isAddPaymentState"
+                class="tour-area__content__tardigrade"
+                src="@/../static/images/onboardingTour/tardigrade.png"
+                alt="tardigrade image"
+            >
+        </div>
     </div>
 </template>
 
@@ -36,15 +57,18 @@ import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue
 import CreateApiKeyStep from '@/components/onboardingTour/steps/CreateApiKeyStep.vue';
 import CreateProjectStep from '@/components/onboardingTour/steps/CreateProjectStep.vue';
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
+import OverviewStepNoPaywall from '@/components/onboardingTour/steps/OverviewStepNoPaywall.vue';
 import UploadDataStep from '@/components/onboardingTour/steps/UploadDataStep.vue';
 
 import CheckedImage from '@/../static/images/common/checked.svg';
+import CloseImage from '@/../static/images/onboardingTour/close.svg';
 
 import { RouteConfig } from '@/router';
 import { TourState } from '@/utils/constants/onboardingTourEnums';
 
 @Component({
     components: {
+        OverviewStepNoPaywall,
         UploadDataStep,
         CreateApiKeyStep,
         CreateProjectStep,
@@ -52,11 +76,13 @@ import { TourState } from '@/utils/constants/onboardingTourEnums';
         ProgressBar,
         OverviewStep,
         CheckedImage,
+        CloseImage,
     },
 })
 
 export default class OnboardingTourArea extends Vue {
     public areaState: number = TourState.DEFAULT;
+    public isInfoBarVisible: boolean = true;
 
     /**
      * Lifecycle hook after initial render.
@@ -74,20 +100,29 @@ export default class OnboardingTourArea extends Vue {
         }
 
         if (this.userHasProject && !this.userHasApiKeys) {
+            this.disableInfoBar();
             this.setCreateApiKeyState();
 
             return;
         }
 
         if (this.$store.state.paymentsModule.creditCards.length > 0) {
+            this.disableInfoBar();
             this.setCreateProjectState();
 
             return;
         }
 
-        if (this.$store.getters.isTransactionProcessing || this.$store.getters.isTransactionCompleted) {
+        if (this.$store.getters.isTransactionProcessing || this.$store.getters.isBalancePositive) {
             this.setAddPaymentState();
         }
+    }
+
+    /**
+     * Indicates if paywall is enabled.
+     */
+    public get isPaywallEnabled(): boolean {
+        return this.$store.state.paymentsModule.isPaywallEnabled;
     }
 
     /**
@@ -136,6 +171,7 @@ export default class OnboardingTourArea extends Vue {
      * Sets area's state to creating project state.
      */
     public setCreateProjectState(): void {
+        this.disableInfoBar();
         this.areaState = TourState.PROJECT;
     }
 
@@ -151,6 +187,13 @@ export default class OnboardingTourArea extends Vue {
      */
     public setUploadDataState(): void {
         this.areaState = TourState.UPLOAD;
+    }
+
+    /**
+     * Disables info bar visibility.
+     */
+    public disableInfoBar(): void {
+        this.isInfoBarVisible = false;
     }
 
     /**
@@ -171,20 +214,67 @@ export default class OnboardingTourArea extends Vue {
 
 <style scoped lang="scss">
     .tour-area {
-        padding: 0 100px 80px 100px;
+        width: 100%;
+
+        &__info-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: calc(100% - 60px);
+            padding: 10px 30px;
+            background-color: #7c8794;
+
+            &__message {
+                display: flex;
+                align-items: center;
+
+                &__bold,
+                &__regular {
+                    margin: 0 10px 0 0;
+                    font-family: 'font_regular', sans-serif;
+                    font-size: 14px;
+                    line-height: 21px;
+                    color: #fff;
+                    word-break: break-word;
+                }
+            }
+
+            &__close-img {
+                cursor: pointer;
+                min-width: 18px;
+            }
+        }
+
+        &__content {
+            padding: 0 100px 80px 100px;
+            position: relative;
+
+            &__tardigrade {
+                position: absolute;
+                left: 50%;
+                bottom: 0;
+                transform: translate(-50%);
+            }
+        }
     }
 
-    @media screen and (max-width: 1380px) {
+    @media screen and (max-width: 1550px) {
 
         .tour-area {
-            padding: 0 50px 80px 50px;
+
+            &__content {
+                padding: 0 50px 80px 50px;
+            }
         }
     }
 
     @media screen and (max-width: 1000px) {
 
         .tour-area {
-            padding: 0 25px 80px 25px;
+
+            &__content {
+                padding: 0 25px 80px 25px;
+            }
         }
     }
 </style>

@@ -3,21 +3,21 @@
 
 package dbutil
 
-// Implementation type of valid DBs
+// Implementation type of valid DBs.
 type Implementation int
 
 const (
-	// Unknown is an unknown db type
+	// Unknown is an unknown db type.
 	Unknown Implementation = iota
-	// Postgres is a Postgresdb type
+	// Postgres is a Postgresdb type.
 	Postgres
-	// Cockroach is a Cockroachdb type
+	// Cockroach is a Cockroachdb type.
 	Cockroach
-	// Bolt is a Bolt kv store
+	// Bolt is a Bolt kv store.
 	Bolt
-	// Redis is a Redis kv store
+	// Redis is a Redis kv store.
 	Redis
-	// SQLite3 is a sqlite3 database
+	// SQLite3 is a sqlite3 database.
 	SQLite3
 )
 
@@ -25,7 +25,7 @@ const (
 // the url with the provided scheme.
 func ImplementationForScheme(scheme string) Implementation {
 	switch scheme {
-	case "postgres", "postgresql":
+	case "pgx", "postgres", "postgresql":
 		return Postgres
 	case "cockroach":
 		return Cockroach

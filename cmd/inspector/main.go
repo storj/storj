@@ -28,30 +28,30 @@ import (
 )
 
 var (
-	// Addr is the address of peer from command flags
+	// Addr is the address of peer from command flags.
 	Addr = flag.String("address", "127.0.0.1:7778", "address of peer to inspect")
 
-	// IdentityPath is the path to the identity the inspector should use for network communication
+	// IdentityPath is the path to the identity the inspector should use for network communication.
 	IdentityPath = flag.String("identity-path", "", "path to the identity certificate for use on the network")
 
-	// CSVPath is the csv path where command output is written
+	// CSVPath is the csv path where command output is written.
 	CSVPath string
 
-	// ErrInspectorDial throws when there are errors dialing the inspector server
+	// ErrInspectorDial throws when there are errors dialing the inspector server.
 	ErrInspectorDial = errs.Class("error dialing inspector server:")
 
-	// ErrRequest is for request errors after dialing
+	// ErrRequest is for request errors after dialing.
 	ErrRequest = errs.Class("error processing request:")
 
-	// ErrIdentity is for errors during identity creation for this CLI
+	// ErrIdentity is for errors during identity creation for this CLI.
 	ErrIdentity = errs.Class("error creating identity:")
 
-	// ErrArgs throws when there are errors with CLI args
+	// ErrArgs throws when there are errors with CLI args.
 	ErrArgs = errs.Class("error with CLI args:")
 
 	irreparableLimit int32
 
-	// Commander CLI
+	// Commander CLI.
 	rootCmd = &cobra.Command{
 		Use:   "inspector",
 		Short: "CLI for interacting with Storj network",
@@ -119,7 +119,7 @@ func NewInspector(ctx context.Context, address, path string) (*Inspector, error)
 // Close closes the inspector.
 func (i *Inspector) Close() error { return i.conn.Close() }
 
-// ObjectHealth gets information about the health of an object on the network
+// ObjectHealth gets information about the health of an object on the network.
 func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	i, err := NewInspector(ctx, *Addr, *IdentityPath)
@@ -201,7 +201,7 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// SegmentHealth gets information about the health of a segment on the network
+// SegmentHealth gets information about the health of a segment on the network.
 func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	i, err := NewInspector(ctx, *Addr, *IdentityPath)
@@ -415,7 +415,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// sortSegments by the object they belong to
+// sortSegments by the object they belong to.
 func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.IrreparableSegment {
 	objects := make(map[string][]*pb.IrreparableSegment)
 	for _, seg := range segments {

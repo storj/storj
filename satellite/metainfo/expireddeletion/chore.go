@@ -16,12 +16,12 @@ import (
 )
 
 var (
-	// Error defines the expireddeletion chore errors class
+	// Error defines the expireddeletion chore errors class.
 	Error = errs.Class("expireddeletion chore error")
 	mon   = monkit.Package()
 )
 
-// Config contains configurable values for expired segment cleanup
+// Config contains configurable values for expired segment cleanup.
 type Config struct {
 	Interval time.Duration `help:"the time between each attempt to go through the db and clean up expired segments" releaseDefault:"120h" devDefault:"10m"`
 	Enabled  bool          `help:"set if expired segment cleanup is enabled or not" releaseDefault:"true" devDefault:"true"`
@@ -39,7 +39,7 @@ type Chore struct {
 	metainfoLoop *metainfo.Loop
 }
 
-// NewChore creates a new instance of the expireddeletion chore
+// NewChore creates a new instance of the expireddeletion chore.
 func NewChore(log *zap.Logger, config Config, meta *metainfo.Service, loop *metainfo.Loop) *Chore {
 	return &Chore{
 		log:          log,
@@ -50,7 +50,7 @@ func NewChore(log *zap.Logger, config Config, meta *metainfo.Service, loop *meta
 	}
 }
 
-// Run starts the expireddeletion loop service
+// Run starts the expireddeletion loop service.
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

@@ -15,7 +15,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/heldamount"
+	"storj.io/storj/storagenode/payout"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
@@ -23,7 +23,7 @@ import (
 	"storj.io/storj/storagenode/trust"
 )
 
-// Config defines nodestats cache configuration
+// Config defines nodestats cache configuration.
 type Config struct {
 	MaxSleep       time.Duration `help:"maximum duration to wait before requesting data" releaseDefault:"300s" devDefault:"1s"`
 	ReputationSync time.Duration `help:"how often to sync reputation" releaseDefault:"4h" devDefault:"1m"`
@@ -34,7 +34,7 @@ type Config struct {
 type CacheStorage struct {
 	Reputation   reputation.DB
 	StorageUsage storageusage.DB
-	HeldAmount   heldamount.DB
+	Payout       payout.DB
 	Pricing      pricing.DB
 	Satellites   satellites.DB
 }
@@ -46,42 +46,56 @@ type CacheStorage struct {
 type Cache struct {
 	log *zap.Logger
 
-	db                CacheStorage
-	service           *Service
-	heldamountService *heldamount.Service
-	trust             *trust.Pool
+	db             CacheStorage
+	service        *Service
+	payoutEndpoint *payout.Endpoint
+	payoutService  *payout.Service
+	trust          *trust.Pool
 
 	maxSleep   time.Duration
 	Reputation *sync2.Cycle
 	Storage    *sync2.Cycle
 }
 
-// NewCache creates new caching service instance
-func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, heldamountService *heldamount.Service, trust *trust.Pool) *Cache {
+// NewCache creates new caching service instance.
+func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, heldamountEndpoint *payout.Endpoint, heldamountService *payout.Service, trust *trust.Pool) *Cache {
 	return &Cache{
-		log:               log,
-		db:                db,
-		service:           service,
-		heldamountService: heldamountService,
-		trust:             trust,
-		maxSleep:          config.MaxSleep,
-		Reputation:        sync2.NewCycle(config.ReputationSync),
-		Storage:           sync2.NewCycle(config.StorageSync),
+		log:            log,
+		db:             db,
+		service:        service,
+		payoutEndpoint: heldamountEndpoint,
+		payoutService:  heldamountService,
+		trust:          trust,
+		maxSleep:       config.MaxSleep,
+		Reputation:     sync2.NewCycle(config.ReputationSync),
+		Storage:        sync2.NewCycle(config.StorageSync),
 	}
 }
 
-// Run runs loop
+// Run runs loop.
 func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
 	err := cache.satelliteLoop(ctx, func(satelliteID storj.NodeID) error {
-		stubHistory, err := cache.heldamountService.GetAllPaystubs(ctx, satelliteID)
+		stubHistory, err := cache.payoutEndpoint.GetAllPaystubs(ctx, satelliteID)
 		if err != nil {
 			return err
 		}
 
 		for i := 0; i < len(stubHistory); i++ {
-			err := cache.db.HeldAmount.StorePayStub(ctx, stubHistory[i])
+			err := cache.db.Payout.StorePayStub(ctx, stubHistory[i])
+			if err != nil {
+				return err
+			}
+		}
+
+		paymentHistory, err := cache.payoutEndpoint.GetAllPayments(ctx, satelliteID)
+		if err != nil {
+			return err
+		}
+
+		for j := 0; j < len(paymentHistory); j++ {
+			err := cache.db.Payout.StorePayment(ctx, paymentHistory[j])
 			if err != nil {
 				return err
 			}
@@ -131,7 +145,7 @@ func (cache *Cache) Run(ctx context.Context) error {
 }
 
 // CacheReputationStats queries node stats from all the satellites
-// known to the storagenode and stores information into db
+// known to the storagenode and stores information into db.
 func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -151,7 +165,7 @@ func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 }
 
 // CacheSpaceUsage queries disk space usage from all the satellites
-// known to the storagenode and stores information into db
+// known to the storagenode and stores information into db.
 func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -185,17 +199,29 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 		}
 
 		previousMonth := yearAndMonth.AddDate(0, -1, 0).String()
-		payStub, err := cache.heldamountService.GetPaystubStats(ctx, satellite, previousMonth)
+		payStub, err := cache.payoutEndpoint.GetPaystub(ctx, satellite, previousMonth)
 		if err != nil {
-			if heldamount.ErrNoPayStubForPeriod.Has(err) {
+			if payout.ErrNoPayStubForPeriod.Has(err) {
 				return nil
 			}
 
+			cache.log.Error("payout err", zap.String("satellite", satellite.String()))
 			return err
 		}
 
 		if payStub != nil {
-			if err = cache.db.HeldAmount.StorePayStub(ctx, *payStub); err != nil {
+			if err = cache.db.Payout.StorePayStub(ctx, *payStub); err != nil {
+				return err
+			}
+		}
+
+		payment, err := cache.payoutEndpoint.GetPayment(ctx, satellite, previousMonth)
+		if err != nil {
+			return err
+		}
+
+		if payment != nil {
+			if err = cache.db.Payout.StorePayment(ctx, *payment); err != nil {
 				return err
 			}
 		}
@@ -205,7 +231,7 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 }
 
 // sleep for random interval in [0;maxSleep)
-// returns error if context was cancelled
+// returns error if context was cancelled.
 func (cache *Cache) sleep(ctx context.Context) error {
 	if cache.maxSleep <= 0 {
 		return nil
@@ -220,7 +246,7 @@ func (cache *Cache) sleep(ctx context.Context) error {
 }
 
 // satelliteLoop loops over all satellites from trust pool executing provided fn, caching errors if occurred,
-// on each step checks if context has been cancelled
+// on each step checks if context has been cancelled.
 func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storj.NodeID) error) error {
 	var groupErr errs.Group
 	for _, satellite := range cache.trust.GetSatellites(ctx) {
@@ -236,7 +262,7 @@ func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storj.NodeID) 
 	return groupErr.Err()
 }
 
-// Close closes underlying cycles
+// Close closes underlying cycles.
 func (cache *Cache) Close() error {
 	defer mon.Task()(nil)(nil)
 	cache.Reputation.Close()

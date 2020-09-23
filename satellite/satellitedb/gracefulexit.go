@@ -7,15 +7,17 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"sort"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -48,7 +50,7 @@ func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.No
 func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) (_ *gracefulexit.Progress, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxProgress, err := db.db.Get_GracefulExitProgress_By_NodeId(ctx, dbx.GracefulExitProgress_NodeId(nodeID.Bytes()))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, gracefulexit.ErrNodeNotFound.Wrap(err)
 
 	} else if err != nil {
@@ -77,19 +79,19 @@ func (db *gracefulexitDB) Enqueue(ctx context.Context, items []gracefulexit.Tran
 	sort.Slice(items, func(i, k int) bool {
 		compare := bytes.Compare(items[i].NodeID.Bytes(), items[k].NodeID.Bytes())
 		if compare == 0 {
-			return bytes.Compare(items[i].Path, items[k].Path) < 0
+			return bytes.Compare(items[i].Key, items[k].Key) < 0
 		}
 		return compare < 0
 	})
 
 	var nodeIDs []storj.NodeID
-	var paths [][]byte
+	var keys [][]byte
 	var pieceNums []int32
 	var rootPieceIDs [][]byte
 	var durabilities []float64
 	for _, item := range items {
 		nodeIDs = append(nodeIDs, item.NodeID)
-		paths = append(paths, item.Path)
+		keys = append(keys, item.Key)
 		pieceNums = append(pieceNums, item.PieceNum)
 		rootPieceIDs = append(rootPieceIDs, item.RootPieceID.Bytes())
 		durabilities = append(durabilities, item.DurabilityRatio)
@@ -98,7 +100,7 @@ func (db *gracefulexitDB) Enqueue(ctx context.Context, items []gracefulexit.Tran
 	_, err = db.db.ExecContext(ctx, db.db.Rebind(`
 			INSERT INTO graceful_exit_transfer_queue(node_id, path, piece_num, root_piece_id, durability_ratio, queued_at)
 			SELECT unnest($1::bytea[]), unnest($2::bytea[]), unnest($3::integer[]), unnest($4::bytea[]), unnest($5::float8[]), $6
-			ON CONFLICT DO NOTHING;`), postgresNodeIDList(nodeIDs), pq.ByteaArray(paths), pq.Array(pieceNums), pq.ByteaArray(rootPieceIDs), pq.Array(durabilities), time.Now().UTC())
+			ON CONFLICT DO NOTHING;`), pgutil.NodeIDArray(nodeIDs), pgutil.ByteaArray(keys), pgutil.Int4Array(pieceNums), pgutil.ByteaArray(rootPieceIDs), pgutil.Float8Array(durabilities), time.Now().UTC())
 
 	return Error.Wrap(err)
 }
@@ -124,16 +126,16 @@ func (db *gracefulexitDB) UpdateTransferQueueItem(ctx context.Context, item grac
 
 	return db.db.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx,
 		dbx.GracefulExitTransferQueue_NodeId(item.NodeID.Bytes()),
-		dbx.GracefulExitTransferQueue_Path(item.Path),
+		dbx.GracefulExitTransferQueue_Path(item.Key),
 		dbx.GracefulExitTransferQueue_PieceNum(int(item.PieceNum)),
 		update,
 	)
 }
 
 // DeleteTransferQueueItem deletes a graceful exit transfer queue entry.
-func (db *gracefulexitDB) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
+func (db *gracefulexitDB) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), dbx.GracefulExitTransferQueue_Path(path),
+	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), dbx.GracefulExitTransferQueue_Path(key),
 		dbx.GracefulExitTransferQueue_PieceNum(int(pieceNum)))
 	return Error.Wrap(err)
 }
@@ -153,11 +155,11 @@ func (db *gracefulexitDB) DeleteFinishedTransferQueueItems(ctx context.Context, 
 }
 
 // GetTransferQueueItem gets a graceful exit transfer queue entry.
-func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte, pieceNum int32) (_ *gracefulexit.TransferQueueItem, err error) {
+func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (_ *gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxTransferQueue, err := db.db.Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx,
 		dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()),
-		dbx.GracefulExitTransferQueue_Path(path),
+		dbx.GracefulExitTransferQueue_Path(key),
 		dbx.GracefulExitTransferQueue_PieceNum(int(pieceNum)))
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -241,7 +243,7 @@ func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.
 }
 
 // IncrementOrderLimitSendCount increments the number of times a node has been sent an order limit for transferring.
-func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID, path []byte, pieceNum int32) (err error) {
+func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	sql := db.db.Rebind(
@@ -250,7 +252,7 @@ func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, node
 		AND path = ?
 		AND piece_num = ?`,
 	)
-	_, err = db.db.ExecContext(ctx, sql, nodeID, path, pieceNum)
+	_, err = db.db.ExecContext(ctx, sql, nodeID, key, pieceNum)
 	return Error.Wrap(err)
 }
 
@@ -258,7 +260,7 @@ func scanRows(rows tagsql.Rows) (transferQueueItemRows []*gracefulexit.TransferQ
 	for rows.Next() {
 		transferQueueItem := &gracefulexit.TransferQueueItem{}
 		var pieceIDBytes []byte
-		err = rows.Scan(&transferQueueItem.NodeID, &transferQueueItem.Path, &transferQueueItem.PieceNum, &pieceIDBytes,
+		err = rows.Scan(&transferQueueItem.NodeID, &transferQueueItem.Key, &transferQueueItem.PieceNum, &pieceIDBytes,
 			&transferQueueItem.DurabilityRatio, &transferQueueItem.QueuedAt, &transferQueueItem.RequestedAt, &transferQueueItem.LastFailedAt,
 			&transferQueueItem.LastFailedCode, &transferQueueItem.FailedCount, &transferQueueItem.FinishedAt, &transferQueueItem.OrderLimitSendCount)
 		if err != nil {
@@ -284,7 +286,7 @@ func dbxToTransferQueueItem(dbxTransferQueue *dbx.GracefulExitTransferQueue) (it
 
 	item = &gracefulexit.TransferQueueItem{
 		NodeID:              nID,
-		Path:                dbxTransferQueue.Path,
+		Key:                 dbxTransferQueue.Path,
 		PieceNum:            int32(dbxTransferQueue.PieceNum),
 		DurabilityRatio:     dbxTransferQueue.DurabilityRatio,
 		QueuedAt:            dbxTransferQueue.QueuedAt,

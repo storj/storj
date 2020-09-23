@@ -18,7 +18,7 @@ import (
 // ensures that apikeys implements console.APIKeys.
 var _ console.APIKeys = (*apikeys)(nil)
 
-// apikeys is an implementation of satellite.APIKeys
+// apikeys is an implementation of satellite.APIKeys.
 type apikeys struct {
 	methods dbx.Methods
 	lru     *cache.ExpiringLRU
@@ -122,7 +122,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	return page, err
 }
 
-// Get implements satellite.APIKeys
+// Get implements satellite.APIKeys.
 func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbKey, err := keys.methods.Get_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
@@ -133,7 +133,7 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyIn
 	return fromDBXAPIKey(ctx, dbKey)
 }
 
-// GetByHead implements satellite.APIKeys
+// GetByHead implements satellite.APIKeys.
 func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -150,7 +150,7 @@ func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.API
 	return fromDBXAPIKey(ctx, dbKey)
 }
 
-// GetByNameAndProjectID implements satellite.APIKeys
+// GetByNameAndProjectID implements satellite.APIKeys.
 func (keys *apikeys) GetByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbKey, err := keys.methods.Get_ApiKey_By_Name_And_ProjectId(ctx,
@@ -163,7 +163,7 @@ func (keys *apikeys) GetByNameAndProjectID(ctx context.Context, name string, pro
 	return fromDBXAPIKey(ctx, dbKey)
 }
 
-// Create implements satellite.APIKeys
+// Create implements satellite.APIKeys.
 func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKeyInfo) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	id, err := uuid.New()
@@ -193,7 +193,7 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 	return fromDBXAPIKey(ctx, dbKey)
 }
 
-// Update implements satellite.APIKeys
+// Update implements satellite.APIKeys.
 func (keys *apikeys) Update(ctx context.Context, key console.APIKeyInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return keys.methods.UpdateNoReturn_ApiKey_By_Id(
@@ -205,14 +205,14 @@ func (keys *apikeys) Update(ctx context.Context, key console.APIKeyInfo) (err er
 	)
 }
 
-// Delete implements satellite.APIKeys
+// Delete implements satellite.APIKeys.
 func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = keys.methods.Delete_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
 	return err
 }
 
-// fromDBXAPIKey converts dbx.ApiKey to satellite.APIKeyInfo
+// fromDBXAPIKey converts dbx.ApiKey to satellite.APIKeyInfo.
 func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	id, err := uuid.FromBytes(key.Id)
@@ -243,7 +243,7 @@ func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo,
 	return result, nil
 }
 
-// sanitizedAPIKeyOrderColumnName return valid order by column
+// sanitizedAPIKeyOrderColumnName return valid order by column.
 func sanitizedAPIKeyOrderColumnName(pmo console.APIKeyOrder) string {
 	if pmo == 2 {
 		return "ak.created_at"

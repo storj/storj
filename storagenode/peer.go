@@ -38,12 +38,13 @@ import (
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/gracefulexit"
-	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/payout"
+	"storj.io/storj/storagenode/payout/estimatedpayout"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/piecestore/usedserials"
@@ -82,7 +83,7 @@ type DB interface {
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
 	Notifications() notifications.DB
-	HeldAmount() heldamount.DB
+	Payout() payout.DB
 	Pricing() pricing.DB
 
 	Preflight(ctx context.Context) error
@@ -185,6 +186,7 @@ type Peer struct {
 	Identity    *identity.FullIdentity
 	DB          DB
 	UsedSerials *usedserials.Table
+	OrdersStore *orders.FileStore
 
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
@@ -217,6 +219,10 @@ type Peer struct {
 		PingStats *contact.PingStats
 	}
 
+	Estimation struct {
+		Service *estimatedpayout.Service
+	}
+
 	Storage2 struct {
 		// TODO: lift things outside of it to organize better
 		Trust         *trust.Pool
@@ -247,16 +253,18 @@ type Peer struct {
 	}
 
 	GracefulExit struct {
-		Endpoint *gracefulexit.Endpoint
-		Chore    *gracefulexit.Chore
+		Endpoint     *gracefulexit.Endpoint
+		Chore        *gracefulexit.Chore
+		BlobsCleaner *gracefulexit.BlobsCleaner
 	}
 
 	Notifications struct {
 		Service *notifications.Service
 	}
 
-	Heldamount struct {
-		Service *heldamount.Service
+	Payout struct {
+		Service  *payout.Service
+		Endpoint *payout.Endpoint
 	}
 
 	Bandwidth *bandwidth.Service
@@ -299,7 +307,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	var err error
 
-	{
+	{ // version setup
 		if !versionInfo.IsZero() {
 			peer.Log.Debug("Version info",
 				zap.Stringer("Version", versionInfo.Version.Version),
@@ -310,8 +318,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		peer.Version.Service = checker.NewService(log.Named("version"), config.Version, versionInfo, "Storagenode")
-		versionCheckInterval := 24 * time.Hour
-		peer.Version.Chore = version2.NewChore(peer.Version.Service, peer.Notifications.Service, peer.Identity.ID, versionCheckInterval)
+		versionCheckInterval := 12 * time.Hour
+		peer.Version.Chore = version2.NewChore(peer.Log.Named("version:chore"), peer.Version.Service, peer.Notifications.Service, peer.Identity.ID, versionCheckInterval)
 		peer.Services.Add(lifecycle.Item{
 			Name: "version",
 			Run:  peer.Version.Chore.Run,
@@ -474,6 +482,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.UsedSerials = usedserials.NewTable(config.Storage2.MaxUsedSerialsSize)
 
+		peer.OrdersStore, err = orders.NewFileStore(
+			peer.Log.Named("ordersfilestore"),
+			config.Storage2.Orders.Path,
+			config.Storage2.OrderLimitGracePeriod,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
 			signing.SignerFromFullIdentity(peer.Identity),
@@ -483,7 +500,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.PingStats,
 			peer.Storage2.Store,
 			peer.Storage2.PieceDeleter,
-			peer.DB.Orders(),
+			peer.OrdersStore,
 			peer.DB.Bandwidth(),
 			peer.UsedSerials,
 			config.Storage2,
@@ -510,6 +527,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Storage2.Orders = orders.NewService(
 			log.Named("orders"),
 			dialer,
+			peer.OrdersStore,
 			peer.DB.Orders(),
 			peer.Storage2.Trust,
 			config.Storage2.Orders,
@@ -525,11 +543,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Orders Cleanup", peer.Storage2.Orders.Cleanup))
 	}
 
-	{ // setup heldamount service.
-		peer.Heldamount.Service = heldamount.NewService(
-			peer.Log.Named("heldamount:service"),
-			peer.DB.HeldAmount(),
+	{ // setup payout service.
+		peer.Payout.Service = payout.NewService(
+			peer.Log.Named("payout:service"),
+			peer.DB.Payout(),
 			peer.DB.Reputation(),
+			peer.DB.Satellites(),
+			peer.Storage2.Trust,
+		)
+		peer.Payout.Endpoint = payout.NewEndpoint(
+			peer.Log.Named("payout:endpoint"),
 			peer.Dialer,
 			peer.Storage2.Trust,
 		)
@@ -548,12 +571,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			nodestats.CacheStorage{
 				Reputation:   peer.DB.Reputation(),
 				StorageUsage: peer.DB.StorageUsage(),
-				HeldAmount:   peer.DB.HeldAmount(),
+				Payout:       peer.DB.Payout(),
 				Pricing:      peer.DB.Pricing(),
 				Satellites:   peer.DB.Satellites(),
 			},
 			peer.NodeStats.Service,
-			peer.Heldamount.Service,
+			peer.Payout.Endpoint,
+			peer.Payout.Service,
 			peer.Storage2.Trust,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -565,6 +589,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Node Stats Cache Reputation", peer.NodeStats.Cache.Reputation))
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Node Stats Cache Storage", peer.NodeStats.Cache.Storage))
+	}
+
+	{ // setup estimation service
+		peer.Estimation.Service = estimatedpayout.NewService(
+			peer.DB.Bandwidth(),
+			peer.DB.Reputation(),
+			peer.DB.StorageUsage(),
+			peer.DB.Pricing(),
+			peer.DB.Satellites(),
+			peer.Storage2.Trust,
+		)
 	}
 
 	{ // setup storage node operator dashboard
@@ -583,6 +618,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Satellites(),
 			peer.Contact.PingStats,
 			peer.Contact.Service,
+			peer.Estimation.Service,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -604,7 +640,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			assets,
 			peer.Notifications.Service,
 			peer.Console.Service,
-			peer.Heldamount.Service,
+			peer.Payout.Service,
 			peer.Console.Listener,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -650,6 +686,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Dialer,
 			peer.DB.Satellites(),
 		)
+		peer.GracefulExit.BlobsCleaner = gracefulexit.NewBlobsCleaner(
+			peer.Log.Named("gracefuexit:blobscleaner"),
+			peer.Storage2.Store,
+			peer.Storage2.Trust,
+			peer.DB.Satellites(),
+		)
+		// Runs once on node start to clean blobs from trash that left after successful GE.
+		peer.Services.Add(lifecycle.Item{
+			Name: "gracefulexit:blobscleaner",
+			Run:  peer.GracefulExit.BlobsCleaner.RemoveBlobs,
+		})
 		peer.Services.Add(lifecycle.Item{
 			Name:  "gracefulexit:chore",
 			Run:   peer.GracefulExit.Chore.Run,

@@ -6,8 +6,10 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"storj.io/common/pb"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -15,7 +17,7 @@ type irreparableDB struct {
 	db *satelliteDB
 }
 
-// IncrementRepairAttempts a db entry for to increment the repair attempts field
+// IncrementRepairAttempts a db entry for to increment the repair attempts field.
 func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *pb.IrreparableSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
@@ -26,7 +28,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 
 		dbxInfo, err := tx.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentInfo.Path))
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				// no rows err, so create/insert an entry
 				return tx.CreateNoReturn_Irreparabledb(
 					ctx,
@@ -55,10 +57,10 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 	return Error.Wrap(err)
 }
 
-// Get a irreparable's segment info from the db
-func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *pb.IrreparableSegment, err error) {
+// Get a irreparable's segment info from the db.
+func (db *irreparableDB) Get(ctx context.Context, segmentKey metabase.SegmentKey) (resp *pb.IrreparableSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
+	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentKey))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -79,15 +81,15 @@ func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *pb.
 	}, nil
 }
 
-// GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved
-func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegmentPath []byte) (resp []*pb.IrreparableSegment, err error) {
+// GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved.
+func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegmentKey metabase.SegmentKey) (resp []*pb.IrreparableSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// the offset is hardcoded to 0 since we are using the lastSeenSegmentPath to
 	// indicate the item we last listed instead. In a perfect world this db query would
 	// not take an offset as an argument, but currently dbx only supports `limitoffset`
 	const offset = 0
 	rows, err := db.db.Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx,
-		dbx.Irreparabledb_Segmentpath(lastSeenSegmentPath),
+		dbx.Irreparabledb_Segmentpath(lastSeenSegmentKey),
 		limit, offset,
 	)
 	if err != nil {
@@ -112,10 +114,10 @@ func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegm
 	return resp, err
 }
 
-// Delete a irreparable's segment info from the db
-func (db *irreparableDB) Delete(ctx context.Context, segmentPath []byte) (err error) {
+// Delete a irreparable's segment info from the db.
+func (db *irreparableDB) Delete(ctx context.Context, segmentKey metabase.SegmentKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.db.Delete_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentPath))
+	_, err = db.db.Delete_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentKey))
 
 	return Error.Wrap(err)
 }

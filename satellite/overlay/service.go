@@ -17,19 +17,22 @@ import (
 	"storj.io/storj/storage"
 )
 
-// ErrEmptyNode is returned when the nodeID is empty
+// ErrEmptyNode is returned when the nodeID is empty.
 var ErrEmptyNode = errs.New("empty node ID")
 
-// ErrNodeNotFound is returned if a node does not exist in database
+// ErrNodeNotFound is returned if a node does not exist in database.
 var ErrNodeNotFound = errs.Class("node not found")
 
-// ErrNodeOffline is returned if a nodes is offline
+// ErrNodeOffline is returned if a nodes is offline.
 var ErrNodeOffline = errs.Class("node is offline")
 
-// ErrNodeDisqualified is returned if a nodes is disqualified
+// ErrNodeDisqualified is returned if a nodes is disqualified.
 var ErrNodeDisqualified = errs.Class("node is disqualified")
 
-// ErrNotEnoughNodes is when selecting nodes failed with the given parameters
+// ErrNodeFinishedGE is returned if a node has finished graceful exit.
+var ErrNodeFinishedGE = errs.Class("node finished graceful exit")
+
+// ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
 // DB implements the database for overlay.Service
@@ -53,16 +56,19 @@ type DB interface {
 	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
-	// BatchUpdateStats updates multiple storagenode's stats in one transaction
-	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int) (failed storj.NodeIDList, err error)
+	// BatchUpdateStats updates multiple storagenode's stats in one transaction.
+	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int, now time.Time) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
-	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
+	UpdateStats(ctx context.Context, request *UpdateRequest, now time.Time) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
 	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
+
+	// UpdateAuditHistory updates a node's audit history with an online or offline audit and returns the online score for the tracking period.
+	UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config AuditHistoryConfig) (onlineScore float64, err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
@@ -95,9 +101,14 @@ type DB interface {
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
+
+	// TestVetNode directly sets a node's vetted_at timestamp to make testing easier
+	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
+	// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier
+	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
 }
 
-// NodeCheckInInfo contains all the info that will be updated when a node checkins
+// NodeCheckInInfo contains all the info that will be updated when a node checkins.
 type NodeCheckInInfo struct {
 	NodeID     storj.NodeID
 	Address    *pb.NodeAddress
@@ -124,11 +135,9 @@ type FindStorageNodesRequest struct {
 	MinimumVersion string // semver or empty
 }
 
-// NodeCriteria are the requirements for selecting nodes
+// NodeCriteria are the requirements for selecting nodes.
 type NodeCriteria struct {
 	FreeDisk         int64
-	AuditCount       int64
-	UptimeCount      int64
 	ExcludedIDs      []storj.NodeID
 	ExcludedNetworks []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
 	MinimumVersion   string   // semver or empty
@@ -163,6 +172,7 @@ type UpdateRequest struct {
 	SuspensionDQEnabled       bool
 	AuditsRequiredForVetting  int64
 	UptimesRequiredForVetting int64
+	AuditHistory              AuditHistoryConfig
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -183,7 +193,7 @@ type ExitStatusRequest struct {
 	ExitSuccess         bool
 }
 
-// NodeDossier is the complete info that the satellite tracks for a storage node
+// NodeDossier is the complete info that the satellite tracks for a storage node.
 type NodeDossier struct {
 	pb.Node
 	Type                  pb.NodeType
@@ -194,6 +204,8 @@ type NodeDossier struct {
 	Contained             bool
 	Disqualified          *time.Time
 	UnknownAuditSuspended *time.Time
+	OfflineSuspended      *time.Time
+	OfflineUnderReview    *time.Time
 	PieceCount            int64
 	ExitStatus            ExitStatus
 	CreatedAt             time.Time
@@ -217,9 +229,12 @@ type NodeStats struct {
 	UnknownAuditReputationAlpha float64
 	UnknownAuditReputationBeta  float64
 	UnknownAuditSuspended       *time.Time
+	OfflineUnderReview          *time.Time
+	OfflineSuspended            *time.Time
+	OnlineScore                 float64
 }
 
-// NodeLastContact contains the ID, address, and timestamp
+// NodeLastContact contains the ID, address, and timestamp.
 type NodeLastContact struct {
 	URL                storj.NodeURL
 	LastIPPort         string
@@ -258,7 +273,7 @@ type Service struct {
 	SelectionCache *NodeSelectionCache
 }
 
-// NewService returns a new Service
+// NewService returns a new Service.
 func NewService(log *zap.Logger, db DB, config Config) *Service {
 	return &Service{
 		log:    log,
@@ -270,10 +285,10 @@ func NewService(log *zap.Logger, db DB, config Config) *Service {
 	}
 }
 
-// Close closes resources
+// Close closes resources.
 func (service *Service) Close() error { return nil }
 
-// Inspect lists limited number of items in the cache
+// Inspect lists limited number of items in the cache.
 func (service *Service) Inspect(ctx context.Context) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// TODO: implement inspection tools
@@ -299,15 +314,6 @@ func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs 
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (service *Service) IsOnline(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
-}
-
-// FindStorageNodesForRepair searches the overlay network for nodes that meet the provided requirements for repair.
-//
-// The main difference from FindStorageNodesForUpload is that here we filter out all nodes that share a subnet with any node in req.ExcludedIDs.
-// This additional complexity is not needed for other uses of finding storage nodes.
-func (service *Service) FindStorageNodesForRepair(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 }
 
 // FindStorageNodesForGracefulExit searches the overlay network for nodes that meet the provided requirements for graceful-exit requests.
@@ -367,8 +373,6 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	criteria := NodeCriteria{
 		FreeDisk:         preferences.MinimumDiskSpace.Int64(),
-		AuditCount:       preferences.AuditCount,
-		UptimeCount:      preferences.UptimeCount,
 		ExcludedIDs:      excludedIDs,
 		ExcludedNetworks: excludedNetworks,
 		MinimumVersion:   preferences.MinimumVersion,
@@ -387,7 +391,7 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	return nodes, nil
 }
 
-// KnownOffline filters a set of nodes to offline nodes
+// KnownOffline filters a set of nodes to offline nodes.
 func (service *Service) KnownOffline(ctx context.Context, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
@@ -420,7 +424,7 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 	return service.db.Reliable(ctx, criteria)
 }
 
-// BatchUpdateStats updates multiple storagenode's stats in one transaction
+// BatchUpdateStats updates multiple storagenode's stats in one transaction.
 func (service *Service) BatchUpdateStats(ctx context.Context, requests []*UpdateRequest) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -432,8 +436,9 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 		request.AuditsRequiredForVetting = service.config.Node.AuditCount
 		request.UptimesRequiredForVetting = service.config.Node.UptimeCount
+		request.AuditHistory = service.config.AuditHistory
 	}
-	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize)
+	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize, time.Now())
 }
 
 // UpdateStats all parts of single storagenode's stats.
@@ -447,8 +452,9 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 	request.AuditsRequiredForVetting = service.config.Node.AuditCount
 	request.UptimesRequiredForVetting = service.config.Node.UptimeCount
+	request.AuditHistory = service.config.AuditHistory
 
-	return service.db.UpdateStats(ctx, request)
+	return service.db.UpdateStats(ctx, request, time.Now())
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -476,7 +482,7 @@ func (service *Service) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, 
 	return service.db.GetSuccesfulNodesNotCheckedInSince(ctx, duration)
 }
 
-// GetMissingPieces returns the list of offline nodes
+// GetMissingPieces returns the list of offline nodes.
 func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var nodeIDs storj.NodeIDList
@@ -510,7 +516,7 @@ func (service *Service) GetOfflineNodesLimited(ctx context.Context, limit int) (
 	return service.db.GetOfflineNodesLimited(ctx, limit)
 }
 
-// ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6
+// ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.
 func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -536,4 +542,29 @@ func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network st
 	}
 
 	return "", "", errors.New("unable to get network for address " + ipAddr.String())
+}
+
+// TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
+func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
+	vettedTime, err = service.db.TestVetNode(ctx, nodeID)
+	service.log.Warn("node vetted", zap.Stringer("node ID", nodeID), zap.Stringer("vetted time", vettedTime))
+	if err != nil {
+		service.log.Warn("error vetting node", zap.Stringer("node ID", nodeID))
+		return nil, err
+	}
+	err = service.SelectionCache.Refresh(ctx)
+	service.log.Warn("nodecache refresh err", zap.Error(err))
+	return vettedTime, err
+}
+
+// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier.
+func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	err = service.db.TestUnvetNode(ctx, nodeID)
+	if err != nil {
+		service.log.Warn("error unvetting node", zap.Stringer("node ID", nodeID), zap.Error(err))
+		return err
+	}
+	err = service.SelectionCache.Refresh(ctx)
+	service.log.Warn("nodecache refresh err", zap.Error(err))
+	return err
 }

@@ -18,7 +18,7 @@ exports[`UploadDataStep.vue renders correctly 1`] = `
         </h3>
         <p class="upload-data-area__container__docs-area__option__info">
           Make the switch with Tardigrade’s S3 Gateway.
-        </p> <a href="https://documentation.tardigrade.io/api-reference/s3-gateway" target="_blank" class="upload-data-area__container__docs-area__option__link">
+        </p> <a href="https://documentation.tardigrade.io/api-reference/s3-gateway" target="_blank" rel="noopener noreferrer" class="upload-data-area__container__docs-area__option__link">
           S3 Gateway Docs
         </a>
       </div>
@@ -31,7 +31,7 @@ exports[`UploadDataStep.vue renders correctly 1`] = `
         </h3>
         <p class="upload-data-area__container__docs-area__option__info">
           Start uploading data from the command line.
-        </p> <a href="https://documentation.tardigrade.io/api-reference/uplink-cli" target="_blank" class="upload-data-area__container__docs-area__option__link">
+        </p> <a href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli" target="_blank" rel="noopener noreferrer" class="upload-data-area__container__docs-area__option__link">
           Uplink CLI Docs
         </a>
       </div>
@@ -44,7 +44,7 @@ exports[`UploadDataStep.vue renders correctly 1`] = `
         </h3>
         <p class="upload-data-area__container__docs-area__option__info">
           Integrate Tardigrade into your existing stack.
-        </p> <a href="https://tardigrade.io/connectors/" target="_blank" class="upload-data-area__container__docs-area__option__link">
+        </p> <a href="https://tardigrade.io/connectors/" target="_blank" rel="noopener noreferrer" class="upload-data-area__container__docs-area__option__link">
           App Connectors
         </a>
       </div>
@@ -52,7 +52,7 @@ exports[`UploadDataStep.vue renders correctly 1`] = `
   </div>
   <div class="go-to-button container" style="width: 276px; height: 40px;"><span class="label">Go to Dashboard</span></div> <span class="upload-data-area__support-info">
         Need help?
-        <a href="https://support.tardigrade.io/hc/en-us" target="_blank" class="upload-data-area__support-info__link">
+        <a href="https://support.tardigrade.io/hc/en-us" target="_blank" rel="noopener noreferrer" class="upload-data-area__support-info__link">
             Contact support
         </a></span>
 </div>

@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
@@ -180,7 +181,7 @@ func TestDurabilityRatio(t *testing.T) {
 		var oldPointer *pb.Pointer
 		var path []byte
 		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
 			require.NoError(t, err)
 
 			if p.GetRemote() != nil {
@@ -233,18 +234,20 @@ func BenchmarkChore(b *testing.B) {
 		b.Run("BatchUpdateStats-100", func(b *testing.B) {
 			batch(ctx, b, gracefulexitdb, 100)
 		})
-		b.Run("BatchUpdateStats-250", func(b *testing.B) {
-			batch(ctx, b, gracefulexitdb, 250)
-		})
-		b.Run("BatchUpdateStats-500", func(b *testing.B) {
-			batch(ctx, b, gracefulexitdb, 500)
-		})
-		b.Run("BatchUpdateStats-1000", func(b *testing.B) {
-			batch(ctx, b, gracefulexitdb, 1000)
-		})
-		b.Run("BatchUpdateStats-5000", func(b *testing.B) {
-			batch(ctx, b, gracefulexitdb, 5000)
-		})
+		if !testing.Short() {
+			b.Run("BatchUpdateStats-250", func(b *testing.B) {
+				batch(ctx, b, gracefulexitdb, 250)
+			})
+			b.Run("BatchUpdateStats-500", func(b *testing.B) {
+				batch(ctx, b, gracefulexitdb, 500)
+			})
+			b.Run("BatchUpdateStats-1000", func(b *testing.B) {
+				batch(ctx, b, gracefulexitdb, 1000)
+			})
+			b.Run("BatchUpdateStats-5000", func(b *testing.B) {
+				batch(ctx, b, gracefulexitdb, 5000)
+			})
+		}
 	})
 }
 func batch(ctx context.Context, b *testing.B, db gracefulexit.DB, size int) {
@@ -253,7 +256,7 @@ func batch(ctx context.Context, b *testing.B, db gracefulexit.DB, size int) {
 		for j := 0; j < size; j++ {
 			item := gracefulexit.TransferQueueItem{
 				NodeID:          testrand.NodeID(),
-				Path:            testrand.Bytes(memory.B * 256),
+				Key:             testrand.Bytes(memory.B * 256),
 				PieceNum:        0,
 				DurabilityRatio: 1.0,
 			}

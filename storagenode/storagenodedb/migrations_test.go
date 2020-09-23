@@ -43,7 +43,7 @@ func insertNewData(ctx context.Context, mdbs *testdata.MultiDBState, rawDBs map[
 }
 
 // getSchemas queries the schema of each rawDB and returns a map of each rawDB's
-// schema keyed by dbName
+// schema keyed by dbName.
 func getSchemas(ctx context.Context, rawDBs map[string]storagenodedb.DBContainer) (map[string]*dbschema.Schema, error) {
 	schemas := make(map[string]*dbschema.Schema)
 	for dbName, rawDB := range rawDBs {
@@ -61,7 +61,7 @@ func getSchemas(ctx context.Context, rawDBs map[string]storagenodedb.DBContainer
 }
 
 // getSchemas queries the data of each rawDB and returns a map of each rawDB's
-// data keyed by dbName
+// data keyed by dbName.
 func getData(ctx context.Context, rawDBs map[string]storagenodedb.DBContainer, schemas map[string]*dbschema.Schema) (map[string]*dbschema.Data, error) {
 	data := make(map[string]*dbschema.Data)
 	for dbName, rawDB := range rawDBs {

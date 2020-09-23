@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-// RunBenchmarks runs common storage.KeyValueStore benchmarks
+// RunBenchmarks runs common storage.KeyValueStore benchmarks.
 func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 	var words = []string{
 		"alpha", "beta", "gamma", "delta", "iota", "kappa", "lambda", "mu",

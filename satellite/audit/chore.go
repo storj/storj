@@ -19,22 +19,22 @@ import (
 //
 // architecture: Chore
 type Chore struct {
-	log   *zap.Logger
-	rand  *rand.Rand
-	queue *Queue
-	Loop  *sync2.Cycle
+	log    *zap.Logger
+	rand   *rand.Rand
+	queues *Queues
+	Loop   *sync2.Cycle
 
 	metainfoLoop *metainfo.Loop
 	config       Config
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, queue *Queue, metaLoop *metainfo.Loop, config Config) *Chore {
+func NewChore(log *zap.Logger, queues *Queues, metaLoop *metainfo.Loop, config Config) *Chore {
 	return &Chore{
-		log:   log,
-		rand:  rand.New(rand.NewSource(time.Now().Unix())),
-		queue: queue,
-		Loop:  sync2.NewCycle(config.ChoreInterval),
+		log:    log,
+		rand:   rand.New(rand.NewSource(time.Now().Unix())),
+		queues: queues,
+		Loop:   sync2.NewCycle(config.ChoreInterval),
 
 		metainfoLoop: metaLoop,
 		config:       config,
@@ -46,6 +46,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
+
+		// If the previously pushed queue is still waiting to be swapped in, wait.
+		err = chore.queues.WaitForSwap(ctx)
+		if err != nil {
+			return err
+		}
 
 		pathCollector := NewPathCollector(chore.config.Slots, chore.rand)
 		err = chore.metainfoLoop.Join(ctx, pathCollector)
@@ -74,9 +80,9 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				}
 			}
 		}
-		chore.queue.Swap(newQueue)
 
-		return nil
+		// Push new queue to queues struct so it can be fetched by worker.
+		return chore.queues.Push(newQueue)
 	})
 }
 

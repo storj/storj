@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
@@ -19,6 +20,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
@@ -41,7 +43,7 @@ type DB interface {
 	Buckets() metainfo.BucketsDB
 }
 
-// Server provides endpoints for debugging.
+// Server provides endpoints for administrative tasks.
 type Server struct {
 	log *zap.Logger
 
@@ -49,18 +51,26 @@ type Server struct {
 	server   http.Server
 	mux      *mux.Router
 
-	db DB
+	db       DB
+	payments payments.Accounts
+
+	nowFn func() time.Time
 }
 
-// NewServer returns a new debug.Server.
-func NewServer(log *zap.Logger, listener net.Listener, db DB, config Config) *Server {
+// NewServer returns a new administration Server.
+func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.Accounts, config Config) *Server {
 	server := &Server{
 		log: log,
+
+		listener: listener,
+		mux:      mux.NewRouter(),
+
+		db:       db,
+		payments: accounts,
+
+		nowFn: time.Now,
 	}
 
-	server.db = db
-	server.listener = listener
-	server.mux = mux.NewRouter()
 	server.server.Handler = &protectedServer{
 		allowedAuthorization: config.AuthorizationToken,
 		next:                 server.mux,
@@ -70,11 +80,15 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, config Config) *Se
 	server.mux.HandleFunc("/api/user", server.addUser).Methods("POST")
 	server.mux.HandleFunc("/api/user/{useremail}", server.updateUser).Methods("PUT")
 	server.mux.HandleFunc("/api/user/{useremail}", server.userInfo).Methods("GET")
+	server.mux.HandleFunc("/api/user/{useremail}", server.deleteUser).Methods("DELETE")
 	server.mux.HandleFunc("/api/coupon", server.addCoupon).Methods("POST")
 	server.mux.HandleFunc("/api/coupon/{couponid}", server.couponInfo).Methods("GET")
 	server.mux.HandleFunc("/api/coupon/{couponid}", server.deleteCoupon).Methods("DELETE")
+	server.mux.HandleFunc("/api/project/{project}/usage", server.checkProjectUsage).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.getProjectLimit).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
+	server.mux.HandleFunc("/api/project/{project}", server.getProject).Methods("GET")
+	server.mux.HandleFunc("/api/project/{project}", server.renameProject).Methods("PUT")
 	server.mux.HandleFunc("/api/project/{project}", server.deleteProject).Methods("DELETE")
 	server.mux.HandleFunc("/api/project", server.addProject).Methods("POST")
 
@@ -89,7 +103,8 @@ type protectedServer struct {
 
 func (server *protectedServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if server.allowedAuthorization == "" {
-		http.Error(w, "Authorization not enabled.", http.StatusForbidden)
+		httpJSONError(w, "Authorization not enabled.",
+			"", http.StatusForbidden)
 		return
 	}
 
@@ -98,7 +113,8 @@ func (server *protectedServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		[]byte(server.allowedAuthorization),
 	)
 	if equality != 1 {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		httpJSONError(w, "Forbidden",
+			"", http.StatusForbidden)
 		return
 	}
 
@@ -107,7 +123,7 @@ func (server *protectedServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	server.next.ServeHTTP(w, r)
 }
 
-// Run starts the debug endpoint.
+// Run starts the admin endpoint.
 func (server *Server) Run(ctx context.Context) error {
 	if server.listener == nil {
 		return nil
@@ -128,6 +144,11 @@ func (server *Server) Run(ctx context.Context) error {
 		return Error.Wrap(err)
 	})
 	return group.Wait()
+}
+
+// SetNow allows tests to have the server act as if the current time is whatever they want.
+func (server *Server) SetNow(nowFn func() time.Time) {
+	server.nowFn = nowFn
 }
 
 // Close closes server and underlying listener.

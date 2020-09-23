@@ -28,7 +28,7 @@ type Chore struct {
 	interval time.Duration
 }
 
-// NewChore creates a new contact chore
+// NewChore creates a new contact chore.
 func NewChore(log *zap.Logger, interval time.Duration, service *Service) *Chore {
 	return &Chore{
 		log:     log,
@@ -39,7 +39,7 @@ func NewChore(log *zap.Logger, interval time.Duration, service *Service) *Chore 
 	}
 }
 
-// Run the contact chore on a regular interval with jitter
+// Run the contact chore on a regular interval with jitter.
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	var group errgroup.Group

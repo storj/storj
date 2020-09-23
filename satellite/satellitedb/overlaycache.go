@@ -7,11 +7,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -19,6 +19,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/private/version"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -34,28 +35,26 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
-// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
+// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.
 func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, last_net, last_ip_port, (total_audit_count < $1 OR total_uptime_count < $2) as isnew
+		SELECT id, address, last_net, last_ip_port, vetted_at
 			FROM nodes
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND exit_initiated_at IS NULL
-			AND type = $3
-			AND free_disk >= $4
-			AND last_contact_success > $5
+			AND type = $1
+			AND free_disk >= $2
+			AND last_contact_success > $3
 	`
 	args := []interface{}{
-		// $1, $2
-		selectionCfg.AuditCount, selectionCfg.UptimeCount,
-		// $3
+		// $1
 		int(pb.NodeType_STORAGE),
-		// $4
+		// $2
 		selectionCfg.MinimumDiskSpace.Int64(),
-		// $5
+		// $3
 		time.Now().Add(-selectionCfg.OnlineWindow),
 	}
 	if selectionCfg.MinimumVersion != "" {
@@ -63,9 +62,9 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 		if err != nil {
 			return nil, nil, err
 		}
-		query += `AND (major > $6 OR (major = $7 AND (minor > $8 OR (minor = $9 AND patch >= $10)))) AND release`
+		query += `AND (major > $4 OR (major = $5 AND (minor > $6 OR (minor = $7 AND patch >= $8)))) AND release`
 		args = append(args,
-			// $6 - $10
+			// $4 - $8
 			version.Major, version.Major, version.Minor, version.Minor, version.Patch,
 		)
 	}
@@ -82,8 +81,8 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 		var node overlay.SelectedNode
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
-		var isnew bool
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &isnew)
+		var vettedAt *time.Time
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -91,7 +90,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 			node.LastIPPort = lastIPPort.String
 		}
 
-		if isnew {
+		if vettedAt == nil {
 			newNodes = append(newNodes, &node)
 			continue
 		}
@@ -109,7 +108,7 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT last_net FROM nodes
 			WHERE id = any($1::bytea[])
-		`), postgresNodeIDList(nodeIDs),
+		`), pgutil.NodeIDArray(nodeIDs),
 	)
 	if err != nil {
 		return nil, err
@@ -127,7 +126,7 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 	return nodeNets, Error.Wrap(rows.Err())
 }
 
-// Get looks up the node by nodeID
+// Get looks up the node by nodeID.
 func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -136,7 +135,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay
 	}
 
 	node, err := cache.db.Get_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()))
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, overlay.ErrNodeNotFound.New("%v", id)
 	}
 	if err != nil {
@@ -146,7 +145,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay
 	return convertDBNode(ctx, node)
 }
 
-// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
+// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs.
 func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -158,7 +157,7 @@ func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeI
 			AND disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
-	`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow))
+	`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow))
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +183,7 @@ func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeI
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// KnownOffline filters a set of nodes to offline nodes
+// KnownOffline filters a set of nodes to offline nodes.
 func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -198,7 +197,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 		SELECT id FROM nodes
 			WHERE id = any($1::bytea[])
 			AND last_contact_success < $2
-		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -216,7 +215,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 	return offlineNodes, Error.Wrap(rows.Err())
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
+// KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new.
 func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -233,7 +232,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 			AND unknown_audit_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
-		`), postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -274,7 +273,7 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 			AND unknown_audit_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
-		`), postgresNodeIDList(nodeIDs), time.Now().Add(-onlineWindow),
+		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -324,8 +323,8 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// BatchUpdateStats updates multiple storagenode's stats in one transaction
-func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
+// BatchUpdateStats updates multiple storagenode's stats in one transaction.
+func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int, now time.Time) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(updateRequests) == 0 {
 		return failed, nil
@@ -366,7 +365,13 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 					continue
 				}
 
-				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq)
+				onlineScore, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, updateReq.IsUp, updateReq.AuditHistory)
+				if err != nil {
+					doAppendAll = false
+					return err
+				}
+
+				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq, onlineScore, now)
 
 				sql := buildUpdateStatement(updateNodeStats)
 
@@ -414,8 +419,8 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 	return failed, errlist.Err()
 }
 
-// UpdateStats a single storagenode's stats in the db
-func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
+// UpdateStats all parts of single storagenode's stats.
+func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest, now time.Time) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	nodeID := updateReq.NodeID
 
@@ -438,7 +443,12 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 			return nil
 		}
 
-		updateFields := cache.populateUpdateFields(dbNode, updateReq)
+		onlineScore, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, updateReq.IsUp, updateReq.AuditHistory)
+		if err != nil {
+			return err
+		}
+
+		updateFields := cache.populateUpdateFields(dbNode, updateReq, onlineScore, now)
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 		if err != nil {
 			return err
@@ -462,7 +472,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 }
 
 // UpdateNodeInfo updates the following fields for a given node ID:
-// wallet, email for node operator, free disk, and version
+// wallet, email for node operator, free disk, and version.
 func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.NodeID, nodeInfo *overlay.InfoResponse) (stats *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -500,7 +510,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 	return convertDBNode(ctx, updatedDBNode)
 }
 
-// UpdateUptime updates a single storagenode's uptime stats in the db
+// UpdateUptime updates a single storagenode's uptime stats in the db.
 func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -682,7 +692,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 			SELECT unnest($1::bytea[]) as id, unnest($2::bigint[]) as count
 		) as update
 		WHERE nodes.id = update.id
-	`, postgresNodeIDList(nodeIDs), pq.Array(countNumbers))
+	`, pgutil.NodeIDArray(nodeIDs), pgutil.Int8Array(countNumbers))
 
 	return Error.Wrap(err)
 }
@@ -942,6 +952,8 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Contained:             info.Contained,
 		Disqualified:          info.Disqualified,
 		UnknownAuditSuspended: info.UnknownAuditSuspended,
+		OfflineSuspended:      info.OfflineSuspended,
+		OfflineUnderReview:    info.UnderReview,
 		PieceCount:            info.PieceCount,
 		ExitStatus:            exitStatus,
 		CreatedAt:             info.CreatedAt,
@@ -970,6 +982,9 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 		UnknownAuditReputationAlpha: dbNode.UnknownAuditReputationAlpha,
 		UnknownAuditReputationBeta:  dbNode.UnknownAuditReputationBeta,
 		UnknownAuditSuspended:       dbNode.UnknownAuditSuspended,
+		OfflineUnderReview:          dbNode.UnderReview,
+		OfflineSuspended:            dbNode.OfflineSuspended,
+		OnlineScore:                 dbNode.OnlineScore,
 	}
 	return nodeStats
 }
@@ -996,56 +1011,56 @@ func buildUpdateStatement(update updateNodeStats) string {
 	sql := "UPDATE nodes SET "
 	if update.VettedAt.set {
 		atLeastOne = true
-		sql += fmt.Sprintf("vetted_at = '%v'", update.VettedAt.value.Format(time.RFC3339Nano))
+		sql += fmt.Sprintf("vetted_at = '%s'", update.VettedAt.value.Format(time.RFC3339Nano))
 	}
 	if update.TotalAuditCount.set {
 		if atLeastOne {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("total_audit_count = %v", update.TotalAuditCount.value)
+		sql += fmt.Sprintf("total_audit_count = %d", update.TotalAuditCount.value)
 	}
 	if update.TotalUptimeCount.set {
 		if atLeastOne {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("total_uptime_count = %v", update.TotalUptimeCount.value)
+		sql += fmt.Sprintf("total_uptime_count = %d", update.TotalUptimeCount.value)
 	}
 	if update.AuditReputationAlpha.set {
 		if atLeastOne {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("audit_reputation_alpha = %v", update.AuditReputationAlpha.value)
+		sql += fmt.Sprintf("audit_reputation_alpha = %f", update.AuditReputationAlpha.value)
 	}
 	if update.AuditReputationBeta.set {
 		if atLeastOne {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("audit_reputation_beta = %v", update.AuditReputationBeta.value)
+		sql += fmt.Sprintf("audit_reputation_beta = %f", update.AuditReputationBeta.value)
 	}
 	if update.UnknownAuditReputationAlpha.set {
 		if atLeastOne {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("unknown_audit_reputation_alpha = %v", update.UnknownAuditReputationAlpha.value)
+		sql += fmt.Sprintf("unknown_audit_reputation_alpha = %f", update.UnknownAuditReputationAlpha.value)
 	}
 	if update.UnknownAuditReputationBeta.set {
 		if atLeastOne {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("unknown_audit_reputation_beta = %v", update.UnknownAuditReputationBeta.value)
+		sql += fmt.Sprintf("unknown_audit_reputation_beta = %f", update.UnknownAuditReputationBeta.value)
 	}
 	if update.Disqualified.set {
 		if atLeastOne {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("disqualified = '%v'", update.Disqualified.value.Format(time.RFC3339Nano))
+		sql += fmt.Sprintf("disqualified = '%s'", update.Disqualified.value.Format(time.RFC3339Nano))
 	}
 	if update.UnknownAuditSuspended.set {
 		if atLeastOne {
@@ -1055,7 +1070,7 @@ func buildUpdateStatement(update updateNodeStats) string {
 		if update.UnknownAuditSuspended.isNil {
 			sql += "unknown_audit_suspended = NULL"
 		} else {
-			sql += fmt.Sprintf("unknown_audit_suspended = '%v'", update.UnknownAuditSuspended.value.Format(time.RFC3339Nano))
+			sql += fmt.Sprintf("unknown_audit_suspended = '%s'", update.UnknownAuditSuspended.value.Format(time.RFC3339Nano))
 		}
 	}
 	if update.UptimeSuccessCount.set {
@@ -1063,28 +1078,28 @@ func buildUpdateStatement(update updateNodeStats) string {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("uptime_success_count = %v", update.UptimeSuccessCount.value)
+		sql += fmt.Sprintf("uptime_success_count = %d", update.UptimeSuccessCount.value)
 	}
 	if update.LastContactSuccess.set {
 		if atLeastOne {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("last_contact_success = '%v'", update.LastContactSuccess.value.Format(time.RFC3339Nano))
+		sql += fmt.Sprintf("last_contact_success = '%s'", update.LastContactSuccess.value.Format(time.RFC3339Nano))
 	}
 	if update.LastContactFailure.set {
 		if atLeastOne {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("last_contact_failure = '%v'", update.LastContactFailure.value.Format(time.RFC3339Nano))
+		sql += fmt.Sprintf("last_contact_failure = '%s'", update.LastContactFailure.value.Format(time.RFC3339Nano))
 	}
 	if update.AuditSuccessCount.set {
 		if atLeastOne {
 			sql += ","
 		}
 		atLeastOne = true
-		sql += fmt.Sprintf("audit_success_count = %v", update.AuditSuccessCount.value)
+		sql += fmt.Sprintf("audit_success_count = %d", update.AuditSuccessCount.value)
 	}
 	if update.Contained.set {
 		if atLeastOne {
@@ -1092,7 +1107,36 @@ func buildUpdateStatement(update updateNodeStats) string {
 		}
 
 		atLeastOne = true
-		sql += fmt.Sprintf("contained = %v", update.Contained.value)
+		sql += fmt.Sprintf("contained = %t", update.Contained.value)
+	}
+	if update.OnlineScore.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		sql += fmt.Sprintf("online_score = %f", update.OnlineScore.value)
+	}
+	if update.OfflineUnderReview.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		if update.OfflineUnderReview.isNil {
+			sql += "under_review = NULL"
+		} else {
+			sql += fmt.Sprintf("under_review = '%s'", update.OfflineUnderReview.value.Format(time.RFC3339Nano))
+		}
+	}
+	if update.OfflineSuspended.set {
+		if atLeastOne {
+			sql += ","
+		}
+		atLeastOne = true
+		if update.OfflineSuspended.isNil {
+			sql += "offline_suspended = NULL"
+		} else {
+			sql += fmt.Sprintf("offline_suspended = '%s'", update.OfflineSuspended.value.Format(time.RFC3339Nano))
+		}
 	}
 	if !atLeastOne {
 		return ""
@@ -1142,14 +1186,16 @@ type updateNodeStats struct {
 	LastContactFailure          timeField
 	AuditSuccessCount           int64Field
 	Contained                   boolField
+	OfflineUnderReview          timeField
+	OfflineSuspended            timeField
+	OnlineScore                 float64Field
 }
 
-func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) updateNodeStats {
+func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditOnlineScore float64, now time.Time) updateNodeStats {
 	// there are three audit outcomes: success, failure, and unknown
 	// if a node fails enough audits, it gets disqualified
 	// if a node gets enough "unknown" audits, it gets put into suspension
 	// if a node gets enough successful audits, and is in suspension, it gets removed from suspension
-
 	auditAlpha := dbNode.AuditReputationAlpha
 	auditBeta := dbNode.AuditReputationBeta
 	unknownAuditAlpha := dbNode.UnknownAuditReputationAlpha
@@ -1205,6 +1251,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)                  //locked
 	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha) //locked
 	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //locked
+	mon.FloatVal("audit_online_score").Observe(auditOnlineScore)              //locked
 
 	totalUptimeCount := dbNode.TotalUptimeCount
 	if updateReq.IsUp {
@@ -1222,7 +1269,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	}
 
 	if vettedAt == nil && updatedTotalAuditCount >= updateReq.AuditsRequiredForVetting && totalUptimeCount >= updateReq.UptimesRequiredForVetting {
-		updateFields.VettedAt = timeField{set: true, value: time.Now().UTC()}
+		updateFields.VettedAt = timeField{set: true, value: now}
 	}
 
 	// disqualification case a
@@ -1230,7 +1277,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
 	if auditRep <= updateReq.AuditDQ {
 		cache.db.log.Info("Disqualified", zap.String("DQ type", "audit failure"), zap.String("Node ID", updateReq.NodeID.String()))
-		updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
+		updateFields.Disqualified = timeField{set: true, value: now}
 	}
 
 	// if unknown audit rep goes below threshold, suspend node. Otherwise unsuspend node.
@@ -1238,7 +1285,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	if unknownAuditRep <= updateReq.AuditDQ {
 		if dbNode.UnknownAuditSuspended == nil {
 			cache.db.log.Info("Suspended", zap.String("Node ID", updateFields.NodeID.String()), zap.String("Category", "Unknown Audits"))
-			updateFields.UnknownAuditSuspended = timeField{set: true, value: time.Now().UTC()}
+			updateFields.UnknownAuditSuspended = timeField{set: true, value: now}
 		}
 
 		// disqualification case b
@@ -1254,7 +1301,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 				time.Since(*dbNode.UnknownAuditSuspended) > updateReq.SuspensionGracePeriod &&
 				updateReq.SuspensionDQEnabled {
 				cache.db.log.Info("Disqualified", zap.String("DQ type", "suspension grace period expired for unknown audits"), zap.String("Node ID", updateReq.NodeID.String()))
-				updateFields.Disqualified = timeField{set: true, value: time.Now().UTC()}
+				updateFields.Disqualified = timeField{set: true, value: now}
 				updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 			}
 		}
@@ -1265,9 +1312,9 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 
 	if updateReq.IsUp {
 		updateFields.UptimeSuccessCount = int64Field{set: true, value: dbNode.UptimeSuccessCount + 1}
-		updateFields.LastContactSuccess = timeField{set: true, value: time.Now()}
+		updateFields.LastContactSuccess = timeField{set: true, value: now}
 	} else {
-		updateFields.LastContactFailure = timeField{set: true, value: time.Now()}
+		updateFields.LastContactFailure = timeField{set: true, value: now}
 	}
 
 	if updateReq.AuditOutcome == overlay.AuditSuccess {
@@ -1277,12 +1324,50 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	// Updating node stats always exits it from containment mode
 	updateFields.Contained = boolField{set: true, value: false}
 
+	// always update online score
+	updateFields.OnlineScore = float64Field{set: true, value: auditOnlineScore}
+	// Suspension and disqualification for offline nodes
+	goodOnlineScore := auditOnlineScore >= updateReq.AuditHistory.OfflineThreshold
+	if dbNode.UnderReview != nil {
+		// move node in and out of suspension as needed during review period
+		if goodOnlineScore && dbNode.OfflineSuspended != nil {
+			updateFields.OfflineSuspended = timeField{set: true, isNil: true}
+		} else if !goodOnlineScore && dbNode.OfflineSuspended == nil {
+			updateFields.OfflineSuspended = timeField{set: true, value: now}
+		}
+
+		gracePeriodEnd := dbNode.UnderReview.Add(updateReq.AuditHistory.GracePeriod)
+		trackingPeriodEnd := gracePeriodEnd.Add(updateReq.AuditHistory.TrackingPeriod)
+		trackingPeriodPassed := now.After(trackingPeriodEnd)
+
+		// after tracking period has elapsed, if score is good, clear under review
+		// otherwise, disqualify node
+		// TODO until disqualification is enabled, nodes will remain under review if their score is passed after the grace+tracking period
+		if trackingPeriodPassed {
+			if !goodOnlineScore {
+				// TODO enable disqualification
+				/*
+					cache.db.log.Info("Disqualified", zap.String("DQ type", "node offline"), zap.String("Node ID", updateReq.NodeID.String()))
+					updateFields.Disqualified = timeField{set: true, value: now}
+					// TODO metric
+				*/
+			} else {
+				updateFields.OfflineUnderReview = timeField{set: true, isNil: true}
+				updateFields.OfflineSuspended = timeField{set: true, isNil: true}
+			}
+		}
+	} else if !goodOnlineScore {
+		// suspend node for being offline and begin review period
+		updateFields.OfflineUnderReview = timeField{set: true, value: now}
+		updateFields.OfflineSuspended = timeField{set: true, value: now}
+	}
+
 	return updateFields
 }
 
-func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest) dbx.Node_Update_Fields {
+func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditOnlineScore float64, now time.Time) dbx.Node_Update_Fields {
 
-	update := cache.populateUpdateNodeStats(dbNode, updateReq)
+	update := cache.populateUpdateNodeStats(dbNode, updateReq, auditOnlineScore, now)
 	updateFields := dbx.Node_Update_Fields{}
 	if update.VettedAt.set {
 		updateFields.VettedAt = dbx.Node_VettedAt(update.VettedAt.value)
@@ -1332,6 +1417,24 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 	}
 	if updateReq.AuditOutcome == overlay.AuditSuccess {
 		updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
+	}
+
+	if update.OnlineScore.set {
+		updateFields.OnlineScore = dbx.Node_OnlineScore(update.OnlineScore.value)
+	}
+	if update.OfflineSuspended.set {
+		if update.OfflineSuspended.isNil {
+			updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Null()
+		} else {
+			updateFields.OfflineSuspended = dbx.Node_OfflineSuspended(update.OfflineSuspended.value)
+		}
+	}
+	if update.OfflineUnderReview.set {
+		if update.OfflineUnderReview.isNil {
+			updateFields.UnderReview = dbx.Node_UnderReview_Null()
+		} else {
+			updateFields.UnderReview = dbx.Node_UnderReview(update.OfflineUnderReview.value)
+		}
 	}
 
 	return updateFields
@@ -1421,4 +1524,31 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 	}
 
 	return nil
+}
+
+var (
+	// ErrVetting is the error class for the following test methods.
+	ErrVetting = errs.Class("vetting error")
+)
+
+// TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
+func (cache *overlaycache) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
+	updateFields := dbx.Node_Update_Fields{
+		VettedAt: dbx.Node_VettedAt(time.Now().UTC()),
+	}
+	node, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return nil, err
+	}
+	return node.VettedAt, nil
+}
+
+// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier.
+func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	_, err = cache.db.Exec(ctx, `UPDATE nodes SET vetted_at = NULL WHERE nodes.id = $1;`, nodeID)
+	if err != nil {
+		return err
+	}
+	_, err = cache.db.OverlayCache().Get(ctx, nodeID)
+	return err
 }

@@ -94,9 +94,9 @@ func printDashboard(data *pb.DashboardResponse) error {
 	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.NodeId.String()))
 
 	if data.LastPinged.IsZero() || time.Since(data.LastPinged) >= contactWindow {
-		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString("OFFLINE"))
+		fmt.Fprintf(w, "Status\t%s\n", color.RedString("OFFLINE"))
 	} else {
-		fmt.Fprintf(w, "Last Contact\t%s\n", color.GreenString("ONLINE"))
+		fmt.Fprintf(w, "Status\t%s\n", color.GreenString("ONLINE"))
 	}
 
 	uptime, err := time.ParseDuration(data.GetUptime())
@@ -145,7 +145,7 @@ func printDashboard(data *pb.DashboardResponse) error {
 	return nil
 }
 
-// clearScreen clears the screen so it can be redrawn
+// clearScreen clears the screen so it can be redrawn.
 func clearScreen() {
 	switch runtime.GOOS {
 	case "linux", "darwin":

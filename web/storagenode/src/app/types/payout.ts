@@ -1,55 +1,14 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-/**
- * Holds request arguments for payout information.
- */
-export class PaymentInfoParameters {
-    public constructor(
-        public start: PayoutPeriod | null = null,
-        public end: PayoutPeriod = new PayoutPeriod(),
-        public satelliteId: string = '',
-    ) {}
-}
-
-/**
- * Holds payout information.
- */
-export class HeldInfo {
-    public constructor(
-        public usageAtRest: number = 0,
-        public usageGet: number = 0,
-        public usagePut: number = 0,
-        public usageGetRepair: number = 0,
-        public usagePutRepair: number = 0,
-        public usageGetAudit: number = 0,
-        public compAtRest: number = 0,
-        public compGet: number = 0,
-        public compPut: number = 0,
-        public compGetRepair: number = 0,
-        public compPutRepair: number = 0,
-        public compGetAudit: number = 0,
-        public surgePercent: number = 0,
-        public held: number = 0,
-        public owed: number = 0,
-        public disposed: number = 0,
-        public paid: number = 0,
-    ) {}
-}
-
-/**
- * Represents payout period month and year.
- */
-export class PayoutPeriod {
-    public constructor(
-        public year: number = new Date().getUTCFullYear(),
-        public month: number = new Date().getUTCMonth(),
-    ) {}
-
-    public get period(): string {
-        return this.month < 9 ? `${this.year}-0${this.month + 1}` : `${this.year}-${this.month + 1}`;
-    }
-}
+import {
+    EstimatedPayout,
+    PayoutPeriod,
+    SatelliteHeldHistory,
+    SatellitePayoutForPeriod,
+    TotalHeldAndPaid,
+    TotalPaystubForPeriod,
+} from '@/storagenode/payouts/payouts';
 
 /**
  * Holds 'start' and 'end' of payout period range.
@@ -62,80 +21,51 @@ export class PayoutInfoRange {
 }
 
 /**
- * Holds accumulated held and earned payouts.
- */
-export class TotalPayoutInfo {
-    public constructor(
-        public totalHeldAmount: number = 0,
-        public totalEarnings: number = 0,
-        public currentMonthEarnings: number = 0,
-    ) {}
-}
-
-/**
  * Holds all payout module state.
  */
 export class PayoutState {
     public constructor (
-        public heldInfo: HeldInfo = new HeldInfo(),
+        public totalPaystubForPeriod: TotalPaystubForPeriod = new TotalPaystubForPeriod(),
         public periodRange: PayoutInfoRange = new PayoutInfoRange(),
-        public totalHeldAmount: number = 0,
-        public totalEarnings: number = 0,
+        public totalHeldAndPaid: TotalHeldAndPaid = new TotalHeldAndPaid(),
         public currentMonthEarnings: number = 0,
         public heldPercentage: number = 0,
-        public heldHistory: HeldHistory = new HeldHistory(),
+        public payoutPeriods: PayoutPeriod[] = [],
+        public heldHistory: SatelliteHeldHistory[] = [],
+        public payoutHistory: SatellitePayoutForPeriod[] = [],
+        public payoutHistoryPeriod: string = '',
+        public estimation: EstimatedPayout = new EstimatedPayout(),
     ) {}
 }
 
-/**
- * Exposes all payout-related functionality.
- */
-export interface PayoutApi {
-    /**
-     * Fetches held amount information by selected period.
-     * @throws Error
-     */
-    getHeldInfoByPeriod(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo>;
-
-    /**
-     * Fetches held amount information by selected month.
-     * @throws Error
-     */
-    getHeldInfoByMonth(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo>;
-
-    /**
-     * Fetches total payout information.
-     * @throws Error
-     */
-    getTotal(paymentInfoParameters: PaymentInfoParameters): Promise<TotalPayoutInfo>;
-
-    /**
-     * Fetches held history for all satellites.
-     * @throws Error
-     */
-    getHeldHistory(): Promise<HeldHistory>;
+export interface StoredMonthsByYear {
+    [key: number]: MonthButton[];
 }
 
 /**
- * Holds held history information for all satellites.
+ * Holds all months names.
  */
-export class HeldHistory {
+export const monthNames = [
+    'January', 'February', 'March', 'April',
+    'May', 'June', 'July',	'August',
+    'September', 'October', 'November',	'December',
+];
+
+/**
+ * Describes month button entity for calendar.
+ */
+export class MonthButton {
     public constructor(
-        public monthlyBreakdown: HeldHistoryMonthlyBreakdownItem[] = [],
+        public year: number = 0,
+        public index: number = 0,
+        public active: boolean = false,
+        public selected: boolean = false,
     ) {}
-}
 
-/**
- * Contains held amounts of satellite grouped by periods.
- */
-export class HeldHistoryMonthlyBreakdownItem {
-    public constructor(
-        public satelliteID: string = '',
-        public satelliteName: string = '',
-        public age: number = 1,
-        public firstPeriod: number = 0,
-        public secondPeriod: number = 0,
-        public thirdPeriod: number = 0,
-        public fourthPeriod: number = 0,
-    ) {}
+    /**
+     * Returns month label depends on index.
+     */
+    public get name(): string {
+        return monthNames[this.index] ? monthNames[this.index].slice(0, 3) : '';
+    }
 }

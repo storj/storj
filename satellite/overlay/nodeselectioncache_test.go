@@ -37,13 +37,13 @@ var nodeSelectionConfig = overlay.NodeSelectionConfig{
 
 const (
 	// staleness is how stale the cache can be before we sync with
-	// the database to refresh the cache
+	// the database to refresh the cache.
 
-	// using a negative time will force the cache to refresh every time
+	// using a negative time will force the cache to refresh every time.
 	lowStaleness = -time.Hour
 
 	// using a positive time will make it so that the cache is only refreshed when
-	// it hasn't been in the past hour
+	// it hasn't been in the past hour.
 	highStaleness = time.Hour
 )
 
@@ -63,7 +63,7 @@ func TestRefresh(t *testing.T) {
 
 		// add some nodes to the database
 		const nodeCount = 2
-		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, false)
+		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, 0)
 
 		// confirm nodes are in the cache once
 		err = cache.Refresh(ctx)
@@ -74,8 +74,7 @@ func TestRefresh(t *testing.T) {
 	})
 }
 
-func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, count int, makeReputable bool) []storj.NodeID {
-	var reputableIds = []storj.NodeID{}
+func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, count, makeReputable int) (reputableIds []storj.NodeID) {
 	for i := 0; i < count; i++ {
 		subnet := strconv.Itoa(i) + ".1.2"
 		addr := subnet + ".3:8080"
@@ -89,8 +88,7 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 			LastIPPort: addr,
 			IsUp:       true,
 			Capacity: &pb.NodeCapacity{
-				FreeDisk:      200 * memory.MiB.Int64(),
-				FreeBandwidth: 1 * memory.TB.Int64(),
+				FreeDisk: 200 * memory.MiB.Int64(),
 			},
 			Version: &pb.NodeVersion{
 				Version:    "v1.1.0",
@@ -102,15 +100,17 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 		err := db.UpdateCheckIn(ctx, n, time.Now().UTC(), nodeSelectionConfig)
 		require.NoError(t, err)
 
-		// make half of the nodes reputable
-		if makeReputable && i > count/2 {
-			_, err = db.UpdateStats(ctx, &overlay.UpdateRequest{
+		// make designated nodes reputable
+		if i < makeReputable {
+			stats, err := db.UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       storj.NodeID{byte(i)},
 				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
-			})
+				AuditHistory: testAuditHistoryConfig(),
+			}, time.Now())
 			require.NoError(t, err)
+			require.NotNil(t, stats.VettedAt)
 			reputableIds = append(reputableIds, storj.NodeID{byte(i)})
 		}
 	}
@@ -190,8 +190,6 @@ func TestRefreshConcurrent(t *testing.T) {
 func TestGetNodes(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		var nodeSelectionConfig = overlay.NodeSelectionConfig{
-			AuditCount:       0,
-			UptimeCount:      0,
 			NewNodeFraction:  0.2,
 			MinimumVersion:   "v1.0.0",
 			OnlineWindow:     4 * time.Hour,
@@ -208,16 +206,17 @@ func TestGetNodes(t *testing.T) {
 		require.Equal(t, 0, reputable)
 		require.Equal(t, 0, new)
 
-		// add some nodes to the database
+		// add 4 nodes to the database and vet 2
 		const nodeCount = 4
-		addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, false)
+		nodeIds := addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, 2)
+		require.Len(t, nodeIds, 2)
 
 		// confirm cache.GetNodes returns the correct nodes
 		selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
 		require.NoError(t, err)
 		reputable, new = cache.Size()
-		require.Equal(t, 0, new)
-		require.Equal(t, 4, reputable)
+		require.Equal(t, 2, new)
+		require.Equal(t, 2, reputable)
 		require.Equal(t, 2, len(selectedNodes))
 		for _, node := range selectedNodes {
 			require.NotEqual(t, node.ID, "")
@@ -468,8 +467,8 @@ func TestNewNodeFraction(t *testing.T) {
 
 		// add some nodes to the database, some are reputable and some are new nodes
 		const nodeCount = 10
-		repIDs := addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, true)
-
+		repIDs := addNodesToNodesTable(ctx, t, db.OverlayCache(), nodeCount, 4)
+		require.Len(t, repIDs, 4)
 		// confirm nodes are in the cache once
 		err = cache.Refresh(ctx)
 		require.NoError(t, err)
@@ -489,6 +488,6 @@ func TestNewNodeFraction(t *testing.T) {
 				}
 			}
 		}
-		require.Equal(t, len(n)-reputableCount, int(5*newNodeFraction))
+		require.Equal(t, len(n)-reputableCount, int(5*newNodeFraction)) // 1, 1
 	})
 }

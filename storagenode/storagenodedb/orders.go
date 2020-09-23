@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -26,7 +27,7 @@ type ordersDB struct {
 	dbContainerImpl
 }
 
-// Enqueue inserts order to the unsent list
+// Enqueue inserts order to the unsent list.
 func (db *ordersDB) Enqueue(ctx context.Context, info *orders.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -69,7 +70,7 @@ func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 		LIMIT ?
 	`, limit)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, ErrOrders.Wrap(err)
@@ -128,7 +129,7 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 		FROM unsent_order
 	`)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, ErrOrders.Wrap(err)
@@ -177,6 +178,9 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 // abort the operation, rolling back the transaction.
 func (db *ordersDB) Archive(ctx context.Context, archivedAt time.Time, requests ...orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// change input parameter to UTC timezone before we send it to the database
+	archivedAt = archivedAt.UTC()
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -261,7 +265,7 @@ func (db *ordersDB) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 		LIMIT ?
 	`, limit)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, ErrOrders.Wrap(err)
@@ -304,17 +308,16 @@ func (db *ordersDB) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 	return infos, ErrOrders.Wrap(rows.Err())
 }
 
-// CleanArchive deletes all entries older than ttl
-func (db *ordersDB) CleanArchive(ctx context.Context, ttl time.Duration) (_ int, err error) {
+// CleanArchive deletes all entries older than ttl.
+func (db *ordersDB) CleanArchive(ctx context.Context, deleteBefore time.Time) (_ int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	deleteBefore := time.Now().UTC().Add(-1 * ttl)
 	result, err := db.ExecContext(ctx, `
 		DELETE FROM order_archive_
 		WHERE archived_at <= ?
-	`, deleteBefore)
+	`, deleteBefore.UTC())
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil
 		}
 		return 0, ErrOrders.Wrap(err)

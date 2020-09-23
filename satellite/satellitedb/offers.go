@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	// offerErr is the default offer errors class
+	// offerErr is the default offer errors class.
 	offerErr = errs.Class("offers error")
 )
 
@@ -26,7 +26,7 @@ type offersDB struct {
 	db *satelliteDB
 }
 
-// ListAll returns all offersDB from the db
+// ListAll returns all offersDB from the db.
 func (db *offersDB) ListAll(ctx context.Context) (rewards.Offers, error) {
 	offersDbx, err := db.db.All_Offer_OrderBy_Asc_Id(ctx)
 	if err != nil {
@@ -36,7 +36,7 @@ func (db *offersDB) ListAll(ctx context.Context) (rewards.Offers, error) {
 	return offersFromDBX(offersDbx)
 }
 
-// GetCurrent returns offers that has not expired based on offer type
+// GetCurrent returns offers that has not expired based on offer type.
 func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards.OfferType) (rewards.Offers, error) {
 	var statement string
 	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, expires_at, created_at, status, type"
@@ -96,7 +96,7 @@ func (db *offersDB) GetActiveOffersByType(ctx context.Context, offerType rewards
 	return results, rows.Err()
 }
 
-// Create inserts a new offer into the db
+// Create inserts a new offer into the db.
 func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.Offer, error) {
 	currentTime := time.Now().UTC()
 	if o.ExpiresAt.Before(currentTime) {
@@ -169,7 +169,7 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 	}, offerErr.Wrap(err)
 }
 
-// Finish changes the offer status to be Done and its expiration date to be now based on offer id
+// Finish changes the offer status to be Done and its expiration date to be now based on offer id.
 func (db *offersDB) Finish(ctx context.Context, oID int) error {
 	return offerErr.Wrap(
 		db.db.UpdateNoReturn_Offer_By_Id(ctx,

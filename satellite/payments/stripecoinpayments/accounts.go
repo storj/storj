@@ -86,14 +86,9 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ paym
 		couponsAmount += coupon.Amount - alreadyUsed
 	}
 
-	creditBalance, err := accounts.service.db.Credits().Balance(ctx, userID)
-	if err != nil {
-		return payments.Balance{}, Error.Wrap(err)
-	}
-
 	accountBalance := payments.Balance{
 		FreeCredits: couponsAmount,
-		Coins:       -c.Balance + creditBalance,
+		Coins:       -c.Balance,
 	}
 
 	return accountBalance, nil
@@ -189,8 +184,13 @@ func (accounts *accounts) Coupons() payments.Coupons {
 	return &coupons{service: accounts.service}
 }
 
-// Credits exposes all needed functionality to manage credits.
-func (accounts *accounts) Credits() payments.Credits {
+// PaywallEnabled returns a true if a credit card or account
+// balance is required to create projects.
+func (accounts *accounts) PaywallEnabled(userID uuid.UUID) bool {
+	return BytesAreWithinProportion(userID, accounts.service.PaywallProportion)
+}
 
-	return &credits{service: accounts.service}
+//BytesAreWithinProportion returns true if first byte is less than the normalized proportion [0..1].
+func BytesAreWithinProportion(uuidBytes [16]byte, proportion float64) bool {
+	return int(uuidBytes[0]) < int(proportion*256)
 }

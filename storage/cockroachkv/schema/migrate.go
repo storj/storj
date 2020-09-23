@@ -7,9 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
 )
 
@@ -34,6 +34,6 @@ func PrepareDB(ctx context.Context, db tagsql.DB) (err error) {
 			metadata BYTEA NOT NULL,
 			bucket BYTEA
 		);
-	`, pq.QuoteIdentifier(dbName)))
+	`, pgutil.QuoteIdentifier(dbName)))
 	return errs.Wrap(err)
 }

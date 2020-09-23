@@ -1,0 +1,12 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`LoadingScreen renders correctly 1`] = `
+<transition-stub name="fade" mode="in-out">
+  <div class="loading-screen">
+    <storjlogo-stub class="logo"></storjlogo-stub> <svg height="100" width="100" class="loader">
+      <circle cx="50" cy="50" r="40" class="background"></circle>
+      <circle cx="50" cy="50" r="40" class="circle"></circle>
+    </svg>
+  </div>
+</transition-stub>
+`;

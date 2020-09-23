@@ -131,6 +131,8 @@ func (combiner *Combiner) Enqueue(node storj.NodeURL, job Job) {
 func (worker *worker) start(combiner *Combiner) {
 	// Try to add to worker pool, this may fail when we are shutting things down.
 	workerStarted := combiner.workers.Go(func() {
+
+		defer mon.TaskNamed("worker_start")(nil)(nil)
 		defer close(worker.done)
 		// Ensure we fail any jobs that the handler didn't handle.
 		defer FailPending(worker.jobs)

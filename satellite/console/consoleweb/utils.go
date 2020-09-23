@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 )
 
-// ContentLengthLimit describes 4KB limit
+// ContentLengthLimit describes 4KB limit.
 const ContentLengthLimit = 4 * memory.KB
 
 func init() {
@@ -30,14 +30,14 @@ func init() {
 	}
 }
 
-// JSON request from graphql clients
+// JSON request from graphql clients.
 type graphqlJSON struct {
 	Query         string
 	OperationName string
 	Variables     map[string]interface{}
 }
 
-// getQuery retrieves graphql query from request
+// getQuery retrieves graphql query from request.
 func getQuery(w http.ResponseWriter, req *http.Request) (query graphqlJSON, err error) {
 	switch req.Method {
 	case http.MethodGet:
@@ -50,7 +50,7 @@ func getQuery(w http.ResponseWriter, req *http.Request) (query graphqlJSON, err 
 	}
 }
 
-// queryPOST retrieves graphql query from POST request
+// queryPOST retrieves graphql query from POST request.
 func queryPOST(w http.ResponseWriter, req *http.Request) (query graphqlJSON, err error) {
 	limitedReader := http.MaxBytesReader(w, req.Body, ContentLengthLimit.Int64())
 	switch typ := req.Header.Get(contentType); typ {

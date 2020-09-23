@@ -19,11 +19,12 @@
                 </div>
             </div>
             <div class="header__content-holder__right-area">
-                <div class="header__content-holder__right-area__node-id-container">
+                <div class="header__content-holder__right-area__node-id-container" v-clipboard="this.nodeId">
                     <b class="header__content-holder__right-area__node-id-container__title">Node ID:</b>
-                    <p class="header__content-holder__right-area__node-id-container__id">{{this.nodeId}}</p>
+                    <p class="header__content-holder__right-area__node-id-container__id">{{ this.nodeId }}</p>
+                    <CopyIcon />
                 </div>
-                <div class="options-button" @click="openOptionsDropdown" >
+                <div class="options-button" @click="openOptionsDropdown">
                     <SettingsIcon  />
                 </div>
                 <OptionsDropdown
@@ -54,6 +55,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import NotificationsPopup from '@/app/components/notifications/NotificationsPopup.vue';
 import OptionsDropdown from '@/app/components/OptionsDropdown.vue';
 
+import CopyIcon from '@/../static/images/Copy.svg';
 import StorjIconWithoutText from '@/../static/images/LogoWithoutText.svg';
 import BellIcon from '@/../static/images/notifications/bell.svg';
 import RefreshIcon from '@/../static/images/refresh.svg';
@@ -81,6 +83,7 @@ const {
         RefreshIcon,
         BellIcon,
         StorjIconWithoutText,
+        CopyIcon,
     },
 })
 export default class SNOHeader extends Vue {
@@ -150,22 +153,87 @@ export default class SNOHeader extends Vue {
         await this.$router.replace('/');
     }
 
+    /**
+     * Refreshes all needed data from server.
+     */
     public async onRefresh(): Promise<void> {
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
         const selectedSatellite = this.$store.state.node.selectedSatellite.id;
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
 
         try {
             await this.$store.dispatch(GET_NODE_INFO);
             await this.$store.dispatch(SELECT_SATELLITE, selectedSatellite);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {
             console.error(`${error.message} satellite data.`);
+        }
+
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
+        } catch (error) {
+            console.error(error.message);
+        }
+
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, this.$store.state.node.selectedSatellite.id);
+        } catch (error) {
+            console.error(error);
+        }
+
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, selectedSatellite);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
+        } catch (error) {
+            console.error(error.message);
+        }
+
+        try {
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+        } catch (error) {
+            console.error(error.message);
+        }
+
+        try {
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
+        } catch (error) {
+            console.error(error.message);
         }
     }
 }
 </script>
 
 <style scoped lang="scss">
+    .svg {
+
+        path {
+            fill: var(--node-id-copy-icon-color);
+        }
+    }
+
+    .storj-logo {
+
+        path {
+            fill: var(--icon-color) !important;
+        }
+    }
+
+    .settings-icon {
+
+        circle {
+            fill: var(--regular-icon-color) !important;
+        }
+    }
+
+    .notifications-bell-icon {
+
+        path {
+            fill: var(--regular-icon-color) !important;
+        }
+    }
+
     .header {
         padding: 0 36px;
         width: calc(100% - 72px);
@@ -229,23 +297,38 @@ export default class SNOHeader extends Vue {
                 justify-content: flex-end;
 
                 &__node-id-container {
-                    color: #535f77;
+                    color: var(--node-id-text-color);
                     height: 44px;
                     padding: 0 14px 0 14px;
                     display: flex;
                     align-items: center;
-                    border: 1px solid #e8e8e8;
+                    border: 1px solid var(--node-id-border-color);
                     border-radius: 12px;
                     font-size: 14px;
                     margin-right: 30px;
+                    cursor: pointer;
 
                     &__title {
+                        font-family: 'font_bold', sans-serif;
                         min-width: 55px;
                         margin-right: 5px;
                     }
 
                     &__id {
                         font-size: 11px;
+                        padding-right: 20px;
+                    }
+
+                    &:hover {
+                        border-color: var(--node-id-border-hover-color);
+                        color: var(--node-id-hover-text-color);
+
+                        .svg {
+
+                            path {
+                                fill: var(--node-id-border-hover-color) !important;
+                            }
+                        }
                     }
                 }
 
@@ -277,27 +360,6 @@ export default class SNOHeader extends Vue {
                     }
                 }
             }
-        }
-    }
-
-    .storj-logo {
-
-        path {
-            fill: var(--icon-color) !important;
-        }
-    }
-
-    .settings-icon {
-
-        circle {
-            fill: var(--regular-icon-color) !important;
-        }
-    }
-
-    .notifications-bell-icon {
-
-        path {
-            fill: var(--regular-icon-color) !important;
         }
     }
 

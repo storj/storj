@@ -20,7 +20,7 @@ type ClientConfig struct {
 	DialTimeout time.Duration `help:"timeout for dials" default:"0h2m00s"`
 }
 
-// Config uplink configuration
+// Config uplink configuration.
 type Config struct {
 	AccessConfig
 	Client ClientConfig

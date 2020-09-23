@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
-// TestDB tests the graceful exit database calls
+// TestDB tests the graceful exit database calls.
 func TestDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		for i := 0; i <= 3; i++ {

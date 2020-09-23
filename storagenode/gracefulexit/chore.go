@@ -99,12 +99,18 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				}
 			})
 		}
-		chore.limiter.Wait()
 
 		return nil
 	})
 
+	chore.limiter.Wait()
+
 	return err
+}
+
+// TestWaitForWorkers waits for any pending worker to finish.
+func (chore *Chore) TestWaitForWorkers() {
+	chore.limiter.Wait()
 }
 
 // Close closes chore.

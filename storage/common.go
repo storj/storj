@@ -6,7 +6,6 @@ package storage
 import (
 	"bytes"
 	"context"
-	"errors"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -17,7 +16,7 @@ var mon = monkit.Package()
 // Delimiter separates nested paths in storage.
 const Delimiter = '/'
 
-//ErrKeyNotFound used when something doesn't exist
+//ErrKeyNotFound used when something doesn't exist.
 var ErrKeyNotFound = errs.Class("key not found")
 
 // ErrEmptyKey is returned when an empty key is used in Put or in CompareAndSwap.
@@ -30,7 +29,7 @@ var ErrValueChanged = errs.Class("value changed")
 var ErrEmptyQueue = errs.Class("empty queue")
 
 // ErrLimitExceeded is returned when request limit is exceeded.
-var ErrLimitExceeded = errors.New("limit exceeded")
+var ErrLimitExceeded = errs.Class("limit exceeded")
 
 // Key is the type for the keys in a `KeyValueStore`.
 type Key []byte

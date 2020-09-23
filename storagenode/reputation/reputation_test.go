@@ -41,10 +41,13 @@ func TestReputationDBGetInsert(t *testing.T) {
 				UnknownBeta:  12,
 				UnknownScore: 13,
 			},
-			Disqualified: &timestamp,
-			Suspended:    &timestamp,
-			UpdatedAt:    timestamp,
-			JoinedAt:     timestamp,
+			OnlineScore:          14,
+			OfflineUnderReviewAt: &timestamp,
+			OfflineSuspendedAt:   &timestamp,
+			DisqualifiedAt:       &timestamp,
+			SuspendedAt:          &timestamp,
+			UpdatedAt:            timestamp,
+			JoinedAt:             timestamp,
 		}
 
 		t.Run("insert", func(t *testing.T) {
@@ -57,10 +60,13 @@ func TestReputationDBGetInsert(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Equal(t, res.SatelliteID, stats.SatelliteID)
-			assert.True(t, res.Disqualified.Equal(*stats.Disqualified))
-			assert.True(t, res.Suspended.Equal(*stats.Suspended))
+			assert.True(t, res.DisqualifiedAt.Equal(*stats.DisqualifiedAt))
+			assert.True(t, res.SuspendedAt.Equal(*stats.SuspendedAt))
 			assert.True(t, res.UpdatedAt.Equal(stats.UpdatedAt))
 			assert.True(t, res.JoinedAt.Equal(stats.JoinedAt))
+			assert.True(t, res.OfflineSuspendedAt.Equal(*stats.OfflineSuspendedAt))
+			assert.True(t, res.OfflineUnderReviewAt.Equal(*stats.OfflineUnderReviewAt))
+			assert.Equal(t, res.OnlineScore, stats.OnlineScore)
 
 			compareReputationMetric(t, &res.Uptime, &stats.Uptime)
 			compareReputationMetric(t, &res.Audit, &stats.Audit)
@@ -96,10 +102,13 @@ func TestReputationDBGetAll(t *testing.T) {
 					UnknownBeta:  float64(i + 12),
 					UnknownScore: float64(i + 13),
 				},
-				Disqualified: &timestamp,
-				Suspended:    &timestamp,
-				UpdatedAt:    timestamp,
-				JoinedAt:     timestamp,
+				OnlineScore:          float64(i + 14),
+				OfflineUnderReviewAt: &timestamp,
+				OfflineSuspendedAt:   &timestamp,
+				DisqualifiedAt:       &timestamp,
+				SuspendedAt:          &timestamp,
+				UpdatedAt:            timestamp,
+				JoinedAt:             timestamp,
 			}
 
 			err := reputationDB.Store(ctx, rep)
@@ -117,10 +126,13 @@ func TestReputationDBGetAll(t *testing.T) {
 			assert.Contains(t, stats, rep)
 
 			if rep.SatelliteID == stats[0].SatelliteID {
-				assert.Equal(t, rep.Disqualified, stats[0].Disqualified)
-				assert.Equal(t, rep.Suspended, stats[0].Suspended)
+				assert.Equal(t, rep.DisqualifiedAt, stats[0].DisqualifiedAt)
+				assert.Equal(t, rep.SuspendedAt, stats[0].SuspendedAt)
 				assert.Equal(t, rep.UpdatedAt, stats[0].UpdatedAt)
 				assert.Equal(t, rep.JoinedAt, stats[0].JoinedAt)
+				assert.Equal(t, rep.OfflineSuspendedAt, stats[0].OfflineSuspendedAt)
+				assert.Equal(t, rep.OfflineUnderReviewAt, stats[0].OfflineUnderReviewAt)
+				assert.Equal(t, rep.OnlineScore, stats[0].OnlineScore)
 
 				compareReputationMetric(t, &rep.Uptime, &stats[0].Uptime)
 				compareReputationMetric(t, &rep.Audit, &stats[0].Audit)
@@ -129,7 +141,7 @@ func TestReputationDBGetAll(t *testing.T) {
 	})
 }
 
-// compareReputationMetric compares two reputation metrics and asserts that they are equal
+// compareReputationMetric compares two reputation metrics and asserts that they are equal.
 func compareReputationMetric(t *testing.T, a, b *reputation.Metric) {
 	assert.Equal(t, a.SuccessCount, b.SuccessCount)
 	assert.Equal(t, a.TotalCount, b.TotalCount)

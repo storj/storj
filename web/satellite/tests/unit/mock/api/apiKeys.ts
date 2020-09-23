@@ -22,6 +22,6 @@ export class ApiKeysMock implements ApiKeysApi {
     }
 
     delete(ids: string[]): Promise<void> {
-        throw new Error('Method not implemented');
+        return Promise.resolve();
     }
 }

@@ -17,23 +17,23 @@ import (
 )
 
 var (
-	// ErrSatelliteURL is an error class for satellite URL related errors
+	// ErrSatelliteURL is an error class for satellite URL related errors.
 	ErrSatelliteURL = errs.Class("invalid satellite URL")
 )
 
-// SatelliteURL represents a Satellite URL
+// SatelliteURL represents a Satellite URL.
 type SatelliteURL struct {
 	ID   storj.NodeID `json:"id"`
 	Host string       `json:"host"`
 	Port int          `json:"port"`
 }
 
-// Address returns the address (i.e. host:port) of the Satellite
+// Address returns the address (i.e. host:port) of the Satellite.
 func (u *SatelliteURL) Address() string {
 	return net.JoinHostPort(u.Host, strconv.Itoa(u.Port))
 }
 
-// NodeURL returns a full Node URL to the Satellite
+// NodeURL returns a full Node URL to the Satellite.
 func (u *SatelliteURL) NodeURL() storj.NodeURL {
 	return storj.NodeURL{
 		ID:      u.ID,
@@ -41,7 +41,7 @@ func (u *SatelliteURL) NodeURL() storj.NodeURL {
 	}
 }
 
-// String returns a string representation of the Satellite URL
+// String returns a string representation of the Satellite URL.
 func (u *SatelliteURL) String() string {
 	return u.ID.String() + "@" + u.Address()
 }

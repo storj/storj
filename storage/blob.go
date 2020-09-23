@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/common/storj"
 )
 
 // ErrInvalidBlobRef is returned when an blob reference is invalid.
@@ -25,7 +27,7 @@ var ErrInvalidBlobRef = errs.Class("invalid blob ref")
 // the same FormatVersion is returned later when reading that stored blob.
 type FormatVersion int
 
-// BlobRef is a reference to a blob
+// BlobRef is a reference to a blob.
 type BlobRef struct {
 	Namespace []byte
 	Key       []byte
@@ -79,6 +81,8 @@ type Blobs interface {
 	Delete(ctx context.Context, ref BlobRef) error
 	// DeleteWithStorageFormat deletes a blob of a specific storage format.
 	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) error
+	// DeleteNamespace deletes blobs folder for a specific namespace.
+	DeleteNamespace(ctx context.Context, ref []byte) (err error)
 	// Trash marks a file for pending deletion.
 	Trash(ctx context.Context, ref BlobRef) error
 	// RestoreTrash restores all files in the trash for a given namespace and returns the keys restored.
@@ -93,6 +97,8 @@ type Blobs interface {
 	StatWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
 	// FreeSpace return how much free space is available to the blobstore.
 	FreeSpace() (int64, error)
+	// CheckWritability tests writability of the storage directory by creating and deleting a file.
+	CheckWritability() error
 	// SpaceUsedForTrash returns the total space used by the trash.
 	SpaceUsedForTrash(ctx context.Context) (int64, error)
 	// SpaceUsedForBlobs adds up how much is used in all namespaces.
@@ -106,6 +112,11 @@ type Blobs interface {
 	// error, WalkNamespace will stop iterating and return the error immediately. The ctx
 	// parameter is intended to allow canceling iteration early.
 	WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(BlobInfo) error) error
+	// CreateVerificationFile creates a file to be used for storage directory verification.
+	CreateVerificationFile(id storj.NodeID) error
+	// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
+	// of the verification file.
+	VerifyStorageDir(id storj.NodeID) error
 	// Close closes the blob store and any resources associated with it.
 	Close() error
 }

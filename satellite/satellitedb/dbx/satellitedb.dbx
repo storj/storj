@@ -176,6 +176,7 @@ model node (
 	field offline_suspended timestamp ( updatable, nullable )
 	// once a node becomes offline_suspended, mark it as under review so we check it again later
 	field under_review timestamp ( updatable, nullable )
+	field online_score float64 ( updatable, default 1 )
 
 	// audit_reputation_fields track information related to successful vs. failed error audits
 	field audit_reputation_alpha  float64 ( updatable, default 1 )
@@ -237,6 +238,19 @@ read all (
 	orderby asc node.last_contact_success
 )
 
+//--- audit history ---//
+model audit_history (
+	key node_id
+	field node_id blob
+	field history blob ( updatable )
+)
+create audit_history ()
+update audit_history ( where audit_history.node_id = ? )
+read one (
+	select audit_history
+	where audit_history.node_id = ?
+)
+
 //--- repairqueue ---//
 
 model injuredsegment (
@@ -245,6 +259,7 @@ model injuredsegment (
 	field path blob
 	field data blob
 	field attempted timestamp (updatable, nullable)
+	field updated_at timestamp ( updatable, default current_timestamp )
     field num_healthy_pieces int (default 52)
 
 	index (
@@ -254,7 +269,13 @@ model injuredsegment (
 	index (
 		fields num_healthy_pieces
 	)
+
+	index (
+		fields updated_at
+	)
 )
+
+delete injuredsegment ( where injuredsegment.updated_at < ? )
 
 //--- satellite console ---//
 
@@ -271,6 +292,7 @@ model user (
     field status           int       ( updatable, autoinsert )
     field partner_id       blob      ( nullable )
     field created_at       timestamp ( autoinsert )
+    field project_limit    int       ( updatable, default 0 )
 )
 
 create user ( )
@@ -286,18 +308,23 @@ read one (
     select user
     where user.id = ?
 )
+read one (
+    select user.project_limit
+    where user.id = ?
+)
 
 model project (
     key id
 
     field id              blob
 
-    field name            text
+    field name            text      ( updatable )
     field description     text      ( updatable )
-    field usage_limit     int64     ( updatable, default 0 )
-    field bandwidth_limit int64     ( updatable, default 0 )
+    field usage_limit     int64     ( nullable, updatable )
+    field bandwidth_limit int64     ( nullable, updatable )
     field rate_limit      int       ( nullable, updatable )
-    field partner_id      blob      ( nullable  )
+    field max_buckets     int       ( nullable, updatable )
+    field partner_id      blob      ( nullable )
     field owner_id        blob
 
     field created_at      timestamp ( autoinsert )
@@ -319,6 +346,11 @@ read one (
     select project.bandwidth_limit
     where  project.id = ?
 )
+read one (
+    select project.max_buckets
+    where project.id = ?
+)
+
 read all (
     select project
 )
@@ -343,33 +375,6 @@ read limitoffset (
     select project
     where project.created_at < ?
     orderby asc project.created_at
-)
-
-model project_invoice_stamp (
-    key    project_id start_date end_date
-    unique invoice_id
-
-    field  project_id project.id  cascade
-    field  invoice_id blob
-
-    field  start_date timestamp
-    field  end_date   timestamp
-
-    field  created_at timestamp
-)
-
-create project_invoice_stamp ( )
-
-read one (
-    select project_invoice_stamp
-    where  project_invoice_stamp.project_id = ?
-    where  project_invoice_stamp.start_date = ?
-)
-// pagination ?
-read all (
-    select project_invoice_stamp
-    where  project_invoice_stamp.project_id = ?
-    orderby desc project_invoice_stamp.start_date
 )
 
 model project_member (
@@ -455,6 +460,11 @@ model serial_number (
 	index (
 		fields expires_at
 	)
+)
+
+read one (
+	select serial_number.bucket_id
+	where serial_number.serial_number = ?
 )
 
 model used_serial (
@@ -644,6 +654,8 @@ model storagenode_bandwidth_rollup (
 	field settled   uint64 ( updatable )
 )
 
+create storagenode_bandwidth_rollup()
+
 read scalar (
 	select storagenode_bandwidth_rollup
 	where  storagenode_bandwidth_rollup.storagenode_id = ?
@@ -654,6 +666,12 @@ read scalar (
 read all (
 	select storagenode_bandwidth_rollup
 	where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
+read all (
+	select storagenode_bandwidth_rollup
+	where storagenode_bandwidth_rollup.storagenode_id = ?
+	where storagenode_bandwidth_rollup.interval_start = ?
 )
 
 model storagenode_storage_tally (
@@ -901,7 +919,8 @@ create user_credit ()
 
 model bucket_metainfo (
 	key    id
-	unique name project_id
+	unique name project_id //to remove later
+	unique project_id name
 
 	field id             blob
 	field project_id     project.id restrict
@@ -937,6 +956,12 @@ read one (
 	where bucket_metainfo.name = ?
 )
 
+read one (
+	select bucket_metainfo.id
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
 delete bucket_metainfo (
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
@@ -954,6 +979,11 @@ read limitoffset ( // After
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name > ?
 	orderby asc bucket_metainfo.name
+)
+
+read count (
+	select bucket_metainfo.name
+	where bucket_metainfo.project_id = ?
 )
 
 //--- graceful exit progress ---//
@@ -1242,63 +1272,31 @@ update coupon_usage (
     where coupon_usage.period = ?
 )
 
-model credit (
-	key transaction_id
+// -- node api version -- //
 
-	field user_id        blob
-	field transaction_id text
-	field amount         int64
-
-	field created_at timestamp ( autoinsert )
-)
-
-create credit ( )
-
-read one (
-	select credit
-	where credit.transaction_id = ?
-)
-
-read all (
-	select credit
-	where credit.user_id = ?
-	orderby desc credit.created_at
-)
-
-read limitoffset (
-	select credit
-	where credit.user_id    =  ?
-	where credit.created_at <= ?
-	orderby desc credit.created_at
-)
-
-model credits_spending (
+model node_api_version (
 	key id
 
-	field id         blob
-	field user_id    blob
-	field project_id blob
-	field amount     int64
-	field status     int   ( updatable )
-	field period     timestamp
+	field id          blob
+	field api_version int  ( updatable )
 
 	field created_at timestamp ( autoinsert )
+	field updated_at timestamp ( autoinsert, autoupdate )
 )
 
-create credits_spending ( )
-
-update credits_spending (
-	where credits_spending.id = ?
+create node_api_version (
+	noreturn
+	replace
 )
 
-read all (
-	select credits_spending
-	where credits_spending.user_id = ?
-	orderby desc credits_spending.created_at
+read has (
+	select node_api_version
+	where node_api_version.id          =  ?
+	where node_api_version.api_version >= ?
 )
 
-read limitoffset (
-	select credits_spending
-	where credits_spending.period = ?
-	where credits_spending.status = ?
+update node_api_version (
+	where node_api_version.id          = ?
+	where node_api_version.api_version < ?
+	noreturn
 )

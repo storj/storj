@@ -1,0 +1,25 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`PayoutHistoryTable renders correctly with actual values 1`] = `
+<section class="payout-history-table">
+  <div class="payout-history-table__header">
+    <p class="payout-history-table__header__title">Payout History</p>
+    <div class="payout-history-table__header__selection-area">
+      <payouthistoryperioddropdown-stub></payouthistoryperioddropdown-stub>
+    </div>
+  </div>
+  <div class="payout-history-table__divider"></div>
+  <div class="payout-history-table__table-container">
+    <div class="payout-history-table__table-container__labels-area">
+      <p class="payout-history-table__table-container__labels-area__label">Satellite</p>
+      <p class="payout-history-table__table-container__labels-area__label">Paid</p>
+    </div>
+    <payouthistorytableitem-stub historyitem="[object Object]"></payouthistorytableitem-stub>
+    <payouthistorytableitem-stub historyitem="[object Object]"></payouthistorytableitem-stub>
+    <div class="payout-history-table__table-container__totals-area">
+      <p class="payout-history-table__table-container__totals-area__label">Total</p>
+      <p class="payout-history-table__table-container__totals-area__value">$1.60</p>
+    </div>
+  </div>
+</section>
+`;

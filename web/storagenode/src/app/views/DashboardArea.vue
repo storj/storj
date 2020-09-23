@@ -16,10 +16,10 @@ import { Component, Vue } from 'vue-property-decorator';
 import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
 import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { TelemetryViews } from '@/app/telemetry/telemetry';
 import { NotificationsCursor } from '@/app/types/notifications';
 
 @Component ({
@@ -34,6 +34,8 @@ export default class Dashboard extends Vue {
      * Fetches notifications and total payout information for all satellites.
      */
     public async mounted(): Promise<void> {
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
         try {
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
         } catch (error) {
@@ -52,8 +54,7 @@ export default class Dashboard extends Vue {
             console.error(error);
         }
 
-        this.$telemetry.identify(this.$store.state.node.info.id);
-        this.$telemetry.view(TelemetryViews.MainPage);
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
     }
 }
 </script>

@@ -2,71 +2,32 @@
 // See LICENSE for copying information.
 
 import {
-    HeldHistory,
-    HeldHistoryMonthlyBreakdownItem,
-    HeldInfo,
+    EstimatedPayout,
     PaymentInfoParameters,
     PayoutApi,
-    TotalPayoutInfo,
-} from '@/app/types/payout';
+    PayoutPeriod,
+    Paystub,
+    PreviousMonthEstimatedPayout,
+    SatelliteHeldHistory,
+    SatellitePayoutForPeriod,
+} from '@/storagenode/payouts/payouts';
 import { HttpClient } from '@/storagenode/utils/httpClient';
 
 /**
- * NotificationsHttpApi is a http implementation of Notifications API.
- * Exposes all notifications-related functionality
+ * PayoutHttpApi is a http implementation of Payout API.
+ * Exposes all payout-related functionality
  */
 export class PayoutHttpApi implements PayoutApi {
     private readonly client: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/heldamount';
-    private PRICE_DIVIDER: number = 10000;
 
     /**
-     * Fetch held amount information by selected period.
+     * Fetch paystubs for selected period.
      *
-     * @returns held amount information
+     * @returns paystubs for given period
      * @throws Error
      */
-    public async getHeldInfoByPeriod(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo> {
-        let path = `${this.ROOT_PATH}/paystubs/`;
-
-        if (paymentInfoParameters.start) {
-            path += paymentInfoParameters.start.period + '/';
-        }
-
-        path += paymentInfoParameters.end.period;
-
-        if (paymentInfoParameters.satelliteId) {
-            path += '?id=' + paymentInfoParameters.satelliteId;
-        }
-
-        return await this.getHeld(path);
-    }
-
-    /**
-     * Fetch held amount information by selected month.
-     *
-     * @returns held amount information
-     * @throws Error
-     */
-    public async getHeldInfoByMonth(paymentInfoParameters: PaymentInfoParameters): Promise<HeldInfo> {
-        let path = `${this.ROOT_PATH}/paystubs/`;
-
-        path += paymentInfoParameters.end.period;
-
-        if (paymentInfoParameters.satelliteId) {
-            path += '?id=' + paymentInfoParameters.satelliteId;
-        }
-
-        return await this.getHeld(path);
-    }
-
-    /**
-     * Fetch total payout information.
-     *
-     * @returns total payout information
-     * @throws Error
-     */
-    public async getTotal(paymentInfoParameters: PaymentInfoParameters): Promise<TotalPayoutInfo> {
+    public async getPaystubsForPeriod(paymentInfoParameters: PaymentInfoParameters): Promise<Paystub[]> {
         let path = `${this.ROOT_PATH}/paystubs/`;
 
         if (paymentInfoParameters.start) {
@@ -82,28 +43,94 @@ export class PayoutHttpApi implements PayoutApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            throw new Error('can not get total payout information');
+            throw new Error('can not get held information');
+        }
+
+        const data: any[] = await response.json() || [];
+
+        return data.map((paystubJson: any) => {
+            return new Paystub(
+                paystubJson.usageAtRest,
+                paystubJson.usageGet,
+                paystubJson.usagePut,
+                paystubJson.usageGetRepair,
+                paystubJson.usagePutRepair,
+                paystubJson.usageGetAudit,
+                paystubJson.compAtRest,
+                paystubJson.compGet,
+                paystubJson.compPut,
+                paystubJson.compGetRepair,
+                paystubJson.compPutRepair,
+                paystubJson.compGetAudit,
+                paystubJson.surgePercent,
+                paystubJson.held,
+                paystubJson.owed,
+                paystubJson.disposed,
+                paystubJson.paid,
+            );
+        });
+    }
+
+    /**
+     * Fetches available payout periods.
+     *
+     * @returns payout periods list
+     * @throws Error
+     */
+    public async getPayoutPeriods(id: string): Promise<PayoutPeriod[]> {
+        let path = `${this.ROOT_PATH}/periods`;
+
+        if (id) {
+            path += '?id=' + id;
+        }
+
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('can not get payout periods');
+        }
+
+        const result = await response.json() || [];
+
+        return result.map(period => {
+            return PayoutPeriod.fromString(period);
+        });
+    }
+
+    /**
+     * Fetch payout history for given period.
+     *
+     * @returns payout information
+     * @throws Error
+     */
+    public async getPayoutHistory(period): Promise<SatellitePayoutForPeriod[]> {
+        const path = `${this.ROOT_PATH}/payout-history/${period}`;
+
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('can not get payout history information');
         }
 
         const data: any = await response.json() || [];
 
-        if (!Array.isArray(data)) {
-            return new TotalPayoutInfo(data.held, data.paid);
-        }
-
-        let held: number = 0;
-        let paid: number = 0;
-
-        data.forEach((paystub: any) => {
-            held += (paystub.held - paystub.disposed) / this.PRICE_DIVIDER;
-            paid += paystub.paid / this.PRICE_DIVIDER;
+        return data.map((payoutHistoryItem: any) => {
+            return new SatellitePayoutForPeriod(
+                payoutHistoryItem.satelliteID,
+                payoutHistoryItem.satelliteURL,
+                payoutHistoryItem.age,
+                payoutHistoryItem.earned,
+                payoutHistoryItem.surge,
+                payoutHistoryItem.surgePercent,
+                payoutHistoryItem.held,
+                payoutHistoryItem.afterHeld,
+                payoutHistoryItem.disposed,
+                payoutHistoryItem.paid,
+                payoutHistoryItem.receipt,
+                payoutHistoryItem.isExitComplete,
+                payoutHistoryItem.heldPercent,
+            );
         });
-
-        return new TotalPayoutInfo(
-            held,
-            paid,
-            0,
-        );
     }
 
     /**
@@ -112,8 +139,8 @@ export class PayoutHttpApi implements PayoutApi {
      * @returns total payout information
      * @throws Error
      */
-    public async getHeldHistory(): Promise<HeldHistory> {
-        const path = `${this.ROOT_PATH}/heldhistory/`;
+    public async getHeldHistory(): Promise<SatelliteHeldHistory[]> {
+        const path = `${this.ROOT_PATH}/held-history/`;
 
         const response = await this.client.get(path);
 
@@ -123,97 +150,64 @@ export class PayoutHttpApi implements PayoutApi {
 
         const data: any = await response.json() || [];
 
-        // TODO: this will be changed with adding 'all stats' held history.
-        const monthlyBreakdown = data.map((historyItem: any) => {
-            return new HeldHistoryMonthlyBreakdownItem(
+        return data.map((historyItem: any) => {
+            return new SatelliteHeldHistory(
                 historyItem.satelliteID,
                 historyItem.satelliteName,
-                historyItem.age,
-                historyItem.firstPeriod / this.PRICE_DIVIDER,
-                historyItem.secondPeriod / this.PRICE_DIVIDER,
-                historyItem.thirdPeriod / this.PRICE_DIVIDER,
-                historyItem.fourthPeriod / this.PRICE_DIVIDER,
+                historyItem.holdForFirstPeriod,
+                historyItem.holdForSecondPeriod,
+                historyItem.holdForThirdPeriod,
+                historyItem.totalHeld,
+                historyItem.totalDisposed,
+                new Date(historyItem.joinedAt),
             );
         });
-
-        return new HeldHistory(monthlyBreakdown);
     }
 
     /**
-     * Fetch total payout information depends on month.
+     * Fetch estimated payout information.
      *
-     * @returns total payout information
+     * @returns estimated payout information
      * @throws Error
      */
-    public async getHeld(path): Promise<HeldInfo> {
+    public async getEstimatedPayout(satelliteId: string): Promise<EstimatedPayout> {
+        let path = '/api/sno/estimated-payout';
+
+        if (satelliteId) {
+            path += '?id=' + satelliteId;
+        }
+
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            throw new Error('can not get held information');
+            throw new Error('can not get estimated payout information');
         }
 
-        const data: any[] = await response.json();
+        const data: any = await response.json() || new EstimatedPayout();
 
-        if (!data || data.length === 0) {
-            throw new Error('no payout data for selected period');
-        }
-
-        let usageAtRest: number = 0;
-        let usageGet: number = 0;
-        let usagePut: number = 0;
-        let usageGetRepair: number = 0;
-        let usagePutRepair: number = 0;
-        let usageGetAudit: number = 0;
-        let compAtRest: number = 0;
-        let compGet: number = 0;
-        let compPut: number = 0;
-        let compGetRepair: number = 0;
-        let compPutRepair: number = 0;
-        let compGetAudit: number = 0;
-        let held: number = 0;
-        let owed: number = 0;
-        let disposed: number = 0;
-        let paid: number = 0;
-
-        data.forEach((paystub: any) => {
-            const surge = paystub.surgePercent === 0 ? 1 : paystub.surgePercent / 100;
-
-            usageAtRest += paystub.usageAtRest;
-            usageGet += paystub.usageGet;
-            usagePut += paystub.usagePut;
-            usageGetRepair += paystub.usageGetRepair;
-            usagePutRepair += paystub.usagePutRepair;
-            usageGetAudit += paystub.usageGetAudit;
-            compAtRest += paystub.compAtRest / this.PRICE_DIVIDER * surge;
-            compGet += paystub.compGet / this.PRICE_DIVIDER * surge;
-            compPut += paystub.compPut / this.PRICE_DIVIDER;
-            compGetRepair += paystub.compGetRepair / this.PRICE_DIVIDER * surge;
-            compPutRepair += paystub.compPutRepair / this.PRICE_DIVIDER;
-            compGetAudit += paystub.compGetAudit / this.PRICE_DIVIDER * surge;
-            held += paystub.held / this.PRICE_DIVIDER;
-            owed += paystub.owed / this.PRICE_DIVIDER;
-            disposed += paystub.disposed / this.PRICE_DIVIDER;
-            paid += paystub.paid / this.PRICE_DIVIDER;
-        });
-
-        return new HeldInfo(
-            usageAtRest,
-            usageGet,
-            usagePut,
-            usageGetRepair,
-            usagePutRepair,
-            usageGetAudit,
-            compAtRest,
-            compGet,
-            compPut,
-            compGetRepair,
-            compPutRepair,
-            compGetAudit,
-            0,
-            held,
-            owed,
-            disposed,
-            paid,
+        return new EstimatedPayout(
+            new PreviousMonthEstimatedPayout(
+                data.currentMonth.egressBandwidth,
+                data.currentMonth.egressBandwidthPayout,
+                data.currentMonth.egressRepairAudit,
+                data.currentMonth.egressRepairAuditPayout,
+                data.currentMonth.diskSpace,
+                data.currentMonth.diskSpacePayout,
+                data.currentMonth.heldRate,
+                data.currentMonth.payout,
+                data.currentMonth.held,
+            ),
+            new PreviousMonthEstimatedPayout(
+                data.previousMonth.egressBandwidth,
+                data.previousMonth.egressBandwidthPayout,
+                data.previousMonth.egressRepairAudit,
+                data.previousMonth.egressRepairAuditPayout,
+                data.previousMonth.diskSpace,
+                data.previousMonth.diskSpacePayout,
+                data.previousMonth.heldRate,
+                data.previousMonth.payout,
+                data.previousMonth.held,
+            ),
         );
     }
 }

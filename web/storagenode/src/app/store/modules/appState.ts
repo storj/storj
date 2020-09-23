@@ -11,6 +11,8 @@ export const APPSTATE_MUTATIONS = {
     CLOSE_ALL_POPUPS: 'CLOSE_ALL_POPUPS',
     SET_DARK: 'SET_DARK',
     SET_NO_PAYOUT_INFO: 'SET_NO_PAYOUT_INFO',
+    SET_LOADING_STATE: 'SET_LOADING_STATE',
+    TOGGLE_PAYOUT_HISTORY_CALENDAR: 'TOGGLE_PAYOUT_HISTORY_CALENDAR',
 };
 
 export const APPSTATE_ACTIONS = {
@@ -23,6 +25,8 @@ export const APPSTATE_ACTIONS = {
     CLOSE_ALL_POPUPS: 'CLOSE_ALL_POPUPS',
     SET_DARK_MODE: 'SET_DARK_MODE',
     SET_NO_PAYOUT_DATA: 'SET_NO_PAYOUT_DATA',
+    SET_LOADING: 'SET_LOADING',
+    TOGGLE_PAYOUT_HISTORY_CALENDAR: 'TOGGLE_PAYOUT_HISTORY_CALENDAR',
 };
 
 const {
@@ -44,6 +48,8 @@ export const appStateModule = {
         isPayoutCalendarShown: false,
         isDarkMode: false,
         isNoPayoutData: false,
+        isLoading: true,
+        isPayoutHistoryCalendarShown: false,
     },
     mutations: {
         [TOGGLE_SATELLITE_SELECTION](state: any): void {
@@ -72,8 +78,14 @@ export const appStateModule = {
         [APPSTATE_MUTATIONS.SET_NO_PAYOUT_INFO](state: any, value): void {
             state.isNoPayoutData = value;
         },
+        [APPSTATE_MUTATIONS.SET_LOADING_STATE](state: any, value): void {
+            state.isLoading = value;
+        },
         [CLOSE_ALL_POPUPS](state: any): void {
             state.isSatelliteSelectionShown = false;
+        },
+        [APPSTATE_MUTATIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR](state: any, value): void {
+            state.isPayoutHistoryCalendarShown = value;
         },
     },
     actions: {
@@ -117,11 +129,18 @@ export const appStateModule = {
         [APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA]: function ({commit}: any, value: boolean): void {
             commit(APPSTATE_MUTATIONS.SET_NO_PAYOUT_INFO, value);
         },
+        [APPSTATE_ACTIONS.SET_LOADING]: function ({commit}: any, value: boolean): void {
+            value ? commit(APPSTATE_MUTATIONS.SET_LOADING_STATE, value) :
+                setTimeout(() => { commit(APPSTATE_MUTATIONS.SET_LOADING_STATE, value); }, 1000);
+        },
         [APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS]: function ({commit}: any): void {
             commit(APPSTATE_MUTATIONS.CLOSE_ADDITIONAL_CHARTS);
         },
         [APPSTATE_ACTIONS.CLOSE_ALL_POPUPS]: function ({commit}: any): void {
             commit(APPSTATE_MUTATIONS.CLOSE_ALL_POPUPS);
+        },
+        [APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR]: function ({commit, state}: any, value: boolean): void {
+            commit(APPSTATE_MUTATIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, value);
         },
     },
 };

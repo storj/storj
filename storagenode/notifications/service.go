@@ -9,11 +9,27 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/private/version"
 )
 
 var (
 	mon = monkit.Package()
+)
+
+// TimesNotified is a numeric value of amount of notifications being sent to user.
+type TimesNotified int
+
+const (
+	// TimesNotifiedZero haven't being notified yet.
+	TimesNotifiedZero TimesNotified = 0
+	// TimesNotifiedFirst sent notification one time.
+	TimesNotifiedFirst TimesNotified = 1
+	// TimesNotifiedSecond sent notifications twice.
+	TimesNotifiedSecond TimesNotified = 2
+	// TimesNotifiedLast three notification has been send.
+	TimesNotifiedLast TimesNotified = 3
 )
 
 // Service is the notification service between storage nodes and satellites.
@@ -91,4 +107,31 @@ func (service *Service) UnreadAmount(ctx context.Context) (_ int, err error) {
 	}
 
 	return amount, nil
+}
+
+// NewVersionNotification - returns version update required notification.
+func NewVersionNotification(timesSent TimesNotified, suggestedVersion version.SemVer, senderID storj.NodeID) (_ NewNotification) {
+	switch timesSent {
+	case TimesNotifiedZero:
+		return NewNotification{
+			SenderID: senderID,
+			Type:     TypeCustom,
+			Title:    "Please update your Node to Version " + suggestedVersion.String(),
+			Message:  "It's time to update your Node's software, new version is available.",
+		}
+	case TimesNotifiedFirst:
+		return NewNotification{
+			SenderID: senderID,
+			Type:     TypeCustom,
+			Title:    "Please update your Node to Version " + suggestedVersion.String(),
+			Message:  "It's time to update your Node's software, you are running outdated version!",
+		}
+	default:
+		return NewNotification{
+			SenderID: senderID,
+			Type:     TypeCustom,
+			Title:    "Please update your Node to Version " + suggestedVersion.String(),
+			Message:  "Last chance to update your software! Your node is running outdated version!",
+		}
+	}
 }

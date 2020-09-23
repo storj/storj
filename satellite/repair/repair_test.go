@@ -20,6 +20,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
@@ -171,7 +172,7 @@ func testDataRepair(t *testing.T, inMemoryRepair bool) {
 // - On one of the remaining nodes, corrupt the piece data being stored by that node
 // - Triggers data repair, which attempts to repair the data from the remaining nodes to
 //	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair failed and the pointer was not updated
+// - Expects that the repair failed and the pointer was not updated.
 func TestCorruptDataRepairInMemory_Failed(t *testing.T) {
 	testCorruptDataRepairFailed(t, true)
 }
@@ -288,7 +289,7 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 // - On one of the remaining nodes, corrupt the piece data being stored by that node
 // - Triggers data repair, which attempts to repair the data from the remaining nodes to
 //	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair succeed and the pointer should not contain the corrupted piece
+// - Expects that the repair succeed and the pointer should not contain the corrupted piece.
 func TestCorruptDataRepairInMemory_Succeed(t *testing.T) {
 	testCorruptDataRepairSucceed(t, true)
 }
@@ -407,7 +408,7 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 // - Call checker to add segment to the repair queue
 // - Modify segment to be expired
 // - Run the repairer
-// - Verify segment is no longer in the repair queue
+// - Verify segment is no longer in the repair queue.
 func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -422,6 +423,7 @@ func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 		satellite := planet.Satellites[0]
 		// stop audit to prevent possible interactions i.e. repair timeout problems
 		satellite.Audit.Worker.Loop.Stop()
+		satellite.Audit.Chore.Loop.Pause()
 
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
@@ -461,14 +463,15 @@ func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 
 		// get encrypted path of segment with audit service
 		satellite.Audit.Chore.Loop.TriggerWait()
-		require.EqualValues(t, satellite.Audit.Queue.Size(), 1)
-		encryptedPath, err := satellite.Audit.Queue.Next()
+		queue := satellite.Audit.Queues.Fetch()
+		require.EqualValues(t, queue.Size(), 1)
+		encryptedPath, err := queue.Next()
 		require.NoError(t, err)
 		// replace pointer with one that is already expired
 		pointer.ExpirationDate = time.Now().Add(-time.Hour)
-		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, encryptedPath)
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, metabase.SegmentKey(encryptedPath))
 		require.NoError(t, err)
-		err = satellite.Metainfo.Service.UnsynchronizedPut(ctx, encryptedPath, pointer)
+		err = satellite.Metainfo.Service.UnsynchronizedPut(ctx, metabase.SegmentKey(encryptedPath), pointer)
 		require.NoError(t, err)
 
 		// Verify that the segment is on the repair queue
@@ -495,7 +498,7 @@ func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 // - Call checker to add segment to the repair queue
 // - Delete segment from the satellite database
 // - Run the repairer
-// - Verify segment is no longer in the repair queue
+// - Verify segment is no longer in the repair queue.
 func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -576,7 +579,7 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 // - Disqualify nodes so that online nodes < minimum threshold
 // - Run the repairer
 // - Verify segment is no longer in the repair queue and segment should be the same
-// - Verify segment is now in the irreparable db instead
+// - Verify segment is now in the irreparable db instead.
 func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -651,7 +654,7 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		// Verify that the segment _is_ in the irreparable db
 		irreparableSegment, err = satellite.DB.Irreparable().Get(ctx, []byte(encryptedPath))
 		require.NoError(t, err)
-		require.Equal(t, encryptedPath, string(irreparableSegment.Path))
+		require.Equal(t, encryptedPath, metabase.SegmentKey(irreparableSegment.Path))
 		lastAttemptTime := time.Unix(irreparableSegment.LastRepairAttempt, 0)
 		require.Falsef(t, lastAttemptTime.Before(beforeRepair), "%s is before %s", lastAttemptTime, beforeRepair)
 		require.Falsef(t, lastAttemptTime.After(afterRepair), "%s is after %s", lastAttemptTime, afterRepair)
@@ -681,7 +684,7 @@ func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *testplan
 // - Kill (as opposed to disqualifying) nodes so that online nodes < minimum threshold
 // - Run the repairer
 // - Verify segment is no longer in the repair queue and segment should be the same
-// - Verify segment is now in the irreparable db instead
+// - Verify segment is now in the irreparable db instead.
 func TestIrreparableSegmentNodesOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -768,7 +771,7 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 		// Verify that the segment _is_ in the irreparable db
 		irreparableSegment, err = satellite.DB.Irreparable().Get(ctx, []byte(encryptedPath))
 		require.NoError(t, err)
-		require.Equal(t, encryptedPath, string(irreparableSegment.Path))
+		require.Equal(t, encryptedPath, metabase.SegmentKey(irreparableSegment.Path))
 		lastAttemptTime := time.Unix(irreparableSegment.LastRepairAttempt, 0)
 		require.Falsef(t, lastAttemptTime.Before(beforeRepair), "%s is before %s", lastAttemptTime, beforeRepair)
 		require.Falsef(t, lastAttemptTime.After(afterRepair), "%s is after %s", lastAttemptTime, afterRepair)
@@ -782,7 +785,7 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 // - Shuts down the 4 nodes from which the data was repaired
 // - Now we have just the 3 new nodes to which the data was repaired
 // - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
-// - Expect newly repaired pointer does not contain the disqualified or suspended nodes
+// - Expect newly repaired pointer does not contain the disqualified or suspended nodes.
 func TestRepairMultipleDisqualifiedAndSuspendedInMemory(t *testing.T) {
 	testRepairMultipleDisqualifiedAndSuspended(t, true)
 }
@@ -820,14 +823,14 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 
 		// get a remote segment from metainfo
 		metainfo := satellite.Metainfo.Service
-		listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
+		listResponse, _, err := metainfo.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
 		require.NoError(t, err)
 
-		var path string
+		var key metabase.SegmentKey
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
-			path = v.GetPath()
-			pointer, err = metainfo.Get(ctx, path)
+			key = metabase.SegmentKey(v.GetPath())
+			pointer, err = metainfo.Get(ctx, key)
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
@@ -886,7 +889,7 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 		require.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the disqualified or suspended nodes
-		pointer, err = metainfo.Get(ctx, path)
+		pointer, err = metainfo.Get(ctx, key)
 		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
@@ -1249,7 +1252,7 @@ func testDataRepairUploadLimit(t *testing.T, inMemoryRepair bool) {
 // - Shuts down the 4 nodes from which the data was repaired
 // - Now we have just the 3 new nodes to which the data was repaired
 // - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
-// - Expect newly repaired pointer does not contain the gracefully exited nodes
+// - Expect newly repaired pointer does not contain the gracefully exited nodes.
 func TestRepairGracefullyExitedInMemory(t *testing.T) {
 	testRepairGracefullyExited(t, true)
 }
@@ -1287,14 +1290,15 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 
 		// get a remote segment from metainfo
 		metainfo := satellite.Metainfo.Service
-		listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
+		listResponse, _, err := metainfo.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
 		require.NoError(t, err)
+		require.NotNil(t, listResponse)
 
-		var path string
+		var key metabase.SegmentKey
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
-			path = v.GetPath()
-			pointer, err = metainfo.Get(ctx, path)
+			key = metabase.SegmentKey(v.GetPath())
+			pointer, err = metainfo.Get(ctx, key)
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
@@ -1350,7 +1354,7 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 		require.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the gracefully exited nodes
-		pointer, err = metainfo.Get(ctx, path)
+		pointer, err = metainfo.Get(ctx, key)
 		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
@@ -1364,25 +1368,25 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 // nolint:golint
 func getRemoteSegment(
 	t *testing.T, ctx context.Context, satellite *testplanet.Satellite,
-) (_ *pb.Pointer, path string) {
+) (_ *pb.Pointer, key metabase.SegmentKey) {
 	t.Helper()
 
 	// get a remote segment from metainfo
 	metainfo := satellite.Metainfo.Service
-	listResponse, _, err := metainfo.List(ctx, "", "", true, 0, 0)
+	listResponse, _, err := metainfo.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
 	require.NoError(t, err)
 
 	for _, v := range listResponse {
-		path := v.GetPath()
-		pointer, err := metainfo.Get(ctx, path)
+		key := metabase.SegmentKey(v.GetPath())
+		pointer, err := metainfo.Get(ctx, key)
 		require.NoError(t, err)
 		if pointer.GetType() == pb.Pointer_REMOTE {
-			return pointer, path
+			return pointer, key
 		}
 	}
 
 	t.Fatal("satellite doesn't have any remote segment")
-	return nil, ""
+	return nil, key
 }
 
 // corruptPieceData manipulates piece data on a storage node.

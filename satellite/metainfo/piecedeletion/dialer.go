@@ -5,9 +5,11 @@ package piecedeletion
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
@@ -45,6 +47,7 @@ func NewDialer(log *zap.Logger, dialer rpc.Dialer, requestTimeout, failThreshold
 
 // Handle tries to send the deletion requests to the specified node.
 func (dialer *Dialer) Handle(ctx context.Context, node storj.NodeURL, queue Queue) {
+	defer mon.Task()(&ctx, node.ID.String())(nil)
 	defer FailPending(queue)
 
 	if dialer.recentlyFailed(ctx, node) {
@@ -69,12 +72,21 @@ func (dialer *Dialer) Handle(ctx context.Context, node storj.NodeURL, queue Queu
 		}
 
 		jobs, ok := queue.PopAll()
+		// Add metrics on to the span
+		s := monkit.SpanFromCtx(ctx)
+		s.Annotate("delete jobs size", strconv.Itoa(len(jobs)))
+
 		if !ok {
 			return
 		}
 
 		for len(jobs) > 0 {
 			batch, promises, rest := batchJobs(jobs, dialer.piecesPerRequest)
+			// Aggregation metrics
+			mon.IntVal("delete batch size").Observe(int64(len(batch)))
+			// Tracing metrics
+			s.Annotate("delete batch size", strconv.Itoa(len(batch)))
+
 			jobs = rest
 
 			requestCtx, cancel := context.WithTimeout(ctx, dialer.requestTimeout)

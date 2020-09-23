@@ -34,7 +34,7 @@ type ProjectMember struct {
 	CreatedAt time.Time
 }
 
-// ProjectMembersCursor holds info for project members cursor pagination
+// ProjectMembersCursor holds info for project members cursor pagination.
 type ProjectMembersCursor struct {
 	Search         string
 	Limit          uint
@@ -43,7 +43,7 @@ type ProjectMembersCursor struct {
 	OrderDirection OrderDirection
 }
 
-// ProjectMembersPage represent project members page result
+// ProjectMembersPage represent project members page result.
 type ProjectMembersPage struct {
 	ProjectMembers []ProjectMember
 
@@ -58,14 +58,14 @@ type ProjectMembersPage struct {
 	TotalCount  uint64
 }
 
-// ProjectMemberOrder is used for querying project members in specified order
+// ProjectMemberOrder is used for querying project members in specified order.
 type ProjectMemberOrder int8
 
 const (
-	// Name indicates that we should order by full name
+	// Name indicates that we should order by full name.
 	Name ProjectMemberOrder = 1
-	// Email indicates that we should order by email
+	// Email indicates that we should order by email.
 	Email ProjectMemberOrder = 2
-	// Created indicates that we should order by created date
+	// Created indicates that we should order by created date.
 	Created ProjectMemberOrder = 3
 )

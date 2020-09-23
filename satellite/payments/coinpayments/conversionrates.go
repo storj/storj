@@ -34,7 +34,7 @@ type CurrencyRateInfo struct {
 	LastUpdate time.Time
 }
 
-// UnmarshalJSON converts JSON string to currency rate info,
+// UnmarshalJSON converts JSON string to currency rate info.
 func (rateInfo *CurrencyRateInfo) UnmarshalJSON(b []byte) error {
 	var rateRaw struct {
 		IsFiat     int    `json:"is_fiat"`

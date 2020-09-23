@@ -12,6 +12,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -19,12 +20,12 @@ type bucketsDB struct {
 	db *satelliteDB
 }
 
-// Buckets returns database for interacting with buckets
+// Buckets returns database for interacting with buckets.
 func (db *satelliteDB) Buckets() metainfo.BucketsDB {
 	return &bucketsDB{db: db}
 }
 
-// CreateBucket creates a new bucket
+// CreateBucket creates a new bucket.
 func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -62,7 +63,7 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 	return bucket, nil
 }
 
-// GetBucket returns a bucket
+// GetBucket returns a bucket.
 func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxBucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
@@ -70,7 +71,7 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		dbx.BucketMetainfo_Name(bucketName),
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return storj.Bucket{}, storj.ErrBucketNotFound.New("%s", bucketName)
 		}
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
@@ -78,7 +79,28 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 	return convertDBXtoBucket(dbxBucket)
 }
 
-// UpdateBucket upates a bucket
+// GetBucketID returns an existing bucket id.
+func (db *bucketsDB) GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (_ uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxID, err := db.db.Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]),
+		dbx.BucketMetainfo_Name([]byte(bucket.BucketName)),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return uuid.UUID{}, storj.ErrBucketNotFound.New("%s", bucket.BucketName)
+		}
+		return uuid.UUID{}, storj.ErrBucket.Wrap(err)
+	}
+
+	id, err := uuid.FromBytes(dbxID.Id)
+	if err != nil {
+		return id, storj.ErrBucket.Wrap(err)
+	}
+	return id, err
+}
+
+// UpdateBucket updates a bucket.
 func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -96,7 +118,7 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 	return convertDBXtoBucket(dbxBucket)
 }
 
-// DeleteBucket deletes a bucket
+// DeleteBucket deletes a bucket.
 func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	deleted, err := db.db.Delete_BucketMetainfo_By_ProjectId_And_Name(ctx,
@@ -112,7 +134,7 @@ func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projec
 	return nil
 }
 
-// ListBuckets returns a list of buckets for a project
+// ListBuckets returns a list of buckets for a project.
 func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -187,6 +209,15 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 	}
 
 	return bucketList, nil
+}
+
+// CountBuckets returns the number of buckets a project currently has.
+func (db *bucketsDB) CountBuckets(ctx context.Context, projectID uuid.UUID) (count int, err error) {
+	count64, err := db.db.Count_BucketMetainfo_Name_By_ProjectId(ctx, dbx.BucketMetainfo_ProjectId(projectID[:]))
+	if err != nil {
+		return -1, err
+	}
+	return int(count64), nil
 }
 
 func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err error) {

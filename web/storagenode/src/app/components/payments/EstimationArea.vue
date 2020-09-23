@@ -68,7 +68,7 @@
                     <p class="estimation-table-container__info-area__text">{{ item.payout | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__info-area" v-if="isCurrentPeriod">
+            <div class="estimation-table-container__info-area" v-if="isCurrentPeriod || isLastPeriodWithoutPaystub">
                 <div class="column justify-start column-1">
                     <p class="estimation-table-container__info-area__text">Gross Total</p>
                 </div>
@@ -80,25 +80,33 @@
                     <p class="estimation-table-container__info-area__text">{{ grossTotal | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__held-area" v-if="!isCurrentPeriod || isSatelliteSelected">
-                <p class="estimation-table-container__held-area__text">Held back</p>
+            <div class="estimation-table-container__held-area">
+                <p class="estimation-table-container__held-area__text">Held Back</p>
                 <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
             </div>
-            <div class="estimation-table-container__total-area">
+            <div class="estimation-table-container__held-area" v-if="!isCurrentPeriod && disposed > 0">
+                <p class="estimation-table-container__held-area__text">Held returned</p>
+                <p class="estimation-table-container__held-area__text">{{ disposed | centsToDollars }}</p>
+            </div>
+            <div class="estimation-table-container__net-total-area">
                 <div class="column justify-start column-1">
-                    <p class="estimation-table-container__total-area__text">TOTAL</p>
+                    <p class="estimation-table-container__net-total-area__text">NET TOTAL</p>
                 </div>
                 <div class="column justify-start column-2"></div>
                 <div class="column justify-start column-3"></div>
                 <div class="column justify-start column-4">
-                    <p class="estimation-table-container__total-area__text">{{ totalDiskSpace + 'h' }}</p>
+                    <p class="estimation-table-container__net-total-area__text">{{ totalDiskSpace + 'm' }}</p>
                 </div>
                 <div class="column justify-start column-5">
-                    <p class="estimation-table-container__total-area__text">{{ totalBandwidth }}</p>
+                    <p class="estimation-table-container__net-total-area__text">{{ totalBandwidth }}</p>
                 </div>
                 <div class="column justify-end column-6">
-                    <p class="estimation-table-container__total-area__text">{{ totalPayout | centsToDollars }}</p>
+                    <p class="estimation-table-container__net-total-area__text">{{ totalPayout | centsToDollars }}</p>
                 </div>
+            </div>
+            <div class="estimation-table-container__total-area" v-if="!isCurrentPeriod && !isLastPeriodWithoutPaystub && totalPaystubForPeriod.surgePercent">
+                <p class="estimation-table-container__total-area__text">Total + Surge {{ surgePercent }}</p>
+                <p class="estimation-table-container__total-area__text">{{ totalPaystubForPeriod.paid | centsToDollars }}</p>
             </div>
         </div>
         <div class="no-data-container" v-else>
@@ -120,17 +128,12 @@ import {
     BANDWIDTH_REPAIR_PRICE_PER_TB,
     DISK_SPACE_PRICE_PER_TB, PAYOUT_ACTIONS,
 } from '@/app/store/modules/payout';
-import { HeldInfo, PayoutInfoRange, PayoutPeriod } from '@/app/types/payout';
-import { formatBytes, TB } from '@/app/utils/converter';
-
-/**
- * Holds all months names.
- */
-const monthNames = [
-    'January', 'February', 'March', 'April',
-    'May', 'June', 'July',	'August',
-    'September', 'October', 'November',	'December',
-];
+import {
+    monthNames,
+    PayoutInfoRange,
+} from '@/app/types/payout';
+import { formatBytes } from '@/app/utils/converter';
+import { EstimatedPayout, PayoutPeriod, TotalPaystubForPeriod } from '@/storagenode/payouts/payouts';
 
 /**
  * Describes table row data item.
@@ -176,8 +179,39 @@ export default class EstimationArea extends Vue {
         return !this.$store.state.payoutModule.periodRange.start && isCurrentMonthSelected;
     }
 
+    /**
+     * Indicates if last month selected and has no data for this period.
+     */
+    public get isLastPeriodWithoutPaystub(): boolean {
+        const joinedAt: Date = this.$store.state.node.selectedSatellite.joinDate;
+        const isNodeStartedBeforeCurrentPeriod =
+            joinedAt.getTime() < new Date(this.now.getUTCFullYear(), this.now.getUTCMonth(), 1 , 0, 0, 1).getTime();
+
+        if (!isNodeStartedBeforeCurrentPeriod) {
+            return false;
+        }
+
+        const lastMonthDate = new Date();
+        lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
+
+
+        const selectedPeriod: PayoutInfoRange = this.$store.state.payoutModule.periodRange;
+        const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());
+        const isLastPeriodSelected: boolean = !selectedPeriod.start && selectedPeriod.end.period === lastMonthPayoutPeriod.period;
+        const isPaystubAvailable: boolean = this.$store.state.payoutModule.payoutPeriods.map(e => e.period).includes(lastMonthPayoutPeriod.period);
+
+        return isLastPeriodSelected && !isPaystubAvailable;
+    }
+
     public get isSatelliteSelected(): boolean {
         return !!this.$store.state.node.selectedSatellite.id;
+    }
+
+    /**
+     * Returns surge percent if single month selected.
+     */
+    public get surgePercent(): string {
+        return !this.$store.state.payoutModule.periodRange.start ? `(${this.totalPaystubForPeriod.surgePercent}%)` : '';
     }
 
     /**
@@ -188,63 +222,75 @@ export default class EstimationArea extends Vue {
     }
 
     /**
-     * Returns held info from store.
+     * Returns payout info from store.
      */
-    public get heldInfo(): HeldInfo {
-        return this.$store.state.payoutModule.heldInfo;
+    public get totalPaystubForPeriod(): TotalPaystubForPeriod {
+        return this.$store.state.payoutModule.totalPaystubForPeriod;
+    }
+
+    /**
+     * Returns estimated payout information.
+     */
+    public get estimation(): EstimatedPayout {
+        return this.$store.state.payoutModule.estimation;
     }
 
     /**
      * Returns calculated or stored held amount.
      */
     public get held(): number {
-        if (this.isCurrentPeriod) {
-            return this.currentMonthHeld();
+        if (!this.isCurrentPeriod && !this.isLastPeriodWithoutPaystub) {
+            return this.totalPaystubForPeriod.held;
         }
 
-        return this.heldInfo.held;
+        return this.estimatedHeld();
+    }
+
+    /**
+     * Returns calculated or stored returned held amount.
+     */
+    public get disposed(): number {
+        return this.totalPaystubForPeriod.disposed;
     }
 
     /**
      * Returns calculated or stored total payout by selected period.
      */
     public get totalPayout(): number {
-        if (this.isCurrentPeriod) {
-            return this.isSatelliteSelected ? this.grossTotal - this.held : this.grossTotal;
+        if (!this.isCurrentPeriod && !this.isLastPeriodWithoutPaystub) {
+            return this.totalPaystubForPeriod.paid;
         }
 
-        return this.heldInfo.paid;
+        return this.grossTotal;
     }
 
     /**
      * Returns calculated gross payout by selected period.
      */
     public get grossTotal(): number {
-        return (this.currentBandwidthDownload * BANDWIDTH_DOWNLOAD_PRICE_PER_TB
-            + this.currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB
-            + this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / 730) / TB;
+        return this.isLastPeriodWithoutPaystub ? this.estimation.previousMonth.payout + this.held : this.estimation.currentMonth.payout + this.held;
     }
 
     /**
      * Returns calculated or stored total used disk space by selected period.
      */
     public get totalDiskSpace(): string {
-        if (this.isCurrentPeriod) {
+        if (this.isCurrentPeriod || this.isLastPeriodWithoutPaystub) {
             return formatBytes(this.currentDiskSpace);
         }
 
-        return formatBytes(this.heldInfo.usageAtRest);
+        return formatBytes(this.totalPaystubForPeriod.usageAtRest);
     }
 
     /**
      * Returns calculated or stored total used bandwidth by selected period.
      */
     public get totalBandwidth(): string {
-        if (this.isCurrentPeriod) {
+        if (this.isCurrentPeriod || this.isLastPeriodWithoutPaystub) {
             return formatBytes((this.currentBandwidthAuditAndRepair + this.currentBandwidthDownload));
         }
 
-        const bandwidthSum = this.heldInfo.usageGet + this.heldInfo.usageGetRepair + this.heldInfo.usageGetAudit;
+        const bandwidthSum = this.totalPaystubForPeriod.usageGet + this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit;
 
         return formatBytes(bandwidthSum);
     }
@@ -253,43 +299,36 @@ export default class EstimationArea extends Vue {
      * Returns summary of current month audit and repair bandwidth.
      */
     private get currentBandwidthAuditAndRepair(): number {
-        if (!this.$store.state.node.egressChartData) return 0;
-
-        return this.$store.state.node.egressChartData.map(data => data.egress.audit + data.egress.repair).reduce((previous, current) => previous + current, 0);
+        return this.isLastPeriodWithoutPaystub ? this.estimation.previousMonth.egressRepairAudit : this.estimation.currentMonth.egressRepairAudit;
     }
 
     /**
      * Returns summary of current month download bandwidth.
      */
     private get currentBandwidthDownload(): number {
-        if (!this.$store.state.node.egressChartData) return 0;
-
-        return this.$store.state.node.egressChartData.map(data => data.egress.usage)
-            .reduce((previous, current) => previous + current, 0);
+        return this.isLastPeriodWithoutPaystub ? this.estimation.previousMonth.egressBandwidth : this.estimation.currentMonth.egressBandwidth;
     }
 
     /**
      * Returns summary of current month used disk space.
      */
     private get currentDiskSpace(): number {
-        if (!this.$store.state.node.storageChartData) return 0;
-
-        return this.$store.state.node.storageChartData.map(data => data.atRestTotal).reduce((previous, current) => previous + current, 0);
+        return this.isLastPeriodWithoutPaystub ? this.estimation.previousMonth.diskSpace : this.estimation.currentMonth.diskSpace;
     }
 
     /**
      * Builds estimated payout table depends on selected period.
      */
     public get tableData(): EstimationTableRow[] {
-        if (!this.isCurrentPeriod) {
+        if (!this.isCurrentPeriod && !this.isLastPeriodWithoutPaystub) {
             return [
-                new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGet), this.heldInfo.compGet),
-                new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.heldInfo.usageGetRepair + this.heldInfo.usageGetAudit), this.heldInfo.compGetRepair + this.heldInfo.compGetAudit),
-                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, formatBytes(this.heldInfo.usageAtRest) + 'h', '--', this.heldInfo.compAtRest),
+                new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.totalPaystubForPeriod.usageGet), this.totalPaystubForPeriod.compGet),
+                new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit), this.totalPaystubForPeriod.compGetRepair + this.totalPaystubForPeriod.compGetAudit),
+                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, formatBytes(this.totalPaystubForPeriod.usageAtRest) + 'm', '--', this.totalPaystubForPeriod.compAtRest),
             ];
         }
 
-        const approxHourInMonth = 730;
+        const estimatedPayout = this.isLastPeriodWithoutPaystub ? this.estimation.previousMonth : this.estimation.currentMonth;
 
         return [
             new EstimationTableRow(
@@ -297,24 +336,24 @@ export default class EstimationArea extends Vue {
                 'Egress',
                 `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`,
                 '--',
-                formatBytes(this.currentBandwidthDownload),
-                this.currentBandwidthDownload * BANDWIDTH_DOWNLOAD_PRICE_PER_TB / TB,
+                formatBytes(estimatedPayout.egressBandwidth),
+                estimatedPayout.egressBandwidthPayout,
             ),
             new EstimationTableRow(
                 'Repair & Audit',
                 'Egress',
                 `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`,
                 '--',
-                formatBytes(this.currentBandwidthAuditAndRepair),
-                this.currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB / TB,
+                formatBytes(estimatedPayout.egressRepairAudit),
+                estimatedPayout.egressRepairAuditPayout,
             ),
             new EstimationTableRow(
                 'Disk Average Month',
                 'Storage',
                 `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`,
-                this.totalDiskSpace + 'h',
+                formatBytes(estimatedPayout.diskSpace) + 'm',
                 '--',
-                this.currentDiskSpace * DISK_SPACE_PRICE_PER_TB / TB / approxHourInMonth,
+                estimatedPayout.diskSpacePayout,
             ),
         ];
     }
@@ -335,10 +374,12 @@ export default class EstimationArea extends Vue {
     }
 
     /**
-     * Returns current month held amount based on currend day of month.
+     * Returns last or current month held amount based on current day of month.
      */
-    private currentMonthHeld(): number {
-        return this.grossTotal * this.$store.state.payoutModule.heldPercentage / 100;
+    private estimatedHeld(): number {
+        return this.isLastPeriodWithoutPaystub ?
+            this.estimation.previousMonth.held :
+            this.estimation.currentMonth.held;
     }
 }
 </script>
@@ -496,6 +537,23 @@ export default class EstimationArea extends Vue {
             flex-direction: row;
             align-items: center;
             justify-content: space-between;
+            border-bottom: 1px solid #a9b5c1;
+
+            &__text {
+                font-family: 'font_regular', sans-serif;
+                font-size: 14px;
+                color: var(--regular-text-color);
+            }
+        }
+
+        &__net-total-area,
+        &__total-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 16px;
+            width: calc(100% - 32px);
+            height: 56px;
 
             &__text {
                 font-family: 'font_bold', sans-serif;
@@ -505,19 +563,9 @@ export default class EstimationArea extends Vue {
         }
 
         &__total-area {
-            display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 0 16px;
-            width: calc(100% - 32px);
-            height: 56px;
+            justify-content: space-between;
             background-color: var(--estimation-table-total-container-color);
-
-            &__text {
-                font-family: 'font_bold', sans-serif;
-                font-size: 14px;
-                color: var(--regular-text-color);
-            }
         }
     }
 

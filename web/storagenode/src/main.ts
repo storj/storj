@@ -2,18 +2,17 @@
 // See LICENSE for copying information.
 
 import Vue, { VNode } from 'vue';
+import VueClipboard from 'vue-clipboard2';
 import { DirectiveBinding } from 'vue/types/options';
 
 import App from '@/app/App.vue';
 import { router } from '@/app/router';
 import { store } from '@/app/store';
-import { TelemetryPlugin } from '@/app/telemetry/telemetry';
 
 Vue.config.productionTip = false;
+VueClipboard.config.autoSetContainer = true;
 
-const telemetry = new TelemetryPlugin();
-
-Vue.use(telemetry);
+Vue.use(VueClipboard);
 
 let clickOutsideEvent: EventListener;
 

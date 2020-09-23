@@ -2,32 +2,46 @@
 // See LICENSE for copying information.
 
 import {
-    HeldHistory,
-    HeldInfo,
-    PaymentInfoParameters,
-    PayoutApi,
     PayoutInfoRange,
-    PayoutPeriod,
     PayoutState,
-    TotalPayoutInfo,
 } from '@/app/types/payout';
 import { TB } from '@/app/utils/converter';
+import { getHeldPercentage } from '@/app/utils/payout';
+import {
+    EstimatedPayout,
+    PayoutApi,
+    PayoutPeriod,
+    SatelliteHeldHistory,
+    SatellitePayoutForPeriod,
+    TotalHeldAndPaid,
+    TotalPaystubForPeriod,
+} from '@/storagenode/payouts/payouts';
+import { PayoutService } from '@/storagenode/payouts/service';
 
 export const PAYOUT_MUTATIONS = {
-    SET_HELD_INFO: 'SET_HELD_INFO',
+    SET_PAYOUT_INFO: 'SET_PAYOUT_INFO',
     SET_RANGE: 'SET_RANGE',
     SET_TOTAL: 'SET_TOTAL',
     SET_HELD_PERCENT: 'SET_HELD_PERCENT',
     SET_HELD_HISTORY: 'SET_HELD_HISTORY',
+    SET_ESTIMATION: 'SET_ESTIMATION',
+    SET_PERIODS: 'SET_PERIODS',
+    SET_PAYOUT_HISTORY: 'SET_PAYOUT_HISTORY',
+    SET_PAYOUT_HISTORY_PERIOD: 'SET_PAYOUT_HISTORY_PERIOD',
 };
 
 export const PAYOUT_ACTIONS = {
-    GET_HELD_INFO: 'GET_HELD_INFO',
+    GET_PAYOUT_INFO: 'GET_PAYOUT_INFO',
     SET_PERIODS_RANGE: 'SET_PERIODS_RANGE',
     GET_TOTAL: 'GET_TOTAL',
     GET_HELD_HISTORY: 'GET_HELD_HISTORY',
+    GET_ESTIMATION: 'GET_ESTIMATION',
+    GET_PERIODS: 'GET_PERIODS',
+    GET_PAYOUT_HISTORY: 'GET_PAYOUT_HISTORY',
+    SET_PAYOUT_HISTORY_PERIOD: 'SET_PAYOUT_HISTORY_PERIOD',
 };
 
+// TODO: move to config in storagenode/payouts
 export const BANDWIDTH_DOWNLOAD_PRICE_PER_TB = 2000;
 export const BANDWIDTH_REPAIR_PRICE_PER_TB = 1000;
 export const DISK_SPACE_PRICE_PER_TB = 150;
@@ -36,18 +50,18 @@ export const DISK_SPACE_PRICE_PER_TB = 150;
  * creates notifications module with all dependencies
  *
  * @param api - payments api
+ * @param service - payments service
  */
-export function makePayoutModule(api: PayoutApi) {
+export function makePayoutModule(api: PayoutApi, service: PayoutService) {
     return {
         state: new PayoutState(),
         mutations: {
-            [PAYOUT_MUTATIONS.SET_HELD_INFO](state: PayoutState, heldInfo: HeldInfo): void {
-                state.heldInfo = heldInfo;
+            [PAYOUT_MUTATIONS.SET_PAYOUT_INFO](state: PayoutState, totalPaystubForPeriod: TotalPaystubForPeriod): void {
+                state.totalPaystubForPeriod = totalPaystubForPeriod;
             },
-            [PAYOUT_MUTATIONS.SET_TOTAL](state: PayoutState, totalPayoutInfo: TotalPayoutInfo): void {
-                state.totalEarnings = totalPayoutInfo.totalEarnings;
-                state.totalHeldAmount = totalPayoutInfo.totalHeldAmount;
-                state.currentMonthEarnings = totalPayoutInfo.currentMonthEarnings;
+            [PAYOUT_MUTATIONS.SET_TOTAL](state: PayoutState, totalHeldAndPaid: TotalHeldAndPaid): void {
+                state.totalHeldAndPaid = totalHeldAndPaid;
+                state.currentMonthEarnings = totalHeldAndPaid.currentMonthEarnings;
             },
             [PAYOUT_MUTATIONS.SET_RANGE](state: PayoutState, periodRange: PayoutInfoRange): void {
                 state.periodRange = periodRange;
@@ -55,33 +69,41 @@ export function makePayoutModule(api: PayoutApi) {
             [PAYOUT_MUTATIONS.SET_HELD_PERCENT](state: PayoutState, heldPercentage: number): void {
                 state.heldPercentage = heldPercentage;
             },
-            [PAYOUT_MUTATIONS.SET_HELD_HISTORY](state: PayoutState, heldHistory: HeldHistory): void {
+            [PAYOUT_MUTATIONS.SET_HELD_HISTORY](state: PayoutState, heldHistory: SatelliteHeldHistory[]): void {
                 state.heldHistory = heldHistory;
+            },
+            [PAYOUT_MUTATIONS.SET_ESTIMATION](state: PayoutState, estimatedInfo: EstimatedPayout): void {
+                state.estimation = estimatedInfo;
+            },
+            [PAYOUT_MUTATIONS.SET_PERIODS](state: PayoutState, periods: PayoutPeriod[]): void {
+                state.payoutPeriods = periods;
+            },
+            [PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY](state: PayoutState, payoutHistory: SatellitePayoutForPeriod[]): void {
+                state.payoutHistory = payoutHistory;
+            },
+            [PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_PERIOD](state: PayoutState, period: string): void {
+                state.payoutHistoryPeriod = period;
             },
         },
         actions: {
-            [PAYOUT_ACTIONS.GET_HELD_INFO]: async function ({commit, state, rootState}: any, satelliteId: string = ''): Promise<void> {
-                const heldInfo = state.periodRange.start ? await api.getHeldInfoByPeriod(new PaymentInfoParameters(
+            [PAYOUT_ACTIONS.GET_PAYOUT_INFO]: async function ({ commit, state, rootState }: any, satelliteId: string = ''): Promise<void> {
+                const totalPaystubForPeriod = await service.paystubSummaryForPeriod(
                     state.periodRange.start,
                     state.periodRange.end,
                     satelliteId,
-                )) : await api.getHeldInfoByMonth(new PaymentInfoParameters(
-                    null,
-                    state.periodRange.end,
-                    satelliteId,
-                ));
+                );
 
                 commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, getHeldPercentage(rootState.node.selectedSatellite.joinDate));
-                commit(PAYOUT_MUTATIONS.SET_HELD_INFO, heldInfo);
+                commit(PAYOUT_MUTATIONS.SET_PAYOUT_INFO, totalPaystubForPeriod);
             },
-            [PAYOUT_ACTIONS.GET_TOTAL]: async function ({commit, rootState}: any, satelliteId: string = ''): Promise<void> {
+            [PAYOUT_ACTIONS.GET_TOTAL]: async function ({ commit, rootState }: any, satelliteId: string = ''): Promise<void> {
                 const now = new Date();
-                const totalPayoutInfo = await api.getTotal(new PaymentInfoParameters(
-                    new PayoutPeriod(rootState.node.selectedSatellite.joinDate.getUTCFullYear(), rootState.node.selectedSatellite.joinDate.getUTCMonth()),
-                    new PayoutPeriod(now.getUTCFullYear(), now.getUTCMonth()),
-                    satelliteId,
-                ));
+                const start = new PayoutPeriod(rootState.node.selectedSatellite.joinDate.getUTCFullYear(), rootState.node.selectedSatellite.joinDate.getUTCMonth());
+                const end = new PayoutPeriod(now.getUTCFullYear(), now.getUTCMonth());
 
+                const totalHeldAndPaid = await service.totalHeldAndPaid(start, end, satelliteId);
+
+                // TODO: move to service
                 const currentBandwidthDownload = (rootState.node.egressChartData || [])
                     .map(data => data.egress.usage)
                     .reduce((previous, current) => previous + current, 0);
@@ -90,7 +112,7 @@ export function makePayoutModule(api: PayoutApi) {
                     .map(data => data.egress.audit + data.egress.repair)
                     .reduce((previous, current) => previous + current, 0);
 
-                const approxHourInMonth = 730;
+                const approxHourInMonth = 720;
                 const currentDiskSpace = (rootState.node.storageChartData || [])
                     .map(data => data.atRestTotal)
                     .reduce((previous, current) => previous + current, 0) / approxHourInMonth;
@@ -99,40 +121,43 @@ export function makePayoutModule(api: PayoutApi) {
                     + currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB
                     + currentDiskSpace * DISK_SPACE_PRICE_PER_TB) / TB;
 
+                totalHeldAndPaid.setCurrentMonthEarnings(thisMonthEarnings);
+
                 commit(PAYOUT_MUTATIONS.SET_HELD_PERCENT, getHeldPercentage(rootState.node.selectedSatellite.joinDate));
-                commit(PAYOUT_MUTATIONS.SET_TOTAL, new TotalPayoutInfo(totalPayoutInfo.totalHeldAmount, totalPayoutInfo.totalEarnings, thisMonthEarnings));
+                commit(PAYOUT_MUTATIONS.SET_TOTAL, totalHeldAndPaid);
             },
-            [PAYOUT_ACTIONS.SET_PERIODS_RANGE]: function ({commit}: any, periodRange: PayoutInfoRange): void {
+            [PAYOUT_ACTIONS.SET_PERIODS_RANGE]: function ({ commit }: any, periodRange: PayoutInfoRange): void {
                 commit(PAYOUT_MUTATIONS.SET_RANGE, periodRange);
             },
-            [PAYOUT_ACTIONS.GET_HELD_HISTORY]: async function ({commit}: any): Promise<void> {
-                const heldHistory = await api.getHeldHistory();
+            [PAYOUT_ACTIONS.GET_HELD_HISTORY]: async function ({ commit }: any): Promise<void> {
+                const heldHistory = await service.allSatellitesHeldHistory();
 
                 commit(PAYOUT_MUTATIONS.SET_HELD_HISTORY, heldHistory);
             },
+            [PAYOUT_ACTIONS.GET_PERIODS]: async function ({commit}: any, satelliteId: string = ''): Promise<void> {
+                const periods = await service.availablePeriods(satelliteId);
+
+                commit(PAYOUT_MUTATIONS.SET_PERIODS, periods);
+            },
+            [PAYOUT_ACTIONS.GET_ESTIMATION]: async function ({ commit }: any, satelliteId: string = ''): Promise<void> {
+                const estimatedInfo = await service.estimatedPayout(satelliteId);
+
+                commit(PAYOUT_MUTATIONS.SET_ESTIMATION, estimatedInfo);
+            },
+            [PAYOUT_ACTIONS.GET_PAYOUT_HISTORY]: async function ({ commit, state }: any): Promise<void> {
+                const payoutHistory = await service.payoutHistory(state.payoutHistoryPeriod);
+
+                commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY, payoutHistory);
+            },
+            [PAYOUT_ACTIONS.SET_PAYOUT_HISTORY_PERIOD]: function ({ commit }: any, period: string): void {
+                commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_PERIOD, period);
+            },
+        },
+        getters: {
+            totalPaidForPayoutHistoryPeriod: (state: PayoutState): number => {
+                return state.payoutHistory.map(data => data.paid)
+                    .reduce((previous, current) => previous + current, 0);
+            },
         },
     };
-}
-
-/**
- * Returns held percentage depends on number of months that node is online.
- * @param startedAt date since node is online.
- */
-export function getHeldPercentage(startedAt: Date): number {
-    const now = new Date();
-    const secondsInMonthApproximately = 2628000;
-    const differenceInSeconds = (now.getTime() - startedAt.getTime()) / 1000;
-
-    const monthsOnline = Math.ceil(differenceInSeconds / secondsInMonthApproximately);
-
-    switch (true) {
-        case monthsOnline < 4:
-            return 75;
-        case monthsOnline < 7:
-            return 50;
-        case monthsOnline < 10:
-            return 25;
-        default:
-            return 0;
-    }
 }

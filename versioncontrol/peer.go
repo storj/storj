@@ -239,7 +239,7 @@ func (versions ProcessesConfig) ValidateRollouts(log *zap.Logger) error {
 			continue
 		}
 		if err := binary.Rollout.Validate(); err != nil {
-			if err == EmptySeedErr {
+			if errors.Is(err, EmptySeedErr) {
 				log.Warn(err.Error(), zap.String("binary", value.Type().Field(i).Name))
 				continue
 			}

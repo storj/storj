@@ -70,6 +70,10 @@
             :on-press="onDoneClick"
             :is-disabled="isCreatingState"
         />
+        <SaveApiKeyModal
+            v-if="isSaveApiKeyModalShown"
+            @confirmSave="onConfirmClick"
+        />
     </div>
 </template>
 
@@ -78,11 +82,13 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
+import SaveApiKeyModal from '@/components/onboardingTour/steps/SaveApiKeyModal.vue';
 
 import InfoImage from '@/../static/images/onboardingTour/info.svg';
 
+import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { ApiKey } from '@/types/apiKeys';
-import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AddingApiKeyState } from '@/utils/constants/onboardingTourEnums';
 
@@ -95,6 +101,7 @@ const {
     components: {
         VButton,
         HeaderedInput,
+        SaveApiKeyModal,
         InfoImage,
     },
 })
@@ -106,6 +113,13 @@ export default class CreateApiKeyStep extends Vue {
     public key: string = '';
     public errorMessage: string = '';
     public isLoading: boolean = false;
+
+    /**
+     * Indicates if save API key modal is shown.
+     */
+    public get isSaveApiKeyModalShown(): boolean {
+        return this.$store.state.appStateModule.appState.isSaveApiKeyModalShown;
+    }
 
     /**
      * Indicates if view is in creating state.
@@ -190,9 +204,17 @@ export default class CreateApiKeyStep extends Vue {
     }
 
     /**
-     * Sets tour state to last step.
+     * Toggles save API key modal visibility.
      */
     public onDoneClick(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SAVE_API_KEY_MODAL);
+    }
+
+    /**
+     * Sets tour state to last step.
+     */
+    public onConfirmClick(): void {
+        this.onDoneClick();
         this.$emit('setUploadDataState');
     }
 }
@@ -290,6 +312,7 @@ export default class CreateApiKeyStep extends Vue {
                     background-color: #0c2546;
                     display: flex;
                     align-items: center;
+                    justify-content: space-between;
                     padding: 20px 25px;
                     width: calc(100% - 50px);
                     border-radius: 0 0 8px 8px;

@@ -5,6 +5,7 @@ package satellitedb_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgconn"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -29,7 +30,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// loadSnapshots loads all the dbschemas from testdata/postgres.*
+// loadSnapshots loads all the dbschemas from `testdata/postgres.*`.
 func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Snapshots, *dbschema.Schema, error) {
 	snapshots := &dbschema.Snapshots{}
 
@@ -57,8 +58,9 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 
 			snapshot, err := loadSnapshotFromSQL(ctx, connstr, string(scriptData))
 			if err != nil {
-				if pqErr, ok := err.(*pq.Error); ok && pqErr.Detail != "" {
-					return fmt.Errorf("Version %d error: %v\nDetail: %s\nHint: %s", version, pqErr, pqErr.Detail, pqErr.Hint)
+				var pgErr *pgconn.PgError
+				if errors.As(err, &pgErr) {
+					return fmt.Errorf("Version %d error: %v\nDetail: %s\nHint: %s", version, pgErr, pgErr.Detail, pgErr.Hint)
 				}
 				return fmt.Errorf("Version %d error: %+v", version, err)
 			}

@@ -20,12 +20,12 @@ var ErrSatellitesDB = errs.Class("satellitesdb error")
 // SatellitesDBName represents the database name.
 const SatellitesDBName = "satellites"
 
-// reputation works with node reputation DB
+// reputation works with node reputation DB.
 type satellitesDB struct {
 	dbContainerImpl
 }
 
-// GetSatellite retrieves that satellite by ID
+// GetSatellite retrieves that satellite by ID.
 func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite satellites.Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -44,7 +44,7 @@ func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.Node
 	return satellite, rows.Err()
 }
 
-// InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
+// InitiateGracefulExit updates the database to reflect the beginning of a graceful exit.
 func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx tagsql.Tx) error {
@@ -59,7 +59,7 @@ func (db *satellitesDB) InitiateGracefulExit(ctx context.Context, satelliteID st
 	}))
 }
 
-// CancelGracefulExit delete an entry by satellite ID
+// CancelGracefulExit delete an entry by satellite ID.
 func (db *satellitesDB) CancelGracefulExit(ctx context.Context, satelliteID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -67,7 +67,7 @@ func (db *satellitesDB) CancelGracefulExit(ctx context.Context, satelliteID stor
 	return ErrSatellitesDB.Wrap(err)
 }
 
-// UpdateGracefulExit increments the total bytes deleted during a graceful exit
+// UpdateGracefulExit increments the total bytes deleted during a graceful exit.
 func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID storj.NodeID, addToBytesDeleted int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	query := `UPDATE satellite_exit_progress SET bytes_deleted = bytes_deleted + ? WHERE satellite_id = ?`
@@ -75,7 +75,7 @@ func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID stor
 	return ErrSatellitesDB.Wrap(err)
 }
 
-// CompleteGracefulExit updates the database when a graceful exit is completed or failed
+// CompleteGracefulExit updates the database when a graceful exit is completed or failed.
 func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus satellites.Status, completionReceipt []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(withTx(ctx, db.GetDB(), func(tx tagsql.Tx) error {
@@ -90,7 +90,7 @@ func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID st
 	}))
 }
 
-// ListGracefulExits lists all graceful exit records
+// ListGracefulExits lists all graceful exit records.
 func (db *satellitesDB) ListGracefulExits(ctx context.Context) (exitList []satellites.ExitProgress, err error) {
 	defer mon.Task()(&ctx)(&err)
 

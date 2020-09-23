@@ -11,12 +11,12 @@ import (
 // other packages.
 type apikey struct{}
 
-// WithAPIKey creates context with api key
+// WithAPIKey creates context with api key.
 func WithAPIKey(ctx context.Context, key []byte) context.Context {
 	return context.WithValue(ctx, apikey{}, key)
 }
 
-// GetAPIKey returns api key from context is exists
+// GetAPIKey returns api key from context is exists.
 func GetAPIKey(ctx context.Context) ([]byte, bool) {
 	key, ok := ctx.Value(apikey{}).([]byte)
 	return key, ok

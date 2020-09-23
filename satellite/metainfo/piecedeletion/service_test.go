@@ -4,6 +4,7 @@
 package piecedeletion_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -29,8 +31,9 @@ func TestService_New_Error(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	dialer := rpc.NewDefaultDialer(nil)
 
-	_, err := piecedeletion.NewService(nil, dialer, piecedeletion.Config{
+	_, err := piecedeletion.NewService(nil, dialer, &nodesDB{}, piecedeletion.Config{
 		MaxConcurrency:      8,
+		MaxConcurrentPieces: 10,
 		MaxPiecesPerBatch:   0,
 		MaxPiecesPerRequest: 0,
 		DialTimeout:         time.Second,
@@ -39,37 +42,61 @@ func TestService_New_Error(t *testing.T) {
 	require.True(t, piecedeletion.Error.Has(err), err)
 	require.Contains(t, err.Error(), "log is nil")
 
-	_, err = piecedeletion.NewService(log, rpc.Dialer{}, piecedeletion.Config{
-		MaxConcurrency: 87,
-		DialTimeout:    time.Second,
+	_, err = piecedeletion.NewService(log, rpc.Dialer{}, &nodesDB{}, piecedeletion.Config{
+		MaxConcurrency:      87,
+		MaxConcurrentPieces: 10,
+		DialTimeout:         time.Second,
 	})
-	//require.True(t, metainfo.ErrDeletePieces.Has(err), err)
+	require.True(t, piecedeletion.Error.Has(err), err)
 	require.Contains(t, err.Error(), "dialer is zero")
 
-	_, err = piecedeletion.NewService(log, dialer, piecedeletion.Config{
-		MaxConcurrency: 0,
-		DialTimeout:    time.Second,
+	_, err = piecedeletion.NewService(log, dialer, nil, piecedeletion.Config{
+		MaxConcurrency:      8,
+		MaxConcurrentPieces: 10,
+		MaxPiecesPerBatch:   0,
+		MaxPiecesPerRequest: 0,
+		DialTimeout:         time.Second,
+		FailThreshold:       5 * time.Minute,
+	})
+	require.True(t, piecedeletion.Error.Has(err), err)
+	require.Contains(t, err.Error(), "nodesDB is nil")
+
+	_, err = piecedeletion.NewService(log, dialer, &nodesDB{}, piecedeletion.Config{
+		MaxConcurrency:      0,
+		MaxConcurrentPieces: 10,
+		DialTimeout:         time.Second,
 	})
 	require.True(t, piecedeletion.Error.Has(err), err)
 	require.Contains(t, err.Error(), "greater than 0")
 
-	_, err = piecedeletion.NewService(log, dialer, piecedeletion.Config{
-		MaxConcurrency: -3,
-		DialTimeout:    time.Second,
+	_, err = piecedeletion.NewService(log, dialer, &nodesDB{}, piecedeletion.Config{
+		MaxConcurrency:      -3,
+		MaxConcurrentPieces: 10,
+		DialTimeout:         time.Second,
 	})
 	require.True(t, piecedeletion.Error.Has(err), err)
 	require.Contains(t, err.Error(), "greater than 0")
 
-	_, err = piecedeletion.NewService(log, dialer, piecedeletion.Config{
-		MaxConcurrency: 3,
-		DialTimeout:    time.Nanosecond,
+	_, err = piecedeletion.NewService(log, dialer, &nodesDB{}, piecedeletion.Config{
+		MaxConcurrency:      3,
+		MaxConcurrentPieces: -10,
+		DialTimeout:         time.Second,
+	})
+	require.True(t, piecedeletion.Error.Has(err), err)
+	require.Contains(t, err.Error(), "greater than 0")
+
+	_, err = piecedeletion.NewService(log, dialer, &nodesDB{}, piecedeletion.Config{
+		MaxConcurrency:      3,
+		MaxConcurrentPieces: 10,
+		DialTimeout:         time.Nanosecond,
 	})
 	require.True(t, piecedeletion.Error.Has(err), err)
 	require.Contains(t, err.Error(), "dial timeout 1ns must be between 5ms and 5m0s")
 
-	_, err = piecedeletion.NewService(log, dialer, piecedeletion.Config{
-		MaxConcurrency: 3,
-		DialTimeout:    time.Hour,
+	_, err = piecedeletion.NewService(log, dialer, &nodesDB{}, piecedeletion.Config{
+		MaxConcurrency:      3,
+		MaxConcurrentPieces: 10,
+		DialTimeout:         time.Hour,
 	})
 	require.True(t, piecedeletion.Error.Has(err), err)
 	require.Contains(t, err.Error(), "dial timeout 1h0m0s must be between 5ms and 5m0s")
@@ -270,6 +297,32 @@ func TestService_DeletePieces_AllNodesDown(t *testing.T) {
 	})
 }
 
+func TestService_DeletePieces_DisproportionateNumberOfRequestsAndNodes(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satelliteSys := planet.Satellites[0]
+
+		// make sure that the ratio of number of requests and number of nodes to
+		// be greater than the success threshold
+		percentExp := 0.75
+		numberOfRequests := 20
+		require.Less(t, float64(len(planet.StorageNodes))/float64(numberOfRequests), percentExp)
+
+		// populate requests
+		requests := make([]piecedeletion.Request, numberOfRequests)
+		for i := range requests {
+			requests[i] = piecedeletion.Request{
+				Node:   planet.StorageNodes[i%2].NodeURL(),
+				Pieces: []storj.PieceID{testrand.PieceID()},
+			}
+		}
+
+		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, percentExp)
+		require.NoError(t, err)
+	})
+}
+
 func TestService_DeletePieces_Invalid(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -356,4 +409,10 @@ func TestService_DeletePieces_Timeout(t *testing.T) {
 
 		require.Equal(t, expectedTotalUsedSpace, totalUsedSpace, "totalUsedSpace")
 	})
+}
+
+type nodesDB struct{}
+
+func (n *nodesDB) KnownReliable(ctx context.Context, nodesID storj.NodeIDList) ([]*pb.Node, error) {
+	return nil, nil
 }

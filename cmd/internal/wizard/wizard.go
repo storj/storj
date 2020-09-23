@@ -17,7 +17,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// PromptForAccessName handles user input for access name to be used with wizards
+// PromptForAccessName handles user input for access name to be used with wizards.
 func PromptForAccessName() (string, error) {
 	_, err := fmt.Printf("Choose an access name (use lowercase letters) [\"default\"]: ")
 	if err != nil {
@@ -41,7 +41,7 @@ func PromptForAccessName() (string, error) {
 	return accessName, nil
 }
 
-// PromptForSatellite handles user input for a satellite address to be used with wizards
+// PromptForSatellite handles user input for a satellite address to be used with wizards.
 func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	satellites := []string{
 		"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777",
@@ -115,7 +115,7 @@ func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	return satelliteAddress, nil
 }
 
-// PromptForAPIKey handles user input for an API key to be used with wizards
+// PromptForAPIKey handles user input for an API key to be used with wizards.
 func PromptForAPIKey() (string, error) {
 	_, err := fmt.Print("Enter your API key: ")
 	if err != nil {
@@ -134,7 +134,7 @@ func PromptForAPIKey() (string, error) {
 	return apiKey, nil
 }
 
-// PromptForEncryptionPassphrase handles user input for an encryption passphrase to be used with wizards
+// PromptForEncryptionPassphrase handles user input for an encryption passphrase to be used with wizards.
 func PromptForEncryptionPassphrase() (string, error) {
 	_, err := fmt.Print(`Data is encrypted on the network, with an encryption passphrase
 stored on your local machine. Enter a passphrase you'd like to use.

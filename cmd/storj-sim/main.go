@@ -11,7 +11,7 @@ import (
 	"storj.io/common/fpath"
 )
 
-// Flags contains different flags for commands
+// Flags contains different flags for commands.
 type Flags struct {
 	Directory string
 	Host      string

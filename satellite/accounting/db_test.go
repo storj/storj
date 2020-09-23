@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -134,6 +135,48 @@ func TestStorageNodeUsage(t *testing.T) {
 	})
 }
 
+// There can be more than one rollup in a day. Test that the sums are grouped by day.
+func TestStorageNodeUsage_TwoRollupsInADay(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		now := time.Now().UTC()
+
+		nodeID := testrand.NodeID()
+
+		accountingDB := db.StoragenodeAccounting()
+
+		// create last rollup timestamp
+		_, err := accountingDB.LastTimestamp(ctx, accounting.LastRollup)
+		require.NoError(t, err)
+
+		t1 := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		t2 := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
+		rollups := make(accounting.RollupStats)
+
+		rollups[t1] = make(map[storj.NodeID]*accounting.Rollup)
+		rollups[t2] = make(map[storj.NodeID]*accounting.Rollup)
+
+		rollups[t1][nodeID] = &accounting.Rollup{
+			NodeID:      nodeID,
+			AtRestTotal: 1000,
+		}
+		rollups[t2][nodeID] = &accounting.Rollup{
+			NodeID:      nodeID,
+			AtRestTotal: 500,
+		}
+		// save rollup
+		err = accountingDB.SaveRollup(ctx, now.Add(time.Hour*-24), rollups)
+		require.NoError(t, err)
+
+		nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, time.Time{}, now)
+		require.NoError(t, err)
+		require.NotNil(t, nodeStorageUsages)
+		require.Equal(t, 1, len(nodeStorageUsages))
+
+		require.Equal(t, nodeID, nodeStorageUsages[0].NodeID)
+		require.EqualValues(t, 1500, nodeStorageUsages[0].StorageUsed)
+	})
+}
+
 func TestProjectLimits(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		proj, err := db.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})
@@ -146,11 +189,11 @@ func TestProjectLimits(t *testing.T) {
 		t.Run("get", func(t *testing.T) {
 			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, proj.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, memory.Size(1), storageLimit)
+			assert.Equal(t, memory.Size(1).Int64(), *storageLimit)
 
 			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, proj.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, memory.Size(2), bandwidthLimit)
+			assert.Equal(t, memory.Size(2).Int64(), *bandwidthLimit)
 		})
 
 		t.Run("update", func(t *testing.T) {
@@ -160,27 +203,32 @@ func TestProjectLimits(t *testing.T) {
 
 			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, proj.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, memory.Size(4), storageLimit)
+			assert.Equal(t, memory.Size(4).Int64(), *storageLimit)
 
 			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, proj.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, memory.Size(3), bandwidthLimit)
+			assert.Equal(t, memory.Size(3).Int64(), *bandwidthLimit)
 		})
 	})
 }
 
-func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.BucketTally, []accounting.BucketTally, error) {
-	bucketTallies := make(map[string]*accounting.BucketTally)
+func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocation]*accounting.BucketTally, []accounting.BucketTally, error) {
+	bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
 	var expectedTallies []accounting.BucketTally
 
 	for i := 0; i < 4; i++ {
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
-		bucketID := storj.JoinPaths(projectID.String(), bucketName)
+		bucketLocation := metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: bucketName,
+		}
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
 		tally := accounting.BucketTally{
-			BucketName:     []byte(bucketName),
-			ProjectID:      projectID,
+			BucketLocation: metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+			},
 			ObjectCount:    int64(1),
 			InlineSegments: int64(1),
 			RemoteSegments: int64(1),
@@ -188,7 +236,7 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.Buc
 			RemoteBytes:    int64(1),
 			MetadataSize:   int64(1),
 		}
-		bucketTallies[bucketID] = &tally
+		bucketTallies[bucketLocation] = &tally
 		expectedTallies = append(expectedTallies, tally)
 
 	}

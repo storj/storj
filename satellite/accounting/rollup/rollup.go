@@ -9,19 +9,16 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/accounting"
 )
 
-// Config contains configurable values for rollup
+// Config contains configurable values for rollup.
 type Config struct {
-	Interval            time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s"`
-	DefaultMaxUsage     memory.Size   `help:"the default storage usage limit" releaseDefault:"50GB" devDefault:"200GB"`
-	DefaultMaxBandwidth memory.Size   `help:"the default bandwidth usage limit" releaseDefault:"50GB" devDefault:"200GB"`
-	DeleteTallies       bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
+	Interval      time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s"`
+	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
 }
 
 // Service is the rollup service for totalling data on storage nodes on daily intervals
@@ -34,7 +31,7 @@ type Service struct {
 	deleteTallies bool
 }
 
-// New creates a new rollup service
+// New creates a new rollup service.
 func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time.Duration, deleteTallies bool) *Service {
 	return &Service{
 		logger:        logger,
@@ -44,7 +41,7 @@ func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time
 	}
 }
 
-// Run the Rollup loop
+// Run the Rollup loop.
 func (r *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return r.Loop.Run(ctx, func(ctx context.Context) error {
@@ -62,7 +59,7 @@ func (r *Service) Close() error {
 	return nil
 }
 
-// Rollup aggregates storage and bandwidth amounts for the time interval
+// Rollup aggregates storage and bandwidth amounts for the time interval.
 func (r *Service) Rollup(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// only Rollup new things - get LastRollup
@@ -105,7 +102,7 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 	return nil
 }
 
-// RollupStorage rolls up storage tally, modifies rollupStats map
+// RollupStorage rolls up storage tally, modifies rollupStats map.
 func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (latestTally time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 	tallies, err := r.sdb.GetTalliesSince(ctx, lastRollup)
@@ -139,7 +136,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 	return latestTally, nil
 }
 
-// RollupBW aggregates the bandwidth rollups, modifies rollupStats map
+// RollupBW aggregates the bandwidth rollups, modifies rollupStats map.
 func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	var latestTally time.Time

@@ -2,30 +2,39 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="dashboard-container">
+    <div class="dashboard">
         <div v-if="isLoading" class="loading-overlay active">
             <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Company logo loading gif">
         </div>
-        <div v-else class="dashboard-container__wrap">
-            <NavigationArea class="regular-navigation"/>
-            <div class="dashboard-container__wrap__column">
-                <DashboardHeader/>
-                <div class="dashboard-container__main-area">
-                    <div class="dashboard-container__main-area__bar-area">
+        <NoPaywallInfoBar v-if="isNoPaywallInfoBarShown && !isLoading"/>
+        <div v-if="!isLoading" class="dashboard__wrap">
+            <DashboardHeader/>
+            <div class="dashboard__wrap__main-area">
+                <NavigationArea class="regular-navigation"/>
+                <div class="dashboard__wrap__main-area__content">
+                    <div class="dashboard__wrap__main-area__content__bar-area">
                         <VInfoBar
-                            v-if="isInfoBarShown"
+                            v-if="isBillingInfoBarShown"
                             :first-value="storageRemaining"
                             :second-value="bandwidthRemaining"
                             first-description="of Storage Remaining"
                             second-description="of Bandwidth Remaining"
                             :path="projectDashboardPath"
-                            link="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                            :link="projectLimitsIncreaseRequestURL"
                             link-label="Request Limit Increase ->"
                         />
+                        <VInfoBar
+                            v-if="isProjectLimitInfoBarShown"
+                            is-blue="true"
+                            :first-value="`You have used ${userProjectsCount}`"
+                            first-description="of your"
+                            :second-value="defaultProjectLimit"
+                            second-description="available projects."
+                            :link="generalRequestURL"
+                            link-label="Request Project Limit Increase"
+                        />
                     </div>
-                    <div class="dashboard-container__main-area__content">
-                        <router-view/>
-                    </div>
+                    <router-view/>
                 </div>
             </div>
         </div>
@@ -38,9 +47,11 @@ import { Component, Vue } from 'vue-property-decorator';
 import VInfoBar from '@/components/common/VInfoBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import NoPaywallInfoBar from '@/components/noPaywallInfoBar/NoPaywallInfoBar.vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
+import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -50,14 +61,15 @@ import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { Size } from '@/utils/bytesSize';
 import {
-    API_KEYS_ACTIONS,
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
-import { ProjectOwning } from '@/utils/projectOwning';
+import { LocalData } from '@/utils/localData';
+import { MetaUtils } from '@/utils/meta';
 
 const {
+    GET_PAYWALL_ENABLED_STATUS,
     SETUP_ACCOUNT,
     GET_BALANCE,
     GET_CREDIT_CARDS,
@@ -71,6 +83,7 @@ const {
         NavigationArea,
         DashboardHeader,
         VInfoBar,
+        NoPaywallInfoBar,
     },
 })
 export default class DashboardArea extends Vue {
@@ -98,6 +111,12 @@ export default class DashboardArea extends Vue {
             setTimeout(async () => await this.$router.push(RouteConfig.Login.path), 1000);
 
             return;
+        }
+
+        try {
+            await this.$store.dispatch(GET_PAYWALL_ENABLED_STATUS);
+        } catch (error) {
+            await this.$notify.error(`Unable to get paywall enabled status. ${error.message}`);
         }
 
         try {
@@ -152,7 +171,7 @@ export default class DashboardArea extends Vue {
             return;
         }
 
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
+        this.selectProject(projects);
 
         let apiKeysPage: ApiKeysPage = new ApiKeysPage();
 
@@ -197,12 +216,58 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Indicates if info bar is shown.
+     * Indicates if no paywall info bar is shown.
      */
-    public get isInfoBarShown(): boolean {
+    public get isNoPaywallInfoBarShown(): boolean {
+        const isOnboardingTour: boolean = this.$route.name === RouteConfig.OnboardingTour.name;
+
+        return !this.isPaywallEnabled && !isOnboardingTour &&
+            this.$store.state.paymentsModule.balance.coins === 0 &&
+            this.$store.state.paymentsModule.creditCards.length === 0;
+    }
+
+    /**
+     * Indicates if billing info bar is shown.
+     */
+    public get isBillingInfoBarShown(): boolean {
         const isBillingPage = this.$route.name === RouteConfig.Billing.name;
 
-        return isBillingPage && new ProjectOwning(this.$store).userHasOwnProject();
+        return isBillingPage && this.userProjectsCount > 0;
+    }
+
+    /**
+     * Indicates if project limit info bar is shown.
+     */
+    public get isProjectLimitInfoBarShown(): boolean {
+        return this.userProjectsCount === this.defaultProjectLimit && this.$route.name === RouteConfig.ProjectDashboard.name;
+    }
+
+    /**
+     * Returns user's projects count.
+     */
+    public get userProjectsCount(): number {
+        return this.$store.getters.userProjectsCount;
+    }
+
+    /**
+     * Returns default project limit from config.
+     */
+    public get defaultProjectLimit(): number {
+        return parseInt(MetaUtils.getMetaContent('default-project-limit'));
+    }
+
+    /**
+     * Returns project limits increase request url from config.
+     */
+    public get projectLimitsIncreaseRequestURL(): string {
+        return MetaUtils.getMetaContent('project-limits-increase-request-url');
+    }
+
+    /**
+     * Returns general request url from config.
+     */
+    public get generalRequestURL(): string {
+        return MetaUtils.getMetaContent('general-request-url');
     }
 
     /**
@@ -245,44 +310,91 @@ export default class DashboardArea extends Vue {
     public get isLoading(): boolean {
         return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
     }
+
+    /**
+     * Indicates if paywall is enabled.
+     */
+    private get isPaywallEnabled(): boolean {
+        return this.$store.state.paymentsModule.isPaywallEnabled;
+    }
+
+    /**
+     * Checks if stored project is in fetched projects array and selects it.
+     * Selects first fetched project if check is not successful.
+     * @param fetchedProjects - fetched projects array
+     */
+    private selectProject(fetchedProjects: Project[]): void {
+        const storedProjectID = LocalData.getSelectedProjectId();
+        const isProjectInFetchedProjects = fetchedProjects.some(project => project.id === storedProjectID);
+        if (storedProjectID && isProjectInFetchedProjects) {
+            this.storeProject(storedProjectID);
+
+            return;
+        }
+
+        // Length of fetchedProjects array is checked before selectProject() function call.
+        this.storeProject(fetchedProjects[0].id);
+    }
+
+    /**
+     * Stores project to vuex store and browser's local storage.
+     * @param projectID - project id string
+     */
+    private storeProject(projectID: string): void {
+        this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+        LocalData.setSelectedProjectId(projectID);
+    }
 }
 </script>
 
 <style scoped lang="scss">
-    .dashboard-container {
-        position: fixed;
-        max-width: 100%;
-        width: 100%;
-        height: 100%;
-        left: 0;
+    .loading-overlay {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: absolute;
         top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(134, 134, 148, 1);
+        visibility: hidden;
+        opacity: 0;
+        -webkit-transition: all 0.5s linear;
+        -moz-transition: all 0.5s linear;
+        -o-transition: all 0.5s linear;
+        transition: all 0.5s linear;
+    }
+
+    .loading-overlay.active {
+        visibility: visible;
+        opacity: 1;
+    }
+
+    .dashboard {
+        height: 100%;
         background-color: #f5f6fa;
-        z-index: 10;
+        display: flex;
+        flex-direction: column;
 
         &__wrap {
             display: flex;
-
-            &__column {
-                display: flex;
-                flex-direction: column;
-                width: 100%;
-            }
-        }
-
-        &__main-area {
-            position: relative;
-            width: 100%;
-            height: calc(100vh - 50px);
-            overflow-y: scroll;
-            display: flex;
             flex-direction: column;
+            height: 100%;
 
-            &__bar-area {
-                flex: 0 1 auto;
-            }
+            &__main-area {
+                display: flex;
+                height: 100%;
 
-            &__content {
-                flex: 1 1 auto;
+                &__content {
+                    overflow-y: scroll;
+                    height: calc(100vh - 62px);
+                    width: 100%;
+
+                    &__bar-area {
+                        position: relative;
+                    }
+                }
             }
         }
     }
@@ -292,33 +404,5 @@ export default class DashboardArea extends Vue {
         .regular-navigation {
             display: none;
         }
-    }
-
-    .loading-overlay {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 100vh;
-        z-index: 100;
-        background-color: rgba(134, 134, 148, 1);
-        visibility: hidden;
-        opacity: 0;
-        -webkit-transition: all 0.5s linear;
-        -moz-transition: all 0.5s linear;
-        -o-transition: all 0.5s linear;
-        transition: all 0.5s linear;
-
-        .loading-image {
-            z-index: 200;
-        }
-    }
-
-    .loading-overlay.active {
-        visibility: visible;
-        opacity: 1;
     }
 </style>

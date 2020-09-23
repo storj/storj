@@ -22,7 +22,8 @@ import (
 // except in transactions. For them, we need to disable.
 //   https://github.com/mattn/go-sqlite3/issues/769
 //
-// Currently we don't have data on whether github.com/jackc/pgx supports them properly.
+// So far, we believe that github.com/jackc/pgx supports contexts
+// and cancellations properly.
 
 // ContextSupport returns the level of context support a driver has.
 type ContextSupport byte
@@ -64,6 +65,8 @@ func DetectContextSupport(db *sql.DB) (ContextSupport, error) {
 		// internally uses lib/pq
 		typ.PkgPath() == "storj.io/storj/private/dbutil/cockroachutil" && typ.Name() == "Driver":
 		return SupportNone, nil
+	case typ.PkgPath() == "github.com/jackc/pgx/v4/stdlib" && typ.Name() == "Driver":
+		return SupportTransactions, nil
 	default:
 		return SupportNone, errs.New("sql driver %q %q unsupported", typ.PkgPath(), typ.Name())
 	}

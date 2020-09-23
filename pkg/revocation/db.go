@@ -20,7 +20,7 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is a pkg/revocation error
+	// Error is a pkg/revocation error.
 	Error = errs.Class("revocation error")
 )
 
@@ -100,7 +100,7 @@ func (db *DB) Put(ctx context.Context, chain []*x509.Certificate, revExt pkix.Ex
 	return nil
 }
 
-// List lists all revocations in the store
+// List lists all revocations in the store.
 func (db *DB) List(ctx context.Context) (revs []*extensions.Revocation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -134,7 +134,7 @@ func (db *DB) TestGetStore() storage.KeyValueStore {
 	return db.store
 }
 
-// Close closes the underlying store
+// Close closes the underlying store.
 func (db *DB) Close() error {
 	if db.store == nil {
 		return nil

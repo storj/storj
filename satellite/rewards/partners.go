@@ -60,6 +60,10 @@ func DefaultPartners() PartnerList {
 			ID:   "cadac3fb-6a3f-4d17-9748-cc66d0617d55",
 			UUID: parseUUID("cadac3fb-6a3f-4d17-9748-cc66d0617d55"),
 		}, {
+			Name: "Duplicati",
+			ID:   "261e368e-d888-4d8e-8aa7-694aed20043a",
+			UUID: parseUUID("261e368e-d888-4d8e-8aa7-694aed20043a"),
+		}, {
 			Name: "DVLabs",
 			ID:   "53fb82d7-73ff-4a1a-ab0c-6968cffc850e",
 			UUID: parseUUID("53fb82d7-73ff-4a1a-ab0c-6968cffc850e"),
@@ -79,6 +83,10 @@ func DefaultPartners() PartnerList {
 			Name: "Infura",
 			ID:   "1519bdee-ed18-45fe-86c6-4c7fa9668a14",
 			UUID: parseUUID("1519bdee-ed18-45fe-86c6-4c7fa9668a14"),
+		}, {
+			Name: "Innovoedge",
+			ID:   "bc1276a5-4ba8-4761-a164-e5a4a9f8593c",
+			UUID: parseUUID("bc1276a5-4ba8-4761-a164-e5a4a9f8593c"),
 		}, {
 			Name: "GroundX",
 			ID:   "e56c6a65-d5bf-457a-a414-e55c36624f73",
@@ -111,9 +119,17 @@ func DefaultPartners() PartnerList {
 			Name: "Kafka",
 			ID:   "OSPP005",
 		}, {
+			Name: "Kesque",
+			ID:   "c6b01830-920c-4895-93f5-c0bd74fb44d8",
+			UUID: parseUUID("c6b01830-920c-4895-93f5-c0bd74fb44d8"),
+		}, {
 			Name: "Minio",
 			ID:   "5bffe844-5da7-4aa9-bf37-7d695cf819f2",
 			UUID: parseUUID("5bffe844-5da7-4aa9-bf37-7d695cf819f2"),
+		}, {
+			Name: "MSP360",
+			ID:   "f184948c-06e8-4edb-9a19-96667572d120",
+			UUID: parseUUID("f184948c-06e8-4edb-9a19-96667572d120"),
 		}, {
 			Name: "Nextcloud",
 			ID:   "42f588fb-f39d-4886-81af-b614ca16ce37",
@@ -135,6 +151,14 @@ func DefaultPartners() PartnerList {
 			ID:   "57855387-5a58-4a2b-97d2-15b1d76eea3c",
 			UUID: parseUUID("57855387-5a58-4a2b-97d2-15b1d76eea3c"),
 		}, {
+			Name: "Rclone",
+			ID:   "f746681d-91c1-4226-85c5-0cea4b66473b",
+			UUID: parseUUID("f746681d-91c1-4226-85c5-0cea4b66473b"),
+		}, {
+			Name: "Restic",
+			ID:   "c59d86e9-3d23-406c-a97a-9751b552df75",
+			UUID: parseUUID("c59d86e9-3d23-406c-a97a-9751b552df75"),
+		}, {
 			Name: "Satoshi Soup",
 			ID:   "4400d796-3777-4964-8536-22a4ae439ed3",
 			UUID: parseUUID("4400d796-3777-4964-8536-22a4ae439ed3"),
@@ -146,6 +170,10 @@ func DefaultPartners() PartnerList {
 			Name: "Status Messenger",
 			ID:   "b6114126-c06d-49f9-8d23-3e0dd2e350ab",
 			UUID: parseUUID("b6114126-c06d-49f9-8d23-3e0dd2e350ab"),
+		}, {
+			Name: "Taloflow",
+			ID:   "72ef94a4-c8ab-49fa-b5f1-4824532c4205",
+			UUID: parseUUID("72ef94a4-c8ab-49fa-b5f1-4824532c4205"),
 		}, {
 			Name: "Temporal",
 			ID:   "aeedbe32-1519-4320-b2f4-33725c65af54",

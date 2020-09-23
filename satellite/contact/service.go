@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-// Config contains configurable values for contact service
+// Config contains configurable values for contact service.
 type Config struct {
 	ExternalAddress string        `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 	Timeout         time.Duration `help:"timeout for pinging storage nodes" default:"10m0s"`
@@ -55,14 +55,14 @@ func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Ser
 	}
 }
 
-// Local returns the satellite node dossier
+// Local returns the satellite node dossier.
 func (service *Service) Local() overlay.NodeDossier {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	return *service.self
 }
 
-// Close closes resources
+// Close closes resources.
 func (service *Service) Close() error { return nil }
 
 // PingBack pings the node to test connectivity.

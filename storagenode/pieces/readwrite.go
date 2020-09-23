@@ -6,6 +6,7 @@ package pieces
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"hash"
 	"io"
 
@@ -56,7 +57,7 @@ const (
 	v1PieceHeaderFramingSize = 2
 )
 
-// BadFormatVersion is returned when a storage format cannot support the request function
+// BadFormatVersion is returned when a storage format cannot support the request function.
 var BadFormatVersion = errs.Class("Incompatible storage format version")
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
@@ -100,7 +101,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 	n, err := w.blob.Write(data)
 	w.pieceSize += int64(n)
 	_, _ = w.hash.Write(data[:n]) // guaranteed not to return an error
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return n, err
 	}
 	return n, Error.Wrap(err)
@@ -244,8 +245,10 @@ func (r *Reader) StorageFormatVersion() storage.FormatVersion {
 }
 
 // GetPieceHeader reads, unmarshals, and returns the piece header. It may only be called once,
-// before any Read() calls. (Retrieving the header at any time could be supported, but for the sake
-// of performance we need to understand why and how often that would happen.)
+// before any Read() calls.
+//
+// Retrieving the header at any time could be supported, but for the sake
+// of performance we need to understand why and how often that would happen.
 func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 	if r.formatVersion < filestore.FormatV1 {
 		return nil, BadFormatVersion.New("Can't get piece header from storage format V0 reader")
@@ -298,7 +301,7 @@ func (r *Reader) Read(data []byte) (int, error) {
 	}
 	n, err := r.blob.Read(data)
 	r.pos += int64(n)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return n, err
 	}
 	return n, Error.Wrap(err)
@@ -323,7 +326,7 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 			pos -= V1PieceHeaderReservedArea
 		}
 	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return pos, err
 	}
 	return pos, Error.Wrap(err)
@@ -336,7 +339,7 @@ func (r *Reader) ReadAt(data []byte, offset int64) (int, error) {
 		offset += V1PieceHeaderReservedArea
 	}
 	n, err := r.blob.ReadAt(data, offset)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return n, err
 	}
 	return n, Error.Wrap(err)

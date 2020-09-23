@@ -80,6 +80,10 @@ A successful response body:
 }
 ```
 
+## DELETE /api/user/{user-email}
+
+Deletes the user.
+
 ## POST /api/coupon
 
 Adds a coupon for specific user.
@@ -126,6 +130,12 @@ A successful response body:
 
 Deletes the specified coupon.
 
+## GET /api/project/{project-id}/usage
+
+This endpoint returns whether the project has outstanding usage or not.
+
+A project with not usage returns status code 200 and `{"result":"no project usage exist"}`.
+
 ## GET /api/project/{project-id}/limit
 
 This endpoint returns information about project limits.
@@ -159,6 +169,25 @@ Updates bandwidth limit for a project.
 ## POST /api/project/{project-id}/limit?rate={value}
 
 Updates rate limit for a project.
+
+## POST /api/project/{project-id}/limit?buckets={value}
+
+Updates bucket limit for a project.
+
+## GET /api/project/{project-id}
+
+Gets the common information about a project.
+
+## PUT /api/project/{project-id}
+
+Updates project name or description.
+
+```json
+{
+    "projectName": "My new Project Name",
+    "description": "My new awesome description!"
+}
+```
 
 ## DELETE /api/project/{project-id}
 

@@ -129,7 +129,7 @@ func TestRollupsWriteCacheBatchChore(t *testing.T) {
 	)
 }
 
-func TestUpdateBucketBandwidthAllocation(t *testing.T) {
+func TestUpdateBucketBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	},
@@ -142,52 +142,68 @@ func TestUpdateBucketBandwidthAllocation(t *testing.T) {
 			cache, ok := ordersDB.(*orders.RollupsWriteCache)
 			require.True(t, ok)
 			size := cache.CurrentSize()
-			require.Equal(t, size, 0)
+			require.Equal(t, 0, size)
 
-			// setup: add one item to the cache
+			// setup: add an allocated and settled item to the cache
 			projectID := testrand.UUID()
 			bucketName := []byte("testbucketname")
 			amount := (memory.MB * 500).Int64()
 			err := ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, pb.PieceAction_GET, amount, time.Now())
 			require.NoError(t, err)
+			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID, bucketName, pb.PieceAction_PUT, amount, time.Now())
+			require.NoError(t, err)
 
 			// test: confirm there is one item in the cache now
 			size = cache.CurrentSize()
-			require.Equal(t, size, 1)
+			require.Equal(t, 2, size)
 			projectMap := cache.CurrentData()
-			expectedKey := orders.CacheKey{
+			expectedKeyAllocated := orders.CacheKey{
 				ProjectID:  projectID,
 				BucketName: string(bucketName),
 				Action:     pb.PieceAction_GET,
 			}
-			expected := orders.RollupData{
-				expectedKey: {
-					Inline:    0,
-					Allocated: amount,
-				},
+			expectedKeySettled := orders.CacheKey{
+				ProjectID:  projectID,
+				BucketName: string(bucketName),
+				Action:     pb.PieceAction_PUT,
 			}
-			require.Equal(t, projectMap, expected)
+			expectedCacheDataAllocated := orders.CacheData{
+				Inline:    0,
+				Allocated: amount,
+				Settled:   0,
+			}
+			expectedCacheDataSettled := orders.CacheData{
+				Inline:    0,
+				Allocated: 0,
+				Settled:   amount,
+			}
+			require.Equal(t, projectMap[expectedKeyAllocated], expectedCacheDataAllocated)
+			require.Equal(t, projectMap[expectedKeySettled], expectedCacheDataSettled)
 
 			// setup: add another item to the cache but with a different projectID
 			projectID2 := testrand.UUID()
 			amount2 := (memory.MB * 10).Int64()
 			err = ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, time.Now())
 			require.NoError(t, err)
+			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, time.Now())
+			require.NoError(t, err)
 			size = cache.CurrentSize()
-			require.Equal(t, size, 2)
+			require.Equal(t, 3, size)
 			projectMap2 := cache.CurrentData()
-			// test: confirm there are two items in the cache now for different projectIDs
 
-			expectedKey = orders.CacheKey{
+			// test: confirm there are 3 items in the cache now with different projectIDs
+			expectedKey := orders.CacheKey{
 				ProjectID:  projectID2,
 				BucketName: string(bucketName),
 				Action:     pb.PieceAction_GET,
 			}
-			expected[expectedKey] = orders.CacheData{
+			expectedData := orders.CacheData{
 				Inline:    0,
 				Allocated: amount2,
+				Settled:   amount2,
 			}
-			require.Equal(t, projectMap2, expected)
+			require.Equal(t, projectMap2[expectedKey], expectedData)
+			require.Equal(t, len(projectMap2), 3)
 		},
 	)
 }

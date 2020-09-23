@@ -150,19 +150,22 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Orders Chore", peer.Orders.Chore.Loop))
 
-		peer.Orders.Service = orders.NewService(
+		var err error
+		peer.Orders.Service, err = orders.NewService(
 			log.Named("orders"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay,
 			peer.Orders.DB,
-			config.Orders.Expiration,
+			bucketsDB,
+			config.Orders,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Contact.ExternalAddress,
 			},
-			config.Repairer.MaxExcessRateOptimalThreshold,
-			config.Orders.NodeStatusLogging,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{ // setup repairer

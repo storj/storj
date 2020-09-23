@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
@@ -50,6 +51,7 @@ import (
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
+	"storj.io/storj/satellite/metainfo/objectdeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
@@ -61,11 +63,10 @@ import (
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage/redis/redisserver"
 )
 
-// Satellite contains all the processes needed to run a full Satellite setup
+// Satellite contains all the processes needed to run a full Satellite setup.
 type Satellite struct {
 	Config satellite.Config
 
@@ -120,7 +121,7 @@ type Satellite struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Queue    *audit.Queue
+		Queues   *audit.Queues
 		Worker   *audit.Worker
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
@@ -140,10 +141,11 @@ type Satellite struct {
 	}
 
 	Accounting struct {
-		Tally          *tally.Service
-		Rollup         *rollup.Service
-		ProjectUsage   *accounting.Service
-		ReportedRollup *reportedrollup.Chore
+		Tally            *tally.Service
+		Rollup           *rollup.Service
+		ProjectUsage     *accounting.Service
+		ReportedRollup   *reportedrollup.Chore
+		ProjectBWCleanup *projectbwcleanup.Chore
 	}
 
 	LiveAccounting struct {
@@ -152,10 +154,6 @@ type Satellite struct {
 
 	Mail struct {
 		Service *mailservice.Service
-	}
-
-	Vouchers struct {
-		Endpoint *vouchers.Endpoint
 	}
 
 	Console struct {
@@ -203,18 +201,16 @@ func (system *Satellite) NodeURL() storj.NodeURL {
 	return storj.NodeURL{ID: system.API.ID(), Address: system.API.Addr()}
 }
 
-// AddUser adds user to a satellite.
-func (system *Satellite) AddUser(ctx context.Context, fullName, email string, maxNumberOfProjects int) (*console.User, error) {
+// AddUser adds user to a satellite. Password from newUser will be always overridden by FullName to have
+// known password which can be used automatically.
+func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser, maxNumberOfProjects int) (*console.User, error) {
 	regToken, err := system.API.Console.Service.CreateRegToken(ctx, maxNumberOfProjects)
 	if err != nil {
 		return nil, err
 	}
 
-	user, err := system.API.Console.Service.CreateUser(ctx, console.CreateUser{
-		FullName: fullName,
-		Email:    email,
-		Password: fullName,
-	}, regToken.Secret, "")
+	newUser.Password = newUser.FullName
+	user, err := system.API.Console.Service.CreateUser(ctx, newUser, regToken.Secret, "")
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +225,7 @@ func (system *Satellite) AddUser(ctx context.Context, fullName, email string, ma
 		return nil, err
 	}
 
-	authCtx, err := system.authenticatedContext(ctx, user.ID)
+	authCtx, err := system.AuthenticatedContext(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +239,7 @@ func (system *Satellite) AddUser(ctx context.Context, fullName, email string, ma
 
 // AddProject adds project to a satellite and makes specified user an owner.
 func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name string) (*console.Project, error) {
-	authCtx, err := system.authenticatedContext(ctx, ownerID)
+	authCtx, err := system.AuthenticatedContext(ctx, ownerID)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +252,8 @@ func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name
 	return project, nil
 }
 
-func (system *Satellite) authenticatedContext(ctx context.Context, userID uuid.UUID) (context.Context, error) {
+// AuthenticatedContext creates context with authentication date for given user.
+func (system *Satellite) AuthenticatedContext(ctx context.Context, userID uuid.UUID) (context.Context, error) {
 	user, err := system.API.Console.Service.GetUser(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -276,7 +273,7 @@ func (system *Satellite) authenticatedContext(ctx context.Context, userID uuid.U
 	return console.WithAuth(ctx, auth), nil
 }
 
-// Close closes all the subsystems in the Satellite system
+// Close closes all the subsystems in the Satellite system.
 func (system *Satellite) Close() error {
 	return errs.Combine(
 		system.API.Close(),
@@ -287,7 +284,7 @@ func (system *Satellite) Close() error {
 	)
 }
 
-// Run runs all the subsystems in the Satellite system
+// Run runs all the subsystems in the Satellite system.
 func (system *Satellite) Run(ctx context.Context) (err error) {
 	group, ctx := errgroup.WithContext(ctx)
 
@@ -312,7 +309,7 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 // PrivateAddr returns the private address from the Satellite system API.
 func (system *Satellite) PrivateAddr() string { return system.API.Server.PrivateAddr().String() }
 
-// newSatellites initializes satellites
+// newSatellites initializes satellites.
 func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtest.SatelliteDatabases) ([]*Satellite, error) {
 	var xs []*Satellite
 	defer func() {
@@ -400,7 +397,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				Node: overlay.NodeSelectionConfig{
 					UptimeCount:      0,
 					AuditCount:       0,
-					NewNodeFraction:  0,
+					NewNodeFraction:  1,
 					OnlineWindow:     time.Minute,
 					DistinctIP:       false,
 					MinimumDiskSpace: 100 * memory.MB,
@@ -417,6 +414,12 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					Staleness: 3 * time.Minute,
 				},
 				UpdateStatsBatchSize: 100,
+				AuditHistory: overlay.AuditHistoryConfig{
+					WindowSize:       10 * time.Minute,
+					TrackingPeriod:   time.Hour,
+					GracePeriod:      time.Hour,
+					OfflineThreshold: 0.6,
+				},
 			},
 			Metainfo: metainfo.Config{
 				DatabaseURL:          "", // not used
@@ -448,8 +451,14 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					CacheCapacity:   100,
 					CacheExpiration: 10 * time.Second,
 				},
+				ProjectLimits: metainfo.ProjectLimitConfig{
+					MaxBuckets:          10,
+					DefaultMaxUsage:     25 * memory.GB,
+					DefaultMaxBandwidth: 25 * memory.GB,
+				},
 				PieceDeletion: piecedeletion.Config{
-					MaxConcurrency: 100,
+					MaxConcurrency:      100,
+					MaxConcurrentPieces: 1000,
 
 					MaxPiecesPerBatch:   4000,
 					MaxPiecesPerRequest: 2000,
@@ -458,13 +467,19 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					RequestTimeout: 2 * time.Second,
 					FailThreshold:  2 * time.Second,
 				},
+				ObjectDeletion: objectdeletion.Config{
+					MaxObjectsPerRequest:     100,
+					ZombieSegmentsPerRequest: 3,
+					MaxConcurrentRequests:    100,
+				},
 			},
 			Orders: orders.Config{
-				Expiration:          7 * 24 * time.Hour,
-				SettlementBatchSize: 10,
-				FlushBatchSize:      10,
-				FlushInterval:       defaultInterval,
-				NodeStatusLogging:   true,
+				Expiration:                 7 * 24 * time.Hour,
+				SettlementBatchSize:        10,
+				FlushBatchSize:             10,
+				FlushInterval:              defaultInterval,
+				NodeStatusLogging:          true,
+				WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase1,
 			},
 			Checker: checker.Config{
 				Interval:                  defaultInterval,
@@ -481,8 +496,9 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 					ConversionRatesCycleInterval: defaultInterval,
 					ListingLimit:                 100,
 				},
-				CouponDuration: 2,
-				CouponValue:    275,
+				CouponDuration:    2,
+				CouponValue:       275,
+				PaywallProportion: 1,
 			},
 			Repairer: repairer.Config{
 				MaxRepair:                     10,
@@ -502,7 +518,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				ChoreInterval:      defaultInterval,
 				QueueInterval:      defaultInterval,
 				Slots:              3,
-				WorkerConcurrency:  1,
+				WorkerConcurrency:  2,
 			},
 			GarbageCollection: gc.Config{
 				Interval:          defaultInterval,
@@ -523,13 +539,15 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				Interval: defaultInterval,
 			},
 			Rollup: rollup.Config{
-				Interval:            defaultInterval,
-				DefaultMaxUsage:     25 * memory.GB,
-				DefaultMaxBandwidth: 25 * memory.GB,
-				DeleteTallies:       false,
+				Interval:      defaultInterval,
+				DeleteTallies: false,
 			},
 			ReportedRollup: reportedrollup.Config{
 				Interval: defaultInterval,
+			},
+			ProjectBWCleanup: projectbwcleanup.Config{
+				Interval:     defaultInterval,
+				RetainMonths: 1,
 			},
 			LiveAccounting: live.Config{
 				StorageBackend:    "redis://" + redis.Addr() + "?db=0",
@@ -547,7 +565,8 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				AuthToken:       "very-secret-token",
 				AuthTokenSecret: "my-suppa-secret-key",
 				Config: console.Config{
-					PasswordCost: console.TestPasswordCost,
+					PasswordCost:        console.TestPasswordCost,
+					DefaultProjectLimit: 5,
 				},
 				RateLimit: web.IPRateLimiterConfig{
 					Duration:  5 * time.Minute,
@@ -628,7 +647,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 			return xs, err
 		}
 
-		adminPeer, err := planet.newAdmin(i, identity, db, pointerDB, config, versionInfo)
+		adminPeer, err := planet.newAdmin(i, identity, db, config, versionInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -693,7 +712,7 @@ func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.C
 	system.Repair.Repairer = repairerPeer.Repairer
 	system.Repair.Inspector = api.Repair.Inspector
 
-	system.Audit.Queue = peer.Audit.Queue
+	system.Audit.Queues = peer.Audit.Queues
 	system.Audit.Worker = peer.Audit.Worker
 	system.Audit.Chore = peer.Audit.Chore
 	system.Audit.Verifier = peer.Audit.Verifier
@@ -709,6 +728,7 @@ func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.C
 	system.Accounting.Rollup = peer.Accounting.Rollup
 	system.Accounting.ProjectUsage = peer.Accounting.ProjectUsage
 	system.Accounting.ReportedRollup = peer.Accounting.ReportedRollupChore
+	system.Accounting.ProjectBWCleanup = peer.Accounting.ProjectBWCleanupChore
 
 	system.LiveAccounting = peer.LiveAccounting
 
@@ -750,18 +770,11 @@ func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db sate
 	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
 }
 
-func (planet *Planet) newAdmin(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
+func (planet *Planet) newAdmin(count int, identity *identity.FullIdentity, db satellite.DB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
 	prefix := "satellite-admin" + strconv.Itoa(count)
 	log := planet.log.Named(prefix)
-	var err error
 
-	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	planet.databases = append(planet.databases, revocationDB)
-
-	return satellite.NewAdmin(log, identity, db, pointerDB, revocationDB, versionInfo, &config, nil)
+	return satellite.NewAdmin(log, identity, db, versionInfo, &config, nil)
 }
 
 func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {

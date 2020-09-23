@@ -6,9 +6,10 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"reflect"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -27,6 +28,16 @@ const defaultIntervalSeconds = int(time.Hour / time.Second)
 var (
 	// ErrDifferentStorageNodes is returned when ProcessOrders gets orders from different storage nodes.
 	ErrDifferentStorageNodes = errs.Class("different storage nodes")
+	// ErrBucketFromSerial is returned when there is an error trying to get the bucket name from the serial number.
+	ErrBucketFromSerial = errs.Class("bucket from serial number")
+	// ErrUpdateBucketBandwidthSettle is returned when there is an error updating bucket bandwidth.
+	ErrUpdateBucketBandwidthSettle = errs.Class("update bucket bandwidth settle")
+	// ErrProcessOrderWithWindowTx is returned when there is an error with the ProcessOrders transaction.
+	ErrProcessOrderWithWindowTx = errs.Class("process order with window transaction")
+	// ErrGetStoragenodeBandwidthInWindow is returned when there is an error getting all storage node bandwidth for a window.
+	ErrGetStoragenodeBandwidthInWindow = errs.Class("get storagenode bandwidth in window")
+	// ErrCreateStoragenodeBandwidth is returned when there is an error updating storage node bandwidth.
+	ErrCreateStoragenodeBandwidth = errs.Class("create storagenode bandwidth")
 )
 
 type ordersDB struct {
@@ -151,7 +162,7 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 		bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, 0, uint64(amount), uint64(amount),
 	)
 	if err != nil {
-		return err
+		return ErrUpdateBucketBandwidthSettle.Wrap(err)
 	}
 	return nil
 }
@@ -201,7 +212,7 @@ func (db *ordersDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID,
 	var sum *int64
 	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE bucket_name = ? AND project_id = ? AND interval_start > ? AND interval_start <= ?`
 	err = db.db.QueryRow(ctx, db.db.Rebind(query), bucketName, projectID[:], from.UTC(), to.UTC()).Scan(&sum)
-	if err == sql.ErrNoRows || sum == nil {
+	if errors.Is(err, sql.ErrNoRows) || sum == nil {
 		return 0, nil
 	}
 	return *sum, Error.Wrap(err)
@@ -214,7 +225,7 @@ func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.No
 	var sum *int64
 	query := `SELECT SUM(settled) FROM storagenode_bandwidth_rollups WHERE storagenode_id = ? AND interval_start > ? AND interval_start <= ?`
 	err = db.db.QueryRow(ctx, db.db.Rebind(query), nodeID.Bytes(), from.UTC(), to.UTC()).Scan(&sum)
-	if err == sql.ErrNoRows || sum == nil {
+	if errors.Is(err, sql.ErrNoRows) || sum == nil {
 		return 0, nil
 	}
 	return *sum, err
@@ -270,7 +281,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 				serial_numbers sn,
 				unnest($1::bytea[]) WITH ORDINALITY AS request(serial_number, i)
 			WHERE request.serial_number = sn.serial_number
-		`, pq.ByteaArray(serialNums))
+		`, pgutil.ByteaArray(serialNums))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -290,7 +301,7 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		return nil, Error.Wrap(err)
 	}
 
-	// perform all of the upserts into reported serials table
+	// perform all of the upserts into pending_serial_queue table
 	expiresAtArray := make([]time.Time, 0, len(requests))
 	bucketIDArray := make([][]byte, 0, len(requests))
 	actionArray := make([]pb.PieceAction, 0, len(requests))
@@ -378,13 +389,18 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 		return nil, Error.New("invalid dbType: %v", db.db.driver)
 	}
 
+	actionNumArray := make([]int32, len(actionArray))
+	for i, num := range actionArray {
+		actionNumArray[i] = int32(num)
+	}
+
 	_, err = db.db.ExecContext(ctx, stmt,
 		storageNodeID.Bytes(),
-		pq.ByteaArray(bucketIDArray),
-		pq.ByteaArray(serialNumArray),
-		pq.Array(actionArray),
-		pq.Array(settledArray),
-		pq.Array(expiresAtArray),
+		pgutil.ByteaArray(bucketIDArray),
+		pgutil.ByteaArray(serialNumArray),
+		pgutil.Int4Array(actionNumArray),
+		pgutil.Int8Array(settledArray),
+		pgutil.TimestampTZArray(expiresAtArray),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -458,9 +474,9 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 			allocated = bucket_bandwidth_rollups.allocated + EXCLUDED.allocated,
 			inline = bucket_bandwidth_rollups.inline + EXCLUDED.inline,
 			settled = bucket_bandwidth_rollups.settled + EXCLUDED.settled`,
-		pq.ByteaArray(bucketNames), pq.ByteaArray(projectIDs),
+		pgutil.ByteaArray(bucketNames), pgutil.ByteaArray(projectIDs),
 		intervalStart, defaultIntervalSeconds,
-		pq.Array(actionSlice), pq.Array(inlineSlice), pq.Array(allocatedSlice), pq.Array(settledSlice))
+		pgutil.Int4Array(actionSlice), pgutil.Int8Array(inlineSlice), pgutil.Int8Array(allocatedSlice), pgutil.Int8Array(settledSlice))
 	if err != nil {
 		tx.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
 	}
@@ -486,7 +502,7 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 		ON CONFLICT(project_id, interval_month)
 		DO UPDATE SET egress_allocated = project_bandwidth_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint;
 		`,
-			pq.ByteaArray(projectRUIDs), projectInterval, pq.Array(projectRUAllocated))
+			pgutil.ByteaArray(projectRUIDs), projectInterval, pgutil.Int8Array(projectRUAllocated))
 		if err != nil {
 			tx.log.Error("Project bandwidth rollup batch flush failed.", zap.Error(err))
 		}
@@ -532,9 +548,9 @@ func (tx *ordersDBTx) UpdateStoragenodeBandwidthBatch(ctx context.Context, inter
 		DO UPDATE SET
 			allocated = storagenode_bandwidth_rollups.allocated + EXCLUDED.allocated,
 			settled = storagenode_bandwidth_rollups.settled + EXCLUDED.settled`,
-		postgresNodeIDList(storageNodeIDs),
+		pgutil.NodeIDArray(storageNodeIDs),
 		intervalStart, defaultIntervalSeconds,
-		pq.Array(actionSlice), pq.Array(allocatedSlice), pq.Array(settledSlice))
+		pgutil.Int4Array(actionSlice), pgutil.Int8Array(allocatedSlice), pgutil.Int8Array(settledSlice))
 	if err != nil {
 		tx.log.Error("Storagenode bandwidth rollup batch flush failed.", zap.Error(err))
 	}
@@ -583,9 +599,9 @@ func (tx *ordersDBTx) CreateConsumedSerialsBatch(ctx context.Context, consumedSe
 	}
 
 	_, err = tx.tx.Tx.ExecContext(ctx, stmt,
-		pq.ByteaArray(storageNodeIDSlice),
-		pq.ByteaArray(serialNumberSlice),
-		pq.Array(expiresAtSlice),
+		pgutil.ByteaArray(storageNodeIDSlice),
+		pgutil.ByteaArray(serialNumberSlice),
+		pgutil.TimestampTZArray(expiresAtSlice),
 	)
 	return Error.Wrap(err)
 }
@@ -730,4 +746,96 @@ func (queue *ordersDBQueue) GetPendingSerialsBatch(ctx context.Context, size int
 	}
 
 	return pendingSerials, size > 0, nil
+}
+
+// UpdateStoragenodeBandwidthSettleWithWindow adds a record to for each action and settled amount.
+// If any of these orders already exist in the database, then all of these orders have already been processed.
+// Orders within a single window may only be processed once to prevent double spending.
+func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storj.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var batchStatus pb.SettlementWithWindowResponse_Status
+	var retryCount int
+	for {
+		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			// try to get all rows from the storage node bandwidth table for the 1 hr window
+			// if there are already existing rows for the 1 hr window that means these orders have
+			// already been processed
+			rows, err := tx.All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx,
+				dbx.StoragenodeBandwidthRollup_StoragenodeId(storageNodeID[:]),
+				dbx.StoragenodeBandwidthRollup_IntervalStart(window),
+			)
+			if err != nil {
+				return ErrGetStoragenodeBandwidthInWindow.Wrap(err)
+			}
+
+			if len(rows) != 0 {
+				// if there are already rows in the storagenode bandwidth table for this 1 hr window
+				// that means these orders have already been processed
+				// if these orders that the storagenode is trying to process again match what in the
+				// storagenode bandwidth table, then send a successful response to the storagenode
+				// so they don't keep trying to settle these orders again
+				// if these orders do not match what we have in the storage node bandwidth table then send
+				// back an invalid response
+				if SettledAmountsMatch(rows, actionAmounts) {
+					batchStatus = pb.SettlementWithWindowResponse_ACCEPTED
+					alreadyProcessed = true
+					return nil
+				}
+				batchStatus = pb.SettlementWithWindowResponse_REJECTED
+				return nil
+			}
+			// if there aren't any rows in the storagenode bandwidth table for this 1 hr window
+			// that means these orders have not been processed before so we can continue to process them
+			for action, amount := range actionAmounts {
+				_, err := tx.Create_StoragenodeBandwidthRollup(ctx,
+					dbx.StoragenodeBandwidthRollup_StoragenodeId(storageNodeID[:]),
+					dbx.StoragenodeBandwidthRollup_IntervalStart(window),
+					dbx.StoragenodeBandwidthRollup_IntervalSeconds(uint(defaultIntervalSeconds)),
+					dbx.StoragenodeBandwidthRollup_Action(uint(action)),
+					dbx.StoragenodeBandwidthRollup_Settled(uint64(amount)),
+					dbx.StoragenodeBandwidthRollup_Create_Fields{},
+				)
+				if err != nil {
+					return ErrCreateStoragenodeBandwidth.Wrap(err)
+				}
+			}
+
+			batchStatus = pb.SettlementWithWindowResponse_ACCEPTED
+			return nil
+		})
+		if errs.IsFunc(err, dbx.IsConstraintError) {
+			retryCount++
+			if retryCount > 5 {
+				return 0, alreadyProcessed, errs.New("process order with window retry count too high")
+			}
+			continue
+		} else if err != nil {
+			return 0, alreadyProcessed, ErrProcessOrderWithWindowTx.Wrap(err)
+		}
+		break
+	}
+
+	return batchStatus, alreadyProcessed, nil
+}
+
+// SettledAmountsMatch checks if database rows match the orders. If the settled amount for
+// each action are not the same then false is returned.
+func SettledAmountsMatch(rows []*dbx.StoragenodeBandwidthRollup, orderActionAmounts map[int32]int64) bool {
+	var rowsSumByAction = map[int32]int64{}
+	for _, row := range rows {
+		rowsSumByAction[int32(row.Action)] += int64(row.Settled)
+	}
+
+	return reflect.DeepEqual(rowsSumByAction, orderActionAmounts)
+}
+
+func (db *ordersDB) GetBucketIDFromSerialNumber(ctx context.Context, serialNumber storj.SerialNumber) ([]byte, error) {
+	row, err := db.db.Get_SerialNumber_BucketId_By_SerialNumber(ctx,
+		dbx.SerialNumber_SerialNumber(serialNumber[:]),
+	)
+	if err != nil {
+		return nil, ErrBucketFromSerial.Wrap(err)
+	}
+	return row.BucketId, nil
 }

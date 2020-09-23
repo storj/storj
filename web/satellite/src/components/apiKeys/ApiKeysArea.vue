@@ -30,41 +30,28 @@
                         />
                     </div>
                     <div class="header-selected-api-keys" v-if="areApiKeysSelected">
-                        <VButton
-                            class="button deletion"
-                            label="Delete"
-                            width="122px"
-                            height="48px"
-                            :on-press="onFirstDeleteClick"
-                        />
-                        <VButton
-                            class="button"
-                            label="Cancel"
-                            width="122px"
-                            height="48px"
-                            is-white="true"
-                            :on-press="onClearSelection"
-                        />
-                        <span class="header-selected-api-keys__info-text"><b>{{selectedAPIKeysCount}}</b> API Keys selected</span>
-                    </div>
-                    <div class="header-after-delete-click" v-if="areSelectedApiKeysBeingDeleted">
-                        <span class="header-after-delete-click__confirmation-label">Are you sure you want to delete <b>{{selectedAPIKeysCount}}</b> {{apiKeyCountTitle}} ?</span>
-                        <div class="header-after-delete-click__button-area">
+                        <span class="header-selected-api-keys__confirmation-label" v-if="isDeleteClicked">
+                            Are you sure you want to delete <b>{{selectedAPIKeysCount}}</b> {{apiKeyCountTitle}} ?
+                        </span>
+                        <div class="header-selected-api-keys__buttons-area">
                             <VButton
                                 class="button deletion"
                                 label="Delete"
                                 width="122px"
                                 height="48px"
-                                :on-press="onDelete"
+                                :on-press="onDeleteClick"
                             />
                             <VButton
                                 class="button"
                                 label="Cancel"
                                 width="122px"
                                 height="48px"
-                                is-white="true"
+                                is-transparent="true"
                                 :on-press="onClearSelection"
                             />
+                            <span class="header-selected-api-keys__info-text" v-if="!isDeleteClicked">
+                                <b>{{selectedAPIKeysCount}}</b> API Keys selected
+                            </span>
                         </div>
                     </div>
                 </VHeader>
@@ -113,15 +100,19 @@ import VPagination from '@/components/common/VPagination.vue';
 
 import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.svg';
 
+import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { ApiKey, ApiKeyOrderBy } from '@/types/apiKeys';
 import { SortDirection } from '@/types/common';
-import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 import ApiKeysCopyPopup from './ApiKeysCopyPopup.vue';
 import ApiKeysCreationPopup from './ApiKeysCreationPopup.vue';
 
 // header state depends on api key selection state
+/**
+ * HeaderState is enumerable of page's header states.
+ * Depends on api key selection state.
+ */
 enum HeaderState {
     DEFAULT = 0,
     ON_SELECT,
@@ -198,35 +189,60 @@ export default class ApiKeysArea extends Vue {
     }
 
     /**
-     * toggles api key selection.
+     * Toggles api key selection.
      * @param apiKey
      */
     public async toggleSelection(apiKey: ApiKey): Promise<void> {
         await this.$store.dispatch(TOGGLE_SELECTION, apiKey);
     }
 
+    /**
+     * Starts creating API key process.
+     * Makes Create API Key popup visible.
+     */
     public onCreateApiKeyClick(): void {
         this.isNewApiKeyPopupShown = true;
     }
 
-    public onFirstDeleteClick(): void {
-        this.isDeleteClicked = true;
+    /**
+     * Holds on button click login for deleting API key process.
+     */
+    public onDeleteClick(): void {
+        if (!this.isDeleteClicked) {
+            this.isDeleteClicked = true;
+
+            return;
+        }
+
+        this.delete();
     }
 
+    /**
+     * Clears API Keys selection.
+     */
     public onClearSelection(): void {
         this.$store.dispatch(CLEAR_SELECTION);
         this.isDeleteClicked = false;
     }
 
+    /**
+     * Closes Create API Key popup.
+     */
     public closeNewApiKeyPopup(): void {
         this.isNewApiKeyPopupShown = false;
     }
 
+    /**
+     * Closes Create API Key popup.
+     */
     public showCopyApiKeyPopup(secret: string): void {
         this.isCopyApiKeyPopupShown = true;
         this.apiKeySecret = secret;
     }
 
+    /**
+     * Makes Copy API Key popup visible
+     */
     public closeCopyNewApiKeyPopup(): void {
         this.isCopyApiKeyPopupShown = false;
     }
@@ -234,7 +250,7 @@ export default class ApiKeysArea extends Vue {
     /**
      * Deletes selected api keys, fetches updated list and changes area state to default.
      */
-    public async onDelete(): Promise<void> {
+    private async delete(): Promise<void> {
         try {
             await this.$store.dispatch(DELETE);
             await this.$notify.success(`API keys deleted successfully`);
@@ -258,6 +274,9 @@ export default class ApiKeysArea extends Vue {
         }
     }
 
+    /**
+     * Returns API Key item component.
+     */
     public get itemComponent() {
         return ApiKeysItem;
     }
@@ -290,38 +309,58 @@ export default class ApiKeysArea extends Vue {
         return this.$store.getters.apiKeys.length === 0;
     }
 
+    /**
+     * Indicates if there is search query in store.
+     */
     public get hasSearchQuery(): boolean {
         return this.$store.state.apiKeysModule.cursor.search;
     }
 
+    /**
+     * Returns amount of selected API Keys from store.
+     */
     public get selectedAPIKeysCount(): number {
         return this.$store.state.apiKeysModule.selectedApiKeysIds.length;
     }
 
+    /**
+     * Returns page's header state depending on selected API Keys amount.
+     */
     public get headerState(): number {
         return this.selectedAPIKeysCount > 0 ? HeaderState.ON_SELECT : HeaderState.DEFAULT;
     }
 
+    /**
+     * Indicates if page's header is shown.
+     */
     public get isHeaderShown(): boolean {
         return !this.isEmpty || this.hasSearchQuery;
     }
 
+    /**
+     * Indicates if page's header is in default state.
+     */
     public get isDefaultHeaderState(): boolean {
         return this.headerState === HeaderState.DEFAULT;
     }
 
+    /**
+     * Indicates if page's header is in selected state.
+     */
     public get areApiKeysSelected(): boolean {
-        return this.headerState === HeaderState.ON_SELECT && !this.isDeleteClicked;
+        return this.headerState === HeaderState.ON_SELECT;
     }
 
-    public get areSelectedApiKeysBeingDeleted(): boolean {
-        return this.headerState === HeaderState.ON_SELECT && this.isDeleteClicked;
-    }
-
+    /**
+     * Indicates if page is in empty search result state.
+     */
     public get isEmptySearchResultShown(): boolean {
         return this.isEmpty && this.hasSearchQuery;
     }
 
+    /**
+     * Indicates if page is in empty state.
+     */
     public get isEmptyStateShown(): boolean {
         return this.isEmpty && !this.isNewApiKeyPopupShown && !this.hasSearchQuery;
     }
@@ -452,28 +491,12 @@ export default class ApiKeysArea extends Vue {
         padding-bottom: 15px;
     }
 
-    .header-default-state,
-    .header-selected-api-keys {
+    .header-default-state {
         display: flex;
         align-items: center;
-
-        &__info-text {
-            margin-left: 25px;
-            line-height: 48px;
-        }
     }
 
     .header-selected-api-keys {
-
-        .deletion {
-            margin-right: 12px;
-        }
-    }
-
-    .header-after-delete-click {
-        display: flex;
-        flex-direction: column;
-        margin-top: 2px;
 
         &__confirmation-label {
             font-family: 'font_medium', sans-serif;
@@ -481,17 +504,18 @@ export default class ApiKeysArea extends Vue {
             line-height: 28px;
         }
 
-        &__button-area {
+        &__buttons-area {
             display: flex;
-            margin-top: 4px;
-
-            .button {
-                margin-top: 2px;
-            }
+            align-items: center;
 
             .deletion {
-                margin: 3px 12px 0 0;
+                margin-right: 12px;
             }
+        }
+
+        &__info-text {
+            margin-left: 25px;
+            line-height: 48px;
         }
     }
 

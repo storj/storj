@@ -18,10 +18,10 @@ import (
 
 var mon = monkit.Package()
 
-// Error is the default boltdb errs class
+// Error is the default boltdb errs class.
 var Error = errs.Class("boltdb error")
 
-// Client is the entrypoint into a bolt data store
+// Client is the entrypoint into a bolt data store.
 type Client struct {
 	db     *bbolt.DB
 	Path   string
@@ -32,12 +32,12 @@ type Client struct {
 }
 
 const (
-	// fileMode sets permissions so owner can read and write
+	// fileMode sets permissions so owner can read and write.
 	fileMode       = 0600
 	defaultTimeout = 1 * time.Second
 )
 
-// New instantiates a new BoltDB client given db file path, and a bucket name
+// New instantiates a new BoltDB client given db file path, and a bucket name.
 func New(path, bucket string) (*Client, error) {
 	db, err := bbolt.Open(path, fileMode, &bbolt.Options{Timeout: defaultTimeout})
 	if err != nil {
@@ -141,7 +141,7 @@ func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value
 	return value, err
 }
 
-// Delete deletes a key/value pair from boltdb, for a given the key
+// Delete deletes a key/value pair from boltdb, for a given the key.
 func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
@@ -153,7 +153,7 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	})
 }
 
-// DeleteMultiple deletes keys ignoring missing keys
+// DeleteMultiple deletes keys ignoring missing keys.
 func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
 	defer mon.Task()(&ctx, len(keys))(&err)
 
@@ -188,7 +188,7 @@ func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_
 	return rv, Error.Wrap(err)
 }
 
-// Close closes a BoltDB client
+// Close closes a BoltDB client.
 func (client *Client) Close() (err error) {
 	if atomic.AddInt32(client.referenceCount, -1) == 0 {
 		return Error.Wrap(client.db.Close())
@@ -201,7 +201,7 @@ func (client *Client) Close() (err error) {
 func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(keys) > client.lookupLimit {
-		return nil, storage.ErrLimitExceeded
+		return nil, storage.ErrLimitExceeded.New("lookup limit exceeded")
 	}
 
 	vals := make(storage.Values, 0, len(keys))
@@ -311,7 +311,7 @@ func (cursor forward) Advance() (key, value []byte) {
 	return cursor.Next()
 }
 
-// CompareAndSwap atomically compares and swaps oldValue with newValue
+// CompareAndSwap atomically compares and swaps oldValue with newValue.
 func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldValue, newValue storage.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {

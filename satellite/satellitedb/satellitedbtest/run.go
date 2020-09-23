@@ -27,14 +27,14 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// SatelliteDatabases maybe name can be better
+// SatelliteDatabases maybe name can be better.
 type SatelliteDatabases struct {
 	Name      string
 	MasterDB  Database
 	PointerDB Database
 }
 
-// Database describes a test database
+// Database describes a test database.
 type Database struct {
 	Name    string
 	URL     string
@@ -52,12 +52,12 @@ func Databases() []SatelliteDatabases {
 	return []SatelliteDatabases{
 		{
 			Name:      "Postgres",
-			MasterDB:  Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_POSTGRES_TEST environment variable."},
+			MasterDB:  Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
 			PointerDB: Database{"Postgres", postgresConnStr, ""},
 		},
 		{
 			Name:      "Cockroach",
-			MasterDB:  Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_COCKROACH_TEST environment variable."},
+			MasterDB:  Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
 			PointerDB: Database{"Cockroach", cockroachConnStr, ""},
 		},
 	}
@@ -99,12 +99,12 @@ func (db *tempMasterDB) Close() error {
 	return errs.Combine(db.DB.Close(), db.tempDB.Close())
 }
 
-// TestDBAccess provides a somewhat regularized access to the underlying DB
+// TestDBAccess provides a somewhat regularized access to the underlying DB.
 func (db *tempMasterDB) TestDBAccess() *dbx.DB {
 	return db.DB.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 }
 
-// CreateMasterDB creates a new satellite database for testing
+// CreateMasterDB creates a new satellite database for testing.
 func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db satellite.DB, err error) {
 	if dbInfo.URL == "" {
 		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
@@ -140,7 +140,7 @@ func (db *tempPointerDB) Close() error {
 	return errs.Combine(db.PointerDB.Close(), db.tempDB.Close())
 }
 
-// CreatePointerDB creates a new satellite pointer database for testing
+// CreatePointerDB creates a new satellite pointer database for testing.
 func CreatePointerDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db metainfo.PointerDB, err error) {
 	if dbInfo.URL == "" {
 		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)

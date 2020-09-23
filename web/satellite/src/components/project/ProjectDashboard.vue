@@ -7,13 +7,13 @@
             <h1 class="dashboard-area__title-area__title">Project Dashboard</h1>
             <a
                 class="dashboard-area__title-area__link"
-                href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                :href="projectLimitsIncreaseRequestURL"
                 target="_blank"
+                rel="noopener noreferrer"
             >
                 Request Limit Increase ->
             </a>
         </div>
-        <ProjectDetails/>
         <ProjectUsage/>
         <BucketArea/>
     </div>
@@ -23,16 +23,16 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import BucketArea from '@/components/project/buckets/BucketArea.vue';
-import ProjectDetails from '@/components/project/ProjectDetails.vue';
 import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 
 import { RouteConfig } from '@/router';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
+import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
         BucketArea,
-        ProjectDetails,
         ProjectUsage,
     },
 })
@@ -48,16 +48,28 @@ export default class ProjectDashboard extends Vue {
             return;
         }
 
+        const defaultProjectLimit: number = parseInt(MetaUtils.getMetaContent('default-project-limit'));
+        if (defaultProjectLimit && this.$store.getters.userProjectsCount < defaultProjectLimit) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
+        }
+
         this.$segment.track(SegmentEvent.PROJECT_VIEWED, {
             project_id: this.$store.getters.selectedProject.id,
         });
+    }
+
+    /**
+     * Returns project limits increase request url from config.
+     */
+    public get projectLimitsIncreaseRequestURL(): string {
+        return MetaUtils.getMetaContent('project-limits-increase-request-url');
     }
 }
 </script>
 
 <style scoped lang="scss">
     .dashboard-area {
-        padding: 40px 30px 80px 30px;
+        padding: 50px 30px 30px 30px;
         font-family: 'font_regular', sans-serif;
 
         &__title-area {

@@ -10,6 +10,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 var _ metainfo.Observer = (*PathCollector)(nil)
@@ -23,7 +24,7 @@ type PathCollector struct {
 	rand       *rand.Rand
 }
 
-// NewPathCollector instantiates a path collector
+// NewPathCollector instantiates a path collector.
 func NewPathCollector(reservoirSlots int, r *rand.Rand) *PathCollector {
 	return &PathCollector{
 		Reservoirs: make(map[storj.NodeID]*Reservoir),
@@ -32,23 +33,25 @@ func NewPathCollector(reservoirSlots int, r *rand.Rand) *PathCollector {
 	}
 }
 
-// RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already
-func (collector *PathCollector) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+// RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already.
+func (collector *PathCollector) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+	// TODO change Sample to accept SegmentLocation
+	key := string(location.Encode())
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		if _, ok := collector.Reservoirs[piece.NodeId]; !ok {
 			collector.Reservoirs[piece.NodeId] = NewReservoir(collector.slotCount)
 		}
-		collector.Reservoirs[piece.NodeId].Sample(collector.rand, path.Raw)
+		collector.Reservoirs[piece.NodeId].Sample(collector.rand, key)
 	}
 	return nil
 }
 
-// Object returns nil because the audit service does not interact with objects
-func (collector *PathCollector) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+// Object returns nil because the audit service does not interact with objects.
+func (collector *PathCollector) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
-// InlineSegment returns nil because we're only auditing for storage nodes for now
-func (collector *PathCollector) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+// InlineSegment returns nil because we're only auditing for storage nodes for now.
+func (collector *PathCollector) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	return nil
 }

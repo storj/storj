@@ -14,7 +14,7 @@
                     class="footer__content-holder__links-area__community-link"
                     href="https://forum.storj.io/c/sno-category"
                     target="_blank"
-                    rel="noopener"
+                    rel="noopener noreferrer"
                 >
                     Community
                 </a>
@@ -22,7 +22,7 @@
                     class="footer__content-holder__links-area__support-link"
                     href="https://support.storj.io"
                     target="_blank"
-                    rel="noopener"
+                    rel="noopener noreferrer"
                 >
                     Support
                 </a>

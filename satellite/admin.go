@@ -14,14 +14,14 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
-	"storj.io/common/peertls/extensions"
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/admin"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
 // Admin is the satellite core process that runs chores
@@ -46,6 +46,12 @@ type Admin struct {
 		Service *checker.Service
 	}
 
+	Payments struct {
+		Accounts payments.Accounts
+		Service  *stripecoinpayments.Service
+		Stripe   stripecoinpayments.StripeClient
+	}
+
 	Admin struct {
 		Listener net.Listener
 		Server   *admin.Server
@@ -54,8 +60,6 @@ type Admin struct {
 
 // NewAdmin creates a new satellite admin peer.
 func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
-	pointerDB metainfo.PointerDB,
-	revocationDB extensions.RevocationDB,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Admin, error) {
 	peer := &Admin{
 		Log:      log,
@@ -104,7 +108,43 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	{ // setup debug
+	{ // setup payments
+		pc := config.Payments
+
+		var stripeClient stripecoinpayments.StripeClient
+		var err error
+		switch pc.Provider {
+		default:
+			stripeClient = stripecoinpayments.NewStripeMock(peer.ID())
+		case "stripecoinpayments":
+			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+		}
+
+		peer.Payments.Service, err = stripecoinpayments.NewService(
+			peer.Log.Named("payments.stripe:service"),
+			stripeClient,
+			pc.StripeCoinPayments,
+			peer.DB.StripeCoinPayments(),
+			peer.DB.Console().Projects(),
+			peer.DB.ProjectAccounting(),
+			pc.StorageTBPrice,
+			pc.EgressTBPrice,
+			pc.ObjectPrice,
+			pc.BonusRate,
+			pc.CouponValue,
+			pc.CouponDuration,
+			pc.CouponProjectLimit,
+			pc.MinCoinPayment,
+			pc.PaywallProportion)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Payments.Stripe = stripeClient
+		peer.Payments.Accounts = peer.Payments.Service.Accounts()
+	}
+	{ //setup admin endpoint
 		var err error
 		peer.Admin.Listener, err = net.Listen("tcp", config.Admin.Address)
 		if err != nil {
@@ -114,7 +154,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 
-		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, adminConfig)
+		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Payments.Accounts, adminConfig)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "admin",
 			Run:   peer.Admin.Server.Run,

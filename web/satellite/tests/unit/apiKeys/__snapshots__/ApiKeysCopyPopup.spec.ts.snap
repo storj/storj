@@ -9,7 +9,7 @@ exports[`ApiKeysCopyPopup renders correctly 1`] = `
     </div>
     <p class="save-api-popup__copy-area__copy-button">Copy</p>
   </div>
-  <div class="save-api-popup__next-step-area"><span class="save-api-popup__next-step-area__label">Next Step:</span> <a href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli" target="_blank" class="save-api-popup__next-step-area__link">
+  <div class="save-api-popup__next-step-area"><span class="save-api-popup__next-step-area__label">Next Step:</span> <a href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli" target="_blank" rel="noopener noreferrer" class="save-api-popup__next-step-area__link">
       Set Up Uplink CLI
     </a>
     <div class="container" style="width: 156px; height: 40px;"><span class="label">Done</span></div>

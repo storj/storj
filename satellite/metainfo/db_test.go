@@ -49,6 +49,10 @@ func TestBasicBucketOperations(t *testing.T) {
 		bucketsDB := db.Buckets()
 		expectedBucket := newTestBucket("testbucket", project.ID)
 
+		count, err := bucketsDB.CountBuckets(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+
 		// CreateBucket
 		_, err = bucketsDB.CreateBucket(ctx, expectedBucket)
 		require.NoError(t, err)
@@ -63,6 +67,16 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, expectedBucket.DefaultSegmentsSize, bucket.DefaultSegmentsSize)
 		require.Equal(t, expectedBucket.DefaultRedundancyScheme, bucket.DefaultRedundancyScheme)
 		require.Equal(t, expectedBucket.DefaultEncryptionParameters, bucket.DefaultEncryptionParameters)
+
+		//CountBuckets
+		count, err = bucketsDB.CountBuckets(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+		_, err = bucketsDB.CreateBucket(ctx, newTestBucket("testbucket2", project.ID))
+		require.NoError(t, err)
+		count, err = bucketsDB.CountBuckets(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, 2, count)
 
 		// DeleteBucket
 		err = bucketsDB.DeleteBucket(ctx, []byte("testbucket"), project.ID)

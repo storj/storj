@@ -8,7 +8,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // Counter implements the metainfo loop observer interface for data science metrics collection.
@@ -26,7 +26,7 @@ func NewCounter() *Counter {
 }
 
 // Object increments counts for inline objects and remote dependent objects.
-func (counter *Counter) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (counter *Counter) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	streamMeta := &pb.StreamMeta{}
 	err = pb.Unmarshal(pointer.Metadata, streamMeta)
 	if err != nil {
@@ -44,11 +44,11 @@ func (counter *Counter) Object(ctx context.Context, path metainfo.ScopedPath, po
 }
 
 // RemoteSegment returns nil because counter does not interact with remote segments this way for now.
-func (counter *Counter) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (counter *Counter) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	return nil
 }
 
 // InlineSegment returns nil because counter does not interact with inline segments this way for now.
-func (counter *Counter) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (counter *Counter) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	return nil
 }

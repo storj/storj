@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/zeebo/errs"
@@ -85,7 +86,7 @@ func (oci *orderedCockroachIterator) Next(ctx context.Context, item *storage.Lis
 				defer mon.TaskNamed("acquire_new_query")(nil)(nil)
 
 				retry := false
-				if err := oci.curRows.Err(); err != nil && err != sql.ErrNoRows {
+				if err := oci.curRows.Err(); err != nil && !errors.Is(err, sql.ErrNoRows) {
 					// This NeedsRetry needs to be exported here because it is
 					// expected behavior for cockroach to return retryable errors
 					// that will be captured in this Rows object.
@@ -164,6 +165,13 @@ func (oci *orderedCockroachIterator) doNextQuery(ctx context.Context) (_ tagsql.
 	gt := ">"
 	start := oci.lastKeySeen
 
+	largestKey := []byte(oci.largestKey)
+	if largestKey == nil {
+		// github.com/lib/pq would treat nil as an empty bytea array, while
+		// github.com/jackc/pgx will treat nil as NULL. Make an explicit empty
+		// byte array so that they'll work the same.
+		largestKey = []byte{}
+	}
 	if len(start) == 0 {
 		start = oci.opts.First
 		gt = ">="
@@ -178,5 +186,5 @@ func (oci *orderedCockroachIterator) doNextQuery(ctx context.Context) (_ tagsql.
 		WHERE pd.fullpath %s $1:::BYTEA
 			AND ($2:::BYTEA = '':::BYTEA OR pd.fullpath < $2:::BYTEA)
 		LIMIT $3
-	`, gt), start, []byte(oci.largestKey), oci.batchSize)
+	`, gt), start, largestKey, oci.batchSize)
 }

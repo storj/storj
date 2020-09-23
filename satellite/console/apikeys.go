@@ -30,7 +30,7 @@ type APIKeys interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-// APIKeyInfo describing api key model in the database
+// APIKeyInfo describing api key model in the database.
 type APIKeyInfo struct {
 	ID        uuid.UUID `json:"id"`
 	ProjectID uuid.UUID `json:"projectId"`
@@ -40,7 +40,7 @@ type APIKeyInfo struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// APIKeyCursor holds info for api keys cursor pagination
+// APIKeyCursor holds info for api keys cursor pagination.
 type APIKeyCursor struct {
 	Search         string
 	Limit          uint
@@ -49,7 +49,7 @@ type APIKeyCursor struct {
 	OrderDirection OrderDirection
 }
 
-// APIKeyPage represent api key page result
+// APIKeyPage represent api key page result.
 type APIKeyPage struct {
 	APIKeys []APIKeyInfo
 
@@ -64,12 +64,12 @@ type APIKeyPage struct {
 	TotalCount  uint64
 }
 
-// APIKeyOrder is used for querying api keys in specified order
+// APIKeyOrder is used for querying api keys in specified order.
 type APIKeyOrder uint8
 
 const (
-	// KeyName indicates that we should order by key name
+	// KeyName indicates that we should order by key name.
 	KeyName APIKeyOrder = 1
-	// CreationDate indicates that we should order by creation date
+	// CreationDate indicates that we should order by creation date.
 	CreationDate APIKeyOrder = 2
 )

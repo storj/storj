@@ -9,17 +9,17 @@ import (
 	"storj.io/common/storj"
 )
 
-// Constants for accounting_raw, accounting_rollup, and accounting_timestamps
+// Constants for accounting_raw, accounting_rollup, and accounting_timestamps.
 const (
-	// LastAtRestTally represents the accounting timestamp for the at-rest data calculation
+	// LastAtRestTally represents the accounting timestamp for the at-rest data calculation.
 	LastAtRestTally = "LastAtRestTally"
-	// LastBandwidthTally represents the accounting timestamp for the bandwidth allocation query
+	// LastBandwidthTally represents the accounting timestamp for the bandwidth allocation query.
 	LastBandwidthTally = "LastBandwidthTally"
-	// LastRollup represents the accounting timestamp for rollup calculations
+	// LastRollup represents the accounting timestamp for rollup calculations.
 	LastRollup = "LastRollup"
 )
 
-// CSVRow represents data from QueryPaymentInfo without exposing dbx
+// CSVRow represents data from QueryPaymentInfo without exposing dbx.
 type CSVRow struct {
 	NodeID           storj.NodeID
 	NodeCreationDate time.Time

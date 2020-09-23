@@ -26,7 +26,7 @@ type usercredits struct {
 	tx *dbx.Tx
 }
 
-// GetCreditUsage returns the total amount of referral a user has made based on user id, total available credits, and total used credits based on user id
+// GetCreditUsage returns the total amount of referral a user has made based on user id, total available credits, and total used credits based on user id.
 func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditUsage, error) {
 	usageRows, err := c.db.DB.QueryContext(ctx, c.db.Rebind(`SELECT a.used_credit, b.available_credit, c.referred
 		FROM (SELECT SUM(credits_used_in_cents) AS used_credit FROM user_credits WHERE user_id = ?) AS a,
@@ -58,7 +58,7 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 	return &usage, usageRows.Err()
 }
 
-// Create insert a new record of user credit
+// Create insert a new record of user credit.
 func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredit) (err error) {
 	if userCredit.ExpiresAt.Before(time.Now().UTC()) {
 		return errs.New("user credit is already expired")
@@ -131,7 +131,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.CreateCredi
 	return nil
 }
 
-// UpdateEarnedCredits updates user credits after user activated their account
+// UpdateEarnedCredits updates user credits after user activated their account.
 func (c *usercredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID) error {
 	statement := `
 		UPDATE user_credits SET credits_earned_in_cents = offers.invitee_credit_in_cents
@@ -155,7 +155,7 @@ func (c *usercredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID)
 	return nil
 }
 
-// UpdateAvailableCredits updates user's available credits based on their spending and the time of their spending
+// UpdateAvailableCredits updates user's available credits based on their spending and the time of their spending.
 func (c *usercredits) UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, expirationEndDate time.Time) (remainingCharge int, err error) {
 	err = c.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		availableCredits, err := tx.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx,

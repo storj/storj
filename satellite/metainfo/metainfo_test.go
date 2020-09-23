@@ -5,7 +5,8 @@ package metainfo_test
 
 import (
 	"errors"
-	"io/ioutil"
+	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"testing"
@@ -28,12 +29,28 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	satMetainfo "storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/object"
 	"storj.io/uplink/private/storage/meta"
 	"storj.io/uplink/private/testuplink"
 )
+
+func TestMaxOutBuckets(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		limit := planet.Satellites[0].Config.Metainfo.ProjectLimits.MaxBuckets
+		for i := 1; i <= limit; i++ {
+			name := "test" + strconv.Itoa(i)
+			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], name)
+			require.NoError(t, err)
+		}
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], fmt.Sprintf("test%d", limit+1))
+		require.EqualError(t, err, fmt.Sprintf("uplink: bucket: metainfo error: number of allocated buckets (%d) exceeded", limit))
+	})
+}
 
 func TestRevokeAccess(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
@@ -120,7 +137,7 @@ func TestRevokeMacaroon(t *testing.T) {
 		_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-		_, _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+		_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 		_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
@@ -135,7 +152,7 @@ func TestRevokeMacaroon(t *testing.T) {
 		_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-		_, _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+		_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 		_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
@@ -214,7 +231,7 @@ func TestInvalidAPIKey(t *testing.T) {
 			_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
 			assertInvalidArgument(t, err, false)
 
-			_, _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
 			assertInvalidArgument(t, err, false)
 
 			_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
@@ -229,7 +246,7 @@ func TestInvalidAPIKey(t *testing.T) {
 			_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
 			assertInvalidArgument(t, err, false)
 
-			_, _, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
 			assertInvalidArgument(t, err, false)
 
 			_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
@@ -440,92 +457,6 @@ func TestExpirationTimeSegment(t *testing.T) {
 	})
 }
 
-func TestAttributionReport(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		const (
-			bucketName = "test"
-			filePath   = "path"
-		)
-
-		uplinkConfig := uplink.Config{
-			UserAgent: "Zenko/1.0",
-		}
-
-		projectInfo := planet.Uplinks[0].Projects[0]
-
-		access, err := uplink.RequestAccessWithPassphrase(ctx, projectInfo.Satellite.URL(), projectInfo.APIKey, "mypassphrase")
-		require.NoError(t, err)
-
-		project, err := uplinkConfig.OpenProject(ctx, access)
-		require.NoError(t, err)
-
-		_, err = project.EnsureBucket(ctx, bucketName)
-		require.NoError(t, err)
-
-		{ // upload test-data
-
-			upload, err := project.UploadObject(ctx, bucketName, filePath, nil)
-			require.NoError(t, err)
-
-			_, err = upload.Write(testrand.Bytes(5 * memory.KiB))
-			require.NoError(t, err)
-
-			err = upload.Commit()
-			require.NoError(t, err)
-		}
-
-		{ // download test-data
-
-			download, err := project.DownloadObject(ctx, bucketName, filePath, nil)
-			require.NoError(t, err)
-
-			_, err = ioutil.ReadAll(download)
-			require.NoError(t, err)
-
-			err = download.Close()
-			require.NoError(t, err)
-		}
-
-		{ // Flush all the pending information through the system.
-			// Calculate the usage used for upload
-			for _, sn := range planet.StorageNodes {
-				sn.Storage2.Orders.Sender.TriggerWait()
-			}
-
-			rollout := planet.Satellites[0].Core.Accounting.ReportedRollupChore
-			require.NoError(t, rollout.RunOnce(ctx, time.Now()))
-
-			// Trigger tally so it gets all set up and can return a storage usage
-			planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
-		}
-
-		{
-			before := time.Now().Add(-time.Hour)
-			after := before.Add(2 * time.Hour)
-
-			projectID := projectInfo.ID
-
-			usage, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectTotal(ctx, projectID, before, after)
-			require.NoError(t, err)
-			require.NotZero(t, usage.Egress)
-
-			partner, err := planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "Zenko")
-			require.NoError(t, err)
-
-			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
-			require.NoError(t, err)
-			require.NotZero(t, rows[0].RemoteBytesPerHour)
-			require.Equal(t, rows[0].EgressData, usage.Egress)
-		}
-
-	})
-}
-
 func TestGetProjectInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
@@ -694,15 +625,11 @@ func TestBeginCommitListSegment(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		metainfoService := planet.Satellites[0].Metainfo.Service
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		projectID := projects[0].ID
-
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
-			ProjectID: projectID,
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err = metainfoService.CreateBucket(ctx, bucket)
+		_, err := metainfoService.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -876,10 +803,6 @@ func TestInlineSegment(t *testing.T) {
 
 		metainfoService := planet.Satellites[0].Metainfo.Service
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		projectID := projects[0].ID
-
 		// TODO maybe split into separate cases
 		// Test:
 		// * create bucket
@@ -893,9 +816,9 @@ func TestInlineSegment(t *testing.T) {
 
 		bucket := storj.Bucket{
 			Name:      "inline-segments-bucket",
-			ProjectID: projectID,
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err = metainfoService.CreateBucket(ctx, bucket)
+		_, err := metainfoService.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -1022,22 +945,17 @@ func TestInlineSegment(t *testing.T) {
 		}
 
 		{ // test deleting segments
-			streamID, _, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+			_, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
 				Bucket:        params.Bucket,
 				EncryptedPath: params.EncryptedPath,
 			})
 			require.NoError(t, err)
-			segments, more, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
-				StreamID: streamID,
-			})
-			require.NoError(t, err)
-			require.Empty(t, segments)
-			require.False(t, more)
 
-			err = metainfoClient.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{
-				StreamID: streamID,
+			_, err = metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+				Bucket:        params.Bucket,
+				EncryptedPath: params.EncryptedPath,
 			})
-			require.NoError(t, err)
+			require.Error(t, err)
 		}
 	})
 }
@@ -1092,25 +1010,11 @@ func TestRemoteSegment(t *testing.T) {
 
 		{
 			// Begin deleting object
-			// List segments
-			// Begin/Finish deleting segment
 			// List objects
 
-			streamID, _, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+			_, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
 				Bucket:        []byte(expectedBucketName),
 				EncryptedPath: items[0].EncryptedPath,
-			})
-			require.NoError(t, err)
-
-			segments, more, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
-				StreamID: streamID,
-			})
-			require.NoError(t, err)
-			require.Empty(t, segments)
-			require.False(t, more)
-
-			err = metainfoClient.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{
-				StreamID: streamID,
 			})
 			require.NoError(t, err)
 
@@ -1645,14 +1549,17 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			// we don't know encrypted path
-			prefix, err := satMetainfo.CreatePath(ctx, projectID, -1, []byte("test-bucket-inline"), []byte{})
-			require.NoError(t, err)
-
-			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, prefix, "", false, 0, meta.All)
+			location := metabase.SegmentLocation{
+				ProjectID:  projectID,
+				BucketName: "test-bucket-inline",
+				Index:      metabase.LastSegmentIndex,
+			}
+			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, location.Encode(), "", false, 0, meta.All)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(items))
 
-			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, prefix+"/"+items[0].Path)
+			location.ObjectKey = metabase.ObjectKey(items[0].Path)
+			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, location.Encode())
 			require.NoError(t, err)
 			require.Equal(t, pb.Pointer_INLINE, pointer.Type)
 		}
@@ -1662,14 +1569,19 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			// we don't know encrypted path
-			prefix, err := satMetainfo.CreatePath(ctx, projectID, -1, []byte("test-bucket-remote"), []byte{})
 			require.NoError(t, err)
+			location := metabase.SegmentLocation{
+				ProjectID:  projectID,
+				BucketName: "test-bucket-remote",
+				Index:      metabase.LastSegmentIndex,
+			}
 
-			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, prefix, "", false, 0, meta.All)
+			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, location.Encode(), "", false, 0, meta.All)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(items))
 
-			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, prefix+"/"+items[0].Path)
+			location.ObjectKey = metabase.ObjectKey(items[0].Path)
+			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, location.Encode())
 			require.NoError(t, err)
 			require.Equal(t, pb.Pointer_REMOTE, pointer.Type)
 		}
@@ -1687,15 +1599,11 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		metainfoService := planet.Satellites[0].Metainfo.Service
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		projectID := projects[0].ID
-
 		bucket := storj.Bucket{
 			Name:      "initial-bucket",
-			ProjectID: projectID,
+			ProjectID: planet.Uplinks[0].Projects[0].ID,
 		}
-		_, err = metainfoService.CreateBucket(ctx, bucket)
+		_, err := metainfoService.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -1791,4 +1699,110 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+}
+
+func TestDeleteRightsOnUpload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		up := planet.Uplinks[0]
+
+		err := up.CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		require.NoError(t, err)
+
+		data := testrand.Bytes(1 * memory.KiB)
+		err = up.Upload(ctx, planet.Satellites[0], "test-bucket", "test-key", data)
+		require.NoError(t, err)
+
+		access := up.Access[planet.Satellites[0].ID()]
+
+		overwrite := func(allowDelete bool) error {
+			permission := uplink.FullPermission()
+			permission.AllowDelete = allowDelete
+
+			sharedAccess, err := access.Share(permission)
+			require.NoError(t, err)
+
+			project, err := uplink.OpenProject(ctx, sharedAccess)
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			upload, err := project.UploadObject(ctx, "test-bucket", "test-key", nil)
+			require.NoError(t, err)
+
+			_, err = upload.Write([]byte("new data"))
+			require.NoError(t, err)
+
+			return upload.Commit()
+		}
+
+		require.Error(t, overwrite(false))
+		require.NoError(t, overwrite(true))
+	})
+}
+
+func TestImmutableUpload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+
+		permission := uplink.Permission{AllowUpload: true} // AllowDelete: false
+		sharedAccess, err := access.Share(permission)
+		require.NoError(t, err)
+
+		project, err := uplink.OpenProject(ctx, sharedAccess)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		_, err = project.CreateBucket(ctx, "test-bucket")
+		require.NoError(t, err)
+
+		// Uploading the object for first time should be successful.
+		upload, err := project.UploadObject(ctx, "test-bucket", "test-key", nil)
+		require.NoError(t, err)
+
+		_, err = upload.Write(testrand.Bytes(1 * memory.KiB))
+		require.NoError(t, err)
+
+		err = upload.Commit()
+		require.NoError(t, err)
+
+		// Overwriting the object should fail on Commit.
+		upload, err = project.UploadObject(ctx, "test-bucket", "test-key", nil)
+		require.NoError(t, err)
+
+		_, err = upload.Write(testrand.Bytes(1 * memory.KiB))
+		require.NoError(t, err)
+
+		err = upload.Commit()
+		require.Error(t, err)
+	})
+}
+
+func TestGetObjectIPs(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+		uplnk := planet.Uplinks[0]
+		uplinkCtx := testuplink.WithMaxSegmentSize(ctx, 5*memory.KB)
+		sat := planet.Satellites[0]
+
+		require.NoError(t, uplnk.CreateBucket(uplinkCtx, sat, "bob"))
+		require.NoError(t, uplnk.Upload(uplinkCtx, sat, "bob", "jones", testrand.Bytes(20*memory.KB)))
+		ips, err := object.GetObjectIPs(ctx, uplink.Config{}, access, "bob", "jones")
+		require.NoError(t, err)
+		require.True(t, len(ips) > 0)
+
+		// verify it's a real IP with valid host and port
+		for _, ip := range ips {
+			host, port, err := net.SplitHostPort(string(ip))
+			require.NoError(t, err)
+			netIP := net.ParseIP(host)
+			require.NotNil(t, netIP)
+			_, err = strconv.Atoi(port)
+			require.NoError(t, err)
+		}
+	})
 }

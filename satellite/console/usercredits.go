@@ -14,7 +14,7 @@ import (
 	"storj.io/storj/satellite/rewards"
 )
 
-// NoCreditForUpdateErr is a error message used when no credits are found for update when new users sign up
+// NoCreditForUpdateErr is a error message used when no credits are found for update when new users sign up.
 var NoCreditForUpdateErr = errs.Class("no credit found to update")
 
 // UserCredits holds information to interact with database
@@ -27,17 +27,17 @@ type UserCredits interface {
 	UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error)
 }
 
-// CreditType indicates a type of a credit
+// CreditType indicates a type of a credit.
 type CreditType string
 
 const (
-	// Invitee is a type of credits earned by invitee
+	// Invitee is a type of credits earned by invitee.
 	Invitee CreditType = "invitee"
-	// Referrer is a type of credits earned by referrer
+	// Referrer is a type of credits earned by referrer.
 	Referrer CreditType = "referrer"
 )
 
-// UserCredit holds information about an user's credit
+// UserCredit holds information about an user's credit.
 type UserCredit struct {
 	ID            int
 	UserID        uuid.UUID
@@ -50,14 +50,14 @@ type UserCredit struct {
 	CreatedAt     time.Time
 }
 
-// UserCreditUsage holds information about credit usage information
+// UserCreditUsage holds information about credit usage information.
 type UserCreditUsage struct {
 	Referred         int64
 	AvailableCredits currency.USD
 	UsedCredits      currency.USD
 }
 
-// CreateCredit holds information that's needed when create a new record of user credit
+// CreateCredit holds information that's needed when create a new record of user credit.
 type CreateCredit struct {
 	OfferInfo     rewards.RedeemOffer
 	UserID        uuid.UUID
@@ -68,7 +68,7 @@ type CreateCredit struct {
 	ExpiresAt     time.Time
 }
 
-// NewCredit returns a new credit data
+// NewCredit returns a new credit data.
 func NewCredit(currentReward *rewards.Offer, creditType CreditType, userID uuid.UUID, referrerID *uuid.UUID) (*CreateCredit, error) {
 	var creditEarned currency.USD
 	switch creditType {

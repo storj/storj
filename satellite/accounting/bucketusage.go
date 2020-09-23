@@ -9,7 +9,7 @@ import (
 	"storj.io/common/uuid"
 )
 
-// BucketStorageTally holds data about a bucket tally
+// BucketStorageTally holds data about a bucket tally.
 type BucketStorageTally struct {
 	BucketName    string
 	ProjectID     uuid.UUID

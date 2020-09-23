@@ -6,6 +6,7 @@ package satellite
 import (
 	"context"
 
+	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
 
 	"storj.io/common/identity"
@@ -14,6 +15,7 @@ import (
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
@@ -28,12 +30,12 @@ import (
 	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -45,9 +47,14 @@ import (
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
+	"storj.io/storj/satellite/snopayout"
 )
 
 var mon = monkit.Package()
+
+func init() {
+	hw.Register(monkit.Default)
+}
 
 // DB is the master database for the satellite
 //
@@ -93,15 +100,17 @@ type DB interface {
 	StripeCoinPayments() stripecoinpayments.DB
 	// DowntimeTracking returns database for downtime tracking
 	DowntimeTracking() downtime.DB
-	// Heldamount returns database for heldamount.
-	HeldAmount() heldamount.DB
+	// SnoPayout returns database for payout.
+	SnoPayout() snopayout.DB
 	// Compoensation tracks storage node compensation
 	Compensation() compensation.DB
 	// Revocation tracks revoked macaroons
 	Revocation() revocation.DB
+	// NodeAPIVersion tracks nodes observed api usage
+	NodeAPIVersion() nodeapiversion.DB
 }
 
-// Config is the global config satellite
+// Config is the global config satellite.
 type Config struct {
 	Identity identity.Config
 	Server   server.Config
@@ -125,10 +134,11 @@ type Config struct {
 
 	DBCleanup dbcleanup.Config
 
-	Tally          tally.Config
-	Rollup         rollup.Config
-	LiveAccounting live.Config
-	ReportedRollup reportedrollup.Config
+	Tally            tally.Config
+	Rollup           rollup.Config
+	LiveAccounting   live.Config
+	ReportedRollup   reportedrollup.Config
+	ProjectBWCleanup projectbwcleanup.Config
 
 	Mail mailservice.Config
 

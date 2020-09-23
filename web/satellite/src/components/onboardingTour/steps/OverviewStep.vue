@@ -8,6 +8,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
+import FourthStepIcon from '@/../static/images/common/four.svg';
 import FirstStepIcon from '@/../static/images/common/one.svg';
 import ThirdStepIcon from '@/../static/images/common/three.svg';
 import SecondStepIcon from '@/../static/images/common/two.svg';
@@ -18,6 +19,7 @@ import SecondStepIcon from '@/../static/images/common/two.svg';
         FirstStepIcon,
         ThirdStepIcon,
         SecondStepIcon,
+        FourthStepIcon,
     },
 })
 export default class OverviewStep extends Vue {

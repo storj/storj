@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/private/post"
@@ -32,15 +33,15 @@ import (
 	"storj.io/storj/storage/redis/redisserver"
 )
 
-// discardSender discard sending of an actual email
+// discardSender discard sending of an actual email.
 type discardSender struct{}
 
-// SendEmail immediately returns with nil error
+// SendEmail immediately returns with nil error.
 func (*discardSender) SendEmail(ctx context.Context, msg *post.Message) error {
 	return nil
 }
 
-// FromAddress returns empty post.Address
+// FromAddress returns empty post.Address.
 func (*discardSender) FromAddress() post.Address {
 	return post.Address{}
 }
@@ -77,7 +78,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		paymentsService, err := stripecoinpayments.NewService(
 			log.Named("payments.stripe:service"),
-			stripecoinpayments.NewStripeMock(),
+			stripecoinpayments.NewStripeMock(testrand.NodeID()),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
 			db.Console().Projects(),
@@ -89,7 +90,8 @@ func TestGrapqhlMutation(t *testing.T) {
 			pc.CouponValue,
 			pc.CouponDuration,
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.MinCoinPayment,
+			pc.PaywallProportion)
 		require.NoError(t, err)
 
 		service, err := console.NewService(
@@ -101,7 +103,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			db.Rewards(),
 			partnersService,
 			paymentsService.Accounts(),
-			console.Config{PasswordCost: console.TestPasswordCost},
+			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 			5000,
 		)
 		require.NoError(t, err)
@@ -208,23 +210,6 @@ func TestGrapqhlMutation(t *testing.T) {
 		project, err := service.GetProject(authCtx, projectID)
 		require.NoError(t, err)
 		require.Equal(t, rootUser.PartnerID, project.PartnerID)
-
-		t.Run("Update project description mutation", func(t *testing.T) {
-			query := fmt.Sprintf(
-				"mutation {updateProjectDescription(id:\"%s\",description:\"%s\"){id,name,description}}",
-				project.ID.String(),
-				"",
-			)
-
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			proj := data[consoleql.UpdateProjectDescriptionMutation].(map[string]interface{})
-
-			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
-			assert.Equal(t, project.Name, proj[consoleql.FieldName])
-			assert.Equal(t, "", proj[consoleql.FieldDescription])
-		})
 
 		regTokenUser1, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
@@ -369,6 +354,27 @@ func TestGrapqhlMutation(t *testing.T) {
 			}
 		})
 
+		const testName = "testName"
+		const testDescription = "test description"
+
+		t.Run("Update project mutation", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {updateProject(id:\"%s\",name:\"%s\",description:\"%s\"){id,name,description}}",
+				project.ID.String(),
+				testName,
+				testDescription,
+			)
+
+			result := testQuery(t, query)
+
+			data := result.(map[string]interface{})
+			proj := data[consoleql.UpdateProjectMutation].(map[string]interface{})
+
+			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
+			assert.Equal(t, testName, proj[consoleql.FieldName])
+			assert.Equal(t, testDescription, proj[consoleql.FieldDescription])
+		})
+
 		t.Run("Delete project mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
 				"mutation {deleteProject(id:\"%s\"){id,name}}",
@@ -380,7 +386,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			data := result.(map[string]interface{})
 			proj := data[consoleql.DeleteProjectMutation].(map[string]interface{})
 
-			assert.Equal(t, project.Name, proj[consoleql.FieldName])
+			assert.Equal(t, testName, proj[consoleql.FieldName])
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 
 			_, err := service.GetProject(authCtx, project.ID)

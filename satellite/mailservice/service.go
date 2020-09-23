@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/private/post"
 )
 
-// Config defines values needed by mailservice service
+// Config defines values needed by mailservice service.
 type Config struct {
 	SMTPServerAddress string `help:"smtp server address" default:""`
 	TemplatePath      string `help:"path to email templates source" default:""`
@@ -42,7 +42,7 @@ type Sender interface {
 	FromAddress() post.Address
 }
 
-// Message defines mailservice template-backed message for SendRendered method
+// Message defines mailservice template-backed message for SendRendered method.
 type Message interface {
 	Template() string
 	Subject() string
@@ -62,7 +62,7 @@ type Service struct {
 	sending sync.WaitGroup
 }
 
-// New creates new service
+// New creates new service.
 func New(log *zap.Logger, sender Sender, templatePath string) (*Service, error) {
 	var err error
 	service := &Service{log: log, sender: sender}
@@ -87,13 +87,13 @@ func (service *Service) Close() error {
 	return nil
 }
 
-// Send is generalized method for sending custom email message
+// Send is generalized method for sending custom email message.
 func (service *Service) Send(ctx context.Context, msg *post.Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.sender.SendEmail(ctx, msg)
 }
 
-// SendRenderedAsync renders content from htmltemplate and texttemplate templates then sends it asynchronously
+// SendRenderedAsync renders content from htmltemplate and texttemplate templates then sends it asynchronously.
 func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address, msg Message) {
 	// TODO: think of a better solution
 	service.sending.Add(1)
@@ -118,7 +118,7 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 	}()
 }
 
-// SendRendered renders content from htmltemplate and texttemplate templates then sends it
+// SendRendered renders content from htmltemplate and texttemplate templates then sends it.
 func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

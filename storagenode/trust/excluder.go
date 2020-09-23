@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	// ErrExclusion is an error class for exclusion related errors
+	// ErrExclusion is an error class for exclusion related errors.
 	ErrExclusion = errs.Class("exclusion")
 )
 
@@ -37,12 +37,12 @@ func NewExcluder(config string) (Rule, error) {
 	}
 }
 
-// URLExcluder excludes matching URLs
+// URLExcluder excludes matching URLs.
 type URLExcluder struct {
 	url SatelliteURL
 }
 
-// NewURLExcluder returns a new URLExcluder
+// NewURLExcluder returns a new URLExcluder.
 func NewURLExcluder(url SatelliteURL) *URLExcluder {
 	url.Host = normalizeHost(url.Host)
 	return &URLExcluder{
@@ -50,35 +50,35 @@ func NewURLExcluder(url SatelliteURL) *URLExcluder {
 	}
 }
 
-// IsTrusted returns true if the given Satellite is trusted and false otherwise
+// IsTrusted returns true if the given Satellite is trusted and false otherwise.
 func (excluder *URLExcluder) IsTrusted(url SatelliteURL) bool {
 	url.Host = normalizeHost(url.Host)
 	return excluder.url != url
 }
 
-// String returns a string representation of the excluder
+// String returns a string representation of the excluder.
 func (excluder *URLExcluder) String() string {
 	return excluder.url.String()
 }
 
-// IDExcluder excludes URLs matching a given URL
+// IDExcluder excludes URLs matching a given URL.
 type IDExcluder struct {
 	id storj.NodeID
 }
 
-// NewIDExcluder returns a new IDExcluder
+// NewIDExcluder returns a new IDExcluder.
 func NewIDExcluder(id storj.NodeID) *IDExcluder {
 	return &IDExcluder{
 		id: id,
 	}
 }
 
-// IsTrusted returns true if the given Satellite is trusted and false otherwise
+// IsTrusted returns true if the given Satellite is trusted and false otherwise.
 func (excluder *IDExcluder) IsTrusted(url SatelliteURL) bool {
 	return excluder.id != url.ID
 }
 
-// String returns a string representation of the excluder
+// String returns a string representation of the excluder.
 func (excluder *IDExcluder) String() string {
 	return excluder.id.String() + "@"
 }
@@ -90,7 +90,7 @@ type HostExcluder struct {
 	suffix string
 }
 
-// NewHostExcluder returns a new HostExcluder
+// NewHostExcluder returns a new HostExcluder.
 func NewHostExcluder(host string) *HostExcluder {
 	host = normalizeHost(host)
 
@@ -106,7 +106,7 @@ func NewHostExcluder(host string) *HostExcluder {
 	}
 }
 
-// IsTrusted returns true if the given Satellite is trusted and false otherwise
+// IsTrusted returns true if the given Satellite is trusted and false otherwise.
 func (excluder *HostExcluder) IsTrusted(url SatelliteURL) bool {
 	host := normalizeHost(url.Host)
 	if excluder.host == host {
@@ -119,7 +119,7 @@ func (excluder *HostExcluder) IsTrusted(url SatelliteURL) bool {
 	return true
 }
 
-// String returns a string representation of the excluder
+// String returns a string representation of the excluder.
 func (excluder *HostExcluder) String() string {
 	return excluder.host
 }
@@ -127,7 +127,7 @@ func (excluder *HostExcluder) String() string {
 // parseExcluderConfig parses a excluder configuration. The following forms are accepted:
 // - Satellite ID followed by @
 // - Satellite host
-// - Full Satellite URL (i.e. id@host:port)
+// - Full Satellite URL (i.e. id@host:port).
 func parseExcluderConfig(s string) (SatelliteURL, error) {
 	url, err := storj.ParseNodeURL(s)
 	if err != nil {

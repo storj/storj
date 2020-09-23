@@ -46,6 +46,7 @@ pipeline {
                         sh 'check-imports -race ./...'
                         sh 'check-peer-constraints -race'
                         sh 'check-atomic-align ./...'
+                        sh 'check-monkit ./...'
                         sh 'check-errs ./...'
                         sh 'staticcheck ./...'
                         sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
@@ -57,11 +58,11 @@ pipeline {
 
                 stage('Tests') {
                     environment {
-                        STORJ_COCKROACH_TEST = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
+                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
-                        STORJ_POSTGRES_TEST = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                         COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...'}"
                     }
                     steps {
@@ -94,6 +95,19 @@ pipeline {
                                 }
                             }
                         }
+                    }
+                }
+
+                stage('Check Benchmark') {
+                    environment {
+                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/benchcockroach?sslmode=disable'
+                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                    }
+                    steps {
+                        sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database benchcockroach;\''
+
+                        sh 'psql -U postgres -c \'create database benchstorj;\''
+                        sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
                     }
                 }
 

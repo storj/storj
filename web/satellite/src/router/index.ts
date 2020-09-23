@@ -12,6 +12,8 @@ import SettingsArea from '@/components/account/SettingsArea.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
+import CreateProject from '@/components/project/CreateProject.vue';
+import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
@@ -35,9 +37,11 @@ export abstract class RouteConfig {
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
-    public static Team = new NavigationLink('/project-members', 'Members');
+    public static Users = new NavigationLink('/project-members', 'Users');
     public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
+    public static CreateProject = new NavigationLink('/create-project', 'Create Project');
+    public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
 
     // child paths
     public static Settings = new NavigationLink('settings', 'Settings');
@@ -137,8 +141,8 @@ export const router = new Router({
                     component: ProjectDashboard,
                 },
                 {
-                    path: RouteConfig.Team.path,
-                    name: RouteConfig.Team.name,
+                    path: RouteConfig.Users.path,
+                    name: RouteConfig.Users.name,
                     component: ProjectMembersArea,
                 },
                 {
@@ -150,6 +154,16 @@ export const router = new Router({
                     path: RouteConfig.OnboardingTour.path,
                     name: RouteConfig.OnboardingTour.name,
                     component: OnboardingTourArea,
+                },
+                {
+                    path: RouteConfig.CreateProject.path,
+                    name: RouteConfig.CreateProject.name,
+                    component: CreateProject,
+                },
+                {
+                    path: RouteConfig.EditProjectDetails.path,
+                    name: RouteConfig.EditProjectDetails.name,
+                    component: EditProjectDetails,
                 },
             ],
         },

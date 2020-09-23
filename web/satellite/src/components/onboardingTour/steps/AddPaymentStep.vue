@@ -39,6 +39,42 @@
             @toggleIsLoading="toggleIsLoading"
             @setProjectState="setProjectState"
         />
+        <h1 class="payment-step__title second-title">Transparent Monthly Pricing</h1>
+        <p class="payment-step__sub-title">
+            Pay only for the storage and bandwidth you use.
+        </p>
+        <div class="payment-step__pricing-modal">
+            <div class="payment-step__pricing-modal__item">
+                <div class="payment-step__pricing-modal__item__left-side">
+                    <img src="@/../static/images/onboardingTour/cloud.png" alt="cloud image">
+                    <span class="payment-step__pricing-modal__item__left-side__title">Storage</span>
+                </div>
+                <div class="payment-step__pricing-modal__item__right-side">
+                    <b class="payment-step__pricing-modal__item__right-side__price">$0.01</b>
+                    <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span>
+                </div>
+            </div>
+            <div class="payment-step__pricing-modal__item download-item">
+                <div class="payment-step__pricing-modal__item__left-side">
+                    <img src="@/../static/images/onboardingTour/arrow-down.png" alt="arrow image">
+                    <span class="payment-step__pricing-modal__item__left-side__title">Download</span>
+                </div>
+                <div class="payment-step__pricing-modal__item__right-side">
+                    <b class="payment-step__pricing-modal__item__right-side__price">$0.045</b>
+                    <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span>
+                </div>
+            </div>
+            <div class="payment-step__pricing-modal__item">
+                <div class="payment-step__pricing-modal__item__left-side">
+                    <img src="@/../static/images/onboardingTour/squares.png" alt="squares image">
+                    <span class="payment-step__pricing-modal__item__left-side__title">Per Object</span>
+                </div>
+                <div class="payment-step__pricing-modal__item__right-side">
+                    <b class="payment-step__pricing-modal__item__right-side__price">$0.0000022</b>
+                    <span class="payment-step__pricing-modal__item__left-side__dimension">/OBJECT</span>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -66,7 +102,7 @@ export default class AddPaymentStep extends Vue {
      * Sets area to needed state.
      */
     public mounted(): void {
-        if (this.$store.getters.isTransactionProcessing || this.$store.getters.isTransactionCompleted) {
+        if (this.$store.getters.isTransactionProcessing || this.$store.getters.isBalancePositive) {
             this.setAddStorjState();
         }
     }
@@ -129,7 +165,8 @@ export default class AddPaymentStep extends Vue {
         flex-direction: column;
         align-items: center;
         justify-content: space-between;
-        padding: 0 140px;
+        padding: 0 140px 200px 140px;
+        position: relative;
 
         &__title {
             font-size: 32px;
@@ -203,6 +240,53 @@ export default class AddPaymentStep extends Vue {
                 z-index: 100;
             }
         }
+
+        &__pricing-modal {
+            width: calc(100% - 80px);
+            padding: 20px 40px;
+            background-color: #fff;
+            border-radius: 8px;
+
+            &__item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 20px 0;
+                width: 100%;
+
+                &__left-side {
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-start;
+
+                    &__title {
+                        margin-left: 20px;
+                        font-family: 'font_medium', sans-serif;
+                        font-size: 18px;
+                        line-height: 20px;
+                        color: #000;
+                    }
+                }
+
+                &__right-side {
+                    display: flex;
+                    align-items: center;
+
+                    &__price {
+                        font-family: 'font_bold', sans-serif;
+                        font-size: 18px;
+                        line-height: 20px;
+                        color: #000;
+                    }
+
+                    &__dimension {
+                        font-size: 14px;
+                        line-height: 20px;
+                        color: #384b65;
+                    }
+                }
+            }
+        }
     }
 
     .selected {
@@ -210,17 +294,26 @@ export default class AddPaymentStep extends Vue {
         border-bottom: 3px solid #2582ff;
     }
 
+    .second-title {
+        margin-top: 30px;
+    }
+
+    .download-item {
+        border-top: 1px solid #afb7c1;
+        border-bottom: 1px solid #afb7c1;
+    }
+
     @media screen and (max-width: 1550px) {
 
         .payment-step {
-            padding: 0 70px;
+            padding: 0 70px 200px 70px;
         }
     }
 
     @media screen and (max-width: 800px) {
 
         .payment-step {
-            padding: 0 25px;
+            padding: 0 25px 200px 25px;
         }
     }
 </style>

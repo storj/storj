@@ -11,8 +11,6 @@ import (
 	"encoding/hex"
 	"net/url"
 	"strings"
-
-	"github.com/lib/pq"
 )
 
 // CreateRandomTestingSchemaName creates a random schema name string.
@@ -25,25 +23,25 @@ func CreateRandomTestingSchemaName(n int) string {
 	return hex.EncodeToString(data)
 }
 
-// ConnstrWithSchema adds schema to a  connection string
+// ConnstrWithSchema adds schema to a  connection string.
 func ConnstrWithSchema(connstr, schema string) string {
 	if strings.Contains(connstr, "?") {
 		connstr += "&options="
 	} else {
 		connstr += "?options="
 	}
-	return connstr + url.QueryEscape("--search_path="+pq.QuoteIdentifier(schema))
+	return connstr + url.QueryEscape("--search_path="+QuoteIdentifier(schema))
 }
 
 // ParseSchemaFromConnstr returns the name of the schema parsed from the
-// connection string if one is provided
+// connection string if one is provided.
 func ParseSchemaFromConnstr(connstr string) (string, error) {
 	url, err := url.Parse(connstr)
 	if err != nil {
 		return "", err
 	}
 	queryValues := url.Query()
-	// this is the Proper™ way to encode search_path in a pq connection string
+	// this is the Proper™ way to encode search_path in a pg connection string
 	options := queryValues["options"]
 	for _, option := range options {
 		if strings.HasPrefix(option, "--search_path=") {
@@ -58,12 +56,12 @@ func ParseSchemaFromConnstr(connstr string) (string, error) {
 	return "", nil
 }
 
-// QuoteSchema quotes schema name for
+// QuoteSchema quotes schema name for.
 func QuoteSchema(schema string) string {
-	return pq.QuoteIdentifier(schema)
+	return QuoteIdentifier(schema)
 }
 
-// Execer is for executing sql
+// Execer is for executing sql.
 type Execer interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
@@ -86,7 +84,7 @@ func CreateSchema(ctx context.Context, db Execer, schema string) (err error) {
 	return err
 }
 
-// DropSchema drops the named schema
+// DropSchema drops the named schema.
 func DropSchema(ctx context.Context, db Execer, schema string) error {
 	_, err := db.ExecContext(ctx, `DROP SCHEMA `+QuoteSchema(schema)+` CASCADE;`)
 	return err

@@ -7,12 +7,11 @@ import ApiKeysCreationPopup from '@/components/apiKeys/ApiKeysCreationPopup.vue'
 
 import { ApiKeysApiGql } from '@/api/apiKeys';
 import { ProjectsApiGql } from '@/api/projects';
-import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { API_KEYS_ACTIONS, makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ApiKey } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
-import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { SegmentioPlugin } from '@/utils/plugins/segment';
 import { createLocalVue, mount } from '@vue/test-utils';
@@ -37,10 +36,10 @@ projectsModule.state.selectedProject = selectedProject;
 const CREATE = API_KEYS_ACTIONS.CREATE;
 const store = new Vuex.Store({ modules: { projectsModule, apiKeysModule, notificationsModule }});
 
-describe('ApiKeysCreationPopup', () => {
+describe('ApiKeysCreationPopup', (): void => {
     const value = 'testValue';
 
-    it('renders correctly', () => {
+    it('renders correctly', (): void => {
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
             localVue,
@@ -52,7 +51,7 @@ describe('ApiKeysCreationPopup', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('function onCloseClick works correctly', async () => {
+    it('function onCloseClick works correctly', async (): Promise<void> => {
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
             localVue,
@@ -63,7 +62,7 @@ describe('ApiKeysCreationPopup', () => {
         expect(wrapper.emitted()).toEqual({'closePopup': [[]]});
     });
 
-    it('function onChangeName works correctly', async () => {
+    it('function onChangeName works correctly', async (): Promise<void> => {
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
             localVue,
@@ -76,7 +75,7 @@ describe('ApiKeysCreationPopup', () => {
         expect(wrapper.vm.$data.errorMessage).toMatch('');
     });
 
-    it('action on onNextClick with no name works correctly', async () => {
+    it('action on onNextClick with no name works correctly', async (): Promise<void> => {
         const wrapper = mount(ApiKeysCreationPopup, {
             store,
             localVue,
@@ -90,7 +89,7 @@ describe('ApiKeysCreationPopup', () => {
         expect(wrapper.vm.$data.errorMessage).toMatch('API Key name can`t be empty');
     });
 
-    it('action on onNextClick with name works correctly', async () => {
+    it('action on onNextClick with name works correctly', async (): Promise<void> => {
         const testApiKey = new ApiKey('testId', 'testName', 'testCreatedAt', 'test');
 
         jest.spyOn(apiKeysApi, 'create').mockReturnValue(

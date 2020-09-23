@@ -6,6 +6,7 @@ package orders
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"sort"
 	"time"
@@ -20,6 +21,9 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/date"
+	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/nodeapiversion"
 )
 
 // DB implements saving order after receiving from storage node
@@ -38,6 +42,8 @@ type DB interface {
 	DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error)
 	// DeleteExpiredConsumedSerials deletes all expired serials in the consumed_serials table.
 	DeleteExpiredConsumedSerials(ctx context.Context, now time.Time) (_ int, err error)
+	// GetBucketIDFromSerialNumber returns the bucket ID associated with the serial number
+	GetBucketIDFromSerialNumber(ctx context.Context, serialNumber storj.SerialNumber) ([]byte, error)
 
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
@@ -48,6 +54,8 @@ type DB interface {
 
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	// UpdateStoragenodeBandwidthSettleWithWindow updates 'settled' bandwidth for given storage node
+	UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storj.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error)
 
 	// GetBucketBandwidth gets total bucket bandwidth from period of time
 	GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, error)
@@ -94,7 +102,7 @@ type ConsumedSerial struct {
 }
 
 // PendingSerial is a serial number reported by a storagenode waiting to be
-// settled
+// settled.
 type PendingSerial struct {
 	NodeID       storj.NodeID
 	BucketID     []byte
@@ -105,9 +113,9 @@ type PendingSerial struct {
 }
 
 var (
-	// Error the default orders errs class
+	// Error the default orders errs class.
 	Error = errs.Class("orders error")
-	// ErrUsingSerialNumber error class for serial number
+	// ErrUsingSerialNumber error class for serial number.
 	ErrUsingSerialNumber = errs.Class("serial number")
 
 	errExpiredOrder = errs.Class("order limit expired")
@@ -115,7 +123,7 @@ var (
 	mon = monkit.Package()
 )
 
-// BucketBandwidthRollup contains all the info needed for a bucket bandwidth rollup
+// BucketBandwidthRollup contains all the info needed for a bucket bandwidth rollup.
 type BucketBandwidthRollup struct {
 	ProjectID  uuid.UUID
 	BucketName string
@@ -125,7 +133,7 @@ type BucketBandwidthRollup struct {
 	Settled    int64
 }
 
-// SortBucketBandwidthRollups sorts the rollups
+// SortBucketBandwidthRollups sorts the rollups.
 func SortBucketBandwidthRollups(rollups []BucketBandwidthRollup) {
 	sort.SliceStable(rollups, func(i, j int) bool {
 		uuidCompare := bytes.Compare(rollups[i].ProjectID[:], rollups[j].ProjectID[:])
@@ -148,7 +156,7 @@ func SortBucketBandwidthRollups(rollups []BucketBandwidthRollup) {
 	})
 }
 
-// StoragenodeBandwidthRollup contains all the info needed for a storagenode bandwidth rollup
+// StoragenodeBandwidthRollup contains all the info needed for a storagenode bandwidth rollup.
 type StoragenodeBandwidthRollup struct {
 	NodeID    storj.NodeID
 	Action    pb.PieceAction
@@ -156,7 +164,7 @@ type StoragenodeBandwidthRollup struct {
 	Settled   int64
 }
 
-// SortStoragenodeBandwidthRollups sorts the rollups
+// SortStoragenodeBandwidthRollups sorts the rollups.
 func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
 	sort.SliceStable(rollups, func(i, j int) bool {
 		nodeCompare := bytes.Compare(rollups[i].NodeID.Bytes(), rollups[j].NodeID.Bytes())
@@ -175,13 +183,13 @@ func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
 	})
 }
 
-// ProcessOrderRequest for batch order processing
+// ProcessOrderRequest for batch order processing.
 type ProcessOrderRequest struct {
 	Order      *pb.Order
 	OrderLimit *pb.OrderLimit
 }
 
-// ProcessOrderResponse for batch order processing responses
+// ProcessOrderResponse for batch order processing responses.
 type ProcessOrderResponse struct {
 	SerialNumber storj.SerialNumber
 	Status       pb.SettlementResponse_Status
@@ -191,19 +199,23 @@ type ProcessOrderResponse struct {
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log                 *zap.Logger
-	satelliteSignee     signing.Signee
-	DB                  DB
-	settlementBatchSize int
+	log                        *zap.Logger
+	satelliteSignee            signing.Signee
+	DB                         DB
+	nodeAPIVersionDB           nodeapiversion.DB
+	settlementBatchSize        int
+	windowEndpointRolloutPhase WindowEndpointRolloutPhase
 }
 
-// NewEndpoint new orders receiving endpoint
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, settlementBatchSize int) *Endpoint {
+// NewEndpoint new orders receiving endpoint.
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, settlementBatchSize int, windowEndpointRolloutPhase WindowEndpointRolloutPhase) *Endpoint {
 	return &Endpoint{
-		log:                 log,
-		satelliteSignee:     satelliteSignee,
-		DB:                  db,
-		settlementBatchSize: settlementBatchSize,
+		log:                        log,
+		satelliteSignee:            satelliteSignee,
+		DB:                         db,
+		nodeAPIVersionDB:           nodeAPIVersionDB,
+		settlementBatchSize:        settlementBatchSize,
+		windowEndpointRolloutPhase: windowEndpointRolloutPhase,
 	}
 }
 
@@ -230,13 +242,21 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
+	switch endpoint.windowEndpointRolloutPhase {
+	case WindowEndpointRolloutPhase1:
+	case WindowEndpointRolloutPhase2, WindowEndpointRolloutPhase3:
+		return rpcstatus.Error(rpcstatus.Unavailable, "endpoint disabled")
+	default:
+		return rpcstatus.Error(rpcstatus.Internal, "invalid window endpoint rollout phase")
+	}
+
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
 	formatError := func(err error) error {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		return rpcstatus.Error(rpcstatus.Unknown, err.Error())
@@ -360,5 +380,297 @@ func (endpoint *Endpoint) processOrders(ctx context.Context, stream pb.DRPCOrder
 			return err
 		}
 	}
+
 	return nil
+}
+
+type bucketIDAction struct {
+	bucketname string
+	projectID  uuid.UUID
+	action     pb.PieceAction
+}
+
+// SettlementWithWindow processes all orders that were created in a 1 hour window.
+// Only one window is processed at a time.
+// Batches are atomic, all orders are settled successfully or they all fail.
+func (endpoint *Endpoint) SettlementWithWindow(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
+	switch endpoint.windowEndpointRolloutPhase {
+	case WindowEndpointRolloutPhase1, WindowEndpointRolloutPhase2:
+		return endpoint.SettlementWithWindowMigration(stream)
+	case WindowEndpointRolloutPhase3:
+		return endpoint.SettlementWithWindowFinal(stream)
+	default:
+		return rpcstatus.Error(rpcstatus.Internal, "invalid window endpoint rollout phase")
+	}
+}
+
+// SettlementWithWindowMigration implements phase 1 and phase 2 of the windowed order rollout where
+// it uses the same backend as the non-windowed settlement and inserts entries containing 0 for
+// the window which ensures that it is either entirely handled by the queue or entirely handled by
+// the phase 3 endpoint.
+func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
+	ctx := stream.Context()
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		endpoint.log.Debug("err peer identity from context", zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	log := endpoint.log.Named(peer.ID.String())
+	log.Debug("SettlementWithWindow")
+
+	var receivedCount int
+	var window int64
+	var actions = map[pb.PieceAction]struct{}{}
+	var requests []*ProcessOrderRequest
+	var finished bool
+
+	for !finished {
+		requests = requests[:0]
+
+		for len(requests) < endpoint.settlementBatchSize {
+			request, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					finished = true
+					break
+				}
+				log.Debug("err streaming order request", zap.Error(err))
+				return rpcstatus.Error(rpcstatus.Unknown, err.Error())
+			}
+			receivedCount++
+
+			orderLimit := request.Limit
+			if orderLimit == nil {
+				log.Debug("request.OrderLimit is nil")
+				continue
+			}
+
+			order := request.Order
+			if order == nil {
+				log.Debug("request.Order is nil")
+				continue
+			}
+
+			if window == 0 {
+				window = date.TruncateToHourInNano(orderLimit.OrderCreation)
+			}
+
+			// don't process orders that aren't valid
+			if !endpoint.isValid(ctx, log, order, orderLimit, peer.ID, window) {
+				continue
+			}
+
+			actions[orderLimit.Action] = struct{}{}
+
+			requests = append(requests, &ProcessOrderRequest{
+				Order:      order,
+				OrderLimit: orderLimit,
+			})
+		}
+
+		// process all of the orders in the old way
+		_, err = endpoint.DB.ProcessOrders(ctx, requests)
+		if err != nil {
+			return rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+	}
+
+	// if we received no valid orders, then respond with rejected
+	if len(actions) == 0 || window == 0 {
+		return stream.SendAndClose(&pb.SettlementWithWindowResponse{
+			Status: pb.SettlementWithWindowResponse_REJECTED,
+		})
+	}
+
+	// insert zero rows for every action involved in the set of orders. this prevents
+	// many problems (double spends and underspends) by ensuring that any window is
+	// either handled entirely by the queue or entirely with the phase 3 windowed endpoint.
+	windowTime := time.Unix(0, window)
+	for action := range actions {
+		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, peer.ID, action, 0, windowTime); err != nil {
+			return rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+	}
+
+	log.Debug("orders processed",
+		zap.Int("total orders received", receivedCount),
+		zap.Time("window", windowTime),
+	)
+
+	return stream.SendAndClose(&pb.SettlementWithWindowResponse{
+		Status: pb.SettlementWithWindowResponse_ACCEPTED,
+	})
+}
+
+// SettlementWithWindowFinal processes all orders that were created in a 1 hour window.
+// Only one window is processed at a time.
+// Batches are atomic, all orders are settled successfully or they all fail.
+func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
+	ctx := stream.Context()
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		endpoint.log.Debug("err peer identity from context", zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	log := endpoint.log.Named(peer.ID.String())
+	log.Debug("SettlementWithWindow")
+
+	var storagenodeSettled = map[int32]int64{}
+	var bucketSettled = map[bucketIDAction]int64{}
+	var seenSerials = map[storj.SerialNumber]struct{}{}
+
+	var window int64
+	var request *pb.SettlementRequest
+	var receivedCount int
+	for {
+		request, err = stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			log.Debug("err streaming order request", zap.Error(err))
+			return rpcstatus.Error(rpcstatus.Unknown, err.Error())
+		}
+		receivedCount++
+
+		orderLimit := request.Limit
+		if orderLimit == nil {
+			log.Debug("request.OrderLimit is nil")
+			continue
+		}
+		if window == 0 {
+			window = date.TruncateToHourInNano(orderLimit.OrderCreation)
+		}
+		order := request.Order
+		if order == nil {
+			log.Debug("request.Order is nil")
+			continue
+		}
+		serialNum := order.SerialNumber
+
+		// don't process orders that aren't valid
+		if !endpoint.isValid(ctx, log, order, orderLimit, peer.ID, window) {
+			continue
+		}
+
+		// don't process orders with serial numbers we've already seen
+		if _, ok := seenSerials[serialNum]; ok {
+			log.Debug("seen serial", zap.String("serial number", serialNum.String()))
+			continue
+		}
+		seenSerials[serialNum] = struct{}{}
+
+		storagenodeSettled[int32(orderLimit.Action)] += order.Amount
+
+		bucketPrefix, err := endpoint.DB.GetBucketIDFromSerialNumber(ctx, serialNum)
+		if err != nil {
+			log.Info("get bucketPrefix from serial number table err", zap.Error(err))
+			continue
+		}
+		bucket, err := metabase.ParseBucketPrefix(metabase.BucketPrefix(bucketPrefix))
+		if err != nil {
+			log.Info("split bucket err", zap.Error(err), zap.String("bucketPrefix", string(bucketPrefix)))
+			continue
+		}
+		bucketSettled[bucketIDAction{
+			bucketname: bucket.BucketName,
+			projectID:  bucket.ProjectID,
+			action:     orderLimit.Action,
+		}] += order.Amount
+	}
+	if len(storagenodeSettled) == 0 {
+		log.Debug("no orders were successfully processed", zap.Int("received count", receivedCount))
+		return stream.SendAndClose(&pb.SettlementWithWindowResponse{
+			Status:        pb.SettlementWithWindowResponse_REJECTED,
+			ActionSettled: storagenodeSettled,
+		})
+	}
+	status, alreadyProcessed, err := endpoint.DB.UpdateStoragenodeBandwidthSettleWithWindow(
+		ctx, peer.ID, storagenodeSettled, time.Unix(0, window),
+	)
+	if err != nil {
+		log.Debug("err updating storagenode bandwidth settle", zap.Error(err))
+		return err
+	}
+	log.Debug("orders processed",
+		zap.Int("total orders received", receivedCount),
+		zap.Time("window", time.Unix(0, window)),
+		zap.String("status", status.String()),
+	)
+
+	if status == pb.SettlementWithWindowResponse_ACCEPTED && !alreadyProcessed {
+		for bucketIDAction, amount := range bucketSettled {
+			err = endpoint.DB.UpdateBucketBandwidthSettle(ctx,
+				bucketIDAction.projectID, []byte(bucketIDAction.bucketname), bucketIDAction.action, amount, time.Unix(0, window),
+			)
+			if err != nil {
+				log.Info("err updating bucket bandwidth settle", zap.Error(err))
+			}
+		}
+	} else {
+		mon.Event("orders_already_processed")
+	}
+
+	if status == pb.SettlementWithWindowResponse_REJECTED {
+		storagenodeSettled = map[int32]int64{}
+	}
+	return stream.SendAndClose(&pb.SettlementWithWindowResponse{
+		Status:        status,
+		ActionSettled: storagenodeSettled,
+	})
+}
+
+func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *pb.Order, orderLimit *pb.OrderLimit, peerID storj.NodeID, window int64) bool {
+	if orderLimit.StorageNodeId != peerID {
+		log.Debug("storage node id mismatch")
+		mon.Event("order_not_valid_storagenodeid")
+		return false
+	}
+	// check expiration first before the signatures so that we can throw out the large amount
+	// of expired orders being sent to us before doing expensive signature verification.
+	if orderLimit.OrderExpiration.Before(time.Now().UTC()) {
+		log.Debug("invalid settlement: order limit expired")
+		mon.Event("order_not_valid_expired")
+		return false
+	}
+	// satellite verifies that it signed the order limit
+	if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
+		log.Debug("invalid settlement: unable to verify order limit")
+		mon.Event("order_not_valid_satellite_signature")
+		return false
+	}
+	// satellite verifies that the order signature matches pub key in order limit
+	if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
+		log.Debug("invalid settlement: unable to verify order")
+		mon.Event("order_not_valid_uplink_signature")
+		return false
+	}
+	if orderLimit.SerialNumber != order.SerialNumber {
+		log.Debug("invalid settlement: invalid serial number")
+		mon.Event("order_not_valid_serialnum_mismatch")
+		return false
+	}
+	// verify the 1 hr windows match
+	if window != date.TruncateToHourInNano(orderLimit.OrderCreation) {
+		log.Debug("invalid settlement: window mismatch")
+		mon.Event("order_not_valid_window_mismatch")
+		return false
+	}
+	return true
 }

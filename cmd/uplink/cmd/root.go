@@ -14,7 +14,6 @@ import (
 	"runtime/pprof"
 	"strings"
 
-	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -32,7 +31,7 @@ import (
 
 const advancedFlagName = "advanced"
 
-// UplinkFlags configuration flags
+// UplinkFlags configuration flags.
 type UplinkFlags struct {
 	Config
 
@@ -47,7 +46,7 @@ var (
 
 	defaults = cfgstruct.DefaultsFlag(RootCmd)
 
-	// Error is the class of errors returned by this package
+	// Error is the class of errors returned by this package.
 	Error = errs.Class("uplink")
 	// ErrAccessFlag is used where the `--access` flag is registered but not supported.
 	ErrAccessFlag = Error.New("--access flag not supported with `setup` and `import` subcommands")
@@ -67,7 +66,7 @@ func init() {
 var cpuProfile = flag.String("profile.cpu", "", "file path of the cpu profile to be created")
 var memoryProfile = flag.String("profile.mem", "", "file path of the memory profile to be created")
 
-// RootCmd represents the base CLI command when called without any subcommands
+// RootCmd represents the base CLI command when called without any subcommands.
 var RootCmd = &cobra.Command{
 	Use:                "uplink",
 	Short:              "The Storj client-side CLI",
@@ -91,6 +90,7 @@ func (cliCfg *UplinkFlags) getProject(ctx context.Context, encryptionBypass bool
 	}
 
 	uplinkCfg := uplink.Config{}
+	uplinkCfg.UserAgent = cliCfg.Client.UserAgent
 	uplinkCfg.DialTimeout = cliCfg.Client.DialTimeout
 
 	if encryptionBypass {
@@ -160,18 +160,16 @@ func writeMemoryProfile() error {
 	return f.Close()
 }
 
-func toStringMapE(from interface{}) (to map[string]interface{}) {
-	to = make(map[string]interface{})
-
-	switch f := from.(type) {
-	case map[string]string:
-		for key, value := range f {
-			to[key] = value
-		}
-		return to
-	default:
-		return cast.ToStringMap(from)
+// convertAccessesForViper converts map[string]string to map[string]interface{}.
+//
+// This is a little hacky but viper deserializes accesses into a map[string]interface{}
+// and complains if we try and override with map[string]string{}.
+func convertAccessesForViper(from map[string]string) map[string]interface{} {
+	to := make(map[string]interface{})
+	for key, value := range from {
+		to[key] = value
 	}
+	return to
 }
 
 func modifyFlagDefaults(cmd *cobra.Command, args []string) (err error) {

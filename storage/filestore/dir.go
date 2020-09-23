@@ -4,8 +4,10 @@
 package filestore
 
 import (
+	"bytes"
 	"context"
 	"encoding/base32"
+	"errors"
 	"io"
 	"io/ioutil"
 	"math"
@@ -18,6 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 )
 
@@ -28,11 +31,12 @@ const (
 	v0PieceFileSuffix      = ""
 	v1PieceFileSuffix      = ".sj1"
 	unknownPieceFileSuffix = "/..error_unknown_format../"
+	verificationFileName   = "storage-dir-verification"
 )
 
 var pathEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
 
-// Dir represents single folder for storing blobs
+// Dir represents single folder for storing blobs.
 type Dir struct {
 	log  *zap.Logger
 	path string
@@ -42,7 +46,28 @@ type Dir struct {
 	trashnow    func() time.Time // the function used by trash to determine "now"
 }
 
-// NewDir returns folder for storing blobs
+// OpenDir opens existing folder for storing blobs.
+func OpenDir(log *zap.Logger, path string) (*Dir, error) {
+	dir := &Dir{
+		log:      log,
+		path:     path,
+		trashnow: time.Now,
+	}
+
+	stat := func(path string) error {
+		_, err := os.Stat(path)
+		return err
+	}
+
+	return dir, errs.Combine(
+		stat(dir.blobsdir()),
+		stat(dir.tempdir()),
+		stat(dir.garbagedir()),
+		stat(dir.trashdir()),
+	)
+}
+
+// NewDir returns folder for storing blobs.
 func NewDir(log *zap.Logger, path string) (*Dir, error) {
 	dir := &Dir{
 		log:      log,
@@ -58,23 +83,54 @@ func NewDir(log *zap.Logger, path string) (*Dir, error) {
 	)
 }
 
-// Path returns the directory path
+// Path returns the directory path.
 func (dir *Dir) Path() string { return dir.path }
 
-// blobsdir is the sub-directory containing the blobs
+// blobsdir is the sub-directory containing the blobs.
 func (dir *Dir) blobsdir() string { return filepath.Join(dir.path, "blobs") }
 
-// tempdir is used for temp files prior to being moved into blobsdir
+// tempdir is used for temp files prior to being moved into blobsdir.
 func (dir *Dir) tempdir() string { return filepath.Join(dir.path, "temp") }
 
-// garbagedir contains files that failed to delete but should be deleted
+// garbagedir contains files that failed to delete but should be deleted.
 func (dir *Dir) garbagedir() string { return filepath.Join(dir.path, "garbage") }
 
-// trashdir contains files staged for deletion for a period of time
+// trashdir contains files staged for deletion for a period of time.
 func (dir *Dir) trashdir() string { return filepath.Join(dir.path, "trash") }
 
+// CreateVerificationFile creates a file to be used for storage directory verification.
+func (dir *Dir) CreateVerificationFile(id storj.NodeID) error {
+	f, err := os.Create(filepath.Join(dir.path, verificationFileName))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errs.Combine(err, f.Close())
+	}()
+	_, err = f.Write(id.Bytes())
+	return err
+}
+
+// Verify verifies that the storage directory is correct by checking for the existence and validity
+// of the verification file.
+func (dir *Dir) Verify(id storj.NodeID) error {
+	content, err := ioutil.ReadFile(filepath.Join(dir.path, verificationFileName))
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(content, id.Bytes()) {
+		verifyID, err := storj.NodeIDFromBytes(content)
+		if err != nil {
+			return errs.New("content of file is not a valid node ID: %x", content)
+		}
+		return errs.New("node ID in file (%s) does not match running node's ID (%s)", verifyID, id.String())
+	}
+	return nil
+}
+
 // CreateTemporaryFile creates a preallocated temporary file in the temp directory
-// prealloc preallocates file to make writing faster
+// prealloc preallocates file to make writing faster.
 func (dir *Dir) CreateTemporaryFile(ctx context.Context, prealloc int64) (_ *os.File, err error) {
 	const preallocLimit = 5 << 20 // 5 MB
 	if prealloc > preallocLimit {
@@ -94,7 +150,7 @@ func (dir *Dir) CreateTemporaryFile(ctx context.Context, prealloc int64) (_ *os.
 	return file, nil
 }
 
-// DeleteTemporary deletes a temporary file
+// DeleteTemporary deletes a temporary file.
 func (dir *Dir) DeleteTemporary(ctx context.Context, file *os.File) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	closeErr := file.Close()
@@ -292,13 +348,13 @@ func (dir *Dir) StatWithStorageFormat(ctx context.Context, ref storage.BlobRef, 
 	return nil, Error.New("unable to stat %q: %v", vPath, err)
 }
 
-// Trash moves the piece specified by ref to the trashdir for every format version
+// Trash moves the piece specified by ref to the trashdir for every format version.
 func (dir *Dir) Trash(ctx context.Context, ref storage.BlobRef) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return dir.iterateStorageFormatVersions(ctx, ref, dir.TrashWithStorageFormat)
 }
 
-// TrashWithStorageFormat moves the piece specified by ref to the trashdir for the specified format version
+// TrashWithStorageFormat moves the piece specified by ref to the trashdir for the specified format version.
 func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
 	// Ensure trashdir exists so that we know any os.IsNotExist errors below
 	// are not from a missing trash dir
@@ -356,12 +412,12 @@ func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref storage.BlobRef,
 }
 
 // ReplaceTrashnow is a helper for tests to replace the trashnow function used
-// when moving files to the trash
+// when moving files to the trash.
 func (dir *Dir) ReplaceTrashnow(trashnow func() time.Time) {
 	dir.trashnow = trashnow
 }
 
-// RestoreTrash moves every piece in the trash folder back into blobsdir
+// RestoreTrash moves every piece in the trash folder back into blobsdir.
 func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestored [][]byte, err error) {
 	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(info storage.BlobInfo) error {
 		blobsBasePath, err := dir.blobToBasePath(info.BlobRef())
@@ -441,7 +497,7 @@ func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore 
 // version.
 //
 // f will be executed for every storage formate version regardless of the
-// result, and will aggregate errors into a single returned error
+// result, and will aggregate errors into a single returned error.
 func (dir *Dir) iterateStorageFormatVersions(ctx context.Context, ref storage.BlobRef, f func(ctx context.Context, ref storage.BlobRef, i storage.FormatVersion) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	var combinedErrors errs.Group
@@ -472,6 +528,12 @@ func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
 func (dir *Dir) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return dir.deleteWithStorageFormatInPath(ctx, dir.blobsdir(), ref, formatVer)
+}
+
+// DeleteNamespace deletes blobs folder for a specific namespace.
+func (dir *Dir) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return dir.deleteNamespace(ctx, dir.blobsdir(), ref)
 }
 
 func (dir *Dir) deleteWithStorageFormatInPath(ctx context.Context, path string, ref storage.BlobRef, formatVer storage.FormatVersion) (err error) {
@@ -532,6 +594,17 @@ func (dir *Dir) deleteWithStorageFormatInPath(ctx context.Context, path string, 
 	return err
 }
 
+// deleteNamespace deletes folder with everything inside.
+func (dir *Dir) deleteNamespace(ctx context.Context, path string, ref []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	namespace := pathEncoding.EncodeToString(ref)
+	folderPath := filepath.Join(path, namespace)
+
+	err = os.RemoveAll(folderPath)
+	return err
+}
+
 // GarbageCollect collects files that are pending deletion.
 func (dir *Dir) GarbageCollect(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -583,7 +656,7 @@ func (dir *Dir) listNamespacesInPath(ctx context.Context, path string) (ids [][]
 	for {
 		dirNames, err := openDir.Readdirnames(nameBatchSize)
 		if err != nil {
-			if err == io.EOF || os.IsNotExist(err) {
+			if errors.Is(err, io.EOF) || os.IsNotExist(err) {
 				return ids, nil
 			}
 			return ids, err
@@ -632,7 +705,7 @@ func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path 
 		}
 		subdirNames, err := openDir.Readdirnames(nameBatchSize)
 		if err != nil {
-			if err == io.EOF || os.IsNotExist(err) {
+			if errors.Is(err, io.EOF) || os.IsNotExist(err) {
 				return nil
 			}
 			return err
@@ -732,7 +805,7 @@ func walkNamespaceWithPrefix(ctx context.Context, log *zap.Logger, namespace []b
 	}
 }
 
-// removeAllContent deletes everything in the folder
+// removeAllContent deletes everything in the folder.
 func removeAllContent(ctx context.Context, path string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	dir, err := os.Open(path)
@@ -746,7 +819,7 @@ func removeAllContent(ctx context.Context, path string) (err error) {
 			// the file might be still in use, so ignore the error
 			_ = os.RemoveAll(filepath.Join(path, file))
 		}
-		if err == io.EOF || len(files) == 0 {
+		if errors.Is(err, io.EOF) || len(files) == 0 {
 			return dir.Close()
 		}
 		if err != nil {
@@ -755,13 +828,13 @@ func removeAllContent(ctx context.Context, path string) (err error) {
 	}
 }
 
-// DiskInfo contains statistics about this dir
+// DiskInfo contains statistics about this dir.
 type DiskInfo struct {
 	ID             string
 	AvailableSpace int64
 }
 
-// Info returns information about the current state of the dir
+// Info returns information about the current state of the dir.
 func (dir *Dir) Info() (DiskInfo, error) {
 	path, err := filepath.Abs(dir.path)
 	if err != nil {

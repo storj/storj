@@ -19,8 +19,8 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleapi"
-	"storj.io/storj/storagenode/heldamount"
 	"storj.io/storj/storagenode/notifications"
+	"storj.io/storj/storagenode/payout"
 )
 
 var (
@@ -43,20 +43,20 @@ type Server struct {
 
 	service       *console.Service
 	notifications *notifications.Service
-	heldAmount    *heldamount.Service
+	payout        *payout.Service
 	listener      net.Listener
 
 	server http.Server
 }
 
 // NewServer creates new instance of storagenode console web server.
-func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifications.Service, service *console.Service, heldAmount *heldamount.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifications.Service, service *console.Service, payout *payout.Service, listener net.Listener) *Server {
 	server := Server{
 		log:           logger,
 		service:       service,
 		listener:      listener,
 		notifications: notifications,
-		heldAmount:    heldAmount,
+		payout:        payout,
 	}
 
 	router := mux.NewRouter()
@@ -68,7 +68,7 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	storageNodeRouter.HandleFunc("/", storageNodeController.StorageNode).Methods(http.MethodGet)
 	storageNodeRouter.HandleFunc("/satellites", storageNodeController.Satellites).Methods(http.MethodGet)
 	storageNodeRouter.HandleFunc("/satellite/{id}", storageNodeController.Satellite).Methods(http.MethodGet)
-	storageNodeRouter.HandleFunc("/estimatedPayout", storageNodeController.EstimatedPayout).Methods(http.MethodGet)
+	storageNodeRouter.HandleFunc("/estimated-payout", storageNodeController.EstimatedPayout).Methods(http.MethodGet)
 
 	notificationController := consoleapi.NewNotifications(server.log, server.notifications)
 	notificationRouter := router.PathPrefix("/api/notifications").Subrouter()
@@ -77,13 +77,14 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	notificationRouter.HandleFunc("/{id}/read", notificationController.ReadNotification).Methods(http.MethodPost)
 	notificationRouter.HandleFunc("/readall", notificationController.ReadAllNotifications).Methods(http.MethodPost)
 
-	heldAmountController := consoleapi.NewHeldAmount(server.log, server.heldAmount)
-	heldAmountRouter := router.PathPrefix("/api/heldamount").Subrouter()
-	heldAmountRouter.StrictSlash(true)
-	heldAmountRouter.HandleFunc("/paystubs/{period}", heldAmountController.PayStubMonthly).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/paystubs/{start}/{end}", heldAmountController.PayStubPeriod).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/heldhistory", heldAmountController.HeldHistory).Methods(http.MethodGet)
-	heldAmountRouter.HandleFunc("/periods", heldAmountController.HeldAmountPeriods).Methods(http.MethodGet)
+	payoutController := consoleapi.NewPayout(server.log, server.payout)
+	payoutRouter := router.PathPrefix("/api/heldamount").Subrouter()
+	payoutRouter.StrictSlash(true)
+	payoutRouter.HandleFunc("/paystubs/{period}", payoutController.PayStubMonthly).Methods(http.MethodGet)
+	payoutRouter.HandleFunc("/paystubs/{start}/{end}", payoutController.PayStubPeriod).Methods(http.MethodGet)
+	payoutRouter.HandleFunc("/held-history", payoutController.HeldHistory).Methods(http.MethodGet)
+	payoutRouter.HandleFunc("/periods", payoutController.HeldAmountPeriods).Methods(http.MethodGet)
+	payoutRouter.HandleFunc("/payout-history/{period}", payoutController.PayoutHistory).Methods(http.MethodGet)
 
 	if assets != nil {
 		fs := http.FileServer(assets)

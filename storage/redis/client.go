@@ -6,6 +6,7 @@ package redis
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/url"
 	"sort"
 	"strconv"
@@ -19,17 +20,17 @@ import (
 )
 
 var (
-	// Error is a redis error
+	// Error is a redis error.
 	Error = errs.Class("redis error")
 
 	mon = monkit.Package()
 )
 
 // TODO(coyle): this should be set to 61 * time.Minute after we implement Ping and Refresh on Overlay.
-// This disables the TTL since the Set command only includes a TTL if it is greater than 0
+// This disables the TTL since the Set command only includes a TTL if it is greater than 0.
 const defaultNodeExpiration = 0 * time.Minute
 
-// Client is the entrypoint into Redis
+// Client is the entrypoint into Redis.
 type Client struct {
 	db  *redis.Client
 	TTL time.Duration
@@ -37,7 +38,7 @@ type Client struct {
 	lookupLimit int
 }
 
-// NewClient returns a configured Client instance, verifying a successful connection to redis
+// NewClient returns a configured Client instance, verifying a successful connection to redis.
 func NewClient(address, password string, db int) (*Client, error) {
 	client := &Client{
 		db: redis.NewClient(&redis.Options{
@@ -57,7 +58,7 @@ func NewClient(address, password string, db int) (*Client, error) {
 	return client, nil
 }
 
-// NewClientFrom returns a configured Client instance from a redis address, verifying a successful connection to redis
+// NewClientFrom returns a configured Client instance from a redis address, verifying a successful connection to redis.
 func NewClientFrom(address string) (*Client, error) {
 	redisurl, err := url.Parse(address)
 	if err != nil {
@@ -125,7 +126,7 @@ func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_
 	return storage.ListKeys(ctx, client, first, limit)
 }
 
-// Delete deletes a key/value pair from redis, for a given the key
+// Delete deletes a key/value pair from redis, for a given the key.
 func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
@@ -134,27 +135,27 @@ func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	return delete(ctx, client.db, key)
 }
 
-// DeleteMultiple deletes keys ignoring missing keys
+// DeleteMultiple deletes keys ignoring missing keys.
 func (client *Client) DeleteMultiple(ctx context.Context, keys []storage.Key) (_ storage.Items, err error) {
 	defer mon.Task()(&ctx, len(keys))(&err)
 	return deleteMultiple(ctx, client.db, keys)
 }
 
-// Close closes a redis client
+// Close closes a redis client.
 func (client *Client) Close() error {
 	return client.db.Close()
 }
 
 // GetAll is the bulk method for gets from the redis data store.
 // The maximum keys returned will be LookupLimit. If more than that
-// is requested, an error will be returned
+// is requested, an error will be returned.
 func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(keys) == 0 {
 		return nil, nil
 	}
 	if len(keys) > client.lookupLimit {
-		return nil, storage.ErrLimitExceeded
+		return nil, storage.ErrLimitExceeded.New("lookup limit exceeded")
 	}
 
 	keyStrings := make([]string, len(keys))
@@ -254,7 +255,7 @@ func (client *Client) allPrefixedItems(prefix, first, last storage.Key, limit in
 	return all, nil
 }
 
-// CompareAndSwap atomically compares and swaps oldValue with newValue
+// CompareAndSwap atomically compares and swaps oldValue with newValue.
 func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldValue, newValue storage.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
@@ -298,7 +299,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 	}
 
 	err = client.db.Watch(txf, key.String())
-	if err == redis.TxFailedErr {
+	if errors.Is(err, redis.TxFailedErr) {
 		return storage.ErrValueChanged.New("%q", key)
 	}
 	return Error.Wrap(err)
@@ -307,10 +308,10 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 func get(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (_ storage.Value, err error) {
 	defer mon.Task()(&ctx)(&err)
 	value, err := cmdable.Get(string(key)).Bytes()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		return nil, storage.ErrKeyNotFound.New("%q", key)
 	}
-	if err != nil && err != redis.TxFailedErr {
+	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return nil, Error.New("get error: %v", err)
 	}
 	return value, errs.Wrap(err)
@@ -319,7 +320,7 @@ func get(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (_ storage
 func put(ctx context.Context, cmdable redis.Cmdable, key storage.Key, value storage.Value, ttl time.Duration) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = cmdable.Set(key.String(), []byte(value), ttl).Err()
-	if err != nil && err != redis.TxFailedErr {
+	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return Error.New("put error: %v", err)
 	}
 	return errs.Wrap(err)
@@ -328,7 +329,7 @@ func put(ctx context.Context, cmdable redis.Cmdable, key storage.Key, value stor
 func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = cmdable.Del(key.String()).Err()
-	if err != nil && err != redis.TxFailedErr {
+	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return Error.New("delete error: %v", err)
 	}
 	return errs.Wrap(err)
@@ -337,7 +338,7 @@ func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err er
 func eval(ctx context.Context, cmdable redis.Cmdable, script string, keys []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = cmdable.Eval(script, keys, nil).Err()
-	if err != nil && err != redis.TxFailedErr {
+	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return Error.New("eval error: %v", err)
 	}
 	return errs.Wrap(err)
@@ -350,7 +351,7 @@ func deleteMultiple(ctx context.Context, cmdable redis.Cmdable, keys []storage.K
 	for _, key := range keys {
 		value, err := get(ctx, cmdable, key)
 		if err != nil {
-			if errs.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
+			if errors.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
 				continue
 			}
 			return items, err
@@ -358,7 +359,7 @@ func deleteMultiple(ctx context.Context, cmdable redis.Cmdable, keys []storage.K
 
 		err = delete(ctx, cmdable, key)
 		if err != nil {
-			if errs.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
+			if errors.Is(err, redis.Nil) || storage.ErrKeyNotFound.Has(err) {
 				continue
 			}
 			return items, err

@@ -36,7 +36,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -51,7 +50,7 @@ import (
 	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/satellite/vouchers"
+	"storj.io/storj/satellite/snopayout"
 )
 
 // API is the satellite API process
@@ -87,10 +86,6 @@ type API struct {
 		DB        overlay.DB
 		Service   *overlay.Service
 		Inspector *overlay.Inspector
-	}
-
-	Vouchers struct {
-		Endpoint *vouchers.Endpoint
 	}
 
 	Orders struct {
@@ -155,10 +150,10 @@ type API struct {
 		Endpoint *nodestats.Endpoint
 	}
 
-	HeldAmount struct {
-		Endpoint *heldamount.Endpoint
-		Service  *heldamount.Service
-		DB       heldamount.DB
+	SnoPayout struct {
+		Endpoint *snopayout.Endpoint
+		Service  *snopayout.Service
+		DB       snopayout.DB
 	}
 
 	GracefulExit struct {
@@ -166,7 +161,7 @@ type API struct {
 	}
 }
 
-// NewAPI creates a new satellite API process
+// NewAPI creates a new satellite API process.
 func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	config *Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*API, error) {
@@ -294,12 +289,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	{ // setup vouchers
-		if err := pb.DRPCRegisterVouchers(peer.Server.DRPC(), peer.Vouchers.Endpoint); err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-	}
-
 	{ // setup live accounting
 		peer.LiveAccounting.Cache = liveAccounting
 	}
@@ -308,8 +297,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
-			config.Rollup.DefaultMaxUsage,
-			config.Rollup.DefaultMaxBandwidth,
+			config.Metainfo.ProjectLimits.DefaultMaxUsage,
+			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
 			config.LiveAccounting.BandwidthCacheTTL,
 		)
 	}
@@ -330,21 +319,26 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
 			peer.Orders.DB,
+			peer.DB.NodeAPIVersion(),
 			config.Orders.SettlementBatchSize,
+			config.Orders.WindowEndpointRolloutPhase,
 		)
-		peer.Orders.Service = orders.NewService(
+		var err error
+		peer.Orders.Service, err = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
-			config.Orders.Expiration,
+			peer.DB.Buckets(),
+			config.Orders,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Contact.ExternalAddress,
 			},
-			config.Repairer.MaxExcessRateOptimalThreshold,
-			config.Orders.NodeStatusLogging,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -394,6 +388,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Metainfo.PieceDeletion, err = piecedeletion.NewService(
 			peer.Log.Named("metainfo:piecedeletion"),
 			peer.Dialer,
+			peer.Overlay.Service,
 			config.Metainfo.PieceDeletion,
 		)
 		if err != nil {
@@ -530,7 +525,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
 		default:
-			stripeClient = stripecoinpayments.NewStripeMock()
+			stripeClient = stripecoinpayments.NewStripeMock(peer.ID())
 		case "stripecoinpayments":
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
@@ -549,7 +544,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.CouponValue,
 			pc.CouponDuration,
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.MinCoinPayment,
+			pc.PaywallProportion)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -610,6 +606,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Console.Service,
 			peer.Mail.Service,
 			peer.Referrals.Service,
+			peer.Marketing.PartnersService,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 		)
@@ -633,17 +630,17 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup heldamount endpoint
-		peer.HeldAmount.DB = peer.DB.HeldAmount()
-		peer.HeldAmount.Service = heldamount.NewService(
-			peer.Log.Named("heldamount:service"),
-			peer.HeldAmount.DB)
-		peer.HeldAmount.Endpoint = heldamount.NewEndpoint(
-			peer.Log.Named("heldamount:endpoint"),
+	{ // setup SnoPayout endpoint
+		peer.SnoPayout.DB = peer.DB.SnoPayout()
+		peer.SnoPayout.Service = snopayout.NewService(
+			peer.Log.Named("payout:service"),
+			peer.SnoPayout.DB)
+		peer.SnoPayout.Endpoint = snopayout.NewEndpoint(
+			peer.Log.Named("payout:endpoint"),
 			peer.DB.StoragenodeAccounting(),
 			peer.Overlay.DB,
-			peer.HeldAmount.Service)
-		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.HeldAmount.Endpoint); err != nil {
+			peer.SnoPayout.Service)
+		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.SnoPayout.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}

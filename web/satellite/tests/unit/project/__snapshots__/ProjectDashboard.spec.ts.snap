@@ -3,11 +3,10 @@
 exports[`ProjectDashboard.vue renders correctly 1`] = `
 <div class="dashboard-area">
   <div class="dashboard-area__title-area">
-    <h1 class="dashboard-area__title-area__title">Project Dashboard</h1> <a href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212" target="_blank" class="dashboard-area__title-area__link">
+    <h1 class="dashboard-area__title-area__title">Project Dashboard</h1> <a href="" target="_blank" rel="noopener noreferrer" class="dashboard-area__title-area__link">
       Request Limit Increase -&gt;
     </a>
   </div>
-  <projectdetails-stub></projectdetails-stub>
   <projectusage-stub></projectusage-stub>
   <bucketarea-stub></bucketarea-stub>
 </div>

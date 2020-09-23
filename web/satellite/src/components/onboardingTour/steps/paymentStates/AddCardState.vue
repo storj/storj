@@ -123,6 +123,7 @@ export default class AddCardState extends Vue {
         flex-direction: column;
         align-items: center;
         justify-content: space-between;
+        margin-bottom: 20px;
 
         &__input-container {
             position: relative;

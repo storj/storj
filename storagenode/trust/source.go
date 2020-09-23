@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Entry represents a trust entry
+// Entry represents a trust entry.
 type Entry struct {
 	// SatelliteURL is the URL of the satellite
 	SatelliteURL SatelliteURL
@@ -20,7 +20,7 @@ type Entry struct {
 	Authoritative bool `json:"authoritative"`
 }
 
-// Source is a trust source for trusted Satellites
+// Source is a trust source for trusted Satellites.
 type Source interface {
 	// String is the string representation of the source. It is used as a key
 	// into the cache.
@@ -70,10 +70,11 @@ func isReserved(s string) (schema string, ok bool) {
 
 // reProbablySatelliteURL matches config strings that are (intended, but
 // possibly misconfigured) satellite URLs, like the following:
-// - @
-// - id@
-// - host:9999
-// - id@host:9999
+//
+//  - @
+//  - id@
+//  - host:9999
+//  - id@host:9999
 var reProbablySatelliteURL = regexp.MustCompile(`@|(^[^/\\]{2,}:\d+$)`)
 
 func isProbablySatelliteURL(s string) bool {

@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Config is the trust configuration
+// Config is the trust configuration.
 type Config struct {
 	Sources         Sources       `help:"list of trust sources" devDefault:"" releaseDefault:"https://tardigrade.io/trusted-satellites"`
 	Exclusions      Exclusions    `help:"list of trust exclusions" devDefault:"" releaseDefault:""`
@@ -18,10 +18,10 @@ type Config struct {
 	CachePath       string        `help:"file path where trust lists should be cached" default:"${CONFDIR}/trust-cache.json"`
 }
 
-// Sources is a list of sources that implements pflag.Value
+// Sources is a list of sources that implements pflag.Value.
 type Sources []Source
 
-// String returns the string representation of the config
+// String returns the string representation of the config.
 func (sources Sources) String() string {
 	s := make([]string, 0, len(sources))
 	for _, source := range sources {
@@ -30,7 +30,7 @@ func (sources Sources) String() string {
 	return strings.Join(s, ",")
 }
 
-// Set implements pflag.Value by parsing a comma separated list of sources
+// Set implements pflag.Value by parsing a comma separated list of sources.
 func (sources *Sources) Set(value string) error {
 	var entries []string
 	if value != "" {
@@ -50,17 +50,17 @@ func (sources *Sources) Set(value string) error {
 	return nil
 }
 
-// Type returns the type of the pflag.Value
+// Type returns the type of the pflag.Value.
 func (sources Sources) Type() string {
 	return "trust-sources"
 }
 
-// Exclusions is a list of excluding rules that implements pflag.Value
+// Exclusions is a list of excluding rules that implements pflag.Value.
 type Exclusions struct {
 	Rules Rules
 }
 
-// String returns the string representation of the config
+// String returns the string representation of the config.
 func (exclusions *Exclusions) String() string {
 	s := make([]string, 0, len(exclusions.Rules))
 	for _, rule := range exclusions.Rules {
@@ -69,7 +69,7 @@ func (exclusions *Exclusions) String() string {
 	return strings.Join(s, ",")
 }
 
-// Set implements pflag.Value by parsing a comma separated list of exclusions
+// Set implements pflag.Value by parsing a comma separated list of exclusions.
 func (exclusions *Exclusions) Set(value string) error {
 	var entries []string
 	if value != "" {
@@ -89,7 +89,7 @@ func (exclusions *Exclusions) Set(value string) error {
 	return nil
 }
 
-// Type returns the type of the pflag.Value
+// Type returns the type of the pflag.Value.
 func (exclusions Exclusions) Type() string {
 	return "trust-exclusions"
 }

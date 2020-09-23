@@ -29,14 +29,16 @@ export class User {
     public fullName: string;
     public shortName: string;
     public email: string;
+    public partner: string;
     public partnerId: string;
     public password: string;
 
-    public constructor(id: string = '', fullName: string = '', shortName: string = '', email: string = '', partnerId: string = '', password: string = '') {
+    public constructor(id: string = '', fullName: string = '', shortName: string = '', email: string = '', partner: string = '', partnerId: string = '', password: string = '') {
         this.id = id;
         this.fullName = fullName;
         this.shortName = shortName;
         this.email = email;
+        this.partner = partner;
         this.partnerId = partnerId;
         this.password = password;
     }

@@ -24,7 +24,7 @@ const testKey = 'test';
 
 const store = new Vuex.Store({ modules: { notificationsModule, apiKeysModule }});
 
-describe('ApiKeysCopyPopup', () => {
+describe('ApiKeysCopyPopup', (): void => {
     it('renders correctly', async (): Promise<void> => {
         const wrapper = mount(ApiKeysCopyPopup, {
             store,

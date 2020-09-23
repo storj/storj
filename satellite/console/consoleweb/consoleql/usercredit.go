@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	// CreditUsageType is a graphql type for user credit
+	// CreditUsageType is a graphql type for user credit.
 	CreditUsageType = "creditUsage"
-	// FieldAvailableCredit is a field name for available credit
+	// FieldAvailableCredit is a field name for available credit.
 	FieldAvailableCredit = "availableCredit"
-	// FieldUsedCredit is a field name for used credit
+	// FieldUsedCredit is a field name for used credit.
 	FieldUsedCredit = "usedCredit"
-	// FieldReferred is a field name for total referred number
+	// FieldReferred is a field name for total referred number.
 	FieldReferred = "referred"
 )
 

@@ -1,11 +1,13 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import sinon from 'sinon';
 import Vuex from 'vuex';
 
 import CreateApiKeyStep from '@/components/onboardingTour/steps/CreateApiKeyStep.vue';
 
 import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { appStateModule } from '@/store/modules/appState';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ApiKeysPage } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
@@ -31,7 +33,7 @@ localVue.use(Vuex);
 localVue.use(notificationPlugin);
 localVue.use(segmentioPlugin);
 
-const store = new Vuex.Store({ modules: { projectsModule, apiKeysModule }});
+const store = new Vuex.Store({ modules: { projectsModule, apiKeysModule, appStateModule }});
 
 describe('CreateApiKeyStep.vue', () => {
     it('renders correctly', (): void => {
@@ -55,16 +57,5 @@ describe('CreateApiKeyStep.vue', () => {
 
         expect(wrapper.findAll('.disabled').length).toBe(0);
         expect(wrapper).toMatchSnapshot();
-    });
-
-    it('done click works correctly correctly', async (): Promise<void> => {
-        const wrapper = mount(CreateApiKeyStep, {
-            store,
-            localVue,
-        });
-
-        await wrapper.find('.done-button').trigger('click');
-
-        expect(wrapper.emitted()).toHaveProperty('setUploadDataState');
     });
 });

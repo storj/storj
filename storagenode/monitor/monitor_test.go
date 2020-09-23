@@ -32,6 +32,8 @@ func TestMonitor(t *testing.T) {
 		nodeAssertions := 0
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Monitor.Loop.TriggerWait()
+			storageNode.Storage2.Monitor.VerifyDirReadableLoop.TriggerWait()
+			storageNode.Storage2.Monitor.VerifyDirWritableLoop.TriggerWait()
 			stats, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
 			require.NoError(t, err)
 			if stats.UsedSpace > 0 {

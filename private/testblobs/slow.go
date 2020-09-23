@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
@@ -89,13 +90,13 @@ func (slow *SlowBlobs) Trash(ctx context.Context, ref storage.BlobRef) error {
 	return slow.blobs.Trash(ctx, ref)
 }
 
-// RestoreTrash restores all files in the trash
+// RestoreTrash restores all files in the trash.
 func (slow *SlowBlobs) RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error) {
 	slow.sleep()
 	return slow.blobs.RestoreTrash(ctx, namespace)
 }
 
-// EmptyTrash empties the trash
+// EmptyTrash empties the trash.
 func (slow *SlowBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error) {
 	slow.sleep()
 	return slow.blobs.EmptyTrash(ctx, namespace, trashedBefore)
@@ -107,13 +108,19 @@ func (slow *SlowBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
 	return slow.blobs.Delete(ctx, ref)
 }
 
-// DeleteWithStorageFormat deletes the blob with the namespace, key, and format version
+// DeleteWithStorageFormat deletes the blob with the namespace, key, and format version.
 func (slow *SlowBlobs) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) error {
 	slow.sleep()
 	return slow.blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
 }
 
-// Stat looks up disk metadata on the blob file
+// DeleteNamespace deletes blobs of specific satellite, used after successful GE only.
+func (slow *SlowBlobs) DeleteNamespace(ctx context.Context, ref []byte) (err error) {
+	slow.sleep()
+	return slow.blobs.DeleteNamespace(ctx, ref)
+}
+
+// Stat looks up disk metadata on the blob file.
 func (slow *SlowBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.BlobInfo, error) {
 	slow.sleep()
 	return slow.blobs.Stat(ctx, ref)
@@ -146,22 +153,40 @@ func (slow *SlowBlobs) FreeSpace() (int64, error) {
 	return slow.blobs.FreeSpace()
 }
 
-// SpaceUsedForBlobs adds up how much is used in all namespaces
+// CheckWritability tests writability of the storage directory by creating and deleting a file.
+func (slow *SlowBlobs) CheckWritability() error {
+	slow.sleep()
+	return slow.blobs.CheckWritability()
+}
+
+// SpaceUsedForBlobs adds up how much is used in all namespaces.
 func (slow *SlowBlobs) SpaceUsedForBlobs(ctx context.Context) (int64, error) {
 	slow.sleep()
 	return slow.blobs.SpaceUsedForBlobs(ctx)
 }
 
-// SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace
+// SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace.
 func (slow *SlowBlobs) SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	slow.sleep()
 	return slow.blobs.SpaceUsedForBlobsInNamespace(ctx, namespace)
 }
 
-// SpaceUsedForTrash adds up how much is used in all namespaces
+// SpaceUsedForTrash adds up how much is used in all namespaces.
 func (slow *SlowBlobs) SpaceUsedForTrash(ctx context.Context) (int64, error) {
 	slow.sleep()
 	return slow.blobs.SpaceUsedForTrash(ctx)
+}
+
+// CreateVerificationFile creates a file to be used for storage directory verification.
+func (slow *SlowBlobs) CreateVerificationFile(id storj.NodeID) error {
+	slow.sleep()
+	return slow.blobs.CreateVerificationFile(id)
+}
+
+// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
+// of the verification file.
+func (slow *SlowBlobs) VerifyStorageDir(id storj.NodeID) error {
+	return slow.blobs.VerifyStorageDir(id)
 }
 
 // SetLatency configures the blob store to sleep for delay duration for all
@@ -170,7 +195,7 @@ func (slow *SlowBlobs) SetLatency(delay time.Duration) {
 	atomic.StoreInt64(&slow.delay, int64(delay))
 }
 
-// sleep sleeps for the duration set to slow.delay
+// sleep sleeps for the duration set to slow.delay.
 func (slow *SlowBlobs) sleep() {
 	delay := time.Duration(atomic.LoadInt64(&slow.delay))
 	time.Sleep(delay)

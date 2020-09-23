@@ -25,6 +25,7 @@
                         class="upload-data-area__container__docs-area__option__link"
                         href="https://documentation.tardigrade.io/api-reference/s3-gateway"
                         target="_blank"
+                        rel="noopener noreferrer"
                     >
                         S3 Gateway Docs
                     </a>
@@ -42,8 +43,9 @@
                     </p>
                     <a
                         class="upload-data-area__container__docs-area__option__link"
-                        href="https://documentation.tardigrade.io/api-reference/uplink-cli"
+                        href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli"
                         target="_blank"
+                        rel="noopener noreferrer"
                     >
                         Uplink CLI Docs
                     </a>
@@ -63,6 +65,7 @@
                         class="upload-data-area__container__docs-area__option__link"
                         href="https://tardigrade.io/connectors/"
                         target="_blank"
+                        rel="noopener noreferrer"
                     >
                         App Connectors
                     </a>
@@ -78,7 +81,12 @@
         />
         <span class="upload-data-area__support-info">
             Need help?
-            <a class="upload-data-area__support-info__link" href="https://support.tardigrade.io/hc/en-us" target="_blank">
+            <a
+                class="upload-data-area__support-info__link"
+                href="https://support.tardigrade.io/hc/en-us"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
                 Contact support
             </a>
         </span>

@@ -21,8 +21,8 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
@@ -45,18 +45,13 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		numberOfProjects := 19
 		// generate test data, each user has one project, one coupon and some credits
 		for i := 0; i < numberOfProjects; i++ {
-			user, err := satellite.AddUser(ctx, "testuser"+strconv.Itoa(i), "user@test"+strconv.Itoa(i), 1)
+			user, err := satellite.AddUser(ctx, console.CreateUser{
+				FullName: "testuser" + strconv.Itoa(i),
+				Email:    "user@test" + strconv.Itoa(i),
+			}, 1)
 			require.NoError(t, err)
 
 			project, err := satellite.AddProject(ctx, user.ID, "testproject-"+strconv.Itoa(i))
-			require.NoError(t, err)
-
-			credit := payments.Credit{
-				UserID:        user.ID,
-				Amount:        9,
-				TransactionID: coinpayments.TransactionID("transID" + strconv.Itoa(i)),
-			}
-			err = satellite.DB.StripeCoinPayments().Credits().InsertCredit(ctx, credit)
 			require.NoError(t, err)
 
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
@@ -83,11 +78,6 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, numberOfProjects, len(couponsPage.Usages))
 
-		// check if we have credits spendings for each project
-		spendingsPage, err := satellite.DB.StripeCoinPayments().Credits().ListCreditsSpendingsPaged(ctx, int(stripecoinpayments.CreditsSpendingStatusUnapplied), 0, 40, start)
-		require.NoError(t, err)
-		require.Equal(t, numberOfProjects, len(spendingsPage.Spendings))
-
 		err = satellite.API.Payments.Service.InvoiceApplyProjectRecords(ctx, period)
 		require.NoError(t, err)
 
@@ -103,14 +93,6 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		couponsPage, err = satellite.DB.StripeCoinPayments().Coupons().ListUnapplied(ctx, 0, 40, start)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(couponsPage.Usages))
-
-		err = satellite.API.Payments.Service.InvoiceApplyCredits(ctx, period)
-		require.NoError(t, err)
-
-		// verify that we applied all unapplied credits spendings
-		spendingsPage, err = satellite.DB.StripeCoinPayments().Credits().ListCreditsSpendingsPaged(ctx, int(stripecoinpayments.CreditsSpendingStatusUnapplied), 0, 40, start)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(spendingsPage.Spendings))
 	})
 }
 
@@ -139,7 +121,10 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 		numberOfProjects := 5
 		storageHours := 24
 
-		user, err := satellite.AddUser(ctx, "testuser", "user@test", numberOfProjects)
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, numberOfProjects)
 		require.NoError(t, err)
 
 		projects := make([]*console.Project, numberOfProjects)
@@ -159,13 +144,15 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 			// we need at least two tallies across time to calculate storage
 			projectsStorage[i] = int64(i+1) * memory.TiB.Int64()
 			tally := &accounting.BucketTally{
-				BucketName:  []byte("testbucket"),
-				ProjectID:   projects[i].ID,
+				BucketLocation: metabase.BucketLocation{
+					ProjectID:  projects[i].ID,
+					BucketName: "testbucket",
+				},
 				RemoteBytes: projectsStorage[i],
 				ObjectCount: int64(i + 1),
 			}
-			tallies := map[string]*accounting.BucketTally{
-				"0": tally,
+			tallies := map[metabase.BucketLocation]*accounting.BucketTally{
+				{}: tally,
 			}
 			err = satellite.DB.ProjectAccounting().SaveTallies(ctx, period, tallies)
 			require.NoError(t, err)
@@ -207,9 +194,6 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 		err = payments.Service.InvoiceApplyCoupons(ctx, period)
 		require.NoError(t, err)
 
-		err = payments.Service.InvoiceApplyCredits(ctx, period)
-		require.NoError(t, err)
-
 		err = payments.Service.CreateInvoices(ctx, period)
 		require.NoError(t, err)
 	})
@@ -238,7 +222,10 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 
 		storageHours := 24
 
-		user, err := satellite.AddUser(ctx, "testuser", "user@test", 5)
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 5)
 		require.NoError(t, err)
 
 		project, err := satellite.AddProject(ctx, user.ID, "testproject")
@@ -267,13 +254,15 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 			// generate storage
 			// we need at least two tallies across time to calculate storage
 			tally := &accounting.BucketTally{
-				BucketName:  []byte("testbucket"),
-				ProjectID:   project.ID,
+				BucketLocation: metabase.BucketLocation{
+					ProjectID:  project.ID,
+					BucketName: "testbucket",
+				},
 				RemoteBytes: memory.TiB.Int64(),
 				ObjectCount: 45,
 			}
-			tallies := map[string]*accounting.BucketTally{
-				"0": tally,
+			tallies := map[metabase.BucketLocation]*accounting.BucketTally{
+				{}: tally,
 			}
 			err = satellite.DB.ProjectAccounting().SaveTallies(ctx, period, tallies)
 			require.NoError(t, err)
@@ -345,7 +334,10 @@ func TestService_ApplyCouponsInTheOrder(t *testing.T) {
 		})
 		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
 
-		user, err := satellite.AddUser(ctx, "testuser", "user@test", 5)
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+		}, 5)
 		require.NoError(t, err)
 
 		project, err := satellite.AddProject(ctx, user.ID, "testproject")
@@ -471,7 +463,10 @@ func TestService_CouponStatus(t *testing.T) {
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
-			user, err := satellite.AddUser(ctx, "testuser"+strconv.Itoa(i), "test@test"+strconv.Itoa(i), 1)
+			user, err := satellite.AddUser(ctx, console.CreateUser{
+				FullName: "testuser" + strconv.Itoa(i),
+				Email:    "test@test" + strconv.Itoa(i),
+			}, 1)
 			require.NoError(t, err, errTag)
 
 			project, err := satellite.AddProject(ctx, user.ID, "testproject-"+strconv.Itoa(i))
@@ -541,7 +536,11 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 		projects := make([]*console.Project, numberOfUsers)
 		for i := 0; i < numberOfUsers; i++ {
 			var err error
-			users[i], err = satellite.AddUser(ctx, "testuser"+strconv.Itoa(i), "user@test"+strconv.Itoa(i), 1)
+
+			users[i], err = satellite.AddUser(ctx, console.CreateUser{
+				FullName: "testuser" + strconv.Itoa(i),
+				Email:    "user@test" + strconv.Itoa(i),
+			}, 1)
 			require.NoError(t, err)
 
 			projects[i], err = satellite.AddProject(ctx, users[i].ID, "testproject-"+strconv.Itoa(i))
@@ -570,5 +569,70 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, 0, 40, start, end)
 		require.NoError(t, err)
 		require.Equal(t, len(projects), len(recordsPage.Records))
+	})
+}
+
+func TestService_InvoiceItemsFromProjectRecord(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// these numbers are fraction of cents, not of dollars.
+		expectedStoragePrice := 0.001
+		expectedEgressPrice := 0.0045
+		expectedObjectPrice := 0.00022
+
+		type TestCase struct {
+			Storage float64
+			Egress  int64
+			Objects float64
+
+			StorageQuantity int64
+			EgressQuantity  int64
+			ObjectsQuantity int64
+		}
+
+		var testCases = []TestCase{
+			{}, // all zeros
+			{
+				Storage: 10000000000, // Byte-Hours
+				// storage quantity is calculated to Megabyte-Months
+				// (10000000000 / 1000000) Byte-Hours to Megabytes-Hours
+				// round(10000 / 720) Megabytes-Hours to Megabyte-Months, 720 - hours in month
+				StorageQuantity: 14, // Megabyte-Months
+			},
+			{
+				Egress: 134 * memory.GB.Int64(), // Bytes
+				// egress quantity is calculated to Megabytes
+				// (134000000000 / 1000000) Bytes to Megabytes
+				EgressQuantity: 134000, // Megabytes
+			},
+			{
+				Objects: 400000, // Object-Hours
+				// object quantity is calculated to Object-Months
+				// round(400000 / 720) Object-Hours to Object-Months, 720 - hours in month
+				ObjectsQuantity: 556, // Object-Months
+			},
+		}
+
+		for _, tc := range testCases {
+			record := stripecoinpayments.ProjectRecord{
+				Storage: tc.Storage,
+				Egress:  tc.Egress,
+				Objects: tc.Objects,
+			}
+
+			items := satellite.API.Payments.Service.InvoiceItemsFromProjectRecord("project name", record)
+
+			require.Equal(t, tc.StorageQuantity, *items[0].Quantity)
+			require.Equal(t, expectedStoragePrice, *items[0].UnitAmountDecimal)
+
+			require.Equal(t, tc.EgressQuantity, *items[1].Quantity)
+			require.Equal(t, expectedEgressPrice, *items[1].UnitAmountDecimal)
+
+			require.Equal(t, tc.ObjectsQuantity, *items[2].Quantity)
+			require.Equal(t, expectedObjectPrice, *items[2].UnitAmountDecimal)
+		}
 	})
 }

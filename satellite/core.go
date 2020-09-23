@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/tally"
@@ -94,7 +95,7 @@ type Core struct {
 		Checker *checker.Checker
 	}
 	Audit struct {
-		Queue    *audit.Queue
+		Queues   *audit.Queues
 		Worker   *audit.Worker
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
@@ -114,10 +115,11 @@ type Core struct {
 	}
 
 	Accounting struct {
-		Tally               *tally.Service
-		Rollup              *rollup.Service
-		ProjectUsage        *accounting.Service
-		ReportedRollupChore *reportedrollup.Chore
+		Tally                 *tally.Service
+		Rollup                *rollup.Service
+		ProjectUsage          *accounting.Service
+		ReportedRollupChore   *reportedrollup.Chore
+		ProjectBWCleanupChore *projectbwcleanup.Chore
 	}
 
 	LiveAccounting struct {
@@ -144,7 +146,7 @@ type Core struct {
 	}
 }
 
-// New creates a new satellite
+// New creates a new satellite.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache,
 	rollupsWriteCache *orders.RollupsWriteCache,
@@ -247,8 +249,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
-			config.Rollup.DefaultMaxUsage,
-			config.Rollup.DefaultMaxBandwidth,
+			config.Metainfo.ProjectLimits.DefaultMaxUsage,
+			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
 			config.LiveAccounting.BandwidthCacheTTL,
 		)
 	}
@@ -261,19 +263,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Orders.Chore.Run,
 			Close: peer.Orders.Chore.Close,
 		})
-		peer.Orders.Service = orders.NewService(
+		var err error
+		peer.Orders.Service, err = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
-			config.Orders.Expiration,
+			peer.DB.Buckets(),
+			config.Orders,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Contact.ExternalAddress,
 			},
-			config.Repairer.MaxExcessRateOptimalThreshold,
-			config.Orders.NodeStatusLogging,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{ // setup metainfo
@@ -314,7 +319,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup audit
 		config := config.Audit
 
-		peer.Audit.Queue = &audit.Queue{}
+		peer.Audit.Queues = audit.NewQueues()
 
 		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Service,
@@ -335,7 +340,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 
 		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit:worker"),
-			peer.Audit.Queue,
+			peer.Audit.Queues,
 			peer.Audit.Verifier,
 			peer.Audit.Reporter,
 			config,
@@ -353,7 +358,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
-			peer.Audit.Queue,
+			peer.Audit.Queues,
 			peer.Metainfo.Loop,
 			config,
 		)
@@ -437,6 +442,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Reported Rollup", peer.Accounting.ReportedRollupChore.Loop))
+
+		peer.Accounting.ProjectBWCleanupChore = projectbwcleanup.NewChore(peer.Log.Named("accounting:chore"), peer.DB.ProjectAccounting(), config.ProjectBWCleanup)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "accounting:project-bw-rollup",
+			Run:   peer.Accounting.ProjectBWCleanupChore.Run,
+			Close: peer.Accounting.ProjectBWCleanupChore.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Accounting Project Bandwidth Rollup", peer.Accounting.ProjectBWCleanupChore.Loop))
 	}
 
 	// TODO: remove in future, should be in API
@@ -446,7 +460,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
 		default:
-			stripeClient = stripecoinpayments.NewStripeMock()
+			stripeClient = stripecoinpayments.NewStripeMock(peer.ID())
 		case "stripecoinpayments":
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
@@ -465,7 +479,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.CouponValue,
 			pc.CouponDuration,
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment)
+			pc.MinCoinPayment,
+			pc.PaywallProportion)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

@@ -25,6 +25,8 @@ type Users interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, user *User) error
+	// GetProjectLimit is a method to get the users project limit
+	GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error)
 }
 
 // UserInfo holds User updatable data.
@@ -75,15 +77,15 @@ func (user *CreateUser) IsValid() error {
 	return errs.Combine()
 }
 
-// UserStatus - is used to indicate status of the users account
+// UserStatus - is used to indicate status of the users account.
 type UserStatus int
 
 const (
-	// Inactive is a user status that he receives after registration
+	// Inactive is a user status that he receives after registration.
 	Inactive UserStatus = 0
-	// Active is a user status that he receives after account activation
+	// Active is a user status that he receives after account activation.
 	Active UserStatus = 1
-	// Deleted is a user status that he receives after deleting account
+	// Deleted is a user status that he receives after deleting account.
 	Deleted UserStatus = 2
 )
 
@@ -101,4 +103,6 @@ type User struct {
 	PartnerID uuid.UUID  `json:"partnerId"`
 
 	CreatedAt time.Time `json:"createdAt"`
+
+	ProjectLimit int `json:"project_limit"`
 }

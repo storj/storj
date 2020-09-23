@@ -23,7 +23,7 @@ import (
 	"storj.io/common/sync2"
 )
 
-// Processes contains list of processes
+// Processes contains list of processes.
 type Processes struct {
 	Output    *PrefixWriter
 	Directory string
@@ -32,24 +32,26 @@ type Processes struct {
 	MaxStartupWait time.Duration
 }
 
-// NewProcesses returns a group of processes
+const storjSimMaxLineLen = 10000
+
+// NewProcesses returns a group of processes.
 func NewProcesses(dir string) *Processes {
 	return &Processes{
-		Output:         NewPrefixWriter("sim", os.Stdout),
+		Output:         NewPrefixWriter("sim", storjSimMaxLineLen, os.Stdout),
 		Directory:      dir,
 		List:           nil,
 		MaxStartupWait: time.Minute,
 	}
 }
 
-// Exec executes a command on all processes
+// Exec executes a command on all processes.
 func (processes *Processes) Exec(ctx context.Context, command string) error {
 	var group errgroup.Group
 	processes.Start(ctx, &group, command)
 	return group.Wait()
 }
 
-// Start executes all processes using specified errgroup.Group
+// Start executes all processes using specified errgroup.Group.
 func (processes *Processes) Start(ctx context.Context, group *errgroup.Group, command string) {
 	for _, p := range processes.List {
 		process := p
@@ -59,7 +61,7 @@ func (processes *Processes) Start(ctx context.Context, group *errgroup.Group, co
 	}
 }
 
-// Env returns environment flags for other nodes
+// Env returns environment flags for other nodes.
 func (processes *Processes) Env() []string {
 	var env []string
 	for _, process := range processes.List {
@@ -68,7 +70,7 @@ func (processes *Processes) Env() []string {
 	return env
 }
 
-// Close closes all the processes and their resources
+// Close closes all the processes and their resources.
 func (processes *Processes) Close() error {
 	var errlist errs.Group
 	for _, process := range processes.List {
@@ -77,7 +79,7 @@ func (processes *Processes) Close() error {
 	return errlist.Err()
 }
 
-// Info represents public information about the process
+// Info represents public information about the process.
 type Info struct {
 	Name       string
 	Executable string
@@ -88,7 +90,7 @@ type Info struct {
 	Extra      []EnvVar
 }
 
-// EnvVar represents an environment variable like Key=Value
+// EnvVar represents an environment variable like Key=Value.
 type EnvVar struct {
 	Key   string
 	Value string
@@ -99,7 +101,7 @@ func (info *Info) AddExtra(key, value string) {
 	info.Extra = append(info.Extra, EnvVar{Key: key, Value: value})
 }
 
-// Env returns process flags
+// Env returns process flags.
 func (info *Info) Env() []string {
 	name := strings.ToUpper(info.Name)
 
@@ -135,10 +137,10 @@ func (info *Info) Env() []string {
 	return env
 }
 
-// Arguments contains arguments based on the main command
+// Arguments contains arguments based on the main command.
 type Arguments map[string][]string
 
-// Process is a type for monitoring the process
+// Process is a type for monitoring the process.
 type Process struct {
 	processes *Processes
 
@@ -158,7 +160,7 @@ type Process struct {
 	stderr io.Writer
 }
 
-// New creates a process which can be run in the specified directory
+// New creates a process which can be run in the specified directory.
 func (processes *Processes) New(info Info) *Process {
 	output := processes.Output.Prefixed(info.Name)
 
@@ -187,7 +189,7 @@ func (process *Process) WaitForExited(dependency *Process) {
 	process.Wait = append(process.Wait, &dependency.Status.Exited)
 }
 
-// Exec runs the process using the arguments for a given command
+// Exec runs the process using the arguments for a given command.
 func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	// ensure that we always release all status fences
 	defer process.Status.Started.Release()
@@ -318,7 +320,7 @@ func (process *Process) waitForAddress(maxStartupWait time.Duration) error {
 	return nil
 }
 
-// tryConnect will try to connect to the process public address
+// tryConnect will try to connect to the process public address.
 func (process *Process) tryConnect() bool {
 	conn, err := net.Dial("tcp", process.Info.Address)
 	if err != nil {
@@ -331,5 +333,5 @@ func (process *Process) tryConnect() bool {
 	return true
 }
 
-// Close closes process resources
+// Close closes process resources.
 func (process *Process) Close() error { return nil }

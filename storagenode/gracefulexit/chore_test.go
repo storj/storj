@@ -16,6 +16,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
@@ -106,6 +107,8 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 
 	// run the SN chore again to start processing transfers.
 	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
+	// wait for workers to finish
+	exitingNode.GracefulExit.Chore.TestWaitForWorkers()
 
 	// check that there are no more items to process
 	queueItems, err = satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
@@ -169,7 +172,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	for _, key := range keys {
-		pointer, err := satellite.Metainfo.Service.Get(ctx, string(key))
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
 		if err != nil {
 			return nil, err
 		}

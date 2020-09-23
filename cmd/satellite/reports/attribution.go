@@ -29,7 +29,7 @@ var headers = []string{
 	"bytes:BWEgress",
 }
 
-// GenerateAttributionCSV creates a report with
+// GenerateAttributionCSV creates a report with.
 func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid.UUID, start time.Time, end time.Time, output io.Writer) error {
 	log := zap.L().Named("db")
 	db, err := satellitedb.New(log, database, satellitedb.Options{})

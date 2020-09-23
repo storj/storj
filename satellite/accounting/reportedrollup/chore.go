@@ -15,13 +15,14 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 )
 
 var (
 	mon = monkit.Package()
 
-	// Error is the error class for this package
+	// Error is the error class for this package.
 	Error = errs.Class("reportedrollup")
 )
 
@@ -61,7 +62,7 @@ func NewChore(log *zap.Logger, db orders.DB, config Config) *Chore {
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
-		err := chore.RunOnce(ctx, time.Now())
+		err := chore.runOnceNow(ctx, time.Now)
 		if err != nil {
 			chore.log.Error("error flushing reported rollups", zap.Error(err))
 		}
@@ -79,8 +80,20 @@ func (chore *Chore) Close() error {
 func (chore *Chore) RunOnce(ctx context.Context, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	return chore.runOnceNow(ctx, func() time.Time { return now })
+}
+
+// runOnceNow runs the helper repeatedly, calling the nowFn each time it runs it. It does that
+// until the helper returns that it is done or an error occurs.
+//
+// This function exists because tests want to use RunOnce and have a single fixed time for
+// reproducibility, but the chore loop wants to use whatever time.Now is every time the helper
+// is run.
+func (chore *Chore) runOnceNow(ctx context.Context, nowFn func() time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	for {
-		done, err := chore.runOnceHelper(ctx, now)
+		done, err := chore.runOnceHelper(ctx, nowFn())
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -90,7 +103,7 @@ func (chore *Chore) RunOnce(ctx context.Context, now time.Time) (err error) {
 	}
 }
 
-func (chore *Chore) readWork(ctx context.Context, now time.Time, queue orders.Queue) (
+func (chore *Chore) readWork(ctx context.Context, queue orders.Queue) (
 	bucketRollups []orders.BucketBandwidthRollup,
 	storagenodeRollups []orders.StoragenodeBandwidthRollup,
 	consumedSerials []orders.ConsumedSerial,
@@ -141,7 +154,7 @@ func (chore *Chore) readWork(ctx context.Context, now time.Time, queue orders.Qu
 		seenConsumedSerials[key] = struct{}{}
 
 		// Parse the node id, project id, and bucket name from the reported serial.
-		projectID, bucketName, err := orders.SplitBucketID(row.BucketID)
+		bucket, err := metabase.ParseBucketPrefix(metabase.BucketPrefix(row.BucketID)) // TODO: rename row.BucketID -> row.BucketPrefix
 		if err != nil {
 			chore.log.Error("bad row inserted into reported serials",
 				zap.Binary("bucket_id", row.BucketID),
@@ -154,8 +167,8 @@ func (chore *Chore) readWork(ctx context.Context, now time.Time, queue orders.Qu
 
 		// Update our batch state to include it.
 		byBucket[bucketKey{
-			projectID:  projectID,
-			bucketName: string(bucketName),
+			projectID:  bucket.ProjectID,
+			bucketName: bucket.BucketName,
 			action:     action,
 		}] += settled
 
@@ -217,15 +230,13 @@ func (chore *Chore) runOnceHelper(ctx context.Context, now time.Time) (done bool
 		)
 
 		// Read the work we should insert.
-		bucketRollups, storagenodeRollups, consumedSerials, done, err = chore.readWork(ctx, now, queue)
+		bucketRollups, storagenodeRollups, consumedSerials, done, err = chore.readWork(ctx, queue)
 		if err != nil {
 			return errs.Wrap(err)
 		}
 
 		// Now that we have work, write it all in its own transaction.
 		return errs.Wrap(chore.db.WithTransaction(ctx, func(ctx context.Context, tx orders.Transaction) error {
-			now := time.Now()
-
 			if err := tx.UpdateBucketBandwidthBatch(ctx, now, bucketRollups); err != nil {
 				return errs.Wrap(err)
 			}

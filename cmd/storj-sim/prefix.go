@@ -15,13 +15,18 @@ import (
 type PrefixWriter struct {
 	root    *prefixWriter
 	maxline int
+	nowFunc func() time.Time
 
 	mu        sync.Mutex
 	prefixlen int
 	dst       io.Writer
 }
 
-const maxIDLength = 10
+const (
+	maxIDLength    = 10
+	timeFormat     = "15:04:05.000"
+	emptyTimeField = "            "
+)
 
 func max(a, b int) int {
 	if a > b {
@@ -31,10 +36,11 @@ func max(a, b int) int {
 }
 
 // NewPrefixWriter creates a writer than can prefix all lines written to it.
-func NewPrefixWriter(defaultPrefix string, dst io.Writer) *PrefixWriter {
+func NewPrefixWriter(defaultPrefix string, maxLineLen int, dst io.Writer) *PrefixWriter {
 	writer := &PrefixWriter{
-		maxline: 10000, // disable maxline cutting
+		maxline: maxLineLen,
 		dst:     dst,
+		nowFunc: time.Now,
 	}
 	writer.root = writer.Prefixed(defaultPrefix).(*prefixWriter)
 	return writer
@@ -69,7 +75,7 @@ func (writer *PrefixWriter) Write(data []byte) (int, error) {
 	return writer.root.Write(data)
 }
 
-// Write implements io.Writer that prefixes lines
+// Write implements io.Writer that prefixes lines.
 func (writer *prefixWriter) Write(data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, nil
@@ -115,24 +121,30 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 
 	prefix := writer.prefix
 	id := writer.id
-	timeText := time.Now().Format("15:04:05.000")
+	timeText := writer.nowFunc().Format(timeFormat)
 	for len(buffer) > 0 {
-		pos := bytes.IndexByte(buffer, '\n') + 1
-		breakline := false
-		if pos <= 0 {
+		pos := bytes.IndexByte(buffer, '\n')
+		insertbreak := false
+
+		// did not find a linebreak
+		if pos < 0 {
+			// wait for more data, if we haven't reached maxline
 			if len(buffer) < writer.maxline {
 				return len(data), nil
 			}
 		}
+
+		// try to find a nice place where to break the line
 		if pos < 0 || pos > writer.maxline {
-			pos = writer.maxline
+			pos = writer.maxline - 1
 			for p := pos; p >= writer.maxline*2/3; p-- {
+				// is there a space we can break on?
 				if buffer[p] == ' ' {
 					pos = p
 					break
 				}
 			}
-			breakline = true
+			insertbreak = true
 		}
 
 		_, err := fmt.Fprintf(writer.dst, "%-*s %-*s %s | ", writer.prefixlen, prefix, maxIDLength, id, timeText)
@@ -142,21 +154,22 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 
 		_, err = writer.dst.Write(buffer[:pos])
 		buffer = buffer[pos:]
-
+		if err != nil {
+			return len(data), err
+		}
+		_, err = writer.dst.Write([]byte{'\n'})
 		if err != nil {
 			return len(data), err
 		}
 
-		if breakline {
-			_, err = writer.dst.Write([]byte{'\n'})
-			if err != nil {
-				return len(data), err
-			}
+		// remove the linebreak from buffer, if it's not an insert
+		if !insertbreak && len(buffer) > 0 {
+			buffer = buffer[1:]
 		}
 
 		prefix = ""
 		id = ""
-		timeText = "            "
+		timeText = emptyTimeField
 	}
 
 	return len(data), nil

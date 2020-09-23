@@ -39,7 +39,7 @@ var (
 	setupCfg AdminConf
 )
 
-// AdminConf defines necessary configuration to run the storj-admin UI
+// AdminConf defines necessary configuration to run the storj-admin UI.
 type AdminConf struct {
 	AuthKey     string `help:"API authorization key" default:""`
 	Address     string `help:"address to start the web server on" default:":8080"`

@@ -40,7 +40,7 @@ var (
 	mon = monkit.Package()
 )
 
-// OldConfig contains everything necessary for a server
+// OldConfig contains everything necessary for a server.
 type OldConfig struct {
 	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
 	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls (unused)" devDefault:"" releaseDefault:""`
@@ -87,7 +87,7 @@ type Endpoint struct {
 	pingStats pingStatsSource
 
 	store        *pieces.Store
-	orders       orders.DB
+	ordersStore  *orders.FileStore
 	usage        bandwidth.DB
 	usedSerials  *usedserials.Table
 	pieceDeleter *pieces.Deleter
@@ -96,7 +96,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, orders orders.DB, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -108,7 +108,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		pingStats: pingStats,
 
 		store:        store,
-		orders:       orders,
+		ordersStore:  ordersStore,
 		usage:        usage,
 		usedSerials:  usedSerials,
 		pieceDeleter: pieceDeleter,
@@ -238,16 +238,15 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 	}()
 
-	// double verify that disk actually has sufficient capacity
-	status, err := endpoint.store.StorageStatus(ctx)
-	if err != nil {
-		return err
-	}
-	if status.DiskFree < limit.Limit {
-		return rpcstatus.Errorf(rpcstatus.Aborted, "not enough available disk space, have: %v, need: %v", status.DiskFree, limit.Limit)
+	if availableSpace < limit.Limit {
+		return rpcstatus.Errorf(rpcstatus.Aborted, "not enough available disk space, have: %v, need: %v", availableSpace, limit.Limit)
 	}
 
 	var pieceWriter *pieces.Writer
+	// committed is set to true when the piece is committed.
+	// It is used to distinguish successful pieces where the uplink cancels the connections,
+	// and pieces that were actually canceled before being completed.
+	var committed bool
 	defer func() {
 		endTime := time.Now().UTC()
 		dt := endTime.Sub(startTime)
@@ -261,18 +260,18 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 		uploadDuration := dt.Nanoseconds()
 
-		if errs2.IsCanceled(err) {
-			mon.Meter("upload_cancel_byte_meter").Mark64(uploadSize)
-			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
-			mon.IntVal("upload_cancel_duration_ns").Observe(uploadDuration)
-			mon.FloatVal("upload_cancel_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
-		} else if err != nil {
+		if err != nil && !errs2.IsCanceled(err) {
 			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
 			endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+		} else if errs2.IsCanceled(err) && !committed {
+			mon.Meter("upload_cancel_byte_meter").Mark64(uploadSize)
+			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
+			mon.IntVal("upload_cancel_duration_ns").Observe(uploadDuration)
+			mon.FloatVal("upload_cancel_rate_bytes_per_sec").Observe(uploadRate)
+			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		} else {
 			mon.Meter("upload_success_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_success_size_bytes").Observe(uploadSize)
@@ -302,16 +301,15 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 	}()
 
-	orderSaved := false
-	largestOrder := pb.Order{}
 	// Ensure that the order is saved even in the face of an error. In the
 	// success path, the order will be saved just before sending the response
 	// and closing the stream (in which case, orderSaved will be true).
-	defer func() {
-		if !orderSaved {
-			endpoint.saveOrder(ctx, limit, &largestOrder)
-		}
-	}()
+	commitOrderToStore, err := endpoint.beginSaveOrder(limit)
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
+	}
+	largestOrder := pb.Order{}
+	defer commitOrderToStore(ctx, &largestOrder)
 
 	for {
 		// TODO: reuse messages to avoid allocations
@@ -385,6 +383,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				if err := pieceWriter.Commit(ctx, info); err != nil {
 					return rpcstatus.Wrap(rpcstatus.Internal, err)
 				}
+				committed = true
 				if !limit.PieceExpiration.IsZero() {
 					err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
 					if err != nil {
@@ -402,11 +401,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			if err != nil {
 				return rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
-
-			// Save the order before completing the call. Set orderSaved so
-			// that the defer above does not also save.
-			orderSaved = true
-			endpoint.saveOrder(ctx, limit, &largestOrder)
 
 			closeErr := rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
 				return stream.SendAndClose(&pb.PieceUploadResponse{Done: storageNodeHash})
@@ -507,6 +501,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		if os.IsNotExist(err) {
+			endpoint.monitor.VerifyDirReadableLoop.TriggerWait()
 			return rpcstatus.Wrap(rpcstatus.NotFound, err)
 		}
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
@@ -604,8 +599,12 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	})
 
 	recvErr := func() (err error) {
+		commitOrderToStore, err := endpoint.beginSaveOrder(limit)
+		if err != nil {
+			return err
+		}
 		largestOrder := pb.Order{}
-		defer endpoint.saveOrder(ctx, limit, &largestOrder)
+		defer commitOrderToStore(ctx, &largestOrder)
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
@@ -650,33 +649,45 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	return rpcstatus.Wrap(rpcstatus.Internal, errs.Combine(sendErr, recvErr))
 }
 
-// saveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) saveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order) {
-	// We always want to save order to the database to be able to settle.
-	ctx = context2.WithoutCancellation(ctx)
+// beginSaveOrder saves the order with all necessary information. It assumes it has been already verified.
+func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx context.Context, order *pb.Order), err error) {
+	defer mon.Task()(nil)(&err)
 
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	// TODO: do this in a goroutine
-	if order == nil || order.Amount <= 0 {
-		return
-	}
-	err = endpoint.orders.Enqueue(ctx, &orders.Info{
-		Limit: limit,
-		Order: order,
-	})
+	commit, err := endpoint.ordersStore.BeginEnqueue(limit.SatelliteId, limit.OrderCreation)
 	if err != nil {
-		endpoint.log.Error("failed to add order", zap.Error(err))
-	} else {
-		err = endpoint.usage.Add(ctx, limit.SatelliteId, limit.Action, order.Amount, time.Now())
-		if err != nil {
-			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
-		}
+		return nil, err
 	}
+
+	done := false
+	return func(ctx context.Context, order *pb.Order) {
+		if done {
+			return
+		}
+		done = true
+
+		if order == nil || order.Amount <= 0 {
+			// free unsent orders file for sending without writing anything
+			err = commit(nil)
+			if err != nil {
+				endpoint.log.Error("failed to unlock orders file", zap.Error(err))
+			}
+			return
+		}
+
+		err = commit(&orders.Info{Limit: limit, Order: order})
+		if err != nil {
+			endpoint.log.Error("failed to add order", zap.Error(err))
+		} else {
+			// We always want to save order to the database to be able to settle.
+			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, order.Amount, time.Now())
+			if err != nil {
+				endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
+			}
+		}
+	}, nil
 }
 
-// RestoreTrash restores all trashed items for the satellite issuing the call
+// RestoreTrash restores all trashed items for the satellite issuing the call.
 func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.RestoreTrashRequest) (res *pb.RestoreTrashResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -698,7 +709,7 @@ func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.
 	return &pb.RestoreTrashResponse{}, nil
 }
 
-// Retain keeps only piece ids specified in the request
+// Retain keeps only piece ids specified in the request.
 func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -740,7 +751,7 @@ func (endpoint *Endpoint) TestLiveRequestCount() int32 {
 	return atomic.LoadInt32(&endpoint.liveRequests)
 }
 
-// min finds the min of two values
+// min finds the min of two values.
 func min(a, b int64) int64 {
 	if a < b {
 		return a

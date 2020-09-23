@@ -6,12 +6,11 @@ package pgutil_test
 import (
 	"testing"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/dbschema"
 	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/pgutil"
@@ -92,14 +91,6 @@ func TestQuery(t *testing.T) {
 				{Name: "users_c_key", Table: "users", Columns: []string{"c"}, Unique: true, Partial: ""},
 				{Name: "users_pkey", Table: "users", Columns: []string{"a"}, Unique: true, Partial: ""},
 			},
-		}
-
-		if db.Implementation == dbutil.Cockroach {
-			expected.Indexes = append(expected.Indexes, &dbschema.Index{
-				Name:    "names_auto_index_fk_users_a_ref_users",
-				Table:   "names",
-				Columns: []string{"users_a"},
-			})
 		}
 
 		expected.Sort()

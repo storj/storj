@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -41,7 +42,7 @@ type invoiceProjectRecords struct {
 }
 
 // Create creates new invoice project record in the DB.
-func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoinpayments.CreateProjectRecord, couponUsages []stripecoinpayments.CouponUsage, creditsSpendings []stripecoinpayments.CreditsSpending, start, end time.Time) (err error) {
+func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoinpayments.CreateProjectRecord, couponUsages []stripecoinpayments.CouponUsage, start, end time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
@@ -79,21 +80,6 @@ func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoi
 			}
 		}
 
-		for _, creditsSpending := range creditsSpendings {
-			_, err = db.db.Create_CreditsSpending(
-				ctx,
-				dbx.CreditsSpending_Id(creditsSpending.ID[:]),
-				dbx.CreditsSpending_UserId(creditsSpending.UserID[:]),
-				dbx.CreditsSpending_ProjectId(creditsSpending.ProjectID[:]),
-				dbx.CreditsSpending_Amount(creditsSpending.Amount),
-				dbx.CreditsSpending_Status(int(creditsSpending.Status)),
-				dbx.CreditsSpending_Period(creditsSpending.Period),
-			)
-			if err != nil {
-				return err
-			}
-		}
-
 		return nil
 	})
 }
@@ -109,7 +95,7 @@ func (db *invoiceProjectRecords) Check(ctx context.Context, projectID uuid.UUID,
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 
@@ -130,7 +116,7 @@ func (db *invoiceProjectRecords) Get(ctx context.Context, projectID uuid.UUID, s
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -189,7 +175,7 @@ func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64
 	return page, nil
 }
 
-// fromDBXInvoiceProjectRecord converts *dbx.StripecoinpaymentsInvoiceProjectRecord to *stripecoinpayments.ProjectRecord
+// fromDBXInvoiceProjectRecord converts *dbx.StripecoinpaymentsInvoiceProjectRecord to *stripecoinpayments.ProjectRecord.
 func fromDBXInvoiceProjectRecord(dbxRecord *dbx.StripecoinpaymentsInvoiceProjectRecord) (*stripecoinpayments.ProjectRecord, error) {
 	id, err := uuid.FromBytes(dbxRecord.Id)
 	if err != nil {
@@ -208,5 +194,6 @@ func fromDBXInvoiceProjectRecord(dbxRecord *dbx.StripecoinpaymentsInvoiceProject
 		Objects:     float64(dbxRecord.Objects),
 		PeriodStart: dbxRecord.PeriodStart,
 		PeriodEnd:   dbxRecord.PeriodEnd,
+		State:       dbxRecord.State,
 	}, nil
 }
