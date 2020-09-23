@@ -963,6 +963,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`UPDATE projects SET bandwidth_limit = 50000000000 WHERE bandwidth_limit = 0;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "enable multiple projects for existing users",
+				Version:     127,
+				Action: migrate.SQL{
+					`UPDATE users SET project_limit=0 WHERE project_limit <= 10 and project_limit > 0;`,
+				},
+			},
 		},
 	}
 }
