@@ -946,11 +946,11 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				SeparateTx:  true,
 				Action: migrate.SQL{
 					`ALTER TABLE projects ALTER COLUMN max_buckets DROP NOT NULL;`,
-					`ALTER TABLE projects ALTER COLUMN max_buckets DROP DEFAULT;`,
+					`ALTER TABLE projects ALTER COLUMN max_buckets SET DEFAULT 100;`,
 					`ALTER TABLE projects ALTER COLUMN usage_limit DROP NOT NULL;`,
-					`ALTER TABLE projects ALTER COLUMN usage_limit DROP DEFAULT;`,
+					`ALTER TABLE projects ALTER COLUMN usage_limit SET DEFAULT 50000000000;`,
 					`ALTER TABLE projects ALTER COLUMN bandwidth_limit DROP NOT NULL;`,
-					`ALTER TABLE projects ALTER COLUMN bandwidth_limit DROP DEFAULT;`,
+					`ALTER TABLE projects ALTER COLUMN bandwidth_limit SET DEFAULT 50000000000;`,
 				},
 			},
 			{
@@ -958,9 +958,9 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Description: "set 0 limits back to default",
 				Version:     126,
 				Action: migrate.SQL{
-					`UPDATE projects SET max_buckets = NULL WHERE max_buckets = 0;`,
-					`UPDATE projects SET usage_limit = NULL WHERE usage_limit = 0;`,
-					`UPDATE projects SET bandwidth_limit = NULL WHERE bandwidth_limit = 0;`,
+					`UPDATE projects SET max_buckets = 100 WHERE max_buckets = 0;`,
+					`UPDATE projects SET usage_limit = 50000000000 WHERE usage_limit = 0;`,
+					`UPDATE projects SET bandwidth_limit = 50000000000 WHERE bandwidth_limit = 0;`,
 				},
 			},
 		},

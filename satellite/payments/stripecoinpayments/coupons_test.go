@@ -263,7 +263,8 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 			proj2Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj2.ID)
 			require.NoError(t, err)
-			require.Nil(t, proj2Usage)
+			// require.Nil(t, proj2Usage)
+			require.Equal(t, memory.GB.Int64()*50, *proj2Usage)
 
 			user2Coupons, err := couponsRepo.ListByUserID(ctx, user2.ID)
 			require.NoError(t, err)
@@ -309,7 +310,8 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 			proj2Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj2.ID)
 			require.NoError(t, err)
-			require.Nil(t, proj2Usage)
+			// require.Nil(t, proj2Usage)
+			require.Equal(t, memory.GB.Int64()*50, *proj2Usage)
 
 			user2Coupons, err := couponsRepo.ListByUserID(ctx, user2.ID)
 			require.NoError(t, err)
