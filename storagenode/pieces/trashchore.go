@@ -44,7 +44,7 @@ func (chore *TrashChore) Run(ctx context.Context) (err error) {
 
 	chore.cycle = sync2.NewCycle(chore.interval)
 	chore.cycle.Start(ctx, &errgroup.Group{}, func(ctx context.Context) error {
-		chore.log.Debug("starting emptying trash")
+		chore.log.Debug("starting to empty trash")
 
 		for _, satelliteID := range chore.trust.GetSatellites(ctx) {
 			trashedBefore := time.Now().Add(-chore.trashExpiryInterval)
