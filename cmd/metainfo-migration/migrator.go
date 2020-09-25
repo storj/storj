@@ -149,27 +149,35 @@ func (m *Migrator) insertObject(ctx context.Context, encryptedPath []byte, point
 		return err
 	}
 
-	segmentPointer := &pb.Pointer{}
+	keys := storage.Keys{}
 	for i := int64(0); i < segmentsCount-1; i++ {
 		path, err := metainfo.CreatePath(ctx, m.ProjectID, i, m.BucketName, encryptedPath)
 		if err != nil {
 			return err
 		}
+		// TODO drop whole object if one segment is missing (zombie segment)
+		keys = append(keys, storage.Key(path.Encode()))
+	}
 
-		value, err := m.PointerDB.Get(ctx, storage.Key(path.Encode()))
+	if len(keys) != 0 {
+		segmentPointer := &pb.Pointer{}
+
+		// TODO is GetAll returns in the same order as keys?
+		values, err := m.PointerDB.GetAll(ctx, keys)
 		if err != nil {
-			// TODO drop whole object if one segment is missing (zombie segment)
 			return err
 		}
 
-		err = pb.Unmarshal(value, segmentPointer)
-		if err != nil {
-			return err
-		}
+		for i, value := range values {
+			err = pb.Unmarshal(value, segmentPointer)
+			if err != nil {
+				return err
+			}
 
-		err = m.insertSegment(ctx, streamID, i, segmentPointer, nil)
-		if err != nil {
-			return err
+			err = m.insertSegment(ctx, streamID, int64(i), segmentPointer, nil)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
