@@ -61,7 +61,7 @@ func main() {
 	_, err = reader.Read()
 	check(err)
 
-	steps := []int{1, 11, 101, 1001, 1001, 50001, 100004, 200004}
+	steps := []int{1, 11, 101, 1001, 1001, 50001, 100004, 200004, 900002}
 	step := 0
 	for {
 		record, err := reader.Read()
