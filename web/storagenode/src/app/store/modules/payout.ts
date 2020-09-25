@@ -28,6 +28,7 @@ export const PAYOUT_MUTATIONS = {
     SET_PERIODS: 'SET_PERIODS',
     SET_PAYOUT_HISTORY: 'SET_PAYOUT_HISTORY',
     SET_PAYOUT_HISTORY_PERIOD: 'SET_PAYOUT_HISTORY_PERIOD',
+    SET_PAYOUT_HISTORY_AVAILABLE_PERIODS: 'SET_PAYOUT_HISTORY_AVAILABLE_PERIODS',
 };
 
 export const PAYOUT_ACTIONS = {
@@ -84,6 +85,9 @@ export function makePayoutModule(api: PayoutApi, service: PayoutService) {
             [PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_PERIOD](state: PayoutState, period: string): void {
                 state.payoutHistoryPeriod = period;
             },
+            [PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_AVAILABLE_PERIODS](state: PayoutState, periods: PayoutPeriod[]): void {
+                state.payoutHistoryAvailablePeriods = periods;
+            },
         },
         actions: {
             [PAYOUT_ACTIONS.GET_PAYOUT_INFO]: async function ({ commit, state, rootState }: any, satelliteId: string = ''): Promise<void> {
@@ -138,6 +142,10 @@ export function makePayoutModule(api: PayoutApi, service: PayoutService) {
                 const periods = await service.availablePeriods(satelliteId);
 
                 commit(PAYOUT_MUTATIONS.SET_PERIODS, periods);
+
+                if (!satelliteId) {
+                    commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_AVAILABLE_PERIODS, periods);
+                }
             },
             [PAYOUT_ACTIONS.GET_ESTIMATION]: async function ({ commit }: any, satelliteId: string = ''): Promise<void> {
                 const estimatedInfo = await service.estimatedPayout(satelliteId);

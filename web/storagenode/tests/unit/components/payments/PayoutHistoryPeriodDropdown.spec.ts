@@ -70,11 +70,7 @@ describe('PayoutHistoryPeriodDropdown', (): void => {
 
         await store.commit(NODE_MUTATIONS.SELECT_ALL_SATELLITES, satelliteInfo);
 
-        expect(wrapper.vm.isCalendarDisabled).toBe(false);
-
         await wrapper.find('.period-container').trigger('click');
-
-        expect(wrapper.vm.isCalendarShown).toBe(true);
 
         expect(wrapper).toMatchSnapshot();
     });

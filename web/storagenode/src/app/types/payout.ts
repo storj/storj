@@ -35,6 +35,7 @@ export class PayoutState {
         public payoutHistory: SatellitePayoutForPeriod[] = [],
         public payoutHistoryPeriod: string = '',
         public estimation: EstimatedPayout = new EstimatedPayout(),
+        public payoutHistoryAvailablePeriods: PayoutPeriod[] = [],
     ) {}
 }
 

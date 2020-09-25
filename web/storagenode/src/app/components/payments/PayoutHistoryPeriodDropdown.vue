@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="period-container" :class="{ disabled: isCalendarDisabled }" @click.stop="openPeriodDropdown">
+    <div class="period-container" @click.stop="openPeriodDropdown">
         <p class="period-container__label long-text">{{ period }}</p>
         <BlackArrowHide v-if="isCalendarShown" />
         <BlackArrowExpand v-else />
@@ -54,23 +54,9 @@ export default class PayoutHistoryPeriodDropdown extends Vue {
     }
 
     /**
-     * Indicates if period selection calendar should be disabled.
-     */
-    public get isCalendarDisabled(): boolean {
-        const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
-        const now = new Date();
-
-        return nodeStartedAt.getUTCMonth() === now.getUTCMonth() && nodeStartedAt.getUTCFullYear() === now.getUTCFullYear();
-    }
-
-    /**
      * Opens payout period selection dropdown.
      */
     public openPeriodDropdown(): void {
-        if (this.isCalendarDisabled) {
-            return;
-        }
-
         this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, true);
     }
 
@@ -119,23 +105,6 @@ export default class PayoutHistoryPeriodDropdown extends Vue {
 
         path {
             fill: var(--period-selection-arrow-color);
-        }
-    }
-
-    .disabled {
-
-        .period-container {
-
-            &__label {
-                color: #909bad;
-            }
-        }
-
-        .arrow {
-
-            path {
-                fill: #909bad !important;
-            }
         }
     }
 </style>

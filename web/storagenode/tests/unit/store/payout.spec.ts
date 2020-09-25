@@ -151,6 +151,16 @@ describe('mutations', (): void => {
         expect(state.payoutModule.payoutPeriods[1]).toBe(secondExpectedPeriod);
     });
 
+    it('sets available payout history periods', (): void => {
+        const firstExpectedPeriod = '2020-08';
+        const incomingDataSet = [firstExpectedPeriod];
+
+        store.commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_AVAILABLE_PERIODS, incomingDataSet);
+
+        expect(state.payoutModule.payoutHistoryAvailablePeriods.length).toBe(1);
+        expect(state.payoutModule.payoutHistoryAvailablePeriods[0]).toBe(firstExpectedPeriod);
+    });
+
     it('sets payout history period', (): void => {
         const expectedPeriod = '2020-04';
 
@@ -286,11 +296,17 @@ describe('actions', () => {
             ]),
         );
 
-        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
+        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS, 'id');
 
         expect(state.payoutModule.payoutPeriods.length).toBe(2);
         expect(state.payoutModule.payoutPeriods[0].period).toBe(firstExpectedPeriod);
         expect(state.payoutModule.payoutPeriods[1].period).toBe(secondExpectedPeriod);
+        expect(state.payoutModule.payoutHistoryAvailablePeriods.length).toBe(1);
+
+        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
+
+        expect(state.payoutModule.payoutHistoryAvailablePeriods.length).toBe(2);
+        expect(state.payoutModule.payoutHistoryAvailablePeriods[0].period).toBe(firstExpectedPeriod);
     });
 
     it('get available periods throws an error when api call fails', async () => {

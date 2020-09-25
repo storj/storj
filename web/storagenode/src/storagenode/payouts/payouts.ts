@@ -268,11 +268,23 @@ export class SatellitePayoutForPeriod {
         public isExitComplete: boolean = false,
         public heldPercent: number = 0,
     ) {
-        this.earned = this.earned / PRICE_DIVIDER;
-        this.surge = this.surge / PRICE_DIVIDER;
-        this.held = this.held / PRICE_DIVIDER;
-        this.afterHeld = this.afterHeld / PRICE_DIVIDER;
-        this.disposed = this.disposed / PRICE_DIVIDER;
-        this.paid = this.paid / PRICE_DIVIDER;
+        this.earned = this.convertToCents(this.earned);
+        this.surge = this.convertToCents(this.surge);
+        this.held = this.convertToCents(this.held);
+        this.afterHeld = this.convertToCents(this.afterHeld);
+        this.disposed = this.convertToCents(this.disposed);
+        this.paid = this.convertToCents(this.paid);
+
+        this.convertReceiptToEtherscanLink();
+    }
+
+    private convertReceiptToEtherscanLink() {
+        if (this.receipt) {
+            this.receipt = `https://etherscan.io/tx/${this.receipt.slice(4)}`;
+        }
+    }
+
+    private convertToCents(value: number): number {
+        return value / PRICE_DIVIDER;
     }
 }
