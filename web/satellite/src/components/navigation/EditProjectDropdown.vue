@@ -4,7 +4,7 @@
 <template>
     <div class="edit-project">
         <div class="edit-project__selection-area" :class="{ active: isDropdownShown, 'on-edit': isEditPage }" @click.stop.prevent="toggleDropdown">
-            <h1 class="edit-project__selection-area__name">{{ projectName }}</h1>
+            <h1 class="edit-project__selection-area__name" :title="projectName">{{ projectName }}</h1>
             <DotsImage class="edit-project__selection-area__image"/>
         </div>
         <div class="edit-project__dropdown" v-if="isDropdownShown" v-click-outside="closeDropdown">

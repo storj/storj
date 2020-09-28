@@ -29,11 +29,11 @@ const projectMembersModule = makeProjectMembersModule(pmApi);
 
 Vue.use(Vuex);
 
-const store = new Vuex.Store({modules: {projectsModule, projectMembersModule}});
+const store = new Vuex.Store({modules: { projectsModule, projectMembersModule }});
 const state = (store.state as any).projectMembersModule;
-
-const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');
-const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
+const date = new Date(0);
+const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', date, '1');
+const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', date, '2');
 
 describe('mutations', () => {
     it('fetch project members', function () {
@@ -306,7 +306,7 @@ describe('actions', () => {
 });
 
 describe('getters', () => {
-    const selectedProjectMember = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
+    const selectedProjectMember = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', date, '2');
 
     it('selected project members', function () {
         const testProjectMembersPage = new ProjectMembersPage();

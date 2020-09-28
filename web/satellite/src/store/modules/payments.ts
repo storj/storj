@@ -26,6 +26,7 @@ export const PAYMENTS_MUTATIONS = {
     SET_CURRENT_ROLLUP_PRICE: 'SET_CURRENT_ROLLUP_PRICE',
     SET_PREVIOUS_ROLLUP_PRICE: 'SET_PREVIOUS_ROLLUP_PRICE',
     SET_PRICE_SUMMARY: 'SET_PRICE_SUMMARY',
+    SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT: 'SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT',
     SET_PAYWALL_ENABLED_STATUS: 'SET_PAYWALL_ENABLED_STATUS',
 };
 
@@ -57,6 +58,7 @@ const {
     SET_PAYMENTS_HISTORY,
     SET_PROJECT_USAGE_AND_CHARGES,
     SET_PRICE_SUMMARY,
+    SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT,
     SET_PAYWALL_ENABLED_STATUS,
 } = PAYMENTS_MUTATIONS;
 
@@ -86,6 +88,7 @@ export class PaymentsState {
     public paymentsHistory: PaymentsHistoryItem[] = [];
     public usageAndCharges: ProjectUsageAndCharges[] = [];
     public priceSummary: number = 0;
+    public priceSummaryForSelectedProject: number = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
     public isPaywallEnabled: boolean = true;
@@ -149,9 +152,23 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                     return;
                 }
 
-                const usageItemSummaries = charges.map(item => item.summary());
+                const usageItemSummaries: number[] = charges.map(item => item.summary());
 
                 state.priceSummary = usageItemSummaries.reduce((accumulator, current) => accumulator + current);
+            },
+            [SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT](state: PaymentsState, selectedProjectId: string): void {
+                let usageAndChargesForSelectedProject: ProjectUsageAndCharges | undefined;
+                if (state.usageAndCharges.length) {
+                    usageAndChargesForSelectedProject = state.usageAndCharges.find(item => item.projectId === selectedProjectId);
+                }
+
+                if (!usageAndChargesForSelectedProject) {
+                    state.priceSummaryForSelectedProject = 0;
+
+                    return;
+                }
+
+                state.priceSummaryForSelectedProject = usageAndChargesForSelectedProject.summary();
             },
             [SET_PAYWALL_ENABLED_STATUS](state: PaymentsState, isPaywallEnabled: boolean): void {
                 state.isPaywallEnabled = isPaywallEnabled;
@@ -215,7 +232,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             [MAKE_TOKEN_DEPOSIT]: async function({commit}: any, amount: number): Promise<TokenDeposit> {
                 return await api.makeTokenDeposit(amount);
             },
-            [GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP]: async function({commit}: any): Promise<void> {
+            [GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP]: async function({commit, rootGetters}: any): Promise<void> {
                 const now = new Date();
                 const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
                 const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
@@ -225,6 +242,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
                 commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
+                commit(SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT, rootGetters.selectedProject.id);
             },
             [GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP]: async function({commit}: any): Promise<void> {
                 const now = new Date();

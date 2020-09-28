@@ -2,12 +2,9 @@
 
 exports[`ProjectDashboard.vue renders correctly 1`] = `
 <div class="dashboard-area">
-  <div class="dashboard-area__title-area">
-    <h1 class="dashboard-area__title-area__title">Project Dashboard</h1> <a href="" target="_blank" rel="noopener noreferrer" class="dashboard-area__title-area__link">
-      Request Limit Increase -&gt;
-    </a>
-  </div>
+  <h1 class="dashboard-area__title">test Dashboard</h1>
   <projectusage-stub></projectusage-stub>
+  <projectsummary-stub></projectsummary-stub>
   <bucketarea-stub></bucketarea-stub>
 </div>
 `;

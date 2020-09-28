@@ -28,9 +28,9 @@ const projectsModule = makeProjectsModule(projectsApi);
 const selectedProject = new Project('', '', '', '');
 selectedProject.id = '1';
 projectsModule.state.selectedProject = selectedProject;
-
-const apiKey = new ApiKey('testId', 'testName', 'testCreatedAt', 'testSecret');
-const apiKey2 = new ApiKey('testId2', 'testName2', 'testCreatedAt2', 'testSecret2');
+const date = new Date(0);
+const apiKey = new ApiKey('testId', 'testName', date, 'testSecret');
+const apiKey2 = new ApiKey('testId2', 'testName2', date, 'testSecret2');
 
 const FIRST_PAGE = 1;
 const TEST_ERROR = 'testError';
@@ -302,7 +302,7 @@ describe('actions', (): void => {
 });
 
 describe('getters', (): void => {
-    const selectedApiKey = new ApiKey('testtestId', 'testtestName', 'testtestCreatedAt', 'testtestSecret');
+    const selectedApiKey = new ApiKey('testtestId', 'testtestName', date, 'testtestSecret');
 
     it('selected apiKeys', (): void => {
         const testApiKeysPage = new ApiKeysPage();

@@ -3,18 +3,17 @@
 
 import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
 
+import { ApiKey } from '@/types/apiKeys';
 import { mount } from '@vue/test-utils';
 
 describe('ApiKeysItem.vue', (): void => {
     it('renders correctly', (): void => {
-        const wrapper = mount(ApiKeysItem);
+        const wrapper = mount(ApiKeysItem, {
+            propsData: {
+                itemData: new ApiKey('', '', new Date(0), ''),
+            },
+        });
 
         expect(wrapper).toMatchSnapshot();
-    });
-
-    it('renders correctly with default props', (): void => {
-        const wrapper = mount(ApiKeysItem);
-
-        expect(wrapper.vm.$props.itemData).toEqual({ createdAt: '', id: '', isSelected: false, name: '', secret: '' });
     });
 });
