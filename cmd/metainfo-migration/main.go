@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -61,34 +60,45 @@ func main() {
 	_, err = reader.Read()
 	check(err)
 
-	steps := []int{1, 11, 101, 1001, 1001, 50001, 100004, 200004, 900002}
-	step := 0
+	// ignoreProjects := map[string]bool{
+	// "114893d6-e3cc-485f-81b8-a72ad53456a0": true,
+	// }
+
+	fmt.Println("ProjectID,BucketName,ObjectsCreated,SegmentsCreated,ExecutionTime(sec),ExpectedNumOfObjects,ExpectedNumOfSegment")
+
+	// steps := []int{1, 11, 101, 1001, 1001, 50001, 100004, 200004, 900004}
+	// step := 0
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
 			break
 		}
 		check(err)
-		numberOfObjects, err := strconv.Atoi(record[2])
+
+		// if _, ignore := ignoreProjects[record[0]]; ignore {
+		// 	continue
+		// }
+
+		// numberOfObjects, err := strconv.Atoi(record[2])
+		// check(err)
+		// if numberOfObjects > steps[step] {
+		projectID, err := uuid.FromString(record[0])
 		check(err)
-		if numberOfObjects > steps[step] {
-			projectID, err := uuid.FromString(record[0])
-			check(err)
 
-			bucketName := record[1]
+		bucketName := record[1]
 
-			start := time.Now()
-			migrator := NewMigrator(pointerdb, mb, projectID, []byte(bucketName))
-			err = migrator.MigrateBucket(ctx)
-			check(err)
+		start := time.Now()
+		migrator := NewMigrator(pointerDBUrl, pointerdb, mb, projectID, []byte(bucketName))
+		err = migrator.MigrateBucket2(ctx)
+		check(err)
 
-			fmt.Printf("%s,%s,%d,%d,%v,%s,%s\n", projectID.String(), bucketName, migrator.ObjectsCreated, migrator.SegmentsCreated, time.Now().Sub(start).Seconds(), record[2], record[3])
+		fmt.Printf("%s,%s,%d,%d,%v,%s,%s\n", projectID.String(), bucketName, migrator.ObjectsCreated, migrator.SegmentsCreated, time.Now().Sub(start).Seconds(), record[2], record[3])
 
-			step++
-			if step == len(steps) {
-				break
-			}
-		}
+		// step++
+		// if step == len(steps) {
+		// 	break
+		// }
+		// }
 	}
 }
 

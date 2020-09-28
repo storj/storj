@@ -74,8 +74,8 @@ func (mb *Metabase) Close(ctx context.Context) error {
 
 func (mb *Metabase) Drop(ctx context.Context) error {
 	_, err := mb.conn.Exec(ctx, `
+		DROP TABLE IF EXISTS objects;	
 		DROP TABLE IF EXISTS buckets;
-		DROP TABLE IF EXISTS objects;
 		DROP TABLE IF EXISTS segments;
 	`)
 	return wrapf("failed to drop existing: %w", err)
