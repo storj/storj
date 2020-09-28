@@ -22,6 +22,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
+	_ "storj.io/private/process/googleprofiler" // This attaches google cloud profiler.
 	"storj.io/private/version"
 	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/pkg/cache"

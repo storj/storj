@@ -152,6 +152,10 @@ type Satellite struct {
 		Cache accounting.Cache
 	}
 
+	ProjectLimits struct {
+		Cache *accounting.ProjectLimitCache
+	}
+
 	Mail struct {
 		Service *mailservice.Service
 	}
@@ -726,11 +730,13 @@ func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.C
 
 	system.Accounting.Tally = peer.Accounting.Tally
 	system.Accounting.Rollup = peer.Accounting.Rollup
-	system.Accounting.ProjectUsage = peer.Accounting.ProjectUsage
+	system.Accounting.ProjectUsage = api.Accounting.ProjectUsage
 	system.Accounting.ReportedRollup = peer.Accounting.ReportedRollupChore
 	system.Accounting.ProjectBWCleanup = peer.Accounting.ProjectBWCleanupChore
 
 	system.LiveAccounting = peer.LiveAccounting
+
+	system.ProjectLimits.Cache = api.ProjectLimits.Cache
 
 	system.Marketing.Listener = api.Marketing.Listener
 	system.Marketing.Endpoint = api.Marketing.Endpoint
