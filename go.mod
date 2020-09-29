@@ -17,9 +17,9 @@ require (
 	github.com/gorilla/mux v1.7.1
 	github.com/gorilla/schema v1.1.0
 	github.com/graphql-go/graphql v0.7.9
-	github.com/jackc/pgconn v1.6.1
-	github.com/jackc/pgtype v1.4.0
-	github.com/jackc/pgx/v4 v4.7.1
+	github.com/jackc/pgconn v1.7.0
+	github.com/jackc/pgtype v1.5.0
+	github.com/jackc/pgx/v4 v4.9.0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
@@ -36,12 +36,13 @@ require (
 	github.com/zeebo/errs v1.2.2
 	go.etcd.io/bbolt v1.3.4
 	go.uber.org/zap v1.15.0
-	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
+	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/sys v0.0.0-20200808120158-1030fc2bf1d9
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	storj.io/common v0.0.0-20200925121432-61f74bdf4b5c
 	storj.io/drpc v0.0.14
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b

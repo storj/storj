@@ -159,16 +159,16 @@ func ByteaArray(bytesArray [][]byte) *pgtype.ByteaArray {
 	}
 }
 
-// StringArray returns an object usable by pg drivers for passing a []string slice
-// into a database as type VARCHAR[].
-func StringArray(stringSlice []string) *pgtype.VarcharArray {
-	pgtypeVarcharArray := make([]pgtype.Varchar, len(stringSlice))
+// TextArray returns an object usable by pg drivers for passing a []string slice
+// into a database as type TEXT[].
+func TextArray(stringSlice []string) *pgtype.TextArray {
+	pgtypeTextArray := make([]pgtype.Text, len(stringSlice))
 	for i, s := range stringSlice {
-		pgtypeVarcharArray[i].String = s
-		pgtypeVarcharArray[i].Status = pgtype.Present
+		pgtypeTextArray[i].String = s
+		pgtypeTextArray[i].Status = pgtype.Present
 	}
-	return &pgtype.VarcharArray{
-		Elements:   pgtypeVarcharArray,
+	return &pgtype.TextArray{
+		Elements:   pgtypeTextArray,
 		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(stringSlice)), LowerBound: 1}},
 		Status:     pgtype.Present,
 	}
