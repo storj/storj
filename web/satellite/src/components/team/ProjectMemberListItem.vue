@@ -9,12 +9,12 @@
                 <h1 class="user-container__base-info__avatar__letter">{{avatarData.letter}}</h1>
             </div>
             <div class="user-container__base-info__name-area" :title="itemData.name">
-                <p class="user-container__base-info__name-area__user-name">{{ itemData.formattedFullName() }}</p>
+                <p class="user-container__base-info__name-area__user-name">{{ itemData.name }}</p>
                 <p v-if="isProjectOwner" class="user-container__base-info__name-area__owner-status">Project Owner</p>
             </div>
         </div>
-        <p class="user-container__date">{{ itemData.joinedAtLocal() }}</p>
-        <p class="user-container__user-email">{{ itemData.formattedEmail() }}</p>
+        <p class="user-container__date">{{ itemData.localDate() }}</p>
+        <p class="user-container__user-email" :title="itemData.email">{{ itemData.email }}</p>
     </div>
 </template>
 
@@ -26,7 +26,7 @@ import { getColor } from '@/utils/avatarColorManager';
 
 @Component
 export default class ProjectMemberListItem extends Vue {
-    @Prop({default: new ProjectMember('', '', '', '', '')})
+    @Prop({default: new ProjectMember('', '', '', new Date(), '')})
     public itemData: ProjectMember;
 
     public get avatarData(): object {
@@ -88,12 +88,17 @@ export default class ProjectMemberListItem extends Vue {
             }
 
             &__name-area {
+                max-width: calc(100% - 100px);
+                margin-right: 15px;
 
                 &__user-name {
                     margin: 0 0 0 20px;
                     font-size: 16px;
                     font-family: 'font_bold', sans-serif;
                     color: #354049;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
 
                 &__owner-status {
@@ -115,6 +120,9 @@ export default class ProjectMemberListItem extends Vue {
             width: 25%;
             font-size: 16px;
             color: #354049;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
     }
 

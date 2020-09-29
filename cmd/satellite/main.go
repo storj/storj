@@ -229,6 +229,12 @@ var (
 		Long:  "Fixes the old-style objects by adding the number of segments to the metadata.",
 		RunE:  cmdFixOldStyleObjects,
 	}
+	verifyPieceHashesCmd = &cobra.Command{
+		Use:   "verify-piece-hashes",
+		Short: "Verifies piece hashes for unverified segments",
+		Long:  "Verifies piece hashes for all segments with PieceHashesVerifeid = false in their pointer.",
+		RunE:  cmdVerifyPieceHashes,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -264,7 +270,8 @@ var (
 	}
 	verifyGracefulExitReceiptCfg struct {
 	}
-	fixOldStyleObjectsCfg struct {
+	dryRunCfg struct {
+		Satellite
 		DryRun bool `help:"only prints logs for the changes to be made without apply them" default:"true"`
 	}
 	confDir     string
@@ -303,6 +310,7 @@ func init() {
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
 	metainfoCmd.AddCommand(fixOldStyleObjectsCmd)
+	metainfoCmd.AddCommand(verifyPieceHashesCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -324,7 +332,8 @@ func init() {
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(fixOldStyleObjectsCmd, &fixOldStyleObjectsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(fixOldStyleObjectsCmd, &dryRunCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(verifyPieceHashesCmd, &dryRunCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -713,7 +722,13 @@ func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
 func cmdFixOldStyleObjects(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	return fixOldStyleObjects(ctx, fixOldStyleObjectsCfg.DryRun)
+	return fixOldStyleObjects(ctx)
+}
+
+func cmdVerifyPieceHashes(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return verifyPieceHashes(ctx)
 }
 
 func main() {

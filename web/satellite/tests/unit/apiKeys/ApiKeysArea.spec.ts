@@ -41,8 +41,9 @@ describe('ApiKeysArea', (): void => {
     const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);
     projectsApi.setMockProjects([project]);
 
-    const apiKey = new ApiKey('testId', 'test', 'test', 'test');
-    const apiKey1 = new ApiKey('testId1', 'test1', 'test1', 'test1');
+    const date = new Date(0);
+    const apiKey = new ApiKey('testId', 'test', date, 'test');
+    const apiKey1 = new ApiKey('testId1', 'test1', date, 'test1');
 
     const testApiKeysPage = new ApiKeysPage([apiKey], '', ApiKeyOrderBy.NAME, SortDirection.ASCENDING, 6, 1, 1, 2);
     apiKeysApi.setMockApiKeysPage(testApiKeysPage);

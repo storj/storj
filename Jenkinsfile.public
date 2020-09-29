@@ -34,6 +34,7 @@ pipeline {
                 sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 512MiB --max-sql-memory 512MiB --background'
                 sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
                 sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
+                sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
             }
         }
 
@@ -51,7 +52,6 @@ pipeline {
                         sh 'staticcheck ./...'
                         sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
                         sh 'check-mod-tidy -mod .build/go.mod.orig'
-                        sh 'make check-satellite-config-lock'
                         sh 'make check-monitoring'
                     }
                 }
@@ -62,6 +62,7 @@ pipeline {
                             'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
+                        STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                         COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...'}"
                     }
@@ -70,6 +71,7 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
                         sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
                         sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
+                        sh 'cockroach sql --insecure --host=localhost:26260 -e \'create database testcockroach;\''
 
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'use-ports -from 1024 -to 10000 &'

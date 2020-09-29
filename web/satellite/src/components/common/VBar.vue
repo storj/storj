@@ -29,7 +29,7 @@ export default class VBar extends Vue {
     private readonly current: number;
     @Prop({default: 0})
     private readonly max: number;
-    @Prop({default: '#224CA5'})
+    @Prop({default: '#0068DC'})
     private readonly color: string;
 
     public get barFillStyle(): BarFillStyle {
@@ -47,7 +47,7 @@ export default class VBar extends Vue {
 <style scoped lang="scss">
     .bar-container {
         width: 100%;
-        height: 8px;
+        height: 13px;
         margin-top: 10px;
         border-radius: 4px;
         background-color: #f4f6f9;

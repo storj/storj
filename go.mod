@@ -42,7 +42,7 @@ require (
 	golang.org/x/sys v0.0.0-20200808120158-1030fc2bf1d9
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20200428211428-0c9eba77bc32 // indirect
-	storj.io/common v0.0.0-20200904063801-15a4e772a2f2
+	storj.io/common v0.0.0-20200925121432-61f74bdf4b5c
 	storj.io/drpc v0.0.14
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
 	storj.io/private v0.0.0-20200925142346-4c879709882f

@@ -90,7 +90,8 @@ describe('ApiKeysCreationPopup', (): void => {
     });
 
     it('action on onNextClick with name works correctly', async (): Promise<void> => {
-        const testApiKey = new ApiKey('testId', 'testName', 'testCreatedAt', 'test');
+        const date = new Date(0);
+        const testApiKey = new ApiKey('testId', 'testName', date, 'test');
 
         jest.spyOn(apiKeysApi, 'create').mockReturnValue(
             Promise.resolve(testApiKey));

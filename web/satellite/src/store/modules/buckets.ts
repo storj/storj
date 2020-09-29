@@ -66,7 +66,7 @@ export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState> {
 
                 commit(SET_PAGE, page);
 
-                const result = await api.get(projectID, before, state.cursor);
+                const result: BucketPage = await api.get(projectID, before, state.cursor);
 
                 commit(SET, result);
 

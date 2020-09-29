@@ -85,7 +85,6 @@ import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { AppState } from '@/utils/constants/appStateEnum';
 
 declare interface ClearSearch {
     clearSearch(): void;

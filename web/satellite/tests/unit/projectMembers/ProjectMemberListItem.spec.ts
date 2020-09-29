@@ -18,8 +18,8 @@ localVue.use(Vuex);
 describe('', () => {
     const pApi = new ProjectsApiGql();
     const projectsModule = makeProjectsModule(pApi);
-
-    const member: ProjectMember = new ProjectMember('testFullName', 'testShortName', 'test@example.com', '2019-08-09T08:52:43.695679Z', '1');
+    const data = new Date(0);
+    const member: ProjectMember = new ProjectMember('testFullName', 'testShortName', 'test@example.com', data, '1');
     const project: Project = new Project('testId', 'testName', 'testDescr', 'testDate', '1');
 
     const store = new Vuex.Store({modules: { projectsModule }});

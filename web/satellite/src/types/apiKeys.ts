@@ -51,8 +51,8 @@ export class ApiKeyCursor {
         public limit: number = 6,
         public page: number = 1,
         public order: ApiKeyOrderBy = ApiKeyOrderBy.NAME,
-        public orderDirection: SortDirection = SortDirection.ASCENDING) {
-    }
+        public orderDirection: SortDirection = SortDirection.ASCENDING,
+    ) {}
 }
 
 /**
@@ -67,44 +67,29 @@ export class ApiKeysPage {
         public limit: number = 6,
         public pageCount: number = 0,
         public currentPage: number = 1,
-        public totalCount: number = 0) {
-    }
+        public totalCount: number = 0,
+    ) {}
 }
 
 /**
  * ApiKey class holds info for ApiKeys entity.
  */
 export class ApiKey {
-    public id: string;
-    public secret: string;
-    public name: string;
-    public createdAt: string;
-    public isSelected: boolean = false;
+    public isSelected: boolean;
 
-    constructor(id: string, name: string, createdAt: string, secret: string) {
-        this.id = id || '';
-        this.name = name || '';
-        this.createdAt = createdAt || '';
-        this.secret = secret || '';
-
+    constructor(
+        public id: string = '',
+        public name: string = '',
+        public createdAt: Date = new Date(),
+        public secret: string = '',
+    ) {
         this.isSelected = false;
     }
 
-    public formattedName(): string {
-        const name = this.name;
-
-        if (name.length < 20) {
-            return name;
-        }
-
-        return name.slice(0, 20) + '...';
-    }
-
-    public getDate(): string {
-        if (!this.createdAt) {
-            return '';
-        }
-
-        return new Date(this.createdAt).toLocaleDateString();
+    /**
+     * Returns created date as a local date string.
+     */
+    public localDate(): string {
+        return this.createdAt.toLocaleDateString();
     }
 }

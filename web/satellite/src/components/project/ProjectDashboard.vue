@@ -3,18 +3,9 @@
 
 <template>
     <div class="dashboard-area">
-        <div class="dashboard-area__title-area">
-            <h1 class="dashboard-area__title-area__title">Project Dashboard</h1>
-            <a
-                class="dashboard-area__title-area__link"
-                :href="projectLimitsIncreaseRequestURL"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                Request Limit Increase ->
-            </a>
-        </div>
+        <h1 class="dashboard-area__title">{{projectName}} Dashboard</h1>
         <ProjectUsage/>
+        <ProjectSummary/>
         <BucketArea/>
     </div>
 </template>
@@ -23,6 +14,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import BucketArea from '@/components/project/buckets/BucketArea.vue';
+import ProjectSummary from '@/components/project/summary/ProjectSummary.vue';
 import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 
 import { RouteConfig } from '@/router';
@@ -34,6 +26,7 @@ import { MetaUtils } from '@/utils/meta';
     components: {
         BucketArea,
         ProjectUsage,
+        ProjectSummary,
     },
 })
 export default class ProjectDashboard extends Vue {
@@ -59,6 +52,13 @@ export default class ProjectDashboard extends Vue {
     }
 
     /**
+     * Returns selected project name.
+     */
+    public get projectName(): string {
+        return this.$store.getters.selectedProject.name;
+    }
+
+    /**
      * Returns project limits increase request url from config.
      */
     public get projectLimitsIncreaseRequestURL(): string {
@@ -72,25 +72,12 @@ export default class ProjectDashboard extends Vue {
         padding: 50px 30px 30px 30px;
         font-family: 'font_regular', sans-serif;
 
-        &__title-area {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-
-            &__title {
-                font-family: 'font_bold', sans-serif;
-                font-size: 22px;
-                line-height: 27px;
-                color: #384b65;
-                margin: 0;
-            }
-
-            &__link {
-                font-size: 14px;
-                line-height: 14px;
-                color: #2683ff;
-            }
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 22px;
+            line-height: 27px;
+            color: #384b65;
+            margin: 0 0 30px 0;
         }
     }
 </style>

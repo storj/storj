@@ -15,11 +15,11 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 import { ProjectMembersApiMock } from '../mock/api/projectMembers';
 
 const localVue = createLocalVue();
-
+const date = new Date(0);
 const projectMembers: ProjectMember[] = [
-    new ProjectMember('f1', 's1', '1@example.com', '', '1'),
-    new ProjectMember('f2', 's2', '2@example.com', '', '2'),
-    new ProjectMember('f3', 's3', '3@example.com', '', '3'),
+    new ProjectMember('f1', 's1', '1@example.com', date, '1'),
+    new ProjectMember('f2', 's2', '2@example.com', date, '2'),
+    new ProjectMember('f3', 's3', '3@example.com', date, '3'),
 ];
 
 const api = new ProjectMembersApiMock();
