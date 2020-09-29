@@ -118,14 +118,23 @@ func (migration *Migration) ValidateSteps() error {
 
 // ValidateVersions checks that the version of the migration matches the state of the database.
 func (migration *Migration) ValidateVersions(ctx context.Context, log *zap.Logger) error {
+	if err := migration.ValidateSteps(); err != nil {
+		return err
+	}
+
+	expectedVersions := make(map[tagsql.DB]int)
 	for _, step := range migration.Steps {
-		dbVersion, err := migration.getLatestVersion(ctx, log, step.DB)
+		expectedVersions[step.DB] = step.Version
+	}
+
+	for database, expectedVersion := range expectedVersions {
+		currentVersion, err := migration.CurrentVersion(ctx, log, database)
 		if err != nil {
 			return ErrValidateVersionQuery.Wrap(err)
 		}
 
-		if step.Version > dbVersion {
-			return ErrValidateVersionMismatch.New("expected %d <= %d", step.Version, dbVersion)
+		if expectedVersion != currentVersion {
+			return ErrValidateVersionMismatch.New("expected %d != %d", expectedVersion, currentVersion)
 		}
 	}
 

@@ -614,6 +614,11 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 	return nil
 }
 
+// CheckVersion that the version of the migration matches the state of the database.
+func (db *DB) CheckVersion(ctx context.Context) error {
+	return db.Migration(ctx).ValidateVersions(ctx, db.log)
+}
+
 // Migration returns table migrations.
 func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 	return &migrate.Migration{

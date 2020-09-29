@@ -186,6 +186,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
 	}
 
+	err = db.CheckVersion(ctx)
+	if err != nil {
+		return errs.New("Error checking version for storagenode database: %+v", err)
+	}
+
 	preflightEnabled, err := cmd.Flags().GetBool("preflight.database-check")
 	if err != nil {
 		return errs.New("Cannot retrieve preflight.database-check flag: %+v", err)
