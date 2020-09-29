@@ -16,21 +16,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-type auditHistory pb.AuditHistory
-
-// auditHistoryFromBytes deserializes a byte array to get an auditHistory struct.
-func auditHistoryFromBytes(b []byte) (*auditHistory, error) {
-	a := &pb.AuditHistory{}
-	err := pb.Unmarshal(b, a)
-	return (*auditHistory)(a), err
-}
-
-// bytes serializes an auditHistory struct into a byte slice.
-func (a *auditHistory) bytes() ([]byte, error) {
-	return pb.Marshal((*pb.AuditHistory)(a))
-}
-
-func (a *auditHistory) addAudit(auditTime time.Time, online bool, config overlay.AuditHistoryConfig) error {
+func addAudit(a *pb.AuditHistory, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) error {
 	newAuditWindowStartTime := auditTime.Truncate(config.WindowSize)
 	earliestWindow := newAuditWindowStartTime.Add(-config.TrackingPeriod)
 	// windowsModified is used to determine whether we will need to recalculate the score because windows have been added or removed.
@@ -66,15 +52,13 @@ func (a *auditHistory) addAudit(auditTime time.Time, online bool, config overlay
 	}
 	a.Windows[latestIndex].TotalCount++
 
-	// if we do not have enough completed windows to fill a tracking period (exclude latest window), score should be 1
-	windowsPerTrackingPeriod := int(config.TrackingPeriod.Seconds() / config.WindowSize.Seconds())
-	if len(a.Windows)-1 < windowsPerTrackingPeriod {
-		a.Score = 1
+	// if no windows were added or removed, score does not change
+	if !windowsModified {
 		return nil
 	}
 
-	// if no windows were added or removed, score does not change
-	if !windowsModified {
+	if len(a.Windows) <= 1 {
+		a.Score = 1
 		return nil
 	}
 
@@ -87,32 +71,29 @@ func (a *auditHistory) addAudit(auditTime time.Time, online bool, config overlay
 		totalWindowScores += float64(window.OnlineCount) / float64(window.TotalCount)
 	}
 
-	if len(a.Windows) <= 1 {
-		return Error.New("not enough windows to calculate score; this should not happen")
-	}
 	// divide by number of windows-1 because last window is not included
 	a.Score = totalWindowScores / float64(len(a.Windows)-1)
 	return nil
 }
 
-// UpdateAuditHistory updates a node's audit history with an online or offline audit and returns the online score for the tracking period.
-func (cache *overlaycache) UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (onlineScore float64, err error) {
+// UpdateAuditHistory updates a node's audit history with an online or offline audit.
+func (cache *overlaycache) UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (history *pb.AuditHistory, err error) {
 	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
 		if err != nil {
 			return err
 		}
 
-		onlineScore, err = cache.updateAuditHistoryWithTx(ctx, tx, nodeID, auditTime, online, config)
+		history, err = cache.updateAuditHistoryWithTx(ctx, tx, nodeID, auditTime, online, config)
 		if err != nil {
 			return err
 		}
 		return nil
 	})
-	return onlineScore, err
+	return history, err
 }
 
-func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx.Tx, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (onlineScore float64, err error) {
+func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx.Tx, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (*pb.AuditHistory, error) {
 	// get and deserialize node audit history
 	historyBytes := []byte{}
 	newEntry := false
@@ -124,24 +105,25 @@ func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx
 		// set flag to true so we know to create rather than update later
 		newEntry = true
 	} else if err != nil {
-		return 0, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	} else {
 		historyBytes = dbAuditHistory.History
 	}
 
-	history, err := auditHistoryFromBytes(historyBytes)
+	history := &pb.AuditHistory{}
+	err = pb.Unmarshal(historyBytes, history)
 	if err != nil {
-		return 0, err
+		return history, err
 	}
 
-	err = history.addAudit(auditTime, online, config)
+	err = addAudit(history, auditTime, online, config)
 	if err != nil {
-		return 0, err
+		return history, err
 	}
 
-	historyBytes, err = history.bytes()
+	historyBytes, err = pb.Marshal(history)
 	if err != nil {
-		return 0, err
+		return history, err
 	}
 
 	// if the entry did not exist at the beginning, create a new one. Otherwise update
@@ -151,7 +133,7 @@ func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx
 			dbx.AuditHistory_NodeId(nodeID.Bytes()),
 			dbx.AuditHistory_History(historyBytes),
 		)
-		return history.Score, Error.Wrap(err)
+		return history, Error.Wrap(err)
 	}
 
 	_, err = tx.Update_AuditHistory_By_NodeId(
@@ -162,5 +144,5 @@ func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx
 		},
 	)
 
-	return history.Score, Error.Wrap(err)
+	return history, Error.Wrap(err)
 }

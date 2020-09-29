@@ -365,13 +365,13 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 					continue
 				}
 
-				onlineScore, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, updateReq.IsUp, updateReq.AuditHistory)
+				auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, updateReq.IsUp, updateReq.AuditHistory)
 				if err != nil {
 					doAppendAll = false
 					return err
 				}
 
-				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq, onlineScore, now)
+				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistory, now)
 
 				sql := buildUpdateStatement(updateNodeStats)
 
@@ -443,12 +443,12 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 			return nil
 		}
 
-		onlineScore, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, updateReq.IsUp, updateReq.AuditHistory)
+		auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, updateReq.IsUp, updateReq.AuditHistory)
 		if err != nil {
 			return err
 		}
 
-		updateFields := cache.populateUpdateFields(dbNode, updateReq, onlineScore, now)
+		updateFields := cache.populateUpdateFields(dbNode, updateReq, auditHistory, now)
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 		if err != nil {
 			return err
@@ -1191,7 +1191,7 @@ type updateNodeStats struct {
 	OnlineScore                 float64Field
 }
 
-func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditOnlineScore float64, now time.Time) updateNodeStats {
+func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *pb.AuditHistory, now time.Time) updateNodeStats {
 	// there are three audit outcomes: success, failure, and unknown
 	// if a node fails enough audits, it gets disqualified
 	// if a node gets enough "unknown" audits, it gets put into suspension
@@ -1202,6 +1202,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	unknownAuditBeta := dbNode.UnknownAuditReputationBeta
 	totalAuditCount := dbNode.TotalAuditCount
 	vettedAt := dbNode.VettedAt
+	auditOnlineScore := auditHistory.Score
 
 	var updatedTotalAuditCount int64
 
@@ -1324,15 +1325,24 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	// Updating node stats always exits it from containment mode
 	updateFields.Contained = boolField{set: true, value: false}
 
+	windowsPerTrackingPeriod := int(updateReq.AuditHistory.TrackingPeriod.Seconds() / updateReq.AuditHistory.WindowSize.Seconds())
+
+	// only penalize node if online score is below threshold and
+	// if it has enough completed windows to fill a tracking period
+	penalizeOfflineNode := false
+	if auditOnlineScore < updateReq.AuditHistory.OfflineThreshold && len(auditHistory.Windows)-1 >= windowsPerTrackingPeriod {
+		penalizeOfflineNode = true
+	}
+
 	// always update online score
 	updateFields.OnlineScore = float64Field{set: true, value: auditOnlineScore}
+
 	// Suspension and disqualification for offline nodes
-	goodOnlineScore := auditOnlineScore >= updateReq.AuditHistory.OfflineThreshold
 	if dbNode.UnderReview != nil {
 		// move node in and out of suspension as needed during review period
-		if goodOnlineScore && dbNode.OfflineSuspended != nil {
+		if !penalizeOfflineNode && dbNode.OfflineSuspended != nil {
 			updateFields.OfflineSuspended = timeField{set: true, isNil: true}
-		} else if !goodOnlineScore && dbNode.OfflineSuspended == nil {
+		} else if penalizeOfflineNode && dbNode.OfflineSuspended == nil {
 			updateFields.OfflineSuspended = timeField{set: true, value: now}
 		}
 
@@ -1344,7 +1354,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 		// otherwise, disqualify node
 		// TODO until disqualification is enabled, nodes will remain under review if their score is passed after the grace+tracking period
 		if trackingPeriodPassed {
-			if !goodOnlineScore {
+			if penalizeOfflineNode {
 				// TODO enable disqualification
 				/*
 					cache.db.log.Info("Disqualified", zap.String("DQ type", "node offline"), zap.String("Node ID", updateReq.NodeID.String()))
@@ -1356,7 +1366,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 				updateFields.OfflineSuspended = timeField{set: true, isNil: true}
 			}
 		}
-	} else if !goodOnlineScore {
+	} else if penalizeOfflineNode {
 		// suspend node for being offline and begin review period
 		updateFields.OfflineUnderReview = timeField{set: true, value: now}
 		updateFields.OfflineSuspended = timeField{set: true, value: now}
@@ -1365,9 +1375,9 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	return updateFields
 }
 
-func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditOnlineScore float64, now time.Time) dbx.Node_Update_Fields {
+func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *pb.AuditHistory, now time.Time) dbx.Node_Update_Fields {
 
-	update := cache.populateUpdateNodeStats(dbNode, updateReq, auditOnlineScore, now)
+	update := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistory, now)
 	updateFields := dbx.Node_Update_Fields{}
 	if update.VettedAt.set {
 		updateFields.VettedAt = dbx.Node_VettedAt(update.VettedAt.value)

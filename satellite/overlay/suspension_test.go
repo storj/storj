@@ -340,8 +340,56 @@ func TestOfflineSuspend(t *testing.T) {
 		require.Nil(t, node.Disqualified)
 		require.EqualValues(t, 1, node.Reputation.OnlineScore)
 
+		updateReq := &overlay.UpdateRequest{
+			NodeID:       nodeID,
+			AuditOutcome: overlay.AuditSuccess,
+			IsUp:         false,
+			AuditHistory: overlay.AuditHistoryConfig{
+				WindowSize:       time.Hour,
+				TrackingPeriod:   2 * time.Hour,
+				GracePeriod:      time.Hour,
+				OfflineThreshold: 0.6,
+			},
+
+			AuditLambda:               0.95,
+			AuditWeight:               1,
+			AuditDQ:                   0.6,
+			SuspensionGracePeriod:     time.Hour,
+			SuspensionDQEnabled:       true,
+			AuditsRequiredForVetting:  0,
+			UptimesRequiredForVetting: 0,
+		}
+
+		// give node an offline audit
+		// node's score is still 1 until its first window is complete
 		nextWindowTime := time.Now()
-		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, time.Hour, nextWindowTime, oc)
+		_, err = oc.UpdateStats(ctx, updateReq, nextWindowTime)
+		require.NoError(t, err)
+
+		node, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Nil(t, node.OfflineSuspended)
+		require.Nil(t, node.OfflineUnderReview)
+		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, 1, node.Reputation.OnlineScore)
+
+		nextWindowTime = nextWindowTime.Add(updateReq.AuditHistory.WindowSize)
+
+		// node now has one full window, so its score should be 0
+		// should not be suspended or DQ since it only has 1 window out of 2 for tracking period
+		_, err = oc.UpdateStats(ctx, updateReq, nextWindowTime)
+		require.NoError(t, err)
+
+		node, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Nil(t, node.OfflineSuspended)
+		require.Nil(t, node.OfflineUnderReview)
+		require.Nil(t, node.Disqualified)
+		require.EqualValues(t, 0, node.Reputation.OnlineScore)
+
+		nextWindowTime = nextWindowTime.Add(updateReq.AuditHistory.WindowSize)
+
+		nextWindowTime, err = setOnlineScore(ctx, updateReq, 0.5, time.Hour, nextWindowTime, oc)
 		require.NoError(t, err)
 
 		// node should be offline suspended and under review
@@ -353,7 +401,7 @@ func TestOfflineSuspend(t *testing.T) {
 		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
 
 		// set online score to be good, but use a long grace period so that node remains under review
-		nextWindowTime, err = setOnlineScore(ctx, nodeID, 1, 100*time.Hour, nextWindowTime, oc)
+		nextWindowTime, err = setOnlineScore(ctx, updateReq, 1, 100*time.Hour, nextWindowTime, oc)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
@@ -365,7 +413,7 @@ func TestOfflineSuspend(t *testing.T) {
 		require.EqualValues(t, 1, node.Reputation.OnlineScore)
 
 		// suspend again, under review should be the same
-		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, 100*time.Hour, nextWindowTime, oc)
+		nextWindowTime, err = setOnlineScore(ctx, updateReq, 0.5, 100*time.Hour, nextWindowTime, oc)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
@@ -379,7 +427,7 @@ func TestOfflineSuspend(t *testing.T) {
 		// node will exit review after grace period + 1 tracking window, so set grace period to be time since put under review
 		// subtract one hour so that review window ends when setOnlineScore adds the last window
 		gracePeriod := nextWindowTime.Sub(*node.OfflineUnderReview) - time.Hour
-		nextWindowTime, err = setOnlineScore(ctx, nodeID, 1, gracePeriod, nextWindowTime, oc)
+		nextWindowTime, err = setOnlineScore(ctx, updateReq, 1, gracePeriod, nextWindowTime, oc)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
@@ -390,7 +438,7 @@ func TestOfflineSuspend(t *testing.T) {
 		require.EqualValues(t, 1, node.Reputation.OnlineScore)
 
 		// put into suspension and under review again
-		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, 100*time.Hour, nextWindowTime, oc)
+		nextWindowTime, err = setOnlineScore(ctx, updateReq, 0.5, 100*time.Hour, nextWindowTime, oc)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
@@ -401,7 +449,7 @@ func TestOfflineSuspend(t *testing.T) {
 		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
 
 		// if grace period + 1 tracking window passes and online score is still bad, expect node to be DQed
-		nextWindowTime, err = setOnlineScore(ctx, nodeID, 0.5, 0, nextWindowTime, oc)
+		nextWindowTime, err = setOnlineScore(ctx, updateReq, 0.5, 0, nextWindowTime, oc)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
@@ -420,15 +468,13 @@ func TestOfflineSuspend(t *testing.T) {
 	})
 }
 
-func setOnlineScore(ctx context.Context, id storj.NodeID, desiredScore float64, gracePeriod time.Duration, startTime time.Time, oc overlay.DB) (nextWindowTime time.Time, err error) {
+func setOnlineScore(ctx context.Context, reqPtr *overlay.UpdateRequest, desiredScore float64, gracePeriod time.Duration, startTime time.Time, oc overlay.DB) (nextWindowTime time.Time, err error) {
 	// for our tests, we are only using values of 1 and 0.5, so two audits per window is sufficient
 	totalAudits := 2
 	onlineAudits := int(float64(totalAudits) * desiredScore)
 	nextWindowTime = startTime
 
-	windowSize := time.Hour
-	trackingPeriod := 2 * time.Hour
-	windowsPerTrackingPeriod := 2
+	windowsPerTrackingPeriod := int(reqPtr.AuditHistory.TrackingPeriod.Seconds() / reqPtr.AuditHistory.WindowSize.Seconds())
 	for window := 0; window < windowsPerTrackingPeriod+1; window++ {
 		updateReqs := []*overlay.UpdateRequest{}
 		for i := 0; i < totalAudits; i++ {
@@ -436,34 +482,18 @@ func setOnlineScore(ctx context.Context, id storj.NodeID, desiredScore float64, 
 			if i >= onlineAudits {
 				isUp = false
 			}
-			updateReq := &overlay.UpdateRequest{
-				NodeID:       id,
-				AuditOutcome: overlay.AuditSuccess,
-				IsUp:         isUp,
-				AuditHistory: overlay.AuditHistoryConfig{
-					WindowSize:       windowSize,
-					TrackingPeriod:   trackingPeriod,
-					GracePeriod:      gracePeriod,
-					OfflineThreshold: 0.6,
-				},
+			updateReq := *reqPtr
+			updateReq.IsUp = isUp
+			updateReq.AuditHistory.GracePeriod = gracePeriod
 
-				// default values
-				AuditLambda:               0.95,
-				AuditWeight:               1,
-				AuditDQ:                   0.6,
-				SuspensionGracePeriod:     time.Hour,
-				SuspensionDQEnabled:       true,
-				AuditsRequiredForVetting:  0,
-				UptimesRequiredForVetting: 0,
-			}
-			updateReqs = append(updateReqs, updateReq)
+			updateReqs = append(updateReqs, &updateReq)
 		}
 		_, err = oc.BatchUpdateStats(ctx, updateReqs, 100, nextWindowTime)
 		if err != nil {
 			return nextWindowTime, err
 		}
 		// increment nextWindowTime so in the next iteration, we are adding to a different window
-		nextWindowTime = nextWindowTime.Add(time.Hour)
+		nextWindowTime = nextWindowTime.Add(reqPtr.AuditHistory.WindowSize)
 	}
 	return nextWindowTime, err
 }
