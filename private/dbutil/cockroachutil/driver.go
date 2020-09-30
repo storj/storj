@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v4/stdlib"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/dbutil/pgutil/pgerrcode"
 )
 
 // Driver is the type for the "cockroach" sql/database driver. It uses
@@ -331,7 +331,7 @@ func translateName(name string) string {
 // NeedsRetry checks if the error code means a retry is needed,
 // borrowed from code in crdb.
 func NeedsRetry(err error) bool {
-	code := pgutil.ErrorCode(err)
+	code := pgerrcode.FromError(err)
 
 	// 57P01 occurs when a CRDB node rejoins the cluster but is not ready to accept connections
 	// CRDB support recommended a retry at this point
