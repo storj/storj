@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/multinode"
+	"storj.io/storj/multinode/mutlinodedb/dbx"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 )
@@ -26,18 +27,12 @@ var (
 //
 // architecture: Master Database
 type multinodeDB struct {
-	//*dbx.DB
+	*dbx.DB
 
 	log            *zap.Logger
 	driver         string
 	implementation dbutil.Implementation
 	source         string
-}
-
-// Close closes database.
-func (m multinodeDB) Close() error {
-	// TODO: will be implemented in dbx.
-	panic("implement me")
 }
 
 // New creates instance of database supports postgres.
