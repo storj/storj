@@ -137,7 +137,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
 
-	orderLimits, privateKey, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentLocation.Bucket(), pointer, skip)
+	orderLimits, privateKey, cachedIPsAndPorts, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentLocation.Bucket(), pointer, skip)
 	if err != nil {
 		return Report{}, err
 	}
@@ -151,7 +151,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			zap.Strings("Node IDs", offlineNodes.Strings()))
 	}
 
-	shares, err := verifier.DownloadShares(ctx, orderLimits, privateKey, randomIndex, shareSize)
+	shares, err := verifier.DownloadShares(ctx, orderLimits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
 	if err != nil {
 		return Report{
 			Offlines: offlineNodes,
@@ -329,7 +329,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 }
 
 // DownloadShares downloads shares from the nodes where remote pieces are located.
-func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, stripeIndex int64, shareSize int32) (shares map[int]Share, err error) {
+func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedIPsAndPorts map[storj.NodeID]string, stripeIndex int64, shareSize int32) (shares map[int]Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares = make(map[int]Share, len(limits))
@@ -341,8 +341,9 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 			continue
 		}
 
+		ip := cachedIPsAndPorts[limit.Limit.StorageNodeId]
 		go func(i int, limit *pb.AddressedOrderLimit) {
-			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, stripeIndex, shareSize, i)
+			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, ip, stripeIndex, shareSize, i)
 			if err != nil {
 				share = Share{
 					Error:    err,
@@ -508,7 +509,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				return
 			}
 
-			limit, piecePrivateKey, err := verifier.orders.CreateAuditOrderLimit(ctx, segmentLocation.Bucket(), pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
+			limit, piecePrivateKey, cachedIPAndPort, err := verifier.orders.CreateAuditOrderLimit(ctx, segmentLocation.Bucket(), pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
 			if err != nil {
 				if overlay.ErrNodeDisqualified.Has(err) {
 					_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
@@ -538,7 +539,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				return
 			}
 
-			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, pending.StripeIndex, pending.ShareSize, int(pieceNum))
+			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, cachedIPAndPort, pending.StripeIndex, pending.ShareSize, int(pieceNum))
 
 			// check if the pending audit was deleted while downloading the share
 			_, getErr := verifier.containment.Get(ctx, pending.NodeID)
@@ -657,7 +658,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 }
 
 // GetShare use piece store client to download shares from nodes.
-func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
+func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedIPAndPort string, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bandwidthMsgSize := shareSize
@@ -674,15 +675,34 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 		defer cancel()
 	}
 
-	nodeurl := storj.NodeURL{
-		ID:      limit.GetLimit().StorageNodeId,
-		Address: limit.GetStorageNodeAddress().Address,
+	targetNodeID := limit.GetLimit().StorageNodeId
+	log := verifier.log.Named(targetNodeID.String())
+	var ps *piecestore.Client
+
+	// if cached IP is given, try connecting there first
+	if cachedIPAndPort != "" {
+		nodeAddr := storj.NodeURL{
+			ID:      targetNodeID,
+			Address: cachedIPAndPort,
+		}
+		ps, err = piecestore.DialNodeURL(timedCtx, verifier.dialer, nodeAddr, log, piecestore.DefaultConfig)
+		if err != nil {
+			log.Debug("failed to connect to audit target node at cached IP", zap.String("cached-ip-and-port", cachedIPAndPort), zap.Error(err))
+		}
 	}
-	log := verifier.log.Named(nodeurl.ID.String())
-	ps, err := piecestore.DialNodeURL(timedCtx, verifier.dialer, nodeurl, log, piecestore.DefaultConfig)
-	if err != nil {
-		return Share{}, Error.Wrap(err)
+
+	// if no cached IP was given, or connecting to cached IP failed, use node address
+	if ps == nil {
+		nodeAddr := storj.NodeURL{
+			ID:      targetNodeID,
+			Address: limit.GetStorageNodeAddress().Address,
+		}
+		ps, err = piecestore.DialNodeURL(timedCtx, verifier.dialer, nodeAddr, log, piecestore.DefaultConfig)
+		if err != nil {
+			return Share{}, Error.Wrap(err)
+		}
 	}
+
 	defer func() {
 		err := ps.Close()
 		if err != nil {
@@ -707,7 +727,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	return Share{
 		Error:    nil,
 		PieceNum: pieceNum,
-		NodeID:   nodeurl.ID,
+		NodeID:   targetNodeID,
 		Data:     buf,
 	}, nil
 }
