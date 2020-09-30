@@ -390,7 +390,7 @@ func TestCheckUsageLastMonthUnappliedInvoice(t *testing.T) {
 		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
 		require.NoError(t, err)
 
-		now := time.Date(2020, time.Month(9), 1, 0, 0, 0, 0, time.UTC)
+		now := time.Date(2030, time.Month(9), 1, 0, 0, 0, 0, time.UTC)
 
 		oneMonthAhead := now.AddDate(0, 1, 0)
 		planet.Satellites[0].Admin.Admin.Server.SetNow(func() time.Time {
