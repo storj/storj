@@ -63,7 +63,6 @@ import SmallDepositHistory from '@/components/account/billing/depositAndBillingH
 import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
 import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
-import VDatepicker from '@/components/common/VDatePicker.vue';
 
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 import ExpandIcon from '@/../static/images/account/billing/expand.svg';
@@ -83,7 +82,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         SmallDepositHistory,
         EstimatedCostsAndCredits,
         PaymentMethods,
-        VDatepicker,
         DatePickerIcon,
         LowBalanceIcon,
         NegativeBalanceIcon,

@@ -14,6 +14,11 @@ localVue.filter('centsToDollars', (cents: number): string => {
 
 describe('HeldHistoryMonthlyBreakdownTableSmall', (): void => {
     it('renders correctly with actual values',  async (): Promise<void> => {
+        const _Date = Date;
+        const testJoinAt = new Date(Date.UTC(2019, 6, 30));
+        const mockedDate = new Date(1580522290000);
+        global.Date = jest.fn(() => mockedDate);
+
         const wrapper = shallowMount(HeldHistoryMonthlyBreakdownTableItemSmall, {
             propsData: {
                 heldHistoryItem: new SatelliteHeldHistory(
@@ -24,7 +29,7 @@ describe('HeldHistoryMonthlyBreakdownTableSmall', (): void => {
                     7333880,
                     7852235,
                     757576,
-                    new Date(2020, 1, 20),
+                    testJoinAt,
                 ),
             },
             localVue,
@@ -43,5 +48,7 @@ describe('HeldHistoryMonthlyBreakdownTableSmall', (): void => {
         await localVue.nextTick();
 
         expect(wrapper).toMatchSnapshot();
+
+        global.Date = _Date;
     });
 });

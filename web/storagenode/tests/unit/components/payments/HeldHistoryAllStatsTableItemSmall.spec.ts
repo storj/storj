@@ -14,7 +14,10 @@ localVue.filter('centsToDollars', (cents: number): string => {
 
 describe('HeldHistoryAllStatsTableItemSmall', (): void => {
     it('renders correctly with actual values',  async (): Promise<void> => {
-        const testJoinAt = new Date(Date.UTC(2020, 0, 27));
+        const _Date = Date;
+        const mockedDate = new Date(1580522290000);
+        const testJoinAt = new Date(Date.UTC(2019, 6, 30));
+        global.Date = jest.fn(() => mockedDate);
 
         const wrapper = shallowMount(HeldHistoryAllStatsTableItemSmall, {
             propsData: {
@@ -45,5 +48,7 @@ describe('HeldHistoryAllStatsTableItemSmall', (): void => {
         await localVue.nextTick();
 
         expect(wrapper).toMatchSnapshot();
+
+        global.Date = _Date;
     });
 });
