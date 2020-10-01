@@ -18,7 +18,6 @@ import (
 )
 
 func main() {
-	// fmt.Println(len(os.Args))
 	if len(os.Args) != 4 {
 		fmt.Println("usage: metainfo-migration pointerdb-conn-url metabase-conn-url csv-file")
 		os.Exit(1)

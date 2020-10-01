@@ -19,8 +19,8 @@ import (
 )
 
 const batchSize = 500
-const objectsArgs = 10
-const segmentsArgs = 9
+const objectsArgs = 14
+const segmentsArgs = 11
 
 type Entry struct {
 	EncryptedKey string
@@ -266,10 +266,13 @@ func (m *Migrator) insertObject(ctx context.Context, streamID uuid.UUID, encrypt
 		return errors.New("unsupported case")
 	}
 
-	m.Objects = append(m.Objects, m.ProjectID, m.BucketName, encryptedPath, -1, streamID,
+	m.Objects = append(m.Objects,
+		m.ProjectID, m.BucketName, encryptedPath, -1, streamID,
 		pointer.CreationDate, pointer.ExpirationDate,
 		metabase.Committed, segmentsCount,
-		pointer.Metadata)
+		[]byte{}, pointer.Metadata, // TODO
+		1000, 2000, // TODO
+		33)
 
 	if len(m.Objects)/objectsArgs >= m.BatchSize {
 		err = m.sendObjects(ctx)
@@ -311,9 +314,13 @@ func (m *Migrator) insertSegment(ctx context.Context, streamID uuid.UUID, segmen
 		encryptedKeyNonce = streamMeta.LastSegmentMeta.KeyNonce
 	}
 
-	m.Segments = append(m.Segments, streamID, segmentPosition.Encode(), rootPieceID,
-		encryptedKey, encryptedKeyNonce,
-		int32(pointer.SegmentSize), 0, pointer.InlineSegment,
+	m.Segments = append(m.Segments,
+		streamID, segmentPosition.Encode(),
+		rootPieceID, encryptedKey, encryptedKeyNonce,
+		1, 2,
+		int32(pointer.SegmentSize),
+		0,
+		pointer.InlineSegment,
 		metabase.NodeAliases{1}.Encode())
 
 	if len(m.Segments)/segmentsArgs >= m.BatchSize {
@@ -330,7 +337,6 @@ func (m *Migrator) sendObjects(ctx context.Context) error {
 	if len(m.Objects) == 0 {
 		return nil
 	}
-
 	err := m.Metabase.Exec(ctx, m.ObjectsSQL, m.Objects...)
 	if err != nil {
 		return err
@@ -346,7 +352,6 @@ func (m *Migrator) sendSegments(ctx context.Context) error {
 	if len(m.Segments) == 0 {
 		return nil
 	}
-
 	err := m.Metabase.Exec(ctx, m.SegmentsSQL, m.Segments...)
 	if err != nil {
 		return err
@@ -364,14 +369,14 @@ func preparObjectsSQL(batchSize int) string {
 				project_id, bucket_name, object_key, version, stream_id,
 				created_at, expires_at,
 				status, segment_count,
-				encrypted_metadata_nonce
+				encrypted_metadata_nonce, encrypted_metadata,
+				total_encrypted_size, fixed_segment_size,
+				encryption
 		) VALUES
 	`
 	i := 1
 	for i < batchSize*objectsArgs {
-		// TODO make it cleaner
-		sql += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d),",
-			i, i+1, i+2, i+3, i+4, i+5, i+6, i+7, i+8, i+9)
+		sql += parameters(objectsArgs, i) + ","
 		i += objectsArgs
 	}
 	return strings.TrimSuffix(sql, ",")
@@ -379,19 +384,27 @@ func preparObjectsSQL(batchSize int) string {
 
 func preparSegmentsSQL(batchSize int) string {
 	sql := `INSERT INTO segments (
-		stream_id, segment_position, root_piece_id,
-		encrypted_key, encrypted_key_nonce,
-		encrypted_data_size, unencrypted_data_size, inline_data,
-		node_aliases
+		stream_id, segment_position, 
+		root_piece_id, encrypted_key, encrypted_key_nonce,
+		plain_offset, plain_size,
+		encrypted_data_size,
+		redundancy,
+		inline_data, node_aliases
 	) VALUES
 	`
 	i := 1
 	for i < batchSize*segmentsArgs {
-		sql += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d),",
-			i, i+1, i+2, i+3, i+4, i+5, i+6, i+7, i+8)
+		sql += parameters(segmentsArgs, i) + ","
 		i += segmentsArgs
 	}
 
-	// fmt.Println(sql)
 	return strings.TrimSuffix(sql, ",")
+}
+
+func parameters(args, index int) string {
+	values := make([]string, args)
+	for i := index; i < args+index; i++ {
+		values[i-index] = "$" + strconv.Itoa(i)
+	}
+	return "(" + strings.Join(values, ",") + ")"
 }
