@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/orders/ordersfile"
 )
 
 // TODO remove when db is removed.
@@ -52,7 +53,7 @@ func TestOrderDBSettle(t *testing.T) {
 		}
 		signedOrder, err := signing.SignUplinkOrder(ctx, piecePrivateKey, order)
 		require.NoError(t, err)
-		order0 := &orders.Info{
+		order0 := &ordersfile.Info{
 			Limit: orderLimit,
 			Order: signedOrder,
 		}
@@ -150,7 +151,7 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		}
 		signedOrder, err := signing.SignUplinkOrder(ctx, piecePrivateKey, order)
 		require.NoError(t, err)
-		order0 := &orders.Info{
+		order0 := &ordersfile.Info{
 			Limit: orderLimit,
 			Order: signedOrder,
 		}
@@ -221,14 +222,14 @@ func TestCleanArchiveDB(t *testing.T) {
 		serialNumber0 := testrand.SerialNumber()
 		serialNumber1 := testrand.SerialNumber()
 
-		order0 := &orders.Info{
+		order0 := &ordersfile.Info{
 			Limit: &pb.OrderLimit{
 				SatelliteId:  satellite,
 				SerialNumber: serialNumber0,
 			},
 			Order: &pb.Order{},
 		}
-		order1 := &orders.Info{
+		order1 := &ordersfile.Info{
 			Limit: &pb.OrderLimit{
 				SatelliteId:  satellite,
 				SerialNumber: serialNumber1,
@@ -295,7 +296,7 @@ func TestCleanArchiveFileStore(t *testing.T) {
 		serialNumber1 := testrand.SerialNumber()
 		createdAt1 := now.Add(-24 * time.Hour)
 
-		order0 := &orders.Info{
+		order0 := &ordersfile.Info{
 			Limit: &pb.OrderLimit{
 				SatelliteId:   satellite,
 				SerialNumber:  serialNumber0,
@@ -303,7 +304,7 @@ func TestCleanArchiveFileStore(t *testing.T) {
 			},
 			Order: &pb.Order{},
 		}
-		order1 := &orders.Info{
+		order1 := &ordersfile.Info{
 			Limit: &pb.OrderLimit{
 				SatelliteId:   satellite,
 				SerialNumber:  serialNumber1,
@@ -319,9 +320,12 @@ func TestCleanArchiveFileStore(t *testing.T) {
 		require.NoError(t, err)
 
 		// archive one order yesterday, one today
-		err = node.OrdersStore.Archive(satellite, createdAt0.Truncate(time.Hour), yesterday, pb.SettlementWithWindowResponse_ACCEPTED)
+		unsentInfo := orders.UnsentInfo{}
+		unsentInfo.CreatedAtHour = createdAt0.Truncate(time.Hour)
+		err = node.OrdersStore.Archive(satellite, unsentInfo, yesterday, pb.SettlementWithWindowResponse_ACCEPTED)
 		require.NoError(t, err)
-		err = node.OrdersStore.Archive(satellite, createdAt1.Truncate(time.Hour), now, pb.SettlementWithWindowResponse_ACCEPTED)
+		unsentInfo.CreatedAtHour = createdAt1.Truncate(time.Hour)
+		err = node.OrdersStore.Archive(satellite, unsentInfo, now, pb.SettlementWithWindowResponse_ACCEPTED)
 		require.NoError(t, err)
 
 		archived, err := node.OrdersStore.ListArchived()

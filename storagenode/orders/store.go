@@ -4,13 +4,9 @@
 package orders
 
 import (
-	"encoding/binary"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -20,11 +16,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/private/date"
-)
-
-const (
-	unsentFilePrefix  = "unsent-orders-"
-	archiveFilePrefix = "archived-orders-"
+	"storj.io/storj/storagenode/orders/ordersfile"
 )
 
 // activeWindow represents a window with active operations waiting to finish to enqueue
@@ -80,7 +72,7 @@ func NewFileStore(log *zap.Logger, ordersDir string, orderLimitGracePeriod time.
 
 // BeginEnqueue returns a function that can be called to enqueue the passed in Info. If the Info
 // is too old to be enqueued, then an error is returned.
-func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Time) (commit func(*Info) error, err error) {
+func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Time) (commit func(*ordersfile.Info) error, err error) {
 	store.unsentMu.Lock()
 	defer store.unsentMu.Unlock()
 	store.activeMu.Lock()
@@ -96,7 +88,7 @@ func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Ti
 	// record that there is an operation in flight for this window
 	store.enqueueStartedLocked(satelliteID, createdAt)
 
-	return func(info *Info) error {
+	return func(info *ordersfile.Info) error {
 		// always acquire the activeMu after the unsentMu to avoid deadlocks
 		store.unsentMu.Lock()
 		defer store.unsentMu.Unlock()
@@ -117,17 +109,17 @@ func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Ti
 		}
 
 		// write out the data
-		f, err := store.getUnsentFile(info.Limit.SatelliteId, info.Limit.OrderCreation)
+		of, err := ordersfile.OpenWritableUnsent(store.log, store.unsentDir, info.Limit.SatelliteId, info.Limit.OrderCreation)
 		if err != nil {
 			return OrderError.Wrap(err)
 		}
 		defer func() {
-			err = errs.Combine(err, OrderError.Wrap(f.Close()))
+			err = errs.Combine(err, OrderError.Wrap(of.Close()))
 		}()
 
-		err = writeLimitAndOrder(f, info.Limit, info.Order)
+		err = of.Append(info)
 		if err != nil {
-			return err
+			return OrderError.Wrap(err)
 		}
 
 		return nil
@@ -169,7 +161,7 @@ func (store *FileStore) hasActiveEnqueue(satelliteID storj.NodeID, createdAt tim
 
 // Enqueue inserts order to be sent at the end of the unsent file for a particular creation hour.
 // It ensures the order is not being queued after the order limit grace period.
-func (store *FileStore) Enqueue(info *Info) (err error) {
+func (store *FileStore) Enqueue(info *ordersfile.Info) (err error) {
 	commit, err := store.BeginEnqueue(info.Limit.SatelliteId, info.Limit.OrderCreation)
 	if err != nil {
 		return err
@@ -180,7 +172,7 @@ func (store *FileStore) Enqueue(info *Info) (err error) {
 // UnsentInfo is a struct containing a window of orders for a satellite and order creation hour.
 type UnsentInfo struct {
 	CreatedAtHour time.Time
-	InfoList      []*Info
+	InfoList      []*ordersfile.Info
 }
 
 // ListUnsentBySatellite returns one window of orders that haven't been sent yet, grouped by satellite.
@@ -203,63 +195,55 @@ func (store *FileStore) ListUnsentBySatellite(now time.Time) (infoMap map[storj.
 		if info.IsDir() {
 			return nil
 		}
-		satelliteID, createdAtHour, err := getUnsentFileInfo(info.Name())
+		fileInfo, err := ordersfile.GetUnsentInfo(info)
 		if err != nil {
-			return err
+			errList = errs.Combine(errList, OrderError.Wrap(err))
+			return nil
 		}
 
 		// if we already have orders for this satellite, ignore the file
-		if _, ok := infoMap[satelliteID]; ok {
+		if _, ok := infoMap[fileInfo.SatelliteID]; ok {
 			return nil
 		}
 
 		// if orders can still be added to file, ignore it. We add an hour because that's
 		// the newest order that could be added to that window.
-		if now.Sub(createdAtHour.Add(time.Hour)) <= store.orderLimitGracePeriod {
+		if now.Sub(fileInfo.CreatedAtHour.Add(time.Hour)) <= store.orderLimitGracePeriod {
 			return nil
 		}
 
 		// if there are still active orders for the time, ignore it.
-		if store.hasActiveEnqueue(satelliteID, createdAtHour) {
+		if store.hasActiveEnqueue(fileInfo.SatelliteID, fileInfo.CreatedAtHour) {
 			return nil
 		}
 
 		newUnsentInfo := UnsentInfo{
-			CreatedAtHour: createdAtHour,
+			CreatedAtHour: fileInfo.CreatedAtHour,
 		}
 
-		f, err := os.Open(path)
+		of, err := ordersfile.OpenReadable(store.log, path)
 		if err != nil {
 			return OrderError.Wrap(err)
 		}
 		defer func() {
-			err = errs.Combine(err, OrderError.Wrap(f.Close()))
+			err = errs.Combine(err, OrderError.Wrap(of.Close()))
 		}()
 
 		for {
 			// if at any point we see an unexpected EOF error, return what orders we could read successfully with no error
 			// this behavior ensures that we will attempt to archive corrupted files instead of continually failing to read them
-			limit, order, err := readLimitAndOrder(f)
+			newInfo, err := of.ReadOne()
 			if err != nil {
 				if errs.Is(err, io.EOF) {
-					break
-				}
-				if errs.Is(err, io.ErrUnexpectedEOF) {
-					store.log.Warn("Unexpected EOF while reading unsent order file", zap.Error(err))
-					mon.Meter("orders_unsent_file_corrupted").Mark64(1)
 					break
 				}
 				return err
 			}
 
-			newInfo := &Info{
-				Limit: limit,
-				Order: order,
-			}
 			newUnsentInfo.InfoList = append(newUnsentInfo.InfoList, newInfo)
 		}
 
-		infoMap[satelliteID] = newUnsentInfo
+		infoMap[fileInfo.SatelliteID] = newUnsentInfo
 		return nil
 	})
 	if err != nil {
@@ -269,29 +253,21 @@ func (store *FileStore) ListUnsentBySatellite(now time.Time) (infoMap map[storj.
 	return infoMap, errList
 }
 
-// Archive moves a file from "unsent" to "archive". The filename/path changes from
-// unsent/unsent-orders-<satelliteID>-<createdAtHour>
-// to
-// archive/archived-orders-<satelliteID>-<createdAtHour>-<archivedTime>-<ACCEPTED/REJECTED>.
-func (store *FileStore) Archive(satelliteID storj.NodeID, createdAtHour, archivedAt time.Time, status pb.SettlementWithWindowResponse_Status) error {
+// Archive moves a file from "unsent" to "archive".
+func (store *FileStore) Archive(satelliteID storj.NodeID, unsentInfo UnsentInfo, archivedAt time.Time, status pb.SettlementWithWindowResponse_Status) error {
 	store.unsentMu.Lock()
 	defer store.unsentMu.Unlock()
 	store.archiveMu.Lock()
 	defer store.archiveMu.Unlock()
 
-	oldFileName := unsentFilePrefix + satelliteID.String() + "-" + getCreationHourString(createdAtHour)
-	oldFilePath := filepath.Join(store.unsentDir, oldFileName)
-
-	newFileName := fmt.Sprintf("%s%s-%s-%s-%s",
-		archiveFilePrefix,
-		satelliteID.String(),
-		getCreationHourString(createdAtHour),
-		strconv.FormatInt(archivedAt.UnixNano(), 10),
-		pb.SettlementWithWindowResponse_Status_name[int32(status)],
-	)
-	newFilePath := filepath.Join(store.archiveDir, newFileName)
-
-	return OrderError.Wrap(os.Rename(oldFilePath, newFilePath))
+	return OrderError.Wrap(ordersfile.MoveUnsent(
+		store.unsentDir,
+		store.archiveDir,
+		satelliteID,
+		unsentInfo.CreatedAtHour,
+		archivedAt,
+		status,
+	))
 }
 
 // ListArchived returns orders that have been sent.
@@ -309,46 +285,41 @@ func (store *FileStore) ListArchived() ([]*ArchivedInfo, error) {
 		if info.IsDir() {
 			return nil
 		}
-		_, _, archivedAt, statusText, err := getArchivedFileInfo(info.Name())
+
+		fileInfo, err := ordersfile.GetArchivedInfo(info)
 		if err != nil {
-			return err
+			return OrderError.Wrap(err)
 		}
+		of, err := ordersfile.OpenReadable(store.log, path)
+		if err != nil {
+			return OrderError.Wrap(err)
+		}
+		defer func() {
+			err = errs.Combine(err, OrderError.Wrap(of.Close()))
+		}()
 
 		status := StatusUnsent
-		switch statusText {
+		switch fileInfo.StatusText {
 		case pb.SettlementWithWindowResponse_ACCEPTED.String():
 			status = StatusAccepted
 		case pb.SettlementWithWindowResponse_REJECTED.String():
 			status = StatusRejected
 		}
 
-		f, err := os.Open(path)
-		if err != nil {
-			return OrderError.Wrap(err)
-		}
-		defer func() {
-			err = errs.Combine(err, OrderError.Wrap(f.Close()))
-		}()
-
 		for {
-			limit, order, err := readLimitAndOrder(f)
+			info, err := of.ReadOne()
 			if err != nil {
 				if errs.Is(err, io.EOF) {
-					break
-				}
-				if errs.Is(err, io.ErrUnexpectedEOF) {
-					store.log.Warn("Unexpected EOF while reading archived order file", zap.Error(err))
-					mon.Meter("orders_archive_file_corrupted").Mark64(1)
 					break
 				}
 				return err
 			}
 
 			newInfo := &ArchivedInfo{
-				Limit:      limit,
-				Order:      order,
+				Limit:      info.Limit,
+				Order:      info.Order,
 				Status:     status,
-				ArchivedAt: archivedAt,
+				ArchivedAt: fileInfo.ArchivedAt,
 			}
 			archivedList = append(archivedList, newInfo)
 		}
@@ -376,12 +347,12 @@ func (store *FileStore) CleanArchive(deleteBefore time.Time) error {
 		if info.IsDir() {
 			return nil
 		}
-		_, _, archivedAt, _, err := getArchivedFileInfo(info.Name())
+		fileInfo, err := ordersfile.GetArchivedInfo(info)
 		if err != nil {
 			errList = errs.Combine(errList, err)
 			return nil
 		}
-		if archivedAt.Before(deleteBefore) {
+		if fileInfo.ArchivedAt.Before(deleteBefore) {
 			return OrderError.Wrap(os.Remove(path))
 		}
 		return nil
@@ -404,161 +375,4 @@ func (store *FileStore) ensureDirectories() error {
 		}
 	}
 	return nil
-}
-
-// getUnsentFile creates or gets the order limit file for appending unsent orders to.
-// There is a different file for each satellite and creation hour.
-// It expects the caller to lock the store's mutex before calling, and to handle closing the returned file.
-func (store *FileStore) getUnsentFile(satelliteID storj.NodeID, creationTime time.Time) (*os.File, error) {
-	fileName := unsentFilePrefix + satelliteID.String() + "-" + getCreationHourString(creationTime)
-	filePath := filepath.Join(store.unsentDir, fileName)
-	// create file if not exists or append
-	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return nil, OrderError.Wrap(err)
-	}
-	return f, nil
-}
-
-func getCreationHourString(t time.Time) string {
-	creationHour := date.TruncateToHourInNano(t)
-	timeStr := strconv.FormatInt(creationHour, 10)
-	return timeStr
-}
-
-// getUnsentFileInfo gets the satellite ID and created hour from a filename.
-// it expects the file name to be in the format "unsent-orders-<satelliteID>-<createdAtHour>".
-func getUnsentFileInfo(name string) (satellite storj.NodeID, createdHour time.Time, err error) {
-	if !strings.HasPrefix(name, unsentFilePrefix) {
-		return storj.NodeID{}, time.Time{}, OrderError.New("Not a valid unsent order file name: %s", name)
-	}
-	// chop off prefix to get satellite ID and created hours
-	infoStr := name[len(unsentFilePrefix):]
-	infoSlice := strings.Split(infoStr, "-")
-	if len(infoSlice) != 2 {
-		return storj.NodeID{}, time.Time{}, OrderError.New("Not a valid unsent order file name: %s", name)
-	}
-
-	satelliteIDStr := infoSlice[0]
-	satelliteID, err := storj.NodeIDFromString(satelliteIDStr)
-	if err != nil {
-		return storj.NodeID{}, time.Time{}, OrderError.New("Not a valid unsent order file name: %s", name)
-	}
-
-	timeStr := infoSlice[1]
-	createdHourUnixNano, err := strconv.ParseInt(timeStr, 10, 64)
-	if err != nil {
-		return satelliteID, time.Time{}, OrderError.Wrap(err)
-	}
-	createdAtHour := time.Unix(0, createdHourUnixNano)
-
-	return satelliteID, createdAtHour, nil
-}
-
-// getArchivedFileInfo gets the archived at time from an archive file name.
-// it expects the file name to be in the format "archived-orders-<satelliteID>-<createdAtHour>-<archviedAtTime>-<status>".
-func getArchivedFileInfo(name string) (satelliteID storj.NodeID, createdAtHour, archivedAt time.Time, status string, err error) {
-	if !strings.HasPrefix(name, archiveFilePrefix) {
-		return storj.NodeID{}, time.Time{}, time.Time{}, "", OrderError.New("Not a valid archived order file name: %s", name)
-	}
-	// chop off prefix to get satellite ID, created hour, archive time, and status
-	infoStr := name[len(archiveFilePrefix):]
-	infoSlice := strings.Split(infoStr, "-")
-	if len(infoSlice) != 4 {
-		return storj.NodeID{}, time.Time{}, time.Time{}, "", OrderError.New("Not a valid archived order file name: %s", name)
-	}
-
-	satelliteIDStr := infoSlice[0]
-	satelliteID, err = storj.NodeIDFromString(satelliteIDStr)
-	if err != nil {
-		return storj.NodeID{}, time.Time{}, time.Time{}, "", OrderError.New("Not a valid archived order file name: %s", name)
-	}
-
-	createdAtStr := infoSlice[1]
-	createdHourUnixNano, err := strconv.ParseInt(createdAtStr, 10, 64)
-	if err != nil {
-		return satelliteID, time.Time{}, time.Time{}, "", OrderError.New("Not a valid archived order file name: %s", name)
-	}
-	createdAtHour = time.Unix(0, createdHourUnixNano)
-
-	archivedAtStr := infoSlice[2]
-	archivedAtUnixNano, err := strconv.ParseInt(archivedAtStr, 10, 64)
-	if err != nil {
-		return satelliteID, createdAtHour, time.Time{}, "", OrderError.New("Not a valid archived order file name: %s", name)
-	}
-	archivedAt = time.Unix(0, archivedAtUnixNano)
-
-	status = infoSlice[3]
-
-	return satelliteID, createdAtHour, archivedAt, status, nil
-}
-
-// writeLimitAndOrder writes limit and order to the file as
-// [limitSize][limitBytes][orderSize][orderBytes]
-// It expects the caller to have locked the mutex.
-func writeLimitAndOrder(f io.Writer, limit *pb.OrderLimit, order *pb.Order) error {
-	toWrite := []byte{}
-
-	limitSerialized, err := pb.Marshal(limit)
-	if err != nil {
-		return OrderError.Wrap(err)
-	}
-	orderSerialized, err := pb.Marshal(order)
-	if err != nil {
-		return OrderError.Wrap(err)
-	}
-
-	limitSizeBytes := [4]byte{}
-	binary.LittleEndian.PutUint32(limitSizeBytes[:], uint32(len(limitSerialized)))
-
-	orderSizeBytes := [4]byte{}
-	binary.LittleEndian.PutUint32(orderSizeBytes[:], uint32(len(orderSerialized)))
-
-	toWrite = append(toWrite, limitSizeBytes[:]...)
-	toWrite = append(toWrite, limitSerialized...)
-	toWrite = append(toWrite, orderSizeBytes[:]...)
-	toWrite = append(toWrite, orderSerialized...)
-
-	if _, err = f.Write(toWrite); err != nil {
-		return OrderError.New("Error writing serialized order size: %w", err)
-	}
-	return nil
-}
-
-// readLimitAndOrder reads the next limit and order from the file and returns them.
-func readLimitAndOrder(f io.Reader) (*pb.OrderLimit, *pb.Order, error) {
-	sizeBytes := [4]byte{}
-	_, err := io.ReadFull(f, sizeBytes[:])
-	if err != nil {
-		return nil, nil, OrderError.Wrap(err)
-	}
-	limitSize := binary.LittleEndian.Uint32(sizeBytes[:])
-	limitSerialized := make([]byte, limitSize)
-	_, err = io.ReadFull(f, limitSerialized)
-	if err != nil {
-		return nil, nil, OrderError.Wrap(err)
-	}
-	limit := &pb.OrderLimit{}
-	err = pb.Unmarshal(limitSerialized, limit)
-	if err != nil {
-		return nil, nil, OrderError.Wrap(err)
-	}
-
-	_, err = io.ReadFull(f, sizeBytes[:])
-	if err != nil {
-		return nil, nil, OrderError.Wrap(err)
-	}
-	orderSize := binary.LittleEndian.Uint32(sizeBytes[:])
-	orderSerialized := make([]byte, orderSize)
-	_, err = io.ReadFull(f, orderSerialized)
-	if err != nil {
-		return nil, nil, OrderError.Wrap(err)
-	}
-	order := &pb.Order{}
-	err = pb.Unmarshal(orderSerialized, order)
-	if err != nil {
-		return nil, nil, OrderError.Wrap(err)
-	}
-
-	return limit, order, nil
 }
