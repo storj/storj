@@ -34,13 +34,24 @@ A successful response body:
 
 Updates the details of existing user found by its email.
 
-A successful response body:
+Some example request bodies:
+
+```json
+{
+    "email": "alice+2@mail.test"
+}
+```
 
 ```json
 {
     "email": "alice+2@mail.test",
-    "shortName": "Al",
-    "passwordHash": "1234abcd"
+    "shortName": "myNickName"
+}
+```
+
+```json
+{
+    "projectLimit": 200
 }
 ```
 
@@ -55,7 +66,8 @@ A successful response body:
     "user":{
         "id": "12345678-1234-1234-1234-123456789abc",
         "fullName": "Alice Bob",
-        "email":"alice@example.test"
+        "email":"alice@example.test",
+        "projectLimit": 10
     },
     "projects":[
         {

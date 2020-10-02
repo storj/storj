@@ -168,9 +168,10 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type User struct {
-		ID       uuid.UUID `json:"id"`
-		FullName string    `json:"fullName"`
-		Email    string    `json:"email"`
+		ID           uuid.UUID `json:"id"`
+		FullName     string    `json:"fullName"`
+		Email        string    `json:"email"`
+		ProjectLimit int       `json:"projectLimit"`
 	}
 	type Project struct {
 		ID          uuid.UUID `json:"id"`
@@ -186,9 +187,10 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	output.User = User{
-		ID:       user.ID,
-		FullName: user.FullName,
-		Email:    user.Email,
+		ID:           user.ID,
+		FullName:     user.FullName,
+		Email:        user.Email,
+		ProjectLimit: user.ProjectLimit,
 	}
 	for _, p := range projects {
 		output.Projects = append(output.Projects, Project{
@@ -264,6 +266,9 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(input.PasswordHash) > 0 {
 		user.PasswordHash = input.PasswordHash
+	}
+	if input.ProjectLimit > 0 {
+		user.ProjectLimit = input.ProjectLimit
 	}
 
 	err = server.db.Console().Users().Update(ctx, user)

@@ -35,6 +35,9 @@ func TestGetUser(t *testing.T) {
 		address := sat.Admin.Admin.Listener.Addr()
 		project := planet.Uplinks[0].Projects[0]
 
+		projLimit, err := sat.DB.Console().Users().GetProjectLimit(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
 		coupons, err := sat.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, project.Owner.ID)
 		require.NoError(t, err)
 
@@ -44,7 +47,7 @@ func TestGetUser(t *testing.T) {
 		t.Run("GetUser", func(t *testing.T) {
 			userLink := "http://" + address.String() + "/api/user/" + project.Owner.Email
 			expected := `{` +
-				fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s"},`, project.Owner.ID, project.Owner.Email) +
+				fmt.Sprintf(`"user":{"id":"%s","fullName":"User uplink0_0","email":"%s","projectLimit":%d},`, project.Owner.ID, project.Owner.Email, projLimit) +
 				fmt.Sprintf(`"projects":[{"id":"%s","name":"uplink0_0","description":"","ownerId":"%s"}],`, project.ID, project.Owner.ID) +
 				fmt.Sprintf(`"coupons":%s}`, couponsMarshaled)
 
@@ -187,6 +190,46 @@ func TestUpdateUser(t *testing.T) {
 		require.Equal(t, "Newbie", updatedUser.ShortName)
 		require.Equal(t, user.ID, updatedUser.ID)
 		require.Equal(t, user.Status, updatedUser.Status)
+		require.Equal(t, user.ProjectLimit, updatedUser.ProjectLimit)
+	})
+}
+
+func TestUpdateUserRateLimit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		require.NoError(t, err)
+
+		newLimit := 50
+
+		body := strings.NewReader(fmt.Sprintf(`{"projectLimit":%d}`, newLimit))
+		req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://"+address.String()+"/api/user/%s", user.Email), body)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+		responseBody, err := ioutil.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.NoError(t, response.Body.Close())
+		require.Len(t, responseBody, 0)
+
+		updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, user.Email, updatedUser.Email)
+		require.Equal(t, user.ID, updatedUser.ID)
+		require.Equal(t, user.Status, updatedUser.Status)
+		require.Equal(t, newLimit, updatedUser.ProjectLimit)
 	})
 }
 
