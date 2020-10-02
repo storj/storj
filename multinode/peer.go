@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
+	"storj.io/storj/multinode/console"
 	"storj.io/storj/multinode/console/server"
 	"storj.io/storj/private/lifecycle"
 )
@@ -24,6 +25,9 @@ var (
 //
 // architecture: Master Database
 type DB interface {
+	// Nodes returns nodes database.
+	Nodes() console.Nodes
+
 	// Close closes the database.
 	Close() error
 }

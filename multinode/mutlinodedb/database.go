@@ -4,10 +4,12 @@
 package mutlinodedb
 
 import (
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/multinode"
+	"storj.io/storj/multinode/console"
 	"storj.io/storj/multinode/mutlinodedb/dbx"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
@@ -16,6 +18,8 @@ import (
 var (
 	// ensures that multinodeDB implements multinode.DB.
 	_ multinode.DB = (*multinodeDB)(nil)
+
+	mon = monkit.Package()
 
 	// Error is the default multinodedb errs class.
 	Error = errs.Class("multinodedb internal error")
@@ -67,4 +71,12 @@ func New(log *zap.Logger, databaseURL string) (multinode.DB, error) {
 	}
 
 	return core, nil
+}
+
+// Nodes returns nodes database.
+func (db *multinodeDB) Nodes() console.Nodes {
+	return &nodes{
+		methods: db,
+		db:      db,
+	}
 }

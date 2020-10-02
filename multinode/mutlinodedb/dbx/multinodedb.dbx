@@ -3,13 +3,16 @@
 model node (
     key id
 
-    field id               blob
-    field name             text      ( updatable )
-    field api_secret       blob
-    field logo             blob      ( updatable )
+    field id              blob
+    field name            text    ( updatable )
+    field tag             text    ( updatable )
+    field public_address  text
+    field api_secret      blob
+    field logo            blob    ( updatable )
 )
 
 create node ( )
+delete node ( where node.id = ? )
 
 read one (
     select node
