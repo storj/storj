@@ -30,7 +30,6 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { MetaUtils } from '@/utils/meta';
 
 import ProjectDropdown from './ProjectDropdown.vue';
 
@@ -111,9 +110,7 @@ export default class ProjectSelection extends Vue {
      * Indicates if project count limit is reached.
      */
     private get isProjectLimitReached(): boolean {
-        const defaultProjectLimit: number = parseInt(MetaUtils.getMetaContent('default-project-limit'));
-
-        return this.$store.getters.userProjectsCount >= defaultProjectLimit;
+        return this.$store.getters.projectsCount >= this.$store.getters.user.projectLimit;
     }
 }
 </script>

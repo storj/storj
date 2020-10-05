@@ -90,6 +90,7 @@ export default class VButton extends Vue {
     .disabled {
         background-color: #dadde5 !important;
         border-color: #dadde5 !important;
+        pointer-events: none !important;
 
         .label {
             color: #acb0bc !important;

@@ -11,7 +11,7 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
       <div class="dashboard__wrap__main-area__content">
         <div class="dashboard__wrap__main-area__content__bar-area">
           <!---->
-          <!---->
+          <vinfobar-stub firstvalue="You have used 0" secondvalue="1" firstdescription="of your" seconddescription="available projects." link="" linklabel="Request Project Limit Increase" path="" isblue="true"></vinfobar-stub>
         </div>
         <router-view-stub name="default"></router-view-stub>
       </div>
