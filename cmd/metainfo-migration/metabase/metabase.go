@@ -56,7 +56,7 @@ func SegmentPositionFromEncoded(v uint64) SegmentPosition {
 		Segment: uint32(v),
 	}
 }
-func (pos SegmentPosition) Encode() uint64 { return uint64(pos.Part)<<32 | uint64(pos.Segment) }
+func (pos SegmentPosition) Encode() uint64 { return EncodeSegmentPosition(pos.Part, pos.Segment) }
 
 type Metabase struct {
 	conn *pgx.Conn
@@ -198,7 +198,7 @@ func (mb *Metabase) CreateBucket(ctx context.Context, opts CreateBucket) error {
 			project_id, bucket_id, bucket_name
 		) VALUES ($1, $2, $3)
 	`, opts.ProjectID, opts.BucketID, []byte(opts.BucketName))
-	return wrapf("failed to BeginObject: %w", err)
+	return wrapf("failed CreateBucket: %w", err)
 }
 
 type BeginObject struct {
@@ -235,7 +235,7 @@ func (mb *Metabase) BeginObject(ctx context.Context, opts BeginObject) (Version,
 
 		var v int64
 		if err := row.Scan(&v); err != nil {
-			return -1, wrapf("failed to BeginObject: %w", err)
+			return -1, wrapf("failed BeginObject: %w", err)
 		}
 		return Version(v), nil
 	}
@@ -246,7 +246,7 @@ func (mb *Metabase) BeginObject(ctx context.Context, opts BeginObject) (Version,
 		) VALUES ($1, $2, $3, $4, $5)
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID)
 	if err != nil {
-		return -1, wrapf("failed to BeginObject: %w", err)
+		return -1, wrapf("failed BeginObject: %w", err)
 	}
 	if r.RowsAffected() == 0 {
 		return -1, fmt.Errorf("bucket does not exist %q/%q", opts.ProjectID, opts.BucketName)
@@ -460,7 +460,7 @@ func (mb *Metabase) CommitObject(ctx context.Context, opts CommitObject) error {
 		len(opts.Segments), totalEncryptedSize, fixedSegmentSize,
 	)
 	if err != nil {
-		return wrapf("failed CommitObjectV1: %w", err)
+		return wrapf("failed CommitObject: %w", err)
 	}
 
 	// TODO: verify segment offsets and add proofs
@@ -478,7 +478,7 @@ func (mb *Metabase) CommitObject(ctx context.Context, opts CommitObject) error {
 	// TODO: error wrapping for concurrency errors
 
 	err = tx.Commit(ctx)
-	return wrapf("failed CommitObjectV1: %w", err)
+	return wrapf("failed CommitObject: %w", err)
 }
 
 func (mb *Metabase) CommitObjectV1(ctx context.Context, opts CommitObject) error {
