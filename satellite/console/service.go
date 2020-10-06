@@ -212,7 +212,7 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		return Error.Wrap(err)
 	}
 
-	err = Error.Wrap(paymentService.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken))
+	err = paymentService.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
 	if err != nil {
 		return Error.Wrap(err)
 	}
