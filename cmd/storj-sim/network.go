@@ -452,11 +452,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
-				"--non-interactive",
-
 				"--access", accessData,
 				"--server.address", process.Address,
-
 				"--debug.addr", net.JoinHostPort(host, port(gatewayPeer, i, debugHTTP)),
 			},
 
@@ -525,9 +522,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			if runAccessData := vip.GetString("access"); runAccessData != accessData {
 				process.AddExtra("ACCESS", runAccessData)
 			}
-
-			process.AddExtra("ACCESS_KEY", vip.GetString("minio.access-key"))
-			process.AddExtra("SECRET_KEY", vip.GetString("minio.secret-key"))
 
 			return nil
 		}
