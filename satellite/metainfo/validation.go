@@ -21,8 +21,8 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 )
 
 const (
@@ -127,7 +127,7 @@ func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.API
 		return macaroon.ParseRawAPIKey(header.ApiKey)
 	}
 
-	keyData, ok := auth.GetAPIKey(ctx)
+	keyData, ok := consoleauth.GetAPIKey(ctx)
 	if !ok {
 		return nil, errs.New("missing credentials")
 	}
