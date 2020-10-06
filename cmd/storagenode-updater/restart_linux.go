@@ -69,6 +69,7 @@ func getServicePID(service string) (int, error) {
 	}
 
 	trimmed := strings.TrimPrefix(string(out), "MainPID=")
+	trimmed = strings.TrimSuffix(trimmed, "\n")
 
 	pid, err := strconv.Atoi(trimmed)
 	if err != nil {
