@@ -1112,9 +1112,16 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 // DeleteProjectMembers removes users by email from given project.
 func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = s.getAuthAndAuditLog(ctx, "delete project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
+	authInfo, err := s.getAuthAndAuditLog(ctx, "delete project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
 	if err != nil {
 		return err
+	}
+
+	if _, err = s.isProjectMember(ctx, authInfo.User.ID, projectID); err != nil {
+		if ErrUnauthorized.Has(err) {
+			return ErrUnauthorized.Wrap(err)
+		}
+		return Error.Wrap(err)
 	}
 
 	var userIDs []uuid.UUID
