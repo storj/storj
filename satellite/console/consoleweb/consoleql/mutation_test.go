@@ -17,7 +17,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -153,7 +152,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		token, err := service.Token(ctx, createUser.Email, createUser.Password)
 		require.NoError(t, err)
 
-		sauth, err := service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 		require.NoError(t, err)
 
 		authCtx := console.WithAuth(ctx, sauth)
@@ -177,7 +176,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		token, err = service.Token(ctx, rootUser.Email, createUser.Password)
 		require.NoError(t, err)
 
-		sauth, err = service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+		sauth, err = service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 		require.NoError(t, err)
 
 		authCtx = console.WithAuth(ctx, sauth)

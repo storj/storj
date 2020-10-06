@@ -25,7 +25,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/debug"
 	"storj.io/private/version"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	versionchecker "storj.io/storj/private/version/checker"
@@ -40,6 +39,7 @@ import (
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
@@ -269,7 +269,7 @@ func (system *Satellite) AuthenticatedContext(ctx context.Context, userID uuid.U
 		return nil, err
 	}
 
-	auth, err := system.API.Console.Service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+	auth, err := system.API.Console.Service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 	if err != nil {
 		return nil, err
 	}

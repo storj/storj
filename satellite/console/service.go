@@ -20,7 +20,6 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"
@@ -1112,12 +1111,12 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 // DeleteProjectMembers removes users by email from given project.
 func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	authInfo, err := s.getAuthAndAuditLog(ctx, "delete project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
+	auth, err := s.getAuthAndAuditLog(ctx, "delete project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
 	if err != nil {
 		return err
 	}
 
-	if _, err = s.isProjectMember(ctx, authInfo.User.ID, projectID); err != nil {
+	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
 		if ErrUnauthorized.Has(err) {
 			return ErrUnauthorized.Wrap(err)
 		}
@@ -1439,7 +1438,7 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 // Authorize validates token from context and returns authorized Authorization.
 func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 	defer mon.Task()(&ctx)(&err)
-	tokenS, ok := auth.GetAPIKey(ctx)
+	tokenS, ok := consoleauth.GetAPIKey(ctx)
 	if !ok {
 		return Authorization{}, ErrUnauthorized.New("no api key was provided")
 	}
