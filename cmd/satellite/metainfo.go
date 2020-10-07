@@ -177,6 +177,8 @@ func verifyPieceHashes(ctx context.Context) (err error) {
 	return runVerifierCmd(ctx, func(verifier *audit.Verifier) error {
 		var total, fixed int
 
+		verifier.UsedToVerifyPieceHashes = true
+
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			key, err := hex.DecodeString(scanner.Text())

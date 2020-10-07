@@ -67,7 +67,10 @@ type Verifier struct {
 	minDownloadTimeout time.Duration
 
 	OnTestingCheckSegmentAlteredHook func()
-	OnTestingVerifyMockFunc          func() (Report, error)
+
+	// Temporary fields for the verify-piece-hashes command
+	OnTestingVerifyMockFunc func() (Report, error)
+	UsedToVerifyPieceHashes bool
 }
 
 // NewVerifier creates a Verifier.
@@ -107,6 +110,9 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	}
 
 	defer func() {
+		if verifier.UsedToVerifyPieceHashes {
+			return
+		}
 		// if piece hashes have not been verified for this segment, do not mark nodes as failing audit
 		if !pointer.PieceHashesVerified {
 			report.PendingAudits = nil
