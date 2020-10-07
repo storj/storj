@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { GB, KB, MB, PB, TB } from '@/app/utils/converter';
-import { BandwidthUsed, Stamp } from '@/storagenode/satellite';
+import { BandwidthUsed, Stamp } from '@/storagenode/sno/sno';
 
 const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
 

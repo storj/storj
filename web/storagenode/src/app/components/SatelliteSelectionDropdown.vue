@@ -32,8 +32,8 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { PayoutInfoRange } from '@/app/types/payout';
-import { SatelliteInfo } from '@/storagenode/dashboard';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
+import { SatelliteInfo } from '@/storagenode/sno/sno';
 
 @Component({
     components: {

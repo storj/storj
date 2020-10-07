@@ -3,12 +3,12 @@
 
 import Vuex from 'vuex';
 
-import { makeNodeModule } from '@/app/store/modules/node';
-import { makePayoutModule, PAYOUT_ACTIONS, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
+import { newNodeModule } from '@/app/store/modules/node';
+import { newPayoutModule, PAYOUT_ACTIONS, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
 import { PayoutInfoRange } from '@/app/types/payout';
 import { getHeldPercentage, getMonthsBeforeNow } from '@/app/utils/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
-import { SNOApi } from '@/storagenode/api/storagenode';
+import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import {
     EstimatedPayout,
     PayoutPeriod,
@@ -20,15 +20,17 @@ import {
     TotalPaystubForPeriod,
 } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
+import { StorageNodeService } from '@/storagenode/sno/service';
 import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const payoutApi = new PayoutHttpApi();
 const payoutService = new PayoutService(payoutApi);
-const payoutModule = makePayoutModule(payoutApi, payoutService);
+const payoutModule = newPayoutModule(payoutService);
 
-const nodeApi = new SNOApi();
-const nodeModule = makeNodeModule(nodeApi);
+const nodeApi = new StorageNodeApi();
+const nodeService = new StorageNodeService(nodeApi);
+const nodeModule = newNodeModule(nodeService);
 
 Vue.use(Vuex);
 

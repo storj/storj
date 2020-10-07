@@ -1,5 +1,93 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
+
+import { StatusOffline } from '@/app/store/modules/node';
+
+/**
+ * Hold common node information.
+ */
+export class Node {
+    public constructor(
+        public id: string = '',
+        public status: string = StatusOffline,
+        public lastPinged: Date = new Date(),
+        public startedAt: Date = new Date(),
+        public version: string = '',
+        public allowedVersion: string = '',
+        public wallet: string = '',
+        public isLastVersion: boolean = false,
+    ) {}
+}
+
+/**
+ * Holds traffic usage information by type.
+ */
+export class Utilization {
+    public constructor(
+        public bandwidth: Traffic = new Traffic(),
+        public diskSpace: Traffic = new Traffic(),
+    ) {}
+}
+
+/**
+ * Holds traffic usage information.
+ */
+export class Traffic {
+    public constructor(
+        public used: number = 0,
+        public available: number = 1,
+        public trash: number = 0,
+    ) {}
+}
+
+/**
+ * Holds uptime, audit and suspension checks.
+ */
+export class Checks {
+    public uptime: number = 0;
+    public audit: number = 0;
+    public suspension: number = 0;
+
+    public constructor(
+        uptime: Metric = new Metric(),
+        audit: Metric = new Metric(),
+    ) {
+        this.audit = parseFloat(parseFloat(`${audit.score * 100}`).toFixed(1));
+        this.uptime = uptime.totalCount === 0 ? 100 : uptime.successCount / uptime.totalCount * 100;
+        this.suspension = audit.unknownScore * 100;
+    }
+}
+
+/**
+ * Dashboard encapsulates dashboard stale data.
+ */
+export class Dashboard {
+    public constructor(
+        public nodeID: string,
+        public wallet: string,
+        public satellites: SatelliteInfo[],
+        public diskSpace: Traffic,
+        public bandwidth: Traffic,
+        public lastPinged: Date,
+        public startedAt: Date,
+        public version: string,
+        public allowedVersion: string,
+        public isUpToDate: boolean,
+    ) { }
+}
+
+/**
+ * SatelliteInfo encapsulates satellite ID, URL, join date and disqualification.
+ */
+export class SatelliteInfo {
+    public constructor(
+        public id: string = '',
+        public url: string = '',
+        public disqualified: Date | null = null,
+        public suspended: Date | null = null,
+        public joinDate: Date = new Date(),
+    ) { }
+}
 
 /**
  * Satellite encapsulates satellite related data
@@ -100,7 +188,7 @@ export class BandwidthUsed {
      */
     public summary(): number {
         return this.egress.audit + this.egress.repair + this.egress.usage +
-        this.ingress.repair + this.ingress.usage;
+            this.ingress.repair + this.ingress.usage;
     }
 
     /**
@@ -197,7 +285,6 @@ export class Satellites {
     ) {}
 }
 
-// TODO: move and create domain types.
 /**
  * Holds information about audit and suspension scores by satellite.
  */
@@ -262,5 +349,43 @@ export class Score {
             default:
                 this.statusClassName = '';
         }
+    }
+}
+
+/**
+ * SatelliteByDayInfo holds by day bandwidth metrics.
+ */
+export class SatelliteByDayInfo {
+    public storageDaily: Stamp[];
+    public bandwidthDaily: BandwidthUsed[];
+    public egressDaily: EgressUsed[];
+    public ingressDaily: IngressUsed[];
+
+    public constructor(json) {
+        const storageDailyJson = json.storageDaily || [];
+        const bandwidthDailyJson = json.bandwidthDaily || [];
+
+        this.storageDaily = storageDailyJson.map((stamp: any) => {
+            return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
+        });
+
+        this.bandwidthDaily = bandwidthDailyJson.map((bandwidth: any) => {
+            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
+            const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
+
+            return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
+        });
+
+        this.egressDaily = bandwidthDailyJson.map((bandwidth: any) => {
+            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
+
+            return new EgressUsed(egress, new Date(bandwidth.intervalStart));
+        });
+
+        this.ingressDaily = bandwidthDailyJson.map((bandwidth: any) => {
+            const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
+
+            return new IngressUsed(ingress, new Date(bandwidth.intervalStart));
+        });
     }
 }
