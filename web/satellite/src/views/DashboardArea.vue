@@ -30,7 +30,7 @@
                             first-description="of your"
                             :second-value="defaultProjectLimit"
                             second-description="available projects."
-                            :link="generalRequestURL"
+                            :link="projectLimitsIncreaseRequestURL"
                             link-label="Request Project Limit Increase"
                         />
                     </div>
