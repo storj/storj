@@ -64,7 +64,11 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 	var stripeClient stripecoinpayments.StripeClient
 	switch pc.Provider {
 	default:
-		stripeClient = stripecoinpayments.NewStripeMock(storj.NodeID{})
+		stripeClient = stripecoinpayments.NewStripeMock(
+			storj.NodeID{},
+			db.StripeCoinPayments().Customers(),
+			db.Console().Users(),
+		)
 	case "stripecoinpayments":
 		stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 	}
