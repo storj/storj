@@ -241,6 +241,8 @@ func (db *ordersDB) UnuseSerialNumber(ctx context.Context, serialNumber storj.Se
 	return err
 }
 
+var processSem = make(chan struct{}, 2)
+
 // ProcessOrders take a list of order requests and inserts them into the pending serials queue.
 //
 // ProcessOrders requires that all orders come from the same storage node.
@@ -249,6 +251,14 @@ func (db *ordersDB) ProcessOrders(ctx context.Context, requests []*orders.Proces
 
 	if len(requests) == 0 {
 		return nil, nil
+	}
+
+	// bound the number of orders we issue at once to avoid herds using all the database connections
+	select {
+	case processSem <- struct{}{}:
+		defer func() { <-processSem }()
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 
 	// check that all requests are from the same storage node
