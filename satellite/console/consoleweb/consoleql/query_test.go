@@ -85,6 +85,7 @@ func TestGraphqlQuery(t *testing.T) {
 			db.Console(),
 			db.ProjectAccounting(),
 			projectUsage,
+			db.Buckets(),
 			db.Rewards(),
 			partnersService,
 			paymentsService.Accounts(),

@@ -11,7 +11,7 @@ import (
 	"net/mail"
 	"net/smtp"
 
-	monkit "github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -602,6 +602,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console(),
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
+			peer.DB.Buckets(),
 			peer.DB.Rewards(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
